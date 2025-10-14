@@ -541,13 +541,33 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
+	/**
+ 	*  @fn Process json object or language string and save the preferred selection to AampConfig
+ 	*  @param[in] param - language string or json object
+ 	*  @param[out] isSelectionChange - flag to indicate if accessibility has changed
+ 	*/
+	void SavePreferredTextLanguages(const char *param, bool &isSelectionChange);
+
+	/**
+ 	* @brief Set closed caption track with appropriate format from passed text track
+ 	* @param[in] track - Text track information
+ 	*/
+	void SetClosedCaptionsFromTextTrack(TextTrackInfo &track);
+
+	/**
+	 * @brief  Find closed caption track index in list of text tracks
+	 * @param[in] trackInfo - Text track information vector
+	 * @return index of closed caption track otherwise -1 if not found
+	 */
+	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
+
 public:
-    /* @fn RecalculatePTS
-    * @param[in] mediaType stream type
-    * @param[in] ptr buffer pointer
-    * @param[in] len length of buffer
-    */
-    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+	/* @fn RecalculatePTS
+	 * @param[in] mediaType stream type
+	 * @param[in] ptr buffer pointer
+	 * @param[in] len length of buffer
+	 */
+	double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
 
 	/**
 	 * @brief Get profiler bucket type
@@ -800,6 +820,14 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
+	/**
+	 * @fn CheckPreferredTextLanguages
+	 * @param[in] trackInfo - Text track information
+	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
+	 * @param[out] closedCaptionTrackIdx - closed caption track index
+	 */
+	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
@@ -1426,7 +1454,7 @@ public:
 	 * @return void
 	 */
 	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,int error_code);
-    
+
 	/**
 	 * @fn SendAnomalyEvent
 	 *
@@ -2913,7 +2941,7 @@ public:
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
 	std::string GetVideoRectangle();
-    
+
 	/**
 	 *   @fn SetPreCacheDownloadList
 	 *   @param[in] dnldListInput Playlist Download list
@@ -3886,7 +3914,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-	
+
 	/**
 	 *	@fn CalculateTrickModePositionEOS
 	 *		- this function only works for (rate > 1) - see priv_aamp.cpp
@@ -3903,7 +3931,7 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
-	
+
 	/**
 	 * @fn GetFormatPositionOffsetInMSecs
 	 * @brief API to get the offset value in msecs for the position values to be reported.
