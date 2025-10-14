@@ -24,6 +24,7 @@ include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -38,7 +39,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampTSBSessionManagerTests_Mocked.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampTSBSessionManager.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTSBSessionManager.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

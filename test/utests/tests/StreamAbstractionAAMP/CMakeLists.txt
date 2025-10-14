@@ -29,7 +29,6 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 
@@ -57,7 +56,7 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
 set(TEST_SOURCES FunctionalTests.cpp
                  StreamAbstractionAAMP.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp )
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

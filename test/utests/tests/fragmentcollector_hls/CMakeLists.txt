@@ -27,6 +27,7 @@ include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -46,7 +47,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 set(TEST_SOURCES byteRangeTests.cpp
 		 fragmentCollector_hls.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

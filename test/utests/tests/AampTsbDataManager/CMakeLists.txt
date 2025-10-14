@@ -41,7 +41,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampTsbDataManagerTest.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampTsbDataManager.cpp ${AAMP_ROOT}/AampTsbReader.cpp ${AAMP_ROOT}/AampUtils.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTsbDataManager.cpp ${AAMP_ROOT}/AampTsbReader.cpp ${AAMP_ROOT}/AampUtils.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -61,7 +61,8 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		, mTsbLength(0)
 		, mCurrentWritePosition(0)
-		, mLastAdMetaDataProcessed()
+		, mLastAdReservationMetaDataProcessed()
+		, mLastAdPlacementMetaDataProcessed()
 {
 }
 
@@ -134,14 +135,23 @@ void AampTSBSessionManager::InitializeMetaDataManager()
 	// Initialize the metadata manager
 	mMetaDataManager.Initialize();
 
-	// Register AD_METADATA_TYPE as transient
-	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+	// Register AD_RESERVATION_METADATA_TYPE as non-transient
+	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 	{
-		AAMPLOG_INFO("Successfully registered AD_METADATA_TYPE as transient");
+		AAMPLOG_INFO("Successfully registered AD_RESERVATION_METADATA_TYPE as non-transient");
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to register AD_METADATA_TYPE");
+		AAMPLOG_ERR("Failed to register AD_RESERVATION_METADATA_TYPE");
+	}
+	// Register AD_PLACEMENT_METADATA_TYPE as transient
+	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
+	{
+		AAMPLOG_INFO("Successfully registered AD_PLACEMENT_METADATA_TYPE as transient");
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to register AD_PLACEMENT_METADATA_TYPE");
 	}
 }
 
@@ -752,7 +762,8 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
-		mLastAdMetaDataProcessed.reset();
+		mLastAdReservationMetaDataProcessed.reset();
+		mLastAdPlacementMetaDataProcessed.reset();
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
@@ -1224,54 +1235,131 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 	}
 
 	// Get only AD type metadata using the template method with explicit type
-	auto result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
+	auto result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
 	(void)mMetaDataManager.ChangeMetaDataPosition(result, currentWritePosition);
+	result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
+	(void)mMetaDataManager.ChangeMetaDataPosition(result, currentWritePosition);
+}
+
+std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
+																							  std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
+{
+	// Merge both lists in chronological order
+	std::vector<std::shared_ptr<AampTsbAdMetaData>> merged;
+	for (const auto& meta : reservationList)
+	{
+		merged.push_back(meta);
+	}
+	for (const auto& meta : placementList)
+	{
+		merged.push_back(meta);
+	}
+	// Sort merged list
+	std::sort(merged.begin(), merged.end(), [](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
+	{
+		bool maintainOrder = true;
+		auto apos = a->GetPosition().milliseconds();
+		auto bpos = b->GetPosition().milliseconds();
+
+		// Different positions, sort by position
+		if (apos != bpos)
+		{
+			maintainOrder = apos < bpos;
+		}
+		else
+		{
+			// Same position, apply rules:
+			// Matching ad types, END should be before START
+			// Reservation events should be after Placement END
+			// Reservation events should be before Placement START
+			//
+			// This logic assumes that an advert exceeds a fragment duration, 
+			// i.e. an advert cannot start and end in the same fragment
+			auto aType = a->GetEventType();
+			auto bType = b->GetEventType();
+			auto aAdType = a->GetAdType();
+			auto bAdType = b->GetAdType();
+
+			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
+				 ((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
+				 ((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
+			{
+				maintainOrder = false;
+			} 
+		}
+		return maintainOrder;
+	});
+	return merged;
 }
 
 void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragmentDataPtr nextFragmentData, float rate)
 {
 	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
 	{
-		AampTime rangeStart;
-		if (mLastAdMetaDataProcessed)
-		{
-			rangeStart = mLastAdMetaDataProcessed->GetPosition();
-		}
-		else
-		{
-			rangeStart = nextFragmentData->GetAbsolutePosition();
-		}
-		AampTime rangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
+		// Reservation range
+		AampTime reservationRangeStart = (mLastAdReservationMetaDataProcessed && mLastAdReservationMetaDataProcessed->GetPosition().milliseconds() != 0)
+			? mLastAdReservationMetaDataProcessed->GetPosition()
+			: nextFragmentData->GetAbsolutePosition();
+		AampTime reservationRangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
 
-		AAMPLOG_DEBUG("rangeStart = %" PRIu64 "ms, rangeEnd = %" PRIu64 "ms",
-			rangeStart.milliseconds(), rangeEnd.milliseconds());
+		// Placement range
+		AampTime placementRangeStart = (mLastAdPlacementMetaDataProcessed && mLastAdPlacementMetaDataProcessed->GetPosition().milliseconds() != 0)
+			? mLastAdPlacementMetaDataProcessed->GetPosition()
+			: nextFragmentData->GetAbsolutePosition();
+		AampTime placementRangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
 
-		// Get all ad metadata within the fragment's time range
-		auto adMetadataItems = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
-			AampTsbMetaData::Type::AD_METADATA_TYPE, rangeStart, rangeEnd);
+		// Log the ranges being processed
+		AAMPLOG_DEBUG("ProcessAdMetadata: Reservation range [%" PRIu64", %" PRIu64") ms", reservationRangeStart.milliseconds(), reservationRangeEnd.milliseconds());
+		AAMPLOG_DEBUG("ProcessAdMetadata: Placement range [%" PRIu64", %" PRIu64") ms", placementRangeStart.milliseconds(), placementRangeEnd.milliseconds());
 
-		// Process metadata items in chronological order
-		bool skip = static_cast<bool>(mLastAdMetaDataProcessed);
-		for (const auto& adMetadata : adMetadataItems)
+		// Get AD_RESERVATION_METADATA_TYPE entries in range
+		std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
+			AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, reservationRangeStart, reservationRangeEnd);
+
+		// Get AD_PLACEMENT_METADATA_TYPE entries in range
+		std::list<std::shared_ptr<AampTsbAdMetaData>> placementList = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
+			AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, placementRangeStart, placementRangeEnd);
+
+		// Remove entries up to and including the last processed for each list
+		// If no last processed, remove from beginning until a START event is found
+		auto skipUpToLast = [](std::list<std::shared_ptr<AampTsbAdMetaData>>& list, const std::shared_ptr<AampTsbMetaData>& lastProcessed)
 		{
-			// Skip until we have reached the last processed metadata
-			if (skip)
+			if (!lastProcessed)
 			{
-				if (adMetadata == mLastAdMetaDataProcessed)
+				// Remove from beginning until a START event is found
+				auto it = list.begin();
+				while (it != list.end() && (*it)->GetEventType() != AampTsbAdMetaData::EventType::START)
 				{
-					skip = false;
+					it = list.erase(it);
 				}
+				return;
 			}
+			auto it = std::find(list.begin(), list.end(), lastProcessed);
+			if (it != list.end())
+			{
+				list.erase(list.begin(), std::next(it));
+			}
+		};
+		skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed);
+		skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed);
+		
+		std::vector<std::shared_ptr<AampTsbAdMetaData>> merged = MergeAndSortAdMetaData(std::move(reservationList), std::move(placementList));
+
+		// Process merged list, and update last processed pointers
+		for (const auto& meta : merged)
+		{
+			AAMPLOG_INFO("Processing ad metadata, send event: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
+				static_cast<int>(meta->GetAdType()),
+				static_cast<int>(meta->GetEventType()),
+				meta->GetPosition().milliseconds());
+			meta->SendEvent(mAamp);
+			if (meta->GetAdType() == AampTsbAdMetaData::AdType::RESERVATION)
+			{
+				mLastAdReservationMetaDataProcessed = meta;
+			} 
 			else
 			{
-				AAMPLOG_INFO("Processing ad metadata type %d event %d at position: %" PRIu64 "ms",
-							static_cast<int>(adMetadata->GetAdType()),
-							static_cast<int>(adMetadata->GetEventType()),
-							adMetadata->GetPosition().milliseconds());
-
-				// Let the metadata object handle sending the appropriate event
-				adMetadata->SendEvent(mAamp);
-				mLastAdMetaDataProcessed = std::static_pointer_cast<AampTsbMetaData>(adMetadata);
+				mLastAdPlacementMetaDataProcessed = meta;
 			}
 		}
 	}
