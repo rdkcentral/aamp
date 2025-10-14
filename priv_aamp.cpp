@@ -12487,7 +12487,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 			if (closedCaptionTrackId >= 0)
 			{
 				TextTrackInfo track = trackInfo[closedCaptionTrackId];
-				SetCCFromTextTrack(track);
+				SetClosedCaptionsFromTextTrack(track);
 			}
 		}
 	}
