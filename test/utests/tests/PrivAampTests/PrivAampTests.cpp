@@ -3287,6 +3287,7 @@ TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
 		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is still true
 
 	// Disable CC preference
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
@@ -3309,15 +3310,12 @@ TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Step 2: SetStatus(true) has been called, so no need to call it again
-	// when stream abstraction is created
+	// Step 2: SetStatus(true) will not be called when stream abstraction is created
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
 		.WillRepeatedly(Return(g_mockAampGstPlayer));
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 
 	// Step 3: Call TuneHelper which will create the stream abstraction
-	// This should trigger SetCCStatusInternal() which will call SetStatus(true)
-	// since CC is enabled and video is not muted
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);
 
@@ -3335,7 +3333,9 @@ TEST_F(PrivAampTests,SetCCStatusAndSetVideoMuteWithStreamAbstractionCreationTest
 	// Initially CC is disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Enable CC first - no SetStatus() call expected in idle state
+	// Enable CC first
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3343,7 +3343,11 @@ TEST_F(PrivAampTests,SetCCStatusAndSetVideoMuteWithStreamAbstractionCreationTest
 	p_aamp->SetVideoMute(true);
 
 	// Now call TuneHelper which will create the stream abstraction
-	// After stream abstraction is created, SetCCStatus calls will trigger SetStatus() calls
+	// After stream abstraction is created, SetStatus(false) will be called because video is muted
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);
 
