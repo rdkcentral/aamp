@@ -249,7 +249,7 @@ void Aampcli::newPlayerInstance( std::string appName)
 	if (!appName.empty())
 	{
 		AAMPCLI_PRINTF(" Set player name %s\n", appName.c_str());
-		player->SetAppName(appName);
+		player->SetAppName(std::move(appName));
 	}
 
 	if( !mEventListener )
