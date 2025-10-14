@@ -5139,7 +5139,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 	if (pluginFeature == NULL)
 	{
 		MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available; reloading player's plugin", GstPluginNamePR);
-		GstPlugin * plugin = gst_plugin_load_by_name ("plugin");
+		GstPlugin * plugin = gst_plugin_load_by_name ("aamp");
 		if(plugin)
 		{
 			gst_object_unref(plugin);
