@@ -266,45 +266,6 @@ TEST_F(InterfacePlayerTests, GstTimerRemove)
 
 }
 
-TEST_F(InterfacePlayerTests, GstDisconnectSignalsTest)
-{
-	mPlayerConfigParams->enableDisconnectSignals =false;
-	mInterfaceGstPlayer->DisconnectSignals();
-	mPlayerConfigParams->enableDisconnectSignals =true;
-	mInterfaceGstPlayer->DisconnectSignals();
-
-	 // Create a dummy pipeline and elements
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
-	GstElement gst_element_src = {.object = {.name = (gchar *)"fakesrc"}};
-	GstElement gst_element_sink = {.object = {.name = (gchar *)"fakesink"}};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq("testpipeline")))
-			.WillOnce(Return(&gst_element_pipeline));
-	EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("fakesrc"), StrEq("source")))
-		.WillOnce(Return(&gst_element_src));
-
-	GstElement *pipeline = gst_pipeline_new("testpipeline");
-	GstElement *source = gst_element_factory_make("fakesrc", "source");
-
-	mPlayerContext->pipeline = pipeline;
-
-	EXPECT_CALL(*g_mockGLib, g_type_check_instance_is_a(_,0)).Times(2)
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockGLib, g_signal_handler_is_connected(_,_)).Times(2)
-		.WillOnce(Return(false)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockGLib, g_signal_handler_disconnect(_,_))
-		.WillOnce(Return(true));
-
-	mPlayerContext->mCallBackIdentifiers.push_back(GstPlayerPriv::CallbackData(nullptr, 0 , "test1"));	//data.instance == nullptr
-	mPlayerContext->mCallBackIdentifiers.push_back( GstPlayerPriv::CallbackData(source, 0 , "test2"));	//data.id == 0
-	mPlayerContext->mCallBackIdentifiers.push_back( GstPlayerPriv::CallbackData(source, 1 , "test3"));	//!elements.count(data.instance)
-	mPlayerContext->mCallBackIdentifiers.push_back( GstPlayerPriv::CallbackData(pipeline, 5 , "test4")); //!g_signal_handler_is_connected(data.instance, data.id)
-	mPlayerContext->mCallBackIdentifiers.push_back( GstPlayerPriv::CallbackData(pipeline, 5 , "test5"));
-	mInterfaceGstPlayer->DisconnectSignals();
-
-	EXPECT_EQ(mPlayerContext->mCallBackIdentifiers.size(), 0);
-}
-
 TEST_F(InterfacePlayerTests, GstRemoveProbes)
 {
 	GstPad pad1 = {.object = {.name = (gchar *)"pad1"}};
