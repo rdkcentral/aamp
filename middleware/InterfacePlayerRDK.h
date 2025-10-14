@@ -97,7 +97,8 @@ struct Configs
 	std::string networkProxyValue;
 	bool gstreamerSubsEnabled;
 	bool tcpServerSink;
-	bool appSrcForProgressivePlayback;
+    int tcpPort;
+    bool appSrcForProgressivePlayback;
 	bool seamlessAudioSwitch;
 	bool enablePTSReStamp;
 	std::string manifestUrl;
