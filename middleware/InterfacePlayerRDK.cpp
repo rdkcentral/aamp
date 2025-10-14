@@ -1346,6 +1346,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 		}
 		stream->format = GST_FORMAT_INVALID;
+		interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = false;
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
