@@ -37,10 +37,10 @@
 #include "AampTsbMetaDataManager.h"
 #include "AampTsbReader.h"
 #include "MediaStreamContext.h"
+#include "CachedFragment.h"
 #include <condition_variable>
 #include <queue>
 
-class CachedFragment;
 class AampCacheHandler;
 class AampTsbReader;
 
