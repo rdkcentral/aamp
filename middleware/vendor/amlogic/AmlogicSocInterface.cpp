@@ -78,10 +78,9 @@ bool AmlogicSocInterface::AudioOnlyMode(GstElement *sinkbin)
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
- * @param isRialto True if rialto sink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
 	bool status = false;
         /*for gst version 1.18.0 we need to apply rate into audio/video source pad*/
@@ -160,7 +159,6 @@ void AmlogicSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 /**
  * @brief Check if the given name is a video sink.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video sink, false otherwise.
  */
 bool AmlogicSocInterface::IsVideoSink(const char* name)
@@ -171,7 +169,6 @@ bool AmlogicSocInterface::IsVideoSink(const char* name)
 /**
  * @brief Check if the given name is an audio sink or audio decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's an audio sink or audio decoder, false otherwise.
  */
 bool AmlogicSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
@@ -182,7 +179,6 @@ bool AmlogicSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @param isWesteros Westeros flag.
  * @return True if it's a video decoder, false otherwise.
  */

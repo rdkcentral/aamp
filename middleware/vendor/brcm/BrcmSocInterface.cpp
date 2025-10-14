@@ -42,10 +42,9 @@ void BrcmSocInterface::SetAudioProperty(const char * &volume, const char * &mute
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
- * @param isRialto True if rialto sink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
 	//For rialto sinks default soc routine will be called
 	bool status = true;
@@ -116,7 +115,6 @@ GstElement* BrcmSocInterface::GetVideoSink(GstElement* sinkbin)
 /**
  * @brief Check if the given name is a video sink.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video sink, false otherwise.
  */
 bool BrcmSocInterface::IsVideoSink(const char* name)

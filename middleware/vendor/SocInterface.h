@@ -226,10 +226,9 @@ public:
 	 * @param rate The desired playback rate.
 	 * @param video_dec The video decoder element.
 	 * @param audio_dec The audio decoder element.
-	 * @param isRialto True if rialto sink is used.
 	 * @return True if the playback rate was set successfully, false otherwise.
 	 */
-	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) = 0;
+	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) = 0;
 	
 	/**
 	 * @brief Retrieves the source pad of the given GStreamer element.
@@ -269,7 +268,6 @@ public:
 	/**
 	 * @brief Check if the given name is a video sink.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
 	 * @return True if it's a video sink, false otherwise.
 	 */
 	virtual bool IsVideoSink(const char* name) = 0;
@@ -277,7 +275,6 @@ public:
 	/**
 	 * @brief Check if the given name is an audio sink or audio decoder.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
 	 * @return True if it's an audio sink or audio decoder, false otherwise.
 	 */
 	virtual bool IsAudioSinkOrAudioDecoder(const char* name) = 0;

@@ -72,7 +72,7 @@ class AmlogicSocInterface : public SocInterface
 		 * @param isRialto True if rialto sink is used.
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
-		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) override;
+		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
 
 		/**
 		 * @brief Retrieves the source pad of the given GStreamer element.
@@ -100,7 +100,6 @@ class AmlogicSocInterface : public SocInterface
 		/**
 		 * @brief Check if the given name is a video sink.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's a video sink, false otherwise.
 		 */
 		bool IsVideoSink(const char* name)override;
@@ -108,7 +107,6 @@ class AmlogicSocInterface : public SocInterface
 		/**
 		 * @brief Check if the given name is an audio sink or audio decoder.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's an audio sink or audio decoder, false otherwise.
 		 */
 		bool IsAudioSinkOrAudioDecoder(const char* name) override;
@@ -116,7 +114,6 @@ class AmlogicSocInterface : public SocInterface
 		/**
 		 * @brief Check if the given name is a video decoder.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's a video decoder, false otherwise.
 		 */
 		bool IsVideoDecoder(const char* name)override;
