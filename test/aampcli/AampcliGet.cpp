@@ -346,10 +346,10 @@ void Get::addCommand(int value,std::string command,std::string description)
 {
 	getCommandInfo lCmdInfo;
 	lCmdInfo.value = value;
-	lCmdInfo.description = description;
+	lCmdInfo.description = std::move(description);
 
 	getCommands.insert(std::make_pair(command,lCmdInfo));
-	commands.push_back(command);
+	commands.push_back(std::move(command));
 }
 
 /**

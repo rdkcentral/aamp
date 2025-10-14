@@ -37,7 +37,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 set(TEST_SOURCES compositein_shimtest.cpp
 compositein_shimAamptest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/compositein_shim.cpp  ${AAMP_ROOT}/videoin_shim.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/compositein_shim.cpp  ${AAMP_ROOT}/videoin_shim.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})

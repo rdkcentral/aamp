@@ -236,7 +236,7 @@ DomElement DomElement::addChildElement(const string &name, std::map<string, stri
  */
 DomElement DomElement::addChildElement(const string &name, const string &text) {
     std::map<string, string> empty_attrs;
-    return addChildElement(name, empty_attrs, text);
+    return addChildElement(name, std::move(empty_attrs), text);
 }
 
 /**
@@ -246,7 +246,7 @@ DomElement DomElement::addChildElement(const string &name, const string &text) {
  */
 DomElement DomElement::addChildElement(const string &name) {
     std::map<string, string> empty_attrs;
-    return addChildElement(name, empty_attrs, "");
+    return addChildElement(name, std::move(empty_attrs), "");
 }
 
 /**

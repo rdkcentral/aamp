@@ -98,7 +98,7 @@ public:
 	 *
 	 * @return bool - EOS
 	 */
-	bool IsEos() { return mEosReached; }
+	bool IsEos();
 
 	/**
 	 * @fn Reset EOS
@@ -124,7 +124,7 @@ public:
 	 *
 	 * @return bool - true if enabled
 	 */
-	bool TrackEnabled() { return !IsEos() && mTrackEnabled; }
+	bool TrackEnabled();
 
 	/**
 	 * @fn GetFirstPTS

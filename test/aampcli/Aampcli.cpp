@@ -249,7 +249,7 @@ void Aampcli::newPlayerInstance( std::string appName)
 	if (!appName.empty())
 	{
 		AAMPCLI_PRINTF(" Set player name %s\n", appName.c_str());
-		player->SetAppName(appName);
+		player->SetAppName(std::move(appName));
 	}
 
 	if( !mEventListener )
@@ -536,7 +536,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 					auto end = ev->getEnd();
 					if( start<0 && end<0 )
 					{
-						snprintf( seekableRange, sizeof(seekableRange), "n/a" );
+						snprintf( seekableRange, sizeof(seekableRange), "(n/a)" );
 					}
 					else
 					{

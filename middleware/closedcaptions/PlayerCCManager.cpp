@@ -28,6 +28,7 @@
 //TODO: Fix cyclic dependency btw GlobalConfig and PlayerLogManager
 
 #include "PlayerJsonObject.h" // For JSON parsing
+
 #include "PlayerUtils.h" // For player_StartsWith
 
 #include "PlayerCCManager.h"
@@ -510,7 +511,7 @@ try
 
 			if (inputOptions.get("windowFillOpacity", optionValue))
 			{
-				getOpacity(optionValue, &(attribute.winOpacity));
+				getOpacity(std::move(optionValue), &(attribute.winOpacity));
 				attribsMask |=GSW_CC_ATTRIB_WIN_OPACITY;
 			}
 

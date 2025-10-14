@@ -32,6 +32,7 @@ include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -49,10 +50,12 @@ set(TEST_SOURCES PauseAtTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
                  SubtitleMuteTests.cpp
+                 ClosedCaptionTests.cpp
                  PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
