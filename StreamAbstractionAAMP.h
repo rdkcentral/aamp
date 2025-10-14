@@ -677,6 +677,17 @@ public:
 	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
+	 * @fn ShouldUseChunkBasedProcessing
+	 *
+	 * @brief Enhanced decision logic that considers both environmental conditions and FragmentType
+	 *
+	 * @param[in] cachedFragment - The fragment to process (optional for environment-only check)
+	 *
+	 * @return True if chunk-based processing should be used, false for legacy fragment processing
+	 */
+	bool ShouldUseChunkBasedProcessing(const CachedFragment* cachedFragment = nullptr) const;
+
+	/**
 	 * @fn IsInjectionFromCachedFragmentChunks
 	 *
 	 * @brief Are fragments to inject coming from mCachedFragmentChunks

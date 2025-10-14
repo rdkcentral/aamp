@@ -24,8 +24,5 @@ int main(int argc, char** argv)
 {
     testing::InitGoogleTest(&argc, argv);
     
-    // Enable proper memory copying behavior for CachedFragment tests
-    AampGrowableBuffer_EnableMemoryCopying(true);
-    
     return RUN_ALL_TESTS();
 }

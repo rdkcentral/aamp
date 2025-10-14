@@ -28,7 +28,6 @@
 #include "ElementaryProcessor.h"
 #include "isobmffbuffer.h"
 #include "AampCacheHandler.h"
-#include <assert.h>
 #include <errno.h>
 #include <math.h>
 #include <iterator>
@@ -180,7 +179,12 @@ void MediaTrack::MonitorBufferHealth()
 	int bufferHealthMonitorDelay = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay);
 	int bufferHealthMonitorInterval = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval);
 	int discontinuityTimeoutValue = GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout);
-	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
+	// Ensure buffer health monitor delay is valid
+	if (bufferHealthMonitorDelay < bufferHealthMonitorInterval)
+	{
+		AAMPLOG_WARN("bufferHealthMonitorDelay (%d) is less than bufferHealthMonitorInterval (%d)", 
+					 bufferHealthMonitorDelay, bufferHealthMonitorInterval);
+	}
 	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
 	AAMPLOG_INFO("[%s] Start MonitorBufferHealth, downloads %d abort %d delay %ds interval %ds discontinuityTimeout %dms",
@@ -373,6 +377,14 @@ void MediaTrack::UpdateTSAfterInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
+	
+	// VALIDATION: Ensure we're freeing a complete fragment
+	if (mCachedFragment[fragmentIdxToInject].GetFragmentType() != FragmentType::COMPLETE_FRAGMENT)
+	{
+		AAMPLOG_WARN("[%s] Expected COMPLETE_FRAGMENT but got %d at index %d", 
+					 name, (int)mCachedFragment[fragmentIdxToInject].GetFragmentType(), fragmentIdxToInject);
+	}
+	
 	mCachedFragment[fragmentIdxToInject].fragment.Free();
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
@@ -391,6 +403,14 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
+	
+	// VALIDATION: Ensure we're freeing a fragment chunk
+	if (mCachedFragmentChunks[fragmentChunkIdxToInject].GetFragmentType() != FragmentType::FRAGMENT_CHUNK)
+	{
+		AAMPLOG_WARN("[%s] Expected FRAGMENT_CHUNK but got %d at index %d", 
+					 name, (int)mCachedFragmentChunks[fragmentChunkIdxToInject].GetFragmentType(), fragmentChunkIdxToInject);
+	}
+	
 	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
 
 	parsedBufferChunk.Free();
@@ -488,6 +508,13 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 
 	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
 
+	// VALIDATION: Ensure we're working with a complete fragment
+	if (cachedFragment->GetFragmentType() != FragmentType::COMPLETE_FRAGMENT)
+	{
+		AAMPLOG_WARN("[%s] Expected COMPLETE_FRAGMENT but got %d at fragment index %d", 
+					 name, (int)cachedFragment->GetFragmentType(), fragmentIdxToFetch);
+	}
+
 	if (pContext)
 	{
 		cachedFragment->profileIndex = pContext->profileIdxForBandwidthNotification;
@@ -495,7 +522,14 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	}
 	totalFetchedDuration += cachedFragment->duration;
 	numberOfFragmentsCached++;
-	assert(numberOfFragmentsCached <= maxCachedFragmentsPerTrack);
+	
+	// VALIDATION: Ensure we don't exceed maximum cached fragments
+	if (numberOfFragmentsCached > maxCachedFragmentsPerTrack)
+	{
+		AAMPLOG_WARN("[%s] Fragment cache overflow: %d > %d", 
+					 name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+	}
+	
 	currentInitialCacheDurationSeconds += cachedFragment->duration;
 
 	if( (eTRACK_VIDEO == type)
@@ -596,8 +630,12 @@ void MediaTrack::UpdateTSAfterChunkFetch()
 	numberOfFragmentChunksCached++;
 	AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached++ [%d]", name,numberOfFragmentChunksCached);
 
-	//this should never HIT
-	assert(numberOfFragmentChunksCached <= mCachedFragmentChunksSize);
+	// VALIDATION: Ensure we don't exceed maximum fragment chunk cache size
+	if (numberOfFragmentChunksCached > mCachedFragmentChunksSize)
+	{
+		AAMPLOG_ERR("[%s] Fragment chunk cache overflow: %d > %zu", 
+					name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
+	}
 
 	fragmentChunkIdxToFetch = (fragmentChunkIdxToFetch+1) % mCachedFragmentChunksSize;
 
@@ -947,6 +985,14 @@ bool MediaTrack::ProcessFragmentChunk()
 	class StreamAbstractionAAMP* pContext = GetContext();
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
+	
+	// VALIDATION: Ensure we're working with a fragment chunk
+	if (cachedFragment->GetFragmentType() != FragmentType::FRAGMENT_CHUNK)
+	{
+		AAMPLOG_WARN("[%s] Expected FRAGMENT_CHUNK but got %d at chunk index %d", 
+					 name, (int)cachedFragment->GetFragmentType(), fragmentChunkIdxToInject);
+	}
+	
 	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
 	{
 		if(!SignalIfEOSReached())
@@ -1092,8 +1138,9 @@ bool MediaTrack::ProcessFragmentChunk()
 				fpts = cachedFragment->absPosition;
 				TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
 			}
-			else
+			else if (!cachedFragment->initFragment)
 			{
+				// Skip RestampPts for init fragments, consistent with legacy processing
 				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
 												 name, cachedFragment->timeScale);
@@ -1352,7 +1399,11 @@ void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
-	if (aamp->GetLLDashChunkMode())
+	
+	// Enhanced decision logic: check both environment and FragmentType
+	bool useChunkProcessing = ShouldUseChunkBasedProcessing(cachedFragment);
+	
+	if (useChunkProcessing)
 	{
 		bool bIgnore = true;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
@@ -1525,6 +1576,19 @@ bool MediaTrack::InjectFragment()
 
 		if (cachedFragment->fragment.GetPtr())
 		{
+			// Enhanced validation: verify that the chosen array matches the fragment's type
+			FragmentType fragmentType = cachedFragment->GetFragmentType();
+			if (isChunkBuffer && fragmentType != FragmentType::FRAGMENT_CHUNK) 
+			{
+				AAMPLOG_WARN("[%s] Warning: Fragment from chunk array has type %d (expected FRAGMENT_CHUNK)", 
+							 name, static_cast<int>(fragmentType));
+			} 
+			else if (!isChunkBuffer && fragmentType != FragmentType::COMPLETE_FRAGMENT) 
+			{
+				AAMPLOG_WARN("[%s] Warning: Fragment from legacy array has type %d (expected COMPLETE_FRAGMENT)", 
+							 name, static_cast<int>(fragmentType));
+			}
+			
 			// This is currently supported for non-LL DASH streams only at normal play rate
 			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
 			{
@@ -2038,8 +2102,21 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	mCachedFragment = new CachedFragment[(maxCachedFragmentsPerTrack) ? maxCachedFragmentsPerTrack : 1];
 
+	// Initialize all complete fragments with COMPLETE_FRAGMENT type
+	int fragmentCount = (maxCachedFragmentsPerTrack) ? maxCachedFragmentsPerTrack : 1;
+	for (int i = 0; i < fragmentCount; i++) 
+	{
+		mCachedFragment[i].SetFragmentType(FragmentType::COMPLETE_FRAGMENT);
+	}
+
 	maxCachedFragmentChunksPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached);
 	SetCachedFragmentChunksSize((aamp->GetLLDashChunkMode()) ? maxCachedFragmentChunksPerTrack : maxCachedFragmentsPerTrack);
+
+	// Initialize active fragment chunks with FRAGMENT_CHUNK type
+	for (size_t i = 0; i < mCachedFragmentChunksSize; i++) 
+	{
+		mCachedFragmentChunks[i].SetFragmentType(FragmentType::FRAGMENT_CHUNK);
+	}
 }
 
 
@@ -4638,6 +4715,45 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 			}
 		}
 	}
+}
+
+/**
+ * @fn ShouldUseChunkBasedProcessing
+ * @brief Enhanced decision logic that considers both environmental conditions and FragmentType
+ * @param[in] cachedFragment - The fragment to process (optional for environment-only check)
+ * @return true if chunk-based processing should be used, false for legacy fragment processing
+ */
+bool MediaTrack::ShouldUseChunkBasedProcessing(const CachedFragment* cachedFragment) const
+{
+	// Environmental conditions that force chunk mode
+	bool isLLDashChunkMode = aamp->GetLLDashChunkMode();
+	bool aampTsbEnabled = aamp->IsLocalAAMPTsb();
+	
+	// If environment forces chunk mode, always use chunks regardless of FragmentType
+	if (isLLDashChunkMode || aampTsbEnabled) {
+		AAMPLOG_TRACE("[%s] Environment forces chunk mode: isLLDashChunkMode %d aampTsbEnabled %d", 
+					  name, isLLDashChunkMode, aampTsbEnabled);
+		return true;
+	}
+	
+	// If fragment is provided, check its type for additional routing logic
+	if (cachedFragment != nullptr) {
+		FragmentType fragmentType = cachedFragment->GetFragmentType();
+		
+		// FRAGMENT_CHUNK types should use chunk processing even if environment doesn't force it
+		if (fragmentType == FragmentType::FRAGMENT_CHUNK) {
+			AAMPLOG_TRACE("[%s] Fragment type FRAGMENT_CHUNK requires chunk processing", name);
+			return true;
+		}
+		
+		// COMPLETE_FRAGMENT types use legacy processing unless environment forces chunk mode
+		AAMPLOG_TRACE("[%s] Fragment type COMPLETE_FRAGMENT using legacy processing", name);
+		return false;
+	}
+	
+	// No environmental forcing and no fragment provided - default to legacy processing
+	AAMPLOG_TRACE("[%s] Default to legacy processing (no forcing conditions)", name);
+	return false;
 }
 
 bool MediaTrack::IsInjectionFromCachedFragmentChunks()

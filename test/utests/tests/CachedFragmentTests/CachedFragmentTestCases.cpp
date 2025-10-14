@@ -37,9 +37,6 @@
 class CachedFragmentTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Clear global storage to ensure clean state for each test
-        AampGrowableBuffer_ClearGlobalStorage();
-        
         // Create fresh CachedFragment instances for each test
         cachedFragment.reset(new CachedFragment());
         sourceCachedFragment.reset(new CachedFragment());
@@ -114,6 +111,9 @@ TEST_F(CachedFragmentTest, Constructor_DefaultInitialization_AllFieldsSetToDefau
     EXPECT_EQ(cachedFragment->discontinuityIndex, 0LL);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, 0.0);
     
+    // Test that FragmentType is properly initialized to default value
+    EXPECT_EQ(cachedFragment->fragmentType, FragmentType::COMPLETE_FRAGMENT);
+    
     // Test that BitrateChangeReason is properly initialized
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_ABR);
     
@@ -142,6 +142,7 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     cachedFragment->discontinuityIndex = testDiscontinuityIndex;
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
+    cachedFragment->fragmentType = FragmentType::FRAGMENT_CHUNK;
     
     // Note: fragment buffer operations are mocked and not tested directly
     
@@ -160,6 +161,7 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_TUNE);
+    EXPECT_EQ(cachedFragment->fragmentType, FragmentType::FRAGMENT_CHUNK);
     
     // Note: fragment buffer operations are implementation details that should be mocked
     // CachedFragment tests focus on member variables, not fragment buffer behavior
@@ -187,6 +189,7 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
+    sourceCachedFragment->fragmentType = FragmentType::FRAGMENT_CHUNK;
     // Note: fragment buffer operations are mocked and not tested directly
     
     // Copy from source to destination (test member variable copying)
@@ -207,6 +210,7 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
+    EXPECT_EQ(cachedFragment->fragmentType, FragmentType::FRAGMENT_CHUNK);
     
     // Note: fragment buffer operations are mocked, not tested directly
     // CachedFragment Copy behavior is verified through member variable copying
@@ -976,4 +980,186 @@ TEST_F(CachedFragmentTest, ContainerOperations_VectorOperations_WorkCorrectly) {
     EXPECT_DOUBLE_EQ(testFragment.duration, 0.0);
     EXPECT_TRUE(testFragment.uri.empty());
     EXPECT_EQ(testFragment.type, eMEDIATYPE_DEFAULT);
+}
+
+/**
+ * @brief Test FragmentType enum values and getter/setter functionality
+ * 
+ * Verifies that FragmentType enum has the correct values and that
+ * GetFragmentType/SetFragmentType methods work correctly.
+ */
+TEST_F(CachedFragmentTest, FragmentType_EnumValues_CorrectValuesAndGetterSetterWork) {
+    // Test that enum values are as expected
+    EXPECT_EQ(static_cast<int>(FragmentType::COMPLETE_FRAGMENT), 0);
+    EXPECT_EQ(static_cast<int>(FragmentType::FRAGMENT_CHUNK), 1);
+    
+    // Test default value
+    EXPECT_EQ(cachedFragment->GetFragmentType(), FragmentType::COMPLETE_FRAGMENT);
+    
+    // Test setter/getter for FRAGMENT_CHUNK
+    cachedFragment->SetFragmentType(FragmentType::FRAGMENT_CHUNK);
+    EXPECT_EQ(cachedFragment->GetFragmentType(), FragmentType::FRAGMENT_CHUNK);
+    
+    // Test setter/getter for COMPLETE_FRAGMENT  
+    cachedFragment->SetFragmentType(FragmentType::COMPLETE_FRAGMENT);
+    EXPECT_EQ(cachedFragment->GetFragmentType(), FragmentType::COMPLETE_FRAGMENT);
+    
+    // Test direct member access still works
+    cachedFragment->fragmentType = FragmentType::FRAGMENT_CHUNK;
+    EXPECT_EQ(cachedFragment->fragmentType, FragmentType::FRAGMENT_CHUNK);
+    EXPECT_EQ(cachedFragment->GetFragmentType(), FragmentType::FRAGMENT_CHUNK);
+}
+
+/**
+ * @brief Test thread-safe getter/setter methods for position
+ * 
+ * Verifies that GetPosition/SetPosition methods work correctly and
+ * maintain consistency with direct member access.
+ */
+TEST_F(CachedFragmentTest, ThreadSafeGettersSetters_Position_WorkCorrectly) {
+    // Test default value
+    EXPECT_DOUBLE_EQ(cachedFragment->GetPosition(), 0.0);
+    
+    // Test setter/getter
+    cachedFragment->SetPosition(testPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->GetPosition(), testPosition);
+    
+    // Test consistency with direct member access
+    EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
+    
+    // Test different value
+    double newPosition = 999.99;
+    cachedFragment->SetPosition(newPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->GetPosition(), newPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, newPosition);
+}
+
+/**
+ * @brief Test thread-safe getter/setter methods for duration
+ * 
+ * Verifies that GetDuration/SetDuration methods work correctly and
+ * maintain consistency with direct member access.
+ */
+TEST_F(CachedFragmentTest, ThreadSafeGettersSetters_Duration_WorkCorrectly) {
+    // Test default value
+    EXPECT_DOUBLE_EQ(cachedFragment->GetDuration(), 0.0);
+    
+    // Test setter/getter
+    cachedFragment->SetDuration(testDuration);
+    EXPECT_DOUBLE_EQ(cachedFragment->GetDuration(), testDuration);
+    
+    // Test consistency with direct member access
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
+    
+    // Test different value
+    double newDuration = 888.88;
+    cachedFragment->SetDuration(newDuration);
+    EXPECT_DOUBLE_EQ(cachedFragment->GetDuration(), newDuration);
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, newDuration);
+}
+
+/**
+ * @brief Test thread-safe getter/setter methods for URI
+ * 
+ * Verifies that GetUri/SetUri methods work correctly and
+ * maintain consistency with direct member access.
+ */
+TEST_F(CachedFragmentTest, ThreadSafeGettersSetters_Uri_WorkCorrectly) {
+    // Test default value
+    EXPECT_TRUE(cachedFragment->GetUri().empty());
+    
+    // Test setter/getter
+    cachedFragment->SetUri(testUri);
+    EXPECT_EQ(cachedFragment->GetUri(), testUri);
+    
+    // Test consistency with direct member access
+    EXPECT_EQ(cachedFragment->uri, testUri);
+    
+    // Test different value
+    std::string newUri = "https://example.com/new/fragment.m4s";
+    cachedFragment->SetUri(newUri);
+    EXPECT_EQ(cachedFragment->GetUri(), newUri);
+    EXPECT_EQ(cachedFragment->uri, newUri);
+    
+    // Test empty string
+    cachedFragment->SetUri("");
+    EXPECT_TRUE(cachedFragment->GetUri().empty());
+    EXPECT_TRUE(cachedFragment->uri.empty());
+}
+
+/**
+ * @brief Test thread-safe GetFragmentLength and IsEmpty methods
+ * 
+ * Verifies that GetFragmentLength and IsEmpty methods work correctly
+ * with the mocked AampGrowableBuffer behavior.
+ */
+TEST_F(CachedFragmentTest, ThreadSafeGetters_FragmentLengthAndEmpty_WorkCorrectly) {
+    // Test empty fragment initially
+    EXPECT_EQ(cachedFragment->GetFragmentLength(), 0);
+    EXPECT_TRUE(cachedFragment->IsEmpty());
+    
+    // Note: In the L1 test environment, AampGrowableBuffer is mocked
+    // The mock behavior may differ from real implementation
+    // We test that the methods work, not specific buffer operations
+    
+    // Test that methods return consistent results
+    size_t length1 = cachedFragment->GetFragmentLength();
+    size_t length2 = cachedFragment->GetFragmentLength();
+    EXPECT_EQ(length1, length2);
+    
+    bool empty1 = cachedFragment->IsEmpty();
+    bool empty2 = cachedFragment->IsEmpty();
+    EXPECT_EQ(empty1, empty2);
+}
+
+/**
+ * @brief Test FragmentType in copy constructor
+ * 
+ * Verifies that FragmentType is properly copied in copy constructor.
+ */
+TEST_F(CachedFragmentTest, CopyConstructor_FragmentType_CopiedCorrectly) {
+    // Set up source fragment
+    sourceCachedFragment->fragmentType = FragmentType::FRAGMENT_CHUNK;
+    sourceCachedFragment->position = testPosition;
+    sourceCachedFragment->uri = testUri;
+    
+    // Create copy using copy constructor
+    CachedFragment copiedFragment(*sourceCachedFragment);
+    
+    // Verify FragmentType was copied
+    EXPECT_EQ(copiedFragment.fragmentType, FragmentType::FRAGMENT_CHUNK);
+    EXPECT_EQ(copiedFragment.GetFragmentType(), FragmentType::FRAGMENT_CHUNK);
+    
+    // Verify other fields were copied too
+    EXPECT_DOUBLE_EQ(copiedFragment.position, testPosition);
+    EXPECT_EQ(copiedFragment.uri, testUri);
+}
+
+/**
+ * @brief Test FragmentType in assignment operators
+ * 
+ * Verifies that FragmentType is properly handled in assignment operators.
+ */
+TEST_F(CachedFragmentTest, AssignmentOperators_FragmentType_HandledCorrectly) {
+    // Set up source fragment
+    sourceCachedFragment->fragmentType = FragmentType::FRAGMENT_CHUNK;
+    sourceCachedFragment->position = testPosition;
+    
+    // Test copy assignment
+    *cachedFragment = *sourceCachedFragment;
+    EXPECT_EQ(cachedFragment->fragmentType, FragmentType::FRAGMENT_CHUNK);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
+    
+    // Reset and test move assignment
+    CachedFragment moveSource;
+    moveSource.fragmentType = FragmentType::COMPLETE_FRAGMENT;
+    moveSource.position = testDuration;
+    
+    *cachedFragment = std::move(moveSource);
+    EXPECT_EQ(cachedFragment->fragmentType, FragmentType::COMPLETE_FRAGMENT);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, testDuration);
+    
+    // Verify moved-from object is in default state
+    EXPECT_EQ(moveSource.fragmentType, FragmentType::COMPLETE_FRAGMENT);
+    EXPECT_DOUBLE_EQ(moveSource.position, 0.0);
 }

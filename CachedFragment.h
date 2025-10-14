@@ -30,6 +30,7 @@
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
 #include <string>
 #include <utility>  // For std::swap and std::move
+#include <mutex>     // For thread safety
 
 /**
  * @brief Structure holding the resolution of stream
@@ -62,6 +63,16 @@ struct StreamInfo
 };
 
 /**
+ * @enum FragmentType
+ * @brief Type of fragment for migration to AampFragment
+ */
+enum class FragmentType
+{
+	COMPLETE_FRAGMENT,  /**< Complete fragment supplied as single unit (replaces mCachedFragment usage) */
+	FRAGMENT_CHUNK      /**< Fragment chunk supplied incrementally (replaces mCachedFragmentChunks usage) */
+};
+
+/**
  * @brief Structure of cached fragment data
  *        Holds information about a cached fragment
  */
@@ -83,6 +94,12 @@ public:
 	long long discontinuityIndex;		/**< Discontinuity index */
 	double PTSOffsetSec; 				/**< PTS offset to apply for this segment */
 	double absPosition;					/**< Absolute position in seconds */
+	FragmentType fragmentType;			/**< Type of fragment for migration strategy */
+
+private:
+	mutable std::mutex mMutex;			/**< Mutex for thread safety */
+
+public:
 
 	/**
 	 * @brief Default constructor
@@ -132,6 +149,66 @@ public:
 	 * @brief Clear all fragment data and reset to default values
 	 */
 	void Clear();
+
+	/**
+	 * @brief Get the fragment type
+	 * @return The fragment type
+	 */
+	FragmentType GetFragmentType() const;
+
+	/**
+	 * @brief Set the fragment type
+	 * @param type The fragment type to set
+	 */
+	void SetFragmentType(FragmentType type);
+
+	/**
+	 * @brief Thread-safe getter for position
+	 * @return The position value
+	 */
+	double GetPosition() const;
+
+	/**
+	 * @brief Thread-safe setter for position
+	 * @param pos The position value to set
+	 */
+	void SetPosition(double pos);
+
+	/**
+	 * @brief Thread-safe getter for duration
+	 * @return The duration value
+	 */
+	double GetDuration() const;
+
+	/**
+	 * @brief Thread-safe setter for duration
+	 * @param dur The duration value to set
+	 */
+	void SetDuration(double dur);
+
+	/**
+	 * @brief Thread-safe getter for URI
+	 * @return Copy of the URI string
+	 */
+	std::string GetUri() const;
+
+	/**
+	 * @brief Thread-safe setter for URI
+	 * @param newUri The URI string to set
+	 */
+	void SetUri(const std::string& newUri);
+
+	/**
+	 * @brief Thread-safe method to get fragment buffer length
+	 * @return Length of the fragment buffer
+	 */
+	size_t GetFragmentLength() const;
+
+	/**
+	 * @brief Thread-safe method to check if fragment is empty
+	 * @return True if fragment has no data
+	 */
+	bool IsEmpty() const;
 };
 
 /**
