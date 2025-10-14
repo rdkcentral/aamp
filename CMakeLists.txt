@@ -27,7 +27,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -262,6 +262,7 @@ set(LIBAAMP_SOURCES
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
 	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	CachedFragment.cpp CachedFragment.h
 	AampScheduler.cpp AampScheduler.h
 	AampUtils.cpp AampUtils.h
 	AampJsonObject.cpp AampJsonObject.h
