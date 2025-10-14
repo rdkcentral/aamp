@@ -508,6 +508,10 @@ class InterfacePlayerRDK
         	 * @param[in] eMEDIATYPE_VIDEO The media type for video.
         	 */
         	void InitializeSourceForPlayer(void *PlayerInstance, void *source, int mediaType);
+			/**
+        	 * @brief Setup a Closed Caption control stream.
+        	 */
+        	void SetupClosedCaptionControlStream();
         	/**
         	 * @brief Sets up the stream.
         	 * @param[in] streamId The ID of the stream to set up.

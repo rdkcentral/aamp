@@ -211,7 +211,8 @@ struct GstPlayerPriv
 	GstEvent *protectionEvent[GST_TRACK_COUNT];                      /**< GstEvent holding the pssi data to be sent downstream. */
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink;                                                         /**< true if westeros sink is used as video sink */
-	bool usingRialtoSink;                                                            /**< true if rialto sink is used for video and audio sinks */
+	bool usingRialtoSink;
+	bool usingClosedCaptionsControl; 												/**< true if subtitle sink being used for CC control */                                                            /**< true if rialto sink is used for video and audio sinks */
 	char videoRectangle[VIDEO_COORDINATES_SIZE];
 	bool pauseOnStartPlayback;                                                               /**< true if should start playback paused */
 	std::atomic<bool> eosSignalled;                                                  /**< Indicates if EOS has signaled */
