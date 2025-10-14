@@ -3623,16 +3623,16 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 
 void InterfacePlayerRDK::FirstFrameCallback(std::function<void(int, bool, bool, bool&, bool&)> callback)
 {
-	notifyFirstFrameCallback = callback;
+	notifyFirstFrameCallback = std::move(callback);
 }
 
 void InterfacePlayerRDK::StopCallback(std::function<void(bool)> callback)
 {
-	stopCallback = callback;
+	stopCallback = std::move(callback);
 }
 void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callback)
 {
-	tearDownCb = callback;
+	tearDownCb = std::move(callback);
 }
 
 /**
@@ -4119,7 +4119,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4138,7 +4138,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4318,7 +4318,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 													   G_CALLBACK(GstPlayer_OnGstBufferUnderflowCb), pInterfacePlayerRDK);
 				}
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 
 			break;
@@ -4331,7 +4331,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//busEvent.msg[GST_ERROR_DESCRIPTION_LENGTH - 1] = '\0';
 			busEvent.msg = "N/A";
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_MIL("GST_MESSAGE_EOS");
 			pInterfacePlayerRDK->NotifyEOS();
 			break;
@@ -4395,7 +4395,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//strncpy(busEvent.dbg_info, "N/A", sizeof(busEvent.dbg_info) - 1);
 			//busEvent.dbg_info[sizeof(busEvent.dbg_info) - 1] = '\0';
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 			break;
 		default:

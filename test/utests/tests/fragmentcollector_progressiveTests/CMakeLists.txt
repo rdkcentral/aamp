@@ -42,7 +42,7 @@ set(TEST_SOURCES fragmentcollector_progressiveTests.cpp
 	         fragmentcollector_progressiveaampTests.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/fragmentcollector_progressive.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/fragmentcollector_progressive.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
