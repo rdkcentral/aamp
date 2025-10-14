@@ -949,7 +949,7 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
  * @param ultotal total number of bytes libcurl expects to upload
  * @param ulnow number of bytes uploaded so far
  *
- * @retval -1 to cancel in progress download
+ * @retval 1 to cancel in progress download
  */
 int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
