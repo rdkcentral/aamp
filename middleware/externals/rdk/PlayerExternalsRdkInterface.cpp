@@ -65,7 +65,7 @@ void PlayerExternalsRdkInterface::Initialize()
     IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
     */
     /*
-    Remove the section between the comment section remove-start and remove-end when depricating IARM
+    Remove the section between the comment section remove-start and remove-end when deprecating IARM
     */
     
     //remove-start

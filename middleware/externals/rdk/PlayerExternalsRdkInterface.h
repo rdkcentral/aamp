@@ -44,15 +44,15 @@ IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
 */
 
 /*
-Depricate HDCP support in PlayerExternalsRdkInterface when depricating IARM
+Deprecate HDCP support in PlayerExternalsRdkInterface when deprecating IARM
 */
 
 /*
-Remove the section between the comment section remove-start and remove-end when depricating IARM
+Remove the section between the comment section remove-start and remove-end when deprecating IARM
 */
 
 /*
-Replace the section between the comment section replace-start, replace-with and replace-end when depricating IARM
+Replace the section between the comment section replace-start, replace-with and replace-end when deprecating IARM
 */
 
 class DeviceInterfaceBase;

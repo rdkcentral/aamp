@@ -27,7 +27,7 @@ IARM Deprecation Note:
 IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
 */
 /*
-Remove the entire file externals/DeviceInterfaceBase.h when depricating IARM
+Remove the entire file externals/DeviceInterfaceBase.h when deprecating IARM
 */
 
 

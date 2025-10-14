@@ -107,7 +107,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 	if(result)
 	{
-		MW_PRELOGGER_LOG("HDCP changed event registerd \n");
+		MW_PRELOGGER_LOG("HDCP changed event registered \n");
 		mDsMgrSubscriptionId.push_back(result.value());
 	}
 
@@ -126,7 +126,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 					});
 	if(result)
 	{
-		MW_PRELOGGER_LOG("Resolution changed event registerd\n");
+		MW_PRELOGGER_LOG("Resolution changed event registered\n");
         mDsMgrSubscriptionId.push_back(result.value());
 	}
 	else
@@ -154,7 +154,7 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 	
 	if(result)
 	{
-		MW_PRELOGGER_LOG("Network changed event registerd\n");
+		MW_PRELOGGER_LOG("Network changed event registered\n");
 		mNtwMgrSubscriptionId.push_back(result.value());
 	}
 	else
