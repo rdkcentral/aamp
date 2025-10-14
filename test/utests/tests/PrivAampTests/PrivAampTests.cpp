@@ -3261,6 +3261,29 @@ TEST_F(PrivAampTests,SetCCStatusTest)
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
 }
 
+TEST_F(PrivAampTests,SetCCStatusWithOOBTest)
+{
+	// Out-of-band subtitles case
+	p_aamp->mIsInbandCC = false;
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled))
+		.WillByDefault(Return(true));
+
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
+
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // Preference is stored
+
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
+	p_aamp->SetCCStatus(false);
+	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
+}
+
 TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
 {
 	// Test behaviour when video is muted BEFORE CC is enabled

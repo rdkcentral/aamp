@@ -11044,6 +11044,8 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	AcquireStreamLock();
 	// Mute subtitles if either video is muted or subtitles are muted
 	bool mute_subtitles_applied = video_muted || subtitles_muted;
+	AAMPLOG_TRACE("mIsInbandCC %d, GstSubtecEnabled %d, mute_subtitles_applied %d",
+		mIsInbandCC, ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled), mute_subtitles_applied);
 	if (mIsInbandCC || !ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled))
 	{
 		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
