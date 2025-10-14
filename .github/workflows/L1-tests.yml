@@ -13,7 +13,6 @@ jobs:
       # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
-      
       # Install AAMP
       - name: Install AAMP
         run: yes | ./install-aamp.sh -s -k file
@@ -39,15 +38,45 @@ jobs:
           name: Unit Test Results
           path: test/utests/build/ctest-results.xml
           reporter: java-junit
-      
+          
       # Upload artifact (test/utests/build/ctest-results.xml)
-      - name: Upload test result file
+      - name: Upload test result file (test/utests)
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-results
+          name: ctest-results-test-utests-${{ github.run_id }}
           path: test/utests/build/ctest-results.xml
       
       # Show failure
       - name: Show failure details (if any)
         if: failure()
-        run: tail -n 50 test/utests/build/ctest-results.xml
+        run: tail -n 50 test/utests/build/ctest-results.xml || true
+
+      # Install Middleware
+      - name: Install Middleware PlayerInterface
+        working-directory: ./middleware
+        run: yes | ./install-middleware.sh -s subtec
+        
+      # Run L1 tests
+      - name: Run unit tests
+        working-directory: ./middleware/test/utests
+        run: ./run.sh
+      
+      # Publish test results
+      - name: Publish L1 test results
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unit Test Results
+          path: middleware/test/utests/build/ctest-results.xml
+          reporter: java-junit
+          
+      # Upload artifact (middleware/test/utests/build/ctest-results.xml)
+      - name: Upload test result file (middleware/test/utests)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-results-middleware-utests-${{ github.run_id }}
+          path: middleware/test/utests/build/ctest-results.xml
+      
+      # Show failure
+      - name: Show failure details (if any)
+        if: failure()
+        run: tail -n 50 middleware/test/utests/build/ctest-results.xml || true
