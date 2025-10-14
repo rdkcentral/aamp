@@ -3757,15 +3757,15 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
 	// This support is available in plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
-	bool isAudioOrVideoDecoder = false;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-
-	if (privatePlayer->socInterface->IsAudioOrVideoDecoder(name, isRialto))
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
 	{
-		isAudioOrVideoDecoder = true;
+		return gst_StartsWith(name,"rialtomsevideosink") || gst_StartsWith(name,"rialtomseaudiosink");
 	}
-	return isAudioOrVideoDecoder;
+	else
+	{
+		return privatePlayer->socInterface->IsAudioOrVideoDecoder(name);
+	}
 }
 
 /**
@@ -3777,8 +3777,14 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
 bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-	return privatePlayer->socInterface->IsVideoDecoder(name, isRialto);
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
+	{
+		return gst_StartsWith(name,"rialtomsevideosink");
+	}
+	else
+	{
+		return privatePlayer->socInterface->IsVideoDecoder(name);
+	}
 }
 
 /**
@@ -3836,8 +3842,14 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 bool GstPlayer_isVideoSink(const char* name, InterfacePlayerRDK* pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-	return privatePlayer->socInterface->IsVideoSink(name, isRialto);
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
+	{
+		return gst_StartsWith(name, "rialtomsevideosink");
+	}
+	else
+	{
+		return privatePlayer->socInterface->IsVideoSink(name);
+	}
 }
 
 /**
@@ -3944,8 +3956,16 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 bool GstPlayer_isAudioSinkOrAudioDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-	return privatePlayer->socInterface->IsAudioSinkOrAudioDecoder(name, isRialto);
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
+	{
+		return
+		gst_StartsWith(name, "rialtomseaudiosink") ||
+		gst_StartsWith(name, "rialtomsevideosink");
+	}
+	else
+	{
+		return privatePlayer->socInterface->IsAudioSinkOrAudioDecoder(name);
+	}
 }
 
 
@@ -4760,7 +4780,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
 					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
-					{
+					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
@@ -4768,7 +4788,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 						privatePlayer->socInterface->SetDecodeError(msg->src);
 					}
 					else
-					{
+					{ // audio
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->audio_dec, msg->src);
 						type_check_instance("bus_sync_handle: audio_dec ", privatePlayer->gstPrivateContext->audio_dec);
 

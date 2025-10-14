@@ -140,7 +140,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param isRialto Rialto flag.
 		 * @return True if it's a video sink, false otherwise.
 		 */
-		bool IsVideoSink(const char* name, bool isRialto)override;
+		bool IsVideoSink(const char* name)override;
 
 		/**
 		 * @brief Check if the given name is an audio sink or audio decoder.
@@ -148,7 +148,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param isRialto Rialto flag.
 		 * @return True if it's an audio sink or audio decoder, false otherwise.
 		 */
-		bool IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)override;
+		bool IsAudioSinkOrAudioDecoder(const char* name)override;
 
 		/**
 		 * @brief Check if the given name is a video decoder.
@@ -156,7 +156,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param isRialto Rialto flag.
 		 * @return True if it's a video decoder, false otherwise.
 		 */
-		bool IsVideoDecoder(const char* name, bool isRialto)override;
+		bool IsVideoDecoder(const char* name)override;
 
 		/**
 		 * @brief Configure the audio sink.
@@ -173,7 +173,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param IsWesteros Westeros flag.
 		 * @return True if it's an audio or video decoder, false otherwise.
 		 */
-		bool IsAudioOrVideoDecoder(const char* name, bool isRialto)override;
+		bool IsAudioOrVideoDecoder(const char* name)override;
 
 		/**
 		 * @brief Disable asynchronous audio.

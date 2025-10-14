@@ -163,26 +163,9 @@ void AmlogicSocInterface::SetAC4Tracks(GstElement *src, int trackId)
  * @param isRialto Rialto flag.
  * @return True if it's a video sink, false otherwise.
  */
-bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool AmlogicSocInterface::IsVideoSink(const char* name)
 {
-	if (name == nullptr)
-	{
-		return false;
-	}
-
-	// Check for Westeros sink
-	if (mUsingWesterosSink && StartsWith(name, "westerossink"))
-	{
-		return true;
-	}
-
-	// Check for Rialto sink
-	if (isRialto && StartsWith(name, "rialtomsevideosink"))
-	{
-		return true;
-	}
-
-	return false;
+	return name && StartsWith(name, "westerossink");
 }
 
 /**
@@ -191,16 +174,9 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
  * @param isRialto Rialto flag.
  * @return True if it's an audio sink or audio decoder, false otherwise.
  */
-bool AmlogicSocInterface::IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)
+bool AmlogicSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
 {
-	if(name)
-	{
-		return StartsWith(name, "amlhalasink");
-	}
-	else
-	{
-		return false;
-	}
+	return name && StartsWith(name, "amlhalasink");
 }
 
 /**
@@ -210,21 +186,9 @@ bool AmlogicSocInterface::IsAudioSinkOrAudioDecoder(const char* name, bool isRia
  * @param isWesteros Westeros flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool AmlogicSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool AmlogicSocInterface::IsVideoDecoder(const char* name)
 {
-	if(name)
-	{
-		if(mUsingWesterosSink)
-		{
-			return StartsWith(name, "westerossink");
-		}
-
-		else if (isRialto)
-		{
-			return StartsWith(name, "rialtomsevideosink");
-		}
-	}
-	return false;
+	return name && StartsWith(name, "westerossink");
 }
 
 /**
@@ -262,21 +226,9 @@ bool AmlogicSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool AmlogicSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
+bool AmlogicSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(name)
-	{
-		if(mUsingWesterosSink && StartsWith(name, "westerossink"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-		else if(isRialto && StartsWith(name, "rialtomse"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-	}
-	return AudioOrVideoDecoder;
+	return name && StartsWith(name, "westerossink");
 }
 
 /**

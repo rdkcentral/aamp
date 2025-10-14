@@ -272,7 +272,7 @@ public:
 	 * @param isRialto Rialto flag.
 	 * @return True if it's a video sink, false otherwise.
 	 */
-	virtual bool IsVideoSink(const char* name, bool isRialto) = 0;
+	virtual bool IsVideoSink(const char* name) = 0;
 	
 	/**
 	 * @brief Check if the given name is an audio sink or audio decoder.
@@ -280,16 +280,14 @@ public:
 	 * @param isRialto Rialto flag.
 	 * @return True if it's an audio sink or audio decoder, false otherwise.
 	 */
-	virtual bool IsAudioSinkOrAudioDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsAudioSinkOrAudioDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Check if the given name is a video decoder.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
-	 * @param isWesteros Westeros flag.
 	 * @return True if it's a video decoder, false otherwise.
 	 */
-	virtual bool IsVideoDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsVideoDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Configure the audio sink.
@@ -302,11 +300,10 @@ public:
 	
 	/**
 	 * @brief Check if the given name is an audio or video decoder.
-	 * @param name Element name.
-	 * @param IsWesteros Westeros flag.
+	 * @param name Element name
 	 * @return True if it's an audio or video decoder, false otherwise.
 	 */
-	virtual bool IsAudioOrVideoDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsAudioOrVideoDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Disable asynchronous audio.
