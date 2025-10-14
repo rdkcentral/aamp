@@ -3260,7 +3260,7 @@ TEST_F(PrivAampTests,SetCCStatusTest)
 
 TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
 {
-	// Test behavior when video is muted BEFORE CC is enabled
+	// Test behaviour when video is muted BEFORE CC is enabled
 	// This tests the interaction when SetVideoMute(true) is called before SetCCStatus()
 
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
@@ -3320,6 +3320,9 @@ TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
 
 	// Verify that CC status preference is still true
 	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Cleanup: delete the StreamAbstraction object created by TuneHelper()
+	p_aamp->TeardownStream(false);
 }
 
 TEST_F(PrivAampTests,SetCCStatusAndSetVideoMuteWithStreamAbstractionCreationTest)
@@ -3350,6 +3353,9 @@ TEST_F(PrivAampTests,SetCCStatusAndSetVideoMuteWithStreamAbstractionCreationTest
 		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Cleanup: delete the StreamAbstraction object created by TuneHelper()
+	p_aamp->TeardownStream(false);
 }
 
 TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionTest)
