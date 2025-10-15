@@ -71,6 +71,7 @@ int PlayerRialtoCCManager::GetId()
  */
 void PlayerRialtoCCManager::ResetState()
 {
+	MW_LOG_INFO("PlayerRialtoCCManager::Resetting");
 	PlayerCCManagerBase::ResetState();
 	mSubtitleControlHandle = nullptr;
 }
