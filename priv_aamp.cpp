@@ -10904,17 +10904,24 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	AcquireStreamLock();
 	// Mute subtitles if either video is muted or subtitles are muted
 	bool mute_subtitles_applied = video_muted || subtitles_muted;
-	PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-
-	if (mpStreamAbstractionAAMP)
+	AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+		mIsInbandCC, ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled), mute_subtitles_applied, video_muted, subtitles_muted);
+	if (mIsInbandCC || !ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled))
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
-		}
+		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
 	}
-	SetSubtitleMuteInternal(mute_subtitles_applied);
+	else
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
+			}
+		}
+		SetSubtitleMuteInternal(mute_subtitles_applied);
+	}
 	ReleaseStreamLock();
 }
 
