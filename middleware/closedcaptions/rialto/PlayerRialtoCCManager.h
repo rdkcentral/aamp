@@ -33,7 +33,6 @@
 #include <set>
 #include <mutex>
 
-
 /**
  * @class PlayerRialtoCCManager
  * @brief Handling Rialto CC operation
@@ -111,6 +110,13 @@ private:
 	 * @return CC_VL_OS_API_RESULT
 	 */
 	int SetAnalogChannel(unsigned int id) override;
+
+	/**
+	 * @fn ResetState
+	 *
+	 * @return void
+	 */
+	void ResetState() override;
 
 private:
 	void *mSubtitleControlHandle{nullptr};

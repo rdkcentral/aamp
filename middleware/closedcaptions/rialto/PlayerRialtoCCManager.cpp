@@ -67,6 +67,15 @@ int PlayerRialtoCCManager::GetId()
 }
 
 /**
+ *  @brief Reset internal state.
+ */
+void PlayerRialtoCCManager::ResetState()
+{
+	PlayerCCManagerBase::ResetState();
+	mSubtitleControlHandle = nullptr;
+}
+
+/**
  *  @brief Release CC resources
  */
 void PlayerRialtoCCManager::Release(int id)
@@ -79,9 +88,11 @@ void PlayerRialtoCCManager::Release(int id)
 
 		if (0 == id_size)
 		{
-			// Last user has released - deinit.
-			// Note that there is currently nothing to do as all
-			// resources are managed externally to this module.
+			// Last user has released.
+			// Note that this instance can be re-used later.
+			// Therefore, ensure the state is reset so that it is the same as a
+			// newly constructed instance.
+			ResetState();
 		}
 	}
 	else
@@ -107,7 +118,7 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerRialtoCCManager::No current handle - track \"%s\" cached", track.c_str());
+		MW_LOG_INFO("PlayerRialtoCCManager::No current handle - track \"%s\" cached", track.c_str());
 	}
 
 	return 0;
@@ -126,7 +137,7 @@ void PlayerRialtoCCManager::StartRendering()
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerRialtoCCManager::Failed to unmute");
+		MW_LOG_INFO("PlayerRialtoCCManager::Failed to unmute");
 	}
 	return;
 }
@@ -144,7 +155,7 @@ void PlayerRialtoCCManager::StopRendering()
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerRialtoCCManager::Failed to mute");
+		MW_LOG_INFO("PlayerRialtoCCManager::Failed to mute");
 	}
 	return;
 }
