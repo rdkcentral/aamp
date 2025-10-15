@@ -286,6 +286,6 @@ class RealtekSocInterface : public SocInterface
 		 */
 		void SetHevcCaps(GstCaps *caps)override;
 
-
+		bool IsVideoMaster(GstElement *videoSink)override{return true;}
 };
 #endif

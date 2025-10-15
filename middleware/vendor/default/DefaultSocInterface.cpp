@@ -19,6 +19,9 @@
 
 #include "DefaultSocInterface.h"
 
+/**
+ @brief this interface implementation used with Rialto and OSX/Ubuntu simulator
+ */
 DefaultSocInterface::DefaultSocInterface()
 {
 }
@@ -65,7 +68,9 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {
-	return name && StartsWith(name, "westerossink");
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**
@@ -75,7 +80,9 @@ bool DefaultSocInterface::IsVideoSink(const char* name)
  */
 bool DefaultSocInterface::IsVideoDecoder(const char* name)
 {
-	return name && StartsWith(name, "westerossink");
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**
@@ -85,7 +92,10 @@ bool DefaultSocInterface::IsVideoDecoder(const char* name)
  */
 bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	return name && StartsWith(name, "westerossink");
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name,"rialtomseaudiosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**

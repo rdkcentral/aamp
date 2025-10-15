@@ -455,10 +455,8 @@ public:
 	 * @brief Checks if the platform is video master.
 	 *
 	 * @param videoSink The video sink element.
-	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(GstElement *videoSink){return true;}
-
+	virtual bool IsVideoMaster(GstElement *videoSink) = 0; // {return true;}
 };
 #endif
