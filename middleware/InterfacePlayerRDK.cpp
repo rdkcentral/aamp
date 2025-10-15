@@ -1776,10 +1776,10 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
 		
-		if( privatePlayer->gstPrivateContext->usingRialtoSink )
+		if( privatePlayer->gstPrivateContext->usingRialtoSink &&
+		   privatePlayer->socInterface->IsVideoMaster(privatePlayer->gstPrivateContext->video_sink) )
 		{
 			// This property is required so that the segment event sent via gst_app_src_push_sample
-			// in SendNewSegmentEvent, is sent with the next data flow
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
 		}
