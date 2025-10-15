@@ -69,7 +69,6 @@ class AmlogicSocInterface : public SocInterface
 		 * @param rate The desired playback rate.
 		 * @param video_dec The video decoder element.
 		 * @param audio_dec The audio decoder element.
-		 * @param isRialto True if rialto sink is used.
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
 		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
@@ -160,16 +159,6 @@ class AmlogicSocInterface : public SocInterface
 		virtual bool ResetNewSegmentEvent()override{return true;}
 
 		/**
-		 * @brief Checks if platform segment is ready.
-		 *
-		 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
-		 *
-		 * @param videoSink The video sink element.
-		 * @param isRialto Flag indicating whether Rialto sink is being used.
-		 */
-		bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)override{return true;}
-
-		/**
 		 * @brief Check if the video is the master stream.
 		 *
 		 * This function always returns false, indicating that the video is not the master stream.
@@ -178,7 +167,7 @@ class AmlogicSocInterface : public SocInterface
 		 * @param isRialto Flag indicating whether Rialto sink is being used.
 		 * @return false indicating the video is not the master stream.
 		 */
-		bool IsVideoMaster(GstElement *videoSink, bool isRialto)override{return false;}
+		bool IsVideoMaster(GstElement *videoSink)override{return false;}
 
 };
 

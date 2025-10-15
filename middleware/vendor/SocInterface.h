@@ -450,17 +450,6 @@ public:
 	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
 	 */
 	virtual bool ResetNewSegmentEvent(){return false;}
-	
-	/**
-	 * @brief Checks if platform segment is ready.
-	 *
-	 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
-	 *
-	 * @param videoSink The video sink element.
-	 * @param isRialto Flag indicating whether Rialto sink is being used.
-	 * @return `true` if the platform segment is ready, `false` otherwise.
-	 */
-	virtual bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto){return false;}
 
 	/**
 	 * @brief Checks if the platform is video master.
@@ -469,7 +458,7 @@ public:
 	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(GstElement *videoSink, bool isRialto){return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink){return true;}
 
 };
 #endif

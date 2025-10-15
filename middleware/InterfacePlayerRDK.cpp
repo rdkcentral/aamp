@@ -1775,11 +1775,10 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
-
-		if ((privatePlayer->gstPrivateContext->usingRialtoSink) &&
-			(privatePlayer->socInterface->IsPlatformSegmentReady(privatePlayer->gstPrivateContext->video_sink, privatePlayer->gstPrivateContext->usingRialtoSink)))
+		
+		if( privatePlayer->gstPrivateContext->usingRialtoSink )
 		{
-			// This property is required so that the segment event sent via gst_app_src_push_sample 
+			// This property is required so that the segment event sent via gst_app_src_push_sample
 			// in SendNewSegmentEvent, is sent with the next data flow
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
@@ -2920,7 +2919,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		// included to fix av sync / trickmode speed issues
 		// Also add check for trick-play on 1st frame.
-		if (interfacePlayerPriv->socInterface->IsPlatformSegmentReady(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
+		if( interfacePlayerPriv->gstPrivateContext->video_sink &&
 			sendNewSegmentEvent == true)
 		{
 			interfacePlayerPriv->SendNewSegmentEvent(mediaType, pts, 0);
@@ -3150,12 +3149,27 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 			segment.stop = stopPts;
 		} 
 
-		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
-			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
+		if( (GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO )
 		{
-			// set applied_rate to trickplay rate if video sink doesn't use vmaster
-			// so that it can correctly handle there being no audio
-			segment.applied_rate = gstPrivateContext->rate;
+			bool isVideoMaster;
+			if( gstPrivateContext->usingRialtoSink )
+			{
+				gboolean isMaster{TRUE};
+				g_object_get(gstPrivateContext->video_sink, "is-master", &isMaster, nullptr);
+				MW_LOG_INFO("is-master %d", isMaster);
+				isVideoMaster = (isMaster == TRUE );
+			}
+			else
+			{
+				isVideoMaster = socInterface->IsVideoMaster(gstPrivateContext->video_sink);
+			}
+			
+			if( !isVideoMaster )
+			{
+				// set applied_rate to trickplay rate if video sink doesn't use vmaster
+				// so that it can correctly handle there being no audio
+				segment.applied_rate = gstPrivateContext->rate;
+			}
 		}
 
 		if (gstPrivateContext->usingRialtoSink)
