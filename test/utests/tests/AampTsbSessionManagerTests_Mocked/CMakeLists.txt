@@ -39,7 +39,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampTSBSessionManagerTests_Mocked.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampTSBSessionManager.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTSBSessionManager.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

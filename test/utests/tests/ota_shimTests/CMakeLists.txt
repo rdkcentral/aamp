@@ -37,7 +37,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 set(TEST_SOURCES ota_shimAamptest.cpp
 ota_shimtest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/ota_shim.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/ota_shim.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
