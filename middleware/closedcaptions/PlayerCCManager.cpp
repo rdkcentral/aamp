@@ -844,6 +844,21 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 }
 
 /**
+ *  @brief Reset the state.
+ */
+void PlayerCCManagerBase::ResetState()
+{
+	Stop();
+
+	mOptions = "";
+	mTrack = "";
+	mLastTextTracks.clear();
+	mEnabled = false;
+	mTrickplayStarted = false;
+	mParentalCtrlLocked = false;
+}
+
+/**
  *  @brief Set the variant required
  */
 void PlayerCCManager::SetRialto(bool bIsRialto)
@@ -857,8 +872,6 @@ void PlayerCCManager::SetRialto(bool bIsRialto)
 	{
 		MW_LOG_ERR("PlayerCCManager::IsRialto:%d while incompatible singleton instance exists", bIsRialto);
 	}
-
-	return;
 }
 
 /**

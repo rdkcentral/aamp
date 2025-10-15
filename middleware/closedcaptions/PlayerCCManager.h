@@ -239,7 +239,16 @@ protected:
 	 */
 	void Stop();
 
-	
+	/**
+	 * @fn ResetState
+	 *
+	 * @return void
+	 */
+	virtual void ResetState();
+
+	/* NOTE WELL: The ResetState() method resets these member variables back to
+	** their initial state. It should be updated if any of the following change
+	** or are added to. */
 	std::string mOptions{};                /**< CC rendering styles */
 	std::string mTrack{};                  /**< CC track */
 	std::vector<CCTrackInfo> mLastTextTracks;
