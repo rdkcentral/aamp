@@ -35,6 +35,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
+pkg_check_modules(LIBCJSON REQUIRED libcjson)
+link_directories(${LIBCJSON_LIBRARY_DIRS})
 
 # Include directories
 include_directories(${AAMP_ROOT})
@@ -46,6 +48,9 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+include_directories(${LIBCJSON_INCLUDE_DIRS})
+include_directories(${AAMP_ROOT}/downloader)
+include_directories(${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/tsb/api)
 
 # Source files
 set(TEST_SOURCES
@@ -67,6 +72,7 @@ target_link_libraries(${PROJECT_NAME}
     ${GLIB_LINK_LIBRARIES}
     ${GMOCK_LINK_LIBRARIES}
     ${GTEST_LINK_LIBRARIES}
+    ${LIBCJSON_LINK_LIBRARIES}
 )
 
 # Set target properties (following project pattern)
