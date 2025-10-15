@@ -704,14 +704,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	}
 	else
 	{
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost)
-		{
-			ret = (size*nmemb);
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace write_callback - interrupted, ret:%zu", ret);
-		}
+		AAMPLOG_WARN("interrupted");
 	}
 	return ret;
 }
@@ -956,10 +949,11 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
  * @param ultotal total number of bytes libcurl expects to upload
  * @param ulnow number of bytes uploaded so far
  *
- * @retval -1 to cancel in progress download
+ * @retval 1 to cancel in progress download
  */
 int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
+	int rc = 0;
 	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
 	PrivateInstanceAAMP *aamp = context->aamp;
 	AampConfig *mConfig = context->aamp->mConfig;
@@ -969,12 +963,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		context->aamp->CheckABREnabled() &&
 		!(ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR)))
 	{
-		//AAMPLOG_WARN("[%d] dltotal: %.0f , dlnow: %.0f, ultotal: %.0f, ulnow: %.0f, time: %.0f\n", context->mediaType,
-		//	dltotal, dlnow, ultotal, ulnow, difftime(time(NULL), 0));
-
-		// int AbrChunkThresholdSize = GETCONFIGVALUE(eAAMPConfig_ABRChunkThresholdSize);
-
-		if (/*(dlnow > AbrChunkThresholdSize) &&*/ (context->downloadNow != dlnow))
+		if( context->downloadNow != dlnow )
 		{
 			long downloadbps = 0;
 
@@ -1009,11 +998,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 	}
 
-	int rc = 0;
 	context->aamp->SyncBegin();
 	if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		rc = -1; // CURLE_ABORTED_BY_CALLBACK
+		rc = 1; // CURLE_ABORTED_BY_CALLBACK
 	}
 
 	context->aamp->SyncEnd();
@@ -1035,7 +1023,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 					{ // no change for at least <stallTimeout> seconds - consider download stalled and abort
 						AAMPLOG_WARN("Abort download as mid-download stall detected for %.2f seconds, download size:%.2f bytes", timeElapsedSinceLastUpdate, dlnow);
 						context->abortReason = eCURL_ABORT_REASON_STALL_TIMEDOUT;
-						rc = -1;
+						rc = 1; // CURLE_ABORTED_BY_CALLBACK
 					}
 				}
 				else
@@ -1052,7 +1040,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			{
 				AAMPLOG_WARN("Abort download as no data received for %.2f seconds", timeElapsedInSec);
 				context->abortReason = eCURL_ABORT_REASON_START_TIMEDOUT;
-				rc = -1;
+				rc = 1; // CURLE_ABORTED_BY_CALLBACK
 			}
 		}
 		if (dlnow > 0 && context->lowBWTimeout> 0 && eMEDIATYPE_VIDEO == context->mediaType)
@@ -1070,7 +1058,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 								predictedTotalDownloadTimeMs/1000.0,
 								aamp->mNetworkTimeoutMs/1000.0 );
 						context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-						rc = -1;
+						rc = 1; // CURLE_ABORTED_BY_CALLBACK
 					}
 				}
 				else
@@ -1086,7 +1074,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 							{
 								AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
 								context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-								rc = -1;
+								rc = 1; // CURLE_ABORTED_BY_CALLBACK
 							}
 						}
 					}
@@ -1095,18 +1083,9 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			}
 		}
 	}
-
 	if(rc)
 	{
-		if( !( eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT == context->abortReason || eCURL_ABORT_REASON_START_TIMEDOUT == context->abortReason ||\
-			eCURL_ABORT_REASON_STALL_TIMEDOUT == context->abortReason ) && (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost ) )
-		{
-			rc = 0;
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace Progress interrupted, ret:%d", rc);
-		}
+		AAMPLOG_WARN( "interrupted" );
 	}
 	return rc;
 }
