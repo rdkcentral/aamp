@@ -696,6 +696,38 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
+	
+	/**
+	 * @fn ProcessFragment
+	 * @brief Unified fragment processing entry point. Handles COMPLETE_FRAGMENT and FRAGMENT_CHUNK.
+	 *        For FRAGMENT_CHUNK it will route through existing chunk parsing logic; for COMPLETE_FRAGMENT
+	 *        it invokes existing InjectFragmentInternal flow.
+	 * @param[in] fragment The cached fragment object (must not be nullptr)
+	 * @return true on successful processing/injection, false if processing indicates stop/abort.
+	 */
+	bool ProcessFragment(CachedFragment* fragment);
+
+	/**
+	 * @fn GetCachedFragmentCount
+	 * @brief Unified accessor for cached fragment count (chunks or complete) based on current mode.
+	 * @return current cached count for active injection mode.
+	 */
+	int GetCachedFragmentCount() const { return (const_cast<MediaTrack*>(this))->IsInjectionFromCachedFragmentChunks() ? numberOfFragmentChunksCached : numberOfFragmentsCached; }
+
+	/**
+	 * @fn GetMaxCachedFragmentCount
+	 * @brief Unified accessor for max cached fragment capacity (chunks or complete) based on current mode.
+	 * @return max cached capacity for active injection mode.
+	 */
+	int GetMaxCachedFragmentCount() const { return (const_cast<MediaTrack*>(this))->IsInjectionFromCachedFragmentChunks() ? (int)mCachedFragmentChunksSize : maxCachedFragmentsPerTrack; }
+
+	/**
+	 * @fn GetFragmentToInject
+	 * @brief Returns pointer to the fragment (chunk or complete) at current inject index based on mode.
+	 * @return CachedFragment* for current injection, or nullptr if index invalid.
+	 */
+	CachedFragment* GetFragmentToInject() { return IsInjectionFromCachedFragmentChunks() ? &mCachedFragmentChunks[fragmentChunkIdxToInject] : &mCachedFragment[fragmentIdxToInject]; }
+
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -710,6 +742,20 @@ protected:
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
+
+	/**
+	 * @fn UpdateTSAfterInjectUnified
+	 * @brief Unified timestamp/cache update for both COMPLETE_FRAGMENT and FRAGMENT_CHUNK injection paths.
+	 *        This consolidates logic from UpdateTSAfterInject() and UpdateTSAfterChunkInject() while
+	 *        preserving their public/protected wrappers for backward compatibility.
+	 *
+	 *        Selection of branch is based on IsInjectionFromCachedFragmentChunks().
+	 *        Validation warnings are emitted if fragment types are unexpected for the chosen path.
+	 *
+	 * @note  Existing wrappers should be preferred until all call sites migrate; then these wrappers
+	 *        can be deprecated and removed in a subsequent phase.
+	 */
+	void UpdateTSAfterInjectUnified();
 
 	/**
 	 * @fn WaitForCachedFragmentAvailable
