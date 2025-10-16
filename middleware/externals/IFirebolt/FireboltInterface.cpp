@@ -69,7 +69,7 @@ FireboltInterface::FireboltInterface()
 bool FireboltInterface::CreateFireboltInstance(const std::string &url)
 {
     const std::string config = "{\
-                                \"waitTime\": 3000,\
+                                \"waitTime\": 5000,\
                                 \"logLevel\": \"Info\",\
                                 \"workerPool\":{\
                                 \"queueSize\": 8,\
