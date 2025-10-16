@@ -817,16 +817,6 @@ void DrmSessionManager::registerCallback()
                 MW_LOG_ERR("[DrmSessionManager] ERROR: mPlayerSendWatermarkSessionUpdateEventCB not set!");
             }
 	};
-
-
-
-
-
-
-
-
-
-
 	ContentSecurityManager::setWatermarkSessionEvent_CB(watermarkCallBack);
 	MW_LOG_INFO("WatermarkSessionEvent Callback registered");
 }
