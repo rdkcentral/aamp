@@ -25,7 +25,6 @@
  */
 #include "PlayerRialtoCCManager.h"
 #include "PlayerLogManager.h" // Included for MW_LOG
-#include "InterfacePlayerRDK.h" // Included for MW_LOG
 
 /**
  * @brief stores Handle
@@ -179,7 +178,7 @@ void PlayerRialtoCCManager::StopRendering()
  */
 int PlayerRialtoCCManager::SetDigitalChannel(unsigned int id)
 {
-	MW_LOG_WARN("PlayerRialtoCCManager::Should not be called! (%u)", id);
+	MW_LOG_ERR("PlayerRialtoCCManager::Should not be called! (%u)", id);
 	return 0;
 }
 
@@ -190,7 +189,7 @@ int PlayerRialtoCCManager::SetDigitalChannel(unsigned int id)
  */
 int PlayerRialtoCCManager::SetAnalogChannel(unsigned int id)
 {
-	MW_LOG_WARN("PlayerRialtoCCManager::Should not be called! (%u)", id);
+	MW_LOG_ERR("PlayerRialtoCCManager::Should not be called! (%u)", id);
 	return 0;
 }
 
