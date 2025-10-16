@@ -158,7 +158,6 @@ bool AampCurlDownloader::IsDownloadActive()
 int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<DownloadResponse> dnldData )
 {
 	int httpRetVal=0;
-	//int curlRetVal=0;
 	int numDownloadAttempts=0;
 	int numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
 	if(urlStr.size() == 0 || dnldData == nullptr)

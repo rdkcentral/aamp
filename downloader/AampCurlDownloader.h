@@ -175,7 +175,6 @@ typedef struct _downloadResponse
 	std::string sEffectiveUrl;
 	std::vector<std::string>  mResponseHeader;
 	std::vector<std::uint8_t> mDownloadData;
-	//CurlTimeoutFailureReason mCurlTimeoutFailureReason;
 	
 	_downloadResponse() : iHttpRetValue(0), mAbortReason(eCURL_ABORT_REASON_NONE), downloadCompleteMetrics(),progressMetrics(), sEffectiveUrl(""), mResponseHeader(), mDownloadData() {}
 

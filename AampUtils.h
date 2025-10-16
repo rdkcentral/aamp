@@ -55,8 +55,7 @@
 //Delete Array object
 #define SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
 
-/**HTTP SUccess*/
-#define IS_HTTP_SUCCESS(code) ((code) == 200 || (code) == 204 || (code) == 206)
+bool IS_HTTP_SUCCESS(int code);
 
 /** FHD height*/
 #define AAMP_FHD_HEIGHT (1080)
@@ -424,6 +423,15 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
  */
 bool aamp_isTuneScheme( const char *cmdBuf );
 
+/**
+ * @brief disambiguate CURLE_OPERATION_TIMEDOUT, using state from CURL connection
+ *
+ * @parm curl ClientURL instance from a completed download attempt
+ *
+ * @retval eCURL_TIMEOUT_DNS if timeout occurred while attempting to resolve DNS
+ * @retval eCURL_TIMEOUT_CONNECT if timeout occurred after resolving DNS, but before completing connection
+ * @retval eCURL_TIMEOUT_DATA if timeout occurred while downloading data
+ */
 CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
 
 bool GetCurlTimeoutFailureStatus( int httpResponseCode );

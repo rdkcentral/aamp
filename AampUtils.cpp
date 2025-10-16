@@ -78,6 +78,11 @@ static const FormatMap mVideoFormatMap[] =
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
 
+bool IS_HTTP_SUCCESS(int code)
+{
+	return code == 200 || code == 204 || code == 206;
+}
+
 /**
  * @brief Get current time from epoch is milliseconds
  *
@@ -1445,23 +1450,21 @@ bool aamp_isTuneScheme( const char *cmdBuf )
 CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
 {
     double nameLookupTime = 0;
-    double connectTime = 0;
     curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &nameLookupTime);
-    curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
-
-    if (connectTime == 0 && nameLookupTime == 0)
-    {
-        return eCURL_TIMEOUT_DNS;
+	if ( nameLookupTime == 0)
+	{
+		return eCURL_TIMEOUT_DNS;
+	}
+	else
+	{
+		double connectTime = 0;
+		curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
+		if (connectTime == 0 )
+		{
+			return eCURL_TIMEOUT_CONNECT;
+		}
     }
-    else if (connectTime == 0 && nameLookupTime != 0)
-    {
-        return eCURL_TIMEOUT_CONNECT;
-    }
-    else if (connectTime != 0 && nameLookupTime != 0)
-    {
-        return eCURL_TIMEOUT_DATA;
-    }
-    return (CurlTimeoutFailureReason)CURLE_OPERATION_TIMEDOUT;
+	return eCURL_TIMEOUT_DATA;
 }
 /**
  * @brief To check if the curl error is due to timeout
