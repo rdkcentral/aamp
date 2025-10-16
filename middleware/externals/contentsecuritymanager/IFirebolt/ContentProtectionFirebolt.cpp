@@ -129,7 +129,7 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 	if(mInitialized)
 	{
    		MW_LOG_INFO("HandleWaterMarkEvent Triggered");
-    		PlayerJsonObject statusJson(statusStr);
+    	PlayerJsonObject statusJson(statusStr);
 		int reasonCode = -1;
 		if (statusJson.get("failureReason", reasonCode ))
         {
