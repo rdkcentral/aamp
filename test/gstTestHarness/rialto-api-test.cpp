@@ -18,10 +18,13 @@ static int32_t sourceIdVideo;
 
 void LoadAndDemuxSegment( Mp4Demux &mp4Demux, const char *path )
 { // using generated bipbop content for initial test
-	char fullpath[256];
-	snprintf( fullpath, sizeof(fullpath), "%.*s/Documents/r" "d" "k" "e/aamp_test_internal/test/VideoTestStream/bipbop-gen/%s",
-			 gUserPathLen, gUserPathPtr, path );
-	FILE *f = fopen(fullpath,"rb");
+	// char fullpath[256];
+	// snprintf( fullpath, sizeof(fullpath), "%.*s/Documents/r" "d" "k" "e/aamp_test_internal/test/VideoTestStream/bipbop-gen/%s",
+	// 		 gUserPathLen, gUserPathPtr, path );
+	char fullpath[512];
+	snprintf(fullpath, sizeof(fullpath), "/tmp/data/bipbop-gen/%s", path);
+	printf( "loading rialtotest %s\n", fullpath );
+	FILE *f = fopen(fullpath, "rb");
 	assert( f );
 	if( f )
 	{
@@ -184,9 +187,9 @@ int my_main(int argc, char **argv)
 	const char *prefix = "/Users/";
 	size_t prefixLen = strlen(prefix);
 	gUserPathPtr = strstr(executablePath,prefix);
-	assert( gUserPathPtr );
+	// assert( gUserPathPtr );
 	const char *delim = strchr( &gUserPathPtr[prefixLen],'/' );
-	assert( delim );
+	// assert( delim );
 	gUserPathLen = (int)(delim - gUserPathPtr);
 	
 	gst_init(&argc, &argv);
