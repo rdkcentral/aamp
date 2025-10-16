@@ -2250,11 +2250,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 
 		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
-
+        AAMPLOG_WARN("supriya: ReportProgress: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d", trickStartUTCMS, bProcessEvent, mFirstProgress);
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
 			if (mFirstProgress)
 			{
+				AAMPLOG_WARN("supriya: ReportProgress: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d", trickStartUTCMS, bProcessEvent, mFirstProgress);
 				mFirstProgress = false;
 				AAMPLOG_MIL("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
 			}
@@ -2264,7 +2265,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			{
 				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
 				bool bufferBelowMin = videoBufferedDuration < (abrMinBuffer * 1000);
-
+                AAMPLOG_WARN("supriya: Before LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d", progressLoggingEnabled ? "true" : "false", progressDivisor);
 				if (bufferBelowMin && !mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = true;
@@ -2278,6 +2279,9 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
+			bool progressLoggingAfter = ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging);
+			int progressDivisorAfter = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+			AAMPLOG_WARN("supriya: After LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d", progressLoggingAfter ? "true" : "false", progressDivisorAfter);
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
@@ -2318,6 +2322,10 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+		}
+		else
+		{
+			AAMPLOG_WARN("supriya: SKIPPED progress event, trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d, state=%d", trickStartUTCMS, bProcessEvent, mFirstProgress, state);
 		}
 	}
 }
