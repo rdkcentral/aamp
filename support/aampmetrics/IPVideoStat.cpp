@@ -346,7 +346,7 @@ void CVideoStat::Setlanguage(VideoStatTrackType eType, std::string strLang, int 
 {
 	if(eType == VideoStatTrackType::STAT_AUDIO)
 	{
-		this->mMapLang[std::move(Track(eType,audioIndex))] = strLang;
+		this->mMapLang[std::move(Track(eType,audioIndex))] = std::move(strLang);
 	}
 }
 

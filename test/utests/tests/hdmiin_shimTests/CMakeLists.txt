@@ -37,7 +37,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 set(TEST_SOURCES hdmiin_shimAamptest.cpp
 hdmiin_shimtest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/hdmiin_shim.cpp  ${AAMP_ROOT}/videoin_shim.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/hdmiin_shim.cpp  ${AAMP_ROOT}/videoin_shim.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
