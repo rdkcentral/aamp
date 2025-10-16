@@ -41,5 +41,5 @@ void ManifestCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string,
 	headerName="m";
 	headerValue.clear();
 	headerValue.push_back((CMCDObject+headerName));
-	mCMCDCustomHeaders["CMCD-Object:"] = headerValue;
+	mCMCDCustomHeaders["CMCD-Object:"] = std::move(headerValue);
 }

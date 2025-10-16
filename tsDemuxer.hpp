@@ -244,7 +244,7 @@ public:
 
 		if (es.GetLen())
 		{
-			sendInternal(processor);
+			sendInternal(std::move(processor));
 			return true;
 		}
 		return false;

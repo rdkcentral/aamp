@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,40 +15,17 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
-
-/**
- * @file vttCue.h
- * 
- * @brief Provides data structure to hold a WebVTT cue data
- *
  */
 
-#ifndef __VTT_CUE_H__
-#define __VTT_CUE_H__
+#include <gtest/gtest.h>
+#include "MockAampGrowableBuffer.h"
 
-#include <string>
-
-
-/**
-* \struct      VTTCue
-* \brief       Data structure to hold a VTT cue
-*
-* This is the data structure to store parsed WebVTT cues in AAMP
-*/
-struct VTTCue
+int main(int argc, char** argv)
 {
-	VTTCue(double startTime, double duration, std::string text, std::string settings):
-		mStart(startTime), mDuration(duration),
-		mText(std::move(text)), mSettings(std::move(settings))
-	{
-
-	}
-
-	double mStart;
-	double mDuration;
-	std::string mText;
-	std::string mSettings;
-};
-
-#endif /* __VTT_CUE_H__ */
+    testing::InitGoogleTest(&argc, argv);
+    
+    // Enable proper memory copying behavior for CachedFragment tests
+    AampGrowableBuffer_EnableMemoryCopying(true);
+    
+    return RUN_ALL_TESTS();
+}

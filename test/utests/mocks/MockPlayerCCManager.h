@@ -38,6 +38,18 @@ public:
 	MOCK_METHOD(void, StopRendering, ());
 	MOCK_METHOD(int, SetDigitalChannel, (unsigned int id));
 	MOCK_METHOD(int, SetAnalogChannel, (unsigned int id));
+
+	MOCK_METHOD(bool, CheckCCHandle, (), (const));
+
+	// Virtual methods with default implementations
+	MOCK_METHOD(int, GetId, ());
+	MOCK_METHOD(void, updateLastTextTracks, (const std::vector<CCTrackInfo> &newTextTracks));
+
+	// Non-virtual methods for additional testing flexibility
+	MOCK_METHOD(void, EnsureInitialized, ());
+	MOCK_METHOD(void, EnsureHALInitialized, ());
+	MOCK_METHOD(void, EnsureRendererCommsInitialized, ());
+	MOCK_METHOD(int, Initialize, (void *handle));
 };
 
 extern std::shared_ptr<MockPlayerCCManager> g_mockPlayerCCManager;
