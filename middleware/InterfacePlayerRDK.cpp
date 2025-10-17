@@ -2880,7 +2880,6 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
  */
 unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 {
-	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
 	gpointer dec_handle = NULL;
 
 	if (interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
