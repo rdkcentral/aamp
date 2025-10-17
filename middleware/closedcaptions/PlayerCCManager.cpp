@@ -848,7 +848,7 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
  */
 void PlayerCCManagerBase::ResetState()
 {
-	MW_LOG_INFO("PlayerRialtoCCManagerBase::Resetting");
+	MW_LOG_INFO("PlayerCCManagerBase::Resetting");
 	Stop();
 
 	mOptions = "";
