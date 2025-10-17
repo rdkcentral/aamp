@@ -111,8 +111,6 @@ void ContentProtectionFirebolt::SubscribeEvents()
 	{
 		MW_LOG_ERR("Failed to subscribe to watermark events: %d", static_cast<int>(result.error()));
 	}
-
-	
 }
 
 void ContentProtectionFirebolt::UnSubscribeEvents()
