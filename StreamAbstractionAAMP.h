@@ -46,6 +46,7 @@
 #include "AampTime.h"
 #include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
+#include "AampDemuxDataTypes.h"
 
 /**
  * @brief Media Track Types
@@ -1981,6 +1982,8 @@ public:
 	 *   @param[in] rate - play rate
 	 */	
 	void ReinitializeInjection(double rate);
+
+	virtual void GetStreamCodecInfo (AampCodecInfo &videoCodec, AampCodecInfo &audioCodec, AampCodecInfo &textCodec) { (void)videoCodec; (void)audioCodec; (void)textCodec; }
 
 protected:
 	/**

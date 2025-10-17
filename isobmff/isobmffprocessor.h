@@ -490,6 +490,8 @@ private:
 	 */
 	bool updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer);
 
+	const AampCodecInfo& getCodecInfo() override { static AampCodecInfo info(FORMAT_ISO_BMFF); return info; };
+
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
 	MediaFormat mediaFormat;

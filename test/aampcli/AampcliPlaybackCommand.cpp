@@ -29,6 +29,7 @@
 #include "scte35/AampSCTE35.h"
 #include "AampStreamSinkManager.h"
 #include <curl/curl.h>
+#include "Mp4Demux.hpp"
 
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
@@ -37,13 +38,14 @@ std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<s
 std::vector<std::string> PlaybackCommand::commands(0);
 static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
 std::vector<AdvertInfo> mAdvertList;
+std::shared_ptr<Mp4Demux> mp4Demux = nullptr;
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
 	//Parse the command line to see if all lines should be displayed, a range from start to end, or a number of lines from the end of the list.
 	//If tail is 0, start & end specify the range. If tail is non-zero it is the number of lines to display from the end of the list.
 	start = 0;
-	end = ULLONG_MAX;
+	end = ULONG_MAX;
 	tail = 0;
 	if( !strcmp(cmd, "list"))
 	{
@@ -75,7 +77,7 @@ void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned l
 	if(start > end)
 	{
 		start = 0;
-		end = ULLONG_MAX;
+		end = ULONG_MAX;
 		tail = 0;
 	}
 }
@@ -359,6 +361,7 @@ void PlaybackCommand::HandleCommandExit( void )
 	{
 		SAFE_DELETE( player );
 	}
+	mp4Demux = nullptr;
 	termPlayerLoop();
 }
 
@@ -1071,8 +1074,6 @@ void PlaybackCommand::addCommand(std::string command,std::string description)
 	commands.push_back(command);
 }
 
-#include "mp4demux.hpp"
-Mp4Demux mp4Demux = Mp4Demux(true);
 void PlaybackCommand::parse( const char *path )
 {
 	while( *path == ' ' )
@@ -1096,20 +1097,61 @@ void PlaybackCommand::parse( const char *path )
 					size_t rc = fread(ptr,1,len,f);
 					if( rc == len )
 					{
-						// coverity[TAINTED_SCALAR]:SUPPRESS
-						mp4Demux.Parse(ptr,len);
-						int count = mp4Demux.count();
-						for (int i=0; i<count; i++)
+						if (!mp4Demux)
 						{
-							AAMPCLI_PRINTF("Sample No:%d, PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf DRM:%d\n",
-									i + 1,
-									mp4Demux.getPtr(i),
-									mp4Demux.getLen(i),
-									mp4Demux.getPts(i),
-									mp4Demux.getDts(i),
-									mp4Demux.getDuration(i),
-									mp4Demux.getDrmMetadata(i) ? 1 : 0
-									);
+							mp4Demux = std::make_shared<Mp4Demux>(true);
+						}
+						mp4Demux->Parse(ptr,len);
+						auto &samples = mp4Demux->getSamples();
+						if (samples.empty())
+						{
+							AAMPCLI_PRINTF("No samples found in file '%s'\n", path );
+							auto codecInfo = mp4Demux->getCodecInfo();
+							AAMPCLI_PRINTF("Codec Info: Format=%d, CodecDataSize=%zu\n",
+								codecInfo.mCodecFormat,
+								codecInfo.mCodecData.size());
+						}
+						else
+						{
+							for (auto &sample : samples)
+							{
+								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf DRM:%d\n",
+										sample.mData.GetPtr(),
+										sample.mData.GetLen(),
+										(double)sample.mPts,
+										(double)sample.mDts,
+										(double)sample.mDuration,
+										sample.mDrmMetadata.mIsEncrypted ? 1 : 0
+										);
+								if (sample.mDrmMetadata.mIsEncrypted)
+								{
+									// Build hex strings for keyID and IV to avoid messy logs with multiple AAMPCLI_PRINTF calls
+									std::string ivHex;
+									for (auto b : sample.mDrmMetadata.mIV)
+									{
+										char hexByte[3];
+										snprintf(hexByte, sizeof(hexByte), "%02x", b);
+										ivHex += hexByte;
+									}
+
+									std::string keyIdHex;
+									for (auto b : sample.mDrmMetadata.mKeyId)
+									{
+										char hexByte[3];
+										snprintf(hexByte, sizeof(hexByte), "%02x", static_cast<uint8_t>(b));
+										keyIdHex += hexByte;
+									}
+
+									AAMPCLI_PRINTF("  DRM Info: Cipher:%s MediaType:%s KID=%s, IV=0x%s, SubSamples=%zu, CryptByteBlock: %d, SkipBytes: %d\n", 
+										sample.mDrmMetadata.mCipher.c_str(),
+										sample.mDrmMetadata.mOriginalMediaType.c_str(),
+										keyIdHex.c_str(),
+										ivHex.c_str(),
+										sample.mDrmMetadata.mSubSamples.size()/6,
+										sample.mDrmMetadata.mCryptByteBlock,
+										sample.mDrmMetadata.mSkipByteBlock);
+								}
+							}
 						}
 					}
 					free( ptr );

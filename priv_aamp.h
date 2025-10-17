@@ -73,8 +73,11 @@
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
+#include "AampDemuxDataTypes.h"
 
+// forward declaration to avoid circular dependency
 class AampMPDDownloader;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -1783,6 +1786,8 @@ public:
 	 *   @return void
 	 */
 	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
 
 	/**
 	 * @fn IsLive
@@ -3986,6 +3991,8 @@ public:
 	 * @return Offset value in msecs
 	 */
 	double GetFormatPositionOffsetInMSecs();
+
+	void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo);
 
 protected:
 

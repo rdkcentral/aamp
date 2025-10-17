@@ -5472,6 +5472,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else
 	{
+		AampCodecInfo videoCodec;
+		AampCodecInfo audioCodec;
+		AampCodecInfo subtitleCodec;
+
 		//explicitly invalidate previous position for consistency with previous code
 		mPrevPositionMilliseconds.Invalidate();
 
@@ -5500,15 +5504,41 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
-		GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d", mVideoFormat, mAudioFormat);
-
-		//Identify if HLS with mp4 fragments, to change media format
-		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
+		if (mMediaFormat == eMEDIAFORMAT_DASH)
 		{
-			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+			mpStreamAbstractionAAMP->GetStreamCodecInfo(videoCodec, audioCodec, subtitleCodec);
+			mVideoFormat = videoCodec.mCodecFormat;
+			mAudioFormat = audioCodec.mCodecFormat;
+			mSubtitleFormat = subtitleCodec.mCodecFormat;
 		}
-		StartRateCorrectionWorkerThread();
+		else
+		{
+			GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
+			//Identify if HLS with mp4 fragments, to change media format
+			if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
+			{
+				mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+			}
+		}
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mSubtitleFormat);
+
+		if(mFirstFragmentTimeOffset < 0)
+		{
+			long long  duration = 0;
+			// Update first fragment time, ie time of the tune for new tune, and time of retune for seektolive
+			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
+			if(mSeekOperationInProgress && mProgressReportOffset < 0 )
+			{
+					duration = DurationFromStartOfPlaybackMs();
+			}
+			else
+			{
+					duration = GetDurationMs();
+			}
+			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - duration)/1000.0;
+			AAMPLOG_INFO("Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duration);
+			StartRateCorrectionWorkerThread();
+		}
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -7552,6 +7582,15 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowab
 	else
 	{
 		buffer->Free();
+	}
+}
+
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SendSample(mediaType, sample);
 	}
 }
 
@@ -14021,5 +14060,14 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 		audioOutputFormat = FORMAT_INVALID;
 		subtitleOutputFormat = FORMAT_INVALID;
 		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
+	}
+}
+
+void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SetStreamCaps(type, codecInfo);
 	}
 }

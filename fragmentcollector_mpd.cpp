@@ -14211,3 +14211,34 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 {
 	mFirstPTS = 0.0;
 }
+
+void StreamAbstractionAAMP_MPD::GetStreamCodecInfo(AampCodecInfo &videoCodec, AampCodecInfo &audioCodec, AampCodecInfo &textCodec)
+{
+	// Initialize with unknown format
+	videoCodec = AampCodecInfo(FORMAT_UNKNOWN);
+	audioCodec = AampCodecInfo(FORMAT_UNKNOWN);
+	textCodec = AampCodecInfo(FORMAT_UNKNOWN);
+
+	// Aux audio to be deprecated in future
+	for (const auto& mediaStreamContext : mMediaStreamContext)
+	{
+		// TODO: Optimize later
+		if (mediaStreamContext && mediaStreamContext->enabled && mediaStreamContext->playContext)
+		{
+			switch (mediaStreamContext->type)
+			{
+				case eTRACK_VIDEO:
+					videoCodec = mediaStreamContext->playContext->getCodecInfo();
+					break;
+				case eTRACK_AUDIO:
+					audioCodec = mediaStreamContext->playContext->getCodecInfo();
+					break;
+				case eTRACK_SUBTITLE:
+					textCodec = mediaStreamContext->playContext->getCodecInfo();
+					break;
+				default:
+					break;
+			}
+		}
+	}
+}

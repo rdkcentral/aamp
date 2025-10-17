@@ -527,6 +527,8 @@ public:
 	 */
 	void clearFirstPTS(void) override;
 
+	void GetStreamCodecInfo (AampCodecInfo &videoCodec, AampCodecInfo &audioCodec, AampCodecInfo &textCodec) override;
+
 protected:
 	/**
 	 * @fn StartFromAampLocalTsb

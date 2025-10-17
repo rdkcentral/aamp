@@ -28,6 +28,7 @@
 #include "AampMediaType.h"
 #include "AampSegmentInfo.hpp"
 #include "AampGrowableBuffer.h"
+#include "AampDemuxDataTypes.h"
 
 #include <stddef.h>
 #include <functional>
@@ -129,24 +130,24 @@ public:
 	 */
 	virtual void setFrameRateForTM (int frameRate) = 0;
 
-        /**
-          * @brief Reset PTS on subtitleSwitch
-          *
-          * @param[in] pBuffer - Pointer to the AampGrowableBuffer
-          * @param[in] position - position of fragment
-          * @return void
-          */
-
+	/**
+	 * @brief Reset PTS on subtitleSwitch
+	 *
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] position - position of fragment
+	 * @return void
+	 */
 	virtual void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) {};
-        /**
-          * @brief Reset PTS on audioSwitch
-          *
-          * @param[in] pBuffer - Pointer to the AampGrowableBuffer
-          * @param[in] position - position of fragment
-          * @return void
-          */
 
+	/**
+	 * @brief Reset PTS on audioSwitch
+	 *
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] position - position of fragment
+	 * @return void
+	 */
 	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) {};
+
 	/**
 	 * @brief Abort all operations
 	 *
@@ -162,55 +163,60 @@ public:
 	virtual void reset() = 0;
 
 	/**
-	* @fn Change Muxed Audio Track
-	* @param[in] AudioTrackIndex
-	*/
+	 * @fn Change Muxed Audio Track
+	 * @param[in] AudioTrackIndex
+	 */
 	virtual void ChangeMuxedAudioTrack(unsigned char index){};
 
 	/**
-	* @brief Function to set the group-ID
-	* @param[in] string - id
-	*/
+	 * @brief Function to set the group-ID
+	 * @param[in] string - id
+	 */
 	virtual void SetAudioGroupId(std::string& id){};
 
 	/**
-	* @brief Function to set a offsetflag. if the value is false, no need to apply offset while doing pts restamping
-	* @param[in] bool - true/false
-	*/
+	 * @brief Function to set a offsetflag. if the value is false, no need to apply offset while doing pts restamping
+	 * @param[in] bool - true/false
+	 */
 	virtual void setApplyOffsetFlag(bool enable){};
 
 	/**
-	* @brief Function to abort wait for injecting the segment
-	*/
+	 * @brief Function to abort wait for injecting the segment
+	 */
 	virtual void abortInjectionWait() = 0;
 
 	/**
-	* @brief Function to enable/disable the processor
-	* @param[in] enable true to enable, false otherwise
-	*/
+	 * @brief Function to enable/disable the processor
+	 * @param[in] enable true to enable, false otherwise
+	 */
 	virtual void enable(bool enable) = 0;
 
 	/**
-	* @brief Function to set a track offset for restamping
-	* @param[in] offset offset value in seconds
-	*/
+	 * @brief Function to set a track offset for restamping
+	 * @param[in] offset offset value in seconds
+	 */
 	virtual void setTrackOffset(double offset) = 0;
 
 	/**
-	* @brief Function to set skipped fragment duration and skip point position
-	* @param[in] skipPoint - skip point position in seconds
-	* @param[in] skipDuration- duration in seconds to be skipped
-	*/
+	 * @brief Function to set skipped fragment duration and skip point position
+	 * @param[in] skipPoint - skip point position in seconds
+	 * @param[in] skipDuration- duration in seconds to be skipped
+	 */
 	virtual void updateSkipPoint(double skipPoint, double skipDuration ) {}
 
 	/**
-	* @brief Function to set discontinuity
-	*/
+	 * @brief Function to set discontinuity
+	 */
 	virtual void setDiscontinuityState(bool isDiscontinuity) {}
 
 	/**
-	* @brief Function to abort wait for videoPTS arrival
-	*/
+	 * @brief Function to abort wait for videoPTS arrival
+	 */
 	virtual void abortWaitForVideoPTS() {}
+
+	/**
+	 * @brief Function to get codec information
+	 */
+	virtual const AampCodecInfo& getCodecInfo() { static AampCodecInfo info(FORMAT_UNKNOWN); return info; }
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

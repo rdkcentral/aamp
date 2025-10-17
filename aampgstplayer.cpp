@@ -102,7 +102,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
-	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
 /*
@@ -679,7 +678,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample sample, bool copy, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -707,10 +706,10 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		namespace aih = aamp::id3_metadata::helpers;
 
 		if (aih::IsValidMediaType(mediaType) &&
-			aih::IsValidHeader(static_cast<const uint8_t*>(ptr), len))
+			aih::IsValidHeader(static_cast<const uint8_t*>(sample.data), sample.dataSize))
 		{
-			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(ptr), len,
-								 {fpts, fdts, fDuration}, nullptr);
+			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(sample.data), sample.dataSize,
+								 {sample.pts, sample.dts, sample.duration}, nullptr);
 		}
 	}
 
@@ -723,7 +722,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	{
 		sendNewSegmentEvent = true;
 	}
-	bool bPushBuffer = playerInstance->SendHelper(mediaType, ptr, len, fpts, fdts, fDuration, fragmentPTSoffset, copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
+	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
 	if(sendNewSegmentEvent)
 	{
 		aamp->mbNewSegmentEvtSent[mediaType] = true;
@@ -734,7 +733,8 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	}
 	if(bPushBuffer)
 	{
-		privateContext->mBufferControl[mediaType].notifyFragmentInject(this, mediaType, fpts, fdts, fDuration, discontinuity);
+		// TODO: Accessing values from a moved object
+		privateContext->mBufferControl[mediaType].notifyFragmentInject(this, mediaType, sample.pts, sample.dts, sample.duration, discontinuity);
 	}
 	if (eMEDIATYPE_VIDEO == mediaType)
 	{
@@ -763,7 +763,14 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
  */
 bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, true /*copy*/, 0.0 );
+	MediaSample sample;
+	sample.data = ptr;
+	sample.dataSize = len;
+	sample.pts = fpts;
+	sample.dts = fdts;
+	sample.duration = fDuration;
+	sample.ptsOffset = 0.0;
+	return SendHelper( mediaType, std::move(sample), true /*copy*/ );
 }
 
 /**
@@ -771,7 +778,14 @@ bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, const void *ptr, size_t le
  */
 bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, fragmentPTSoffset,  initFragment, discontinuity );
+	MediaSample sample;
+	sample.data = ptr;
+	sample.dataSize = len;
+	sample.pts = fpts;
+	sample.dts = fdts;
+	sample.duration = fDuration;
+	sample.ptsOffset = fragmentPTSoffset;
+	return SendHelper( mediaType, std::move(sample), false /*transfer*/, initFragment, discontinuity );
 }
 
 /**
@@ -1311,4 +1325,64 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 		monitorAvTimerId = 0;
 		AAMPLOG_MIL("MonitorAvTimer stopped");
 	}
+}
+
+void AAMPGstPlayer::SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo)
+{
+	CodecInfo gstCodecInfo;
+	gstCodecInfo.codecFormat = (GstStreamOutputFormat)codecInfo.mCodecFormat;
+	gstCodecInfo.codecData = std::move(codecInfo.mCodecData);
+	gstCodecInfo.isEncrypted = codecInfo.mIsEncrypted;
+	if (codecInfo.mType == eMEDIATYPE_VIDEO)
+	{
+		gstCodecInfo.info.video.width = codecInfo.mInfo.video.mWidth;
+		gstCodecInfo.info.video.height = codecInfo.mInfo.video.mHeight;
+	}
+	else if (codecInfo.mType == eMEDIATYPE_AUDIO)
+	{
+		gstCodecInfo.info.audio.channelCount = codecInfo.mInfo.audio.mChannelCount;
+		gstCodecInfo.info.audio.sampleRate = codecInfo.mInfo.audio.mSampleRate;
+	}
+	playerInstance->SetStreamCaps((GstMediaType)type, gstCodecInfo);
+}
+
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+{
+	bool ret = false;
+	MediaSample gstSample;
+
+	// Convert AampMediaSample to MediaSample
+	gstSample.data = sample.mData.GetPtr();
+	gstSample.dataSize = sample.mData.GetLen();
+	gstSample.pts = static_cast<double>(sample.mPts);
+	gstSample.dts = static_cast<double>(sample.mDts);
+	gstSample.duration = static_cast<double>(sample.mDuration);
+	// Sample is encrypted, set the DRM metadata
+	if (sample.mDrmMetadata.mIsEncrypted)
+	{
+		gstSample.drmMetadata.isEncrypted = true;
+		gstSample.drmMetadata.subSamples = std::move(sample.mDrmMetadata.mSubSamples);
+		gstSample.drmMetadata.keyId = std::move(sample.mDrmMetadata.mKeyId);
+		gstSample.drmMetadata.iv = std::move(sample.mDrmMetadata.mIV);
+		gstSample.drmMetadata.cipher = std::move(sample.mDrmMetadata.mCipher);
+		gstSample.drmMetadata.cryptByteBlock = sample.mDrmMetadata.mCryptByteBlock;
+		gstSample.drmMetadata.skipByteBlock = sample.mDrmMetadata.mSkipByteBlock;
+		gstSample.drmMetadata.originalMediaType = std::move(sample.mDrmMetadata.mOriginalMediaType);
+	}
+	else
+	{
+		gstSample.drmMetadata.isEncrypted = false;
+	}
+
+	ret = SendHelper( mediaType, std::move(gstSample), false /*transfer*/);
+
+	if (ret)
+	{
+		sample.mData.Transfer();
+	}
+	else
+	{
+		sample.mData.Free();
+	}
+	return ret;
 }

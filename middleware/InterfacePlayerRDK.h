@@ -127,7 +127,6 @@ struct Configs
 	int monitorAvsyncThresholdPositiveMs;
 	int monitorAvsyncThresholdNegativeMs;
 	int monitorAvJumpThresholdMs;
-	bool useMp4Demux;
 };
 
 
@@ -145,6 +144,51 @@ enum class InterfaceCB
 	firstVideoFrameReceived,
 	notifyEOS,
 	startNewSubtitleStream // Add more events here if needed
+};
+
+
+struct CodecInfo
+{
+	GstStreamOutputFormat codecFormat; // 'avc1', 'mp4a', etc
+	std::vector<uint8_t> codecData; // codec private data, e.g. avcC box
+	bool isEncrypted;
+	union
+	{
+		struct
+		{
+			uint16_t channelCount;
+			uint16_t sampleRate;
+		} audio;
+		
+		struct
+		{
+			uint16_t width;
+			uint16_t height;
+		} video;
+	} info;
+};
+
+struct MediaDrmMetadata
+{
+	bool isEncrypted;
+	std::string keyId; // 16 bytes UUID
+	std::vector<uint8_t> iv; // 8 or 16 bytes
+	std::string cipher; // e.g. 'cenc', 'cbcs'
+	std::string originalMediaType; // 'vide' or 'soun'
+	std::vector<uint8_t> subSamples; // optional subsample encryption data
+	uint8_t cryptByteBlock;
+	uint8_t skipByteBlock;
+};
+
+struct MediaSample
+{
+	const void *data;
+	size_t dataSize;
+	double pts;
+	double dts;
+	double duration;
+	double ptsOffset;
+    MediaDrmMetadata drmMetadata; // DRM metadata
 };
 
 // Class to encapsulate GStreamer-related functionality
@@ -451,7 +495,7 @@ class InterfacePlayerRDK
         	 * @param[out] firstBufferPushed Indicates whether the first buffer was pushed.
         	 * @return True if the event was sent successfully, false otherwise.
         	 */
-        	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
+			bool SendHelper(int type, MediaSample sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
         	/**
         	 * @brief Pauses the injector.
         	 */
@@ -759,6 +803,8 @@ class InterfacePlayerRDK
 		 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
 		 */
 		const MonitorAVState& GetMonitorAVState();
+
+		void SetStreamCaps(GstMediaType type, const CodecInfo &codecInfo);
 
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
