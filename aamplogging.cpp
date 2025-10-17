@@ -31,15 +31,10 @@ using namespace std;
 
 
 #ifdef USE_ETHAN_LOG
-static void __attribute__((constructor)) debug_ethan_log_enabled() {
-    printf("DEBUG_LOG aamplogging.cpp USE_ETHAN_LOG is defined - EthanLog support enabled\n");
-}
 #include <ethanlog.h>
 #else
 // stubs for use if USE_ETHAN_LOG not defined
-void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){
-	printf("DEBUG_LOG  aamplogging vethanlog stub called (EthanLog not available)\n");
-}
+void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
 #define ETHAN_LOG_WARNING 2

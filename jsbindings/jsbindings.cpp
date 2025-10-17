@@ -2517,7 +2517,6 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
  */
 static JSValueRef AAMP_stop(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
-	printf("DEBUG_LOG:Inside AAMP_stop of jsbindings\n");
         LOG_TRACE("Enter");
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject); 
 	if(!pAAMP)
@@ -2526,7 +2525,6 @@ static JSValueRef AAMP_stop(JSContextRef context, JSObjectRef function, JSObject
 		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.stop on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
-	printf("DEBUG_LOG:PlayerId: %d\n", pAAMP->iPlayerId);
    	LOG_WARN(pAAMP," aamp->stop()");
 	pAAMP->_aamp->Stop();
 	return JSValueMakeUndefined(context);
