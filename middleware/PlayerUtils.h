@@ -110,5 +110,11 @@ static const char * ParseUriProtocol(const char *uri);
  */
 void trim(std::string& src);
 
+/**
+ * @fn trim
+ * @param[in][out] src Buffer containing string
+ */
+void trim(std::string& src);
+
 #endif  /* __PLAYER_UTILS_H__ */
 

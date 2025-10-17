@@ -37,7 +37,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -70,6 +70,7 @@ endif()
 
 # Platform specific settings
 if(APPLE)
+	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.6")
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
@@ -99,7 +100,6 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
 	set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
 	set(CMAKE_AAMP_SIMULATOR TRUE)
-
 	if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		execute_process (
 			COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -272,6 +272,7 @@ set(LIBAAMP_SOURCES
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
 	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	CachedFragment.cpp CachedFragment.h
 	AampScheduler.cpp AampScheduler.h
 	AampUtils.cpp AampUtils.h
 	AampJsonObject.cpp AampJsonObject.h
@@ -321,7 +322,6 @@ set(LIBAAMP_SOURCES
 	dash/utils/Url.cpp
 	dash/utils/StringEx.cpp
 	dash/utils/Path.cpp
-	#ProcessHandler.cpp ProcessHandler.h
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
 	AampMPDUtils.cpp AampMPDUtils.h

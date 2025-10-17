@@ -50,10 +50,12 @@ set(TEST_SOURCES PauseAtTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
                  SubtitleMuteTests.cpp
+                 ClosedCaptionTests.cpp
                  PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -370,10 +370,10 @@ plugin_init (GstPlugin * plugin)
 #define VERSION "0.1.0"
 #endif
 #ifndef PACKAGE
-#define PACKAGE "GstreamerPlugins"
+#define PACKAGE "MWGstreamerPlugins"
 #endif
 #ifndef PACKAGE_NAME
-#define PACKAGE_NAME "GstreamerPlugins"
+#define PACKAGE_NAME "MWGstreamerPlugins"
 #endif
 #ifndef GST_PACKAGE_ORIGIN
 #define GST_PACKAGE_ORIGIN "http://comcast.com/"

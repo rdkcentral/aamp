@@ -212,7 +212,7 @@ void DrmInterface::RegisterAesInterfaceCb( std::shared_ptr<HlsDrmBase> instance)
 
      if(instance)
      {
-         registerCallback(this , aesDecPtr);
+        registerCallback(this , std::move(aesDecPtr));
      }
 }
 /** 

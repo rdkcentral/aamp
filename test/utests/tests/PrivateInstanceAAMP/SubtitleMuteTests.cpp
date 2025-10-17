@@ -24,6 +24,7 @@
 #include "priv_aamp.h"
 
 #include "AampConfig.h"
+#include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
@@ -52,7 +53,20 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
+		// Set up mock config to control eAAMPConfig_GstSubtecEnabled
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
+
+		// Return false for all config settings by default using ON_CALL
+		ON_CALL(*g_mockAampConfig, IsConfigSet(_))
+			.WillByDefault(Return(false));
+
+		// Specifically return true for eAAMPConfig_GstSubtecEnabled using ON_CALL
+		ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled))
+			.WillByDefault(Return(true));
+
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		// Test out-of-band subtitles
+		mPrivateInstanceAAMP->mIsInbandCC = false;
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
@@ -73,6 +87,9 @@ protected:
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
 
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
+
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
@@ -83,6 +100,7 @@ protected:
 public:
 	void CacheAndMuteSubtitles(bool currState, bool inputState)
 	{
+		AAMPLOG_INFO("currState=%d, inputState=%d", currState, inputState);
 		mPrivateInstanceAAMP->subtitles_muted = currState;
 		// Confirm operation works as expected
 		// If input = unmute, subtitles should be set to currState (mute/un-mute)
@@ -91,7 +109,7 @@ public:
 		EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(finalState)).Times(1);
 
 		mPrivateInstanceAAMP->AcquireStreamLock();
-		mPrivateInstanceAAMP->CacheAndApplySubtitleMute(inputState);
+		mPrivateInstanceAAMP->SetVideoMute(inputState);
 		mPrivateInstanceAAMP->ReleaseStreamLock();
 
 		// Confirm original state is preserved

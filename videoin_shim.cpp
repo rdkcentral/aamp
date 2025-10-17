@@ -49,7 +49,7 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
 	{
 		std::function<void(std::string)> OnInputStatusChangedCb = bind(&StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged, this, placeholders::_1);
 		std::function<void(std::string)> OnSignalChangedCb = bind(&StreamAbstractionAAMP_VIDEOIN::OnSignalChanged, this, placeholders::_1);
-		thunderAccessObj.RegisterAllEventsVideoin(OnInputStatusChangedCb, OnSignalChangedCb);
+		thunderAccessObj.RegisterAllEventsVideoin(std::move(OnInputStatusChangedCb), std::move(OnSignalChangedCb));
 		mIsInitialized = true;
 	}
 	return retval;
@@ -59,12 +59,12 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
  * @brief StreamAbstractionAAMP_VIDEOIN Constructor
  */
 StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, PlayerThunderAccessPlugin callSign,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
-                               : mName(name),
+                               : mName(std::move(name)),
                                StreamAbstractionAAMP(aamp),
                                mTuned(false),
-                               videoInputType(type),
-				mIsInitialized(false)
-                                ,thunderAccessObj(callSign)
+                               videoInputType(std::move(type)),
+                               mIsInitialized(false),
+                               thunderAccessObj(callSign)
 {
 	AAMPLOG_WARN("%s Constructor",mName.c_str());
     thunderAccessObj.ActivatePlugin();

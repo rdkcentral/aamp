@@ -252,29 +252,32 @@ private:
 public:
 
 	/**
-	 * @fn ProfileEventAAMP
+	 * @fn ProfileEventAAMP Constructor
 	 */
 	ProfileEventAAMP();
 
 	/**
 	 * @brief ProfileEventAAMP Destructor
 	 */
-	~ProfileEventAAMP(){
+	~ProfileEventAAMP()
+	{
 		if(telemetryParam != NULL)
 		{
 			cJSON_Delete(telemetryParam);
-			mLldLowBuffObject = NULL;
+			// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		}
 	}
+
 	/**
-         * @brief Copy constructor disabled
-         *
-         */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	ProfileEventAAMP(const ProfileEventAAMP&) = delete;
+
 	/**
-         * @brief assignment operator disabled
-         *
-         */
+	 * @brief assignment operator disabled
+	 *
+	 */
 	ProfileEventAAMP& operator=(const ProfileEventAAMP&) = delete;
 
 	/**
@@ -359,20 +362,7 @@ public:
 	 * @return void
 	 */
 	void TuneEnd(TuneEndMetrics &mTuneendmetrics, std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData);
-	/**
-	 * @fn GetClassicTuneTimeInfo
-	 *
-	 * @param[in] success - Tune status
-	 * @param[in] tuneRetries - Number of tune attempts
-	 * @param[in] playerLoadTime - Time at which the first tune request reached the AAMP player
-	 * @param[in] streamType - Type of stream. eg: HLS, DASH, etc
-	 * @param[in] isLive  - Live channel or not
-	 * @param[in] durationS - Asset duration in seconds
-	 * @param[out] TuneTimeInfoStr - Formatted output string
-	 * @return void
-	 */
-	void GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive, unsigned int durationS, char *TuneTimeInfoStr);
-
+	
 	/**
 	 * @fn ProfileBegin
 	 *
@@ -477,6 +467,8 @@ public:
 	 * @return void
 	 */
 	void GetTelemetryParam();
+
+	unsigned int mStopDurationMs;			/**< Duration of Previous stop call in ms */
 
 };
 

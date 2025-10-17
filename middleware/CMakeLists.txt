@@ -26,10 +26,9 @@ if(DISABLE_SECURITY_TOKEN)
 endif()
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GST REQUIRED gstreamer-plugins-base-1.0)
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 
 include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
@@ -131,7 +130,7 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	vendor/realtek/RealtekSocInterface.h
 	vendor/brcm/BrcmSocInterface.h
 	vendor/default/DefaultSocInterface.h
-    subtitle/vttCue.h
+        subtitle/vttCue.h
 	ProcessHandler.h
 	)
 

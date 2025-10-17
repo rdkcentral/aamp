@@ -382,30 +382,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
 	}
-#if 0 
-	/* For Rialto, teardown and rebuild the gstreamer streams if the
-	 * configuration changes. This allows the "single-path-stream" property to
-	 * be set correctly.
-	 */
-	if((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (configurationChanged))
-	{
-		MW_LOG_INFO("Teardown and rebuild the pipeline for Rialto");
-
-		for (int i = 0; i < GST_TRACK_COUNT; i++)
-		{
-			gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
-			if (stream->format != GST_FORMAT_INVALID)
-			{
-				TearDownStream((int)i);
-			}
-
-			if(newFormat[i] != GST_FORMAT_INVALID)
-			{
-				configureStream[i] = true;
-			}
-		}
-	}
-#endif
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
@@ -711,12 +687,12 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,%lld",
+					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d, %" G_GINT64_FORMAT "",
 							   monitorAVState->description,
 							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
 							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
 							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
-							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
+							   (gint64)monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
 				MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,0",
 							   description,
@@ -1315,9 +1291,9 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	stream->eosReached = false;
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 
+	pthread_mutex_lock(&stream->sourceLock);
 	if (stream->format != GST_FORMAT_INVALID)
 	{
-		pthread_mutex_lock(&stream->sourceLock);
 		if (interfacePlayerPriv->gstPrivateContext->pipeline)
 		{
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
@@ -1347,8 +1323,8 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
-		pthread_mutex_unlock(&stream->sourceLock);
 	}
+	pthread_mutex_unlock(&stream->sourceLock);
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->video_dec);
@@ -1686,7 +1662,7 @@ void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: Connected %s", detailed_signal);
 			GstPlayerPriv::CallbackData Identifier{instance, id, detailed_signal};
-			gstPrivateContext->mCallBackIdentifiers.push_back(Identifier);
+			gstPrivateContext->mCallBackIdentifiers.push_back(std::move(Identifier));
 		}
 		else
 		{
@@ -2848,14 +2824,14 @@ bool InterfacePlayerRDK::WaitForSourceSetup(int mediaType)
 /**
  *  @brief Forward buffer to aux pipeline
  */
-void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjecter, void *user_data)
+void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data)
 {
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
 	InterfacePlayerRDK *instance = static_cast<InterfacePlayerRDK*>(user_data);
 	if (!stream->sourceConfigured && stream->format != GST_FORMAT_INVALID)
 	{
 		bool status = instance->WaitForSourceSetup((int)eGST_MEDIATYPE_AUX_AUDIO);
-		if (pauseInjecter && !status)
+		if (pauseInjector && !status)
 		{
 			// Buffer is not owned by us, no need to free
 			return;
@@ -3045,6 +3021,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 						double pts = mp4Demux->getPts(i);
 						double dts = mp4Demux->getDts(i);
 						double dur = mp4Demux->getDuration(i);
+						GstStructure *drm = mp4Demux->getDrmMetadata(i);
 						gpointer data = g_malloc(sampleLen);
 						if( data )
 						{
@@ -3053,6 +3030,10 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);
+							if (drm)
+							{
+								gst_buffer_add_protection_meta(gstBuffer, drm);
+							}
 							GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source),gstBuffer);
 							if( ret == GST_FLOW_OK )
 							{
@@ -3642,16 +3623,16 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 
 void InterfacePlayerRDK::FirstFrameCallback(std::function<void(int, bool, bool, bool&, bool&)> callback)
 {
-	notifyFirstFrameCallback = callback;
+	notifyFirstFrameCallback = std::move(callback);
 }
 
 void InterfacePlayerRDK::StopCallback(std::function<void(bool)> callback)
 {
-	stopCallback = callback;
+	stopCallback = std::move(callback);
 }
 void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callback)
 {
-	tearDownCb = callback;
+	tearDownCb = std::move(callback);
 }
 
 /**
@@ -4138,7 +4119,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4157,7 +4138,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4337,7 +4318,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 													   G_CALLBACK(GstPlayer_OnGstBufferUnderflowCb), pInterfacePlayerRDK);
 				}
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 
 			break;
@@ -4350,7 +4331,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//busEvent.msg[GST_ERROR_DESCRIPTION_LENGTH - 1] = '\0';
 			busEvent.msg = "N/A";
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_MIL("GST_MESSAGE_EOS");
 			pInterfacePlayerRDK->NotifyEOS();
 			break;
@@ -4414,7 +4395,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//strncpy(busEvent.dbg_info, "N/A", sizeof(busEvent.dbg_info) - 1);
 			//busEvent.dbg_info[sizeof(busEvent.dbg_info) - 1] = '\0';
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 			break;
 		default:
@@ -5025,7 +5006,7 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(int streamId, std::string ma
 	int retvalue = 0;
 	GstMediaType mediaType = static_cast<GstMediaType>(streamId);
 	this->TriggerEvent(InterfaceCB::startNewSubtitleStream, mediaType);
-	retvalue = this->SetupStream(mediaType, (void*)this, manifestUrl);
+	retvalue = this->SetupStream(mediaType, (void*)this, std::move(manifestUrl));
 
 	return retvalue;
 }

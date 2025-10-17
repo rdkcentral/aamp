@@ -63,7 +63,6 @@ enum
  *
  * @note The caller is responsible for freeing the memory allocated for the modified PSSH data.
  */
-
 static unsigned char* ReplaceKIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength)
 {
 	unsigned char *outputData = NULL;
