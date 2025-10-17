@@ -18,23 +18,23 @@
 */
 
 /**
- * @file jscontroller-jsbindings.cpp
- * @brief JavaScript bindings for AAMP_JSController
+ * @file jsbindings-main.cpp
+ * @brief The main function where the JS bindings workflow starts
+ * Houses the functions to load/unload AAMP_JSController JS object into/from JS execution context
+ * and functions to set/apply custom http headers from browser to AAMP
  */
 
-
-#include <JavaScriptCore/JavaScript.h>
-
-#include "jsbindings.h"
+#include "jsbindings-main.h" // includes main_aamp.h
 #include "jsutils.h"
-#include "priv_aamp.h"
-
 #include <stdio.h>
 #include <string.h>
 
 static std::string g_UserAgent;
 extern "C"
 {
+	// aamp_LoadJSController, aamp_UnloadJSController is called from external module to
+	// load/unload AAMP_JSController JS object into JS execution context.
+	// Hence please be careful while changing the function signature.
 	void aamp_LoadJSController(JSGlobalContextRef context);
 
 	void aamp_UnloadJSController(JSGlobalContextRef context);
@@ -43,6 +43,7 @@ extern "C"
 
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);	
 }
+
 //global variable to hold the custom http headers
 static std::map<std::string, std::string> g_PageHttpHeaders;
 
@@ -114,10 +115,6 @@ void aamp_LoadJSController(JSGlobalContextRef context)
 	LOG_WARN_EX("aamp_LoadJSController context=%p", context);
 	g_UserAgent = "";
 
-	// For this ticket we have repurposed AAMP.version to return the UVE bindings version
-	// When at some point in future we deprecate legacy bindings or aamp_LoadJS() please don't forget
-	// to retain this support to avoid backward compatibility issues.
-	aamp_LoadJS(context, NULL);
 	AAMPPlayer_LoadJS(context);
 }
 
@@ -130,14 +127,12 @@ void aamp_UnloadJSController(JSGlobalContextRef context)
 {
 	LOG_WARN_EX("aamp_UnloadJSController context=%p", context);
 
-	aamp_UnloadJS(context);
 	AAMPPlayer_UnloadJS(context);
 
 	LOG_TRACE("JSGarbageCollect(%p)", context);
 	// Force garbage collection to free up memory
 	JSGarbageCollect(context);
 }
-
 
 /**
  * @brief Read userAgent from browser
