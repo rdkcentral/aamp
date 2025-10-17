@@ -2113,10 +2113,11 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			//AAMPLOG_WARN("aamp clamp end");
 			position = end;
 		}
-		else if (position < start)
-		{ // clamp start
-			AAMPLOG_WARN( "clamp position %fms < start %fms", position, start );
-			position = start;	// Jose: Should position be set to 0 instead?
+		else if (position < start || (beginningOfStream && rate < AAMP_RATE_PAUSE))
+		{ // clamp start or handle BOS during rewind
+			AAMPLOG_MIL("Reached BoS position %fms < start %fms beginningOfStream %d rate %f",
+				position, start, beginningOfStream, rate);
+			position = start;
 			HandleBeginningOfStreamReached();
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
@@ -3255,24 +3256,20 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
  */
 void PrivateInstanceAAMP::HandleBeginningOfStreamReached()
 {
-	// Check the rate so that we only handle BOS during rewind once
-	if (rate < AAMP_RATE_PAUSE)
+	seek_pos_seconds = culledSeconds;
+	AAMPLOG_MIL("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
+	if (trickStartUTCMS == -1)
 	{
-		seek_pos_seconds = culledSeconds;
-		AAMPLOG_MIL("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
-		if (trickStartUTCMS == -1)
-		{
-			// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
-			// send BOS event to JSPP
-			ResetTrickStartUTCTime();
-			AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
-		}
-		rate = AAMP_NORMAL_PLAY_RATE;
-		AcquireStreamLock();
-		TuneHelper(eTUNETYPE_SEEK);
-		ReleaseStreamLock();
-		NotifySpeedChanged(rate);
+		// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
+		// send BOS event to JSPP
+		ResetTrickStartUTCTime();
+		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
 	}
+	rate = AAMP_NORMAL_PLAY_RATE;
+	AcquireStreamLock();
+	TuneHelper(eTUNETYPE_SEEK);
+	ReleaseStreamLock();
+	NotifySpeedChanged(rate);
 }
 
 /**
@@ -3344,7 +3341,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
 			ReportProgress(true, true);
-			HandleBeginningOfStreamReached();
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{

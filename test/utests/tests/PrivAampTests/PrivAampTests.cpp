@@ -966,6 +966,50 @@ TEST_F(PrivAampTests,ReportProgressTest6)
 	p_aamp->ReportProgress(sync,beginningOfStream);
 }
 
+/**
+ * @brief Test ReportProgress when rewinding reaches the beginning of the TSB.
+ * Verifies that HandleBeginningOfStreamReached() is called and rate is reset to normal play.
+ */
+TEST_F(PrivAampTests, ReportProgressRewindToBeginningOfTSB)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 10.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: Configure player for rewind scenario reaching BOS
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->pipeline_paused = false;
+	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	// Mock StreamAbstraction - Set it up before calling ReportProgress
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Setup mocks for the flow
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Call ReportProgress - position will be less than start (culledSeconds * 1000)
+	// This triggers HandleBeginningOfStreamReached()
+	p_aamp->ReportProgress(false, false);
+
+	// Verify rate was reset to normal play rate (main test objective)
+	EXPECT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
+
+	// Note: seek_pos_seconds gets modified by TuneHelper during the rewind-to-BOS handling
+	// The final value depends on the TuneHelper logic which calculates playlistSeek
+	EXPECT_EQ(p_aamp->seek_pos_seconds, 0.0);
+}
+
 TEST_F(PrivAampTests,UpdateDurationTest)
 {
 	p_aamp->UpdateDuration(232.436);
@@ -4656,6 +4700,13 @@ TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
 	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
 	p_aamp->mLiveOffset= kLiveOffset;
 	p_aamp->rate = -2;
+
+	// Setup required for ReportProgress() to execute properly
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->SetState(eSTATE_PLAYING);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
 	p_aamp->NotifyEOSReached();
