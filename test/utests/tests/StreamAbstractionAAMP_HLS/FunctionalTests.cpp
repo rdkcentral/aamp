@@ -2138,8 +2138,10 @@ TEST_F(TrackStateTests, AbortWaitForCachedFragmentTests)
 
 TEST_F(TrackStateTests, ProcessFragmentChunkTests)
 {
-    double result = TrackStateobj->ProcessFragmentChunk();
-    ASSERT_FALSE(result);
+    // After unified fragment processing refactor, ProcessFragmentChunk() returns true
+    // to indicate the call was handled (even if no media payload injected). Adjust expectation.
+    bool result = TrackStateobj->ProcessFragmentChunk();
+    ASSERT_TRUE(result);
 }
 
 TEST_F(TrackStateTests, NotifyFragmentCollectorWaittest)
