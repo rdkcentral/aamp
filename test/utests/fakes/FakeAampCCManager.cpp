@@ -96,6 +96,9 @@ void PlayerCCManagerBase::StartRendering()
 void PlayerCCManagerBase::StopRendering()
 {
 }
+void PlayerCCManagerBase::ResetState()
+{
+}
 
 int PlayerCCManagerBase::SetDigitalChannel(unsigned int id)
 {
@@ -109,6 +112,10 @@ int PlayerCCManagerBase::SetAnalogChannel(unsigned int id)
 void PlayerCCManager::DestroyInstance()
 {
 	delete mInstance;
+}
+
+void PlayerCCManager::SetRialto(bool state)
+{
 }
 
 PlayerCCManagerBase *PlayerCCManager::GetInstance()

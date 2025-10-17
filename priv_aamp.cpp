@@ -1303,6 +1303,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector();
 
+	// Ensure the correct CC variant class will be used
+	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
+
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
 	preferredCodecString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioCodec);
