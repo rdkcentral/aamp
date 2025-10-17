@@ -120,7 +120,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
-AAMPLOG_WARN("enableEthanLogRedirection set to %d (mConfig.IsConfigSet)", AampLogManager::enableEthanLogRedirection);
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	
@@ -3197,7 +3196,6 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 
 	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
-	AAMPLOG_WARN("enableEthanLogRedirection set to %d (ISCONFIGSET)", AampLogManager::enableEthanLogRedirection);
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	return retVal;
 }
