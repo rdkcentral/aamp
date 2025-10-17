@@ -599,8 +599,8 @@ void ForceHttpConversionForFog(std::string& url,const std::string& from, const s
 static bool IsActiveStreamingInterfaceWifi (void)
 {
 	bool wifiStatus = false;
-	wifiStatus = PlayerExternalsInterface::IsActiveStreamingInterfaceWifi();
-	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
+	wifiStatus = pPlayerExternalsInterface->GetActiveInterface();
+	activeInterfaceWifi = wifiStatus;
 	return wifiStatus;
 }
 
@@ -1305,6 +1305,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mEventManager = new AampEventManager(mPlayerId);
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector();
+
+	// Ensure the correct CC variant class will be used
+	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
