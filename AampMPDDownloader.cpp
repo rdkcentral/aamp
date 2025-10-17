@@ -177,6 +177,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 */
 AampMPDDownloader::~AampMPDDownloader()
 {
+	AAMPLOG_WARN("AampMPDDownloader::~AampMPDDownloader() - About to destroy member AampCurlDownloader objects");
 	// Clear the queue and release all the objects
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically
@@ -280,8 +281,10 @@ void AampMPDDownloader::Release()
 
 		}
 
+		AAMPLOG_WARN("AampMPDDownloader::Release() - Calling Release() on both curl downloaders");
 		mDownloader1.Release();
 		mDownloader2.Release();
+		AAMPLOG_WARN("AampMPDDownloader::Release() - Completed Release() on both curl downloaders");
 
 		if(mDownloaderThread_t1.joinable())
 			mDownloaderThread_t1.join();

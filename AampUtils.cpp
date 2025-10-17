@@ -402,6 +402,7 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
 std::string aamp_PostJsonRPC( std::string id, std::string method, std::string params )
 {
 	std::string remoteUrl = "http://127.0.0.1:9998/jsonrpc";
+	AAMPLOG_WARN("aamp_PostJsonRPC - Creating stack AampCurlDownloader for JSON RPC call");
 	AampCurlDownloader T1;
 	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
@@ -423,6 +424,7 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 	{
 		AAMPLOG_ERR("failed: %d", respData->curlRetValue);
 	}
+	AAMPLOG_WARN("aamp_PostJsonRPC - JSON RPC call completed, AampCurlDownloader going out of scope");
 
 	return response;
 	
@@ -978,6 +980,7 @@ std::size_t GetPrintableThreadID( const pthread_t &t )
 double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::string NetworkProxy)
 {
 	double retValue = 0;
+	AAMPLOG_WARN("GetNetworkTime - Creating stack AampCurlDownloader for network time request");
 	AampCurlDownloader T1;
 	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
@@ -1021,6 +1024,7 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	{
 		*http_error = respData->iHttpRetValue;
 	}
+	AAMPLOG_WARN("GetNetworkTime - Network time request completed, AampCurlDownloader going out of scope");
 	return retValue;
 	
 }

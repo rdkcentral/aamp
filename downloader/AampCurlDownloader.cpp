@@ -26,6 +26,68 @@
 #include "AampUtils.h"
 #include <vector>
 #include "AampLogManager.h"
+#include <cstring>
+
+// Platform-specific includes for stack trace
+#if defined(__linux__) || defined(__APPLE__)
+#include <execinfo.h>
+#include <dlfcn.h>
+#elif defined(_WIN32)
+// Windows would use different headers like DbgHelp.h
+#endif
+
+// Static member definition
+int AampCurlDownloader::sAbortedDownloadCount = 0;
+
+// Helper function to get simplified call stack
+std::string GetSimpleCallStack() {
+    std::string result;
+    
+#if defined(__linux__) || defined(__APPLE__)
+    // Use backtrace on Linux/macOS
+    void *array[10];
+    size_t size;
+    char **strings;
+    
+    size = backtrace(array, 10);
+    strings = backtrace_symbols(array, size);
+    
+    if (strings != NULL) {
+        // Skip first frame (this function) and show next few frames
+        for (size_t i = 1; i < size && i < 4; i++) {
+            if (strings[i]) {
+                std::string frame(strings[i]);
+                // Try to extract just the function name for readability
+                size_t start = frame.find("(");
+                size_t end = frame.find("+", start);
+                if (start != std::string::npos && end != std::string::npos) {
+                    std::string funcName = frame.substr(start + 1, end - start - 1);
+                    if (!funcName.empty() && funcName != "_") {
+                        if (!result.empty()) result += " -> ";
+                        result += funcName;
+                    }
+                } else {
+                    // Fallback: just add a shortened version
+                    if (frame.length() > 50) {
+                        frame = "..." + frame.substr(frame.length() - 50);
+                    }
+                    if (!result.empty()) result += " -> ";
+                    result += frame;
+                }
+            }
+        }
+        free(strings);
+    }
+#elif defined(_WIN32)
+    // Windows implementation would go here using StackWalk64 or similar
+    result = "CallStack_Win32_NotImplemented";
+#else
+    // Generic fallback for other platforms
+    result = "CallStack_NotAvailable";
+#endif
+    
+    return result.empty() ? "Unknown" : result;
+}
 
 void _downloadConfig::show()
 {
@@ -137,6 +199,8 @@ AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownlo
 
 AampCurlDownloader::~AampCurlDownloader()
 {
+	std::string callStack = GetSimpleCallStack();
+	AAMPLOG_WARN("AampCurlDownloader::~AampCurlDownloader() called - Destructor cleanup. Thread: %s, CallStack: %s", m_threadName.c_str(), callStack.c_str());
 	mDownloadActive = false;
 	
 	if(mCreatedNewFd && mCurl)
@@ -171,6 +235,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 		{
 			{
 				std::lock_guard<std::mutex> lock(mCurlMutex);
+				AAMPLOG_WARN("AampCurlDownloader::download() - Starting new download. URL: %s, Thread: %s", urlStr.c_str(), m_threadName.c_str());
 				mDownloadActive		=	true;
 				mDownloadResponse	=	dnldData;
 				mDownloadResponse->sEffectiveUrl	=	urlStr;
@@ -179,7 +244,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			bool loopAgain = false;
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+				AAMPLOG_INFO("AampCurlDownloader::download() - About to call curl_easy_perform. URL: %s, Thread: %s", urlStr.c_str(), m_threadName.c_str());
 				curlRetVal = curl_easy_perform(mCurl);
+				AAMPLOG_INFO("AampCurlDownloader::download() - curl_easy_perform returned: %d, Thread: %s", curlRetVal, m_threadName.c_str());
 				loopAgain = false;
 				numDownloadAttempts++;
 				if(curlRetVal == CURLE_OK)
@@ -263,6 +330,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			// update the download response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
+			AAMPLOG_WARN("AampCurlDownloader download completed - Setting mDownloadActive to false. CurlRetVal: %d, HttpRetVal: %d, Thread: %s", curlRetVal, httpRetVal, m_threadName.c_str());
 			mDownloadActive = false;		
 			mDownloadResponse->curlRetValue = curlRetVal;
 		}
@@ -336,6 +404,7 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 		return;
 	
 	// Release and reset and previously called values
+	AAMPLOG_WARN("AampCurlDownloader::Initialize() calling Release() before reinit. Thread: %s", m_threadName.c_str());
 	Release();
 
 	std::lock_guard<std::mutex> lock(mCurlMutex);
@@ -369,6 +438,11 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 void AampCurlDownloader::Release()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
+	long long currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+	// Add more context by checking if a download was actually active
+	bool wasActive = mDownloadActive;
+	std::string callStack = GetSimpleCallStack();
+	AAMPLOG_WARN("AampCurlDownloader::Release() called - Setting mDownloadActive to false. WasActive: %s, Thread: %s, Time: %lld, CallStack: %s", wasActive ? "true" : "false", m_threadName.c_str(), currentTime, callStack.c_str());
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;
@@ -384,13 +458,19 @@ void AampCurlDownloader::Release()
 void AampCurlDownloader::Clear()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
+	std::string callStack = GetSimpleCallStack();
+	AAMPLOG_WARN("AampCurlDownloader::Clear() called - Clearing download state. Thread: %s, CallStack: %s", m_threadName.c_str(), callStack.c_str());
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;	
 
 	// Clear all the partially stored data before retry attempt
 	if(mDownloadResponse)
+	{
+		
+		AAMPLOG_INFO("AampCurlDownloader::Clear() - Clearing mDownloadResponse data. Thread: %s", m_threadName.c_str());
 		mDownloadResponse->clear();
+	}
 }
 
 
@@ -573,7 +653,10 @@ int AampCurlDownloader::progress_callback(
 	if (!mDownloadActive)
 	{
 		rc = -1; // CURLE_ABORTED_BY_CALLBACK
-		AAMPLOG_WARN("Abort download... Release called");
+		long long currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		sAbortedDownloadCount++;
+		std::string url = (mDownloadResponse && !mDownloadResponse->sEffectiveUrl.empty()) ? mDownloadResponse->sEffectiveUrl : "Unknown";
+		AAMPLOG_WARN("Abort download... Release called - Progress callback invoked after mDownloadActive=false. URL: %s, dlnow:%.2f, dltotal:%.2f, Thread: %s, Time: %lld, AbortCount: %d", url.c_str(), dlnow, dltotal, m_threadName.c_str(), currentTime, sAbortedDownloadCount);
 	}
 	else
 	{

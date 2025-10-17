@@ -101,11 +101,14 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
 	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDRMSessionManager);
 	releaseLicenseRenewalThreads();
+	AAMPLOG_WARN("AampDRMLicenseManager::~AampDRMLicenseManager - About to release and destroy %d AampCurlDownloader objects", mMaxDRMSessions);
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
 	{
 		mLicenseDownloader[i].Release();
 	}
+	AAMPLOG_WARN("AampDRMLicenseManager::~AampDRMLicenseManager - About to delete AampCurlDownloader array, destructors will be called");
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
+	AAMPLOG_WARN("AampDRMLicenseManager::~AampDRMLicenseManager - AampCurlDownloader array deleted");
 }
 
 /**

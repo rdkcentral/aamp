@@ -2721,6 +2721,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			// Send a TSB delete request when player is not tuned successfully.
 			// If player is once tuned, retune happens with same content and player can reuse same TSB.
 			std::string remoteUrl = "127.0.0.1:9080/tsb";
+			AAMPLOG_WARN("PrivateInstanceAAMP - Creating stack AampCurlDownloader for TSB delete request");
 			AampCurlDownloader T1;
 			DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 			DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
@@ -2728,6 +2729,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			inpData->eRequestType = eCURL_DELETE;
 			T1.Initialize(inpData);
 			T1.Download(remoteUrl, respData);
+			AAMPLOG_WARN("PrivateInstanceAAMP - TSB delete request completed, AampCurlDownloader going out of scope");
 		}
 		sendErrorEvent = true;
 		mState = eSTATE_ERROR;
@@ -4637,6 +4639,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 		 */
 		remoteUrl.append("/");
 		remoteUrl.append(mTsbRecordingId);
+		AAMPLOG_WARN("PrivateInstanceAAMP - Creating stack AampCurlDownloader for TSB session stats request");
 		AampCurlDownloader T1;
 		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
@@ -4645,6 +4648,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 		inpData->proxyName        = GetNetworkProxy();
 		T1.Initialize(inpData);
 		T1.Download(remoteUrl, respData);
+		AAMPLOG_WARN("PrivateInstanceAAMP - TSB session stats request completed, AampCurlDownloader going out of scope");
 
 		if(respData->iHttpRetValue == 200)
 		{
@@ -6630,7 +6634,9 @@ void PrivateInstanceAAMP::detach()
 		mpStreamAbstractionAAMP->StopInjection();
 		if(mMPDDownloaderInstance != nullptr)
 		{
+			AAMPLOG_WARN("PrivateInstanceAAMP::detach() - Calling MPDDownloader Release() which will call AampCurlDownloader Release()");
 			mMPDDownloaderInstance->Release();
+			AAMPLOG_WARN("PrivateInstanceAAMP::detach() - MPDDownloader Release() completed");
 		}
 		// Stop CC when pipeline is stopped
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
@@ -7492,6 +7498,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	if(IsFogTSBSupported())
 	{
 		std::string remoteUrl = "127.0.0.1:9080/tsb";
+		AAMPLOG_WARN("PrivateInstanceAAMP::Stop - Creating stack AampCurlDownloader for TSB delete request");
 		AampCurlDownloader T1;
 		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
@@ -7500,6 +7507,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		inpData->proxyName        = GetNetworkProxy();
 		T1.Initialize(inpData);
 		T1.Download(remoteUrl, respData );
+		AAMPLOG_WARN("PrivateInstanceAAMP::Stop - TSB delete request completed, AampCurlDownloader going out of scope");
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -7541,7 +7549,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
+		AAMPLOG_WARN("PrivateInstanceAAMP::Stop() - Calling MPDDownloader Release() which will call AampCurlDownloader Release()");
 		mMPDDownloaderInstance->Release();
+		AAMPLOG_WARN("PrivateInstanceAAMP::Stop() - MPDDownloader Release() completed");
 	}
 	
 	if(mTSBSessionManager)
@@ -7633,7 +7643,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	{
 		// delete the MPD Downloader Instance
 		AAMPLOG_INFO("Calling delete of Downloader instance "); // used in l2test 1015
+		AAMPLOG_WARN("PrivateInstanceAAMP::~PrivateInstanceAAMP - About to delete MPDDownloader which will trigger AampCurlDownloader destructors");
 		SAFE_DELETE(mMPDDownloaderInstance);
+		AAMPLOG_WARN("PrivateInstanceAAMP::~PrivateInstanceAAMP - MPDDownloader deleted, AampCurlDownloader destructors called");
 	}
 
 	if(mTSBSessionManager != nullptr)
@@ -13091,6 +13103,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	jsonStr = jsondata.print_UnFormatted();
 	AAMPLOG_TRACE("%s", jsonStr.c_str());
 	std::string remoteUrl = "127.0.0.1:9080/playerconfig";
+	AAMPLOG_WARN("PrivateInstanceAAMP - Creating stack AampCurlDownloader for player config POST request");
 	AampCurlDownloader T1;
 	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
@@ -13099,6 +13112,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	inpData->postData	=	jsonStr;
 	T1.Initialize(inpData);
 	T1.Download(remoteUrl, respData);
+	AAMPLOG_WARN("PrivateInstanceAAMP - Player config POST request completed, AampCurlDownloader going out of scope");
 
 	return respData->iHttpRetValue;
 }

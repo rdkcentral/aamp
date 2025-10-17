@@ -280,6 +280,7 @@ private:
 	std::shared_ptr<DownloadResponse> mDownloadResponse;
 	CURL *mCurl;
 	struct curl_slist *mHeaders;
+	static int sAbortedDownloadCount;  // Static counter for debugging race conditions
 };
 
 #endif 
