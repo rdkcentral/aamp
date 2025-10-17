@@ -478,7 +478,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 				AAMPLOG_WARN("DRM session for %s, Authorization failed",mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 
 			}
-			else if (GetCurlTimeoutFailureStatus ( httpResponseCode ))
+			else if (IsCurlTimeoutFailure ( httpResponseCode ))
 			{
 				eventHandle->setFailure(AAMP_TUNE_LICENCE_TIMEOUT);
 			}
@@ -1016,7 +1016,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		
 		
 		*httpCode = respData->iHttpRetValue;
-		if ( GetCurlTimeoutFailureStatus(respData->iHttpRetValue) )
+		if ( IsCurlTimeoutFailure(respData->iHttpRetValue) )
 		{ // Retry for curl 28 and curl 7 errors.
 			loopAgain = true;
 			pLicenseDownloader->Clear();
@@ -1072,7 +1072,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 			// append app name with class data
 			appName = aampInstance->GetAppName() + ",";
 		}
-		if ( GetCurlTimeoutFailureStatus( respData->iHttpRetValue ) ||
+		if ( IsCurlTimeoutFailure( respData->iHttpRetValue ) ||
 			CURLE_PARTIAL_FILE == respData->iHttpRetValue ||
 			CURLE_COULDNT_CONNECT == respData->iHttpRetValue)
 		{

@@ -611,7 +611,7 @@ CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
 {
 	return (CurlTimeoutFailureReason)CURLE_OPERATION_TIMEDOUT;;
 }
-bool GetCurlTimeoutFailureStatus( int httpResponseCode )
+bool IsCurlTimeoutFailure( int httpResponseCode )
 {
 	return true;
 }

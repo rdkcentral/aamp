@@ -4299,7 +4299,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-					if (res == CURLE_COULDNT_CONNECT || GetCurlTimeoutFailureStatus(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
+					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
 						
 						if(mpStreamAbstractionAAMP)
@@ -4438,7 +4438,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// append app name with class data
 						appName = mAppName + ",";
 					}
-					if ( GetCurlTimeoutFailureStatus(res) || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+					if ( IsCurlTimeoutFailure(res) || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
 					{
 						// introduce  extra marker for connection status curl 7/18/28,
 						// example 18(0) if connection failure with PARTIAL_FILE code
@@ -4485,9 +4485,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-		if (http_code == 200 || http_code == 206 || GetCurlTimeoutFailureStatus (http_code) )
+		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
 		{
-			if ( GetCurlTimeoutFailureStatus (http_code) && buffer->GetLen() > 0)
+			if ( IsCurlTimeoutFailure (http_code) && buffer->GetLen() > 0)
 			{
 				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer->GetLen(), downloadTimeMS, isDownloadStalled);
 			}
@@ -4648,7 +4648,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				http_code = PARTIAL_FILE_CONNECTIVITY_AAMP;
 			}
-			else if( GetCurlTimeoutFailureStatus( http_code ) )
+			else if( IsCurlTimeoutFailure( http_code ) )
 			{
 				http_code = OPERATION_TIMEOUT_CONNECTIVITY_AAMP;
 			}

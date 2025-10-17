@@ -1471,14 +1471,16 @@ CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
  * @param[in] httpResponseCode HTTP response code
  * @retval true if the error is due to timeout, false otherwise
  */
-bool GetCurlTimeoutFailureStatus( int httpResponseCode )
+bool IsCurlTimeoutFailure( int httpResponseCode )
 {
-	if( httpResponseCode == CURLE_OPERATION_TIMEDOUT || httpResponseCode == eCURL_TIMEOUT_DNS || httpResponseCode == eCURL_TIMEOUT_CONNECT || httpResponseCode == eCURL_TIMEOUT_DATA )
+	switch( httpResponseCode )
 	{
-		return true;
-	}
-	else	
-	{
-		return false;
+		case CURLE_OPERATION_TIMEDOUT:
+		case eCURL_TIMEOUT_DNS:
+		case eCURL_TIMEOUT_CONNECT:
+		case eCURL_TIMEOUT_DATA:
+			return true;
+		default:
+			return false;
 	}
 }

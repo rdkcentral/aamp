@@ -2795,7 +2795,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 			}
 		}
 		// For timeout, rampdown in single steps might not be enough
-		else if (GetCurlTimeoutFailureStatus (http_error))
+		else if (IsCurlTimeoutFailure (http_error))
 		{
 			if (UpdateProfileBasedOnFragmentCache())
 			{

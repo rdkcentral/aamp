@@ -4542,7 +4542,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && ( ( GetCurlTimeoutFailureStatus( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
@@ -4726,7 +4726,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 		{
 			// if already mpd is available
 			if (this->mpd != NULL
-				&& ( GetCurlTimeoutFailureStatus(http_error) || CURLE_COULDNT_CONNECT == http_error))
+				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;

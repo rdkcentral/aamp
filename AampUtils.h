@@ -434,6 +434,6 @@ bool aamp_isTuneScheme( const char *cmdBuf );
  */
 CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
 
-bool GetCurlTimeoutFailureStatus( int httpResponseCode );
+bool IsCurlTimeoutFailure( int httpResponseCode );
 
 #endif  /* __AAMP_UTILS_H__ */

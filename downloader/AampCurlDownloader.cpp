@@ -228,16 +228,11 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 						}
 					}
 				}
-				//NETWORK_ERROR
 				else
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
-					{
-						//Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT ||
-						    GetCurlTimeoutFailureStatus (httpRetVal) ||
-							httpRetVal  == eCURL_TIMEOUT_CONNECT ||
-							httpRetVal  == eCURL_TIMEOUT_DATA )
+					{ //Attempt retry for partial downloads, which have a higher chance to succeed
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
 						{
 							loopAgain = true;
 						}
