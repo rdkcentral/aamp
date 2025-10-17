@@ -70,26 +70,26 @@ DeviceFireboltInterface::DeviceFireboltInterface()
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
 {
-	MW_PRELOGGER_LOG("DeviceFireboltInterface destructor called \n");
+	MW_PRE_LOGGER_LOG("DeviceFireboltInterface destructor called \n");
 	RemoveEventHandlers();
 	m_pFireboltInterface = nullptr;
 }
 
 void DeviceFireboltInterface::Initialize()
 {
-	MW_PRELOGGER_LOG("Initialize \n");
+	MW_PRE_LOGGER_LOG("Initialize \n");
 	if(s_pDeviceFireboltInterface)
 	{
-		MW_PRELOGGER_LOG("Registering events \n");
+		MW_PRE_LOGGER_LOG("Registering events \n");
 		s_pDeviceFireboltInterface->RegisterDsMgrEventHandler();
 		s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
 	}
 	else
 	{
-		MW_PRELOGGER_LOG("Init called before instance \n");
+		MW_PRE_LOGGER_LOG("Init called before instance \n");
 	}
 
-	MW_PRELOGGER_LOG("Initialize completed \n");
+	MW_PRE_LOGGER_LOG("Initialize completed \n");
 	
 }
 
@@ -97,7 +97,7 @@ void DeviceFireboltInterface::Initialize()
 void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 {
        
-	MW_PRELOGGER_LOG("Subscribing to Firebolt hdcp change event \n");
+	MW_PRE_LOGGER_LOG("Subscribing to Firebolt hdcp change event \n");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
 					[](const auto& hdcpProtocol) {
@@ -107,16 +107,16 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 	if(result)
 	{
-		MW_PRELOGGER_LOG("HDCP changed event registered \n");
+		MW_PRE_LOGGER_LOG("HDCP changed event registered \n");
 		mDsMgrSubscriptionId.push_back(result.value());
 	}
 
 	else
 	{
-		MW_PRELOGGER_LOG("Failed to subscribe to hdcp change events: %d \n", static_cast<int>(result.error()));
+		MW_PRE_LOGGER_LOG("Failed to subscribe to hdcp change events: %d \n", static_cast<int>(result.error()));
 	}
 
-	MW_PRELOGGER_LOG("Subscribing to Firebolt resolution change event  \n");
+	MW_PRE_LOGGER_LOG("Subscribing to Firebolt resolution change event  \n");
 
 	result = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
 					[](const std::string& videoResolution) 
@@ -126,12 +126,12 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 					});
 	if(result)
 	{
-		MW_PRELOGGER_LOG("Resolution changed event registered\n");
+		MW_PRE_LOGGER_LOG("Resolution changed event registered\n");
         mDsMgrSubscriptionId.push_back(result.value());
 	}
 	else
 	{
-		MW_PRELOGGER_LOG("Failed to get video resolution %d\n", static_cast<int>(result.error()) );
+		MW_PRE_LOGGER_LOG("Failed to get video resolution %d\n", static_cast<int>(result.error()) );
     }
 
 }
@@ -144,7 +144,7 @@ void DeviceFireboltInterface::RemoveEventHandlers()
 
 void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 {
-	MW_PRELOGGER_LOG("Subscribing to Firebolt Network change event\n");
+	MW_PRE_LOGGER_LOG("Subscribing to Firebolt Network change event\n");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
 					[](const auto& network) {
@@ -154,12 +154,12 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 	
 	if(result)
 	{
-		MW_PRELOGGER_LOG("Network changed event registered\n");
+		MW_PRE_LOGGER_LOG("Network changed event registered\n");
 		mNtwMgrSubscriptionId.push_back(result.value());
 	}
 	else
 	{
-		MW_PRELOGGER_LOG("Failed to subscribe to network change events: %d\n", static_cast<int>(result.error()));
+		MW_PRE_LOGGER_LOG("Failed to subscribe to network change events: %d\n", static_cast<int>(result.error()));
 		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
 	}
 
@@ -171,12 +171,12 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 	{
 		if(network.value().type == Firebolt::Device::NetworkType::WIFI)
 		{
-			MW_PRELOGGER_LOG("Active interface wifi\n");
+			MW_PRE_LOGGER_LOG("Active interface wifi\n");
 			pInstance->SetActiveInterface(true);
 		}
 		else
 		{
-			MW_PRELOGGER_LOG("Active interface eth\n");
+			MW_PRE_LOGGER_LOG("Active interface eth\n");
 			pInstance->SetActiveInterface(false);
 		}
 	}

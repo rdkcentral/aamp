@@ -58,7 +58,7 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 void PlayerExternalsRdkInterface::Initialize()
 {
 
-    MW_PRELOGGER_LOG("Initializing started \n");
+    MW_PRE_LOGGER_LOG("Initializing started \n");
 
     /*
     IARM Deprecation Note:
@@ -74,25 +74,25 @@ void PlayerExternalsRdkInterface::Initialize()
     {
         if(m_initialized == InitState::FIREBOLT && (m_use_firebolt_sdk || IsContainerEnvironment()))
         {
-            MW_PRELOGGER_LOG("Firebolt already Inited \n");
+            MW_PRE_LOGGER_LOG("Firebolt already Inited \n");
             //firebolt already inited
             return;
         }
         else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk) && (!IsContainerEnvironment()))
         {
-            MW_PRELOGGER_LOG("IARM already Inited \n");
+            MW_PRE_LOGGER_LOG("IARM already Inited \n");
             //IARM already inited
             return;
         }
         else
         {
-            MW_PRELOGGER_LOG("m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
+            MW_PRE_LOGGER_LOG("m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
             //m_use_firebolt_sdk has changed init again
         }
     }
     else
     {
-        MW_PRELOGGER_LOG("Initializing \n");
+        MW_PRE_LOGGER_LOG("Initializing \n");
     }
     //remove-end
     
@@ -101,13 +101,13 @@ void PlayerExternalsRdkInterface::Initialize()
         m_pDeviceInterfaceBase = nullptr;
     }
 
-    MW_PRELOGGER_LOG("m_use_firebolt_sdk : %d, IsContainerEnvironment() : %d \n", m_use_firebolt_sdk, IsContainerEnvironment());
+    MW_PRE_LOGGER_LOG("m_use_firebolt_sdk : %d, IsContainerEnvironment() : %d \n", m_use_firebolt_sdk, IsContainerEnvironment());
 
     //remove-start
     if(m_use_firebolt_sdk || IsContainerEnvironment()) //if explicitly config'd to or if in container go for firebolt
     {
     //remove-end
-        MW_PRELOGGER_LOG("Using Firebolt \n");
+        MW_PRE_LOGGER_LOG("Using Firebolt \n");
         m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
         DeviceFireboltInterface::Initialize();
     //remove-start
@@ -115,18 +115,18 @@ void PlayerExternalsRdkInterface::Initialize()
     }
     else
     {
-        MW_PRELOGGER_LOG("Using IARM \n");
+        MW_PRE_LOGGER_LOG("Using IARM \n");
         m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
         DeviceIARMInterface::Initialize();
         m_initialized = PlayerExternalsRdkInterface::InitState::IARM;
     }
     //remove-end
 
-    MW_PRELOGGER_LOG("Done getting interface \n");
+    MW_PRE_LOGGER_LOG("Done getting interface \n");
 
     SetHDMIStatus();
 
-    MW_PRELOGGER_LOG("Initializing completed \n");
+    MW_PRE_LOGGER_LOG("Initializing completed \n");
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
@@ -282,7 +282,7 @@ char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_
 
 void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
-    MW_PRELOGGER_LOG("old : %d, new : %d \n", m_use_firebolt_sdk, t_use_firebolt_sdk);
+    MW_PRE_LOGGER_LOG("old : %d, new : %d \n", m_use_firebolt_sdk, t_use_firebolt_sdk);
     if(m_use_firebolt_sdk != t_use_firebolt_sdk)
     {
         m_use_firebolt_sdk = t_use_firebolt_sdk;

@@ -165,7 +165,7 @@ void PlayerRialtoCCManager::StopRendering()
 ** SetTrack(), which we override.
 **
 ** However, they are declared pure virtual in the base class, so we need
-** these stubs to statisfy that.
+** these stubs to satisfy that.
 ** Further, their return code is strictly an enum which is subtec-specific
 ** (CC_VL_OS_API_RESULT), so this should be moved from the base class to
 ** the subtec class.

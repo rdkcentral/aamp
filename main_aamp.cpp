@@ -59,9 +59,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-
-	//Using printf here since AAMP logs can only use after creating the global object
-		
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
@@ -87,9 +84,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			
 		}
 
-		printf("At point 1 UseFireboltSDK: %d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
-		fflush(stdout);
-
 		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
 
 		//TR181 is not supported in firebolt
@@ -100,9 +94,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
-
-		printf("At point 2 UseFireboltSDK: %d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
-		fflush(stdout);
 	}
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -132,15 +123,11 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	
-	printf("At point 3 UseFireboltSDK: %d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
-	fflush(stdout);
-
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
 
-	printf("At point 4 UseFireboltSDK: %d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
-	fflush(stdout);
+	AAMPLOG_MIL("UseFireboltSDK=%d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 
 	// start Scheduler Worker for task handling
 	mScheduler.StartScheduler(aamp->mPlayerId);

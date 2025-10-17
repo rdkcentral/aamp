@@ -38,10 +38,10 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP 
 PlayerExternalsInterface::PlayerExternalsInterface()
 {
 #ifdef IARM_MGR
-    MW_PRELOGGER_LOG("Device API IARM/Firebolt\n");
+    MW_PRE_LOGGER_LOG("Device API IARM/Firebolt\n");
     m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 #else
-    MW_PRELOGGER_LOG("Device API FAKE\n");
+    MW_PRE_LOGGER_LOG("Device API FAKE\n");
     m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
 #endif
 
@@ -60,12 +60,12 @@ void PlayerExternalsInterface::Initialize()
 {
     if(s_pPlayerOP != NULL)
     {
-        MW_PRELOGGER_LOG("PlayerExternalsInterface::Initialize\n");
+        MW_PRE_LOGGER_LOG("PlayerExternalsInterface::Initialize\n");
         m_pIarmInterface->Initialize();
     }
     else
     {
-        MW_PRELOGGER_LOG("PlayerExternalsInterface not found to initialize\n");
+        MW_PRE_LOGGER_LOG("PlayerExternalsInterface not found to initialize\n");
     }
 }
 

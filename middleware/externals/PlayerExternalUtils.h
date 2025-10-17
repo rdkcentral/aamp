@@ -28,7 +28,7 @@
 #include <cstdio>
 #include <cstdarg>
 
-#define MW_PRELOGGER_LOG(fmt, ...)                                            \
+#define MW_PRE_LOGGER_LOG(fmt, ...)                                            \
     do {                                                                    \
         std::printf("[MIDDLEWARE] %s:%d %s: " fmt, __FILE__, __LINE__,      \
                     __func__ , ##__VA_ARGS__);                              \

@@ -99,7 +99,7 @@ DeviceIARMInterface::DeviceIARMInterface()
 
 DeviceIARMInterface::~DeviceIARMInterface()
 {
-    MW_PRELOGGER_LOG("DeviceIARMInterface destructor called \n");
+    MW_PRE_LOGGER_LOG("DeviceIARMInterface destructor called \n");
 
     RemoveEventHandlers();
 
@@ -120,24 +120,24 @@ void DeviceIARMInterface::IARMInit()
 {
     //char processName[20] = {0};
     IARM_Result_t result;
-    MW_PRELOGGER_LOG("IARM Interface Init started in Player\n");
+    MW_PRE_LOGGER_LOG("IARM Interface Init started in Player\n");
 
     //snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init("PLAYER"))) {
-            MW_PRELOGGER_LOG("IARM Interface Inited in Player\n");
+            MW_PRE_LOGGER_LOG("IARM Interface Inited in Player\n");
     }
     else {
-            MW_PRELOGGER_LOG("IARM Interface Inited Externally : %d\n", result);
+            MW_PRE_LOGGER_LOG("IARM Interface Inited Externally : %d\n", result);
     }
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-            MW_PRELOGGER_LOG("IARM Interface Connected in Player\n");
+            MW_PRE_LOGGER_LOG("IARM Interface Connected in Player\n");
     }
     else {
-            MW_PRELOGGER_LOG("IARM Interface Connected Externally :%d\n", result);
+            MW_PRE_LOGGER_LOG("IARM Interface Connected Externally :%d\n", result);
     }
 
-    MW_PRELOGGER_LOG("IARM Interface Init completed in Player\n");
+    MW_PRE_LOGGER_LOG("IARM Interface Init completed in Player\n");
 
 }
 
