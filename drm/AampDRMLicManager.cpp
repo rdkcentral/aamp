@@ -1572,6 +1572,7 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
 	int responseCode =-1;
 	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
 
+
 	 if(err != -1)
 	 {
 		 eventHandle->setFailure((AAMPTuneFailure)err);
