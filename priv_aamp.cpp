@@ -2116,7 +2116,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		else if (position < start)
 		{ // clamp start
 			AAMPLOG_WARN( "clamp position %fms < start %fms", position, start );
-			position = start;
+			position = start;	// Jose: Should position be set to 0 instead?
+			HandleBeginningOfStreamReached();
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -3250,6 +3251,31 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 }
 
 /**
+ * @brief Handle beginning of stream reached during rewind
+ */
+void PrivateInstanceAAMP::HandleBeginningOfStreamReached()
+{
+	// Check the rate so that we only handle BOS during rewind once
+	if (rate < AAMP_RATE_PAUSE)
+	{
+		seek_pos_seconds = culledSeconds;
+		AAMPLOG_MIL("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
+		if (trickStartUTCMS == -1)
+		{
+			// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
+			// send BOS event to JSPP
+			ResetTrickStartUTCTime();
+			AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+		}
+		rate = AAMP_NORMAL_PLAY_RATE;
+		AcquireStreamLock();
+		TuneHelper(eTUNETYPE_SEEK);
+		ReleaseStreamLock();
+		NotifySpeedChanged(rate);
+	}
+}
+
+/**
  * @brief Process EOS from Sink and notify listeners if required
  */
 void PrivateInstanceAAMP::NotifyEOSReached()
@@ -3316,22 +3342,9 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
-			seek_pos_seconds = culledSeconds;
-			AAMPLOG_WARN("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
-			if (trickStartUTCMS == -1)
-			{
-				// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
-				// send BOS event to JSPP
-				ResetTrickStartUTCTime();
-				AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
-			}
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
 			ReportProgress(true, true);
-			rate = AAMP_NORMAL_PLAY_RATE;
-			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEK);
-			ReleaseStreamLock();
-			NotifySpeedChanged(rate);
+			HandleBeginningOfStreamReached();
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{

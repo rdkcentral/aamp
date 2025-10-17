@@ -4179,6 +4179,11 @@ protected:
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:
+	/**
+	 * @brief Handle beginning of stream reached during rewind
+	 */
+	void HandleBeginningOfStreamReached();
+
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
