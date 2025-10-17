@@ -428,9 +428,9 @@ bool aamp_isTuneScheme( const char *cmdBuf );
  *
  * @parm curl ClientURL instance from a completed download attempt
  *
- * @retval eCURL_TIMEOUT_DNS if timeout occurred while attempting to resolve DNS
- * @retval eCURL_TIMEOUT_CONNECT if timeout occurred after resolving DNS, but before completing connection
- * @retval eCURL_TIMEOUT_DATA if timeout occurred while downloading data
+ * @retval eCURL_TIMEOUT_DNS (1000) if timeout occurred while attempting to resolve DNS
+ * @retval eCURL_TIMEOUT_CONNECT (1001) if timeout occurred after resolving DNS, but before completing connection
+ * @retval eCURL_TIMEOUT_DATA (28) if timeout occurred while downloading data
  */
 CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
 

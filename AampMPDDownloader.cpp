@@ -608,7 +608,6 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		case CURLE_COULDNT_CONNECT:
 		case eCURL_TIMEOUT_DNS:
 		case eCURL_TIMEOUT_CONNECT:
-		case eCURL_TIMEOUT_DATA:
 			// introduce  extra marker for connection status curl 7/18/28,
 			// example 18(0) if connection failure with PARTIAL_FILE code
 			timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
