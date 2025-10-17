@@ -63,7 +63,6 @@
 #include "dash/mpd/MPDSegmenter.h"
 #include "AampLLDASHData.h"
 #include "AampMPDUtils.h"
-#include "AampUtils.h"
 
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 

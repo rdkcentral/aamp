@@ -609,7 +609,7 @@ bool aamp_isTuneScheme( const char *cmdBuf ){ return false; }
 
 CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
 {
-	return (CurlTimeoutFailureReason)CURLE_OPERATION_TIMEDOUT;;
+	return eCURL_TIMEOUT_DATA;
 }
 bool IsCurlTimeoutFailure( int httpResponseCode )
 {

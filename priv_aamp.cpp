@@ -2636,16 +2636,8 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 						break;
 			}
 		}
-		else if(error_code < 100)
-		{
-			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d", tuneFailureMap[tuneFailure].description, error_code);  //CID:86441 - DC>STRING_BUFFER
-		}
-		else if( error_code >= 1000 )
-		{
-			//Curl timeout(28) error detailing
-			//eCURL_TIMEOUT_DNS = 1000,
-			//eCURL_TIMEOUT_CONNECT = 1001,
-			//eCURL_TIMEOUT_DATA = 1002
+		else if(error_code < 100 || error_code >= eCURL_TIMEOUT_DNS )
+		{ // CURLcode or disambiguated CurlTimeoutFailureReason
 			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d", tuneFailureMap[tuneFailure].description, error_code);  //CID:86441 - DC>STRING_BUFFER
 		}
 		else
@@ -4572,15 +4564,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				if(failureReason != nullptr)
 				{
-									SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s reason: %s", (mFogTSBEnabled ? "FOG" : "CDN"),
-								 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str(),failureReason);
+					SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s reason: %s", (mFogTSBEnabled ? "FOG" : "CDN"),
+									 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str(),failureReason);
 				}
 				else
 				{
 					SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mFogTSBEnabled ? "FOG" : "CDN"),
-								 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
+									 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
 				}
-
 			}
 
 			if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_XREASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
@@ -4642,8 +4633,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			http_code = PARTIAL_FILE_START_STALL_TIMEOUT_AAMP;
 		}
 		else if (connectTime == 0.0)
-		{
-			//curl connection is failure
+		{ // curl connection failure
 			if(CURLE_PARTIAL_FILE == http_code)
 			{
 				http_code = PARTIAL_FILE_CONNECTIVITY_AAMP;

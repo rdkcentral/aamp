@@ -251,8 +251,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadResponse->iHttpRetValue = httpRetVal = 404; // translate file not found to URL not found
 			}
 			else if(mDownloadResponse->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
-			{
-				// Timed out wrt configured low bandwidth timeout.
+			{ // Timed out wrt configured low bandwidth timeout.
 				mDownloadResponse->iHttpRetValue = httpRetVal = CURLE_OPERATION_TIMEDOUT;
 			}
 			// update the download response metrics for success and failure case 
