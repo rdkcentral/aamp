@@ -208,11 +208,11 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration)
 | localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage in AAMP.  This is a development-only configuration, not to be used by apps. |
 | tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change). Refer to [TSB Feature](#tsb-feature) for complete details. |
-| monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues |
-| monitorAVReportingInterval | Number | 1000 | Timeout in milliseconds for reporting MonitorAV events |
-| monitorAVSyncThresholdPositive | Number | 100 | millisecond threshold for leading audio (audio before video) to be considered unacceptable |
-| monitorAVSyncThresholdNegative | Number | 100 | millisecond threshold for lagging audio (audio after video) to be considered unacceptable |
-| monitorAVJumpThreshold  | Number | 100 | configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds |
+| monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, and av sync issues |
+| monitorAVReportingInterval | Number | 1000 | sampling delay (ms) between reported MonitorAV events |
+| monitorAVSyncThresholdPositive | Number | 100 | threshold (ms) for leading audio (audio before video) to be considered worth reporting |
+| monitorAVSyncThresholdNegative | Number | 100 | threshold (ms) for lagging audio (audio after video) to be considered worth reporting |
+| monitorAVJumpThreshold  | Number | 100 | threshold (ms) for aligned audio,video positions advancing together to be considered worth reporting |
 
 Example:
 ```js
