@@ -2277,10 +2277,10 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%ld..%ld..%.2f]",
-						(long)(start / 1000),
-						(long)(reportFormattedCurrPos / 1000),
-						(long)(end / 1000),
+					AAMPLOG_MIL("aamp pos: [%.3f..%.3f..%.3f..%lld..%.2f..%.2f..%.2f..%s..%ld..%ld..%.2f]",
+						start,
+						reportFormattedCurrPos,
+						end,
 						(long long) videoPTS,
 						(double)(videoBufferedDuration / 1000.0),
 						(double)(audioBufferedDuration /1000.0),
