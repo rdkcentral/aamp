@@ -181,8 +181,6 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 			{
 				MW_LOG_WARN("DrmSessionManager:: Clearing failed Session Data Slot : %d", i);
 				MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
-				drmSessionContexts[i].mLicenseDownloader.Clear();
-				MW_LOG_WARN("DrmSessionManager:: Cleared license downloader for slot %d", i);
 
 			}
 		}

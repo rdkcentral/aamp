@@ -1391,6 +1391,11 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
 	mDRMSessionManager->clearDrmSession(forceClearSession);
+		for(int i = 0 ; i < mMaxDRMSessions;i++)
+	{
+		AAMPLOG_WARN("Clearing License Downloader for session %d", i);
+		mLicenseDownloader[i].Clear();
+	}
 }
 
 /**
