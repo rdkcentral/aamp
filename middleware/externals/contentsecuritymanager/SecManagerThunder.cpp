@@ -109,7 +109,7 @@ SecManagerThunder::~SecManagerThunder()
  */
 bool SecManagerThunder::getSessionToken(std::string &token)
 {
-	ThunderAccessPlayer authService(AUTHSERVICE_CALL_SIGN);
+	ThunderAccessPlayer authService(AUTH_SERVICE_CALL_SIGN);
 	JsonObject param;
 	JsonObject response;
 
