@@ -25,6 +25,7 @@
  */
 #include "PlayerRialtoCCManager.h"
 #include "PlayerLogManager.h" // Included for MW_LOG
+#include <glib-object.h>  // Included for g_object_set
 
 /**
  * @brief stores Handle

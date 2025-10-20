@@ -63,7 +63,6 @@ void _downloadConfig::show()
 
 void _downloadResponse::show()
 {
-	AAMPLOG_INFO("curlRetValue : %d", curlRetValue);
 	AAMPLOG_INFO("iHttpRetValue : %d", iHttpRetValue);
 	AAMPLOG_INFO("total : %lf msec", downloadCompleteMetrics.total*1000);
 	AAMPLOG_INFO("connect : %lf msec", downloadCompleteMetrics.connect*1000);
@@ -159,7 +158,6 @@ bool AampCurlDownloader::IsDownloadActive()
 int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<DownloadResponse> dnldData )
 {
 	int httpRetVal=0;
-	int curlRetVal=0;
 	int numDownloadAttempts=0;
 	int numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
 	if(urlStr.size() == 0 || dnldData == nullptr)
@@ -184,10 +182,10 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					AAMPLOG_MIL( "curl-begin type=%d", eMEDIATYPE_MANIFEST);
 				}
-				curlRetVal = curl_easy_perform(mCurl);
+				httpRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
 				numDownloadAttempts++;
-				if(curlRetVal == CURLE_OK)
+				if(httpRetVal == CURLE_OK)
 				{
 					if( memcmp(urlStr.c_str(), "file:", 5) == 0 )
 					{ // file uri scheme
@@ -209,7 +207,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					{
 						numRetriesAllowed = mDnldCfg->iDownload502RetryCount;
 					}
-					AAMPLOG_INFO("Download Status Ret:%d %d %s",mDownloadResponse->curlRetValue,mDownloadResponse->iHttpRetValue, urlStr.c_str());
+					AAMPLOG_INFO("Download Status Ret:%d %s", mDownloadResponse->iHttpRetValue, urlStr.c_str());
 					if ( numDownloadAttempts <= numRetriesAllowed )
 					{
 						//make http 408 retry-worthy as well
@@ -230,13 +228,11 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 						}
 					}
 				}
-				//NETWORK_ERROR
 				else
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
-					{
-						//Attempt retry for partial downloads, which have a higher chance to succeed
-						if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
+					{ //Attempt retry for partial downloads, which have a higher chance to succeed
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
 						{
 							loopAgain = true;
 						}
@@ -250,26 +246,19 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			 * We can distinguish curl error and http error based on value
 			 * curl errors are below 100 and http error starts from 100
 			 */
-			if(curlRetVal !=  CURLE_OK)
+			if( httpRetVal == CURLE_FILE_COULDNT_READ_FILE )
 			{
-				if( curlRetVal == CURLE_FILE_COULDNT_READ_FILE )
-				{
-					mDownloadResponse->iHttpRetValue = httpRetVal = 404; // translate file not found to URL not found
-				}
-				else if(mDownloadResponse->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
-				{
-					mDownloadResponse->iHttpRetValue = httpRetVal = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
-				}
-				else
-				{
-					mDownloadResponse->iHttpRetValue = httpRetVal = curlRetVal;
-				}
+				mDownloadResponse->iHttpRetValue = httpRetVal = 404; // translate file not found to URL not found
+			}
+			else if(mDownloadResponse->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+			{ // Timed out wrt configured low bandwidth timeout.
+				mDownloadResponse->iHttpRetValue = httpRetVal = CURLE_OPERATION_TIMEDOUT;
 			}
 			// update the download response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
-			mDownloadActive = false;		
-			mDownloadResponse->curlRetValue = curlRetVal;
+			mDownloadActive = false;
+			mDownloadResponse->iHttpRetValue = httpRetVal;		
 			if( mDnldCfg && mDnldCfg->bCurlThroughput )
 			{
 				AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d",
@@ -669,3 +658,7 @@ size_t AampCurlDownloader::GetDataString(std::string &dataStr)
 	return ret;
 }
 
+CURL* AampCurlDownloader::GetCurlHandle()
+{
+	return mCurl;
+}
