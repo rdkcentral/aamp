@@ -3261,20 +3261,23 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
  */
 void PrivateInstanceAAMP::HandleBeginningOfStreamReached()
 {
-	seek_pos_seconds = culledSeconds;
-	AAMPLOG_MIL("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
-	if (trickStartUTCMS == -1)
+	if (rate < AAMP_RATE_PAUSE)
 	{
-		// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
-		// send BOS event to JSPP
-		ResetTrickStartUTCTime();
-		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+		seek_pos_seconds = culledSeconds;
+		AAMPLOG_MIL("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
+		if (trickStartUTCMS == -1)
+		{
+			// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
+			// send BOS event to JSPP
+			ResetTrickStartUTCTime();
+			AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+		}
+		rate = AAMP_NORMAL_PLAY_RATE;
+		AcquireStreamLock();
+		TuneHelper(eTUNETYPE_SEEK);
+		ReleaseStreamLock();
+		NotifySpeedChanged(rate);
 	}
-	rate = AAMP_NORMAL_PLAY_RATE;
-	AcquireStreamLock();
-	TuneHelper(eTUNETYPE_SEEK);
-	ReleaseStreamLock();
-	NotifySpeedChanged(rate);
 }
 
 /**
