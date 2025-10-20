@@ -1003,11 +1003,11 @@ TEST_F(PrivAampTests, ReportProgressRewindToBeginningOfTSB)
 	p_aamp->ReportProgress(false, false);
 
 	// Verify rate was reset to normal play rate (main test objective)
-	EXPECT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
+	EXPECT_FLOAT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
 
 	// Note: seek_pos_seconds gets modified by TuneHelper during the rewind-to-BOS handling
 	// The final value depends on the TuneHelper logic which calculates playlistSeek
-	EXPECT_EQ(p_aamp->seek_pos_seconds, 0.0);
+	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
 }
 
 TEST_F(PrivAampTests,UpdateDurationTest)

@@ -2082,7 +2082,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
-		double position = GetPositionMilliseconds();
+		// set position to 0 if the rewind operation has reached Beginning Of Stream
+		double position = beginningOfStream? 0: GetPositionMilliseconds();
 		double duration = durationSeconds * 1000.0;
 		float speed = pipeline_paused ? 0 : rate;
 		double start = -1;
@@ -2116,8 +2117,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		{ // clamp start or handle BOS during rewind
 			AAMPLOG_MIL("Reached BoS position %fms < start %fms beginningOfStream %d rate %f",
 				position, start, beginningOfStream, rate);
-			// Set position to 0 if the rewind operation has reached Beginning Of Stream
-			position = 0;
+			position = start;
 			HandleBeginningOfStreamReached();
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
