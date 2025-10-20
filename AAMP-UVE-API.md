@@ -210,9 +210,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change). Refer to [TSB Feature](#tsb-feature) for complete details. |
 | monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues |
 | monitorAVReportingInterval | Number | 1000 | Timeout in milliseconds for reporting MonitorAV events |
-| monitorAVSyncThresholdPositive | Number | 100 | configures threshold for pair of mismatched audio,video positions(One of these is threshold for audio leading (before) video to be considered unacceptable) to be reported as avsync in milliseconds |
-
-| monitorAVSyncThresholdNegative | Number | 100 | configures threshold for pair of mismatched audio,video positions(One of these is threshold for audio lagging (late) video to be considered unacceptable) to be reported as avsync in milliseconds |
+| monitorAVSyncThresholdPositive | Number | 100 | millisecond threshold for leading audio (audio before video) to be considered unacceptable |
+| monitorAVSyncThresholdNegative | Number | 100 | millisecond threshold for lagging audio (audio after video) to be considered unacceptable |
 | monitorAVJumpThreshold  | Number | 100 | configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds |
 
 Example:
