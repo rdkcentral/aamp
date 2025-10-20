@@ -154,7 +154,8 @@ class InterfacePlayerRDK
 		bool trickTeardown;
 		std::mutex mMutex;
 		std::map<std::string, int> configMap;
-        public:
+
+	public:
 		Configs *m_gstConfigParam;
 		char *mDrmSystem;
 		void *mEncrypt;
@@ -508,6 +509,10 @@ class InterfacePlayerRDK
         	 * @param[in] eMEDIATYPE_VIDEO The media type for video.
         	 */
         	void InitializeSourceForPlayer(void *PlayerInstance, void *source, int mediaType);
+        	/**
+        	 * @brief Setup a Closed Caption control stream.
+        	 */
+        	void SetupClosedCaptionControlStream();
         	/**
         	 * @brief Sets up the stream.
         	 * @param[in] streamId The ID of the stream to set up.
