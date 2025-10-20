@@ -3523,10 +3523,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	}
 	AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 	bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
+	AAMPLOG_WARN("Init: tuneType=%d, forceClearSession=%d", tuneType, forceClearSession);
 	licenseManager->clearDrmSession(forceClearSession);
 	licenseManager->clearFailedKeyIds();
 	licenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	licenseManager->setLicenseRequestAbort(false);
+	AAMPLOG_WARN("License request abort set to false");
 	aamp->licenceFromManifest = false;
 	bool newTune = aamp->IsNewTune();
 

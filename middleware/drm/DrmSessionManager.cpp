@@ -172,8 +172,10 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 	for(int i = 0 ; i < mMaxDrmSessions; i++)
 	{
 		// Clear the session data if license key acquisition failed or if forceClearSession is true in the case of LicenseCaching is false.
+		AAMPLOG_WARN("clearDrmSession: isFailedKeyId=%d, forceClearSession=%d, drmSessionContexts=%p", cachedKeyIDs[i].isFailedKeyId, forceClearSession, drmSessionContexts);
 		if((cachedKeyIDs[i].isFailedKeyId || forceClearSession) && drmSessionContexts != NULL)
 		{
+			AAMPLOG_WARN("clearDrmSession: test log");
 			std::lock_guard<std::mutex> guard(drmSessionContexts[i].sessionMutex);
 			if (drmSessionContexts[i].drmSession != NULL)
 			{
@@ -183,6 +185,10 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 		}
 	}
 }
+
+
+
+
 
 
 void DrmSessionManager::setVideoWindowSize(int width, int height)
