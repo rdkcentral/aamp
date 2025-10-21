@@ -158,17 +158,17 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 /**
  * @brief AddEventListener - Register  listener for one eventtype
  */
-void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
-			AAMPLOG_INFO("HariPriya :: EventType:%d, Listener %p new %p", eventType, eventListener.get(), pListener);
+			AAMPLOG_INFO("HariPriya :: EventType:%d, Listener %p new %p count : %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
-			AAMPLOG_INFO("HariPriya :: EventType:%d %p add %p usecount = %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
+			AAMPLOG_INFO("HariPriya :: EventType:%d %p add %p usecount = %d pListener use count : %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count(), (int)pListener->eventListener.use_count());
 			pListener->pNext = mEventListeners[eventType];
 			mEventListeners[eventType] = pListener;
 		}
@@ -182,7 +182,7 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr
 /**
  * @brief RemoveEventListener - Remove one listener registration for one event
  */
-void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	// listener instance is cleared here , but created outside
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
@@ -195,7 +195,7 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_
 			if (pListener->eventListener == eventListener)
 			{
 				*ppLast = pListener->pNext;
-				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener.get(), pListener);
+				AAMPLOG_INFO("Eventtype:%d %p delete %p usecount = %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
 				SAFE_DELETE(pListener);
 				AAMPLOG_INFO("HariPriya Eventtype:%d useCount = %ld", eventType, eventListener.use_count());
 				return;

@@ -2520,18 +2520,22 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 /**
  * @brief Add listener to aamp events
  */
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
+	AAMPLOG_WARN("HariPriya PrivateInstanceAAMP::AddEventListener for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
 	mEventManager->AddEventListener(eventType,eventListener);
+	AAMPLOG_WARN("HariPriya PrivateInstanceAAMP::AddEventListener after for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
 }
 
 
 /**
  * @brief Deregister event lister, Remove listener to aamp events
  */
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener>eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener>& eventListener)
 {
+	AAMPLOG_WARN("HariPriya PrivateInstanceAAMP::RemoveEventListener for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
 	mEventManager->RemoveEventListener(eventType,eventListener);
+	AAMPLOG_WARN("HariPriya PrivateInstanceAAMP::RemoveEventListener after for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
 }
 
 /**

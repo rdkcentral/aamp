@@ -172,7 +172,7 @@ public:
 	 * @param eventListener - shared pointer to listener for events
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 	/**
 	 * @fn RemoveEventListener
@@ -180,7 +180,7 @@ public:
 	 * @param eventListener - listener for events
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 
 	/**

@@ -1405,7 +1405,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 	/**
 	 * @fn RemoveEventListener
@@ -1414,7 +1414,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 	/**
 	 * @fn IsEventListenerAvailable
 	 *
@@ -2100,7 +2100,9 @@ public:
 			// No-op deleter to avoid accidental deletion
 			AAMPLOG_INFO("HariPriya :: RegisterEvent: No-op deleter called for listener %p", ptr);
 		});
+		AAMPLOG_INFO("HariPriya :: RegisterEvent: Registering listener %p count : %d for event type %d", listener, sharedListener.use_count(), type);
 		mEventManager->AddEventListener(type, sharedListener);
+		AAMPLOG_INFO("HariPriya :: RegisterEvent: Registered listener %p count : %d for event type %d", listener, sharedListener.use_count(), type);
 	}
 
 	/**

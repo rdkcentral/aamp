@@ -1603,10 +1603,25 @@ void PlayerInstanceAAMP::UnloadJS(void* context)
 /**
  *  @brief Support multiple listeners for multiple event type
  */
-void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	if(aamp){
+	AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::AddEventListener for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
 	aamp->AddEventListener(eventType, eventListener);
+	AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::AddEventListener after for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
+	}
+}
+
+/**
+ * @brief Support multiple listeners for multiple event type - raw pointer version
+ */
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+{
+	if(aamp){
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		AAMPLOG_WARN("HariPriya raw pointer version PlayerInstanceAAMP::AddEventListener for eventType %d usecount %d for ptr %p", eventType, sharedListener.use_count(), sharedListener.get());
+		aamp->AddEventListener(eventType, sharedListener);
+		AAMPLOG_WARN("HariPriya raw pointer version PlayerInstanceAAMP::AddEventListener after for eventType %d usecount %d for ptr %p", eventType, sharedListener.use_count(), sharedListener.get());
 	}
 }
 
@@ -1624,10 +1639,25 @@ void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener
 /**
  *  @brief Remove event listener for eventType.
  */
-void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	if(aamp){
+	AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::RemoveEventListener for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
 	aamp->RemoveEventListener(eventType, eventListener);
+	AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::RemoveEventListener after for eventType %d usecount %d for ptr %p", eventType, eventListener.use_count(), eventListener.get());
+	}
+}
+
+ /**
+  * @brief Remove event listener for eventType - raw pointer version
+  */
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+{
+	if(aamp){
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::RemoveEventListener for eventType %d usecount %d for ptr %p", eventType, sharedListener.use_count(), sharedListener.get());
+		aamp->RemoveEventListener(eventType, sharedListener);
+		AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::RemoveEventListener after for eventType %d usecount %d for ptr %p", eventType, sharedListener.use_count(), sharedListener.get());
 	}
 }
 
