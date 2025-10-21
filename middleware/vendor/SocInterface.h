@@ -105,8 +105,14 @@ public:
 	 */
 	void SetWesterosSinkState(bool status);
 
+	/**
+	 * @breif Get SVP Context
+	 */
 	virtual void SvpGetContext(void **svpCtx, int server, int flags){};
 
+	/**
+	 * @breif Free SVP Context
+	 */
 	virtual void SvpFreeContext(void *svpCtx){};
 
 	/*@brief returns true if video stats required from sink otherwise false*/
@@ -134,12 +140,24 @@ public:
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
 
+	/**
+	 * @brief Configure the accept caps
+	 * @return void
+	 */
 	virtual void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
                          AcceptCapsFunc accept_caps_func);
 
+	/**
+	 * @brief Indicates whether transform capabilities are required.
+	 * @return true if transform capabilities are required; otherwise, false
+	 */
 	virtual bool IsTransformCapsRequired() const {
 	return false; }
 
+	/**
+	 * @brief Indicates whether decryption is required.
+	 * @return true if decryption are required; otherwise, false
+	 */
 	virtual bool IsDecryptRequired() const {
 	return false; }
 

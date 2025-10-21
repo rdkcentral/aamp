@@ -21,6 +21,7 @@
 #define AMLOGIC_SOC_INTERFACE_H
 
 #include "SocInterface.h"
+
 /**
  * @brief Amlogic SoC interface class.
  *
@@ -91,17 +92,35 @@ class AmlogicSocInterface : public SocInterface
 		 */
 		void SetAC4Tracks(GstElement *src, int trackId) override;
 
+		/**
+		 * @breif Get SVP Context
+		 */
 		void SvpGetContext(void **svpCtx, int server, int flags)override;
 
+		/**
+		 * @breif Free SVP Context
+		 */
 		void SvpFreeContext(void *svpCtx)override;
 
+		/**
+		 * @brief Configure the accept caps
+		 * @return void
+		 */
 		void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
                          AcceptCapsFunc accept_caps_func)override {
 		return;	 }
 
+		/**
+		 * @brief Indicates whether transform capabilities are required.
+		 * @return true if transform capabilities are required; otherwise, false
+		 */
 		bool IsTransformCapsRequired() const override {
 		return true; }
 
+		/**
+		 * @brief Indicates whether decryption is required.
+		 * @return true if decryption are required; otherwise, false
+		 */
 		bool IsDecryptRequired() const override {
 		return true; }
 
