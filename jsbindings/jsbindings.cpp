@@ -48,7 +48,7 @@ extern "C"
 	JSObjectRef AAMP_JS_AddEventTypeClass(JSGlobalContextRef context);
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
 }
-
+class AAMP_JSListener;
 /**
  * @struct AAMP_JS
  * @brief Data structure of AAMP object
@@ -2302,16 +2302,15 @@ static JSValueRef AAMP_removeEventListener(JSContextRef context, JSObjectRef fun
 void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", aamp, type, jsCallback);
-	AAMP_JSListener** ppListener = &aamp->_listeners;
+	std::shared_ptr<AAMP_JSListener>* ppListener = &aamp->_listeners;
 	while (*ppListener != NULL)
 	{
-		AAMP_JSListener* pListener = *ppListener;
+		std::shared_ptr<AAMP_JSListener>& pListener = *ppListener;
 		if ((pListener->_type == type) && (pListener->_jsCallback == jsCallback))
 		{
 			*ppListener = pListener->_pNext;
-                        LOG_WARN_EX(" type=%d,pListener= %p", type, pListener);
-			aamp->_aamp->RemoveEventListener(type, pListener);
-			SAFE_DELETE(pListener);
+			LOG_WARN_EX(" type=%d,pListener= %p", type, pListener.get());
+			aamp->_aamp->RemoveEventListener(type, pListener.get());
 			return;
 		}
 		ppListener = &pListener->_pNext;
