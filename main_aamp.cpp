@@ -1603,7 +1603,7 @@ void PlayerInstanceAAMP::UnloadJS(void* context)
 /**
  *  @brief Support multiple listeners for multiple event type
  */
-void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	if(aamp){
 	AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::AddEventListener for eventType %d usecount %ld for ptr %p", eventType, eventListener.use_count(), eventListener.get());
@@ -1628,7 +1628,7 @@ void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener
 /**
  *  @brief Remove event listener for eventType.
  */
-void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	if(aamp){
 	AAMPLOG_WARN("HariPriya PlayerInstanceAAMP::RemoveEventListener for eventType %d usecount %ld for ptr %p", eventType, eventListener.use_count(), eventListener.get());

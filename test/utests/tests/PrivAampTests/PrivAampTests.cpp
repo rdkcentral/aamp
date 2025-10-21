@@ -1005,7 +1005,7 @@ TEST_F(PrivAampTests,UpdateCullingStateTest)
 
 TEST_F(PrivAampTests,AddEventListenerTest)
 {
-	EventListener* eventListener;
+	std::shared_ptr<EventListener> eventListener = std::make_shared<EventListener>();
 	p_aamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,eventListener);
 	p_aamp->RemoveEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,eventListener);
 

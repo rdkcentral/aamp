@@ -346,11 +346,11 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener *eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType,  std::shared_ptr<EventListener>& eventListener)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener *eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 

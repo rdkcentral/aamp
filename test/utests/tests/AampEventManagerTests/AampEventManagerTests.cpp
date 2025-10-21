@@ -69,7 +69,7 @@ protected:
     handler = nullptr;
     }
 public:
-	EventListener* eventListener;
+    std::shared_ptr<EventListener> eventListener;
 
     TestableAampEventManager *handler;
 
