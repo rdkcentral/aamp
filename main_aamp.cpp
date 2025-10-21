@@ -1611,12 +1611,34 @@ void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_p
 }
 
 /**
+ * @brief Support multiple listeners for multiple event type - raw pointer version
+ */
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+{
+	if(aamp){
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		aamp->AddEventListener(eventType, sharedListener);
+	}
+}
+
+/**
  *  @brief Remove event listener for eventType.
  */
 void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	if(aamp){
 	aamp->RemoveEventListener(eventType, eventListener);
+	}
+}
+
+ /**
+  * @brief Remove event listener for eventType - raw pointer version
+  */
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+{
+	if(aamp){
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		aamp->RemoveEventListener(eventType, sharedListener);
 	}
 }
 

@@ -180,34 +180,6 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr
 }
 
 /**
- * @brief AddEventListener - Register listener for one eventtype (raw pointer version)
- */
-void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
-{
-    if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
-    {
-        ListenerData* pListener = new ListenerData;
-        if (pListener)
-        {
-            AAMPLOG_INFO("HariPriya :: EventType:%d, Listener %p new %p", eventType, eventListener, pListener);
-            std::lock_guard<std::mutex> guard(mMutexVar);
-            // Create shared_ptr with custom deleter that does nothing
-            // This assumes the caller manages the lifetime
-            pListener->eventListener = std::shared_ptr<EventListener>(eventListener, [](EventListener*){
-                // Custom deleter - do nothing, caller owns the object
-            });
-            AAMPLOG_INFO("HariPriya :: EventType:%d %p add %p usecount = %d", eventType, eventListener, pListener, (int)pListener->eventListener.use_count());
-            pListener->pNext = mEventListeners[eventType];
-            mEventListeners[eventType] = pListener;
-        }
-    }
-    else
-    {
-        AAMPLOG_ERR("EventType %d registered out of range",eventType);
-    }
-}
-
-/**
  * @brief RemoveEventListener - Remove one listener registration for one event
  */
 void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
@@ -237,35 +209,6 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_
 	}
 }
 
-/**
- * @brief RemoveEventListener - Remove one listener registration for one event (raw pointer version)
- */
-void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
-{
-	// listener instance is cleared here , but created outside
-	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
-	{
-		std::lock_guard<std::mutex> guard(mMutexVar);
-		ListenerData** ppLast = &mEventListeners[eventType];
-		while (*ppLast != NULL)
-		{
-			ListenerData* pListener = *ppLast;
-			// Compare the raw pointer inside the shared_ptr
-			if (pListener->eventListener.get() == eventListener)
-			{
-				*ppLast = pListener->pNext;
-				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener, pListener);
-				SAFE_DELETE(pListener);
-				return;
-			}
-			ppLast = &(pListener->pNext);
-		}
-	}
-	else
-	{
-		AAMPLOG_ERR("Invalid parameters for RemoveEventListener: eventType=%d, eventListener=%p", eventType, eventListener);
-	}
-}
 /**
  * @brief IsSpecificEventListenerAvailable - Check if this particular listener present for this event
  */ 
