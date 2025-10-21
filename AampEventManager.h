@@ -159,20 +159,27 @@ public:
 	 * @param eventListener - listener for events
 	 * @return void
 	 */
-	void AddListenerForAllEvents(std::shared_ptr<EventListener> eventListener);
+	void AddListenerForAllEvents(EventListener* eventListener);
 	/**
 	 * @fn RemoveListenerForAllEvents
 	 * @param eventListener - listener for events
 	 * @return void
 	 */
-	void RemoveListenerForAllEvents(std::shared_ptr<EventListener> eventListener);
+	void RemoveListenerForAllEvents(EventListener* eventListener);
 	/**
 	 * @fn AddEventListener
 	 * @param eventType - Aamp Event type
-	 * @param eventListener - listener for events
+	 * @param eventListener - shared pointer to listener for events
 	 * @return void
 	 */
 	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+	/**
+	 * @fn AddEventListener
+	 * @param eventType - Aamp Event type
+	 * @param eventListener - raw pointer to listener for events
+	 * @return void
+	 */
+	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
 	/**
 	 * @fn RemoveEventListener
 	 * @param eventType - Aamp Event type
@@ -180,6 +187,14 @@ public:
 	 * @return void
 	 */
 	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+	/**
+	 * @fn RemoveEventListener
+	 * @param eventType - Aamp Event type
+	 * @param eventListener - raw pointer to listener for events
+	 * @return void
+	 */
+	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+
 	/**
 	 * @fn IsEventListenerAvailable - Check if any listeners present for this event
 	 * @param eventType - Aamp Event Type
