@@ -684,12 +684,12 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
     if(playerId != PLAYER_ID_NA )
     {
         len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),
-            "[AAMP-JS] %d :%s :%s : %s : %d :",playerId,levelstr,functionName,line);
+            "[AAMP-JS] %d :%s :%s : %d :",playerId,levelstr,functionName,line);
     }
     else
     {
         len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),
-            "[AAMP-JS] %s :%s : %s: %d :",levelstr,functionName,line);
+            "[AAMP-JS] %s :%s : %d :",levelstr,functionName,line);
     }
 	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
