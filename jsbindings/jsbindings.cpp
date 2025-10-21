@@ -2310,7 +2310,7 @@ void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSO
 		{
 			*ppListener = pListener->_pNext;
 			LOG_WARN_EX(" type=%d,pListener= %p", type, pListener.get());
-			aamp->_aamp->RemoveEventListener(type, pListener.get());
+			aamp->_aamp->RemoveEventListener(type, std::static_pointer_cast<EventListener>(pListener));
 			return;
 		}
 		ppListener = &pListener->_pNext;
