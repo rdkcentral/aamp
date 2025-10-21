@@ -255,7 +255,7 @@ void Aampcli::newPlayerInstance( std::string appName)
 	if( !mEventListener )
 	{ // for now, use common event listener (could be instance specific)
 		AAMPCLI_PRINTF( "allocating new MyAAMPEventListener\n");
-		mEventListener = new MyAAMPEventListener();
+		mEventListener =  std::make_shared<MyAAMPEventListener>();
 	}
 	player->RegisterEvents(mEventListener);
 	int playerId = player->GetId();

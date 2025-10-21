@@ -1735,6 +1735,7 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
 	{
 		JSValueProtect(p_obj->_ctx, p_jsCallback);
 	}
+	LOG_WARN_EX("HariPriya :: Created AAMP_JSEventListener: %p for eventType: %d, jsCallback: %p", this, type, jsCallback);
 }
 
 /**
@@ -1746,6 +1747,7 @@ AAMP_JSEventListener::~AAMP_JSEventListener()
 	{
 		JSValueUnprotect(p_obj->_ctx, p_jsCallback);
 	}
+	LOG_WARN_EX("HariPriya :: Deleted AAMP_JSEventListener: %p for eventType: %d, jsCallback: %p", this, p_type, p_jsCallback);
 }
 
 /**
@@ -1755,6 +1757,7 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 {
 	AAMPEventType evtType = e->getType();
         LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
+	LOG_WARN_EX("HariPriya :: Deleted AAMP_JSEventListener: %p for eventType: %d, jsCallback: %p", this, p_type, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
@@ -1812,113 +1815,113 @@ void AAMP_JSEventListener::SetEventProperties(const AAMPEventPtr& evt, JSObjectR
 void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
 	LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
+	LOG_WARN_EX("HariPriya :: Adding eventListener for eventType: %d, jsCallback: %p", type, jsCallback);
 
-	AAMP_JSEventListener* pListener = NULL;
+	std::shared_ptr<AAMP_JSEventListener> pListener = NULL;
 
 	switch(type)
 	{
 		case AAMP_EVENT_STATE_CHANGED:
-			pListener = new AAMP_Listener_PlaybackStateChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_PlaybackStateChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_PROGRESS:
-			pListener = new AAMP_Listener_ProgressUpdate(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_ProgressUpdate>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_SPEED_CHANGED:
-			pListener = new AAMP_Listener_SpeedChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_SpeedChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BUFFERING_CHANGED:
-			pListener = new AAMP_Listener_BufferingChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_BufferingChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TUNE_FAILED:
-			pListener = new AAMP_Listener_PlaybackFailed(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_PlaybackFailed>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MEDIA_METADATA:
-			pListener = new AAMP_Listener_MediaMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_MediaMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_SPEEDS_CHANGED:
-			pListener = new AAMP_Listener_SpeedsChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_SpeedsChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_SEEKED:
-			pListener = new AAMP_Listener_Seeked(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_Seeked>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TUNE_PROFILING:
-			pListener = new AAMP_Listener_TuneProfiling(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_TuneProfiling>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:
-			pListener = new AAMP_Listener_CCHandleAvailable(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_CCHandleAvailable>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_DRM_METADATA:
-			pListener = new AAMP_Listener_DRMMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_DRMMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_REPORT_ANOMALY:
-			pListener = new AAMP_Listener_AnomalyReport(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AnomalyReport>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_WEBVTT_CUE_DATA:
-			pListener = new AAMP_Listener_VTTCueData(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_VTTCueData>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BULK_TIMED_METADATA:
-			pListener = new AAMP_Listener_BulkTimedMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_BulkTimedMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TIMED_METADATA:
-			pListener = new AAMP_Listener_TimedMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_TimedMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_HTTP_RESPONSE_HEADER:
-			pListener = new AAMP_Listener_HTTPResponseHeader(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_HTTPResponseHeader>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BITRATE_CHANGED:
-			pListener = new AAMP_Listener_BitrateChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_BitrateChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_RESOLVED:
-			pListener = new AAMP_Listener_AdResolved(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdResolved>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_RESERVATION_START:
-			pListener = new AAMP_Listener_AdReservationStart(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdReservationStart>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_RESERVATION_END:
-			pListener = new AAMP_Listener_AdReservationEnd(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdReservationEnd>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_START:
-			pListener = new AAMP_Listener_AdPlacementStart(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdPlacementStart>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_END:
-			pListener = new AAMP_Listener_AdPlacementEnd(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdPlacementEnd>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_PROGRESS:
-			pListener = new AAMP_Listener_AdProgress(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdProgress>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_ERROR:
-			pListener = new AAMP_Listener_AdPlacementError(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdPlacementError>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_ID3_METADATA:
-			pListener = new AAMP_Listener_Id3Metadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_Id3Metadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BLOCKED:
-			pListener = new AAMP_Listener_Blocked(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_Blocked>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_CONTENT_GAP:
-			pListener = new AAMP_Listener_ContentGap(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_ContentGap>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_WATERMARK_SESSION_UPDATE:
-			pListener = new AAMP_Listener_WatermarkSessionUpdate(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_WatermarkSessionUpdate>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE:
-			pListener = new AAMP_Listener_ContentProtectionData(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_ContentProtectionData>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
-			pListener = new AAMP_Listener_DashManifestRefreshNotify(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_DashManifestRefreshNotify>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TUNE_TIME_METRICS:
-			pListener = new AAMP_Listener_TuneMetricData(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_TuneMetricData>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MONITORAV_STATUS:
-			pListener = new AAMP_Listener_MonitorAVStatus(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_MonitorAVStatus>(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,
 		// AAMP_EVENT_AUDIO_TRACKS_CHANGED, AAMP_EVENT_TEXT_TRACKS_CHANGED, AAMP_EVENT_NEED_MANIFEST_DATA
 		default:
-			// pListener = new AAMP_JSEventListener(obj, type, jsCallback);
-			pListener = new AAMP_Listener_DefaultEvent(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_DefaultEvent>(obj, type, jsCallback);
 			break;
 	}
 
@@ -1927,7 +1930,8 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		obj->_aamp->AddEventListener(type, pListener);
 	}
 
-	obj->_listeners.insert({type, (void *)pListener});
+	obj->_listeners.insert({type,(pListener)});
+	LOG_WARN_EX("HariPriya :: Added eventListener: %p for eventType: %d", pListener.get(), type);
 }
 
 
@@ -1937,23 +1941,23 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
-
+	LOG_WARN_EX("HariPriya :: Removing eventListener for eventType: %d, jsCallback: %p", type, jsCallback);
 	if (obj->_listeners.count(type) > 0)
 	{
 
-		typedef std::multimap<AAMPEventType, void*>::iterator listenerIter_t;
+		typedef std::multimap<AAMPEventType, std::shared_ptr<void>>::iterator listenerIter_t;
 		std::pair<listenerIter_t, listenerIter_t> range = obj->_listeners.equal_range(type);
 		for(listenerIter_t iter = range.first; iter != range.second; )
 		{
-			AAMP_JSEventListener *listener = (AAMP_JSEventListener *)iter->second;
+			auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
 			if (listener->p_jsCallback == jsCallback)
 			{
 				if (obj->_aamp != NULL)
 				{
 					obj->_aamp->RemoveEventListener(iter->first, listener);
 				}
+				LOG_WARN_EX("HariPriya :: Removed eventListener: %p for eventType: %d", listener.get() , type);
 				iter = obj->_listeners.erase(iter);
-				SAFE_DELETE(listener);
 			}
 			else
 			{
@@ -1974,13 +1978,14 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 
 	for (auto listenerIter = obj->_listeners.begin(); listenerIter != obj->_listeners.end();)
 	{
-		AAMP_JSEventListener *listener = (AAMP_JSEventListener *)listenerIter->second;
+		auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
 		if (obj->_aamp != NULL)
 		{
 			obj->_aamp->RemoveEventListener(listenerIter->first, listener);
 		}
+		LOG_WARN_EX("HariPriya :: Removed eventListener: %p for eventType: %d listener count: %d", listener.get(), listenerIter->first, listenerIter->second.use_count());
 		listenerIter = obj->_listeners.erase(listenerIter);
-		SAFE_DELETE(listener);
+		LOG_WARN_EX("HariPriya :: After erase listener count: %d", listener.use_count());
 	}
 
 	obj->_listeners.clear();

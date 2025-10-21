@@ -1603,7 +1603,7 @@ void PlayerInstanceAAMP::UnloadJS(void* context)
 /**
  *  @brief Support multiple listeners for multiple event type
  */
-void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	if(aamp){
 	aamp->AddEventListener(eventType, eventListener);
@@ -1613,7 +1613,7 @@ void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener
 /**
  *  @brief Remove event listener for eventType.
  */
-void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	if(aamp){
 	aamp->RemoveEventListener(eventType, eventListener);

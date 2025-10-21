@@ -2520,7 +2520,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 /**
  * @brief Add listener to aamp events
  */
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	mEventManager->AddEventListener(eventType,eventListener);
 }
@@ -2529,7 +2529,7 @@ void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListene
 /**
  * @brief Deregister event lister, Remove listener to aamp events
  */
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener>eventListener)
 {
 	mEventManager->RemoveEventListener(eventType,eventListener);
 }

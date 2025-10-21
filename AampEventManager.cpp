@@ -64,6 +64,7 @@ AampEventManager::~AampEventManager()
 {
 
 	// Clear all event listeners and pending events
+	AAMPLOG_INFO("HariPriya EventManager destructor");
 	FlushPendingEvents();
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
@@ -72,9 +73,11 @@ AampEventManager::~AampEventManager()
 		{
 			ListenerData* pListener = mEventListeners[i];
 			mEventListeners[i] = pListener->pNext;
+			AAMPLOG_WARN("HariPriya :: Deleting ListenerData: %p, eventListener: %p", pListener, pListener->eventListener.get());
 			SAFE_DELETE(pListener);
 		}
 	}
+	AAMPLOG_INFO("HariPriya EventManager destructor Exit");
 }
 
 /**
@@ -117,7 +120,7 @@ void AampEventManager::FlushPendingEvents()
 /**
  * @brief AddListenerForAllEvents - Register one listener for all events
  */ 
-void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
+void AampEventManager::AddListenerForAllEvents(std::shared_ptr<EventListener> eventListener)
 {
 	if(eventListener != NULL)
 	{
@@ -132,7 +135,7 @@ void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
 /**
  * @brief RemoveListenerForAllEvents - Remove listener for all events
  */
-void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
+void AampEventManager::RemoveListenerForAllEvents(std::shared_ptr<EventListener> eventListener)
 {
 	if(eventListener != NULL)
 	{
@@ -146,17 +149,18 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 
 /**
  * @brief AddEventListener - Register  listener for one eventtype
- */ 
-void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+ */
+void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
-			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener, pListener);
+			AAMPLOG_INFO("HariPriya :: EventType:%d, Listener %p new %p", eventType, eventListener.get(), pListener);
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
+			AAMPLOG_INFO("HariPriya :: EventType:%d %p add %p usecount = %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
 			pListener->pNext = mEventListeners[eventType];
 			mEventListeners[eventType] = pListener;
 		}
@@ -170,7 +174,7 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* 
 /**
  * @brief RemoveEventListener - Remove one listener registration for one event
  */
-void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
 {
 	// listener instance is cleared here , but created outside
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
@@ -185,10 +189,15 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 				*ppLast = pListener->pNext;
 				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener, pListener);
 				SAFE_DELETE(pListener);
+				AAMPLOG_INFO("HariPriya Eventtype:%d useCount = %ld", eventType, eventListener.use_count());
 				return;
 			}
 			ppLast = &(pListener->pNext);
 		}
+	}
+	else
+	{
+		AAMPLOG_ERR("Invalid parameters for RemoveEventListener: eventType=%d, eventListener=%p", eventType, eventListener.get());
 	}
 }
 
@@ -354,6 +363,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
+	AAMPLOG_INFO("HariPriya :: Enter ");
 	std::unique_lock<std::mutex> lock(mMutexVar);
 #ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
@@ -362,6 +372,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
 	{
+		AAMPLOG_INFO("HariPriya :: PlayerState : Released return");
 		return;
 	}
 	
@@ -374,11 +385,11 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		}
 		else
 		{
-			AAMPLOG_WARN("(type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
+			AAMPLOG_WARN("HariPriya :: (type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
 				eventData->GetSessionId().c_str());
 		}
 	}
-
+	AAMPLOG_INFO("HariPriya :: (type=%d) build list of listeners",eventType);
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
 	ListenerData* pListener = mEventListeners[eventType];
@@ -403,11 +414,13 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 
 	// After releasing the lock, dispatch each of the registered listeners.
 	// This allows event handlers to add/remove listeners for future events.
+	AAMPLOG_INFO("HariPriya :: dispatch registered listeners");
 	while (pList != NULL)
 	{
 		ListenerData* pCurrent = pList;
 		if (pCurrent->eventListener != NULL)
 		{
+			AAMPLOG_INFO("HariPriya :: Dispatching event to listener: %p", pCurrent->eventListener.get());
 			pCurrent->eventListener->SendEvent(eventData);
 		}
 		pList = pCurrent->pNext;
@@ -416,6 +429,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 #ifdef EVENT_DEBUGGING
 	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
 #endif
+	AAMPLOG_INFO("HariPriya :: Exit");
 
 }
 
