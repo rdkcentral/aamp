@@ -1317,6 +1317,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mThumbnailLastProgramDateTime(0)
+	, mLastSleThumbnailInfo()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -6968,7 +6970,34 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 	{
 		AAMPLOG_WARN("No thumbnail track is currently selected: no information is available.");
 	}
+	
+	if( !mLastSleThumbnailInfo.empty())
+	{
+		AAMPLOG_WARN("#### mLastSleThumbnailInfo start####");
+		size_t sz = mLastSleThumbnailInfo.size();
+		if(sz > 10 )
+		{
+			AAMPLOG_WARN("***** First 10 mLastSleThumbnailInfo start %zu ####",mLastSleThumbnailInfo.size());
+			for(size_t i= 0 ;  i <  10 ; i++)
+			{
+				std::string ot(mLastSleThumbnailInfo[i].url);
+				std::size_t found = ot.find_last_of("/\\");
+				AAMPLOG_WARN("%lf:%lf:%lld::%s",mLastSleThumbnailInfo[i].startTime,mLastSleThumbnailInfo[i].layout.tileSetDuration,mLastSleThumbnailInfo[i].layout.progStartDateTime,ot.substr(found+1).c_str());
+			}
 
+			AAMPLOG_WARN("***** First mLastSleThumbnailInfo End %zu ####",mLastSleThumbnailInfo.size());
+			AAMPLOG_WARN("***** Last 10 mLastSleThumbnailInfo start %zu ####",mLastSleThumbnailInfo.size());
+			for(size_t i= mLastSleThumbnailInfo.size()-10 ;  i <  mLastSleThumbnailInfo.size() ; i++)
+			{
+				std::string ot(mLastSleThumbnailInfo[i].url);
+				std::size_t found = ot.find_last_of("/\\");
+				AAMPLOG_WARN("%lf:%lf:%lld::%s",mLastSleThumbnailInfo[i].startTime,mLastSleThumbnailInfo[i].layout.tileSetDuration,mLastSleThumbnailInfo[i].layout.progStartDateTime,ot.substr(found+1).c_str());
+			}
+			AAMPLOG_WARN("***** Last  mLastSleThumbnailInfo End %zu ####",mLastSleThumbnailInfo.size());
+		}
+		AAMPLOG_WARN("#### mLastSleThumbnailInfo end####");
+	}
+	AAMPLOG_WARN("#### mLastSleThumbnailInfo end####");
 	ReleaseStreamLock();
 	return rc;
 }
@@ -7615,6 +7644,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
+		mLastSleThumbnailInfo.clear();
 		ReleaseStreamLock();
 	}
 	TeardownStream(true,true); //disable download as well
