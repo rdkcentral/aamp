@@ -4180,9 +4180,9 @@ protected:
 
 private:
 	/**
-	 * @brief Handle beginning of stream reached during rewind
+	 * @brief Play from the start of the TSB
 	 */
-	void HandleBeginningOfStreamReached();
+	void PlayFromTsbStart();
 
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);

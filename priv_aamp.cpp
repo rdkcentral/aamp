@@ -2119,12 +2119,14 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			//AAMPLOG_WARN("aamp clamp end");
 			position = end;
 		}
-		else if (position < start || (beginningOfStream && rate < AAMP_RATE_PAUSE))
+		// If beginningOfStream is true or position < start, it means rewind has reached BoS
+		// Note: position could be = start immediately after tuning
+		else if (position < start || beginningOfStream)
 		{ // clamp start or handle BOS during rewind
-			AAMPLOG_MIL("Reached BoS position %fms < start %fms beginningOfStream %d rate %f",
+			AAMPLOG_MIL("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
-			HandleBeginningOfStreamReached();
+			PlayFromTsbStart();
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -3257,14 +3259,14 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 }
 
 /**
- * @brief Handle beginning of stream reached during rewind
+ * @brief Play from the start of the TSB
  */
-void PrivateInstanceAAMP::HandleBeginningOfStreamReached()
+void PrivateInstanceAAMP::PlayFromTsbStart()
 {
 	if (rate < AAMP_RATE_PAUSE)
 	{
 		seek_pos_seconds = culledSeconds;
-		AAMPLOG_MIL("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
+		AAMPLOG_MIL("Updated seek_pos_seconds %f on start of TSB", seek_pos_seconds);
 		if (trickStartUTCMS == -1)
 		{
 			// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
