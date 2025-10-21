@@ -57,7 +57,7 @@ struct AAMP_JS
 {
 	JSGlobalContextRef _ctx;
 	class PlayerInstanceAAMP* _aamp;
-	class AAMP_JSListener* _listeners;
+	std::shared_ptr<AAMP_JSListener> _listeners;
 	int  iPlayerId; /*An int variable iPlayerID to store Playerid */
         bool bInfoEnabled; /*A bool variable bInfoEnabled for INFO logging check*/
 	JSObjectRef _eventType;
@@ -705,7 +705,7 @@ public:
 	AAMP_JS*			_aamp;
 	AAMPEventType		_type;
 	JSObjectRef			_jsCallback;
-	AAMP_JSListener*	_pNext;
+	std::shared_ptr<AAMP_JSListener>	_pNext;
 };
 
 /**
