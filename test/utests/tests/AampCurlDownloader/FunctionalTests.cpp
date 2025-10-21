@@ -186,7 +186,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -197,7 +196,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(404), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(404, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -208,7 +206,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->curlRetValue);
+	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->iHttpRetValue);
 	EXPECT_NE(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -238,7 +236,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -281,7 +278,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_8)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_NE(200, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_NONE ,respData->mAbortReason);
 	respData->show();
@@ -333,7 +330,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(progress_callback_return, -1);
-	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_START_TIMEDOUT ,respData->mAbortReason);
 
 	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
@@ -390,7 +387,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 	respData->show();
 	EXPECT_EQ(write_func_return, (write_sz * write_nmemb));
 	EXPECT_EQ(progress_callback_return, -1);
-	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_STALL_TIMEDOUT ,respData->mAbortReason);
 	free(write_buffer);
 
@@ -438,7 +435,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 		.Times(triesExpected)
 		.WillRepeatedly(DoAll(SetArgPointee<2>(502), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(502, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -453,7 +449,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 		.WillOnce(DoAll(SetArgPointee<2>(502), Return(CURLE_OK)))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -468,7 +463,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 		.WillOnce(DoAll(SetArgPointee<2>(408), Return(CURLE_OK)))
 		.WillOnce(DoAll(SetArgPointee<2>(408), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(408, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();

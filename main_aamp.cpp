@@ -59,25 +59,12 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-//Need to do iarm initialization process before reading the tr181 aamp parameters.
-//Using printf here since AAMP logs can only use after creating the global object
-	static bool iarmInitialized = false;
-	if(!iarmInitialized)
-	{
-			char processName[20] = {0};
-
-			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
-
-			PlayerExternalsInterface::IARMInit(processName);
-
-
-			iarmInitialized = true;
-	}
-
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		
+
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
 		printf( "curl version: %s\n", vers->version );
@@ -93,12 +80,25 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			if(!gpGlobalConfig->ReadAampCfgJsonFile())
 			{
 				gpGlobalConfig->ReadAampCfgFromEnv();
-			}
+			}			
+			
 		}
+
+		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+
+		//TR181 is not supported in firebolt
+		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		pExternalsInterface->Initialize();	
+		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
+
+	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	pExternalsInterface->Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
@@ -126,6 +126,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
+
+	AAMPLOG_MIL("UseFireboltSDK=%d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 
 	// start Scheduler Worker for task handling
 	mScheduler.StartScheduler(aamp->mPlayerId);

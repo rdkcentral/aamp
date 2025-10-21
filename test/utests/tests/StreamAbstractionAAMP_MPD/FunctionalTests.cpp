@@ -38,6 +38,7 @@
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
 
+
 using ::testing::_;
 using ::testing::An;
 using ::testing::SetArgReferee;
@@ -271,6 +272,42 @@ public:
 	}
 
 	/**
+	 * @brief Get manifest helper method for MPDDownloader
+	 *
+	 * @param[in] remoteUrl Manifest url
+	 * @param[out] buffer Buffer containing manifest data
+	 * @retval true on success
+	*/
+	ManifestDownloadResponsePtr GetManifestForMPDDownloaderTimeout(int curlTimeoutFailureReason)
+	{
+		static const char *test_manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+	<Period duration="PT1M0S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+				<SegmentTemplate timescale="2500" media="video_$Time$.mp4" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="5000" r="29" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
+		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+		response->mMPDDownloadResponse->iHttpRetValue = curlTimeoutFailureReason;
+		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;		
+		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)test_manifest, (uint8_t*)(test_manifest + strlen(test_manifest)));
+		GetMPDFromManifest(response);
+		mResponse = response;
+		return response;
+	}
+
+	/**
 	 * @brief Initialize the MPD instance
 	 *
 	 * This will:
@@ -399,7 +436,8 @@ protected:
 	}
 };
 
-class StreamAbstractionAAMP_MPDTest : public ::testing::Test
+class StreamAbstractionAAMP_MPDTest :   public FunctionalTestsBase,
+										public ::testing::Test
 {
 protected:
 
@@ -648,6 +686,10 @@ protected:
 
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
+
+		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampUtils = new StrictMock<MockAampUtils>();
+
 	}
 
 	void TearDown() override
@@ -667,6 +709,12 @@ protected:
 
 		delete g_MockPrivateCDAIObjectMPD;
 		g_MockPrivateCDAIObjectMPD = nullptr;
+
+		delete g_mockAampMPDDownloader;
+		g_mockAampMPDDownloader = nullptr;
+
+		delete g_mockAampUtils;
+		g_mockAampUtils = nullptr;
 	}
 };
 
@@ -3502,4 +3550,64 @@ TEST_F(StreamAbstractionAAMP_MPDTest, clearFirstPTS)
 
 	mStreamAbstractionAAMP_MPD->clearFirstPTS();
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTSForTest(), 0.0);
+}
+//This test simulates a timeout error during manifest download and ensures that the appropriate error event is sent and the correct status is returned.
+TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_DNSTimeout_WithManifestDownloadError)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
+		.WillOnce(WithArgs<2>(Invoke([this](int errorSimulation) {
+						return this->GetManifestForMPDDownloaderTimeout(eCURL_TIMEOUT_DNS);
+						})));
+
+	// Mock error handling
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true));
+
+	//Ensure proper error event is sent
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDownloadErrorEvent(AAMP_TUNE_DNS_RESOLVE_TIMEOUT, eCURL_TIMEOUT_DNS))
+		.Times(1);
+
+	// Execute test
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallFetchDashManifest();
+	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+}
+//This test simulates a data timeout error during manifest download and ensures that the appropriate error event is sent and the correct status is returned.
+TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_DataTimeout_WithManifestDownloadError)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
+		.WillOnce(WithArgs<2>(Invoke([this](int errorSimulation) {
+						return this->GetManifestForMPDDownloaderTimeout(eCURL_TIMEOUT_DATA);
+						})));
+
+	// Mock error handling
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true));
+
+	//Ensure proper error event is sent
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDownloadErrorEvent(AAMP_TUNE_DATA_TRANSFER_TIMEOUT, eCURL_TIMEOUT_DATA))
+		.Times(1);
+
+	// Execute test
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallFetchDashManifest();
+	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+}
+//This test simulates a connection timeout error during manifest download and ensures that the appropriate error event is sent and the correct status is returned.
+TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_ConnectTimeout_WithManifestDownloadError)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
+		.WillOnce(WithArgs<2>(Invoke([this](int errorSimulation) {
+						return this->GetManifestForMPDDownloaderTimeout(eCURL_TIMEOUT_CONNECT);
+						})));
+
+	// Mock error handling
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true));
+
+	//Ensure proper error event is sent
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDownloadErrorEvent(AAMP_TUNE_CURL_CONNECTION_TIMEOUT, eCURL_TIMEOUT_CONNECT))
+		.Times(1);
+
+	// Execute test
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallFetchDashManifest();
+	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
 }

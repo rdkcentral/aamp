@@ -24,6 +24,7 @@
 
 #include "PlayerExternalsInterface.h"
 #include "PlayerExternalUtils.h"
+
 #ifdef IARM_MGR
 #include "PlayerExternalsRdkInterface.h"
 #endif
@@ -37,21 +38,12 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP 
 PlayerExternalsInterface::PlayerExternalsInterface()
 {
 #ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        m_pIarmInterface = new PlayerExternalsRdkInterface();
-    }
-    else
-    {
-        m_pIarmInterface = new FakePlayerIarmInterface();
-    }
-
+    MW_PRE_LOGGER_LOG("Device API IARM/Firebolt\n");
+    m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 #else
-    m_pIarmInterface = new FakePlayerIarmInterface();
+    MW_PRE_LOGGER_LOG("Device API FAKE\n");
+    m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
 #endif
-    // Get initial HDCP status
-    m_pIarmInterface->SetHDMIStatus();
-    m_pIarmInterface->IARMRegisterDsMgrEventHandler();
 
 }
 
@@ -60,8 +52,21 @@ PlayerExternalsInterface::PlayerExternalsInterface()
  */
 PlayerExternalsInterface::~PlayerExternalsInterface()
 {
-    m_pIarmInterface->IARMRemoveDsMgrEventHandler();
-    s_pPlayerOP = NULL;
+    m_pIarmInterface = nullptr;
+    s_pPlayerOP = NULL;    
+}
+
+void PlayerExternalsInterface::Initialize()
+{
+    if(s_pPlayerOP != NULL)
+    {
+        MW_PRE_LOGGER_LOG("PlayerExternalsInterface::Initialize\n");
+        m_pIarmInterface->Initialize();
+    }
+    else
+    {
+        MW_PRE_LOGGER_LOG("PlayerExternalsInterface not found to initialize\n");
+    }
 }
 
 /**
@@ -77,10 +82,7 @@ bool PlayerExternalsInterface::IsSourceUHD()
  */
 void PlayerExternalsInterface::GetDisplayResolution(int &width, int &height)
 {
-    if(!IsContainerEnvironment())
-    {
-        m_pIarmInterface->GetDisplayResolution(width, height);
-    }
+    m_pIarmInterface->GetDisplayResolution(width, height);
 }
 
 /**
@@ -114,11 +116,7 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::GetPlayerExt
 char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen)
 {
     char * sRet = nullptr;
-    if(!IsContainerEnvironment())
-    {
-	    sRet = m_pIarmInterface->GetTR181Config(paramName, iConfigLen);
-    }
-
+    sRet = m_pIarmInterface->GetTR181Config(paramName, iConfigLen);    
     return sRet;
 }
 
@@ -128,46 +126,8 @@ char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, si
 bool PlayerExternalsInterface::GetActiveInterface()
 {
     bool bRet = false;
-    if(!IsContainerEnvironment())
-    {
-        bRet = m_pIarmInterface->GetActiveInterface();
-    }
-
+    bRet = m_pIarmInterface->GetActiveInterface();
     return bRet;
-}
-
-/**
- * @brief sets up interfaces to retrieve current active interface
- */
-bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
-{
-    bool bRet = false;
-#ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        bRet = PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi();
-    }
-#else
-    bRet = FakePlayerIarmInterface::IsActiveStreamingInterfaceWifi();
-#endif
-
-    return bRet;
-}
-
-/**
- * @brief Initializes IARM
- */
-void PlayerExternalsInterface::IARMInit(const char* processName){
-
-#ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        PlayerExternalsRdkInterface::IARMInit(processName);
-    }
-#else
-    FakePlayerIarmInterface::IARMInit(processName);
-#endif
-
 }
 
 /**
@@ -177,12 +137,14 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 {
     bool bRet = false;
 #ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        bRet = true;
-    }
+    bRet = true;
 #else
     bRet = false;
 #endif
     return bRet;
+}
+
+void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
+{
+    m_pIarmInterface->SetUseFireBoltSDK(t_use_firebolt_sdk);
 }
