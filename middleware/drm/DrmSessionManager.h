@@ -283,6 +283,13 @@ public:
 	 */
 	void clearFailedKeyIds();
 	/**
+	 * @fn		getFailedKeyIdStatus
+	 *
+	 * @param	sessionIndex session index to check
+	 * @return	bool - true if the key ID is marked as failed, false otherwise
+	 */
+	bool getFailedKeyIdStatus(int sessionIndex);
+	/**
 	 * @fn		clearDrmSession
 	 *
 	 * @param 	forceClearSession clear the drm session irrespective of failed keys if LicenseCaching is false.

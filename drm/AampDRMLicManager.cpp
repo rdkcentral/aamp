@@ -1390,7 +1390,19 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
 
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
+	
 	mDRMSessionManager->clearDrmSession(forceClearSession);
+	for(int i = 0 ; i < mMaxDRMSessions;i++)
+	{
+		bool isFailedKeyId = mDRMSessionManager->getFailedKeyIdStatus(i);
+		AAMPLOG_WARN("clearDrmSession: Session %d, isFailedKeyId=%d, forceClearSession=%d", 
+					 i, isFailedKeyId, forceClearSession);
+		if(( drmSessionContexts != NULL && (isFailedKeyId || forceClearSession)  ))
+		{
+			AAMPLOG_WARN("clearDrmSession: diasbling downloads %d", i);
+			mLicenseDownloader[i].Clear();
+		}
+	}
 }
 
 /**

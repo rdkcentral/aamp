@@ -165,6 +165,18 @@ void DrmSessionManager::clearAccessToken()
 }
 
 /**
+ * @brief Get the failed key ID status for a specific session
+ */
+bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
+{
+	if (sessionIndex >= 0 && sessionIndex < mMaxDrmSessions && cachedKeyIDs)
+	{
+		return cachedKeyIDs[sessionIndex].isFailedKeyId;
+	}
+	return false;
+}
+
+/**
  * @brief Clean up the Session Data if license key acquisition failed or if LicenseCaching is false.
  */
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
@@ -172,18 +184,15 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 	for(int i = 0 ; i < mMaxDrmSessions; i++)
 	{
 		// Clear the session data if license key acquisition failed or if forceClearSession is true in the case of LicenseCaching is false.
-		AAMPLOG_WARN("clearDrmSession: isFailedKeyId=%d, forceClearSession=%d, drmSessionContexts=%p", cachedKeyIDs[i].isFailedKeyId, forceClearSession, drmSessionContexts);
+		MW_LOG_WARN("clearDrmSession: isFailedKeyId=%d, forceClearSession=%d, drmSessionContexts=%p", cachedKeyIDs[i].isFailedKeyId, forceClearSession, drmSessionContexts);
 		if((cachedKeyIDs[i].isFailedKeyId || forceClearSession) && drmSessionContexts != NULL)
 		{
-			AAMPLOG_WARN("clearDrmSession: test log");
+			MW_LOG_WARN("clearDrmSession: test log");
 			std::lock_guard<std::mutex> guard(drmSessionContexts[i].sessionMutex);
 			if (drmSessionContexts[i].drmSession != NULL)
 			{
 				MW_LOG_WARN("DrmSessionManager:: Clearing failed Session Data Slot : %d", i);
 				MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
-				drmSessionContexts[i].mLicenseDownloader.Clear();
-				MW_LOG_WARN("DrmSessionManager:: Cleared license downloader for slot %d", i);
-
 			}
 		}
 	}
