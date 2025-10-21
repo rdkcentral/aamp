@@ -2126,7 +2126,11 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			AAMPLOG_MIL("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
-			PlayFromTsbStart();
+			// Check the rate so that PlayFromTsbStart() is not called repeatedly
+			if (rate < AAMP_RATE_PAUSE)
+			{
+				PlayFromTsbStart();
+			}
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -3263,23 +3267,20 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
  */
 void PrivateInstanceAAMP::PlayFromTsbStart()
 {
-	if (rate < AAMP_RATE_PAUSE)
+	seek_pos_seconds = culledSeconds;
+	AAMPLOG_MIL("Updated seek_pos_seconds %f on start of TSB", seek_pos_seconds);
+	if (trickStartUTCMS == -1)
 	{
-		seek_pos_seconds = culledSeconds;
-		AAMPLOG_MIL("Updated seek_pos_seconds %f on start of TSB", seek_pos_seconds);
-		if (trickStartUTCMS == -1)
-		{
-			// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
-			// send BOS event to JSPP
-			ResetTrickStartUTCTime();
-			AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
-		}
-		rate = AAMP_NORMAL_PLAY_RATE;
-		AcquireStreamLock();
-		TuneHelper(eTUNETYPE_SEEK);
-		ReleaseStreamLock();
-		NotifySpeedChanged(rate);
+		// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
+		// send BOS event to JSPP
+		ResetTrickStartUTCTime();
+		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
 	}
+	rate = AAMP_NORMAL_PLAY_RATE;
+	AcquireStreamLock();
+	TuneHelper(eTUNETYPE_SEEK);
+	ReleaseStreamLock();
+	NotifySpeedChanged(rate);
 }
 
 /**
