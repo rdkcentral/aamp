@@ -2111,16 +2111,7 @@ public:
 	 */
 	void RegisterAllEvents(EventListener* eventListener)
 	{
-		if (!eventListener)
-		{
-			AAMPLOG_WARN("HariPriya :: RegisterEvent: Received a null listener.");
-			return;
-		}
-		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) {
-			// No-op deleter to avoid accidental deletion
-			AAMPLOG_INFO("HariPriya :: RegisterEvent: No-op deleter called for listener %p", ptr);
-		});
-		mEventManager->AddListenerForAllEvents(sharedListener);
+		mEventManager->AddListenerForAllEvents(eventListener);
 	}
 
 	/**
@@ -2131,16 +2122,7 @@ public:
 	 */
 	void UnRegisterEvents(EventListener* eventListener)
 	{
-		if (!eventListener)
-		{
-			AAMPLOG_WARN("HariPriya :: RegisterEvent: Received a null listener.");
-			return;
-		}
-		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) {
-			// No-op deleter to avoid accidental deletion
-			AAMPLOG_INFO("HariPriya :: UnRegisterEvents: No-op deleter called for listener %p", ptr);
-		});
-		mEventManager->RemoveListenerForAllEvents(sharedListener);
+		mEventManager->RemoveListenerForAllEvents(eventListener);
 	}
 
 	/**

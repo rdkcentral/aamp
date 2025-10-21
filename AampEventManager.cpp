@@ -124,7 +124,11 @@ void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
 {
 	if(eventListener != NULL)
 	{
-		AddEventListener(AAMP_EVENT_ALL_EVENTS,eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) {
+			// No-op deleter to avoid accidental deletion
+			AAMPLOG_INFO("HariPriya :: RegisterEvent: No-op deleter called for listener %p", ptr);
+		});
+		AddEventListener(AAMP_EVENT_ALL_EVENTS,sharedListener);
 	}
 	else
 	{
@@ -139,7 +143,11 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 {
 	if(eventListener != NULL)
 	{
-		RemoveEventListener(AAMP_EVENT_ALL_EVENTS,eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) {
+		// No-op deleter to avoid accidental deletion
+			AAMPLOG_INFO("HariPriya :: UnRegisterEvents: No-op deleter called for listener %p", ptr);
+		});
+		RemoveEventListener(AAMP_EVENT_ALL_EVENTS,sharedListener);
 	}
 	else
 	{
@@ -257,7 +265,7 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 	{
 		AAMPLOG_ERR("Invalid parameters for RemoveEventListener: eventType=%d, eventListener=%p", eventType, eventListener);
 	}
-
+}
 /**
  * @brief IsSpecificEventListenerAvailable - Check if this particular listener present for this event
  */ 
