@@ -63,6 +63,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mCurrentWritePosition(0)
 		, mLastAdReservationMetaDataProcessed()
 		, mLastAdPlacementMetaDataProcessed()
+		, mHasNewVideoTsbContent(false)
 {
 }
 
@@ -374,6 +375,18 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
+void AampTSBSessionManager::raiseNewVideoTsbContentNotification()
+{
+	mNewVideoTsbContentCV.notify_one();
+}
+
+void AampTSBSessionManager::WaitForNewTsbFragment()
+{
+	std::unique_lock<std::mutex> lock(mReadMutex);
+	mNewVideoTsbContentCV.wait(lock, [this]() { return mHasNewVideoTsbContent || !mAamp->mDownloadsEnabled; });
+	mHasNewVideoTsbContent = false;
+}
+
 /**
  * @brief Monitors the write queue and writes any pending data to AAMP TSB
  */
@@ -450,7 +463,15 @@ void AampTSBSessionManager::ProcessWriteQueue()
 							}
 						}
 					}
+
 					UnlockReadMutex();
+					// Notify only for video fragments
+					if (mediatype == eMEDIATYPE_VIDEO)
+					{
+						mHasNewVideoTsbContent = true;
+						raiseNewVideoTsbContentNotification();
+					}
+
 				}
 				else if (status == TSB::Status::ALREADY_EXISTS)
 				{

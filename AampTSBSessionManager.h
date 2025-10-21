@@ -89,6 +89,15 @@ public:
 	 */
 	void ProcessWriteQueue();
 	/**
+	 * @brief Wait for new TSB fragment to be available
+	 */
+	void WaitForNewTsbFragment();
+
+	/**
+	 * @brief Raises the new video TSB content notification
+	 */
+	void raiseNewVideoTsbContentNotification();
+	/**
 	 * @brief Set TSB length
 	 *
 	 * @param[in] length
@@ -407,6 +416,7 @@ private:
 	std::mutex mWriteQueueMutex;			// Mutex to synchronize access to the write queue.
 	std::mutex mReadMutex;					// Mutex to synchronize access to the data manager from reader and writer.
 	std::condition_variable mWriteThreadCV; // Condition variable to signal when data is available in the write queue
+	std::condition_variable mNewVideoTsbContentCV;	// Condition variable for signaling new TSB content
 	std::queue<TSBWriteData> mWriteQueue;	// Queue to store write data.
 	double mLastVideoPos;
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
@@ -414,6 +424,7 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
 	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
+	bool mHasNewVideoTsbContent;			// Flag to indicate new TSB content is available
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
