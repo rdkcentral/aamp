@@ -2237,8 +2237,10 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
 
 	pListener->_pNext = aamp->_listeners;
 	aamp->_listeners = pListener;
-	aamp->_aamp->AddEventListener(type, pListener);
-	LOG_WARN_EX(" HariPriya :: After _aamp->AddEventListener(%d, %p) count = %d", type, pListener.get(), (int)pListener.use_count());
+	std::shared_ptr<EventListener> eventListener = std::static_pointer_cast<EventListener>(pListener);
+	LOG_WARN_EX(" HariPriya :: _aamp->AddEventListener(%d, %p) count = %d", type, eventListener.get(), (int)eventListener.use_count());
+	aamp->_aamp->AddEventListener(type, eventListener);
+	LOG_WARN_EX(" HariPriya :: After _aamp->AddEventListener(%d, %p) count = %d", type, eventListener.get(), (int)eventListener.use_count());
 }
 
 /**
@@ -2311,8 +2313,10 @@ void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSO
 		{
 			*ppListener = pListener->_pNext;
 			LOG_WARN_EX(" type=%d,pListener= %p", type, pListener.get());
-			aamp->_aamp->RemoveEventListener(type, pListener);
-			LOG_WARN_EX(" HariPriya :: After _aamp->RemoveEventListener(%d, %p) count = %d", type, pListener.get(), (int)pListener.use_count());
+			std::shared_ptr<EventListener> eventListener = std::static_pointer_cast<EventListener>(pListener);
+			LOG_WARN_EX(" HariPriya :: _aamp->RemoveEventListener(%d, %p) count = %d", type, eventListener.get(), (int)eventListener.use_count());
+			aamp->_aamp->RemoveEventListener(type, eventListener);
+			LOG_WARN_EX(" HariPriya :: After _aamp->RemoveEventListener(%d, %p) count = %d", type, eventListener.get(), (int)eventListener.use_count());
 
 			return;
 		}
