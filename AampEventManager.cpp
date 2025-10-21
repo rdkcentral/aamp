@@ -187,7 +187,7 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_
 			if (pListener->eventListener == eventListener)
 			{
 				*ppLast = pListener->pNext;
-				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener, pListener);
+				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener.get(), pListener);
 				SAFE_DELETE(pListener);
 				AAMPLOG_INFO("HariPriya Eventtype:%d useCount = %ld", eventType, eventListener.use_count());
 				return;

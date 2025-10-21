@@ -1985,7 +1985,7 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 		}
 		LOG_WARN_EX("HariPriya :: Removed eventListener: %p for eventType: %d listener count: %ld", listener.get(), listenerIter->first, listenerIter->second.use_count());
 		listenerIter = obj->_listeners.erase(listenerIter);
-		LOG_WARN_EX("HariPriya :: After erase listener count: %d", listener.use_count());
+		LOG_WARN_EX("HariPriya :: After erase listener count: %ld", listener.use_count());
 	}
 
 	obj->_listeners.clear();
