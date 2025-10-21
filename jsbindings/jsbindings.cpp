@@ -2313,10 +2313,9 @@ void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSO
 		{
 			*ppListener = pListener->_pNext;
 			LOG_WARN_EX(" type=%d,pListener= %p", type, pListener.get());
-			std::shared_ptr<EventListener> eventListener = std::static_pointer_cast<EventListener>(pListener);
-			LOG_WARN_EX(" HariPriya :: _aamp->RemoveEventListener(%d, %p) count = %d", type, eventListener.get(), (int)eventListener.use_count());
-			aamp->_aamp->RemoveEventListener(type, eventListener);
-			LOG_WARN_EX(" HariPriya :: After _aamp->RemoveEventListener(%d, %p) count = %d", type, eventListener.get(), (int)eventListener.use_count());
+			LOG_WARN_EX(" HariPriya :: _aamp->RemoveEventListener(%d, %p) count = %d", type,  pListener.get(), (int) pListener.use_count());
+			aamp->_aamp->RemoveEventListener(type, std::static_pointer_cast<EventListener>(pListener));
+			LOG_WARN_EX(" HariPriya :: After _aamp->RemoveEventListener(%d, %p) count = %d", type,  pListener.get(), (int) pListener.use_count());
 
 			return;
 		}
