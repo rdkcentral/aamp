@@ -2100,9 +2100,9 @@ public:
 			// No-op deleter to avoid accidental deletion
 			AAMPLOG_INFO("HariPriya :: RegisterEvent: No-op deleter called for listener %p", ptr);
 		});
-		AAMPLOG_INFO("HariPriya :: RegisterEvent: Registering listener %p count : %d for event type %d", listener, sharedListener.use_count(), type);
+		AAMPLOG_INFO("HariPriya :: RegisterEvent: Registering listener %p count : %ld for event type %d", listener, sharedListener.use_count(), type);
 		mEventManager->AddEventListener(type, sharedListener);
-		AAMPLOG_INFO("HariPriya :: RegisterEvent: Registered listener %p count : %d for event type %d", listener, sharedListener.use_count(), type);
+		AAMPLOG_INFO("HariPriya :: RegisterEvent: Registered listener %p count : %ld for event type %d", listener, sharedListener.use_count(), type);
 	}
 
 	/**

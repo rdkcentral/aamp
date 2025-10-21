@@ -363,15 +363,6 @@ public:
 	 */
 	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
 
-	/*
-	 *   @fn AddEventListener
-	 *
-	 *   @param[in]  eventType - type of event.
-	 *   @param[in]  eventListener - listener for the eventType - raw pointer.
-	 *   @return void
-	 */
-	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
-
 	/**
 	 *   @fn RemoveEventListener
 	 *
