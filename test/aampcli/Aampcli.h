@@ -66,7 +66,7 @@ class Aampcli
 		std::string mContentType;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
-		std::shared_ptr<MyAAMPEventListener> mEventListener;
+		MyAAMPEventListener *mEventListener;
 		std::vector<PlayerInstanceAAMP *> mPlayerInstances;
 		std::string mManifestDataUrl;
 		GMainLoop *mAampGstPlayerMainLoop;
