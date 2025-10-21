@@ -49,7 +49,6 @@ struct PrivAAMPStruct_JS {
 	PlayerInstanceAAMP* _aamp;
 
 	std::multimap<AAMPEventType, std::shared_ptr<void>> _listeners;
-	std::multimap<AAMPEventType, void*> _listeners;
 };
 
 /**

@@ -2120,7 +2120,7 @@ public:
 			// No-op deleter to avoid accidental deletion
 			AAMPLOG_INFO("HariPriya :: RegisterEvent: No-op deleter called for listener %p", ptr);
 		});
-		mEventManager->AddListenerForAllEvents(eventListener);
+		mEventManager->AddListenerForAllEvents(sharedListener);
 	}
 
 	/**
@@ -2140,7 +2140,7 @@ public:
 			// No-op deleter to avoid accidental deletion
 			AAMPLOG_INFO("HariPriya :: UnRegisterEvents: No-op deleter called for listener %p", ptr);
 		});
-		mEventManager->RemoveListenerForAllEvents(eventListener);
+		mEventManager->RemoveListenerForAllEvents(sharedListener);
 	}
 
 	/**

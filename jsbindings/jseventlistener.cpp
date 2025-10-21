@@ -1978,7 +1978,7 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 
 	for (auto listenerIter = obj->_listeners.begin(); listenerIter != obj->_listeners.end();)
 	{
-		auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
+		auto listener = std::static_pointer_cast<AAMP_JSEventListener>((listenerIter->second));
 		if (obj->_aamp != NULL)
 		{
 			obj->_aamp->RemoveEventListener(listenerIter->first, listener);
