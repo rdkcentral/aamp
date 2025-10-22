@@ -276,12 +276,8 @@ public:
 	 *  @return	void.
 	 */
 	void clearAccessToken();
-	/**
-	 * @fn		clearFailedKeyIds
-	 *
-	 * @return	void.
-	 */
-	/**
+
+/**
 	 * @fn		getFailedKeyIdStatus
 	 *
 	 * @param	sessionIndex session index to check
@@ -289,6 +285,11 @@ public:
 	 */
 	bool getFailedKeyIdStatus(int sessionIndex);
 
+	/**
+	 * @fn		clearFailedKeyIds
+	 *
+	 * @return	void.
+	 */
 	void clearFailedKeyIds();
 	/**
 	 * @fn		clearDrmSession
