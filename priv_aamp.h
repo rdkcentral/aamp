@@ -535,7 +535,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 
 	#define AAMP2ReceiverMsgHdrSz (sizeof(AAMP2ReceiverMsg)-1)
 
-	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
+	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
@@ -1018,7 +1018,7 @@ public:
 	EventListener* mEventListener;
 	long long prevFirstPeriodStartTime;
 
-	//updated by ReportProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
+	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
 
 	long long mAdPrevProgressTime;
@@ -1583,12 +1583,15 @@ public:
 	long long GetVideoPTS();
 
 	/**
-	 *   @fn ReportProgress
+	 *   @fn MonitorProgress
+	 *   @brief Monitor playback progress and report position periodically, also take any necessary actions like
+	 *          correcting the latency by adjusting rate of playback or
+	 *          transitioning from rewind to play when the start of the TSB is reached.
+	 *
  	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  beginningOfStream - Flag to indicate if the progress reporting is for the Beginning Of Stream
-	 *   @return void
 	 */
-	void ReportProgress(bool sync = true, bool beginningOfStream = false);
+	void MonitorProgress(bool sync = true, bool beginningOfStream = false);
 	/**
 	 *   @fn WakeupLatencyCheck
 	 *   @return void
@@ -4151,6 +4154,11 @@ protected:
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:
+	/**
+	 * @brief Play from the start of the TSB
+	 */
+	void PlayFromTsbStart();
+
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
