@@ -188,6 +188,12 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
 	return false;
 }
 
+/**
+ * @brief Get SVP Context
+ * @param svpCtx svp context
+ * @param server To identify server/client
+ * @param flags SVP Flag
+ */
 void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
 {
 #if !defined(__APPLE__) && !defined(UBUNTU)
@@ -195,6 +201,10 @@ void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
 #endif
 }
 
+/**
+ * @brief Free SVP Context
+ * @param svpCtx svp context
+ */
 void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
 {
 #if !defined(__APPLE__) && !defined(UBUNTU)
