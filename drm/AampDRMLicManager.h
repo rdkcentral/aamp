@@ -147,6 +147,14 @@ public:
 	* @return	void.
 	*/
 	void clearFailedKeyIds();
+
+	/**
+	 * @fn		getFailedKeyIdStatus
+	 *
+	 * @param	sessionIndex session index to check
+	 * @return	bool - true if the key ID is marked as failed, false otherwise
+	 */
+	bool getFailedKeyIdStatus(int sessionIndex);
 			
 	/**
 	* @fn    	setSessionMgrState
