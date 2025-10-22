@@ -5490,6 +5490,7 @@ void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEn
 		AAMPLOG_WARN("%lld %zu %zu", aamp->mThumbnailLastProgramDateTime, aamp->mLastSleThumbnailInfo.size(),indexedTileInfo.size() );
 		if(!aamp->mLastSleThumbnailInfo.empty())
 		{
+			indexedTileInfo.clear();
 			indexedTileInfo.assign(aamp->mLastSleThumbnailInfo.begin(),aamp->mLastSleThumbnailInfo.end());
 			AAMPLOG_WARN("thumbnail data copied from aamp context to stream context");
 			AAMPLOG_WARN("prev:%zu:tran:%zu",aamp->mLastSleThumbnailInfo.size(),indexedTileInfo.size());
@@ -5596,7 +5597,6 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 				aamp->mLastSleThumbnailInfo.clear();
 				aamp->mLastSleThumbnailInfo.assign(indexedTileInfo.begin(), indexedTileInfo.end());
 				aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
-				indexedTileInfo.clear();
 			}
 			AAMPLOG_WARN("#### indexedTileInfo end####");
 			AAMPLOG_WARN("%lld %zu", aamp->mThumbnailLastProgramDateTime, aamp->mLastSleThumbnailInfo.size() );
