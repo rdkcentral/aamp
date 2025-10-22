@@ -146,7 +146,7 @@ private:
 							if( c=='"' || c=='\'' ) break;
 							attrValue += (char)c;
 						}
-						child->attributes[attrName] = attrValue;
+						child->attributes[attrName] = std::move(attrValue);
 						
 						c = inputStream.getNextByte();
 						assert( c>=0 );

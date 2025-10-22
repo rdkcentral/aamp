@@ -40,7 +40,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		{
 		};
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
-														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}
 	else
 	{
@@ -302,7 +302,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
 						aamp->SetFlushFdsNeededInCurlStore(true);
-
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -449,7 +448,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				GetContext()->UpdateStreamInfoBitrateData(fragmentToTsbSessionMgr->profileIndex, fragmentToTsbSessionMgr->cacheFragStreamInfo);
 			}
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-			CacheTsbFragment(fragmentToTsbSessionMgr);
+			CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 		}
 		// Forced chunk processing (e.g. via AAMP TSB) without LLDashChunkMode still requires init segment chunk caching
 		else if (IsInjectionFromCachedFragmentChunks() && initSegment && !IsLocalTSBInjection())
@@ -578,7 +577,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->downloadStartTime = dnldStartTime;
 		cachedFragment->fragment.AppendBytes(ptr, size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		cachedFragment->uri = remoteUrl;
+		cachedFragment->uri = std::move(remoteUrl);
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */
@@ -779,7 +778,7 @@ std::string& MediaStreamContext::GetEffectivePlaylistUrl()
  */
 void MediaStreamContext::SetEffectivePlaylistUrl(std::string url)
 {
-	mEffectiveUrl = url;
+	mEffectiveUrl = std::move(url);
 }
 
 /**

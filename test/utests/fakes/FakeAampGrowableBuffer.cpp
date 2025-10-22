@@ -18,8 +18,28 @@
 */
 
 #include "MockAampGrowableBuffer.h"
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+#include <unordered_map>
 
 MockAampGrowableBuffer *g_mockAampGrowableBuffer;
+
+// Flag to enable copying behavior for tests that need it
+static bool g_enableMemoryCopying = false;
+
+// Storage for buffer data using vectors - more memory safe than raw pointers
+static std::unordered_map<void*, std::vector<char>> g_bufferStorage;
+
+void AampGrowableBuffer_EnableMemoryCopying(bool enable)
+{
+	g_enableMemoryCopying = enable;
+}
+
+void AampGrowableBuffer_ClearGlobalStorage()
+{
+	g_bufferStorage.clear();
+}
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
 {

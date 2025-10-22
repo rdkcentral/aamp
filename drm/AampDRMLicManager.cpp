@@ -172,7 +172,7 @@ void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmH
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, aampInstance->GetSessionId());
 	int cdmError = -1;
 	int responseCode = -1;
-	KeyState code = acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,  eMEDIATYPE_LICENCE,(void*)e.get() ,true);
+	KeyState code = acquireLicense(responseCode, std::move(drmHelper), sessionSlot, cdmError,  eMEDIATYPE_LICENCE,(void*)e.get() ,true);
 	if (code != KEY_READY)
 	{
 		aampInstance->SendAnomalyEvent(ANOMALY_WARNING, "License Renewal failed due to Key State %d", code);
@@ -201,7 +201,7 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 		{
 			mLicenseRenewalThreads[sessionSlot] = std::thread([this, drmHelper, sessionSlot, aampInstance] 
 			{
-				this->licenseRenewalThread(drmHelper, sessionSlot, aampInstance);
+				this->licenseRenewalThread(std::move(drmHelper), sessionSlot, aampInstance);
 			});
 
 			AAMPLOG_INFO("Thread created for LicenseRenewal [%zx]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
@@ -283,7 +283,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 				const char *sessionToken = NULL;
 				if(!usingAppDefinedAuthToken)
 				{ /* authToken not set externally by app */
-					sessionToken = getAccessToken(tokenLen, tokenError , aampInstance->mConfig->IsConfigSet(eAAMPConfig_SslVerifyPeer));
+					sessionToken = getAccessToken(tokenLen, tokenError);
 					AAMPLOG_WARN("Access Token from AuthServer");
 				}
 				else
@@ -363,7 +363,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 						}
 						int tokenLen = 0;
 						int tokenError = 0;
-						const char *sessionToken = getAccessToken(tokenLen, tokenError,aampInstance->mConfig->IsConfigSet(eAAMPConfig_SslVerifyPeer));
+						const char *sessionToken = getAccessToken(tokenLen, tokenError);
 						if (NULL != sessionToken)
 						{
 							AAMPLOG_INFO("Requesting License with new access token");
@@ -382,7 +382,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					}
 					
 				      eventHandle->setSecclientError(false);
-			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],licenseServerProxy));
+			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],std::move(licenseServerProxy)));
 				}
 			}
 		}
@@ -478,7 +478,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 				AAMPLOG_WARN("DRM session for %s, Authorization failed",mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 
 			}
-			else if (CURLE_OPERATION_TIMEDOUT == httpResponseCode)
+			else if (IsCurlTimeoutFailure ( httpResponseCode ))
 			{
 				eventHandle->setFailure(AAMP_TUNE_LICENCE_TIMEOUT);
 			}
@@ -497,6 +497,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 			return KEY_ERROR;
 		}
 	}
+      return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
       return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
 }
 KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
@@ -624,76 +625,39 @@ string extractSubstring(string parentStr, string startStr, string endStr)
 /**
  *  @brief Get the accessToken from authService.
  */
-const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_code , bool bSslPeerVerify)
+const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_code)
 {	
 	if(accessToken == NULL)
 	{
-		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();		
-		// Initialize the Seesion Token Connector
-		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
-		inpData->bIgnoreResponseHeader	= true;
-		inpData->eRequestType = eCURL_GET;
-		inpData->iStallTimeout = 0; // 2sec
-		inpData->iStartTimeout = 0; // 2sec
-		inpData->iDownloadTimeout =  DEFAULT_CURL_TIMEOUT;
-		inpData->bNeedDownloadMetrics = true;
-		inpData->bSSLVerifyPeer		=	bSslPeerVerify;
-		mAccessTokenConnector.Initialize(inpData);
-		mAccessTokenConnector.Download(SESSION_TOKEN_URL, respData);
-
-		if( respData->curlRetValue == CURLE_OK )
-		{			
-			if (respData->iHttpRetValue == 200 || respData->iHttpRetValue == 206)
-			{		
-				string tokenReplyStr;
-				mAccessTokenConnector.GetDataString(tokenReplyStr);
-				string tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", ",\"");
-				if(tokenStatusCode.length() == 0)
+		std::string token;
+		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
+		{
+			size_t len = token.length();
+			if(len > 0)
+			{
+				accessToken = (char*)malloc(len+1);
+				if(accessToken)
 				{
-					//StatusCode could be last element in the json
-					tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", "}");
-				}
-				if(tokenStatusCode.length() == 1 && tokenStatusCode.c_str()[0] == '0')
-				{
-					string token = extractSubstring(tokenReplyStr, "token\":\"", "\"");
-					size_t len = token.length();
-					if(len > 0)
-					{
-						accessToken = (char*)malloc(len+1);
-						if(accessToken)
-						{
-							accessTokenLen = (int)len;
-							memcpy( accessToken, token.c_str(), len );
-							accessToken[len] = 0x00;
-							AAMPLOG_WARN(" Received session token from auth service in [%f]",respData->downloadCompleteMetrics.total);
-						}
-						else
-						{
-							AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
-						}
-					}
-					else
-					{
-						AAMPLOG_WARN(" Could not get access token from session token reply");
-						error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
-					}
+					accessTokenLen = (int)len;
+					memcpy( accessToken, token.c_str(), len );
+					accessToken[len] = 0x00;
+					AAMPLOG_WARN(" Received session token from auth service");
 				}
 				else
 				{
-					AAMPLOG_ERR(" Missing or invalid status code in session token reply");
-					error_code = eAUTHTOKEN_INVALID_STATUS_CODE;
+					AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
 				}
 			}
 			else
 			{
-				AAMPLOG_ERR(" Get Session token call failed with http error %d", respData->iHttpRetValue);
-				error_code = respData->iHttpRetValue;
+				AAMPLOG_WARN("Invalid access token from ContentSecurityManager");
+				error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR(" Get Session token call failed with curl error %d", respData->curlRetValue);
-			error_code = respData->curlRetValue;
+			AAMPLOG_ERR("ContentSecurityManager failed to get access token");
+			error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 		}
 	}
 	
@@ -928,7 +892,7 @@ void AampDRMLicenseManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
  */
 bool AampDRMLicenseManager::QueueContentProtection(std::shared_ptr<DrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
-	return mLicensePrefetcher->QueueContentProtection(drmHelper, periodId, adapIdx, type, isVssPeriod);
+	return mLicensePrefetcher->QueueContentProtection(std::move(drmHelper), std::move(periodId), adapIdx, type, isVssPeriod);
 }
 
 /**
@@ -938,26 +902,25 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		int32_t *httpCode, AampMediaType streamType, void* aampI, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
 
-	CURLcode res;
 	double totalTime = 0;
 	DrmData * keyInfo = NULL;
-	bool bNeedResponseHeadersTobeShared 	= aampInstance->mConfig->IsConfigSet(eAAMPConfig_SendLicenseResponseHeaders);
-	DownloadResponsePtr respData 	=	std::make_shared<DownloadResponse> ();		
+	bool bNeedResponseHeadersTobeShared = aampInstance->mConfig->IsConfigSet(eAAMPConfig_SendLicenseResponseHeaders);
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();		
 	// Initialize the Seesion Token Connector
-	DownloadConfigPtr inpData 	=	std::make_shared<DownloadConfig> ();
-	inpData->bIgnoreResponseHeader				=	!bNeedResponseHeadersTobeShared;
-	inpData->iDownloadTimeout				=	aampInstance->mConfig->GetConfigValue(eAAMPConfig_DrmNetworkTimeout);
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+	inpData->bIgnoreResponseHeader = !bNeedResponseHeadersTobeShared;
+	inpData->iDownloadTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_DrmNetworkTimeout);
 	inpData->iStallTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_DrmStallTimeout);
 	inpData->iStartTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_DrmStartTimeout);
-	inpData->iCurlConnectionTimeout =  aampInstance->mConfig->GetConfigValue(eAAMPConfig_Curl_ConnectTimeout);
-	inpData->bNeedDownloadMetrics				=	true;
-	inpData->proxyName							=	licenseProxy;		
-	inpData->pCurl			=	CurlStore::GetCurlStoreInstance(aampInstance).GetCurlHandle(aampInstance, licenseRequest.url, eCURLINSTANCE_AES);
-	inpData->sCustomHeaders	=	licenseRequest.headers;
-	AAMPLOG_TRACE("DRMSession-getLicense download params - StallTimeout : %d StartTimeout : %d DownloadTimeout : %d CurlConnectionTimeout : %d ",inpData->iStallTimeout,inpData->iStartTimeout,inpData->iDownloadTimeout,inpData->iCurlConnectionTimeout);
+	inpData->iCurlConnectionTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_Curl_ConnectTimeout);
+	inpData->bNeedDownloadMetrics = true;
+	inpData->proxyName = std::move(licenseProxy);
+	inpData->pCurl = CurlStore::GetCurlStoreInstance(aampInstance).GetCurlHandle(aampInstance, licenseRequest.url, eCURLINSTANCE_AES);
+	inpData->sCustomHeaders = licenseRequest.headers;
+	AAMPLOG_TRACE("DRMSession-getLicense download params - StallTimeout : %d StartTimeout : %d DownloadTimeout : %d CurlConnectionTimeout : %d ", inpData->iStallTimeout, inpData->iStartTimeout, inpData->iDownloadTimeout, inpData->iCurlConnectionTimeout);
 	if (aampInstance->mConfig->IsConfigSet(eAAMPConfig_CurlLicenseLogging))
 	{
-		inpData->bVerbose		=	true;
+		inpData->bVerbose = true;
 		for (auto& header : licenseRequest.headers)
 		{
 			std::string customHeaderStr = header.first;
@@ -1009,8 +972,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		attemptCount++;
 
 		long long tStartTime = NOW_STEADY_TS_MS;
-		pLicenseDownloader->Download(licenseRequest.url, respData);		
-		res = (CURLcode)respData->curlRetValue;
+		pLicenseDownloader->Download(licenseRequest.url, respData);
 		long long tEndTime = NOW_STEADY_TS_MS;
 		long long downloadTimeMS = tEndTime - tStartTime;
 		
@@ -1023,25 +985,15 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 			break;
 		}
 		
-		if (res != CURLE_OK)
-		{
-			// To avoid scary logging
-			if (res != CURLE_ABORTED_BY_CALLBACK && res != CURLE_WRITE_ERROR)
-			{
-				if (res == CURLE_OPERATION_TIMEDOUT || res == CURLE_COULDNT_CONNECT)
-				{
-					// Retry for curl 28 and curl 7 errors.
-					loopAgain = true;
-					pLicenseDownloader->Clear();
-				}
-				AAMPLOG_ERR(" curl_easy_perform() failed: %s", curl_easy_strerror(res));
-				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : curl %d", attemptCount, res);
-			}
-			*httpCode = res;
+		
+		*httpCode = respData->iHttpRetValue;
+		if ( IsCurlTimeoutFailure(respData->iHttpRetValue) )
+		{ // Retry for curl 28 and curl 7 errors.
+			loopAgain = true;
+			pLicenseDownloader->Clear();
 		}
 		else
 		{
-			*httpCode = respData->iHttpRetValue;
 			totalTime = respData->downloadCompleteMetrics.total;
 			if (*httpCode != 200 && *httpCode != 206)
 			{
@@ -1091,7 +1043,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 			// append app name with class data
 			appName = aampInstance->GetAppName() + ",";
 		}
-		if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+		if ( IsCurlTimeoutFailure( respData->iHttpRetValue ) ||
+			CURLE_PARTIAL_FILE == respData->iHttpRetValue ||
+			CURLE_COULDNT_CONNECT == respData->iHttpRetValue)
 		{
 			// introduce  extra marker for connection status curl 7/18/28,
 			// example 18(0) if connection failure with PARTIAL_FILE code
@@ -1329,8 +1283,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 		if (licenseResponseStr) mDrmSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 	}
-				
-        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );				
+	UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, std::move(eventHandle), nullptr);
 
 	free(encodedData);
 	free(encodedChallengeData);
@@ -1435,7 +1388,7 @@ std::shared_ptr<void> AampDRMLicenseManager::TriggerDrmMetaDataEvent()
 std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int isContentProtectionSupported)
 {
 	 /* To fetch correct codec type in tune time metrics when drm data is not given in manifest*/
-	 aampInstance->setCurrentDrm(drmHelper);
+	 aampInstance->setCurrentDrm(std::move(drmHelper));
 
 	bool RuntimeDRMConfigSupported = aampInstance->mConfig->IsConfigSet(eAAMPConfig_RuntimeDRMConfig);
 	if(isContentProtectionSupported)
@@ -1444,7 +1397,7 @@ std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<
 	    {
 	    	aampInstance->mcurrent_keyIdArray = keyId;
 	    	AAMPLOG_INFO("App registered the ContentProtectionDataEvent to send new drm config");
-	    	ContentProtectionDataUpdate(aampInstance, keyId, (AampMediaType)streamType);
+	    	ContentProtectionDataUpdate(aampInstance, std::move(keyId), (AampMediaType)streamType);
 	    	aampInstance->mcurrent_keyIdArray.clear();
 	    }
 	}
@@ -1571,7 +1524,7 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
 	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
-   
+
 
 	 if(err != -1)
 	 {
@@ -1601,7 +1554,7 @@ DrmSession * AampDRMLicenseManager::createDrmSession(
 
 	if(err != -1)
 	{
-		 eventHandle->setFailure((AAMPTuneFailure)err);
+		eventHandle->setFailure((AAMPTuneFailure)err);
 	}
 	return session;
 }

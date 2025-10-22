@@ -4521,17 +4521,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	double downloadTime;
 	bool updateVideoEndMetrics = false;
 	int http_error = 0;
-
 	{
 		mManifestDnldRespPtr = MakeSharedManifestDownloadResponsePtr();
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
-
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		// Get the Manifest with a wait of Manifest Timeout time
 		mManifestDnldRespPtr = dnldInstance->GetManifest(true, aamp->mManifestTimeoutMs);
-		gotManifest	= (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-		http_error = mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-		downloadTime = mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
+		gotManifest		=	(mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
+		http_error		=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
+		downloadTime	=	mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
 		//update videoend info
 		updateVideoEndMetrics = true;
 		if (gotManifest)
@@ -4544,7 +4542,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && (CURLE_OPERATION_TIMEDOUT == http_error || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
@@ -4586,7 +4584,23 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			{
 				aamp->UpdateDuration(0);
 				aamp->SetFlushFdsNeededInCurlStore(true);
-				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+
+				switch( http_error )
+				{
+					case eCURL_TIMEOUT_DNS:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DNS_RESOLVE_TIMEOUT, http_error);
+						break;
+					case eCURL_TIMEOUT_CONNECT:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_CURL_CONNECTION_TIMEOUT, http_error);
+						break;
+					case eCURL_TIMEOUT_DATA:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DATA_TRANSFER_TIMEOUT, http_error);
+						break;
+					default:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+						break;
+				}
+
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			}
@@ -4712,7 +4726,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 		{
 			// if already mpd is available
 			if (this->mpd != NULL
-				&& (CURLE_OPERATION_TIMEDOUT == http_error || CURLE_COULDNT_CONNECT == http_error))
+				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
@@ -9761,6 +9775,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, segmentStartTime);
 					segmentStartTime = presentationTimeOffset;
+					SetPipelineFlushStatus();
 					usingPTO = true;
 				}
 

@@ -36,7 +36,6 @@
 #include <assert.h>
 #include <ctime>
 #include <cctype>
-#include <curl/curl.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -78,6 +77,11 @@ static const FormatMap mVideoFormatMap[] =
 	{ "mpeg2v", FORMAT_VIDEO_ES_MPEG2 }//For testing.
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
+
+bool IS_HTTP_SUCCESS(int code)
+{
+	return code == 200 || code == 204 || code == 206;
+}
 
 /**
  * @brief Get current time from epoch is milliseconds
@@ -414,18 +418,9 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 	T1.Initialize(inpData);
 	T1.Download(remoteUrl, respData);
 	
-	std::string response;
-	if( respData->curlRetValue == CURLE_OK )
-	{
-		AAMPLOG_WARN("JSONRPC data: %s", inpData->postData.c_str() );
-		AAMPLOG_WARN("HTTP %d", respData->iHttpRetValue);
-		response =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
-	}
-	else
-	{
-		AAMPLOG_ERR("failed: %d", respData->curlRetValue);
-	}
-
+	AAMPLOG_WARN("JSONRPC data: %s", inpData->postData.c_str() );
+	AAMPLOG_WARN("HTTP %d", respData->iHttpRetValue);
+	std::string response = std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
 	return response;
 	
 }
@@ -999,30 +994,23 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	inpData->bNeedDownloadMetrics = true;
 	T1.Initialize(std::move(inpData));
 	T1.Download(remoteUrl, respData);
-		
-	if (respData->curlRetValue == CURLE_OK)
+	
+	if ((respData->iHttpRetValue == 204) || (respData->iHttpRetValue == 200))
 	{
-		if ((respData->iHttpRetValue == 204) || (respData->iHttpRetValue == 200))
+		std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
+		if(dataStr.size())
 		{
-			std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
-			if(dataStr.size())
-			{
-				//2021-06-15T18:11:39Z - UTC Zulu
-				//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
-				//const char* format = "%Y-%m-%dT%H:%M:%SZ";
-				//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
-				retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
-				AAMPLOG_INFO("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
-			}
-		}
-		else
-		{
-			AAMPLOG_ERR("Http Error Returned [%d]", respData->iHttpRetValue);
+			//2021-06-15T18:11:39Z - UTC Zulu
+			//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
+			//const char* format = "%Y-%m-%dT%H:%M:%SZ";
+			//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
+			retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
+			AAMPLOG_INFO("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to perform curl request [%d]", respData->curlRetValue);
+		AAMPLOG_ERR("Http Error Returned [%d]", respData->iHttpRetValue);
 	}
 	
 	if(http_error)
@@ -1449,4 +1437,49 @@ bool aamp_isTuneScheme( const char *cmdBuf )
     }
     return isTuneScheme;
 }
-
+/**
+ * @brief In order to find the reason for timeout failure, we check the curl timings
+  * CURLINFO_NAMELOOKUP_TIME - time taken for DNS resolution
+  * CURLINFO_CONNECT_TIME - time taken to connect to the server
+  * If both are zero, it indicates that DNS resolution itself has failed.
+  * If DNS resolution is successful but connection time is zero, it indicates that connection to server has failed.
+  * If both DNS resolution and connection to server are successful, it indicates that data transfer has failed.
+ * @param[in] curl CURL handle
+ * @retval CurlTimeoutFailureReason enum value indicating the reason for timeout
+ */
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
+{
+    double nameLookupTime = 0;
+    curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &nameLookupTime);
+	if ( nameLookupTime == 0)
+	{
+		return eCURL_TIMEOUT_DNS;
+	}
+	else
+	{
+		double connectTime = 0;
+		curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
+		if (connectTime == 0 )
+		{
+			return eCURL_TIMEOUT_CONNECT;
+		}
+    }
+	return eCURL_TIMEOUT_DATA;
+}
+/**
+ * @brief To check if the curl error is due to timeout
+ * @param[in] httpResponseCode HTTP response code
+ * @retval true if the error is due to timeout, false otherwise
+ */
+bool IsCurlTimeoutFailure( int httpResponseCode )
+{
+	switch( httpResponseCode )
+	{
+		case CURLE_OPERATION_TIMEDOUT:
+		case eCURL_TIMEOUT_DNS:
+		case eCURL_TIMEOUT_CONNECT:
+			return true;
+		default:
+			return false;
+	}
+}

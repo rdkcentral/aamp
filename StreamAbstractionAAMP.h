@@ -1202,6 +1202,28 @@ public:
 	 */
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
 
+
+	/**
+	 *   @brief Set pipeline flush status.
+	 *
+	 *   @return void
+	 */
+	void SetPipelineFlushStatus(void){mPipelineFlushStatus = true;}
+
+	/**
+	 *   @brief Reset pipeline flush status once the pipeline reconfigured.
+	 *
+	 *   @return void
+	 */
+	void ReSetPipelineFlushStatus(void){mPipelineFlushStatus = false;}
+
+	/**
+	 *   @brief Get pipeline flush status.
+	 *
+	 *   @return true if pipeline flush is set, false otherwise
+	 */
+	bool GetPipelineFlushStatus(void){ return mPipelineFlushStatus; }
+
 	PrivateInstanceAAMP* aamp;  /**< Pointer to PrivateInstanceAAMP object associated with stream*/
 
 	/**
@@ -2114,6 +2136,7 @@ protected:
 	int mABRMinBuffer;		    /**< ABR ramp down buffer*/
 	int mABRNwConsistency;		    /**< ABR Network consistency*/
 	bool mESChangeStatus;               /**< flag value which is used to call pipeline configuration if the audio type changed in mid stream */
+	bool mPipelineFlushStatus;			/**< flag value which is used to call pipeline flush on PTS jumps or PTO */
 	unsigned int mAudiostateChangeCount;/**< variable to know how many times player need to reconfigure the pipeline for audio type change*/
 	double mLastVideoFragParsedTimeMS;  /**< timestamp when last video fragment was parsed */
 
