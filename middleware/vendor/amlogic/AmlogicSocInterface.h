@@ -21,7 +21,6 @@
 #define AMLOGIC_SOC_INTERFACE_H
 
 #include "SocInterface.h"
-
 /**
  * @brief Amlogic SoC interface class.
  *
@@ -93,12 +92,12 @@ class AmlogicSocInterface : public SocInterface
 		void SetAC4Tracks(GstElement *src, int trackId) override;
 
 		/**
-		 * @breif Get SVP Context
+		 * @brief Get SVP Context
 		 */
 		void SvpGetContext(void **svpCtx, int server, int flags)override;
 
 		/**
-		 * @breif Free SVP Context
+		 * @brief Free SVP Context
 		 */
 		void SvpFreeContext(void *svpCtx)override;
 

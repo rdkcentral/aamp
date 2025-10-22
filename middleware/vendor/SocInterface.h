@@ -106,12 +106,12 @@ public:
 	void SetWesterosSinkState(bool status);
 
 	/**
-	 * @breif Get SVP Context
+	 * @brief Get SVP Context
 	 */
 	virtual void SvpGetContext(void **svpCtx, int server, int flags){};
 
 	/**
-	 * @breif Free SVP Context
+	 * @brief Free SVP Context
 	 */
 	virtual void SvpFreeContext(void *svpCtx){};
 
