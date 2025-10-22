@@ -6739,6 +6739,9 @@ void PrivateInstanceAAMP::detach()
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
 	ReleaseStreamLock();
+	// Set EventManager State to RELEASED as no events beyond this point
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
+
 }
 
 /**
