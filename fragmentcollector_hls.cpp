@@ -5289,18 +5289,20 @@ static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime
 		lstring ptr = iter.mystrpbrk();
 		if(!ptr.empty())
 		{
-				if (ptr.removePrefix("#EXT"))
+			if (ptr.removePrefix("#EXT"))
 			{
 				if (ptr.removePrefix("-X-PROGRAM-DATE-TIME:"))
 				{
 					localProgramDateTime = (long long) ( ISO8601DateTimeToUTCSeconds(ptr.getPtr())*1000);
 					if(localProgramDateTime > lastProgramDateTime )
 						layout.progStartDateTime = localProgramDateTime;
+					AAMPLOG_WARN("Gnanesha -X-PROGRAM-DATE-TIME: layout.progStartDateTime: %lld localProgramDateTime:%lld",layout.progStartDateTime,localProgramDateTime);
 				}
 				if (ptr.removePrefix("INF:"))
 				{
 					if(localProgramDateTime > lastProgramDateTime )
 							layout.tileSetDuration = ptr.atof();
+					AAMPLOG_WARN("Gnanesha INF: layout.tileSetDuration: %lf",layout.tileSetDuration);
 				}
 				else if (ptr.removePrefix("-X-TILES:"))
 				{
@@ -5311,7 +5313,7 @@ static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
-				if(localProgramDateTime > lastProgramDateTime )
+				if(localProgramDateTime > lastProgramDateTime && localProgramDateTime > layout.progStartDateTime  )
 				{
 					if( 0.0f == layout.posterDuration )
 					{
@@ -5326,6 +5328,7 @@ static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime
 					}
 					tileInfo.layout = layout;
 					tileInfo.url = ptr.tostring();
+					AAMPLOG_WARN("Gnanesha INF: tileInfo.url: %s",tileInfo.url.c_str());
 					tileInfo.startTime = startTime.inSeconds();
 					startTime += layout.tileSetDuration;
 					rc.push_back( tileInfo );
