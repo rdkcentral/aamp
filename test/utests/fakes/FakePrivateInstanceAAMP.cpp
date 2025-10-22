@@ -1436,7 +1436,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 }
 
