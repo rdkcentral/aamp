@@ -177,14 +177,20 @@ set(SOURCES
 	PlayerScheduler.cpp
 	gstplayertaskpool.cpp
 	PlayerUtils.cpp
-	vendor/SocInterface.cpp
-	vendor/amlogic/AmlogicSocInterface.cpp
-	vendor/realtek/RealtekSocInterface.cpp
-	vendor/brcm/BrcmSocInterface.cpp
-	vendor/default/DefaultSocInterface.cpp
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
+
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
+						vendor/realtek/RealtekSocInterface.cpp
+						vendor/brcm/BrcmSocInterface.cpp
+						vendor/default/DefaultSocInterface.cpp
+						vendor/SocInterface.cpp)
+else()
+	list(APPEND SOURCES test/utests/fakes/FakeSocInterface.cpp)
+endif()
+
 set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp
 	drm/DrmSession.cpp
