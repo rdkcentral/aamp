@@ -645,6 +645,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
 				aamp->mbPlayEnabled = true;
+				aamp->reattach();
 				if (AAMP_NORMAL_PLAY_RATE == rate)
 				{
 					aamp->ActivatePlayer();

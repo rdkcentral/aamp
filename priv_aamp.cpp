@@ -6695,6 +6695,16 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
 }
 
 /**
+ * @brief Reattach the player instance.
+ */
+void PrivateInstanceAAMP::reattach()
+{
+	AAMPLOG_WARN("Seeked %d, Detached %d", mbSeeked, mbDetached);	// Temp debug log
+	// Reset Event Manager State to IDLE
+	mEventManager->SetPlayerState(eSTATE_IDLE);
+}
+
+/**
  * @brief Soft stop the player instance.
  *
  */
@@ -6741,7 +6751,6 @@ void PrivateInstanceAAMP::detach()
 	ReleaseStreamLock();
 	// Set EventManager State to RELEASED as no events beyond this point
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
-
 }
 
 /**

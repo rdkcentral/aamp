@@ -3000,6 +3000,12 @@ public:
 	bool IsPlayEnabled();
 
 	/**
+	 *   @fn reattach
+	 *
+	 *   @return void
+	 */
+	void reattach();
+	/**
 	 * @fn detach
 	 *
 	 */
