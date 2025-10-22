@@ -396,19 +396,19 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				// If reader is at EOS, inject the last data in AAMP TSB
 				if (aamp->GetLLDashChunkMode())
 				{
-					CacheTsbFragment(fragmentToTsbSessionMgr);
+					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 				}
 				// Forced chunk processing without LLDashChunkMode: treat complete fragment as a single chunk
 				else if (IsInjectionFromCachedFragmentChunks() && !fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection())
 				{
-					CacheTsbFragment(fragmentToTsbSessionMgr);
+					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 				}
 				// Special EOS case: If we were injecting from local TSB (IsLocalTSBInjection true) and after EOS we
 				// transition out (SetLocalTSBInjection(false)), but forced chunk injection criteria are met (AAMP TSB enabled)
 				// and LLDashChunkMode is false, ensure the just-downloaded NON-init fragment is cached as a chunk.
 				else if (IsLocalTSBInjection() && !fragmentToTsbSessionMgr->initFragment && aamp->IsLocalAAMPTsb() && !aamp->GetLLDashChunkMode())
 				{
-					CacheTsbFragment(fragmentToTsbSessionMgr);
+					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 				}
 				SetLocalTSBInjection(false);
 				// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
@@ -419,7 +419,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 				if (aamp->GetLLDashChunkMode())
 				{
-					CacheTsbFragment(fragmentToTsbSessionMgr);
+					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 				}
 			}
 			// Forced chunk processing path for non-init segments when chunk injection is active but LLDashChunkMode is disabled.
@@ -428,10 +428,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				// Suppress chunk caching while paused (non-underflow); still enqueue write for GetPeriod side-effects
 				if (!(aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus()))
 				{
-					CacheTsbFragment(fragmentToTsbSessionMgr);
+					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 				}
 			}
-			tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
+			tsbSessionManager->EnqueueWrite(std::move(fragmentUrl), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());
 		}
 		// Added the duplicate conditional statements, to log only for localAAMPTSB cases.
 		else if(tsbSessionManager && cachedFragment->fragment.GetLen() == 0)
@@ -461,7 +461,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				GetContext()->UpdateStreamInfoBitrateData(fragmentToTsbSessionMgr->profileIndex, fragmentToTsbSessionMgr->cacheFragStreamInfo);
 			}
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-			CacheTsbFragment(fragmentToTsbSessionMgr);
+			CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 		}
 		// Forced chunk processing for NON-init segments when unified chunk injection path is active
 		// (IsInjectionFromCachedFragmentChunks()) but Low-Latency DASH native chunk mode is not enabled.
@@ -476,7 +476,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				std::shared_ptr<CachedFragment> fragmentToChunkCache = std::make_shared<CachedFragment>();
 				fragmentToChunkCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 				fragmentToChunkCache->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-				CacheTsbFragment(fragmentToChunkCache);
+				CacheTsbFragment(std::move(fragmentToChunkCache));
 			}
 		}
 
@@ -523,7 +523,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						std::shared_ptr<CachedFragment> fragmentToChunkCache = std::make_shared<CachedFragment>();
 						fragmentToChunkCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 						fragmentToChunkCache->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-						CacheTsbFragment(fragmentToChunkCache); // Reuse existing TSB chunk caching utility
+						CacheTsbFragment(std::move(fragmentToTsbSessionMgr)); // Reuse existing TSB chunk caching utility
 					}
 					// If injection is from chunk buffer we must NOT treat this as a complete fragment fetch;
 					// doing so would increment numberOfFragmentsCached incorrectly. Only perform UpdateTSAfterFetch
@@ -538,7 +538,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						{
 							std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 							fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
-							CacheTsbFragment(fragmentToCache);
+							CacheTsbFragment(std::move(fragmentToCache));
 						}
 					}
 					else
