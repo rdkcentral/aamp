@@ -2123,7 +2123,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
 		{ // clamp start or handle BOS during rewind
-			AAMPLOG_MIL("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
 			// Check the rate so that PlayFromTsbStart() is not called repeatedly
