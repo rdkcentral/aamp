@@ -31,6 +31,7 @@
 GstCaps* GetCaps(GstStreamOutputFormat format)
 {
 	GstCaps * caps = NULL;
+
 	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 
 	switch (format)

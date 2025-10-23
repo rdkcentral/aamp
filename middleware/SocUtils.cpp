@@ -27,7 +27,8 @@
 
 namespace SocUtils
 {
-	static std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
+	bool mIsRialtoSink = false;
+	static std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface(mIsRialtoSink);
 	/**
 	 * @brief Checks if AppSrc should be used for progressive playback.
 	 *
@@ -138,6 +139,11 @@ namespace SocUtils
 	bool ResetNewSegmentEvent()
 	{
 		return socInterface->ResetNewSegmentEvent();
+	}
+	bool IsRialtoSink(bool isrialto)
+	{
+		mIsRialtoSink = isrialto;
+		return mIsRialtoSink;
 	}
 	/**
 	 *	@brief Check if GST Subtec is enabled

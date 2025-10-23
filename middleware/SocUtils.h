@@ -113,5 +113,9 @@ namespace SocUtils
 	 *	@brief Check if GST Subtec is enabled
 	 */
 	bool isGstSubtecEnabled();
+	/**
+	 * 	@brief check if rialto is enabled 
+	 */
+	bool IsRialtoSink(bool );
 }
 #endif // SOC_UTILS_H

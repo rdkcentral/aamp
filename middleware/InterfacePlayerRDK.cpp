@@ -73,6 +73,8 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 {
 	interfacePlayerPriv = new InterfacePlayerPriv();
 	m_gstConfigParam = new Configs();
+	SocUtils::IsRialtoSink(m_gstConfigParam->useRialtoSink);
+	
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
@@ -102,6 +104,7 @@ InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
 {
 	gstPrivateContext = new GstPlayerPriv();
 	socInterface = SocInterface::CreateSocInterface(gstPrivateContext->usingRialtoSink);
+
 }
 
 InterfacePlayerPriv::~InterfacePlayerPriv()
