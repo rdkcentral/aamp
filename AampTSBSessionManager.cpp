@@ -375,7 +375,7 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::raiseNewVideoTsbContentNotification()
+void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
 {
 	mNewVideoTsbContentCV.notify_one();
 }
@@ -465,11 +465,11 @@ void AampTSBSessionManager::ProcessWriteQueue()
 					}
 
 					UnlockReadMutex();
-					// Notify only for video fragments
+
 					if (mediatype == eMEDIATYPE_VIDEO)
 					{
 						mHasNewVideoTsbContent = true;
-						raiseNewVideoTsbContentNotification();
+						RaiseNewVideoTsbContentNotification();
 					}
 
 				}

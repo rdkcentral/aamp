@@ -129,7 +129,6 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest)
 	// Call the protected method through testable wrapper
 	bool result = mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 
-	// Verify that a fragment was found
 	EXPECT_TRUE(result);
 }
 
@@ -166,6 +165,5 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest_DisabledTrack_NoPushF
 	// Call the protected method through testable wrapper
 	bool result = mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 
-	// Verify that no fragment was found when track is disabled
 	EXPECT_FALSE(result);
 }

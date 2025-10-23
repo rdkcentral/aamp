@@ -249,10 +249,8 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 
 void AampTSBSessionManager::WaitForNewTsbFragment()
 {
-
 }
 
-void AampTSBSessionManager::raiseNewVideoTsbContentNotification()
+void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
 {
-
 }

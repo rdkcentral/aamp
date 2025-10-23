@@ -92,11 +92,10 @@ public:
 	 * @brief Wait for new TSB fragment to be available
 	 */
 	void WaitForNewTsbFragment();
-
 	/**
 	 * @brief Raises the new video TSB content notification
 	 */
-	void raiseNewVideoTsbContentNotification();
+	void RaiseNewVideoTsbContentNotification();
 	/**
 	 * @brief Set TSB length
 	 *
@@ -416,7 +415,7 @@ private:
 	std::mutex mWriteQueueMutex;			// Mutex to synchronize access to the write queue.
 	std::mutex mReadMutex;					// Mutex to synchronize access to the data manager from reader and writer.
 	std::condition_variable mWriteThreadCV; // Condition variable to signal when data is available in the write queue
-	std::condition_variable mNewVideoTsbContentCV;	// Condition variable for signaling new TSB content
+	std::condition_variable mNewVideoTsbContentCV;	// Conditional variable used to signal when content has been written to the TSB
 	std::queue<TSBWriteData> mWriteQueue;	// Queue to store write data.
 	double mLastVideoPos;
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
@@ -424,7 +423,7 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
 	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
-	bool mHasNewVideoTsbContent;			// Flag to indicate new TSB content is available
+	bool mHasNewVideoTsbContent;			// Flag used in conjunction with condvar mNewVideoTsbContentCV to signal a segment has been added to the TSB
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */

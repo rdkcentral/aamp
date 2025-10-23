@@ -10384,13 +10384,13 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				}
 				else
 				{
-					// Check if we found a segment, otherwise wait for new content
 					if (segmentFound)
 					{
 						aamp->interruptibleMsSleep(50);				//To Avoid tight loop adding a small delay
 					}
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
 					{
+						// All the segments in TSB have been send to gstreamer, wait for new fragments to be available in TSB
 						tsbSessionManager->WaitForNewTsbFragment();
 					}
 				}
