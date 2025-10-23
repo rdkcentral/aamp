@@ -5313,7 +5313,7 @@ static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime
 			{
 				TileInfo tileInfo;
 				AAMPLOG_WARN("Gnanesha INF: %d %zu %s",ptr.tostring().empty(),ptr.tostring().length(),ptr.tostring().c_str() );
-				if(localProgramDateTime > lastProgramDateTime && (!ptr.tostring().empty() && ptr.tostring().length() > 0 ) )
+				if(localProgramDateTime > lastProgramDateTime && (ptr.tostring().length() > 4 ) )
 				{
 					if( 0.0f == layout.posterDuration )
 					{
@@ -5380,22 +5380,25 @@ std::vector<TileInfo> IndexThumbnails( lstring iter )
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
-				if( 0.0f == layout.posterDuration )
+				if( ptr.tostring().length() > 4 )
 				{
-					if( layout.tileSetDuration )
+					if( 0.0f == layout.posterDuration )
 					{
-						layout.posterDuration = layout.tileSetDuration;
+						if( layout.tileSetDuration )
+						{
+							layout.posterDuration = layout.tileSetDuration;
+						}
+						else
+						{
+							layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+						}
 					}
-					else
-					{
-						layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
-					}
+					tileInfo.layout = layout;
+					tileInfo.url = ptr.tostring();
+					tileInfo.startTime = startTime.inSeconds();
+					startTime += layout.tileSetDuration;
+					rc.push_back( tileInfo );
 				}
-				tileInfo.layout = layout;
-				tileInfo.url = ptr.tostring();
-				tileInfo.startTime = startTime.inSeconds();
-				startTime += layout.tileSetDuration;
-				rc.push_back( tileInfo );
 			}
 		}
 	}
