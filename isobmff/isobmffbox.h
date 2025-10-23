@@ -925,7 +925,7 @@ public:
 	 * @return The default sample size, 0 if not present
 	 */
 	uint32_t getDefaultSampleSize(void);
-
+	void setDefaultSampleSize(uint32_t default_sample_size);
 	/**
 	 * @fn constructTfhdBox
 	 *

@@ -1135,6 +1135,15 @@ uint32_t TfhdBox::getDefaultSampleSize(void)
     return mDefaultSampleSize;
 }
 
+void TfhdBox::setDefaultSampleSize(uint32_t default_sample_size)
+{
+
+	if (nullptr != default_sample_duration_location)
+	{
+		uint8_t * default_sample_size_location = default_sample_duration_location + 4;
+		WRITE_U32(default_sample_size_location, default_sample_size);
+	}
+}
 /**
  *  @brief Static function to construct a TfdtBox object
  */

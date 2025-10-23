@@ -27,7 +27,8 @@
 #include "AampLogManager.h"
 #include <inttypes.h>
 #include <string.h>
-
+#include "iframe_mdat.h"
+#define REPLACE_MDAT 1
 static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);
 
 /**
@@ -1041,8 +1042,12 @@ void IsoBmffBuffer::truncate(void)
 					trun->rewriteAsSkipBox();
 				}
 			}
+#ifdef REPLACE_MDAT
+			auto newMdatSize = sizeof(iframe_mdat);
+			tfhd->setDefaultSampleSize(SAMPLE_SIZE);
+#else
 			auto newMdatSize{std::max(trunList[0]->getFirstSampleSize(), tfhd->getDefaultSampleSize()) + SIZEOF_SIZE_AND_TAG};
-
+#endif
 			// May not have been located
 			uint32_t firstSampleSize{0};
 			if (saiz)
@@ -1054,9 +1059,11 @@ void IsoBmffBuffer::truncate(void)
 			{
 				senc->truncate(firstSampleSize);
 			}
-
+#ifdef REPLACE_MDAT
+			memcpy(mdat->getBase(),iframe_mdat,sizeof(iframe_mdat));
+#else
 			mdat->truncate(newMdatSize);
-
+#endif
 			// Change buffer size
 			bufSize = size_t(mdat->getOffset() + newMdatSize);
 		}
