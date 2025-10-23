@@ -101,7 +101,7 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
 {
 	gstPrivateContext = new GstPlayerPriv();
-	socInterface = SocInterface::CreateSocInterface();
+	socInterface = SocInterface::CreateSocInterface(gstPrivateContext->usingRialtoSink);
 }
 
 InterfacePlayerPriv::~InterfacePlayerPriv()
