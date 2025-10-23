@@ -32,6 +32,9 @@
 #include <cstring>
 #include "AampLogManager.h"
 
+#define CLEAR_TRUN_FLAGS 1
+
+
 // Size of the size and tag fields in IsoBmff
 #define SIZEOF_SIZE_AND_TAG    (8)
 
