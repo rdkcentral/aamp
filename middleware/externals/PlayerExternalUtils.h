@@ -25,6 +25,16 @@
 #ifndef PLAYER_EXTERNAL_UTILS
 #define PLAYER_EXTERNAL_UTILS
 
+#include <cstdio>
+#include <cstdarg>
+
+#define MW_PRE_LOGGER_LOG(fmt, ...)                                            \
+    do {                                                                    \
+        std::printf("[MIDDLEWARE] %s:%d %s: " fmt, __FILE__, __LINE__,      \
+                    __func__ , ##__VA_ARGS__);                              \
+        std::fflush(stdout);                                                \
+    } while (0)
+
 
 /**
  * Hack to check if code is running in container environment.
