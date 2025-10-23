@@ -768,6 +768,7 @@ private:
 	uint32_t sample_count;
 	uint8_t *sample_count_loc;
 	uint8_t *first_sample_duration_loc;
+	uint8_t *first_sample_size_loc;
 	uint32_t mFirstSampleSize;
 	uint32_t mFlags;
 
@@ -791,7 +792,7 @@ public:
 	 * @param[in] firstSampleSize - size of the first sample
 	 * @param[in] flags - flags set on this box
 	 */
-	TrunBox(uint32_t sz, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint32_t flags);
+	TrunBox(uint32_t sz, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc,  uint32_t firstSampleSize, uint8_t *firstSampleSizeLoc, uint32_t flags);
 
 	/**
 	 * @fn TrunBox
@@ -804,7 +805,7 @@ public:
 	 * @param[in] firstSampleSize - size of the first sample
 	 * @param[in] flags - flags set on this box
 	 */
-	TrunBox(FullBox &fbox, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint32_t flags);
+	TrunBox(FullBox &fbox, uint64_t sampleDuration, uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t *sampleDurationLoc, uint32_t firstSampleSize, uint8_t *firstSampleSizeLoc, uint32_t flags);
 
 	/**
 	 * @fn setFirstSampleDuration
@@ -816,7 +817,7 @@ public:
 	 * @return void
 	 */
 	void setFirstSampleDuration(uint64_t sampleDuration);
-
+	void setFirstSampleSize(uint32_t sampleSize);
 	/**
 	 * @fn getSampleDuration
 	 *

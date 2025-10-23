@@ -935,8 +935,10 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 								{
 									AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 								}
+
 								std::ofstream file;
 								std::string name= "output/Converted" + std::to_string(pts) + ".mp4";
+								AAMPLOG_INFO("patrick saving %s",name.c_str());
 								file.open(name, std::ofstream::binary);
 								if (file.fail())
 								{

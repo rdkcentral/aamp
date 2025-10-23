@@ -894,12 +894,13 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t firstSampleSize, uint32_t flags)
+TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t firstSampleSize,	uint8_t* firstSampleSizeLoc, uint32_t flags)
 		: FullBox(sz, Box::TRUN, 0, 0),
 		duration(sampleDuration),
 		sample_count(sampleCount),
 		sample_count_loc(sampleCountLoc),
 		first_sample_duration_loc(firstSampleDurationLoc),
+		first_sample_size_loc(firstSampleSizeLoc),
 		mFirstSampleSize(firstSampleSize),
 		mFlags(flags)
 {
@@ -908,20 +909,29 @@ TrunBox::TrunBox(uint32_t sz, uint64_t sampleDuration,uint32_t sampleCount, uint
 /**
  *  @brief TrunBox constructor
  */
-TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t firstSampleSize, uint32_t flags)
+TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, uint8_t *sampleCountLoc, uint8_t* firstSampleDurationLoc, uint32_t firstSampleSize, uint8_t* firstSampleSizeLoc,uint32_t flags)
 		: FullBox(fbox),
 		duration(sampleDuration),
 		sample_count(sampleCount),
 		sample_count_loc(sampleCountLoc),
 		first_sample_duration_loc(firstSampleDurationLoc),
 		mFirstSampleSize(firstSampleSize),
+		first_sample_size_loc(firstSampleSizeLoc),
 		mFlags(flags)
 {
 }
 
 /**
- *  @brief Set SampleDuration value
+ *  @brief Set value
  */
+void TrunBox::setFirstSampleSize(uint32_t sampleSize)
+{
+	if (nullptr != first_sample_size_loc)
+	{
+		WRITE_U32(first_sample_size_loc, sampleSize);
+	}
+}
+
 void TrunBox::setFirstSampleDuration(uint64_t sampleDuration)
 {
 	duration = sampleDuration;
@@ -930,7 +940,6 @@ void TrunBox::setFirstSampleDuration(uint64_t sampleDuration)
 		WRITE_U32(first_sample_duration_loc, sampleDuration);
 	}
 }
-
 /**
  *  @brief Get sampleDuration value
  */
@@ -997,7 +1006,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	//						  ((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
 	//						  ((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
 	uint8_t *firstSampleDurationLoc = nullptr;
-
+	uint8_t *firstSampleSizeLoc = nullptr;
 	for (unsigned int i=0; i<sample_count; i++)
 	{
 		if (flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)
@@ -1011,9 +1020,13 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 		}
 		if (flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)
 		{
+			if (i == 0)
+			{
+				firstSampleSizeLoc = ptr;
+			}
 			sample_size = READ_U32(ptr);
 			// Will be unhelpful for truncating if this is not present
-			if (i==0)
+			if (i == 0)
 			{
 				firstSampleSize = sample_size;
 			}
@@ -1029,7 +1042,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	}
 	FullBox fbox(sz, Box::TRUN, version, flags);
 	fbox.setBase(start);
-	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, firstSampleSize, flags);
+	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, firstSampleSize,firstSampleSizeLoc, flags);
 }
 
 /**

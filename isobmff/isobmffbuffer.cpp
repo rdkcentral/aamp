@@ -1045,6 +1045,7 @@ void IsoBmffBuffer::truncate(void)
 #ifdef REPLACE_MDAT
 			auto newMdatSize = sizeof(iframe_mdat);
 			tfhd->setDefaultSampleSize(SAMPLE_SIZE);
+			trunList[0]->setFirstSampleSize(SAMPLE_SIZE);
 #else
 			auto newMdatSize{std::max(trunList[0]->getFirstSampleSize(), tfhd->getDefaultSampleSize()) + SIZEOF_SIZE_AND_TAG};
 #endif
