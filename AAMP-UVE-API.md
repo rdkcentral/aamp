@@ -2250,16 +2250,20 @@ Example:
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - sessionHandle:string
 - status:string
+ 
+    Additional information regarding the security condition as defined
 - system:string
+   
+    Identifies the content watermarking protection provider. Current supported watermarking system is FriendMTS denoted as fmts_asid.
 
-| Code      | Name         |
-| --------- |------------- |
-| 1         | GRANTED      |
-| 2         | NOT_REQUIRED |
-| 3         | DENIED       |
-| 4 / 20001 | FAILED       |
+| Code      | Name         |   Definition
+| --------- |------------- |--------------
+| 1         | GRANTED      | No security issues
+| 2         | NOT_REQUIRED | Watermark session granted
+| 3         | DENIED       | Watermark session not required
+| 4 / 20001 | FAILED       | Watermark session denied
 
-Note: valid only in aamp and not in vipa 
+Note: System parameter is valid only in security mananger and not in firebolt 
 
 **Description:**
 - Watermarking session information
