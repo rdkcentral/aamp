@@ -47,6 +47,9 @@
 #define WRITE_U32(buf, val) \
 	buf[0]= val>>24; buf[1]= val>>16; buf[2]= val>>8; buf[3]= val;
 
+#define WRITE_U24(buf, val) \
+	buf[0]= val>>16; buf[1]= val>>8; buf[2]= val;
+
 #define READ_U8(dst, src, sz) \
 	memcpy(dst, src, sz); src+=sz;
 

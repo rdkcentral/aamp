@@ -1044,7 +1044,7 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 	fbox.setBase(start);
 	return new TrunBox(fbox, totalSampleDuration, sample_count, sampleCountLoc, firstSampleDurationLoc, firstSampleSize,firstSampleSizeLoc, flags);
 }
-
+#define CLEAR_TRUN_FLAGS 1
 /**
  * @fun TrunBox::truncate
  * @brief Reduce the number of samples to 1 and insert a skip box if there is enough space
@@ -1060,7 +1060,14 @@ void TrunBox::truncate(void)
 		uint32_t tableSize{sample_count * bytesPerSample};
 		// Calculate new trun size and write
 		auto oldTrunSize = getSize();
+#ifdef CLEAR_TRUN_FLAGS
+	auto newTrunSize = getSize() - tableSize;
+	// Clear all flags except duration and size present
+	flags &= (TRUN_FLAG_SAMPLE_DURATION_PRESENT | TRUN_FLAG_SAMPLE_SIZE_PRESENT);
+	WRITE_U24((getBase() + 1), flags);
+#else
 		auto newTrunSize = getSize() - tableSize + bytesPerSample;
+#endif
 		sample_count = 1;
 		WRITE_U32(sample_count_loc, sample_count);
 
