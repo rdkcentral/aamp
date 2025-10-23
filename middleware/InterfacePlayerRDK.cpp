@@ -35,7 +35,7 @@
 #include "player-xternal-stats.h"
 #endif
 #include "PlayerUtils.h"
-
+#include "TimingUtils.h"
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
@@ -1513,6 +1513,8 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
  */
 bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
 {
+
+       	PerfTimer::perf_Start("Flush_start");
 	GstState aud_current;
 	GstState aud_pending;
 	GstState current;
@@ -1651,6 +1653,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
+	PerfTimer::perf_Stop("Flush_start");
 	return true;
 }
 void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)

@@ -142,6 +142,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 	SocUtils.h
 	drm/DrmUtils.h
 	GstUtils.h
+	TimingUtils.h
 	PlayerMetadata.hpp
 	closedcaptions/PlayerCCManager.h
 	PlayerUtils.h
@@ -171,6 +172,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 
 set(SOURCES
 	InterfacePlayerRDK.cpp
+	TimingUtils.cpp
 	SocUtils.cpp
 	GstUtils.cpp
 	GstHandlerControl.cpp

@@ -29,7 +29,7 @@
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include "AampTelemetry2.hpp"
 #endif //AAMP_TELEMETRY_SUPPORT
-
+#include "../TimingUtils.h"
 #include <algorithm>
 #include <iomanip>
 #define MAX std::max
@@ -195,6 +195,7 @@ void ProfileEventAAMP::getTuneEventsJSON(std::string &outStr, const std::string 
  */
 void ProfileEventAAMP::TuneBegin(void)
 { // start tune
+	PerfTimer::perf_Start("TuneEnd");
 	memset(buckets, 0, sizeof(buckets));
 	tuneStartBaseUTCMS = NOW_SYSTEM_TS_MS;
 	tuneStartMonotonicBase = NOW_STEADY_TS_MS;
@@ -269,6 +270,7 @@ void ProfileEventAAMP::TuneBegin(void)
  */
 void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData)
 {
+	PerfTimer::perf_Stop("TuneEnd");
 	if(!enabled )
 	{
 		return;
