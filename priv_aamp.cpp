@@ -2070,10 +2070,8 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
 	}
 	return false;
 }
-/**
- * @brief API to correct the latency by adjusting rate of playback
- */
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 	AAMPPlayerState state = GetState();
 	if (state == eSTATE_SEEKING)
@@ -2119,10 +2117,18 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			//AAMPLOG_WARN("aamp clamp end");
 			position = end;
 		}
-		else if (position < start)
-		{ // clamp start
-			AAMPLOG_WARN( "clamp position %fms < start %fms", position, start );
+		// If beginningOfStream is true or position < start, it means rewind has reached BoS
+		// Note: position could be = start immediately after tuning
+		else if (position < start || beginningOfStream)
+		{ // clamp start or handle BOS during rewind
+			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+				position, start, beginningOfStream, rate);
 			position = start;
+			// Check the rate so that PlayFromTsbStart() is not called repeatedly
+			if (rate < AAMP_RATE_PAUSE)
+			{
+				PlayFromTsbStart();
+			}
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -3125,9 +3131,9 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		SyncEnd();
 
 		// To notify app of discontinuity processing complete
-		ReportProgress();
+		MonitorProgress();
 
-		// There is a chance some other operation maybe invoked from JS/App because of the above ReportProgress
+		// There is a chance some other operation maybe invoked from JS/App because of the above MonitorProgress
 		// Make sure we have still mDiscontinuityTuneOperationInProgress set
 		SyncBegin();
 		AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
@@ -3255,6 +3261,27 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 }
 
 /**
+ * @brief Play from the start of the TSB
+ */
+void PrivateInstanceAAMP::PlayFromTsbStart()
+{
+	seek_pos_seconds = culledSeconds;
+	AAMPLOG_MIL("Updated seek_pos_seconds %f on start of TSB", seek_pos_seconds);
+	if (trickStartUTCMS == -1)
+	{
+		// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables MonitorProgress to
+		// send BOS event to JSPP
+		ResetTrickStartUTCTime();
+		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+	}
+	rate = AAMP_NORMAL_PLAY_RATE;
+	AcquireStreamLock();
+	TuneHelper(eTUNETYPE_SEEK);
+	ReleaseStreamLock();
+	NotifySpeedChanged(rate);
+}
+
+/**
  * @brief Process EOS from Sink and notify listeners if required
  */
 void PrivateInstanceAAMP::NotifyEOSReached()
@@ -3321,22 +3348,8 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
-			seek_pos_seconds = culledSeconds;
-			AAMPLOG_WARN("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
-			if (trickStartUTCMS == -1)
-			{
-				// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
-				// send BOS event to JSPP
-				ResetTrickStartUTCTime();
-				AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
-			}
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
-			ReportProgress(true, true);
-			rate = AAMP_NORMAL_PLAY_RATE;
-			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEK);
-			ReleaseStreamLock();
-			NotifySpeedChanged(rate);
+			MonitorProgress(true, true);
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
