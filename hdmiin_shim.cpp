@@ -64,7 +64,7 @@ AAMPStatusType StreamAbstractionAAMP_HDMIIN::Init(TuneType tuneType)
 		retval = InitHelper(tuneType);
 
 		std::function<void(PlayerVideoStreamInfoData)> videoInfoUpdatedMethodCb = std::bind(&StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate, this, std::placeholders::_1);
-		thunderAccessObj.RegisterEventOnVideoStreamInfoUpdateHdmiin(videoInfoUpdatedMethodCb);
+		thunderAccessObj.RegisterEventOnVideoStreamInfoUpdateHdmiin(std::move(videoInfoUpdatedMethodCb));
 	}
 	return retval;
 }

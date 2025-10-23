@@ -25,9 +25,13 @@
 #include <vector>
 #include <memory>
 #include <gst/base/gstbasesink.h>
+#include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
+
+typedef gboolean (*AcceptCapsFunc)(GstBaseTransform *, GstPadDirection, GstCaps *);
+
 /**
  * @brief Enumeration for play flags.
  *
@@ -100,7 +104,17 @@ public:
 	 * @param status Set to `true` if Westeros Sink is enabled, `false` otherwise.
 	 */
 	void SetWesterosSinkState(bool status);
-	
+
+	/**
+	 * @brief Get SVP Context
+	 */
+	virtual void SvpGetContext(void **svpCtx, int server, int flags){};
+
+	/**
+	 * @brief Free SVP Context
+	 */
+	virtual void SvpFreeContext(void *svpCtx){};
+
 	/*@brief returns true if video stats required from sink otherwise false*/
 	virtual bool IsPlaybackQualityFromSink(){return false;}
 	
@@ -125,7 +139,28 @@ public:
 	 * @return A pointer to the created SocInterface object.
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
-	
+
+	/**
+	 * @brief Configure the accept caps
+	 * @return void
+	 */
+	virtual void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+                         AcceptCapsFunc accept_caps_func);
+
+	/**
+	 * @brief Indicates whether transform capabilities are required.
+	 * @return true if transform capabilities are required; otherwise, false
+	 */
+	virtual bool IsTransformCapsRequired() const {
+	return false; }
+
+	/**
+	 * @brief Indicates whether decryption is required.
+	 * @return true if decryption are required; otherwise, false
+	 */
+	virtual bool IsDecryptRequired() const {
+	return false; }
+
 	/**
 	 * @brief Check if AppSrc should be used.
 	 *
@@ -226,9 +261,10 @@ public:
 	 * @param rate The desired playback rate.
 	 * @param video_dec The video decoder element.
 	 * @param audio_dec The audio decoder element.
+	 * @param isRialto True if rialto sink is used.
 	 * @return True if the playback rate was set successfully, false otherwise.
 	 */
-	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) = 0;
+	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) = 0;
 	
 	/**
 	 * @brief Retrieves the source pad of the given GStreamer element.
@@ -457,20 +493,24 @@ public:
 	virtual bool ResetNewSegmentEvent(){return false;}
 	
 	/**
-	 * @brief Checks if the platform segment is ready for processing new segment.
+	 * @brief Checks if platform segment is ready.
 	 *
-	 * This function returns a boolean value indicating whether the platform segment
-	 * is ready. If the function returns `true`, it means the segment is ready;
-	 * otherwise, it is not.
+	 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
 	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return `true` if the platform segment is ready, `false` otherwise.
 	 */
-	virtual bool IsPlatformSegmentReady(){return false;}
-	
+	virtual bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto){return false;}
+
 	/**
-	 *@brief Checks if the platform is video master.
-	 *@return 'true' if video master otherwise false.
+	 * @brief Checks if the platform is video master.
+	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
+	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(){return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink, bool isRialto){return true;}
+
 };
 #endif

@@ -175,7 +175,6 @@ typedef enum
 	eAAMPConfig_UseSecManager,                                              /**< Enable/Disable secmanager instead of secclient for license acquisition */
 	eAAMPConfig_EnablePTO,								/**< Enable/Disable PTO Handling */
 	eAAMPConfig_EnableAampConfigToFog,                                      /**< Enable/Disable player config to Fog on every tune*/
-	eAAMPConfig_XRESupportedTune,						/**< Enable/Disable XRE supported tune*/
 	eAAMPConfig_GstSubtecEnabled,								/**< Force Gstreamer subtec */
 	eAAMPConfig_AllowPageHeaders,						/**< Allow page http headers*/
 	eAAMPConfig_PersistHighNetworkBandwidth,				/** Flag to enable Persist High Network Bandwidth across Tunes */
@@ -213,6 +212,7 @@ typedef enum
 	eAAMPConfig_UseMp4Demux,
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
+	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
@@ -598,27 +598,27 @@ public:
      	 * @param[in] cfg - Configuration enum
      	 * @return true / false 
      	 */
-	bool IsConfigSet(AAMPConfigSettingBool cfg);
-	bool GetConfigValue( AAMPConfigSettingBool cfg );
-	int GetConfigValue( AAMPConfigSettingInt cfg );
-	double GetConfigValue( AAMPConfigSettingFloat cfg );
-	std::string GetConfigValue( AAMPConfigSettingString cfg );
+	bool IsConfigSet(AAMPConfigSettingBool cfg) const;
+	bool GetConfigValue( AAMPConfigSettingBool cfg ) const;
+	int GetConfigValue( AAMPConfigSettingInt cfg ) const;
+	double GetConfigValue( AAMPConfigSettingFloat cfg ) const;
+	std::string GetConfigValue( AAMPConfigSettingString cfg ) const;
 	
-	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg) const;
 	
  	/**
      	 * @fn GetChannelOverride
      	 * @param[in] chName - channel name to search
      	 */
-	const char * GetChannelOverride(const std::string chName);    
+	const char * GetChannelOverride(const std::string chName) const;
  	/**
      	 * @fn GetChannelLicenseOverride
      	 * @param[in] chName - channel Name to override
      	 */
- 	const char * GetChannelLicenseOverride(const std::string chName);
+ 	const char * GetChannelLicenseOverride(const std::string chName) const;
 
 	/**
          * @fn ProcessConfigJson
@@ -675,7 +675,7 @@ public:
      	 * @fn GetAampConfigJSONStr
      	 * @param[in] str  - input string where config json will be stored
      	 */
-	bool GetAampConfigJSONStr(std::string &str);
+	bool GetAampConfigJSONStr(std::string &str) const;
 	/**
      	 * @fn DoCustomSetting 
      	 *
@@ -692,7 +692,7 @@ public:
      	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
-	std::string GetUserAgentString();
+	std::string GetUserAgentString() const;
 private:
 
 	/**
@@ -721,10 +721,10 @@ private:
 		 */
 	void CustomArrayRead( cJSON *customArray,ConfigPriority owner );
 
-	const char * GetConfigName(AAMPConfigSettingBool cfg );
-	const char * GetConfigName(AAMPConfigSettingInt cfg );
-	const char * GetConfigName(AAMPConfigSettingFloat cfg );
-	const char * GetConfigName(AAMPConfigSettingString cfg );
+	const char * GetConfigName(AAMPConfigSettingBool cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingInt cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingFloat cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingString cfg ) const;
 	
 	std::vector<struct customJson>vCustom;
 	std::vector<struct customJson>::iterator vCustomIt;

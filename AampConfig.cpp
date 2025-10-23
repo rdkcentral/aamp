@@ -328,7 +328,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
-	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
 	{DEFAULT_VALUE_GST_SUBTEC_ENABLED,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
 	{true,"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false},
 	{false,"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false},
@@ -367,7 +366,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true},
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
-	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false}
+	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
+	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -868,7 +868,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	
 }
 
-std::string AampConfig::GetUserAgentString()
+std::string AampConfig::GetUserAgentString() const
 {
 	return std::string(configValueString[eAAMPConfig_UserAgent].value);
 }
@@ -876,7 +876,7 @@ std::string AampConfig::GetUserAgentString()
 /**
  * @brief Gets the boolean configuration value
  */
-bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
+bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
 {	if (cfg < AAMPCONFIG_BOOL_COUNT)
 	{
 		return configValueBool[cfg].value;
@@ -884,7 +884,7 @@ bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
 	return false;
 }
 
-bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
+bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg ) const
 {
 	if(cfg < AAMPCONFIG_BOOL_COUNT)
 	{
@@ -896,7 +896,7 @@ bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
  * @brief GetConfigValue - Gets configuration for integer data type
  *
  */
-int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
+int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg) const
 {
 	if(cfg < AAMPCONFIG_INT_COUNT)
 	{
@@ -908,7 +908,7 @@ int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
  * @brief GetConfigValue - Gets configuration for double data type
  *
  */
-double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
+double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg) const
 {
 	if(cfg < AAMPCONFIG_FLOAT_COUNT)
 	{
@@ -921,7 +921,7 @@ double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
  * @brief GetConfigValue - Gets configuration for string data type
  *
  */
-std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
+std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg) const
 {
 	if(cfg < AAMPCONFIG_STRING_COUNT)
 	{
@@ -935,19 +935,19 @@ std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
  *
  * @return ConfigPriority - owner of the config
  */
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg) const
 {
 	return configValueBool[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg) const
 {
 	return configValueInt[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg) const
 {
 	return configValueFloat[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg) const
 {
 	return configValueString[cfg].owner;
 }
@@ -957,13 +957,13 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
  *
  * @return true - if valid return
  */
-const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelOverride(const std::string manifestUrl) const
 {
 	if(mChannelOverrideMap.size() && manifestUrl.size())
 	{
 		for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
 		{
-			ConfigChannelInfo &pChannelInfo = *it;
+			const ConfigChannelInfo &pChannelInfo = *it;
 			if (manifestUrl.find(pChannelInfo.name) != std::string::npos)
 			{
 				return pChannelInfo.uri.c_str();
@@ -978,13 +978,13 @@ const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
  *
  * @return true - if valid return
  */
-const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl) const
 {
     if(mChannelOverrideMap.size() && manifestUrl.size())
     {
         for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
         {
-            ConfigChannelInfo &pChannelInfo = *it;
+            const ConfigChannelInfo &pChannelInfo = *it;
             if (manifestUrl.find(pChannelInfo.uri) != std::string::npos)
             {
                 if(!pChannelInfo.licenseUri.empty())
@@ -1133,7 +1133,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 						channelInfo.uri = url;
 						channelInfo.name = name;
 						channelInfo.licenseUri = licenseUrl;
-						mChannelOverrideMap.push_back(channelInfo);
+						mChannelOverrideMap.push_back(std::move(channelInfo));
 					}
 				}
 			}
@@ -1272,9 +1272,9 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 	}
 	bool found = false;
 	AAMPLOG_INFO("url %s playerid %d appname %s ",url.c_str(),playerId,appname.c_str());
-	std::string url_custom = url;
+	std::string url_custom = std::move(url);
 	std::string playerId_custom = std::to_string(playerId);
-	std::string appName_custom = appname;
+	std::string appName_custom = std::move(appname);
 	std::string keyname;
 	std::string urlName = "url";
 	std::string player = "playerId";
@@ -1350,7 +1350,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
  *
  * @return true
  */
-bool AampConfig::GetAampConfigJSONStr(std::string &str)
+bool AampConfig::GetAampConfigJSONStr(std::string &str) const
 {
 	AampJsonObject jsondata;
 
@@ -1409,7 +1409,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				while (getline(iss, token, ' '))
 				{
 					const char *uri = token.c_str();
-					if( PlayerInstanceAAMP::isTuneScheme(uri) )
+					if( aamp_isTuneScheme(uri) )
 					{
 						AAMPLOG_INFO("Override %s", uri );
 						channelInfo.uri = token;
@@ -1423,7 +1423,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 						channelInfo.name = token;
 					}
 				}
-				mChannelOverrideMap.push_back(channelInfo);
+				mChannelOverrideMap.push_back(std::move(channelInfo));
 			}
 		}
 		else
@@ -1477,9 +1477,14 @@ bool AampConfig::ReadAampCfgJsonFile()
 			std::filebuf* pbuf = f.rdbuf();
 			std::size_t size = pbuf->pubseekoff (0,f.end,f.in);
 			pbuf->pubseekpos (0,f.in);
-			char* jsonbuffer=new char[size+1];
-			pbuf->sgetn (jsonbuffer,size);
-			jsonbuffer[size] = 0x00;
+			std::size_t size_with_nul = size+1;
+			char* jsonbuffer = NULL;
+			if( size_with_nul>0 )
+			{
+				jsonbuffer = new char[size_with_nul];
+				pbuf->sgetn (jsonbuffer,size);
+				jsonbuffer[size] = 0x00;
+			}
 			f.close();
 
 			if( jsonbuffer )
@@ -1902,8 +1907,8 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 
 		sessionToken = GetConfigValue(eAAMPConfig_AuthToken);
 		SetConfigValue(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
-		configValueString[eAAMPConfig_AuthToken].lastowner = tempowner;
-		configValueString[eAAMPConfig_AuthToken].lastvalue = tempvalue;
+		configValueString[eAAMPConfig_AuthToken].lastowner = std::move(tempowner);
+		configValueString[eAAMPConfig_AuthToken].lastvalue = std::move(tempvalue);
 
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)
@@ -1914,19 +1919,19 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	ConfigureLogSettings();
 }
 
-const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg ) const
 {
 	return mConfigLookupTableBool[cfg].cmdString;
 }
-const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg ) const
 {
 	return mConfigLookupTableInt[cfg].cmdString;
 }
-const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg ) const
 {
 	return mConfigLookupTableFloat[cfg].cmdString;
 }
-const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg )
+const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg ) const
 {
 	return mConfigLookupTableString[cfg].cmdString;
 }

@@ -93,7 +93,7 @@ namespace aamp
 	{
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			this->mJob = job;
+			this->mJob = std::move(job);
 			mJobAvailable = true;
 		}
 		AAMPLOG_DEBUG("Job submitted for media type %s", GetMediaTypeName(mMediaType));

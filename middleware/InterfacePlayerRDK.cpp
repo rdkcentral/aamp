@@ -95,6 +95,7 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 		pthread_mutex_destroy(&interfacePlayerPriv->gstPrivateContext->stream[i].sourceLock);
 	}
 	pthread_mutex_destroy(&mProtectionLock);
+	delete interfacePlayerPriv;
 }
 
 InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
@@ -119,7 +120,7 @@ rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioM
 audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
-using_westerossink(false), usingRialtoSink(false), pauseOnStartPlayback(false), eosSignalled(false),
+using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
 lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
@@ -267,6 +268,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 
+	bool newClosedCaptionsControl = false;
+
 	if(isSubEnable)
 	{
 		MW_LOG_MIL("Gstreamer subs enabled");
@@ -311,6 +314,14 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	else
 	{
 		interfacePlayerPriv->gstPrivateContext->usingRialtoSink = true;
+
+		// If no subtitles defined, then create a closed caption control stream
+		newClosedCaptionsControl = (gstSubFormat == GST_FORMAT_INVALID);
+
+		// To avoid out of band subtitles being removed during trickplay, 
+		// check if they were previously configured, and don't enable Closed Caption Control.
+		newClosedCaptionsControl &= (interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].format == GST_FORMAT_INVALID);
+
 		if (interfacePlayerPriv->gstPrivateContext->using_westerossink)
 		{
 			MW_LOG_WARN("Rialto and Westeros Sink enabled");
@@ -318,6 +329,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		else
 		{
 			MW_LOG_MIL("Rialto enabled");
+		}
+		if (newClosedCaptionsControl)
+		{
+			MW_LOG_MIL("Using CC Control Stream");
 		}
 	}
 
@@ -381,30 +396,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
 	}
-#if 0
-	/* For Rialto, teardown and rebuild the gstreamer streams if the
-	 * configuration changes. This allows the "single-path-stream" property to
-	 * be set correctly.
-	 */
-	if((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (configurationChanged))
-	{
-		MW_LOG_INFO("Teardown and rebuild the pipeline for Rialto");
-
-		for (int i = 0; i < GST_TRACK_COUNT; i++)
-		{
-			gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
-			if (stream->format != GST_FORMAT_INVALID)
-			{
-				TearDownStream((int)i);
-			}
-
-			if(newFormat[i] != GST_FORMAT_INVALID)
-			{
-				configureStream[i] = true;
-			}
-		}
-	}
-#endif
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
@@ -428,8 +419,14 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 					return;
 				}
 			}
-
-
+		}
+		else if ((eGST_MEDIATYPE_SUBTITLE == i) &&
+				 newClosedCaptionsControl &&
+				 !interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
+		{
+			TearDownStream(eGST_MEDIATYPE_SUBTITLE);
+			interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = true;
+			SetupClosedCaptionControlStream();
 		}
 	}
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (m_gstConfigParam->media != eGST_MEDIAFORMAT_PROGRESSIVE))
@@ -531,9 +528,11 @@ void InterfacePlayerRDK::SetPauseOnStartPlayback(bool enable)
 gboolean InterfacePlayerRDK::IdleCallbackOnFirstFrame(gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
+      
 	if (pInterfacePlayerRDK)
 	{
+                privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
 		privatePlayer->gstPrivateContext->firstFrameCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		privatePlayer->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
@@ -592,9 +591,12 @@ static void GstPlayer_OnAudioFirstFrameAudDecoder(GstElement* object, guint arg0
 gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+
+	InterfacePlayerPriv* privatePlayer = nullptr;
+
 	if (pInterfacePlayerRDK)
 	{
+	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		MW_LOG_MIL("eosCallbackIdleTaskId %d", privatePlayer->gstPrivateContext->eosCallbackIdleTaskId);
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::notifyEOS);
 		privatePlayer->gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
@@ -705,12 +707,12 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,%lld",
+					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d, %" G_GINT64_FORMAT "",
 							   monitorAVState->description,
 							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
 							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
 							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
-							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
+							   (gint64)monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
 				MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,0",
 							   description,
@@ -739,9 +741,10 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
+	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		if (pInterfacePlayerRDK->m_gstConfigParam->monitorAV)
 		{
 			MonitorAV(pInterfacePlayerRDK);
@@ -760,9 +763,10 @@ gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
 gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
+	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::idleCb);
 		pInterfacePlayerRDK->IdleTaskClearFlags(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask);
 
@@ -790,9 +794,10 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 gboolean InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed(gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
+	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameDisplayed);
 		pInterfacePlayerRDK->IdleTaskRemove(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask);
 	}
@@ -1304,11 +1309,13 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	RemoveProbe(type);
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
+
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 
-	if (stream->format != GST_FORMAT_INVALID)
+	pthread_mutex_lock(&stream->sourceLock);
+	if ((stream->format != GST_FORMAT_INVALID) ||
+		(mediaType == eGST_MEDIATYPE_SUBTITLE && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
 	{
-		pthread_mutex_lock(&stream->sourceLock);
 		if (interfacePlayerPriv->gstPrivateContext->pipeline)
 		{
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
@@ -1330,16 +1337,18 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			}
 		}
 		//After sinkbin is removed from pipeline, a new decoder handle may be generated
-		if (mediaType == eGST_MEDIATYPE_VIDEO)
+		if (((mediaType == eGST_MEDIATYPE_VIDEO) && !interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl) ||
+			((mediaType == eGST_MEDIATYPE_SUBTITLE) && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
 		{
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 		}
 		stream->format = GST_FORMAT_INVALID;
+		interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = false;
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
-		pthread_mutex_unlock(&stream->sourceLock);
 	}
+	pthread_mutex_unlock(&stream->sourceLock);
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->video_dec);
@@ -1644,6 +1653,8 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		MW_LOG_ERR("Seek failed");
 		SetPendingSeek(true);
+		//Save the updated seek position
+		SetSeekPosition(position);
 	}
 
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
@@ -1675,7 +1686,7 @@ void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: Connected %s", detailed_signal);
 			GstPlayerPriv::CallbackData Identifier{instance, id, detailed_signal};
-			gstPrivateContext->mCallBackIdentifiers.push_back(Identifier);
+			gstPrivateContext->mCallBackIdentifiers.push_back(std::move(Identifier));
 		}
 		else
 		{
@@ -1788,6 +1799,15 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
+
+		if ((privatePlayer->gstPrivateContext->usingRialtoSink) &&
+			(privatePlayer->socInterface->IsPlatformSegmentReady(privatePlayer->gstPrivateContext->video_sink, privatePlayer->gstPrivateContext->usingRialtoSink)))
+		{
+			// This property is required so that the segment event sent via gst_app_src_push_sample 
+			// in SendNewSegmentEvent, is sent with the next data flow
+			MW_LOG_INFO("Setting handle-segment-change to 1");
+			g_object_set(source, "handle-segment-change", TRUE, NULL);
+		}
 	}
 	else if (eGST_MEDIATYPE_AUDIO == mediaType || eGST_MEDIATYPE_AUX_AUDIO == mediaType)
 	{
@@ -1800,7 +1820,13 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	/* "format" can be used to perform seek or query/conversion operation*/
 	/* gstreamer.freedesktop.org recommends to use GST_FORMAT_TIME 'if you don't have a good reason to query for samples/frames' */
 	g_object_set(source, "format", GST_FORMAT_TIME, NULL);
-	if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
+
+	// If using Closed Caption Control subtitle stream, set the caps to application/x-subtitle-cc
+	if ((eGST_MEDIATYPE_SUBTITLE == mediaType) && (privatePlayer->gstPrivateContext->usingClosedCaptionsControl))
+	{
+		caps = gst_caps_new_simple("application/x-subtitle-cc", NULL, NULL);
+	}
+	else if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
 	{
 		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
 	}
@@ -1859,9 +1885,10 @@ static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackAny(GstPad *pad
 static void GstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, void* _this)
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK *)_this;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
+	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		GstPadProbeType mask = GST_PAD_PROBE_TYPE_INVALID;
 
 		if (pInterfacePlayerRDK->m_gstConfigParam->seamlessAudioSwitch)
@@ -2101,6 +2128,92 @@ GstFlowReturn InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_this)
 	}
 #endif
 	return GST_FLOW_OK;
+}
+
+/**
+ * @fn SetupClosedCaptionControlStream
+ */
+void InterfacePlayerRDK::SetupClosedCaptionControlStream()
+{
+	GstElement *subtitlebin = nullptr, *appsrc = nullptr, *textsink = nullptr;
+
+	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)this;
+	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	gst_media_stream* stream = &privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
+
+	// Check elements are not already assigned
+	if (stream->sinkbin)
+	{
+		MW_LOG_ERR("Sinkbin already assigned");
+		g_clear_object(&stream->sinkbin);
+	}
+	if (privatePlayer->gstPrivateContext->subtitle_sink)
+	{
+		MW_LOG_ERR("subtitle_sink already assigned");
+		g_clear_object(&privatePlayer->gstPrivateContext->subtitle_sink);
+	}
+	if (stream->source)
+	{
+		MW_LOG_ERR("source already assigned");
+		g_clear_object(&stream->source);
+	}
+
+	// Create elements
+	// Note: rialtomsesubtitlesink is a custom sink that handles CC command data
+	if (!(appsrc = InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)))
+	{
+		MW_LOG_ERR("Failed to create subtitle appsrc");
+	}
+	else if (!(textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL)))
+	{
+		MW_LOG_ERR("Failed to create subtitle sink");
+	}
+	else if (!(subtitlebin = gst_bin_new("subtitlebin")))
+	{
+		MW_LOG_ERR("Failed to create subtitle bin");
+	}
+	else
+	{
+		// Add created elements to bin and link, then add to pipeline
+		// Note: appsrc caps are set in InitializeSourceForPlayer()
+		gst_bin_add_many(GST_BIN(subtitlebin), appsrc, textsink, NULL);
+		if (!gst_element_link(appsrc, textsink))
+		{
+			MW_LOG_ERR("Failed to link subtitle elements");
+		}
+		else if (!gst_bin_add(GST_BIN(privatePlayer->gstPrivateContext->pipeline), subtitlebin))
+		{
+			MW_LOG_ERR("Failed to add subtitle bin to pipeline");
+		}
+		else
+		{
+			// Everything succeeded, retain references to the elements
+			stream->source = GST_ELEMENT(gst_object_ref_sink(appsrc));
+			privatePlayer->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
+			stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
+
+			MW_LOG_INFO("Added subtitle bin with %s %p to pipeline", 
+						GST_ELEMENT_NAME(privatePlayer->gstPrivateContext->subtitle_sink), 
+						privatePlayer->gstPrivateContext->subtitle_sink);
+
+			privatePlayer->SignalConnect(stream->sinkbin, "deep-notify::source", G_CALLBACK(gst_found_source), this);
+			if (!gst_element_sync_state_with_parent(stream->sinkbin))
+			{
+				MW_LOG_ERR("Failed to sync subtitle bin to parent");
+			}
+
+			// Set initial mute state, will be updated by PlayerCCManager
+			g_object_set(privatePlayer->gstPrivateContext->subtitle_sink, "mute", TRUE, NULL);
+		}
+	}
+
+	// If any of the above failed, clear all the elements
+	if (!stream->sinkbin)
+	{
+		g_clear_object(&appsrc);
+		g_clear_object(&textsink);
+		g_clear_object(&subtitlebin);
+	}
 }
 
 int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::string manifest)
@@ -2763,17 +2876,25 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
 }
 
 /**
- *  @brief Retrieve the video decoder handle from pipeline
+ *  @brief Retrieve the Closed Caption sink handle from pipeline
  */
 unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 {
 	gpointer dec_handle = NULL;
-	if(this->interfacePlayerPriv->gstPrivateContext->video_dec != NULL)
+
+	if (interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
 	{
-		MW_LOG_MIL("Querying video decoder for handle");
-		this->interfacePlayerPriv->socInterface->GetCCDecoderHandle(&dec_handle, this->interfacePlayerPriv->gstPrivateContext->video_dec);
+		dec_handle = interfacePlayerPriv->gstPrivateContext->subtitle_sink;
+		MW_LOG_INFO("CC Decoder handle %p", dec_handle);
 	}
-	MW_LOG_MIL("video decoder handle received %p for video_dec %p", dec_handle, interfacePlayerPriv->gstPrivateContext->video_dec);
+	else
+	{
+		if(interfacePlayerPriv->gstPrivateContext->video_dec != NULL)
+		{
+			interfacePlayerPriv->socInterface->GetCCDecoderHandle(&dec_handle, interfacePlayerPriv->gstPrivateContext->video_dec);
+		}
+		MW_LOG_INFO("CC Decoder handle received %p for video_dec %p", dec_handle, interfacePlayerPriv->gstPrivateContext->video_dec);
+	}
 	return (unsigned long)dec_handle;
 }
 
@@ -2827,14 +2948,14 @@ bool InterfacePlayerRDK::WaitForSourceSetup(int mediaType)
 /**
  *  @brief Forward buffer to aux pipeline
  */
-void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjecter, void *user_data)
+void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data)
 {
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
 	InterfacePlayerRDK *instance = static_cast<InterfacePlayerRDK*>(user_data);
 	if (!stream->sourceConfigured && stream->format != GST_FORMAT_INVALID)
 	{
 		bool status = instance->WaitForSourceSetup((int)eGST_MEDIATYPE_AUX_AUDIO);
-		if (pauseInjecter && !status)
+		if (pauseInjector && !status)
 		{
 			// Buffer is not owned by us, no need to free
 			return;
@@ -2923,13 +3044,13 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		// included to fix av sync / trickmode speed issues
 		// Also add check for trick-play on 1st frame.
-		if (interfacePlayerPriv->socInterface->IsPlatformSegmentReady() && sendNewSegmentEvent == true)
+		if (interfacePlayerPriv->socInterface->IsPlatformSegmentReady(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
+			sendNewSegmentEvent == true)
 		{
 			interfacePlayerPriv->SendNewSegmentEvent(mediaType, pts, 0);
 			segmentEventSent = true;
 		}
 		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
-
 	}
 
 	sendNewSegmentEvent = segmentEventSent;
@@ -3024,6 +3145,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 						double pts = mp4Demux->getPts(i);
 						double dts = mp4Demux->getDts(i);
 						double dur = mp4Demux->getDuration(i);
+						GstStructure *drm = mp4Demux->getDrmMetadata(i);
 						gpointer data = g_malloc(sampleLen);
 						if( data )
 						{
@@ -3032,6 +3154,10 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);
+							if (drm)
+							{
+								gst_buffer_add_protection_meta(gstBuffer, drm);
+							}
 							GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source),gstBuffer);
 							if( ret == GST_FLOW_OK )
 							{
@@ -3100,7 +3226,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 	pthread_mutex_unlock(&stream->sourceLock);
 	if (isFirstBuffer)
 	{
-		if(!interfacePlayerPriv->gstPrivateContext->using_westerossink)
+		if (!interfacePlayerPriv->gstPrivateContext->using_westerossink && !interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 		{
 			notifyFirstBufferProcessed = true;
 		}
@@ -3133,7 +3259,6 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
 	if (stream->format == GST_FORMAT_ISO_BMFF)
 	{
 		GstSegment segment;
@@ -3143,22 +3268,46 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 		segment.position = 0;
 		segment.rate = GST_NORMAL_PLAY_RATE;
 		segment.applied_rate = GST_NORMAL_PLAY_RATE;
-		if(stopPts) segment.stop = stopPts;
-		if(!socInterface->IsVideoMaster())
+
+		if(stopPts)
 		{
-			//  notify westerossink of rate to run in Vmaster mode
-			if ((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO)
-				segment.applied_rate = gstPrivateContext->rate;
+			segment.stop = stopPts;
+		} 
+
+		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
+			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
+		{
+			// set applied_rate to trickplay rate if video sink doesn't use vmaster
+			// so that it can correctly handle there being no audio
+			segment.applied_rate = gstPrivateContext->rate;
+		}
+
+		if (gstPrivateContext->usingRialtoSink)
+		{
+			GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
+			GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
+
+			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+			{
+				MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
+			}
+			gst_sample_unref(sample);
+			gst_caps_unref(currentCaps);
+		}
+		else
+		{
+			MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+			GstEvent* event = gst_event_new_segment (&segment);
+			if (!gst_pad_push_event(sourceEleSrcPad, event))
+			{
+				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
+			}
+			gst_object_unref(sourceEleSrcPad);			
 
 		}
-		MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		GstEvent* event = gst_event_new_segment (&segment);
-		if (!gst_pad_push_event(sourceEleSrcPad, event))
-		{
-			MW_LOG_ERR("gst_pad_push_event segment error");
-		}
 	}
-	gst_object_unref(sourceEleSrcPad);
 }
 
 /**
@@ -3598,16 +3747,16 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 
 void InterfacePlayerRDK::FirstFrameCallback(std::function<void(int, bool, bool, bool&, bool&)> callback)
 {
-	notifyFirstFrameCallback = callback;
+	notifyFirstFrameCallback = std::move(callback);
 }
 
 void InterfacePlayerRDK::StopCallback(std::function<void(bool)> callback)
 {
-	stopCallback = callback;
+	stopCallback = std::move(callback);
 }
 void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callback)
 {
-	tearDownCb = callback;
+	tearDownCb = std::move(callback);
 }
 
 /**
@@ -3632,7 +3781,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK_OnFirstVideoFrameCallback. got First Video Frame");
+		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame");
 
 		if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
 		{
@@ -3659,7 +3808,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	}
 	else if (eGST_MEDIATYPE_AUDIO == mediaType)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK_OnAudioFirstFrameAudDecoder. got First Audio Frame");
+		MW_LOG_MIL("OnAudioFirstFrame. got First Audio Frame");
 		if (audioOnly)
 		{
 			if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
@@ -4094,7 +4243,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4113,7 +4262,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4197,14 +4346,14 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
-					if(privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff && privatePlayer->socInterface->NotifyVideoFirstFrame())
+					else if(privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff && privatePlayer->socInterface->NotifyVideoFirstFrame())
 					{
 						privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff = false;
 						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
 						privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
-					if(privatePlayer->socInterface->IsSimulatorFirstFrame())
+					else if(privatePlayer->socInterface->IsSimulatorFirstFrame())
 					{
 						if(!privatePlayer->gstPrivateContext->firstFrameReceived)
 						{
@@ -4293,7 +4442,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 													   G_CALLBACK(GstPlayer_OnGstBufferUnderflowCb), pInterfacePlayerRDK);
 				}
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 
 			break;
@@ -4306,7 +4455,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//busEvent.msg[GST_ERROR_DESCRIPTION_LENGTH - 1] = '\0';
 			busEvent.msg = "N/A";
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_MIL("GST_MESSAGE_EOS");
 			pInterfacePlayerRDK->NotifyEOS();
 			break;
@@ -4370,7 +4519,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//strncpy(busEvent.dbg_info, "N/A", sizeof(busEvent.dbg_info) - 1);
 			//busEvent.dbg_info[sizeof(busEvent.dbg_info) - 1] = '\0';
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 			break;
 		default:
@@ -4396,7 +4545,9 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 			sources.push_back(interfacePlayerPriv->gstPrivateContext->stream[iTrack].source);
 		}
 	}
-	ret =  interfacePlayerPriv->socInterface->SetPlaybackRate(sources, interfacePlayerPriv->gstPrivateContext->pipeline, rate, interfacePlayerPriv->gstPrivateContext->video_dec,interfacePlayerPriv->gstPrivateContext->audio_dec);
+
+	bool isRialto = interfacePlayerPriv->gstPrivateContext->usingRialtoSink;
+	ret = interfacePlayerPriv->socInterface->SetPlaybackRate(sources, interfacePlayerPriv->gstPrivateContext->pipeline, rate, interfacePlayerPriv->gstPrivateContext->video_dec,interfacePlayerPriv->gstPrivateContext->audio_dec,isRialto);
 	return ret;
 }
 
@@ -4481,7 +4632,11 @@ void type_check_instance(const char * str, GstElement * elem)
 static gboolean buffering_timeout (gpointer data)
 {
 	InterfacePlayerRDK * pInterfacePlayerRDK = (InterfacePlayerRDK *) data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
+	if(pInterfacePlayerRDK)
+	{
+	     privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	}
 	bool isBufferingTimeoutConditionMet = false;
 	bool isRateCorrectionDefaultOnPlaying = false;
 	bool isPlayerReady = false;
@@ -4626,9 +4781,10 @@ bool InterfacePlayerRDK::SetTextStyle(const std::string &options)
 static void GstPlayer_redButtonCallback(GstElement* object, guint hours, guint minutes, guint seconds, gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
+	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 		char buffer[16];
 		snprintf(buffer,16,"%d:%d:%d",hours,minutes,seconds);
@@ -4974,7 +5130,7 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(int streamId, std::string ma
 	int retvalue = 0;
 	GstMediaType mediaType = static_cast<GstMediaType>(streamId);
 	this->TriggerEvent(InterfaceCB::startNewSubtitleStream, mediaType);
-	retvalue = this->SetupStream(mediaType, (void*)this, manifestUrl);
+	retvalue = this->SetupStream(mediaType, (void*)this, std::move(manifestUrl));
 
 	return retvalue;
 }
@@ -5108,7 +5264,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 	if (pluginFeature == NULL)
 	{
 		MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available; reloading player's plugin", GstPluginNamePR);
-		GstPlugin * plugin = gst_plugin_load_by_name ("plugin");
+		GstPlugin * plugin = gst_plugin_load_by_name ("aamp");
 		if(plugin)
 		{
 			gst_object_unref(plugin);

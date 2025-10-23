@@ -42,6 +42,7 @@
 #define CONTENT_SECURITY_MANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
 
 //Secmanager/Content Protection error reason codes
+#define CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE 0
 #define CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
 #define CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT 3
 #define CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE 4
@@ -130,6 +131,13 @@ public:
          * @param[in] sessionId - session id
          */
         virtual void ReleaseSession(int64_t sessionId);
+
+	/**
+	 * @fn getSessionToken
+	 *
+	 * @param[out] token - access token
+	 */
+        virtual bool getSessionToken(std::string &token);
 
 	/**
 	 *   @fn SendWatermarkSessionEvent_CB

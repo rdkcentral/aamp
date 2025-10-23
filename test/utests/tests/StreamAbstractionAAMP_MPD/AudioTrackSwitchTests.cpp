@@ -90,7 +90,8 @@ protected:
 		{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
-		{eAAMPConfig_EnableIFrameTrackExtract, false}
+		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_useRialtoSink, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -241,7 +242,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
-
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &SwitchAudioTrackTests::GetManifestForMPDDownloader)));
 

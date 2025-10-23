@@ -23,8 +23,8 @@
  */
 
 #include <iomanip>
-#include"Aampcli.h"
-#include"AampcliSet.h"
+#include "Aampcli.h"
+#include "AampcliSet.h"
 #include "AampcliSubtecSimulator.h"
 
 #define AAMPCLI_MAX_WEBVTT_SIZE	(500 * 1024)
@@ -199,7 +199,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						//Dummy implimentation
 						std::vector<std::string> subscribedTags;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command SubscribedTags - %s\n", cmd);
-						playerInstanceAamp->SetSubscribedTags(subscribedTags);
+						playerInstanceAamp->SetSubscribedTags(std::move(subscribedTags));
 						break;
 					}
 
@@ -212,7 +212,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						do {
 							std::string token;
 							iss >> token;
-							tokens.push_back(token);
+							tokens.push_back(std::move(token));
 						} while( iss );
 						if( tokens.size() == 5 )
 						{
@@ -854,7 +854,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							bitrateList.push_back(bitrate1);
 							bitrateList.push_back(bitrate2);
 							bitrateList.push_back(bitrate3);
-							playerInstanceAamp->SetVideoTracks(bitrateList);
+							playerInstanceAamp->SetVideoTracks(std::move(bitrateList));
 						}
 						else
 						{
@@ -1020,7 +1020,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 							AAMPCLI_PRINTF("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n",
 									language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
-							playerInstanceAamp->SetAudioTrack(language, rendition, type, codec, channel,label);
+							playerInstanceAamp->SetAudioTrack(std::move(language), std::move(rendition), std::move(type), std::move(codec), channel, std::move(label));
 
 						}
 						break;
@@ -1379,11 +1379,11 @@ void Set::addCommand(int value,std::string command,std::string param,std::string
 {
 	setCommandInfo lCmdInfo;
 	lCmdInfo.value = value;
-	lCmdInfo.param = param;
-	lCmdInfo.description = description;
+	lCmdInfo.param = std::move(param);
+	lCmdInfo.description = std::move(description);
 
 	setCommands.insert(std::make_pair(command,lCmdInfo));
-	commands.push_back(command);
+	commands.push_back(std::move(command));
 }
 
 /**

@@ -362,7 +362,9 @@ protected:
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
-			{eAAMPConfig_InterruptHandling, false}};
+			{eAAMPConfig_InterruptHandling, false},
+			{eAAMPConfig_useRialtoSink, false},
+		};
 
 	BoolConfigSettings mBoolConfigSettings;
 
@@ -534,6 +536,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		// For the time being return the same manifest again
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillRepeatedly(WithoutArgs(Invoke(this, &StreamSelectionTests::GetManifestForMPDDownloader)));

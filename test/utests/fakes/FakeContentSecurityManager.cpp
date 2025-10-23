@@ -49,19 +49,20 @@ void ContentSecurityManager::DestroyInstance()
 {
 }
 
-static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const char* contentMetdata,
-					size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
-					const char* mediaUsage, const char* accessToken, bool isVideoMuted)
-{
-	return 0;
-}
-
 bool ContentSecurityManager::AcquireLicense( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetdata[][2],
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
 					ContentSecurityManagerSession &session,
 					char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted, int sleepTime)
+{
+	return false;
+}
+
+/**
+ * @brief get session token
+ */
+bool ContentSecurityManager::getSessionToken(std::string &token)
 {
 	return false;
 }

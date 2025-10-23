@@ -31,16 +31,16 @@
 #include <uuid/uuid.h>
 #include <map>
 #include "tsb/api/TsbApi.h"
-#include "priv_aamp.h"
 #include "AampMediaType.h"
+#include "AampTsbAdMetaData.h"
 #include "AampTsbDataManager.h"
 #include "AampTsbMetaDataManager.h"
 #include "AampTsbReader.h"
 #include "MediaStreamContext.h"
+#include "CachedFragment.h"
 #include <condition_variable>
 #include <queue>
 
-class CachedFragment;
 class AampCacheHandler;
 class AampTsbReader;
 
@@ -297,10 +297,34 @@ protected:
 	std::shared_ptr<CachedFragment> Read(TsbFragmentDataPtr fragmentdata, double &pts);
 	/**
 	 * @brief Skip Fragment based on rate
-	 * @param reader Reader object
-	 * @param nextFragmentData Fragment Data
+	 * @param[in] reader - Reader object
+	 * @param[in,out] nextFragmentData - Fragment Data to be potentially skipped
 	 */
 	void SkipFragment(std::shared_ptr<AampTsbReader> &reader, TsbFragmentDataPtr& nextFragmentData);
+
+	/**
+	 * @brief Calculate delta value for fragment skipping based on rate and FPS
+	 * @param[in] rate - Playback rate
+	 * @param[in] vodTrickplayFPS - Trickplay frames per second
+	 * @return Calculated delta value
+	 */
+	AampTime CalculateSkipDelta(float rate, int vodTrickplayFPS);
+
+	/**
+	 * @brief Navigate to next fragment based on playback rate
+	 * @param[in,out] fragment - Fragment data to navigate from; updated to next fragment if successful
+	 * @param[in] rate - Playback rate
+	 * @return true if navigation was successful, false if reached boundary
+	 */
+	bool NavigateToNextFragment(TsbFragmentDataPtr& fragment, float rate);
+
+	/**
+	 * @brief Check if fragment skipping should be performed
+	 * @param[in] reader - Reader object
+	 * @param[in] rate - Playback rate
+	 * @return true if fragments should be skipped
+	 */
+	bool ShouldSkipFragments(std::shared_ptr<AampTsbReader>& reader, float rate);
 
 	/**
 	 * @brief Process ad metadata events for the current fragment
@@ -356,6 +380,15 @@ private:
 	 */
 	bool IsTrackStoredInTsb(AampMediaType mediatype);
 
+	/**
+	 * @brief Merge the Ad Reservation and Placement Lists and sort them
+	 * @param[in] reservationList - Ad reservation metadata list
+	 * @param[in] placementList - Ad placement metadata list
+	 * @return Merged and sorted vector of Ad metadata
+	 */
+	std::vector<std::shared_ptr<AampTsbAdMetaData>> MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
+													 					   std::list<std::shared_ptr<AampTsbAdMetaData>> placementList);
+
 	bool mInitialized_;
 	std::atomic_bool mStopThread_;			// This variable is atomic because it can be accessed from multiple threads
 
@@ -379,7 +412,8 @@ private:
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
 	double mLiveEndPosition;		/**< Last reported Live end position*/
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
-	std::shared_ptr<AampTsbMetaData> mLastAdMetaDataProcessed; /**< Last ad metadata processed */
+	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
+	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */

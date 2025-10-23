@@ -22,12 +22,11 @@
 #include "gstcdmidecryptor.h"
 #include <open_cdm.h>
 #include <open_cdm_adapter.h>
-#if defined(AMLOGIC)
-#include <gst_svp_meta.h>
-#endif
 #include <dlfcn.h>
 #include <stdio.h>
 #include "DrmConstants.h"
+#include "SocInterface.h"
+#include "gst_svp_meta.h"
 
 GST_DEBUG_CATEGORY_STATIC ( gst_cdmidecryptor_debug_category);
 #define GST_CAT_DEFAULT  gst_cdmidecryptor_debug_category
@@ -36,6 +35,11 @@ GST_DEBUG_CATEGORY_STATIC ( gst_cdmidecryptor_debug_category);
 enum
 {
 	PROP_0, PROP_PLAYER, PROP_DRM_SESSION_MANAGER
+};
+
+enum
+{
+	ePROF_BEGIN, ePROF_END , ePROF_ERR
 };
 
 //#define FUNCTION_DEBUG 1
@@ -161,6 +165,8 @@ static void gst_cdmidecryptor_class_init(
 		GstCDMIDecryptorClass *klass)
 {
 	DEBUG_FUNC();
+
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 	GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
 
@@ -184,11 +190,11 @@ static void gst_cdmidecryptor_class_init(
 			gst_cdmidecryptor_sink_event);
 	base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(
 			gst_cdmidecryptor_transform_ip);
+	if (socInterface)
+	{
+		socInterface->ConfigureAcceptCaps(base_transform_class, gst_cdmidecryptor_accept_caps);
+	}
 
-#if !defined(AMLOGIC)
-	base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(
-			gst_cdmidecryptor_accept_caps);
-#endif
 	base_transform_class->transform_ip_on_passthrough = FALSE;
 
 	gst_element_class_set_static_metadata(GST_ELEMENT_CLASS(klass),
@@ -295,6 +301,8 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		GstPadDirection direction, GstCaps * caps, GstCaps * filter)
 {
 	DEBUG_FUNC();
+
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstCDMIDecryptor *cdmidecryptor = GST_CDMI_DECRYPTOR(trans);
 	g_return_val_if_fail(direction != GST_PAD_UNKNOWN, NULL);
 	unsigned size = gst_caps_get_size(caps);
@@ -426,11 +434,11 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		}
 
 		gst_cdmicapsappendifnotduplicate(transformedCaps, out);
-
-#if defined(AMLOGIC)
-	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
-		OCDMGstTransformCaps(&transformedCaps);
-#endif
+		if (socInterface && socInterface->IsTransformCapsRequired())
+		{
+			if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
+				OCDMGstTransformCaps(&transformedCaps);
+		}
 	}
 
 	if (filter)
@@ -467,6 +475,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		GstBaseTransform * trans, GstBuffer * buffer)
 {
 	DEBUG_FUNC();
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 
 	GstCDMIDecryptor *cdmidecryptor =
 			GST_CDMI_DECRYPTOR(trans);
@@ -503,17 +512,18 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
-#if defined(AMLOGIC)
-		// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
-		// decrypt() call will return without doing anything
-		if (cdmidecryptor->drmSession != NULL)
-		   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
-		else
-		{ /* If drmSession creation failed, then the call will be aborted here */
-			result = GST_FLOW_NOT_SUPPORTED;
-			GST_ERROR_OBJECT(cdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
+		if (socInterface && socInterface->IsDecryptRequired())
+		{
+				// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
+				// decrypt() call will return without doing anything
+				if (cdmidecryptor->drmSession != NULL)
+				   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+				else
+				{ /* If drmSession creation failed, then the call will be aborted here */
+					result = GST_FLOW_NOT_SUPPORTED;
+					GST_ERROR_OBJECT(cdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
+				}
 		}
-#endif
 		goto free_resources;
 	}
 
@@ -682,7 +692,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-		cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+
+		if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+		{
+		    cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -691,14 +705,20 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-	if(!cdmidecryptor->streamEncrypted)
-	{
-		cdmidecryptor->sessionManager->profileEndCb(cdmidecryptor->mediaType);
-	}
-	else
-	{
-		cdmidecryptor->sessionManager->profileErrorCb(cdmidecryptor->mediaType, result);
-	}
+		if(!cdmidecryptor->streamEncrypted)
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
+			}
+		}
+		else
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
+			}
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -713,7 +733,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		g_mutex_unlock(&cdmidecryptor->mutex);
 	return result;
 }
-#endif
+#endif // USE_OPENCDM_ADAPTER
 
 
 /* sink event handlers */
@@ -861,13 +881,14 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
+		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
-			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(err,
+			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}else{
 			cdmidecryptor->drmSession =
-				cdmidecryptor->sessionManager->createDrmSession(err,
+				cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
 						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
@@ -905,7 +926,13 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
-				cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+
+
+				/** profilebegin -0, profileEnd -1 , profileError -2 */
+				if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+				{
+				     cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
+				}
 			}
 
 			result = TRUE;
@@ -937,9 +964,10 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		GstElement* element, GstStateChange transition)
 {
-	
+
 	DEBUG_FUNC();
 
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	GstCDMIDecryptor* cdmidecryptor =
 			GST_CDMI_DECRYPTOR(element);
@@ -959,20 +987,18 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		g_cond_signal(&cdmidecryptor->condition);
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		break;
-#if defined(AMLOGIC)
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "NULL->READY");
 		if (cdmidecryptor->svpCtx == NULL)
-		 gst_svp_ext_get_context(&cdmidecryptor->svpCtx, Server, 0);
+		socInterface->SvpGetContext(&cdmidecryptor->svpCtx, Server, 0);
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->NULL");
 		if (cdmidecryptor->svpCtx) {
-  	        	gst_svp_ext_free_context(cdmidecryptor->svpCtx);
+			socInterface->SvpFreeContext(cdmidecryptor->svpCtx);
 			cdmidecryptor->svpCtx = NULL;	
 		}
 		break;
-#endif
 	default:
 		break;
 	}

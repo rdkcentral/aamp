@@ -225,3 +225,44 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         }
         return status;
 }
+
+bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
+{
+	return false;
+}
+
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
+{
+	return true;
+}
+
+/**
+ * @brief Sets the playback rate for the given GStreamer elements.
+ *
+ * @param sources A vector of GStreamer source elements.
+ * @param pipeline The main GStreamer pipeline.
+ * @param rate The desired playback rate.
+ * @param video_dec The video decoder element.
+ * @param audio_dec The audio decoder element.
+ * @param isRialto True if rialtosink is used.
+ * @return True if the playback rate was set successfully, false otherwise.
+ */
+bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+{
+	return false;
+}
+
+/**
+ * @brief Configure Capability Acceptance for GStreamer Transform
+ *
+ * Sets up the accept_caps function pointer for a GStreamer base transform class.
+ * This allows the transform element to decide whether it can accept a given set of capabilities (caps),
+ * which is essential for negotiating media formats during pipeline setup.
+ *
+ * @param base_transform_class Pointer to the GStreamer base transform class to configure.
+ * @param accept_caps_func Function used to determine if the transform accepts specific caps.
+ */
+void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
+													AcceptCapsFunc accept_caps_func)
+{
+}

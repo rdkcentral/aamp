@@ -30,7 +30,7 @@ class AampStreamSinkInactive : public StreamSink
 {
 
 public:
-	AampStreamSinkInactive(id3_callback_t id3HandlerCallback) : mId3HandlerCallback(id3HandlerCallback)
+	AampStreamSinkInactive(id3_callback_t id3HandlerCallback) : mId3HandlerCallback(std::move(id3HandlerCallback))
 	{
 	}
 

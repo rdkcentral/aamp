@@ -29,14 +29,12 @@
 #include <iomanip>
 #include <assert.h>
 
-class CachedFragment;
-
 namespace aamp
 {
 
 IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback, std::weak_ptr<IsoBmffProcessor> video_processor)
-	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback),
+	: MetadataProcessorIntf(std::move(id3_hdl), std::move(ptsoffset_callback)),
 	MetadataProcessorImpl(video_processor),
 	processPTSComplete(false)
 { }
@@ -208,7 +206,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char
 TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback,
 	std::shared_ptr<TSProcessor> video_processor)
-	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback),
+	: MetadataProcessorIntf(std::move(id3_hdl), std::move(ptsoffset_callback)),
 	MetadataProcessorImpl(std::move(video_processor))
 {
 	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>();
@@ -269,7 +267,7 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		proc_position,
 		cachedFragment->duration,
 		discontinuity_pending,
-		processor);
+		std::move(processor));
 
 	AAMPLOG_INFO(" [metadata][%p] - Max PTS: %f", this, mCurrentMaxPTS_s);
 	AAMPLOG_INFO(" [metadata][%p] - Terminated processing fragment - uri: %s", this, uri.c_str());

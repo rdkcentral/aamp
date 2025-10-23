@@ -19,6 +19,7 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "MockStreamAbstractionAAMP.h"
+#include <memory>
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
 
@@ -45,6 +46,11 @@ double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()
 }
 
 double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
+{
+	return 0.0;
+}
+
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
 {
 	return 0.0;
 }
@@ -371,7 +377,7 @@ void MediaTrack::AbortWaitForCachedFragmentChunk()
 {
 }
 
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	return 0;
 }
@@ -428,4 +434,55 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
 {
+}
+
+void MediaTrack::ResetTrickModePtsRestamping()
+{
+}
+
+void StreamAbstractionAAMP::ReinitializeInjection(double rate)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->ReinitializeInjection(rate);
+	}
+}
+
+void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
+{
+}
+
+void MediaTrack::LoadNewSubtitle(bool initialize)
+{
+}
+
+void MediaTrack::OffsetTrackParams(double offset, double seekPos, int trackType)
+{
+}
+
+void MediaTrack::NotifyCachedAudioFragmentAvailable()
+{
+}
+
+bool MediaTrack::IsFragmentCacheFull()
+{
+	return false;
+}
+
+void MediaTrack::UpdateInjectedDuration(double duration)
+{
+}
+
+void MediaTrack::FlushFetchedFragments()
+{
+}
+
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType)
+{
+	return nullptr;
+}
+
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType)
+{
+	return nullptr;
 }

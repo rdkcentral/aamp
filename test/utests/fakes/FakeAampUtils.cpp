@@ -563,18 +563,6 @@ std::string aamp_GetConfigPath(const std::string &filename)
 	return "FakeAampUtils.cpp";
 }
 
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double pts = 0.0;
-
-	if (g_mockAampUtils != nullptr)
-	{
-		pts = g_mockAampUtils->RecalculatePTS(mediaType, ptr, len, aamp);
-	}
-
-	return pts;
-}
-
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	return static_cast<TSB::LogLevel>(0);
@@ -617,5 +605,15 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	return 0;
 }
 
+bool aamp_isTuneScheme( const char *cmdBuf ){ return false; }
+
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
+{
+	return eCURL_TIMEOUT_DATA;
+}
+bool IsCurlTimeoutFailure( int httpResponseCode )
+{
+	return true;
+}
 // aamp_ApplyPageHttpHeaders not actually part of AampUtils.cpp, but fake declared here for convenience
 extern "C" void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp){}

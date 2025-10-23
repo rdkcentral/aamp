@@ -59,11 +59,11 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 	return eAAMPSTATUS_OK;
 }
 
-TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
+TsbFragmentDataPtr AampTsbReader::FindNext()
 {
 	if (g_mockTSBReader)
 	{
-		return g_mockTSBReader->FindNext(offset);
+		return g_mockTSBReader->FindNext();
 	}
 	else
 	{
@@ -91,6 +91,18 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
 {
 }
 
+bool AampTsbReader::IsEos()
+{
+	bool mEosReached = false;
+
+	if (g_mockTSBReader)
+	{
+		mEosReached = g_mockTSBReader->IsEos();
+	}
+
+	return mEosReached;
+}
+
 bool AampTsbReader::IsFirstDownload()
 {
 	if (g_mockTSBReader)
@@ -101,6 +113,18 @@ bool AampTsbReader::IsFirstDownload()
 	{
 		return false;
 	}
+}
+
+bool AampTsbReader::TrackEnabled()
+{
+	bool enabled = true;
+
+	if (g_mockTSBReader)
+	{
+		enabled = g_mockTSBReader->TrackEnabled();
+	}
+
+	return enabled;
 }
 
 float AampTsbReader::GetPlaybackRate()
@@ -138,4 +162,5 @@ AampTime AampTsbReader::GetFirstPTSOffset()
 		return 0.0;
 	}
 }
+
 

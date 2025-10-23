@@ -18,6 +18,7 @@
  */
 
 #include "AmlogicSocInterface.h"
+#include "gst_svp_meta.h"
 
 /**
  * @brief AmlogicSocInterface constructor.
@@ -78,9 +79,10 @@ bool AmlogicSocInterface::AudioOnlyMode(GstElement *sinkbin)
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
+ * @param isRialto True if rialto sink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
+bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
 {
 	bool status = false;
         /*for gst version 1.18.0 we need to apply rate into audio/video source pad*/
@@ -182,6 +184,26 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
 	}
 
 	return false;
+}
+
+/**
+ * @brief Get SVP Context
+ * @param svpCtx svp context
+ * @param server To identify server/client
+ * @param flags SVP Flag
+ */
+void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
+{
+	gst_svp_ext_get_context(svpCtx, static_cast<context_type>(server), flags);
+}
+
+/**
+ * @brief Free SVP Context
+ * @param svpCtx svp context
+ */
+void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
+{
+	gst_svp_ext_free_context(svpCtx);
 }
 
 /**

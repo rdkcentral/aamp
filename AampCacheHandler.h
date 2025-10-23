@@ -28,9 +28,13 @@
 #include <memory>
 #include <unordered_map>
 #include <exception>
-#include "priv_aamp.h"
 #include <mutex>
 #include <condition_variable>
+#include "AampGrowableBuffer.h"
+#include "AampMediaType.h"
+#include "AampUtils.h"
+#include "AampLogManager.h"
+#include "AampDefine.h"
 
 #define PLAYLIST_CACHE_SIZE_UNLIMITED -1
 

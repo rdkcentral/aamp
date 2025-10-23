@@ -27,7 +27,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -60,6 +60,7 @@ endif()
 
 # Platform specific settings
 if(APPLE)
+	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.6")
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
@@ -77,6 +78,9 @@ if(APPLE)
 	# add the automatically determined parts of the RPATH
 	# which point to directories outside the build tree to the install RPATH
 	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+else()
+	# For other builds, use the origin of the executable as the RPATH
+	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
 #update XCode scheme flags, harmless for non Darwin builds
@@ -86,7 +90,6 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
 	set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
 	set(CMAKE_AAMP_SIMULATOR TRUE)
-
 	if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		execute_process (
 			COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -199,7 +202,26 @@ install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
 )
+#Enabling systemd macro and lib
+if(CMAKE_SYSTEMD_JOURNAL)
+	message("CMAKE_SYSTEMD_JOURNAL set")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lsystemd")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+endif()
+#Enabling ethan log macro and lib
+if(CMAKE_USE_ETHAN_LOG)
+	message("DCMAKE_USE_ETHAN_LOG set")
+	# Find the ethanlog library for container logger
+	find_package( EthanLog REQUIRED )
+	# Add the include directories for EthanLog
+	include_directories(${ETHANLOG_INCLUDE_DIRS})
 
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lethanlog")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+endif()
 # Building jsbindings
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
@@ -254,77 +276,83 @@ else()
 endif()
 
 set(LIBAAMP_SOURCES
-	iso639map.cpp
-	AampCacheHandler.cpp
-	AampGrowableBuffer.cpp
-	AampScheduler.cpp
-	AampUtils.cpp
-	AampJsonObject.cpp
-	AampProfiler.cpp
-	AampEvent.cpp
-	AampEventListener.cpp
-	ota_shim.cpp
-	hdmiin_shim.cpp
-	videoin_shim.cpp
-	compositein_shim.cpp
-	rmf_shim.cpp
-	fragmentcollector_progressive.cpp
-	fragmentcollector_hls.cpp
-	fragmentcollector_mpd.cpp
-	admanager_mpd.cpp
+	AampConstants.h AampDefine.h AampMediaType.h uint33_t.h
+    AAMPAnomalyMessageType.h AuthTokenErrors.h
+	iso639map.cpp iso639map.h
+	AampCacheHandler.cpp AampCacheHandler.h
+	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	CachedFragment.cpp CachedFragment.h
+	AampScheduler.cpp AampScheduler.h
+	AampUtils.cpp AampUtils.h
+	AampJsonObject.cpp AampJsonObject.h
+	AampProfiler.cpp AampProfiler.h
+	AampEvent.cpp AampEvent.h
+	AampEventListener.cpp AampEventListener.h
+	ota_shim.cpp ota_shim.h
+	hdmiin_shim.cpp hdmiin_shim.h
+	videoin_shim.cpp videoin_shim.h
+	compositein_shim.cpp compositein_shim.h
+	rmf_shim.cpp rmf_shim.h
+	fragmentcollector_progressive.cpp fragmentcollector_progressive.h
+	fragmentcollector_hls.cpp fragmentcollector_hls.h
+	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
+	admanager_mpd.cpp admanager_mpd.h
 	streamabstraction.cpp
-	priv_aamp.cpp
-	main_aamp.cpp
-	drm/AampDRMLicManager.cpp
-	drm/DrmInterface.cpp
-	aampgstplayer.cpp
-	AampBufferControl.cpp
-	tsprocessor.cpp
-	aamplogging.cpp
-	AampConfig.cpp
-	AampEventManager.cpp
-	subtitle/webvttParser.cpp
-	isobmff/isobmffbox.cpp
-	isobmff/isobmffbuffer.cpp
-	isobmff/isobmffprocessor.cpp
-	isobmff/isobmffhelper.cpp
-	MediaStreamContext.cpp
-	downloader/AampCurlStore.cpp
-	AampDRMLicPreFetcher.cpp
-	AampCMCDCollector.cpp
-	downloader/AampCurlDownloader.cpp
-	ID3Metadata.cpp
+	priv_aamp.cpp priv_aamp.h
+	main_aamp.cpp main_aamp.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h AudioTrackInfo.h TextTrackInfo.h TimedMetadata.h
+	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
+	drm/DrmInterface.cpp drm/DrmInterface.h
+	aampgstplayer.cpp aampgstplayer.h
+	AampBufferControl.cpp AampBufferControl.h
+	tsprocessor.cpp tsprocessor.h
+	aamplogging.cpp AampLogManager.h
+	AampConfig.cpp AampConfig.h
+	AampEventManager.cpp AampEventManager.h
+	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
+	isobmff/isobmffbox.cpp isobmff/isobmffbox.h
+	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
+	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
+	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
+	MediaStreamContext.cpp MediaStreamContext.h
+	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
+	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
+	AampCMCDCollector.cpp AampCMCDCollector.h
+	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
+	ID3Metadata.cpp ID3Metadata.hpp
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
 	dash/xml/DomNodeIter.cpp
 	dash/xml/DomTextNode.cpp
-	dash/mpd/MPDModel.cpp
-	dash/mpd/MPDSegmenter.cpp
+	dash/mpd/MPDModel.cpp dash/mpd/MPDModel.h
+	dash/mpd/MPDSegmenter.cpp dash/mpd/MPDSegmenter.h
 	dash/utils/Utils.cpp
 	dash/utils/Url.cpp
 	dash/utils/StringEx.cpp
 	dash/utils/Path.cpp
-	AampMPDDownloader.cpp
-	AampMPDParseHelper.cpp
-	AampMPDUtils.cpp
-	ElementaryProcessor.cpp
-	AampStreamSinkManager.cpp
-	MetadataProcessor.cpp
-	tsDemuxer.cpp
-	tsFragmentProcessor.cpp
-	AampTSBSessionManager.cpp
-	AampTsbDataManager.cpp
-	AampTsbMetaData.cpp
-	AampTsbAdMetaData.cpp
-	AampTsbAdPlacementMetaData.cpp
-	AampTsbAdReservationMetaData.cpp
-	AampTsbMetaDataManager.cpp
-	AampTsbReader.cpp
-	scte35/AampSCTE35.cpp
+	AampMPDDownloader.cpp AampMPDDownloader.h
+	AampMPDParseHelper.cpp AampMPDParseHelper.h
+	AampMPDUtils.cpp AampMPDUtils.h
+	ElementaryProcessor.cpp ElementaryProcessor.h
+	AampStreamSinkManager.cpp AampStreamSinkManager.h
+	MetadataProcessor.cpp MetadataProcessor.hpp
+	tsDemuxer.cpp tsDemuxer.hpp
+	tsFragmentProcessor.cpp tsFragmentProcessor.hpp
+	AampTSBSessionManager.cpp AampTSBSessionManager.h
+	AampTsbDataManager.cpp AampTsbDataManager.h
+	AampTsbMetaData.cpp AampTsbMetaData.h
+	AampTsbAdMetaData.cpp AampTsbAdMetaData.h
+	AampTsbAdPlacementMetaData.cpp AampTsbAdPlacementMetaData.h
+	AampTsbAdReservationMetaData.cpp AampTsbAdReservationMetaData.h
+	AampTsbMetaDataManager.cpp AampTsbMetaDataManager.h
+	AampTsbReader.cpp AampTsbReader.h
+	scte35/AampSCTE35.cpp scte35/AampSCTE35.h
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
-	AampTrackWorker.cpp
-	test/gstTestHarness/mp4demux.hpp)
+	AampTrackWorker.cpp AampTrackWorker.h
+	LangCodePreference.h
+	test/gstTestHarness/mp4demux.hpp
+)
 
 if(CMAKE_SOC_PLATFORM_RPI)
 	message("CMAKE_SOC_PLATFORM_RPI set")
@@ -349,17 +377,6 @@ if (CMAKE_TELEMETRY_2_0_REQUIRED)
 	endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebvttSubtecDevParser.cpp)
-set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
-set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
-if(CMAKE_PLATFORM_UBUNTU)
-	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
-endif()
-set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
-install (TARGETS subtec
-		DESTINATION lib
-		PUBLIC_HEADER DESTINATION include
-)
 
 if (CMAKE_GST_SUBTEC_ENABLED)
 	set(CMAKE_SUBTITLE_SUPPORT TRUE)
@@ -372,25 +389,6 @@ if (COVERAGE_ENABLED)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
 endif()
 
-if(CMAKE_SYSTEMD_JOURNAL)
-	message("CMAKE_SYSTEMD_JOURNAL set")
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lsystemd")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
-	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-endif()
-
-if(CMAKE_USE_ETHAN_LOG)
-	message("DCMAKE_USE_ETHAN_LOG set")
-	# Find the ethanlog library for container logger
-	find_package( EthanLog REQUIRED )
-	# Add the include directories for EthanLog
-	include_directories(${ETHANLOG_INCLUDE_DIRS})
-
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lethanlog")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
-	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
-endif()
 
 if(CMAKE_AUXILIARY_AUDIO_ENABLED)
 	message("CMAKE_AUXILIARY_AUDIO_ENABLED set")
@@ -445,7 +443,7 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
 	install (TARGETS aampKotlin
 			DESTINATION lib
 	)
-	target_link_libraries(aampKotlin aamp subtec tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
+	target_link_libraries(aampKotlin aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 	xcode_define_schema(aampKotlin)
 endif()
@@ -506,6 +504,7 @@ install(FILES
 	AampTSBSessionManager.h
 	AampTsbReader.h
 	tsb/api/TsbApi.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	DESTINATION include
 )
 

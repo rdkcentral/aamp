@@ -220,7 +220,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PrivateInstanceAAMP::Stop()
+void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 }
 
@@ -783,6 +783,12 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
 }
 
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> timedMetadata;
+	return timedMetadata;
+}
+
 void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char *szName,
 											const char *szContent, int nb, const char *id,
 											double durationMS)
@@ -1088,7 +1094,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 }
 
 void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status,
-											  uint64_t startMS, uint64_t durationMs)
+											  uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
 }
 
@@ -1255,7 +1261,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 }
 
@@ -1311,10 +1317,6 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 																	 long long trickStartUTCMS)
 {
 	return 0;
-}
-
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
 }
 
 std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()

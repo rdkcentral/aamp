@@ -33,6 +33,10 @@ CDAIObjectMPD::~CDAIObjectMPD()
 
 void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url, uint64_t startMS, uint32_t breakdur)
 {
+	if(g_MockPrivateCDAIObjectMPD)
+    {
+		g_MockPrivateCDAIObjectMPD->SetAlternateContents(adBreakId, adId, url);
+    }
 }
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
@@ -47,7 +51,7 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
 }
 
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
 {
 	return NULL;
 }
@@ -131,4 +135,18 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 		return g_MockPrivateCDAIObjectMPD->WaitForNextAdResolved(timeoutMs, periodId);
 	}
 	return true;
+}
+
+PlacementObj PrivateCDAIObjectMPD::UpdatePlacementObj(const std::string adBrkId, const std::string endPeriodId)
+{
+	PlacementObj obj;
+	return obj;
+}
+
+void PrivateCDAIObjectMPD::ValidateAdManifest(AampMPDParseHelper& adMPDParseHelper, AAMPCDAIError &adErrorCode)
+{
+}
+
+void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
+{
 }

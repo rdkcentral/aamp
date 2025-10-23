@@ -54,6 +54,8 @@ public:
     MOCK_METHOD(bool, SetPlayBackRate, (double), (override));
 
     MOCK_METHOD(void, SeekStreamSink, (double , double ), (override));
+
+    MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation), (override));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

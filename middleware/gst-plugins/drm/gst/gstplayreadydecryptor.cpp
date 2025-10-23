@@ -99,7 +99,6 @@ static void gst_playreadydecryptor_init(Gstplayreadydecryptor *playreadydecrypto
 	DEBUG_FUNC();
 }
 
-
 /**
  * @brief Playready decryptor element termination
  * @param object playready decryptor element pointer
@@ -109,6 +108,3 @@ static void gst_playreadydecryptor_finalize(GObject * object)
 	DEBUG_FUNC();
 	GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-

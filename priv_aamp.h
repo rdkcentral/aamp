@@ -25,11 +25,16 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
+#include "Accessibility.hpp"
+#include "VideoZoomMode.h"
+#include "AampScheduler.h"
+#include "StreamSink.h"
+#include "TimedMetadata.h"
+
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
 #include "DrmCallbacks.h"
-#include "main_aamp.h"
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
 #include "CCTrackInfo.h"
@@ -63,9 +68,27 @@
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AudioTrackInfo.h"
+#include "TextTrackInfo.h"
+#include "AAMPAnomalyMessageType.h"
 
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
+
+/**
+ * @struct PreCacheUrlData
+ * @brief Pre cache the data information
+ */
+typedef struct PreCacheUrlData
+{
+    std::string url;
+    AampMediaType type;
+    PreCacheUrlData():url(""),type(eMEDIATYPE_VIDEO)
+    {
+    }
+} PreCacheUrlStruct;
+
+typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
 #include "ID3Metadata.hpp"
@@ -230,7 +253,7 @@ struct AsyncEventDescriptor
 	AsyncEventDescriptor& operator=(const AsyncEventDescriptor& other) = delete;
 
 	AAMPEventPtr event;
-	std::shared_ptr<PrivateInstanceAAMP> aamp;
+	std::shared_ptr<class PrivateInstanceAAMP> aamp;
 };
 
 /**
@@ -246,7 +269,7 @@ struct EventBreakInfo
 	bool isDAIEvent;     // true if the SCTE35 event is PA START or PPO START
 	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0), isDAIEvent(false)
 	{}
-	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
+	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(std::move(_data)), name(std::move(_name)), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
 	{}
 };
 
@@ -262,35 +285,6 @@ struct DynamicDrmInfo {
 };
 
 class Id3CallbackData;
-
-/**
- * @brief Class for Timed Metadata
- */
-class TimedMetadata
-{
-public:
-
-	/**
-	 * @brief TimedMetadata Constructor
-	 */
-	TimedMetadata() : _timeMS(0), _name(""), _content(""), _id(""), _durationMS(0) {}
-
-	/**
-	 * @brief TimedMetadata Constructor
-	 *
-	 * @param[in] timeMS - Time in milliseconds
-	 * @param[in] name - Metadata name
-	 * @param[in] content - Metadata content
-	 */
-	TimedMetadata(long long timeMS, std::string name, std::string content, std::string id, double durMS) : _timeMS(timeMS), _name(name), _content(content), _id(id), _durationMS(durMS) {}
-
-public:
-	long long _timeMS;       /**< Time in milliseconds */
-	std::string _name;       /**< Metadata name */
-	std::string _content;    /**< Metadata content */
-	std::string _id;         /**< Id of the timedMetadata. If not available an Id will bre created */
-	double      _durationMS; /**< Duration in milliseconds */
-};
 
 
 /**
@@ -312,7 +306,7 @@ public:
 	 * @param[in] id - Content gap ID
 	 * @param[in] durMS - Total duration of gap identified
 	 */
-	ContentGapInfo(long long timeMS, std::string id, double durMS) : _timeMS(timeMS), _id(id), _complete(false), _durationMS(durMS)
+	ContentGapInfo(long long timeMS, std::string id, double durMS) : _timeMS(timeMS), _id(std::move(id)), _complete(false), _durationMS(durMS)
 	{
 		if(durMS > 0)
 		{
@@ -421,9 +415,9 @@ class AudioTrackTuple
 
 		void setAudioTrackTuple(std::string language="",  std::string rendition="", std::string codec="", unsigned int channel=0)
 		{
-			this->language = language;
-			this->rendition = rendition;
-			this->codec = codec;
+			this->language = std::move(language);
+			this->rendition = std::move(rendition);
+			this->codec = std::move(codec);
 			this->channel = channel;
 			this->bitrate = 0;
 		}
@@ -451,7 +445,7 @@ public:
 	{
 	}
 
-	attrNameData(std::string argument) : attrName(argument), isProcessed(false)
+	attrNameData(std::string argument) : attrName(std::move(argument)), isProcessed(false)
 	{
 	}
 
@@ -525,7 +519,6 @@ class SegmentInfo_t;
  */
 class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
-
 	enum AAMP2ReceiverMsgType
 	{
 	    E_AAMP2Receiver_TUNETIME,   /**< Tune time Message */
@@ -542,13 +535,40 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 
 	#define AAMP2ReceiverMsgHdrSz (sizeof(AAMP2ReceiverMsg)-1)
 
-	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
+	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
+	/**
+ 	*  @fn Process json object or language string and save the preferred selection to AampConfig
+ 	*  @param[in] param - language string or json object
+ 	*  @param[out] isSelectionChange - flag to indicate if accessibility has changed
+ 	*/
+	void SavePreferredTextLanguages(const char *param, bool &isSelectionChange);
+
+	/**
+ 	* @brief Set closed caption track with appropriate format from passed text track
+ 	* @param[in] track - Text track information
+ 	*/
+	void SetClosedCaptionsFromTextTrack(TextTrackInfo &track);
+
+	/**
+	 * @brief  Find closed caption track index in list of text tracks
+	 * @param[in] trackInfo - Text track information vector
+	 * @return index of closed caption track otherwise -1 if not found
+	 */
+	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
+
 public:
+	/* @fn RecalculatePTS
+	 * @param[in] mediaType stream type
+	 * @param[in] ptr buffer pointer
+	 * @param[in] len length of buffer
+	 */
+	double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+
 	/**
 	 * @brief Get profiler bucket type
 	 *
@@ -785,7 +805,7 @@ public:
 	 * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
 	 * @return true if audio codec has changed
 	 */
-	bool ReconfigureForCodecChange();
+	bool ReconfigureForElementaryStreamUpdate();
 
 	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
@@ -800,6 +820,14 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
+	/**
+	 * @fn CheckPreferredTextLanguages
+	 * @param[in] trackInfo - Text track information
+	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
+	 * @param[out] closedCaptionTrackIdx - closed caption track index
+	 */
+	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
@@ -1018,7 +1046,7 @@ public:
 	EventListener* mEventListener;
 	long long prevFirstPeriodStartTime;
 
-	//updated by ReportProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
+	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
 
 	long long mAdPrevProgressTime;
@@ -1132,7 +1160,6 @@ public:
 
 	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
 
-	static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
 	static bool mSubtecCCEnabled;	/**< To identify SUBTEC_CC is enabled or not */
 	// ID3 metadata
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
@@ -1584,12 +1611,15 @@ public:
 	long long GetVideoPTS();
 
 	/**
-	 *   @fn ReportProgress
+	 *   @fn MonitorProgress
+	 *   @brief Monitor playback progress and report position periodically, also take any necessary actions like
+	 *          correcting the latency by adjusting rate of playback or
+	 *          transitioning from rewind to play when the start of the TSB is reached.
+	 *
  	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  beginningOfStream - Flag to indicate if the progress reporting is for the Beginning Of Stream
-	 *   @return void
 	 */
-	void ReportProgress(bool sync = true, bool beginningOfStream = false);
+	void MonitorProgress(bool sync = true, bool beginningOfStream = false);
 	/**
 	 *   @fn WakeupLatencyCheck
 	 *   @return void
@@ -1732,7 +1762,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void Stop(void);
+	void Stop( bool isDestructing = false );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -1803,6 +1833,8 @@ public:
 	 * @return void
 	 */
 	void SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id = "", double durationMS = -1);
+
+	const std::vector<TimedMetadata> & GetTimedMetadata( void ) const;
 
 	/**
 	 * @fn SaveTimedMetadata
@@ -2372,8 +2404,9 @@ public:
 	 *   @param[in] status Manifest status (success/Failure)
 	 *   @param[in] startMS Ad playback start time in milliseconds
 	 *   @param[in] durationMs Ad's duration in milliseconds
+	 *   @param[in] errorCode Ad's error code
 	 */
-	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS=0, uint64_t durationMs=0);
+	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode);
 
 	/**
 	 *   @fn SendAdReservationEvent
@@ -2492,7 +2525,7 @@ public:
 	 *   @param[in] drm - New DRM type
 	 *   @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -2658,7 +2691,7 @@ public:
 	/**
 	 *   @brief  set virtual stream ID, extracted from manifest
 	 */
-	void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = streamID;}
+	void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = std::move(streamID);}
 
 	/**
 	 *   @brief getTuneType Function to check what is the tuneType
@@ -2911,6 +2944,7 @@ public:
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
 	std::string GetVideoRectangle();
+
 	/**
 	 *   @fn SetPreCacheDownloadList
 	 *   @param[in] dnldListInput Playlist Download list
@@ -3138,9 +3172,9 @@ public:
 
 	/**
 	 *   @fn SetCCStatus
+	 *   @brief Set CC visibility on/off
 	 *
 	 *   @param[in] enabled - true for CC on, false otherwise
-	 *   @return void
 	 */
 	void SetCCStatus(bool enabled);
 
@@ -3467,7 +3501,11 @@ public:
 	 *   @param[in] state - true or false
 	 *   @return void
 	 */
-	void SetLLDashAdjustSpeed(bool state) { bLLDashAdjustPlayerSpeed = state; }
+	void SetLLDashAdjustSpeed(bool state)
+	{
+		AAMPLOG_INFO("Set LLDash adjust speed to %d", state);
+		bLLDashAdjustPlayerSpeed = state;
+	}
 
 	/**
 	 *   @brief Gets the state of the player speed correction for Low latency Dash
@@ -3500,7 +3538,7 @@ public:
 	 *
 	 *   @return true if LL-DASH chunk mode is enabled, false otherwise.
 	 */
-	bool GetLLDashChunkMode() { return mIsChunkMode; }
+	bool GetLLDashChunkMode();
 
 	/**
 	 *   @brief Is iframe extraction enabled
@@ -3769,13 +3807,6 @@ public:
 	bool SignalSubtitleClock( void );
 
 	/**
-	 * @brief Apply CC/Subtitle mute but preserve the original status
-	 * This function should be called after acquiring StreamLock
-	 * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
-	 */
-	void CacheAndApplySubtitleMute(bool muted);
-
-	/**
 	  * @fn ReleaseDynamicDRMToUpdateWait
 	  *
 	  * @param Void
@@ -3868,8 +3899,9 @@ public:
 	 * @param[in] videoPositionMS - video position in milliseconds
 	 * @param[in] audioPositionMS - audio position in milliseconds
 	 * @param[in] timeInStateMS - time in state in milliseconds
+	 * @param[in] droppedFrames - dropped frames count
 	 */
-	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
+	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames);
 
 	/**
 	 * @brief Determines if decrypt should be called on clear samples
@@ -3885,7 +3917,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-	
+
 	/**
 	 *	@fn CalculateTrickModePositionEOS
 	 *		- this function only works for (rate > 1) - see priv_aamp.cpp
@@ -3902,7 +3934,7 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
-	
+
 	/**
 	 * @fn GetFormatPositionOffsetInMSecs
 	 * @brief API to get the offset value in msecs for the position values to be reported.
@@ -4150,8 +4182,38 @@ protected:
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:
+	/**
+	 * @brief Play from the start of the TSB
+	 */
+	void PlayFromTsbStart();
+
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
+
+	/**
+	 *   @fn SetVideoMuteInternal
+	 *   @brief Set video mute state, internal method
+	 *
+	 *   @param[in] muted - muted or unmuted
+	 *   @return void
+	 */
+	void SetVideoMuteInternal(bool muted);
+
+	/**
+	 *   @fn SetSubtitleMuteInternal
+	 *   @brief Set subtitle mute state, internal method
+	 *
+	 *   @param[in] muted - muted or unmuted
+	 *   @return void
+	 */
+	void SetSubtitleMuteInternal(bool muted);
+
+	/**
+	 *   @fn SetCCStatusInternal
+	 *   @brief Set CC visibility on/off according to the current values of
+	 *          video_muted and subtitle_muted.
+	 */
+	void SetCCStatusInternal(void);
 };
 #endif // PRIVAAMP_H

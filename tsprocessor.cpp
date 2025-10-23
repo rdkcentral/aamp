@@ -317,31 +317,40 @@ TSProcessor::~TSProcessor()
 int TSProcessor::insertPatPmt(unsigned char *buffer, bool trick, int bufferSize)
 {
 	int len;
+	unsigned char *src;
 
 	if (trick && m_trickExcludeAudio)
 	{
 		len = m_PatPmtTrickLen;
-		memcpy(buffer, m_PatPmtTrick, len);
+		src = m_PatPmtTrick;
 	}
 	else if (trick && m_isMCChannel)
 	{
 		len = m_PatPmtPcrLen;
-		memcpy(buffer, m_PatPmtPcr, len);
+		src = m_PatPmtPcr;
 	}
 	else
 	{
 		len = m_PatPmtLen;
-		memcpy(buffer, m_PatPmt, len);
+		src = m_PatPmt;
 	}
 
-	int index = 3 + m_ttsSize;
-	buffer[index] = ((buffer[index] & 0xF0) | (m_patCounter++ & 0x0F));
-
-	index += m_packetSize;
-	while (index < len)
+	if (len > 0)
 	{
-		buffer[index] = ((buffer[index] & 0xF0) | (m_pmtCounter++ & 0x0F));
-		index += m_packetSize;
+		memcpy(buffer, src, len);
+
+		int index = 3 + m_ttsSize;
+		if (index < len)
+		{
+			buffer[index] = ((buffer[index] & 0xF0) | (m_patCounter++ & 0x0F));
+
+			index += m_packetSize;
+			while (index < len)
+			{
+				buffer[index] = ((buffer[index] & 0xF0) | (m_pmtCounter++ & 0x0F));
+				index += m_packetSize;
+			}
+		}
 	}
 
 	return len;
@@ -620,7 +629,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			std::string characteristics = "muxed-audio";
 			StreamOutputFormat streamtype = getStreamFormatForCodecType(audioComponents[i].elemStreamType);
 			std::string codec = GetAudioFormatStringForCodec(streamtype);
-			audioTracks.push_back(AudioTrackInfo(index, language, group_id, name, codec, characteristics, 0));
+			audioTracks.push_back(AudioTrackInfo(std::move(index), language, group_id, std::move(name), codec, std::move(characteristics), 0));
 			AAMPLOG_INFO( "[%p] found audio#%d in program %d with pcr pid %d audio pid %d lan:%s codec:%s group:%s",
 				this, i, m_program, pcrPid, audioComponents[i].pid, language.c_str(), codec.c_str(), group_id.c_str());
 		}
@@ -701,22 +710,36 @@ void TSProcessor::updatePATPMT()
 	{
 		free(m_PatPmt);
 		m_PatPmt = 0;
+		m_PatPmtLen = 0;
 	}
 	if (m_PatPmtTrick)
 	{
 		free(m_PatPmtTrick);
 		m_PatPmtTrick = 0;
+		m_PatPmtTrickLen = 0;
 	}
 
 	if (m_PatPmtPcr)
 	{
 		free(m_PatPmtPcr);
 		m_PatPmtPcr = 0;
+		m_PatPmtPcrLen = 0;
 	}
 
-	generatePATandPMT(false, &m_PatPmt, &m_PatPmtLen);
-	generatePATandPMT(true, &m_PatPmtTrick, &m_PatPmtTrickLen);
-	generatePATandPMT(false, &m_PatPmtPcr, &m_PatPmtPcrLen, true);
+	if (!generatePATandPMT(false, &m_PatPmt, &m_PatPmtLen))
+	{
+		AAMPLOG_WARN("generatePATandPMT(&m_PatPmt) failed.");
+	}
+
+	if (!generatePATandPMT(true, &m_PatPmtTrick, &m_PatPmtTrickLen))
+	{
+		AAMPLOG_WARN("generatePATandPMT(&m_PatPmtTrick) failed.");
+	}
+
+	if (!generatePATandPMT(false, &m_PatPmtPcr, &m_PatPmtPcrLen, true))
+	{
+		AAMPLOG_WARN("generatePATandPMT(&m_PatPmtPcr) failed.");
+	}
 }
 
 /**
@@ -1745,7 +1768,7 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositi
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			};
 
-			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, processor))
+			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, std::move(processor)))
 			{
 				AAMPLOG_WARN("demuxAndSend");  //CID:90622- checked return
 			}

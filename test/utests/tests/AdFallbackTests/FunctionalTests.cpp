@@ -308,6 +308,17 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
       </SegmentTemplate>
       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
     </AdaptationSet>
+	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
+        <SegmentTimeline>
+          <S t="0" d="1350000"/>
+          <S t="1350000" d="1350000"/>
+          <S t="2700000" d="1350000"/>
+          <S t="4050000" d="1350000"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+    </AdaptationSet>
   </Period>
 
   <!-- Period 2 -  without Ad Marker -->
@@ -322,6 +333,17 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
         </SegmentTimeline>
       </SegmentTemplate>
       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+    </AdaptationSet>
+	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
+        <SegmentTimeline>
+          <S t="0" d="1350000"/>
+          <S t="1350000" d="1350000"/>
+          <S t="2700000" d="1350000"/>
+          <S t="4050000" d="1350000"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
     </AdaptationSet>
   </Period>
 </MPD>
@@ -341,12 +363,25 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
       </SegmentTemplate>
       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
     </AdaptationSet>
+	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
+        <SegmentTimeline>
+          <S t="0" d="1350000"/>
+          <S t="1350000" d="1350000"/>
+          <S t="2700000" d="1350000"/>
+          <S t="4050000" d="1350000"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+    </AdaptationSet>
   </Period>
 </MPD>
 )";
 
 	std::string AdInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("video_init.mp4");
+	std::string AdAudioInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("audio_init.mp4");
 	std::string SourceInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	std::string SourceAudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_init.mp4");
 	AAMPStatusType status;
 	mPrivateInstanceAAMP->rate = 1.0;
 
@@ -397,12 +432,21 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 				return (++counter < 10);
 			});
 
-	// Need to fail ad init fragment
+	// Need to fail ad Video init fragment
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(AdInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(false));
 
+	//Need to fail ad audio init fragment
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(AdAudioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .Times(1)
+        .WillOnce(Return(false));
+
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceAudioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 

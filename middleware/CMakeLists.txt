@@ -26,10 +26,9 @@ if(DISABLE_SECURITY_TOKEN)
 endif()
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GST REQUIRED gstreamer-plugins-base-1.0)
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 
 include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
@@ -178,14 +177,20 @@ set(SOURCES
 	PlayerScheduler.cpp
 	gstplayertaskpool.cpp
 	PlayerUtils.cpp
-	vendor/SocInterface.cpp
-	vendor/amlogic/AmlogicSocInterface.cpp
-	vendor/realtek/RealtekSocInterface.cpp
-	vendor/brcm/BrcmSocInterface.cpp
-	vendor/default/DefaultSocInterface.cpp
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
+
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
+						vendor/realtek/RealtekSocInterface.cpp
+						vendor/brcm/BrcmSocInterface.cpp
+						vendor/default/DefaultSocInterface.cpp
+						vendor/SocInterface.cpp)
+else()
+	list(APPEND SOURCES test/utests/fakes/FakeSocInterface.cpp)
+endif()
+
 set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp
 	drm/DrmSession.cpp
@@ -291,7 +296,7 @@ set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${SUBTEC_PUBLIC_HEADERS}"
 set(SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
 if(CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
-	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUBUNTU=1 -DNO_NATIVE_AV=1")
+	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUBUNTU=1")
 	set(SUBTEC_COMPILE_FLAGS "${SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
 endif()
 
@@ -336,6 +341,7 @@ if (CMAKE_SUBTITLE_SUPPORT)
 	install(TARGETS subtec_connector DESTINATION lib)
 
 	set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/subtec/PlayerSubtecCCManager.cpp)
+	set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/rialto/PlayerRialtoCCManager.cpp)
 endif()
 add_library(playergstinterface SHARED ${SOURCES} ${LIBPLAYERGSTINTERFACE_HEADERS} ${LIBPLAYERGSTINTERFACE_SOURCES} ${LIBPLAYERGSTINTERFACE_DRM_SOURCES} ${LIBPLAYERGSTINTERFACE_HELP_SOURCES})
 
@@ -349,6 +355,7 @@ target_include_directories(playergstinterface PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/playerjsonobject
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/subtec
+	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/rialto
 	${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 if (CMAKE_SUBTITLE_SUPPORT)
@@ -361,9 +368,13 @@ add_subdirectory(gst-plugins)
 
 target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
-target_link_libraries(playergstinterface ${GST_LIBRARIES} ${GSTREAMER_LIBRARIES} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
+target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
+
+if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_link_libraries(playergstinterface gstsvpext)
+endif()
 
 set_target_properties(playergstinterface PROPERTIES COMPILE_FLAGS "${LIBPLAYERGSTINTERFACE_DEFINES} ${OS_CXX_FLAGS}")
 

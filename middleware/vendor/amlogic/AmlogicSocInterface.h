@@ -69,9 +69,10 @@ class AmlogicSocInterface : public SocInterface
 		 * @param rate The desired playback rate.
 		 * @param video_dec The video decoder element.
 		 * @param audio_dec The audio decoder element.
+		 * @param isRialto True if rialto sink is used.
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
-		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
+		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) override;
 
 		/**
 		 * @brief Retrieves the source pad of the given GStreamer element.
@@ -89,6 +90,38 @@ class AmlogicSocInterface : public SocInterface
 		 * @param trackId Track ID.
 		 */
 		void SetAC4Tracks(GstElement *src, int trackId) override;
+
+		/**
+		 * @brief Get SVP Context
+		 */
+		void SvpGetContext(void **svpCtx, int server, int flags)override;
+
+		/**
+		 * @brief Free SVP Context
+		 */
+		void SvpFreeContext(void *svpCtx)override;
+
+		/**
+		 * @brief Configure the accept caps
+		 * @return void
+		 */
+		void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+                         AcceptCapsFunc accept_caps_func)override {
+		return;	 }
+
+		/**
+		 * @brief Indicates whether transform capabilities are required.
+		 * @return true if transform capabilities are required; otherwise, false
+		 */
+		bool IsTransformCapsRequired() const override {
+		return true; }
+
+		/**
+		 * @brief Indicates whether decryption is required.
+		 * @return true if decryption are required; otherwise, false
+		 */
+		bool IsDecryptRequired() const override {
+		return true; }
 
 		/**
 		 * @brief Set rate correction.
@@ -162,20 +195,25 @@ class AmlogicSocInterface : public SocInterface
 		virtual bool ResetNewSegmentEvent()override{return true;}
 
 		/**
-		 *@brief check if platform segment is ready
+		 * @brief Checks if platform segment is ready.
 		 *
-		 *it is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
+		 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
+		 *
+		 * @param videoSink The video sink element.
+		 * @param isRialto Flag indicating whether Rialto sink is being used.
 		 */
-		bool IsPlatformSegmentReady()override{return true;}
+		bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)override{return true;}
 
 		/**
 		 * @brief Check if the video is the master stream.
 		 *
 		 * This function always returns false, indicating that the video is not the master stream.
 		 *
+		 * @param videoSink The video sink element.
+		 * @param isRialto Flag indicating whether Rialto sink is being used.
 		 * @return false indicating the video is not the master stream.
 		 */
-		bool IsVideoMaster()override{return false;}
+		bool IsVideoMaster(GstElement *videoSink, bool isRialto)override{return false;}
 
 };
 
