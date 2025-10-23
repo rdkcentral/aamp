@@ -18,6 +18,7 @@
  */
 
 #include "AmlogicSocInterface.h"
+#include "gst_svp_meta.h"
 
 /**
  * @brief AmlogicSocInterface constructor.
@@ -183,6 +184,26 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
 	}
 
 	return false;
+}
+
+/**
+ * @brief Get SVP Context
+ * @param svpCtx svp context
+ * @param server To identify server/client
+ * @param flags SVP Flag
+ */
+void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
+{
+	gst_svp_ext_get_context(svpCtx, static_cast<context_type>(server), flags);
+}
+
+/**
+ * @brief Free SVP Context
+ * @param svpCtx svp context
+ */
+void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
+{
+	gst_svp_ext_free_context(svpCtx);
 }
 
 /**
