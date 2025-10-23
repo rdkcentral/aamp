@@ -358,7 +358,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 						if( sessionToken.length()!=0 )
 						{
 							AAMPLOG_INFO("Requesting License with new access token");
-							challengeInfo.accessToken = sessionToken;
+							challengeInfo.accessToken = std::move(sessionToken);
 							httpResponseCode = httpExtendedStatusCode = -1;
 							licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 						}
@@ -371,7 +371,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 						AAMPLOG_WARN("Ignore  AuthToken Provided for non-ContentMetadata DRM license request");
 					}
 					
-				      eventHandle->setSecclientError(false);
+					eventHandle->setSecclientError(false);
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],std::move(licenseServerProxy)));
 				}
 			}
