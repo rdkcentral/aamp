@@ -49,9 +49,9 @@ namespace SocUtils
 	 *
 	 * @return true if AC-4 is supported, false otherwise.
 	 */
-	bool IsSupportedAC4( void )
+	bool IsDisabledAC4( void )
 	{
-		bool disableAc = socInterface->IsSupportedAC4();
+		bool disableAc = socInterface->IsDisabledAC4();
 		return (disableAc || (!InterfacePlayerRDK::IsCodecSupported("ac-4")));
 	}
 
@@ -62,7 +62,7 @@ namespace SocUtils
 	 *
 	 * @return true if AC-3 is supported, false otherwise.
 	 */
-	bool IsSupportedAC3( void )
+	bool IsDisabledAC3( void )
 	{
 		return (!InterfacePlayerRDK::IsCodecSupported("ac-3"));
 	}

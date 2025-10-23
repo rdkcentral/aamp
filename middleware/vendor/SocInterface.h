@@ -142,7 +142,7 @@ public:
 	 *
 	 * @return True if AC4 should be disabled, false otherwise.
 	 */
-	virtual bool IsSupportedAC4(){return false;}
+	virtual bool IsDisabledAC4(){return false;}
 	
 	/**
 	 * @brief Check if Westeros sink should be used.
