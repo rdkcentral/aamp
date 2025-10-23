@@ -31,17 +31,6 @@ class BrcmSocInterface : public SocInterface
 {
 	public:
 		BrcmSocInterface();
-
-		/**
-		 * @brief Check if AC4 should be disabled.
-		 *
-		 * Determines whether AC4 support should be disabled.
-		 *
-		 * @return True if AC4 should be disabled, false otherwise.
-		 */
-		bool IsDisabledAC4()override{
-			return true; // FIXME! available on devices with MS12 v2 support
-		}
 		
 		/**
 		 * @brief Check if PTS restamping is supported by the platform.

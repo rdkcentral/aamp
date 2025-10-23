@@ -44,10 +44,6 @@ namespace SocUtils
 	{
 		return false;
 	}
-	bool DisableAC3( void )
-	{
-		return false;
-	}
 
 	bool IsDisabledAC3()
 	{

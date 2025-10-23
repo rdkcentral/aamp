@@ -136,15 +136,6 @@ public:
 	virtual bool UseAppSrc(){return false;}
 	
 	/**
-	 * @brief Check if AC4 should be disabled.
-	 *
-	 * Determines whether AC4 support should be disabled.
-	 *
-	 * @return True if AC4 should be disabled, false otherwise.
-	 */
-	virtual bool IsDisabledAC4(){return false;}
-	
-	/**
 	 * @brief Check if Westeros sink should be used.
 	 *
 	 * Determines whether the Westeros sink should be used in the current context.

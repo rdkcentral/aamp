@@ -283,17 +283,16 @@ static bool IsAtmosAudio(const IMPDElement *nodePtr)
  * @param[in] rep - representation node for atmos audio check
  * @retval audio type as per aamp code from string value
  */
-static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
+static AudioType getCodecType( const string & codecValue, const IMPDElement *rep)
 {
 	AudioType audioType = eAUDIO_UNSUPPORTED;
-	std::string ac4 = "ac-4";
 	if (codecValue == "ec+3")
 	{
 #ifndef __APPLE__
 		audioType = eAUDIO_ATMOS;
 #endif
 	}
-	else if (!codecValue.compare(0, ac4.size(), ac4))
+	if( codecValue.rfind("ac-4",0)==0 )
 	{
 		audioType = eAUDIO_DOLBYAC4;
 	}
@@ -333,8 +332,7 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
  * @brief Get representation index from preferred codec list
  * @retval whether track selected or not
  */
-bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
-	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
+bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
 {
 	bool isTrackSelected = false;
 	if( aamp->preferredCodecList.size() > 0 )
@@ -445,11 +443,21 @@ void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *a
 	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: SelectedRepIndex : %d selectedRepBandwidth: %d", selectedRepIdx, selectedRepBandwidth);
 }
 
-static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth,
-				bool disableEC3,bool disableATMOS, bool disableAC4,bool disableAC3,  bool &disabled)
+/**
+ * @brief
+ * @param adaptationSet
+ * @param in/out selectedCodecType
+ * @param in/out selectedRepBandwidth
+ * @param disableEC3 EC3 support disabled via config or SoC capabilities
+ * @param disableATMOS ATMOS support disabled via config or SoC capabilities
+ * @param disableAC4 AC4 support disabled via config or SoC capabilities
+ * @param disableAC3 AC3 support disabled via config or SoC capabilities
+ * @param disabled
+ */
+static int GetDesiredCodecIndex( const IAdaptationSet *adaptationSet, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth, bool disableEC3 ,bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled)
 {
 	int selectedRepIdx = -1;
-	if(adaptationSet != NULL)
+	if( adaptationSet!=NULL )
 	{
 		const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
 		// check for codec defined in Adaptation Set
@@ -460,17 +468,23 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 			uint32_t bandwidth = rep->GetBandwidth();
 			const std::vector<string> codecs = rep->GetCodecs();
 			AudioType audioType = eAUDIO_UNKNOWN;
-			string codecValue="";
-			// check if Representation includec codec
+			string codecValue;
 			if(codecs.size())
-				codecValue=codecs.at(0);
-			else if(adapCodecs.size()) // else check if Adaptation has codec defn
+			{ // check if Representation includes codec
+				codecValue = codecs.at(0);
+			}
+			else if(adapCodecs.size())
+			{ // else check if Adaptation has codec defn
 				codecValue = adapCodecs.at(0);
-			// else no codec defined , go with unknown
-			audioType = getCodecType(codecValue, rep);
-
+			}
+			else
+			{ // else no codec defined, go with unknown
+				codecValue.clear();
+				audioType = getCodecType(codecValue, rep);
+			}
+			
 			/*
-			* By default the audio profile selection priority is set as ATMOS then DD+ then AAC
+			* By default the audio profile selection priority is set as AC4 > ATMOS > DD+ > AAC
 			* Note that this check comes after the check of selected language.
 			* disableATMOS: avoid use of ATMOS track
 			* disableEC3: avoid use of DDPLUS and ATMOS tracks
@@ -494,7 +508,7 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 	}
 	else
 	{
-		AAMPLOG_WARN("adaptationSet  is null");  //CID:85233 - Null Returns
+		AAMPLOG_WARN("adaptationSet is null");  //CID:85233 - Null Returns
 	}
 	return selectedRepIdx;
 }
