@@ -375,8 +375,12 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
+void AampTSBSessionManager::RaiseNewVideoTsbContentNotification(bool setFlag)
 {
+	if (setFlag)
+	{
+		mHasNewVideoTsbContent = setFlag;
+	}
 	mNewVideoTsbContentCV.notify_one();
 }
 
@@ -468,8 +472,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 
 					if (mediatype == eMEDIATYPE_VIDEO)
 					{
-						mHasNewVideoTsbContent = true;
-						RaiseNewVideoTsbContentNotification();
+						RaiseNewVideoTsbContentNotification(true);
 					}
 
 				}

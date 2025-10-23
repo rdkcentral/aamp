@@ -94,8 +94,10 @@ public:
 	void WaitForNewTsbFragment();
 	/**
 	 * @brief Raises the new video TSB content notification
+	 *
+	 * @param[in] setFlag - if true, set the mHasNewVideoTsbContent flag
 	 */
-	void RaiseNewVideoTsbContentNotification();
+	void RaiseNewVideoTsbContentNotification(bool setFlag);
 	/**
 	 * @brief Set TSB length
 	 *
