@@ -523,7 +523,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						std::shared_ptr<CachedFragment> fragmentToChunkCache = std::make_shared<CachedFragment>();
 						fragmentToChunkCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 						fragmentToChunkCache->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-						CacheTsbFragment(std::move(fragmentToTsbSessionMgr)); // Reuse existing TSB chunk caching utility
+						CacheTsbFragment(std::move(fragmentToChunkCache)); // Reuse existing TSB chunk caching utility
 					}
 					// If injection is from chunk buffer we must NOT treat this as a complete fragment fetch;
 					// doing so would increment numberOfFragmentsCached incorrectly. Only perform UpdateTSAfterFetch
