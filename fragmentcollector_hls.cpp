@@ -5295,13 +5295,13 @@ static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime
 				{
 					localProgramDateTime = (long long) ( ISO8601DateTimeToUTCSeconds(ptr.getPtr())*1000);
 					if(localProgramDateTime > lastProgramDateTime )
-								layout.progStartDateTime = localProgramDateTime;
+						layout.progStartDateTime = localProgramDateTime;
 					AAMPLOG_WARN("Gnanesha -X-PROGRAM-DATE-TIME: layout.progStartDateTime: %lld localProgramDateTime:%lld",layout.progStartDateTime,localProgramDateTime);
 				}
 				if (ptr.removePrefix("INF:"))
 				{
 					if(localProgramDateTime > lastProgramDateTime )
-							layout.tileSetDuration = ptr.atof();
+						layout.tileSetDuration = ptr.atof();
 				}
 				else if (ptr.removePrefix("-X-TILES:"))
 				{
@@ -5309,11 +5309,17 @@ static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime
 							ptr.ParseAttrList(ParseTileInfCallback, &layout);
 				}
 			}
+			if( ptr.startswith(' ') )
+			{
+				ptr.removePrefix(' ');
+				AAMPLOG_WARN("removing space in playlist" );
+			}
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
 				AAMPLOG_WARN("Gnanesha INF: %d %zu %s",ptr.tostring().empty(),ptr.tostring().length(),ptr.tostring().c_str() );
-				if(localProgramDateTime > lastProgramDateTime && (ptr.tostring().length() > 4 ) )
+				if(localProgramDateTime > lastProgramDateTime )
+				//if(localProgramDateTime > lastProgramDateTime && (ptr.tostring().length() > 4 ) )
 				{
 					if( 0.0f == layout.posterDuration )
 					{
