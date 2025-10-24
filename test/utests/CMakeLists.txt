@@ -34,7 +34,6 @@ include_directories(${AAMP_ROOT}/middleware/drm/ocdm)
 include_directories(${AAMP_ROOT}/middleware/playerJsonObject)
 include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 
-
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(OPENSSL REQUIRED openssl)
