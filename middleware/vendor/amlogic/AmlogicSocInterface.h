@@ -94,7 +94,7 @@ class AmlogicSocInterface : public SocInterface
 		/**
 		 * @brief Get SVP Context
 		 */
-		void SvpGetContext(void **svpCtx, int server, int flags)override;
+		void SvpGetContext(void **svpCtx, int flags)override;
 
 		/**
 		 * @brief Free SVP Context

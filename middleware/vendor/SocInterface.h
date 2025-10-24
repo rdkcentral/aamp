@@ -108,7 +108,7 @@ public:
 	/**
 	 * @brief Get SVP Context
 	 */
-	virtual void SvpGetContext(void **svpCtx, int server, int flags){};
+	virtual void SvpGetContext(void **svpCtx, int flags){};
 
 	/**
 	 * @brief Free SVP Context

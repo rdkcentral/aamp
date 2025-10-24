@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include "DrmConstants.h"
 #include "SocInterface.h"
-#include "gst_svp_meta.h"
 
 GST_DEBUG_CATEGORY_STATIC ( gst_cdmidecryptor_debug_category);
 #define GST_CAT_DEFAULT  gst_cdmidecryptor_debug_category
@@ -993,7 +992,7 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "NULL->READY");
 		if (cdmidecryptor->svpCtx == NULL)
-		 socInterface->SvpGetContext(&cdmidecryptor->svpCtx, Server, 0);
+		 socInterface->SvpGetContext(&cdmidecryptor->svpCtx, 0);
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->NULL");

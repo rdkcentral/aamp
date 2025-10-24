@@ -192,9 +192,9 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
  * @param server To identify server/client
  * @param flags SVP Flag
  */
-void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
+void AmlogicSocInterface::SvpGetContext(void **svpCtx, int flags)
 {
-	gst_svp_ext_get_context(svpCtx, static_cast<context_type>(server), flags);
+	gst_svp_ext_get_context(svpCtx, Server, flags);
 }
 
 /**
