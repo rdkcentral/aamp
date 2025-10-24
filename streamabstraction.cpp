@@ -4400,7 +4400,7 @@ void MediaTrack::PlaylistDownloader()
 				}
 			}
 
-			// Index playlist and update track informations.
+			// Index playlist and update track information
 			ProcessPlaylist(manifest, http_error);
 
 			// HTTP Response header needs to be sent to app when:

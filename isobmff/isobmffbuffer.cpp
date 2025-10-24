@@ -545,7 +545,7 @@ bool IsoBmffBuffer::isInitSegment()
 }
 
 /**
- *  @brief Get emsg informations
+ *  @brief Get emsg information
  */
 bool IsoBmffBuffer::getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg)
 {

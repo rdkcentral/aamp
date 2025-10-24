@@ -354,7 +354,7 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 				const std::vector<string> codecs = rep->GetCodecs();
 				string codecValue="";
 
-				/* check if Representation includec codec */
+				/* check if Representation includes codec */
 				if(codecs.size())
 				{
 					codecValue=codecs.at(0);
@@ -461,7 +461,7 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 			const std::vector<string> codecs = rep->GetCodecs();
 			AudioType audioType = eAUDIO_UNKNOWN;
 			string codecValue="";
-			// check if Representation includec codec
+			// check if Representation includes codec
 			if(codecs.size())
 				codecValue=codecs.at(0);
 			else if(adapCodecs.size()) // else check if Adaptation has codec defn

@@ -254,7 +254,7 @@ typedef std::shared_ptr<TsbInitData> TsbInitDataPtr;
 
 /**
  * @class AampTsbDataManager
- * @brief Handle the TSB meta Data informations;
+ * @brief Handle the TSB meta Data information
  */
 class AampTsbDataManager
 {

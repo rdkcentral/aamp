@@ -23,7 +23,7 @@
 #include <string>
 
 /**
- * @brief Structure representing only required track informations for Closed Caption (CC).
+ * @brief Structure representing only required track information for Closed Caption (CC).
  */
 struct CCTrackInfo{
   std::string instreamId;

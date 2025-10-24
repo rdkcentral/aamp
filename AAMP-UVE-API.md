@@ -1897,7 +1897,7 @@ Example:
 - tuneMetricsData: string
 
 **Description:**
-- Tune Metric Data notification with below metric informations
+- Tune Metric Data notification with below metric information
 	- pre -> prefix
 	- ver -> version for this protocol, initially zero
 	- bld -> build incremented when there are significant player changes/optimizations
