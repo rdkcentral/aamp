@@ -214,12 +214,16 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	if (m_pOpenCDMSession) {
-		m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
-		m_keyStateIndeterminate = false;
+		KeyStatus state = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+		std::vector<uint8_t> keyData(key, key + keySize);
+		std::string keyStr = PlayerLogManager::getHexDebugStr(keyData);
+		MW_LOG_INFO("Received update for key:%s, state %d -> %d", keyStr.c_str(), m_keyStatus, state);
+		m_keyStatus = state;
 	} 
 	else {
 		m_keyStored.clear();
 		m_keyStored.assign(key, key+keySize);
+		MW_LOG_INFO("Storing key %s for later use, state %d", PlayerLogManager::getHexDebugStr(m_keyStored).c_str(), m_keyStatus);
 		m_keyStateIndeterminate = true;
 	}
   
