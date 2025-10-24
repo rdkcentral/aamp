@@ -874,6 +874,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				//Enable playback if setRate call after detach
 				if(aamp->mbDetached){
+					aamp->reattach();
 					aamp->mbPlayEnabled = true;
 				}
 
