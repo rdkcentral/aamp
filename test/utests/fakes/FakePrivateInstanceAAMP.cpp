@@ -666,6 +666,10 @@ bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 
 void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDownloadErrorEvent(tuneFailure, error_code);
+	}
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
@@ -1432,7 +1436,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 }
 
@@ -1722,4 +1726,3 @@ const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void )
 	static std::vector<TimedMetadata> rc;
 	return rc;
 }
-
