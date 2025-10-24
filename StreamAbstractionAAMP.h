@@ -719,7 +719,11 @@ public:
 	 * @brief Unified accessor for max cached fragment capacity (chunks or complete) based on current mode.
 	 * @return max cached capacity for active injection mode.
 	 */
-	int GetMaxCachedFragmentCount() const { return (const_cast<MediaTrack*>(this))->IsInjectionFromCachedFragmentChunks() ? (int)mCachedFragmentChunksSize : maxCachedFragmentsPerTrack; }
+	int GetMaxCachedFragmentCount() const
+	{
+		std::lock_guard<std::mutex> guard(mutex);
+		return (const_cast<MediaTrack*>(this))->IsInjectionFromCachedFragmentChunks() ? (int)mCachedFragmentChunksSize : maxCachedFragmentsPerTrack;
+	}
 
 	/**
 	 * @fn GetFragmentToInject

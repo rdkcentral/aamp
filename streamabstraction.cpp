@@ -4630,10 +4630,12 @@ void MediaTrack::UpdateInjectedDuration(double surplusDuration)
  */
 void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 {
+	std::lock_guard<std::mutex> guard(mutex);
 	if (size > 0 && size <= maxCachedFragmentChunksPerTrack)
 	{
 		AAMPLOG_TRACE("Set mCachedFragmentChunks size:%zu successfully", size);
 		mCachedFragmentChunksSize = size;
+
 	}
 	else
 	{

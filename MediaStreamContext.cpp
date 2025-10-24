@@ -379,6 +379,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		if(tsbSessionManager && cachedFragment->fragment.GetLen())
 		{
 			std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
+			bool fragmentEnqueued = false;
 			fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 			if(fragmentToTsbSessionMgr->initFragment)
 			{
@@ -397,11 +398,13 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				if (aamp->GetLLDashChunkMode())
 				{
 					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
+					fragmentEnqueued = true;
 				}
 				// Forced chunk processing without LLDashChunkMode: treat complete fragment as a single chunk
 				else if (IsInjectionFromCachedFragmentChunks() && !fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection())
 				{
 					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
+					fragmentEnqueued = true;
 				}
 				// Special EOS case: If we were injecting from local TSB (IsLocalTSBInjection true) and after EOS we
 				// transition out (SetLocalTSBInjection(false)), but forced chunk injection criteria are met (AAMP TSB enabled)
@@ -409,6 +412,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				else if (IsLocalTSBInjection() && !fragmentToTsbSessionMgr->initFragment && aamp->IsLocalAAMPTsb() && !aamp->GetLLDashChunkMode())
 				{
 					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
+					fragmentEnqueued = true;
 				}
 				SetLocalTSBInjection(false);
 				// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
@@ -420,6 +424,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				if (aamp->GetLLDashChunkMode())
 				{
 					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
+					fragmentEnqueued = true;
 				}
 			}
 			// Forced chunk processing path for non-init segments when chunk injection is active but LLDashChunkMode is disabled.
@@ -429,9 +434,14 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				if (!(aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus()))
 				{
 					CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
+					fragmentEnqueued = true;
 				}
 			}
-			tsbSessionManager->EnqueueWrite(std::move(fragmentUrl), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());
+			
+			if (!fragmentEnqueued)
+			{
+				tsbSessionManager->EnqueueWrite(std::move(fragmentUrl), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());
+			}
 		}
 		// Added the duplicate conditional statements, to log only for localAAMPTSB cases.
 		else if(tsbSessionManager && cachedFragment->fragment.GetLen() == 0)
