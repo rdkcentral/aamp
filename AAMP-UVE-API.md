@@ -2266,7 +2266,7 @@ Example:
 | 3         | DENIED       | Watermark session not required
 | 4 / 20001 | FAILED       | Watermark session denied
 
-Note: System parameter is valid only in security mananger and not in firebolt 
+Note: System parameter is valid only in security manager and not in firebolt 
 
 **Description:**
 - Watermarking session information
