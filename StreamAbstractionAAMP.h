@@ -907,7 +907,7 @@ protected:
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
 	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/
-	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
+	mutable std::mutex mutex;           /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	std::mutex audioMutex;              /**< protection of audio track reconfiguration */
