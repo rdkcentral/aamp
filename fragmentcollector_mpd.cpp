@@ -283,7 +283,7 @@ static bool IsAtmosAudio(const IMPDElement *nodePtr)
  * @param[in] rep - representation node for atmos audio check
  * @retval audio type as per aamp code from string value
  */
-static AudioType getCodecType( const string & codecValue, const IMPDElement *rep)
+static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 {
 	AudioType audioType = eAUDIO_UNSUPPORTED;
 	if (codecValue == "ec+3")
@@ -292,7 +292,7 @@ static AudioType getCodecType( const string & codecValue, const IMPDElement *rep
 		audioType = eAUDIO_ATMOS;
 #endif
 	}
-	if( codecValue.rfind("ac-4",0)==0 )
+	else if ( codecValue.rfind("ac-4",0)==0 )
 	{
 		audioType = eAUDIO_DOLBYAC4;
 	}
@@ -332,8 +332,10 @@ static AudioType getCodecType( const string & codecValue, const IMPDElement *rep
  * @brief Get representation index from preferred codec list
  * @retval whether track selected or not
  */
-bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
+bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
+	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
 {
+	printf( "entering StreamAbstractionAAMP_MPD::GetPreferredCodecIndex\n" );
 	bool isTrackSelected = false;
 	if( aamp->preferredCodecList.size() > 0 )
 	{
@@ -361,6 +363,7 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 				{
 					codecValue = adapCodecs.at(0);
 				}
+				printf( "codecValue=%s\n", codecValue.c_str() );
 				auto iter = std::find(aamp->preferredCodecList.begin(), aamp->preferredCodecList.end(), codecValue);
 				if(iter != aamp->preferredCodecList.end())
 				{  /* track is in preferred codec list */
@@ -443,21 +446,11 @@ void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *a
 	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: SelectedRepIndex : %d selectedRepBandwidth: %d", selectedRepIdx, selectedRepBandwidth);
 }
 
-/**
- * @brief
- * @param adaptationSet
- * @param in/out selectedCodecType
- * @param in/out selectedRepBandwidth
- * @param disableEC3 EC3 support disabled via config or SoC capabilities
- * @param disableATMOS ATMOS support disabled via config or SoC capabilities
- * @param disableAC4 AC4 support disabled via config or SoC capabilities
- * @param disableAC3 AC3 support disabled via config or SoC capabilities
- * @param disabled
- */
-static int GetDesiredCodecIndex( const IAdaptationSet *adaptationSet, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth, bool disableEC3 ,bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled)
+static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &selectedCodecType, uint32_t &selectedRepBandwidth,
+				bool disableEC3,bool disableATMOS, bool disableAC4,bool disableAC3,  bool &disabled)
 {
 	int selectedRepIdx = -1;
-	if( adaptationSet!=NULL )
+	if(adaptationSet != NULL)
 	{
 		const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
 		// check for codec defined in Adaptation Set
@@ -468,23 +461,17 @@ static int GetDesiredCodecIndex( const IAdaptationSet *adaptationSet, AudioType 
 			uint32_t bandwidth = rep->GetBandwidth();
 			const std::vector<string> codecs = rep->GetCodecs();
 			AudioType audioType = eAUDIO_UNKNOWN;
-			string codecValue;
+			string codecValue="";
+			// check if Representation includec codec
 			if(codecs.size())
-			{ // check if Representation includes codec
-				codecValue = codecs.at(0);
-			}
-			else if(adapCodecs.size())
-			{ // else check if Adaptation has codec defn
+				codecValue=codecs.at(0);
+			else if(adapCodecs.size()) // else check if Adaptation has codec defn
 				codecValue = adapCodecs.at(0);
-			}
-			else
-			{ // else no codec defined, go with unknown
-				codecValue.clear();
-				audioType = getCodecType(codecValue, rep);
-			}
-			
+			// else no codec defined , go with unknown
+			audioType = getCodecType(codecValue, rep);
+
 			/*
-			* By default the audio profile selection priority is set as AC4 > ATMOS > DD+ > AAC
+			* By default the audio profile selection priority is set as ATMOS then DD+ then AAC
 			* Note that this check comes after the check of selected language.
 			* disableATMOS: avoid use of ATMOS track
 			* disableEC3: avoid use of DDPLUS and ATMOS tracks
@@ -508,7 +495,7 @@ static int GetDesiredCodecIndex( const IAdaptationSet *adaptationSet, AudioType 
 	}
 	else
 	{
-		AAMPLOG_WARN("adaptationSet is null");  //CID:85233 - Null Returns
+		AAMPLOG_WARN("adaptationSet  is null");  //CID:85233 - Null Returns
 	}
 	return selectedRepIdx;
 }
@@ -4306,10 +4293,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 
-		// Rialto does not support dynamic streams, so we need to extract and save the 
+		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
 		   !mIsLiveStream &&
 		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
@@ -5700,6 +5687,7 @@ void StreamAbstractionAAMP_MPD::UpdateLanguageList()
 int StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage( int &desiredRepIdx, AudioType &CodecType,
 std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 {
+	printf( "entering StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage\n" );
 	int bestTrack = -1;
 	unsigned long long bestScore = 0;
 	AudioTrackInfo selectedAudioTrack; /**< Selected Audio track information */
@@ -5797,10 +5785,10 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			bool disableATMOS = (disableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 			bool disableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
 			bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
-
 			int audioRepresentationIndex = -1;
 			long codecScore = 0;
 			bool disabled = false;
+			printf( "disableAC4=%d\n", disableAC4 );
 			if(!GetPreferredCodecIndex(adaptationSet, audioRepresentationIndex, selectedCodecType, selRepBandwidth, codecScore, disableEC3 , disableATMOS, disableAC4, disableAC3, disabled))
 			{
 				audioRepresentationIndex = GetDesiredCodecIndex(adaptationSet, selectedCodecType, selRepBandwidth, disableEC3 , disableATMOS, disableAC4, disableAC3, disabled);
@@ -10979,7 +10967,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	//TODO - check whether the ugly hack above is in operation
 	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
-	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && 
+	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] &&
 		mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
 		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))

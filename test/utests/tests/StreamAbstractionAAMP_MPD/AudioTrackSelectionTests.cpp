@@ -421,7 +421,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
 	<Period id="0" start="PT0.0S">
 			<AdaptationSet id="3" contentType="audio">
-					<Representation id="0" mimeType="audio/mp4" codecs="ac-4" bandwidth="64000" audioSamplingRate="48000">
+					<Representation id="0" mimeType="audio/mp4" codecs="ac-4.02.01.00" bandwidth="64000" audioSamplingRate="48000">
 							<SegmentTemplate timescale="48000" initialization="ac4/audio_init.mp4" media="ac4/audio_$Number$.mp4" startNumber="1">
 									<SegmentTimeline>
 											<S t="0" d="96000" r="59" />
@@ -440,5 +440,5 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	std::vector<AudioTrackInfo> audioTracks = mStreamAbstractionAAMP_MPD->GetAvailableAudioTracks();
 	EXPECT_EQ(audioTracks.size(), 1);
-	EXPECT_EQ(audioTracks[0].codec, "ac-4");
+	EXPECT_EQ(audioTracks[0].codec, "ac-4.02.01.00"); // should this be normalized to ac-4?
 }
