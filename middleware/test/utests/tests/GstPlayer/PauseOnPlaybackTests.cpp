@@ -188,6 +188,8 @@ TEST_F(PauseOnPlaybackTests, EnteredPausedSteHandler_ConfigureNormalPlayback)
 // "first-video-frame-callback" callback from gstreamer when the frame is displayed
 TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 {
+	GTEST_SKIP(); // focus on Rialto only for now
+	// this feature covered in L3 test, but not implemented on all SoCs
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"Pipeline"}};
 	GstElement gst_element_video_sink = {.object = {.name = (gchar *)"brcmvideosink0"}};
 	GstElement gst_element_bin = {.object = {.name = (gchar *)"bin"}};
@@ -287,7 +289,8 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 TEST_F(PauseOnPlaybackTests, bus_message_FrameStepPropertyNotAvailable)
 {
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"Pipeline"}};
-	GstElement gst_element_video_sink = {.object = {.name = (gchar *)"brcmvideosink0"}};
+	GstElement gst_element_video_sink = {.object = {.name = (gchar *)"rialtomsevideosink0"}};
+	//GstElement gst_element_video_sink = {.object = {.name = (gchar *)"brcmvideosink0"}};
 	GstElement gst_element_bin = {.object = {.name = (gchar *)"bin"}};
 	GstBus bus = {};
 	GstPipeline *pipeline = GST_PIPELINE(&gst_element_pipeline);
