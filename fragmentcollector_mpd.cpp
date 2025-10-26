@@ -288,9 +288,7 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 	AudioType audioType = eAUDIO_UNSUPPORTED;
 	if (codecValue == "ec+3")
 	{
-#ifndef __APPLE__
 		audioType = eAUDIO_ATMOS;
-#endif
 	}
 	else if ( codecValue.rfind("ac-4",0)==0 )
 	{
@@ -324,7 +322,6 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 	{
 		audioType = eAUDIO_AAC;
 	}
-
 	return audioType;
 }
 
@@ -335,7 +332,6 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool& disabled)
 {
-	printf( "entering StreamAbstractionAAMP_MPD::GetPreferredCodecIndex\n" );
 	bool isTrackSelected = false;
 	if( aamp->preferredCodecList.size() > 0 )
 	{
@@ -363,7 +359,6 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 				{
 					codecValue = adapCodecs.at(0);
 				}
-				printf( "codecValue=%s\n", codecValue.c_str() );
 				auto iter = std::find(aamp->preferredCodecList.begin(), aamp->preferredCodecList.end(), codecValue);
 				if(iter != aamp->preferredCodecList.end())
 				{  /* track is in preferred codec list */
@@ -5687,7 +5682,6 @@ void StreamAbstractionAAMP_MPD::UpdateLanguageList()
 int StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage( int &desiredRepIdx, AudioType &CodecType,
 std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 {
-	printf( "entering StreamAbstractionAAMP_MPD::GetBestAudioTrackByLanguage\n" );
 	int bestTrack = -1;
 	unsigned long long bestScore = 0;
 	AudioTrackInfo selectedAudioTrack; /**< Selected Audio track information */
@@ -5788,7 +5782,6 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			int audioRepresentationIndex = -1;
 			long codecScore = 0;
 			bool disabled = false;
-			printf( "disableAC4=%d\n", disableAC4 );
 			if(!GetPreferredCodecIndex(adaptationSet, audioRepresentationIndex, selectedCodecType, selRepBandwidth, codecScore, disableEC3 , disableATMOS, disableAC4, disableAC3, disabled))
 			{
 				audioRepresentationIndex = GetDesiredCodecIndex(adaptationSet, selectedCodecType, selRepBandwidth, disableEC3 , disableATMOS, disableAC4, disableAC3, disabled);
