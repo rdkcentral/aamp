@@ -18,6 +18,7 @@
  */
 
 #include "AmlogicSocInterface.h"
+#include "gst_svp_meta.h"
 
 /**
  * @brief AmlogicSocInterface constructor.
@@ -164,6 +165,26 @@ void AmlogicSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 bool AmlogicSocInterface::IsVideoSink(const char* name)
 {
 	return name && StartsWith(name, "westerossink");
+}
+
+/**
+ * @brief Get SVP Context
+ * @param svpCtx svp context
+ * @param server To identify server/client
+ * @param flags SVP Flag
+ */
+void AmlogicSocInterface::SvpGetContext(void **svpCtx, int flags)
+{
+	gst_svp_ext_get_context(svpCtx, Server, flags);
+}
+
+/**
+ * @brief Free SVP Context
+ * @param svpCtx svp context
+ */
+void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
+{
+	gst_svp_ext_free_context(svpCtx);
 }
 
 /**

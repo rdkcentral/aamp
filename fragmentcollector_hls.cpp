@@ -448,7 +448,7 @@ void static setupStreamInfo(HlsStreamInfo & streamInfo)
 void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 {
 	/** If fragments are CDM encrypted KC **/
-	if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense))
+	if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_FragMp4PrefetchLicense))
 	{
 		std::lock_guard<std::mutex> guard(aamp->drmParserMutex);
 		DrmHelperPtr drmHelperToUse = nullptr;
@@ -630,7 +630,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 				}
 				else if (ptr.removePrefix("-X-SESSION-KEY:"))
 				{
-					if (ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense))
+					if (ISCONFIGSET(eAAMPConfig_FragMp4PrefetchLicense))
 					{
 						std::string KeyTagStr = ptr.tostring();
 						{
@@ -2097,7 +2097,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					//Need keytag idx to pick the corresponding keytag and get drmInfo,so that second parsing can be removed
 					//drmMetadataIdx = mDrmMetaDataIndexPosition;
 					if(mDrmMethod == eDRM_KEY_METHOD_SAMPLE_AES_CTR){
-						if (ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense)){
+						if (ISCONFIGSET(eAAMPConfig_FragMp4PrefetchLicense)){
 							{
 								std::lock_guard<std::mutex> guard(aamp->drmParserMutex);
 								attrNameData* aesCtrAttrData = new attrNameData(keyinfo.mKeyTagStr);
@@ -3400,7 +3400,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				{
 					long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 					long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
-					//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when peristLowNetworkConfig exist
+					//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 					if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
 					{
 						AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);

@@ -91,6 +91,38 @@ class AmlogicSocInterface : public SocInterface
 		void SetAC4Tracks(GstElement *src, int trackId) override;
 
 		/**
+		 * @brief Get SVP Context
+		 */
+		void SvpGetContext(void **svpCtx, int flags)override;
+
+		/**
+		 * @brief Free SVP Context
+		 */
+		void SvpFreeContext(void *svpCtx)override;
+
+		/**
+		 * @brief Configure the accept caps
+		 * @return void
+		 */
+		void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+                         AcceptCapsFunc accept_caps_func)override {
+			return;	 }
+
+		/**
+		 * @brief Indicates whether transform capabilities are required.
+		 * @return true if transform capabilities are required; otherwise, false
+		 */
+		bool IsTransformCapsRequired() const override {
+			return true; }
+
+		/**
+		 * @brief Indicates whether decryption is required.
+		 * @return true if decryption are required; otherwise, false
+		 */
+		bool IsDecryptRequired() const override {
+			return true; }
+
+		/**
 		 * @brief Set rate correction.
 		 * @return True on success, false otherwise.
 		 */

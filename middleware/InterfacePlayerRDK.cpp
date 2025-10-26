@@ -3810,7 +3810,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	}
 	else if (eGST_MEDIATYPE_AUDIO == mediaType)
 	{
-		MW_LOG_MIL("OnAudioFirstFrame. got First Audio Frame");
+		MW_LOG_MIL("OnFirstAudioFrame. got First Audio Frame");
 		if (audioOnly)
 		{
 			if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
