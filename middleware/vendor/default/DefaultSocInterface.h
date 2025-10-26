@@ -166,16 +166,7 @@ public:
 	 */
 	void SetHevcCaps(GstCaps *caps)override;
 	
-	bool IsVideoMaster(GstElement *videoSink)override{
-		gboolean isMaster{TRUE};
-		GParamSpec *pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(videoSink),"is-master");
-		if( pspec!=NULL )
-		{ // rialto-specific
-			g_object_get(videoSink, "is-master", &isMaster, nullptr);
-			MW_LOG_INFO("is-master %d", isMaster);
-		}
-		return (isMaster == TRUE);
-	}
+	bool IsVideoMaster(GstElement *videoSink)override;
 };
 
 #endif
