@@ -177,14 +177,18 @@ set(SOURCES
 	PlayerScheduler.cpp
 	gstplayertaskpool.cpp
 	PlayerUtils.cpp
-	vendor/SocInterface.cpp
-	vendor/amlogic/AmlogicSocInterface.cpp
-	vendor/realtek/RealtekSocInterface.cpp
-	vendor/brcm/BrcmSocInterface.cpp
-	vendor/default/DefaultSocInterface.cpp
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
+						vendor/realtek/RealtekSocInterface.cpp
+						vendor/brcm/BrcmSocInterface.cpp
+						vendor/default/DefaultSocInterface.cpp
+						vendor/SocInterface.cpp)
+else()
+	list(APPEND SOURCES test/utests/fakes/FakeSocInterface.cpp)
+endif()
 set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp
 	drm/DrmSession.cpp
@@ -365,6 +369,10 @@ target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
+
+if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_link_libraries(playergstinterface gstsvpext)
+endif()
 
 set_target_properties(playergstinterface PROPERTIES COMPILE_FLAGS "${LIBPLAYERGSTINTERFACE_DEFINES} ${OS_CXX_FLAGS}")
 

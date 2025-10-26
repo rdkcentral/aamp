@@ -266,7 +266,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::idleCb] = [this]()
 	{
 		UsingPlayerId playerId( aamp->mPlayerId );
-		aamp->ReportProgress();
+		aamp->MonitorProgress();
 
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
@@ -276,7 +276,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 		{
 			privateContext->mBufferControl[i].update(this, static_cast<AampMediaType>(i));
 		}
-		aamp->ReportProgress();
+		aamp->MonitorProgress();
 	};
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
