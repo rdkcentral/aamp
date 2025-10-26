@@ -244,3 +244,8 @@ void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_cla
 													AcceptCapsFunc accept_caps_func)
 {
 }
+
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
+{
+	return true;
+}
