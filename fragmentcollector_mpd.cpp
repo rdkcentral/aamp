@@ -286,14 +286,11 @@ static bool IsAtmosAudio(const IMPDElement *nodePtr)
 static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 {
 	AudioType audioType = eAUDIO_UNSUPPORTED;
-	std::string ac4 = "ac-4";
 	if (codecValue == "ec+3")
 	{
-#ifndef __APPLE__
 		audioType = eAUDIO_ATMOS;
-#endif
 	}
-	else if (!codecValue.compare(0, ac4.size(), ac4))
+	else if ( codecValue.rfind("ac-4",0)==0 )
 	{
 		audioType = eAUDIO_DOLBYAC4;
 	}
@@ -325,7 +322,6 @@ static AudioType getCodecType(string & codecValue, const IMPDElement *rep)
 	{
 		audioType = eAUDIO_AAC;
 	}
-
 	return audioType;
 }
 
@@ -4292,10 +4288,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 
-		// Rialto does not support dynamic streams, so we need to extract and save the 
+		// Rialto does not support dynamic streams, so we need to extract and save the
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) &&
 		   !mIsLiveStream &&
 		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
@@ -5783,7 +5779,6 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 			bool disableATMOS = (disableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 			bool disableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
 			bool disableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
-
 			int audioRepresentationIndex = -1;
 			long codecScore = 0;
 			bool disabled = false;
@@ -10965,7 +10960,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	//TODO - check whether the ugly hack above is in operation
 	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
-	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && 
+	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] &&
 		mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
 		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
