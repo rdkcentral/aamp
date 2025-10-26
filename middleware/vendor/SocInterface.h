@@ -25,9 +25,13 @@
 #include <vector>
 #include <memory>
 #include <gst/base/gstbasesink.h>
+#include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
+
+typedef gboolean (*AcceptCapsFunc)(GstBaseTransform *, GstPadDirection, GstCaps *);
+
 /**
  * @brief Enumeration for play flags.
  *
@@ -100,6 +104,16 @@ public:
 	 * @param status Set to `true` if Westeros Sink is enabled, `false` otherwise.
 	 */
 	void SetWesterosSinkState(bool status);
+
+	/**
+	 * @brief Get SVP Context
+	 */
+	virtual void SvpGetContext(void **svpCtx, int flags){};
+
+	/**
+	 * @brief Free SVP Context
+	 */
+	virtual void SvpFreeContext(void *svpCtx){};
 	
 	/*@brief returns true if video stats required from sink otherwise false*/
 	virtual bool IsPlaybackQualityFromSink(){return false;}
@@ -125,6 +139,27 @@ public:
 	 * @return A pointer to the created SocInterface object.
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
+
+	/**
+	 * @brief Configure the accept caps
+	 * @return void
+	 */
+	virtual void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+						 AcceptCapsFunc accept_caps_func);
+
+	/**
+	 * @brief Indicates whether transform capabilities are required.
+	 * @return true if transform capabilities are required; otherwise, false
+	 */
+	virtual bool IsTransformCapsRequired() const {
+		return false; }
+
+	/**
+	 * @brief Indicates whether decryption is required.
+	 * @return true if decryption are required; otherwise, false
+	 */
+	virtual bool IsDecryptRequired() const {
+		return false; }
 	
 	/**
 	 * @brief Check if AppSrc should be used.
@@ -134,15 +169,6 @@ public:
 	 * @return True if AppSrc should be used, false otherwise.
 	 */
 	virtual bool UseAppSrc(){return false;}
-	
-	/**
-	 * @brief Check if AC4 should be disabled.
-	 *
-	 * Determines whether AC4 support should be disabled.
-	 *
-	 * @return True if AC4 should be disabled, false otherwise.
-	 */
-	virtual bool IsSupportedAC4(){return false;}
 	
 	/**
 	 * @brief Check if Westeros sink should be used.
