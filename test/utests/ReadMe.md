@@ -18,7 +18,7 @@ NOTE: Writing microtests is a really useful tool in improving code quality but i
 
 ## Pre-requisites to building:
 
-AAMP installed using install-aamp.sh (-c if code coverage is neeeded) script which:
+AAMP installed using install-aamp.sh (-c if code coverage is needed) script which:
  - installs headers from dependent libraries
  - installs GoogleTest and GoogleMock
  - installs jq
