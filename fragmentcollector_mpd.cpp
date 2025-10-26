@@ -354,7 +354,7 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 				const std::vector<string> codecs = rep->GetCodecs();
 				string codecValue="";
 
-				/* check if Representation includec codec */
+				/* check if Representation included codec */
 				if(codecs.size())
 				{
 					codecValue=codecs.at(0);
@@ -372,7 +372,7 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 				AudioType codecType = getCodecType(codecValue, rep);
 				score += (uint32_t)codecType;
 				if (((codecType == eAUDIO_ATMOS) && (disableATMOS || disableEC3)) || /*ATMOS audio disable by config */
-					((codecType == eAUDIO_DDPLUS) && disableEC3) || /* EC3 disable neglact it that case */
+					((codecType == eAUDIO_DDPLUS) && disableEC3) || /* EC3 disable neglect it that case */
 					((codecType == eAUDIO_DOLBYAC4) && disableAC4) || /** Disable AC4 **/
 					((codecType == eAUDIO_DOLBYAC3) && disableAC3) ) /**< Disable AC3 **/
 				{
@@ -461,7 +461,7 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 			const std::vector<string> codecs = rep->GetCodecs();
 			AudioType audioType = eAUDIO_UNKNOWN;
 			string codecValue="";
-			// check if Representation includec codec
+			// check if Representation included codec
 			if(codecs.size())
 				codecValue=codecs.at(0);
 			else if(adapCodecs.size()) // else check if Adaptation has codec defn
@@ -2951,7 +2951,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		{
 			if(pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE)
 			{
-				//Updating fragmentTime and fragmentDescriptor.Time with fisrtPTS
+				//Updating fragmentTime and fragmentDescriptor.Time with firstPTS
 				//CacheFragment is called with both fragmentTime and fragmentDescriptor.Time
 				pMediaStreamContext->fragmentTime = GetFirstPTS();
 				pMediaStreamContext->fragmentDescriptor.Time = GetFirstPTS();
@@ -4275,7 +4275,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				}
 				else if (mIsLiveStream)
 				{
-					AAMPLOG_INFO("Pipeline set as clear since no enc perid found");
+					AAMPLOG_INFO("Pipeline set as clear since no enc period found");
 					//If no encrypted period is found, then update the pipeline status
 					aamp->mPipelineIsClear = true;
 				}
@@ -4521,17 +4521,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	double downloadTime;
 	bool updateVideoEndMetrics = false;
 	int http_error = 0;
-
 	{
 		mManifestDnldRespPtr = MakeSharedManifestDownloadResponsePtr();
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
-
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		// Get the Manifest with a wait of Manifest Timeout time
 		mManifestDnldRespPtr = dnldInstance->GetManifest(true, aamp->mManifestTimeoutMs);
-		gotManifest	= (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-		http_error = mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-		downloadTime = mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
+		gotManifest		=	(mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
+		http_error		=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
+		downloadTime	=	mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
 		//update videoend info
 		updateVideoEndMetrics = true;
 		if (gotManifest)
@@ -4544,7 +4542,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && (CURLE_OPERATION_TIMEDOUT == http_error || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
@@ -4586,7 +4584,23 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			{
 				aamp->UpdateDuration(0);
 				aamp->SetFlushFdsNeededInCurlStore(true);
-				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+
+				switch( http_error )
+				{
+					case eCURL_TIMEOUT_DNS:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DNS_RESOLVE_TIMEOUT, http_error);
+						break;
+					case eCURL_TIMEOUT_CONNECT:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_CURL_CONNECTION_TIMEOUT, http_error);
+						break;
+					case eCURL_TIMEOUT_DATA:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DATA_TRANSFER_TIMEOUT, http_error);
+						break;
+					default:
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+						break;
+				}
+
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			}
@@ -4712,7 +4726,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 		{
 			// if already mpd is available
 			if (this->mpd != NULL
-				&& (CURLE_OPERATION_TIMEDOUT == http_error || CURLE_COULDNT_CONNECT == http_error))
+				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
@@ -4927,7 +4941,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 			}
 		}
 
-		// Iterate through each of the MPD's Period nodes, and ProgrameInformation.
+		// Iterate through each of the MPD's Period nodes, and ProgramInformation.
 		int periodCnt = 0;
 		for (size_t i=0; i < subNodes.size(); i++) {
 			Node* node = subNodes.at(i);
@@ -7880,7 +7894,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 							long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
-							//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when peristLowNetworkConfig exist
+							//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 							if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
 							{
 								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);

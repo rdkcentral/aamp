@@ -100,24 +100,23 @@ bool PlayerExternalsInterface::GetActiveInterface()
 }
 
 /**
- * @brief setup active interface handler , true if wifi false if not
- */
-bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
-{
-    return false;
-}
-
-/**
- * @brief initilaize IARM
- */
-void PlayerExternalsInterface::IARMInit(const char* processName)
-{
-}
-
-/**
  * @brief should wifi curl header be configured
  */
 bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 {
     return false;
+}
+
+/**
+ * @brief Initialize PlayerExternalsInterface
+ */
+void PlayerExternalsInterface::Initialize()
+{
+}
+
+/*
+ * @brief SetUseFireBoltSDK
+ */
+void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
+{
 }
