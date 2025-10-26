@@ -2252,21 +2252,15 @@ Example:
 **Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - sessionHandle:string
-- status:string
- 
-    Additional information regarding the security condition as defined
-- system:string
-   
-    Identifies the content watermarking protection provider. Current supported watermarking system is FriendMTS denoted as fmts_asid.
-
+- system:string Identifies the content watermarking protection provider, i.e. "fmts_asid" (FriendMTS).  Note: this is valid when using SecManager, but not Firebolt
+- status:string Additional information regarding security systwm state.  See below table:
+  
 | Code      | Name         |   Definition
 | --------- |------------- |--------------
 | 1         | GRANTED      | No security issues
 | 2         | NOT_REQUIRED | Watermark session granted
 | 3         | DENIED       | Watermark session not required
 | 4 / 20001 | FAILED       | Watermark session denied
-
-Note: System parameter is valid only in security manager and not in firebolt 
 
 **Description:**
 - Watermarking session information
