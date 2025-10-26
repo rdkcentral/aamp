@@ -1287,9 +1287,10 @@ public:
 	/**
 	 *   @fn GetThumbnails
 	 *
-	 *   @param[in] eduration duration  for thumbnails
+	 *   @param[in] tStart range start for thumbnails
+	 *   @param[in] tEnd range end for thumbnails
 	 */
-	std::string GetThumbnails(double sduration, double eduration);
+	std::string GetThumbnails(double tStart, double tEnd);
 
 	/**
 	 *   @fn SetPausedBehavior
