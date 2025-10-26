@@ -1813,6 +1813,22 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 {
 	LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
 
+    // Check for duplicate: see if jsCallback is already registered for this event type
+	if (obj->_listeners.count(type) > 0)
+	{
+		auto range = obj->_listeners.equal_range(type);
+		for (auto iter = range.first; iter != range.second; ++iter)
+		{
+			AAMP_JSEventListener *listener = static_cast<AAMP_JSEventListener*>(iter->second);
+			if (listener->p_jsCallback == jsCallback)
+			{
+				// Listener already registered for this type and callback, ignore registration
+				LOG_WARN_EX("Duplicate event listener registration ignored for type %d and callback %p", type, jsCallback);
+				return;
+			}
+		}
+	}
+	
 	AAMP_JSEventListener* pListener = NULL;
 
 	switch(type)
