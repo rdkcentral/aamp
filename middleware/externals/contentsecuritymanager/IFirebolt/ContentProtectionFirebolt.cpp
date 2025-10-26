@@ -130,8 +130,8 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
             sessionId.c_str(), statusStr.c_str(), appId.c_str());
 	if(mInitialized)
 	{
-    MW_LOG_INFO("HandleWaterMarkEvent Triggered");
-    PlayerJsonObject statusJson(statusStr);
+   		MW_LOG_INFO("HandleWaterMarkEvent Triggered");
+    	PlayerJsonObject statusJson(statusStr);
 		int reasonCode = -1;
 		if (statusJson.get("failureReason", reasonCode ))
         {
@@ -153,6 +153,7 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 
 void ContentProtectionFirebolt::Initialize()
 {
+	MW_LOG_INFO("ContentProtectionFirebolt Initialize ");
 	m_pFireboltInterface = FireboltInterface::GetInstance();
 	mInitialized = true;
 	/* hide watermarking at startup */

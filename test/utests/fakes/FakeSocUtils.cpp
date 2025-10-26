@@ -28,7 +28,7 @@ namespace SocUtils
 	{
 		return false;
 	}
-	bool IsSupportedAC4( void )
+	bool IsDisabledAC4( void )
 	{
 		return false;
 	}
@@ -44,12 +44,8 @@ namespace SocUtils
 	{
 		return false;
 	}
-	bool DisableAC3( void )
-	{
-		return false;
-	}
 
-	bool IsSupportedAC3()
+	bool IsDisabledAC3()
 	{
 		return false;
 	}
