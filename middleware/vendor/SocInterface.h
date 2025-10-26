@@ -457,6 +457,6 @@ public:
 	 * @param videoSink The video sink element.
 	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(GstElement *videoSink) = 0; // {return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
 };
 #endif
