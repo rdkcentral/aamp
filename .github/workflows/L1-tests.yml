@@ -30,12 +30,12 @@ jobs:
         run: |
           python3 parse_gtest_log.py utest_run.log
       
-      # Publish test results
-      - name: Publish L1 test results
+      # Publish AAMP test results
+      - name: Publish AAMP L1 test results
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Unit Test Results
+          name: AAMP Unit Test Results
           path: test/utests/build/ctest-results.xml
           reporter: java-junit
           
@@ -61,11 +61,11 @@ jobs:
         working-directory: ./middleware/test/utests
         run: ./run.sh
       
-      # Publish test results
-      - name: Publish L1 test results
+      # Publish Middleware test results
+      - name: Publish Middleware L1 test results
         uses: dorny/test-reporter@v1
         with:
-          name: Unit Test Results
+          name: Middleware Unit Test Results
           path: middleware/test/utests/build/ctest-results.xml
           reporter: java-junit
           
