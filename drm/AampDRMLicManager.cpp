@@ -305,7 +305,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 				else
 				{
 					AAMPLOG_INFO("access token is available");
-					challengeInfo.accessToken = sessionToken;
+					challengeInfo.accessToken = std::move(sessionToken);
 				}
 			}
 			if(licenseRequestAbort)
