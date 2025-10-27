@@ -3719,6 +3719,21 @@ bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 }
 
 /**
+ *  @brief Unblock WaitForCachedFragment()
+ */
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+{
+	for ( int type = eTRACK_VIDEO; type <= eTRACK_AUX_AUDIO; type++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType)type);
+		if(track)
+		{
+			track->AbortWaitForCachedFragmentChunk();
+		}
+	}
+}
+
+/**
  *  @brief Get buffered video duration in seconds
  */
 double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
