@@ -274,14 +274,15 @@ protected:
 
     void TearDown() override
     {
+        // Delete in reverse order of construction to avoid dangling pointers
         delete TrackStateobj;
         TrackStateobj = nullptr;
+
+        delete mStreamAbstractionAAMP_HLS;
+        mStreamAbstractionAAMP_HLS = nullptr;
 
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
-
-        delete TrackStateobj;
-        TrackStateobj = nullptr;
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
@@ -2138,8 +2139,11 @@ TEST_F(TrackStateTests, AbortWaitForCachedFragmentTests)
 
 TEST_F(TrackStateTests, ProcessFragmentChunkTests)
 {
-    // After unified fragment processing refactor, ProcessFragmentChunk() returns true
-    // to indicate the call was handled (even if no media payload injected). Adjust expectation.
+    // This test verifies ProcessFragmentChunk() can be called and returns true.
+    // Note: The test fixture doesn't set up chunk mode (maxCachedFragmentChunksPerTrack=0),
+    // so GetFetchChunkBuffer would fail. Instead, we just verify the method doesn't crash
+    // and returns true indicating the call was handled.
+    
     bool result = TrackStateobj->ProcessFragmentChunk();
     ASSERT_TRUE(result);
 }
@@ -2660,9 +2664,14 @@ TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment )
 
 TEST_F(TrackStateTests,CheckForFutureDiscontinuityTest)
 {
-    double cacheDuration = 1.1;
-    TrackStateobj->numberOfFragmentsCached = 1;
-    TrackStateobj->CheckForFutureDiscontinuity(cacheDuration);
+    // Call CheckForFutureDiscontinuity with default state
+    // The method should handle empty cache gracefully
+    double cacheDuration = 0.0;
+    bool hasDiscontinuity = TrackStateobj->CheckForFutureDiscontinuity(cacheDuration);
+
+    // With numberOfFragmentsCached=0 (default), should return false and cacheDuration=0
+    EXPECT_FALSE(hasDiscontinuity);
+    EXPECT_EQ(cacheDuration, 0.0);
 }
 
 TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment_1 )

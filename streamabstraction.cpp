@@ -3442,7 +3442,7 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
 		}
 		count--;
 	}
-	AAMPLOG_WARN("track %s cachedCount=%d/%d cachedDuration=%f", name, GetCachedFragmentCount(), GetMaxCachedFragmentCount(), cachedDuration);
+	AAMPLOG_WARN("track %s cachedCount=%d/%d cachedDuration=%f", name, GetCachedFragmentCount_Locked(), GetMaxCachedFragmentCount_Locked(), cachedDuration);
 
 	return ret;
 }
@@ -4716,7 +4716,7 @@ bool MediaTrack::ShouldUseChunkBasedProcessing(const CachedFragment* cachedFragm
 	return false;
 }
 
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
+bool MediaTrack::IsInjectionFromCachedFragmentChunks() const
 {
 	// Delegate to unified decision logic. Passing nullptr means decision
 	// is based purely on environmental forcing (LL-DASH/TSB). If future

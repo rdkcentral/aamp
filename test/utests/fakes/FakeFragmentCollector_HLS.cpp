@@ -29,6 +29,8 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 
 StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 {
+	// Fake allows real destructor from fragmentcollector_hls.cpp to run
+	// but relies on fake PrivateInstanceAAMP methods (CurlTerm, SyncBegin, SyncEnd) being no-ops
 }
 
 AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType) { return eAAMPSTATUS_OK; }

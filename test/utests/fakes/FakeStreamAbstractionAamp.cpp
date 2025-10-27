@@ -426,7 +426,7 @@ void MediaTrack::FlushFragmentChunks()
 {
 }
 
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
+bool MediaTrack::IsInjectionFromCachedFragmentChunks() const
 {
 	bool ret = false;
 	return ret;

@@ -694,7 +694,7 @@ public:
 	 *
 	 * @return True if fragments to inject are coming from mCachedFragmentChunks
 	 */
-	bool IsInjectionFromCachedFragmentChunks();
+	bool IsInjectionFromCachedFragmentChunks() const;
 
 	
 	/**
@@ -711,18 +711,43 @@ public:
 	 * @fn GetCachedFragmentCount
 	 * @brief Unified accessor for cached fragment count (chunks or complete) based on current mode.
 	 * @return current cached count for active injection mode.
+	 * @note Thread-safe public API
 	 */
-	int GetCachedFragmentCount() const { return (const_cast<MediaTrack*>(this))->IsInjectionFromCachedFragmentChunks() ? numberOfFragmentChunksCached : numberOfFragmentsCached; }
+	int GetCachedFragmentCount() const
+	{
+		std::lock_guard<std::mutex> guard(mutex);
+		return GetCachedFragmentCount_Locked();
+	}
+
+	/**
+	 * @fn GetCachedFragmentCount_Locked
+	 * @brief Internal helper for GetCachedFragmentCount(). Assumes mutex is already held.
+	 * @return current cached count for active injection mode.
+	 * @note Caller MUST hold mutex before calling this method
+	 */
+	int GetCachedFragmentCount_Locked() const { return IsInjectionFromCachedFragmentChunks() ? numberOfFragmentChunksCached : numberOfFragmentsCached; }
 
 	/**
 	 * @fn GetMaxCachedFragmentCount
 	 * @brief Unified accessor for max cached fragment capacity (chunks or complete) based on current mode.
 	 * @return max cached capacity for active injection mode.
+	 * @note Thread-safe public API
 	 */
 	int GetMaxCachedFragmentCount() const
 	{
 		std::lock_guard<std::mutex> guard(mutex);
-		return (const_cast<MediaTrack*>(this))->IsInjectionFromCachedFragmentChunks() ? (int)mCachedFragmentChunksSize : maxCachedFragmentsPerTrack;
+		return GetMaxCachedFragmentCount_Locked();
+	}
+
+	/**
+	 * @fn GetMaxCachedFragmentCount_Locked
+	 * @brief Internal helper for GetMaxCachedFragmentCount(). Assumes mutex is already held.
+	 * @return max cached capacity for active injection mode.
+	 * @note Caller MUST hold mutex before calling this method
+	 */
+	int GetMaxCachedFragmentCount_Locked() const
+	{
+		return IsInjectionFromCachedFragmentChunks() ? (int)mCachedFragmentChunksSize : maxCachedFragmentsPerTrack;
 	}
 
 	/**
