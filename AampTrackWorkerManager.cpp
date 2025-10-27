@@ -125,7 +125,7 @@ namespace aamp
 			std::shared_ptr<AampTrackWorker> worker = it->second;
 			if (worker)
 			{
-				return worker->SubmitJob(job, highPriority);
+				return worker->SubmitJob(std::move(job), highPriority);
 			}
 		}
 		AAMPLOG_ERR("Worker for media type %s not found", GetMediaTypeName(mediaType));
@@ -290,7 +290,7 @@ namespace aamp
 				worker->ClearJobs();
 				// Submit a dummy job to ensure the worker is active and can process jobs
 				auto job = std::make_shared<AampTrackWorkerJob>();
-				auto future = worker->SubmitJob(job);
+				auto future = worker->SubmitJob(std::move(job));
 				// If the future is valid, wait for the reset job to complete
 				if(future.valid())
 				{

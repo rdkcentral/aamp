@@ -193,7 +193,7 @@ std::vector<std::string> extractBaseUrlTexts(DomElement &element)
         string text = eUrl.text();
         if (!text.empty())
         {
-            baseUrlTexts.push_back(text);
+            baseUrlTexts.push_back(std::move(text));
         }
     }
     return baseUrlTexts;
@@ -227,8 +227,7 @@ std::vector<std::string> findAllBaseUrls(DomElement &element, const std::vector<
                 {
                     for (const auto &base : current)
                     {
-                        auto out = Url(base).resolve(newbase).format(Url::StripTrailingSlash).append(slash);
-                        baseUrls.push_back(out);
+                        baseUrls.push_back(Url(base).resolve(newbase).format(Url::StripTrailingSlash).append(slash));
                     }
                 }
             }

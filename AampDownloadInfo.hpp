@@ -151,7 +151,7 @@ struct DownloadInfo
 		  curlInstance(curlInstance),
 		  absolutePosition(absolutePosition),
 		  fragmentDurationSec(fragmentDurationSec),
-		  range(range),
+		  range(std::move(range)),
 		  fragmentIndex(fragmentIndex),
 		  fragmentOffset(fragmentOffset),
 		  isInitSegment(isInitSegment),

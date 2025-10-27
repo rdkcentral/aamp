@@ -7922,7 +7922,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 						{
 							AAMPLOG_WARN("firstSegTemplate->GetTimescale() is zero, cannot compute fragmentDuration");
 						}
-						if (mMPDParseHelper->GetLiveTimeFragmentSync())
+						if (mMPDParseHelper->GetLiveTimeFragmentSync() && fragmentDuration != 0)
 						{
 							 newStartSegment += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
 						}
@@ -8277,7 +8277,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							{
 								setNextRangeRequest(fragmentUrl, std::move(nextrange), (&pMediaStreamContext->fragmentDescriptor)->Bandwidth, AampMediaType(pMediaStreamContext->type));
 							}
-							if (!FetchFragment(pMediaStreamContext, fragmentUrl, 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity, 0, pMediaStreamContext->fragmentDescriptor.TimeScale, range))
+							if (!FetchFragment(pMediaStreamContext, fragmentUrl, 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity, 0, pMediaStreamContext->fragmentDescriptor.TimeScale, std::move(range)))
 							{
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
@@ -8378,7 +8378,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											setNextobjectrequestUrl(nextsegurl->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 										}
-										if(!FetchFragment(pMediaStreamContext, fragmentUrl, 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity, 0, pMediaStreamContext->fragmentDescriptor.TimeScale, range))
+										if(!FetchFragment(pMediaStreamContext, fragmentUrl, 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity, 0, pMediaStreamContext->fragmentDescriptor.TimeScale, std::move(range)))
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
@@ -9657,7 +9657,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							aamp->GetAampTrackWorkerManager()->WaitForCompletionWithTimeout(MAX_WAIT_TIMEOUT_MS, [this]() {
 								if (mIsLiveManifest)
 								{
-									UpdateMPD(); // Helps slide the progress window
+									if (eAAMPSTATUS_OK != UpdateMPD())
+									{
+										AAMPLOG_DEBUG("Failed to refresh MPD");
+									}
 								}
 							});
 						}
@@ -13974,7 +13977,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 					fragmentDescriptor->Bandwidth = rep->GetBandwidth();
 					// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
 					ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
-					uriList[fragmentDescriptor->Bandwidth] = fogUriInfo;
+					uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
 				}
 				break; // No need to process further representations for fog TSB init fragments
 			}
@@ -13983,7 +13986,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 				// For non-fog TSB, we can use the representation's bandwidth
 				// to construct the URL for init fragments
 				ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(urlTemplate), aamp->mConfig);
-				uriList[fragmentDescriptor->Bandwidth] = uriInfo;
+				uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
 				continue;
 			}
 		}
@@ -14007,7 +14010,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 			// For segment base, we need to use the index range for the URL
 			// The range is identified by parsing sidx box and it is done at downloader level
 			ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), "", aamp->mConfig);
-			uriList[fragmentDescriptor->Bandwidth] = uriInfo;
+			uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
 			continue;
 		}
 
@@ -14032,7 +14035,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 				if (!initUrl.empty())
 				{
 					ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(initUrl), aamp->mConfig);
-					uriList[fragmentDescriptor->Bandwidth] = uriInfo;
+					uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
 				}
 				else
 				{
@@ -14048,7 +14051,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 							snprintf(temp, sizeof(temp), "0-%d", start - 1);
 							uriInfo.range = temp;
 							ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), "", aamp->mConfig);
-							uriList[fragmentDescriptor->Bandwidth] = uriInfo;
+							uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
 						}
 						else
 						{
@@ -14068,7 +14071,7 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 					{
 						ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), segmentURL->GetMediaURI(), aamp->mConfig);
 						uriInfo.range = segmentURL->GetMediaRange();
-						uriList[fragmentDescriptor->Bandwidth] = uriInfo;
+						uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
 					}
 					else
 					{
