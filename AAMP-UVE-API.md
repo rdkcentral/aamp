@@ -2253,7 +2253,7 @@ Example:
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details.
 - sessionHandle:string
 - system:string Identifies the content watermarking protection provider, i.e. "fmts_asid" (FriendMTS).  Note: this is only valid when using SecManager.
-- status:string Additional information regarding security systwm state.  See below table:
+- status:string Additional information regarding security system state.  See below table:
   
 | Code      | Name         |   Definition
 | --------- |------------- |--------------
