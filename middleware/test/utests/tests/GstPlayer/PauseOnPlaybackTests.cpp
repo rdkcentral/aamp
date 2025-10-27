@@ -188,7 +188,6 @@ TEST_F(PauseOnPlaybackTests, EnteredPausedSteHandler_ConfigureNormalPlayback)
 // "first-video-frame-callback" callback from gstreamer when the frame is displayed
 TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 {
-	GTEST_SKIP(); // focus on Rialto only for now
 	// this feature covered in L3 test, but not implemented on all SoCs
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"Pipeline"}};
 	GstElement gst_element_video_sink = {.object = {.name = (gchar *)"brcmvideosink0"}};
@@ -197,6 +196,9 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 	GstPipeline *pipeline = GST_PIPELINE(&gst_element_pipeline);
 	GstBusFunc bus_message_func = nullptr;
 	GstBusSyncHandler bus_sync_func = nullptr;
+	InterfacePlayerPriv* privatePlayer = nullptr;
+	privatePlayer = mInterfaceGstPlayer->GetPrivatePlayer();
+	privatePlayer->gstPrivateContext->video_sink = &gst_element_video_sink;
 
 	// Expectations
 	// CreatePipeline()
@@ -266,10 +268,11 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 			SetArgPointee<3>(GST_STATE_NULL)));
 
 	GParamSpec spec = {};
-    // Property available
-    EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_,StrEq("frame-step-on-preroll")))
-		.WillOnce(Return(&spec));
-
+	// Property available
+	privatePlayer->gstPrivateContext->video_sink = &gst_element_video_sink;
+	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("frame-step-on-preroll")))
+		.WillOnce(Return(reinterpret_cast<GParamSpec*>(0x1)));
+	
     // No simple solution to mock variadic functions, so cannot check calls to g_object_set
 
     EXPECT_CALL(*g_mockGStreamer, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1.0, FALSE, FALSE))
