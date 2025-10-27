@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2024 RDK Management
+# Copyright 2025 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,14 +19,10 @@ include(GoogleTest)
 
 set(PLAYER_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PlayerGstPlayer)
+set(EXEC_NAME InterfacePlayerTest)
 
-include_directories(${PLAYER_ROOT})
-include_directories(${PLAYER_ROOT}/playerLogManager)
-include_directories(${PLAYER_ROOT}/subtec/subtecparser)
-include_directories(${PLAYER_ROOT}/subtec/libsubtec)
-include_directories(${PLAYER_ROOT}/vendor)
-include_directories(${UTESTS_ROOT}/fakes)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/subtec/libsubtec)
+
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -34,29 +30,31 @@ include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${UTESTS_ROOT}/mocks)
+include_directories(${PLAYER_ROOT}/tsb/api)
+include_directories(${PLAYER_ROOT}/playerLogManager)
+include_directories(${PLAYER_ROOT}/vendor)
 include_directories(${PLAYER_ROOT}/externals)
 include_directories(${PLAYER_ROOT}/../test/gstTestHarness)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES PauseOnPlaybackTests.cpp
-              FunctionalTests.cpp
-              GstPlayerTests.cpp
-              )
+set(TEST_SOURCES InterfacePlayerFunctionTests.cpp
+		InterfacePlayerTests.cpp)
 
 set(PLAYER_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
 		${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
 
-set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeGStreamer.cpp
-                  ${UTESTS_ROOT}fakes/FakeGLib.cpp)
+set(FAKE_SOURCES ${PLAYER_ROOT}/test/utests/fakes/FakeGStreamer.cpp
+                 ${PLAYER_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp)
+
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
-	       ${PLAYER_SOURCES}
+               ${PLAYER_SOURCES}
                ${FAKE_SOURCES})
+
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
