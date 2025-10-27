@@ -47,12 +47,11 @@ namespace SocUtils
 	 * This function checks the SOC interface for AC-4 support and also verifies
 	 * if the codec is supported at the InterfacePlayerRDK level.
 	 *
-	 * @return true if AC-4 is supported, false otherwise.
+	 * @return true if AC-4 is not supported
 	 */
-	bool IsSupportedAC4( void )
+	bool IsDisabledAC4( void )
 	{
-		bool disableAc = socInterface->IsSupportedAC4();
-		return (disableAc || (!InterfacePlayerRDK::IsCodecSupported("ac-4")));
+		return !InterfacePlayerRDK::IsCodecSupported("ac-4");
 	}
 
 	/**
@@ -60,11 +59,11 @@ namespace SocUtils
 	 *
 	 * This function checks whether the AC-3 codec is supported by InterfacePlayerRDK.
 	 *
-	 * @return true if AC-3 is supported, false otherwise.
+	 * @return true if AC-3 is not supported
 	 */
-	bool IsSupportedAC3( void )
+	bool IsDisabledAC3( void )
 	{
-		return (!InterfacePlayerRDK::IsCodecSupported("ac-3"));
+		return !InterfacePlayerRDK::IsCodecSupported("ac-3");
 	}
 
 	/**

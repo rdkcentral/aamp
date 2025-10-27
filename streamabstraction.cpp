@@ -181,13 +181,13 @@ void MediaTrack::MonitorBufferHealth()
 	int bufferHealthMonitorInterval = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval);
 	int discontinuityTimeoutValue = GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout);
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
-	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
+	unsigned int bufferMonitorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
 	AAMPLOG_INFO("[%s] Start MonitorBufferHealth, downloads %d abort %d delay %ds interval %ds discontinuityTimeout %dms",
 				 name, aamp->DownloadsAreEnabled(), abort, bufferHealthMonitorDelay, bufferHealthMonitorInterval, discontinuityTimeoutValue);
 	if(aamp->DownloadsAreEnabled() && !abort)
 	{
-		aamp->interruptibleMsSleep(bufferMontiorScheduleTime *1000);
+		aamp->interruptibleMsSleep(bufferMonitorScheduleTime *1000);
 		keepRunning = true;
 	}
 	int monitorInterval = bufferHealthMonitorInterval  * 1000;
@@ -2154,7 +2154,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mPTSOffset(0.0),
-		mID3Handler{mID3Handler}
+		mID3Handler{std::move(mID3Handler)}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
 	AAMPLOG_TRACE("StreamAbstractionAAMP");
@@ -2795,7 +2795,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 			}
 		}
 		// For timeout, rampdown in single steps might not be enough
-		else if (http_error == CURLE_OPERATION_TIMEDOUT)
+		else if (IsCurlTimeoutFailure (http_error))
 		{
 			if (UpdateProfileBasedOnFragmentCache())
 			{
@@ -4390,13 +4390,13 @@ void MediaTrack::PlaylistDownloader()
 			{
 				if(eMEDIAFORMAT_DASH == aamp->mMediaFormat)
 				{
-					aamp->mManifestUrl = effectiveUrl;
+					aamp->mManifestUrl = std::move(effectiveUrl);
 				}
 				else
 				{
 					// HLS or HLS_MP4
 					// Set effective URL, else fragments will be mapped from old url
-					SetEffectivePlaylistUrl(effectiveUrl);
+					SetEffectivePlaylistUrl(std::move(effectiveUrl));
 				}
 			}
 

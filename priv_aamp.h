@@ -269,7 +269,7 @@ struct EventBreakInfo
 	bool isDAIEvent;     // true if the SCTE35 event is PA START or PPO START
 	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0), isDAIEvent(false)
 	{}
-	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
+	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(std::move(_data)), name(std::move(_name)), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
 	{}
 };
 
@@ -306,7 +306,7 @@ public:
 	 * @param[in] id - Content gap ID
 	 * @param[in] durMS - Total duration of gap identified
 	 */
-	ContentGapInfo(long long timeMS, std::string id, double durMS) : _timeMS(timeMS), _id(id), _complete(false), _durationMS(durMS)
+	ContentGapInfo(long long timeMS, std::string id, double durMS) : _timeMS(timeMS), _id(std::move(id)), _complete(false), _durationMS(durMS)
 	{
 		if(durMS > 0)
 		{
@@ -415,9 +415,9 @@ class AudioTrackTuple
 
 		void setAudioTrackTuple(std::string language="",  std::string rendition="", std::string codec="", unsigned int channel=0)
 		{
-			this->language = language;
-			this->rendition = rendition;
-			this->codec = codec;
+			this->language = std::move(language);
+			this->rendition = std::move(rendition);
+			this->codec = std::move(codec);
 			this->channel = channel;
 			this->bitrate = 0;
 		}
@@ -445,7 +445,7 @@ public:
 	{
 	}
 
-	attrNameData(std::string argument) : attrName(argument), isProcessed(false)
+	attrNameData(std::string argument) : attrName(std::move(argument)), isProcessed(false)
 	{
 	}
 
@@ -535,19 +535,39 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 
 	#define AAMP2ReceiverMsgHdrSz (sizeof(AAMP2ReceiverMsg)-1)
 
-	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
+	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
+	/**
+ 	*  @fn Process json object or language string and save the preferred selection to AampConfig
+ 	*  @param[in] param - language string or json object
+ 	*  @param[out] isSelectionChange - flag to indicate if accessibility has changed
+ 	*/
+	void SavePreferredTextLanguages(const char *param, bool &isSelectionChange);
+
+	/**
+ 	* @brief Set closed caption track with appropriate format from passed text track
+ 	* @param[in] track - Text track information
+ 	*/
+	void SetClosedCaptionsFromTextTrack(TextTrackInfo &track);
+
+	/**
+	 * @brief  Find closed caption track index in list of text tracks
+	 * @param[in] trackInfo - Text track information vector
+	 * @return index of closed caption track otherwise -1 if not found
+	 */
+	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
+
 public:
-    /* @fn RecalculatePTS
-    * @param[in] mediaType stream type
-    * @param[in] ptr buffer pointer
-    * @param[in] len length of buffer
-    */
-    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+	/* @fn RecalculatePTS
+	 * @param[in] mediaType stream type
+	 * @param[in] ptr buffer pointer
+	 * @param[in] len length of buffer
+	 */
+	double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
 
 	/**
 	 * @brief Get profiler bucket type
@@ -800,6 +820,14 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
+	/**
+	 * @fn CheckPreferredTextLanguages
+	 * @param[in] trackInfo - Text track information
+	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
+	 * @param[out] closedCaptionTrackIdx - closed caption track index
+	 */
+	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
@@ -1018,7 +1046,7 @@ public:
 	EventListener* mEventListener;
 	long long prevFirstPeriodStartTime;
 
-	//updated by ReportProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
+	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
 
 	long long mAdPrevProgressTime;
@@ -1426,7 +1454,7 @@ public:
 	 * @return void
 	 */
 	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,int error_code);
-    
+
 	/**
 	 * @fn SendAnomalyEvent
 	 *
@@ -1583,12 +1611,15 @@ public:
 	long long GetVideoPTS();
 
 	/**
-	 *   @fn ReportProgress
+	 *   @fn MonitorProgress
+	 *   @brief Monitor playback progress and report position periodically, also take any necessary actions like
+	 *          correcting the latency by adjusting rate of playback or
+	 *          transitioning from rewind to play when the start of the TSB is reached.
+	 *
  	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  beginningOfStream - Flag to indicate if the progress reporting is for the Beginning Of Stream
-	 *   @return void
 	 */
-	void ReportProgress(bool sync = true, bool beginningOfStream = false);
+	void MonitorProgress(bool sync = true, bool beginningOfStream = false);
 	/**
 	 *   @fn WakeupLatencyCheck
 	 *   @return void
@@ -2494,7 +2525,7 @@ public:
 	 *   @param[in] drm - New DRM type
 	 *   @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -2660,7 +2691,7 @@ public:
 	/**
 	 *   @brief  set virtual stream ID, extracted from manifest
 	 */
-	void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = streamID;}
+	void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = std::move(streamID);}
 
 	/**
 	 *   @brief getTuneType Function to check what is the tuneType
@@ -2913,7 +2944,7 @@ public:
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
 	std::string GetVideoRectangle();
-    
+
 	/**
 	 *   @fn SetPreCacheDownloadList
 	 *   @param[in] dnldListInput Playlist Download list
@@ -3886,7 +3917,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-	
+
 	/**
 	 *	@fn CalculateTrickModePositionEOS
 	 *		- this function only works for (rate > 1) - see priv_aamp.cpp
@@ -3903,7 +3934,7 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
-	
+
 	/**
 	 * @fn GetFormatPositionOffsetInMSecs
 	 * @brief API to get the offset value in msecs for the position values to be reported.
@@ -4151,6 +4182,11 @@ protected:
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:
+	/**
+	 * @brief Play from the start of the TSB
+	 */
+	void PlayFromTsbStart();
+
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
