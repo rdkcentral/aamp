@@ -933,6 +933,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 							if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 							{
 #ifdef IFRAME_COMPLETE_H
+								AAMPLOG_INFO("patrick inserting fixed segment");
 								auto newBuf = AampGrowableBuffer();
 								newBuf.AppendBytes(ucDataBlock, sizeof(ucDataBlock));
 								nextFragment->fragment.Free();
