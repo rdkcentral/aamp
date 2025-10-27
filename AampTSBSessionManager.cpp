@@ -33,6 +33,7 @@
 #include <iostream>
 #include <cmath>
 #include <utility>
+#include "iframe_complete.h"
 
 #define INIT_CHECK_RETURN_VAL(val) \
 	if(!mInitialized_){ \
@@ -931,12 +932,18 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 							// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
 							if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 							{
-								if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
+#ifdef IFRAME_COMPLETE_H
+								auto newBuf = AampGrowableBuffer();
+								newBuf.AppendBytes(ucDataBlock, sizeof(ucDataBlock));
+								nextFragment->fragment.Free();
+								nextFragment->fragment.Replace(&newBuf);
+#else
+								if (!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
 								{
 									AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 								}
-
-								std::ofstream file;
+#endif
+									std::ofstream file;
 								std::string name= "output/Converted" + std::to_string(pts) + ".mp4";
 								AAMPLOG_INFO("patrick saving %s",name.c_str());
 								file.open(name, std::ofstream::binary);

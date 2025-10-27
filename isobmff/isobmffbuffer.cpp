@@ -28,7 +28,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include "iframe_mdat.h"
-#define REPLACE_MDAT 1
+
 static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);
 
 /**
