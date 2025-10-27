@@ -139,28 +139,40 @@ AddSegmentStatus GstMediaPipeline::addSegment(uint32_t needDataRequestId, const 
 
 GstMediaPipeline::GstMediaPipeline()
 {
-	printf( "constructing GstMediaPipeline\n" );
-	pipeline = gst_pipeline_new( "rialtoTest" );
-	for( int i=0; i<2; i++ )
-	{
-		printf( "creating playbin for track#%d\n", i );
-		GstElement *playbin = gst_element_factory_make("playbin", nullptr);
-		track[i].playbin = playbin;
-		track[i].appsrc = nullptr;
-		gboolean rc = gst_bin_add(GST_BIN(pipeline), playbin );
-		assert( rc );
-		g_object_set( playbin, "uri", "appsrc://", nullptr );
-		switch( i )
-		{
-			case TRACK_VIDEO:
-				g_signal_connect( playbin, "deep-notify::source", G_CALLBACK(found_video_source_cb), this );
-				break;
-			case TRACK_AUDIO:
-				g_signal_connect( playbin, "deep-notify::source", G_CALLBACK(found_audio_source_cb), this );
-				break;
-		}
-	}
+    printf("constructing GstMediaPipeline\n");
+    pipeline = gst_pipeline_new("rialtoTest");
+
+    for (int i = 0; i < 2; i++)
+    {
+        printf("creating playbin for track#%d\n", i);
+
+        GstElement* playbin = gst_element_factory_make("playbin", nullptr);
+        assert(playbin);
+
+        track[i].playbin = playbin;
+        track[i].appsrc = nullptr;
+
+        gboolean rc = gst_bin_add(GST_BIN(pipeline), playbin);
+        assert(rc);
+
+        g_object_set(playbin, "uri", "appsrc://", nullptr);
+
+        if (i == TRACK_VIDEO) {
+            GstElement* videoSink = gst_element_factory_make("rialtomsevideosink", "video-sink");
+            assert(videoSink);
+            g_object_set(playbin, "video-sink", videoSink, nullptr);
+            g_signal_connect(playbin, "deep-notify::source",
+                             G_CALLBACK(found_video_source_cb), this);
+        } else {
+            GstElement* audioSink = gst_element_factory_make("rialtomseaudiosink", "audio-sink");
+            assert(audioSink);
+            g_object_set(playbin, "audio-sink", audioSink, nullptr);
+            g_signal_connect(playbin, "deep-notify::source",
+                             G_CALLBACK(found_audio_source_cb), this);
+        }
+    }
 }
+
 
 GstMediaPipeline::~GstMediaPipeline()
 {
