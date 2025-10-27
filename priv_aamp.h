@@ -356,7 +356,7 @@ struct TileLayout
 	int numCols; 		/**< Number of Cols from Tile Inf */
 	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
 	double tileSetDuration; /**< Duration of whole tile set */
-	long long progStartDateTime;
+	long long progStartDateTime; /**< Program start date time from manifest */
 	TileLayout(): numRows(0), numCols(0), posterDuration(0.0f), tileSetDuration(0.0f), progStartDateTime(0)
 	{
 	}

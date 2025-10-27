@@ -858,16 +858,16 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *************************************************************************/
 		std::map<std::string,double> GetImageRangeString(double*, std::string, TileInfo*, double);
 		/***************************************************************************
-		 * @fn HandleSLEThumbnailData
+		 * @fn HandleImageData
 		 *
 		 * @param tStart start duration of thumbnail data.
 		 * @param tEnd end duration of thumbnail data.
 		 * @return void.
 		 ***************************************************************************/
-		void HandleSLEThumbnailData(double tStart, double tEnd);
+		void HandleSleThumbnailData(double tStart, double tEnd);
 		AampGrowableBuffer thumbnailManifest;	/**< Thumbnail manifest buffer holder */
 		std::vector<TileInfo> indexedTileInfo;	/**< Indexed Thumbnail information */
-		double indexedTileEndTime; //**< endtime received from player applications */
+		double indexedTileEndTime; /**< endTime received from player applications */
 		/***************************************************************************
 		 * @brief Function to get the total number of profiles
 		 *

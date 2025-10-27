@@ -2752,7 +2752,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
     EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
 }
 
-extern std::vector<TileInfo> IndexThumbnails( lstring iter, double stTime=0 );
+extern std::vector<TileInfo> IndexThumbnails( lstring iter );
 
 TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 {
@@ -2794,6 +2794,54 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 	EXPECT_EQ(x[2].layout.posterDuration,30);
 	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
 }
+
+extern std::vector<TileInfo> IndexSleThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime );
+
+TEST_F(StreamAbstractionAAMP_HLSTest, LiveThumbnailIndexing)
+{
+	const char *raw =
+	"#EXTM3U\r\n"
+	"#EXT-X-TARGETDURATION:10\r\n"
+	"#EXT-X-VERSION:7\r\n"
+	"#EXT-X-MEDIA-SEQUENCE:0\r\n"
+	"#EXT-X-IMAGES-ONLY\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:34.412Z\n"
+	"#EXTINF:136.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=5x6,DURATION=10\r\n"
+	"pckimage-0.jpg\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:37.412Z\n"
+	"#EXTINF:200,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=9x17,DURATION=20\r\n"
+	"pckimage-1.jpg\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:41.412Z\r\n"
+	"#EXTINF:100.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=4x3,DURATION=30\r\n"
+	"pckimage-2.jpg\r\n";
+
+    long long lpt=0;
+    double start=0.0f;
+    lstring ii = lstring( raw, strlen(raw) );
+	auto x = IndexSleThumbnails( ii, start, lpt );
+
+	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
+	EXPECT_EQ(x[0].layout.numCols,5);
+	EXPECT_EQ(x[0].layout.numRows,6);
+	EXPECT_EQ(x[0].layout.posterDuration,10);
+	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
+
+	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
+	EXPECT_EQ(x[1].layout.numCols,9);
+	EXPECT_EQ(x[1].layout.numRows,17);
+	EXPECT_EQ(x[1].layout.posterDuration,20);
+	EXPECT_EQ(x[1].layout.tileSetDuration,200);
+
+	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
+	EXPECT_EQ(x[2].layout.numCols,4);
+	EXPECT_EQ(x[2].layout.numRows,3);
+	EXPECT_EQ(x[2].layout.posterDuration,30);
+	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
+}
+
 TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 {
 	std::vector<TextTrackInfo> tracks;
