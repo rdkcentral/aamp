@@ -1799,12 +1799,11 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
-
-		if ((privatePlayer->gstPrivateContext->usingRialtoSink) &&
-			(privatePlayer->socInterface->IsPlatformSegmentReady(privatePlayer->gstPrivateContext->video_sink, privatePlayer->gstPrivateContext->usingRialtoSink)))
+		
+		if( privatePlayer->gstPrivateContext->usingRialtoSink &&
+		   privatePlayer->socInterface->IsVideoMaster(privatePlayer->gstPrivateContext->video_sink) )
 		{
-			// This property is required so that the segment event sent via gst_app_src_push_sample 
-			// in SendNewSegmentEvent, is sent with the next data flow
+			// This property is required so that the segment event sent via gst_app_src_push_sample
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
 		}
@@ -3044,7 +3043,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		// included to fix av sync / trickmode speed issues
 		// Also add check for trick-play on 1st frame.
-		if (interfacePlayerPriv->socInterface->IsPlatformSegmentReady(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
+		if( interfacePlayerPriv->gstPrivateContext->video_sink &&
 			sendNewSegmentEvent == true)
 		{
 			interfacePlayerPriv->SendNewSegmentEvent(mediaType, pts, 0);
@@ -3274,12 +3273,15 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 			segment.stop = stopPts;
 		} 
 
-		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
-			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
+		if( (GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO )
 		{
-			// set applied_rate to trickplay rate if video sink doesn't use vmaster
-			// so that it can correctly handle there being no audio
-			segment.applied_rate = gstPrivateContext->rate;
+			bool isVideoMaster = socInterface->IsVideoMaster(gstPrivateContext->video_sink);
+			if( !isVideoMaster )
+			{
+				// set applied_rate to trickplay rate if video sink doesn't use vmaster
+				// so that it can correctly handle there being no audio
+				segment.applied_rate = gstPrivateContext->rate;
+			}
 		}
 
 		if (gstPrivateContext->usingRialtoSink)
@@ -3808,7 +3810,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	}
 	else if (eGST_MEDIATYPE_AUDIO == mediaType)
 	{
-		MW_LOG_MIL("OnAudioFirstFrame. got First Audio Frame");
+		MW_LOG_MIL("OnFirstAudioFrame. got First Audio Frame");
 		if (audioOnly)
 		{
 			if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
@@ -3881,15 +3883,8 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
 	// This support is available in plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
-	bool isAudioOrVideoDecoder = false;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-
-	if (privatePlayer->socInterface->IsAudioOrVideoDecoder(name, isRialto))
-	{
-		isAudioOrVideoDecoder = true;
-	}
-	return isAudioOrVideoDecoder;
+	return privatePlayer->socInterface->IsAudioOrVideoDecoder(name);
 }
 
 /**
@@ -3901,8 +3896,7 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
 bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-	return privatePlayer->socInterface->IsVideoDecoder(name, isRialto);
+	return privatePlayer->socInterface->IsVideoDecoder(name);
 }
 
 /**
@@ -3960,8 +3954,7 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 bool GstPlayer_isVideoSink(const char* name, InterfacePlayerRDK* pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-	return privatePlayer->socInterface->IsVideoSink(name, isRialto);
+	return privatePlayer->socInterface->IsVideoSink(name);
 }
 
 /**
@@ -4068,8 +4061,7 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 bool GstPlayer_isAudioSinkOrAudioDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
-	return privatePlayer->socInterface->IsAudioSinkOrAudioDecoder(name, isRialto);
+	return privatePlayer->socInterface->IsAudioSinkOrAudioDecoder(name);
 }
 
 
@@ -4545,9 +4537,7 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 			sources.push_back(interfacePlayerPriv->gstPrivateContext->stream[iTrack].source);
 		}
 	}
-
-	bool isRialto = interfacePlayerPriv->gstPrivateContext->usingRialtoSink;
-	ret = interfacePlayerPriv->socInterface->SetPlaybackRate(sources, interfacePlayerPriv->gstPrivateContext->pipeline, rate, interfacePlayerPriv->gstPrivateContext->video_dec,interfacePlayerPriv->gstPrivateContext->audio_dec,isRialto);
+	ret = interfacePlayerPriv->socInterface->SetPlaybackRate(sources, interfacePlayerPriv->gstPrivateContext->pipeline, rate, interfacePlayerPriv->gstPrivateContext->video_dec,interfacePlayerPriv->gstPrivateContext->audio_dec);
 	return ret;
 }
 
@@ -4884,7 +4874,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
 					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
-					{
+					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
@@ -4892,7 +4882,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 						privatePlayer->socInterface->SetDecodeError(msg->src);
 					}
 					else
-					{
+					{ // audio
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->audio_dec, msg->src);
 						type_check_instance("bus_sync_handle: audio_dec ", privatePlayer->gstPrivateContext->audio_dec);
 

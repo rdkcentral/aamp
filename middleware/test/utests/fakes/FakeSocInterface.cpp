@@ -55,11 +55,12 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
 	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 }
-bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool DefaultSocInterface::IsVideoSink(const char* name)
 {
-	return  (!mUsingWesterosSink && StartsWith(name, "brcmvideosink") == true) || // brcmvideosink0, brcmvideosink1, ...
-        ( mUsingWesterosSink && StartsWith(name, "westerossink") == true) ||
-        (isRialto && StartsWith(name, "rialtomsevideosink") == true);
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "brcmvideosink") ||
+					StartsWith(name, "westerossink") );
 }
 /**
  * @brief Check if the given name is a video decoder.
@@ -68,37 +69,25 @@ bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
  * @param isWesteros Westeros flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool DefaultSocInterface::IsVideoDecoder(const char* name)
 {
-	if(mUsingWesterosSink)
-	{
-		return StartsWith(name, "westerossink");
-	}
-	else if (isRialto)
-	{
-		return StartsWith(name, "rialtomsevideosink");
-	}
-	return false;
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "brcmvideosink") ||
+					StartsWith(name, "westerossink") );
 }
+
 /**
  * @brief Check if the given name is an audio or video decoder.
  * @param name Element name.
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
+bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(mUsingWesterosSink && StartsWith(name, "westerossink"))
-	{
-		AudioOrVideoDecoder = true;
-	}
-	else if(isRialto && StartsWith(name, "rialtomse"))
-	{
-		AudioOrVideoDecoder = true;
-	}
-	return AudioOrVideoDecoder;
+	return StartsWith(name,"rialtomsevideosink") || StartsWith(name,"rialtomseaudiosink");
 }
+
 /**
  * @brief Set playback flags.
  *
@@ -225,13 +214,8 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         }
         return status;
 }
-
-bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
-{
-	return false;
-}
-
-bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
+	  
+bool SocInterface::IsVideoMaster(GstElement *videoSink)
 {
 	return true;
 }
@@ -247,7 +231,27 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
  * @param isRialto True if rialtosink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
 	return false;
+}
+
+/**
+ * @brief Configure Capability Acceptance for GStreamer Transform
+ *
+ * Sets up the accept_caps function pointer for a GStreamer base transform class.
+ * This allows the transform element to decide whether it can accept a given set of capabilities (caps),
+ * which is essential for negotiating media formats during pipeline setup.
+ *
+ * @param base_transform_class Pointer to the GStreamer base transform class to configure.
+ * @param accept_caps_func Function used to determine if the transform accepts specific caps.
+ */
+void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
+													AcceptCapsFunc accept_caps_func)
+{
+}
+
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
+{
+	return true;
 }

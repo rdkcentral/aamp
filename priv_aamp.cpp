@@ -5829,6 +5829,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mNetworkTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
 	mManifestTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
+	if(mPausedBehavior == ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
+	{
+		mJumpToLiveFromPause = false;
+		mSeekFromPausedState = false;
+	}
 	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_ManifestTimeout))
 	{
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,mNetworkTimeoutMs/1000);
