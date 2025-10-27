@@ -16,9 +16,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
-#ifndef AAMP_MOCK_DRM_SESSION_MANAGER_H
-#define AAMP_MOCK_DRM_SESSION_MANAGER_H
+#ifndef PLAYER_MOCK_DRM_SESSION_MANAGER_H
+#define PLAYER_MOCK_DRM_SESSION_MANAGER_H
 
 #include <gmock/gmock.h>
 #include "DrmSessionManager.h"
@@ -31,4 +30,4 @@ public:
 
 extern MockDRMSessionManager *g_mockDRMSessionManager;
 
-#endif /* AAMP_MOCK_DRM_SESSION_MANAGER_H */
+#endif /* PLAYER_MOCK_DRM_SESSION_MANAGER_H */
