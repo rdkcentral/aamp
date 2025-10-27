@@ -79,6 +79,14 @@ bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
 
+#if 1
+extern unsigned char iframe_header[6403];
+								AAMPLOG_INFO("patrick inserting fixed segment");
+								auto newBuf = AampGrowableBuffer();
+								newBuf.AppendBytes(iframe_header, sizeof(iframe_header));
+								buffer.Free();
+								buffer.Replace(&newBuf);
+#endif
 	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
 
 	if (!isoBmffBuffer.parseBuffer())
