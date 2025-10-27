@@ -57,7 +57,10 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 }
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {
-	return StartsWith(name,"rialtomsevideosink");
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "brcmvideosink") ||
+					StartsWith(name, "westerossink") );
 }
 /**
  * @brief Check if the given name is a video decoder.
@@ -68,7 +71,10 @@ bool DefaultSocInterface::IsVideoSink(const char* name)
  */
 bool DefaultSocInterface::IsVideoDecoder(const char* name)
 {
-	return StartsWith(name,"rialtomsevideosink");
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "brcmvideosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**
