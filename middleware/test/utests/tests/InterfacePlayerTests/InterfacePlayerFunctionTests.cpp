@@ -2508,10 +2508,10 @@ TEST_F(InterfacePlayerTests, FlushTrack_VideoType)
 extern bool GstPlayer_isVideoOrAudioDecoder(const char* name, InterfacePlayerRDK * _this);
 TEST_F(InterfacePlayerTests, GstPlayer_isVideoOrAudioDecoder_RialtoSink)
 {
-	const char* name = "rialtomse";
-	mPlayerContext->usingRialtoSink = true;
-	bool result = GstPlayer_isVideoOrAudioDecoder(name, mInterfaceGstPlayer);
-	EXPECT_TRUE(result);
+	mPlayerContext->usingRialtoSink = true;	
+	EXPECT_TRUE( GstPlayer_isVideoOrAudioDecoder("rialtomsevideosink", mInterfaceGstPlayer) );
+	EXPECT_TRUE( GstPlayer_isVideoOrAudioDecoder("rialtomseaudiosink", mInterfaceGstPlayer) );
+	EXPECT_FALSE( GstPlayer_isVideoOrAudioDecoder("rialtomsesubtitlesink", mInterfaceGstPlayer) );
 }
 
 TEST_F(InterfacePlayerTests, GstPlayer_isVideoOrAudioDecoder_NotDecoder)
