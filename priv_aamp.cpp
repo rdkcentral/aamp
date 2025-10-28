@@ -13996,6 +13996,7 @@ void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t 
 {
 	if(mbPlayEnabled)
 	{
+		AAMPLOG_INFO("Video Position: %" PRId64 " ms, Audio Position: %" PRId64 " ms",videoPositionMS, audioPositionMS);
 		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId(), droppedFrames);
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
 	}
