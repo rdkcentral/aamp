@@ -3124,9 +3124,11 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				interfacePlayerPriv->ForwardBuffersToAuxPipeline(buffer, mPauseInjector, this);
 			}
 #ifdef SUPPORTS_MP4DEMUX
+			MW_LOG_WARN("SUPPORTS_MP4DEMUX is defined");
 			if( mediaType<2 && m_gstConfigParam->useMp4Demux &&
 			   !copy /* avoid using this path for hls/ts */ )
 			{
+				MW_LOG_WARN("Using Mp4Demux for mediaType %d", (int)mediaType);
 				static Mp4Demux *m_mp4Demux[2];
 				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
 				if( !mp4Demux )
@@ -3148,6 +3150,9 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 						gpointer data = g_malloc(sampleLen);
 						if( data )
 						{
+							MW_LOG_WARN("mp4demux Pushing sample %d/%d len %zu pts %.3f dts %.3f dur %.3f mediaType %d",
+									   i+1, count, sampleLen, pts, dts, dur, (int)mediaType);
+									   
 							memcpy( data, mp4Demux->getPtr(i), sampleLen );
 							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, sampleLen);
 							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
@@ -3156,10 +3161,13 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 							if (drm)
 							{
 								gst_buffer_add_protection_meta(gstBuffer, drm);
+								MW_LOG_WARN("mp4demux Added DRM metadata to buffer for mediaType %d", (int)mediaType);
 							}
 							GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source),gstBuffer);
 							if( ret == GST_FLOW_OK )
 							{
+								MW_LOG_WARN("gst_app_src_push_buffer success using mp4demux: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
+
 								stream->bufferUnderrun = false;
 								if( isFirstBuffer )
 								{
@@ -3167,12 +3175,17 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 									stream->firstBufferProcessed = true;
 								}
 							}
+							else
+							{
+								MW_LOG_WARN("gst_app_src_push_buffer error using mp4demux: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
+							}
 						}
 					}
 				}
 				else
 				{ // init header
 					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
+					MW_LOG_WARN("Mp4Demux init fragment for mediaType %d", (int)mediaType);
 				}
 				if( !copy )
 				{
