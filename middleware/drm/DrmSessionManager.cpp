@@ -171,18 +171,6 @@ void DrmSessionManager::clearAccessToken()
 }
 
 /**
- * @brief Get the failed key ID status for a specific session
- */
-bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
-{
-	if (sessionIndex >= 0 && sessionIndex < mMaxDrmSessions && cachedKeyIDs)
-	{
-		return cachedKeyIDs[sessionIndex].isFailedKeyId;
-	}
-	return false;
-}
-
-/**
  * @brief Clean up the Session Data if license key acquisition failed or if LicenseCaching is false.
  */
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
