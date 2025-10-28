@@ -171,15 +171,6 @@ public:
 	virtual bool UseAppSrc(){return false;}
 	
 	/**
-	 * @brief Check if AC4 should be disabled.
-	 *
-	 * Determines whether AC4 support should be disabled.
-	 *
-	 * @return True if AC4 should be disabled, false otherwise.
-	 */
-	virtual bool IsSupportedAC4(){return false;}
-	
-	/**
 	 * @brief Check if Westeros sink should be used.
 	 *
 	 * Determines whether the Westeros sink should be used in the current context.
@@ -261,10 +252,9 @@ public:
 	 * @param rate The desired playback rate.
 	 * @param video_dec The video decoder element.
 	 * @param audio_dec The audio decoder element.
-	 * @param isRialto True if rialto sink is used.
 	 * @return True if the playback rate was set successfully, false otherwise.
 	 */
-	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) = 0;
+	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) = 0;
 	
 	/**
 	 * @brief Retrieves the source pad of the given GStreamer element.
@@ -304,27 +294,23 @@ public:
 	/**
 	 * @brief Check if the given name is a video sink.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
 	 * @return True if it's a video sink, false otherwise.
 	 */
-	virtual bool IsVideoSink(const char* name, bool isRialto) = 0;
+	virtual bool IsVideoSink(const char* name) = 0;
 	
 	/**
 	 * @brief Check if the given name is an audio sink or audio decoder.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
 	 * @return True if it's an audio sink or audio decoder, false otherwise.
 	 */
-	virtual bool IsAudioSinkOrAudioDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsAudioSinkOrAudioDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Check if the given name is a video decoder.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
-	 * @param isWesteros Westeros flag.
 	 * @return True if it's a video decoder, false otherwise.
 	 */
-	virtual bool IsVideoDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsVideoDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Configure the audio sink.
@@ -337,11 +323,10 @@ public:
 	
 	/**
 	 * @brief Check if the given name is an audio or video decoder.
-	 * @param name Element name.
-	 * @param IsWesteros Westeros flag.
+	 * @param name Element name
 	 * @return True if it's an audio or video decoder, false otherwise.
 	 */
-	virtual bool IsAudioOrVideoDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsAudioOrVideoDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Disable asynchronous audio.
@@ -491,26 +476,13 @@ public:
 	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
 	 */
 	virtual bool ResetNewSegmentEvent(){return false;}
-	
-	/**
-	 * @brief Checks if platform segment is ready.
-	 *
-	 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
-	 *
-	 * @param videoSink The video sink element.
-	 * @param isRialto Flag indicating whether Rialto sink is being used.
-	 * @return `true` if the platform segment is ready, `false` otherwise.
-	 */
-	virtual bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto){return false;}
 
 	/**
 	 * @brief Checks if the platform is video master.
 	 *
 	 * @param videoSink The video sink element.
-	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(GstElement *videoSink, bool isRialto){return true;}
-
+	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
 };
 #endif
