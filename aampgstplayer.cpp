@@ -34,13 +34,14 @@
 #include "priv_aamp.h"
 #include <atomic>
 #include <algorithm>
-
+#include "AampDRMLicManager.h"
 #include "InterfacePlayerRDK.h"
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
 #include "AampDefine.h"
 #include <functional>
+#include <inttypes.h>
 
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
@@ -293,7 +294,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	});
 	playerInstance->setupStreamCallbackMap[InterfaceCB::startNewSubtitleStream] = [this](int streamId)
 	{
-		if (eGST_MEDIATYPE_SUBTITLE == streamId)
+		if (eMEDIATYPE_SUBTITLE == streamId)
 		{
 			if(this->aamp->IsGstreamerSubsEnabled())
 			{
@@ -389,7 +390,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
 	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
-	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback},
+	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{std::move(id3HandlerCallback)},
 	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
 
 {
@@ -403,15 +404,16 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->mEncryptedAamp = aamp;
 
 		this->cbExportYUVFrame = exportFrames;
-		playerInstance->gstCbExportYUVFrame = exportFrames;
+		playerInstance->gstCbExportYUVFrame = std::move(exportFrames);
 		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 		if(!debugLevel.empty())
 		{
-			playerInstance->EnableGstDebugLogging(debugLevel);
+			playerInstance->EnableGstDebugLogging(std::move(debugLevel));
 		}
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
-		playerInstance->setEncryption((void*)aamp);
+		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
+
 		RegisterFirstFrameCallbacks();
 		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
 	}
@@ -857,8 +859,8 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
-	playerInstance->setEncryption((void*)mEncryptedAamp);
-
+ 	void*	mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
+	playerInstance->setEncryption((void*)mEncryptedAamp,(void*)mDRMSessionManager);
 }
 
 bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
@@ -881,7 +883,7 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 		playerInstance->ResumeInjector();
 	}
 	playerInstance->DisableDecoderHandleNotified();
-	m_ID3MetadataHandler = id3HandlerCallback;
+	m_ID3MetadataHandler = std::move(id3HandlerCallback);
 }
 /**
  * @brief Flush the track playbin
@@ -1033,7 +1035,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 
 	bool CompleteDiscontinuityDataDeliverForPTSRestamp =false;
 	bool shouldHaltBuffering = false;
-	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForCodecChange(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
+	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForElementaryStreamUpdate(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
 
 	if(CompleteDiscontinuityDataDeliverForPTSRestamp)
 	{
@@ -1096,11 +1098,11 @@ void AAMPGstPlayer::NotifyFragmentCachingComplete()
  */
 void AAMPGstPlayer::NotifyFragmentCachingOngoing()
 {
-	if(!playerInstance->gstPrivateContext->paused)
+	if(!playerInstance->IsPipelinePaused())
 	{
 		Pause(true, true);
 	}
-	playerInstance->gstPrivateContext->pendingPlayState = true;
+	playerInstance->EnablePendingPlayState();
 }
 
 /**
@@ -1267,8 +1269,8 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 		{
 			if(monitorAVState.tLastSampled == 0 || monitorAVState.description == nullptr)
 			{
-				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled(%lld) or description(%p) not available, skipping report",
-						monitorAVState.tLastSampled, monitorAVState.description);
+				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled((%" PRId64 ") or description(%p) not available, skipping report",
+						static_cast<int64_t>(monitorAVState.tLastSampled), monitorAVState.description);
 			}
 			else
 			{

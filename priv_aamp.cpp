@@ -664,8 +664,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	{
 		if ((NULL == context->buffer->GetPtr() ) && (context->contentLength > 0))
 		{
-			size_t len = context->contentLength + 2;
-			/*Add 2 additional characters to take care of extra characters inserted by aamp_AppendNulTerminator*/
+			size_t len = context->contentLength;
 			if(context->downloadIsEncoded && (len < DEFAULT_ENCODED_CONTENT_BUFFER_SIZE))
 			{
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
@@ -3201,6 +3200,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				}
 			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
+			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
 			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
@@ -3535,12 +3535,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	{
 		if(mLogTune)
 		{
-			char classicTuneStr[AAMP_MAX_PIPE_DATA_SIZE];
 			mLogTune = false;
-			if (ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune)) {
-				profiler.GetClassicTuneTimeInfo(mTuneMetrics.success, mTuneAttempts, mfirstTuneFmt, mPlayerLoadTime, streamType, IsLive(), durationSeconds, classicTuneStr);
-				SendMessage2Receiver(E_AAMP2Receiver_TUNETIME,classicTuneStr);
-			}
 			mFirstTune = false;
 		}
 		mTuneCompleted = true;
@@ -5583,7 +5578,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mApplyCachedVideoMute)
 				{
 					mApplyCachedVideoMute = false;
-					CacheAndApplySubtitleMute(video_muted);
+					SetCCStatusInternal();
 				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
@@ -5621,6 +5616,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
+		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
 		if (!mbUsingExternalPlayer)
 		{
@@ -6179,8 +6175,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		if (mpStreamAbstractionAAMP)
 		{
 			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
-			SetVideoMute(video_muted);
-			CacheAndApplySubtitleMute(video_muted);
+			SetVideoMuteInternal(video_muted);
+			SetCCStatusInternal();
 		}
 		else
 		{
@@ -6370,22 +6366,28 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
-			else if((sniffedBytes.GetLen() >= 6 && memcmp(sniffedBytes.GetPtr(), "<?xml ", 6) == 0) || // can start with xml
-					 (sniffedBytes.GetLen() >= 5 && memcmp(sniffedBytes.GetPtr(), "<MPD ", 5) == 0)) // or directly with mpd
-			{ // note: legal to have whitespace before leading tag
-				sniffedBytes.AppendNulTerminator();
-				if (strstr(sniffedBytes.GetPtr(), "SmoothStreamingMedia"))
-				{
-					rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
-				}
-				else
-				{
-					rc = eMEDIAFORMAT_DASH;
-				}
-			}
 			else
 			{
-				rc = eMEDIAFORMAT_PROGRESSIVE;
+				rc = eMEDIAFORMAT_PROGRESSIVE; // default
+				const char *ptr = sniffedBytes.GetPtr();
+				const char *fin = ptr + sniffedBytes.GetLen();
+				while( ptr<fin )
+				{
+					char c = *ptr++;
+					if( c == '<' )
+					{
+						if( memcmp(ptr,"SmoothStreamingMedia ",21)==0 )
+						{
+							rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
+							break;
+						}
+						else if( memcmp(ptr,"MPD ",4)==0 )
+						{
+							rc = eMEDIAFORMAT_DASH;
+							break;
+						}
+					}
+				}
 			}
 		}
 		sniffedBytes.Free();
@@ -7123,6 +7125,36 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted?"true":"false");
+	video_muted = muted;
+
+	//If lock could not be acquired, then cache it
+	if (TryStreamLock())
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			SetVideoMuteInternal(muted); // hide/show video plane
+			SetCCStatusInternal();
+		}
+		else
+		{
+			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+			mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
+		}
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamLock is not available, value has been cached");
+		mApplyCachedVideoMute = true;
+	}
+}
+
+/**
+ *   @brief Enable/ Disable Video.
+ */
+void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
+{
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
@@ -7145,10 +7177,30 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
  */
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
+	subtitles_muted = muted;
+	AcquireStreamLock();
+	if (mpStreamAbstractionAAMP)
+	{
+		SetSubtitleMuteInternal(video_muted || muted);
+	}
+	else
+	{
+		AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+	}
+	ReleaseStreamLock();
+}
+
+/**
+ *   @brief Enable/ Disable Subtitles (Internal private copy).
+ *
+ *   @param  muted - true to disable subtitles, false to enable subtitles.
+ */
+void PrivateInstanceAAMP::SetSubtitleMuteInternal(bool muted)
+{
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SetSubtitleMute(video_muted || muted);
+		sink->SetSubtitleMute(muted);
 	}
 }
 
@@ -7525,6 +7577,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	auto stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7554,7 +7607,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
@@ -7664,7 +7716,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		SetState(eSTATE_IDLE);
 	}
-	
+
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -7724,6 +7776,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
+	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
+	profiler.mStopDurationMs = mLastStopDurationMs;
+
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
@@ -9242,6 +9298,7 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
  */
 void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
 {
+	AAMPLOG_INFO("Sending WatermarkSessionUpdateEvent status %d system %s GetSessionId() %s",status,system.c_str(), GetSessionId().c_str());
 	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system, GetSessionId());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
@@ -9710,13 +9767,13 @@ void  PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, dou
  * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
  * @return true if audio codec has changed
  */
-bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
 	if (mpStreamAbstractionAAMP)
 	{
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
 		{
-			return mpStreamAbstractionAAMP->GetESChangeStatus();
+			return (mpStreamAbstractionAAMP->GetESChangeStatus() || mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 		}
 		else
 		{
@@ -10302,8 +10359,10 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "codec", iter->codec.c_str());
 					}
+					// When local TSB is present, availability refers to availability in the TSB
 					bool isAvailable = iter->isAvailable;
-					if (IsLocalAAMPTsb())
+					// Closed Captions are carried in the video stream and hence always available
+					if ((IsLocalAAMPTsb()) && (!iter->isCC))
 					{
 						if (iter->index == currentTrackInfo.index)
 						{
@@ -10968,23 +11027,31 @@ int PrivateInstanceAAMP::GetTextTrack()
 	return idx;
 }
 
-/**
- * @brief Set CC visibility on/off
- */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
 	AcquireStreamLock();
+	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
+	SetCCStatusInternal();
+	ReleaseStreamLock();
+}
+
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
+{
+	// StreamLock is recursive, so it is fine to call this method with it locked.
+	AcquireStreamLock();
+	// Mute subtitles if either video is muted or subtitles are muted
+	int mute_subtitles_applied = video_muted || subtitles_muted;
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 		if (HasSidecarData())
 		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 		}
 	}
-	SetSubtitleMute(subtitles_muted);
+	SetSubtitleMuteInternal(mute_subtitles_applied);
 	ReleaseStreamLock();
 }
 
@@ -13151,12 +13218,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 	jsondata.add("harvestPath",tmpStringVar);
 
-	/*
-	 * Audio and subtitle preference
-	 * Disabled this for XRE supported TSB linear
-	 */
-	if (!ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune))
-	{
+	{ // audio and subtitle preference
 		AampJsonObject jsondataForPreference;
 		AampJsonObject audioPreference;
 		AampJsonObject subtitlePreference;
@@ -13569,26 +13631,6 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 		}
 	}
 	return pts;
-}
-
-/**
- * @brief Apply CC/Subtitle mute but preserve the original status
- * This function should be called after acquiring StreamLock
- * This function is used to mute/unmute CC/Subtitle when video is muted/unmuted
- * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
- */
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
-	bool subtitles_are_logically_muted = subtitles_muted;
-	if (muted)
-	{	// hiding video plane
-		SetCCStatus(false); // hide subtitle plane (along with video)
-		subtitles_muted = subtitles_are_logically_muted;
-	}
-	else
-	{	// we are unmuting video; also unmute subtitles if appropriate
-		SetCCStatus(!subtitles_are_logically_muted);
-	}
 }
 
 /**
