@@ -4842,7 +4842,19 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
 }
 
-
+TEST_F(PrivAampTests,VerifyPausedBehavior)
+{
+        StreamAbstractionAAMP_MPD *streamAbstractionMpd = new StreamAbstractionAAMP_MPD(p_aamp, 0, 1, nullptr);     
+        p_aamp->mpStreamAbstractionAAMP = streamAbstractionMpd;
+        p_aamp->pipeline_paused=true;
+        p_aamp->rate=1;
+        p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_DEFER;
+        p_aamp->UpdateCullingState(232.123);
+        EXPECT_TRUE(p_aamp->mSeekFromPausedState);
+        p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
+        p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
+        EXPECT_FALSE(p_aamp->mSeekFromPausedState);
+}
 // Test parameters structure for GetStreamFormat tests
 struct GetStreamFormatTestParams {
 	double rate;
