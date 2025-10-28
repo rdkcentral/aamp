@@ -162,7 +162,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::PersistBitRateOverSeek(bool value) {  }
 	void PlayerInstanceAAMP::SetPausedBehavior(int behavior) {  }
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
-	void PlayerInstanceAAMP::XRESupportedTune(bool xreSupported) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
 	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }
@@ -207,7 +206,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
+	std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }

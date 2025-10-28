@@ -29,7 +29,7 @@
 #include "DrmJsonObject.h"
 #include "DrmConstants.h"
 
-#include "base64.h"
+#include "_base64.h"
 
 #define KEYID_TAG_START "<KID>"
 #define KEYID_TAG_END "</KID>"
@@ -192,7 +192,7 @@ bool PlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLen)
 			this->mStrInitDataFormated = std::string(cleanedPssh);
 			free(cleanedPssh);
 			cleanedPssh = NULL;
-			//Clear unwanted spaces from pssh data - time being not neeed
+			//Clear unwanted spaces from pssh data - time being not need
 			//std::remove(mStrInitDataFormated.begin(), mStrInitDataFormated.end(), ' ');
 			
 			keyData = extractKeyID();
@@ -201,7 +201,7 @@ bool PlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLen)
 		if (!keyData.empty())
 		{
 			size_t decodedDataLen = 0;
-			unsigned char* decodedKeydata = Base64Utils::base64Decode(keyData.c_str(), &decodedDataLen, keyData.size());
+			unsigned char* decodedKeydata = base64_Decode(keyData.c_str(), &decodedDataLen, keyData.size());
 
 			if (decodedDataLen != PLAYREADY_DECODED_KEY_ID_LEN)
 			{

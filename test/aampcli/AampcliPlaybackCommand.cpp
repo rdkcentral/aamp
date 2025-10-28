@@ -91,7 +91,7 @@ static void buildFogUrl(const std::string host, const char* url, std::string& fo
 	fogUrl = "http://" + host + "/tsb?clientId=FOG_AAMP&recordedUrl=";
 	std::string inStr(url);
 	std::string outStr;
-	UrlEncode(inStr, outStr);
+	UrlEncode(std::move(inStr), outStr);
 	fogUrl += outStr;
 }
 
@@ -416,7 +416,7 @@ void PlaybackCommand::HandleCommandCustomHeader( const char *cmd, PlayerInstance
 		cmdptr = strtok (NULL, " ,");
 	}
 	AAMPCLI_PRINTF("isLicenceHeader=%d\n", isLicenceHeader);
-	playerInstanceAamp->AddCustomHTTPHeader(headerName, headerValue, isLicenceHeader);
+	playerInstanceAamp->AddCustomHTTPHeader(std::move(headerName), std::move(headerValue), isLicenceHeader);
 }
 
 void PlaybackCommand::HandleCommandSubtec( void )
@@ -495,7 +495,7 @@ void PlaybackCommand::HandleCommandFog( const char *cmd, PlayerInstanceAAMP *pla
 		std::regex ipv4("(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]):[0-9]+");
 		if (std::regex_match(tmpIpv4, ipv4))
 		{
-			mFogHostPrefix = tmpIpv4;
+			mFogHostPrefix = std::move(tmpIpv4);
 			AAMPCLI_PRINTF("host: %s\n", mFogHostPrefix.c_str());
 		}
 		else
@@ -1072,6 +1072,7 @@ void PlaybackCommand::addCommand(std::string command,std::string description)
 }
 
 #include "mp4demux.hpp"
+Mp4Demux mp4Demux = Mp4Demux(true);
 void PlaybackCommand::parse( const char *path )
 {
 	while( *path == ' ' )
@@ -1095,10 +1096,21 @@ void PlaybackCommand::parse( const char *path )
 					size_t rc = fread(ptr,1,len,f);
 					if( rc == len )
 					{
-						auto mp4Demux = new Mp4Demux(true);
 						// coverity[TAINTED_SCALAR]:SUPPRESS
-						mp4Demux->Parse(ptr,len);
-						delete mp4Demux;
+						mp4Demux.Parse(ptr,len);
+						int count = mp4Demux.count();
+						for (int i=0; i<count; i++)
+						{
+							AAMPCLI_PRINTF("Sample No:%d, PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf DRM:%d\n",
+									i + 1,
+									mp4Demux.getPtr(i),
+									mp4Demux.getLen(i),
+									mp4Demux.getPts(i),
+									mp4Demux.getDts(i),
+									mp4Demux.getDuration(i),
+									mp4Demux.getDrmMetadata(i) ? 1 : 0
+									);
+						}
 					}
 					free( ptr );
 				}
@@ -1171,20 +1183,22 @@ char * PlaybackCommand::commandRecommender(const char *text, int state)
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp)
 {
-    userp->append((char*)contents, size * nmemb);
-    return size * nmemb;
+	size_t n = size * nmemb;
+    userp->append( (char*)contents, n );
+    return n;
 }
 
 std::string PlaybackCommand::getManifestData(std::string& url)
 {
-	CURL* curl;
 	std::string manifestData;
 	if( url.substr(0, 7) == "http://" || url.substr(0, 8) == "https://" )
 	{
 		auto delim = url.find('@');
-		curl = curl_easy_init();
+		CURL* curl = curl_easy_init();
 		if(curl)
 		{
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_USERAGENT, "aamp-getManifestData/1.0");
+			
 			if( delim != std::string::npos )
 			{
 				std::string range = url.substr(delim+1);
@@ -1200,9 +1214,12 @@ std::string PlaybackCommand::getManifestData(std::string& url)
 			(void)curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 			(void)curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
 			(void)curl_easy_setopt(curl, CURLOPT_WRITEDATA, &manifestData);
-			(void)curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
 			CURLcode rc = curl_easy_perform(curl);
-			if (CURLE_OK == rc)
+			if (CURLE_OK != rc)
+			{
+				AAMPCLI_PRINTF("[AAMPCLI] %s curl error: %u", __FUNCTION__, rc);
+			}
+			else
 			{
 				long response_code = 0;
 				(void)curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
@@ -1213,8 +1230,7 @@ std::string PlaybackCommand::getManifestData(std::string& url)
 					case 206:
 						break;
 					default:
-						// http error
-						AAMPCLI_PRINTF("[AAMPCLI] %s curl error code : %ld",__FUNCTION__,response_code);
+						AAMPCLI_PRINTF("[AAMPCLI] %s http error: %ld", __FUNCTION__,response_code);
 						break;
 				}
 			}

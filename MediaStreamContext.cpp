@@ -40,7 +40,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		{
 		};
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
-														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}
 	else
 	{
@@ -302,7 +302,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
 						aamp->SetFlushFdsNeededInCurlStore(true);
-
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -409,7 +408,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 				}
 			}
-			tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
+			tsbSessionManager->EnqueueWrite(std::move(fragmentUrl), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());
 		}
 		// Added the duplicate conditional statements, to log only for localAAMPTSB cases.
 		else if(tsbSessionManager && cachedFragment->fragment.GetLen() == 0)
@@ -426,7 +425,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				GetContext()->UpdateStreamInfoBitrateData(fragmentToTsbSessionMgr->profileIndex, fragmentToTsbSessionMgr->cacheFragStreamInfo);
 			}
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-			CacheTsbFragment(fragmentToTsbSessionMgr);
+			CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 		}
 
 		// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
@@ -448,7 +447,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			{
 				std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 				fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
-				CacheTsbFragment(fragmentToCache);
+				CacheTsbFragment(std::move(fragmentToCache));
 			}
 
 			// If injection is from chunk buffer, remove the fragment for injection
@@ -486,7 +485,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->downloadStartTime = dnldStartTime;
 		cachedFragment->fragment.AppendBytes(ptr, size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		cachedFragment->uri = remoteUrl;
+		cachedFragment->uri = std::move(remoteUrl);
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */
@@ -687,7 +686,7 @@ std::string& MediaStreamContext::GetEffectivePlaylistUrl()
  */
 void MediaStreamContext::SetEffectivePlaylistUrl(std::string url)
 {
-	mEffectiveUrl = url;
+	mEffectiveUrl = std::move(url);
 }
 
 /**

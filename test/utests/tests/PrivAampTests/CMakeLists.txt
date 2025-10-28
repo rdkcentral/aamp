@@ -33,6 +33,7 @@ include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -50,7 +51,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 set(TEST_SOURCES	PrivAampTests.cpp
 					PrivAampAAMPTests.cpp
 					PrivAampTests_TsbInjection.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(	${EXEC_NAME}
 				${TEST_SOURCES}
 				${AAMP_SOURCES})

@@ -43,7 +43,7 @@ class RealtekSocInterface : public SocInterface
 		 * @return True if audio fragments should be synchronized, false otherwise.
 		 */
 		bool IsAudioFragmentSyncSupported()override{return true;}
-
+		
 		/*@brief returns true if video stats required from sink otherwise false*/
 		bool IsPlaybackQualityFromSink() override {return true;}
 
@@ -110,10 +110,9 @@ class RealtekSocInterface : public SocInterface
 		 * @param rate The desired playback rate.
 		 * @param video_dec The video decoder element.
 		 * @param audio_dec The audio decoder element.
-		 * @param isRialto True if rialto sink is used.
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
-		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) override;
+		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
 
 		/**
 		 * @brief Set AC4 tracks.
@@ -137,26 +136,23 @@ class RealtekSocInterface : public SocInterface
 		/**
 		 * @brief Check if the given name is a video sink.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's a video sink, false otherwise.
 		 */
-		bool IsVideoSink(const char* name, bool isRialto)override;
+		bool IsVideoSink(const char* name)override;
 
 		/**
 		 * @brief Check if the given name is an audio sink or audio decoder.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's an audio sink or audio decoder, false otherwise.
 		 */
-		bool IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)override;
+		bool IsAudioSinkOrAudioDecoder(const char* name)override;
 
 		/**
 		 * @brief Check if the given name is a video decoder.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's a video decoder, false otherwise.
 		 */
-		bool IsVideoDecoder(const char* name, bool isRialto)override;
+		bool IsVideoDecoder(const char* name)override;
 
 		/**
 		 * @brief Configure the audio sink.
@@ -173,7 +169,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param IsWesteros Westeros flag.
 		 * @return True if it's an audio or video decoder, false otherwise.
 		 */
-		bool IsAudioOrVideoDecoder(const char* name, bool isRialto)override;
+		bool IsAudioOrVideoDecoder(const char* name)override;
 
 		/**
 		 * @brief Disable asynchronous audio.
@@ -290,6 +286,6 @@ class RealtekSocInterface : public SocInterface
 		 */
 		void SetHevcCaps(GstCaps *caps)override;
 
-
+		bool IsVideoMaster(GstElement *videoSink)override{return true;}
 };
 #endif

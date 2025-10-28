@@ -1287,9 +1287,10 @@ public:
 	/**
 	 *   @fn GetThumbnails
 	 *
-	 *   @param[in] eduration duration  for thumbnails
+	 *   @param[in] tStart range start for thumbnails
+	 *   @param[in] tEnd range end for thumbnails
 	 */
-	std::string GetThumbnails(double sduration, double eduration);
+	std::string GetThumbnails(double tStart, double tEnd);
 
 	/**
 	 *   @fn SetPausedBehavior
@@ -1314,12 +1315,6 @@ public:
 	 *   @param[in] configState bool enable/disable configuration
 	 */
 	void SetUseAbsoluteTimeline(bool configState);
-
-	/**
-  	 *   @fn XRESupportedTune
-   	 *   @param[in] xreSupported bool On/Off
-	 	 */
-	void XRESupportedTune(bool xreSupported);
 
 	/**
 	 *   @brief Enable async operation and initialize resources

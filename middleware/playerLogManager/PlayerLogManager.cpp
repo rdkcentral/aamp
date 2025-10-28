@@ -103,7 +103,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[MIDDLEWARE][%s][%zx][%s][%d]%s\n",
+                                                           "%s[PLAYER_IF][%s][%zx][%s][%d]%s\n",
                                                            timestamp,
                                                            mLogLevelStr[logLevelIndex],
 							   GetPlayerPrintableThreadID(),

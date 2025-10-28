@@ -268,7 +268,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 			{
 				if (processor)
 				{
-					sendInternal(processor);
+					sendInternal(std::move(processor));
 				}
 				else
 				{

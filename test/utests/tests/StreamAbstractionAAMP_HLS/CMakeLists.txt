@@ -31,6 +31,7 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 
 include_directories(${LIBDASH_INCLUDE_DIRS})
@@ -46,7 +47,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 set(TEST_SOURCES FunctionalTests.cpp
                  StreamAbstractionAAMP_HLS.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

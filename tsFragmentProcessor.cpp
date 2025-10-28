@@ -174,7 +174,7 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 		ParseFragment(base_frag_ptr, curr_packet_ptr, curr_packet_len, discontinuity_pending);
 		
 		// Demux the fragment to extract the actual audio/video/metadata information
-		DemuxFragment(curr_packet_ptr, curr_packet_len, discontinuity_pending, processor);
+		DemuxFragment(curr_packet_ptr, curr_packet_len, discontinuity_pending, std::move(processor));
 	}
 	else
 	{

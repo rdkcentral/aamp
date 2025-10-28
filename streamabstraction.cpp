@@ -181,13 +181,13 @@ void MediaTrack::MonitorBufferHealth()
 	int bufferHealthMonitorInterval = GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval);
 	int discontinuityTimeoutValue = GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout);
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
-	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
+	unsigned int bufferMonitorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
 	AAMPLOG_INFO("[%s] Start MonitorBufferHealth, downloads %d abort %d delay %ds interval %ds discontinuityTimeout %dms",
 				 name, aamp->DownloadsAreEnabled(), abort, bufferHealthMonitorDelay, bufferHealthMonitorInterval, discontinuityTimeoutValue);
 	if(aamp->DownloadsAreEnabled() && !abort)
 	{
-		aamp->interruptibleMsSleep(bufferMontiorScheduleTime *1000);
+		aamp->interruptibleMsSleep(bufferMonitorScheduleTime *1000);
 		keepRunning = true;
 	}
 	int monitorInterval = bufferHealthMonitorInterval  * 1000;
@@ -883,7 +883,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 
 				if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
 				{
-					if (context->GetESChangeStatus())
+					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
 					{
 						stopInjection = context->ProcessDiscontinuity(type);
 					}
@@ -2140,7 +2140,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
 		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
 		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
-		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false),mAudiostateChangeCount(0),
+		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
 		mIsPlaybackStalled(false), mTuneType(), mLock(),
@@ -2154,7 +2154,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mPTSOffset(0.0),
-		mID3Handler{mID3Handler}
+		mID3Handler{std::move(mID3Handler)}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
 	AAMPLOG_TRACE("StreamAbstractionAAMP");
@@ -2643,20 +2643,20 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	else if (video)
 	{
 		double bufferValue = GetBufferValue(video);
-		// Let's keep things simple! This function is invoked when we want to rampdown, which we could either do in single or multiple steps
 		if (bufferValue <= 2.0 )
 		{ // panic mode - jump directly to lowest profile
 			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 		}
 		else if (bufferValue > mABRMaxBuffer)
-		{ // ample buffering, so ramp down in single steps
+		{
+			// ample buffering, so ramp down in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		}
 		else
 		{ // variable rampdown based on available bandwidth
 			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue, currentProfileIndex);
-			if (desiredBw > 0)
+			if( desiredBw > 0)
 			{
 				desiredProfileIndex = GetProfileIndexForBandwidth(desiredBw);
 			}
@@ -2795,7 +2795,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 			}
 		}
 		// For timeout, rampdown in single steps might not be enough
-		else if (http_error == CURLE_OPERATION_TIMEDOUT)
+		else if (IsCurlTimeoutFailure (http_error))
 		{
 			if (UpdateProfileBasedOnFragmentCache())
 			{
@@ -4390,13 +4390,13 @@ void MediaTrack::PlaylistDownloader()
 			{
 				if(eMEDIAFORMAT_DASH == aamp->mMediaFormat)
 				{
-					aamp->mManifestUrl = effectiveUrl;
+					aamp->mManifestUrl = std::move(effectiveUrl);
 				}
 				else
 				{
 					// HLS or HLS_MP4
 					// Set effective URL, else fragments will be mapped from old url
-					SetEffectivePlaylistUrl(effectiveUrl);
+					SetEffectivePlaylistUrl(std::move(effectiveUrl));
 				}
 			}
 
