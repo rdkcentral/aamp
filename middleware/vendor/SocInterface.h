@@ -494,6 +494,5 @@ public:
 	 * @return 'true' if video master otherwise false.
 	 */
 	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
-
 };
 #endif
