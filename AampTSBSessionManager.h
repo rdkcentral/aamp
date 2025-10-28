@@ -89,9 +89,9 @@ public:
 	 */
 	void ProcessWriteQueue();
 	/**
-	 * @brief Wait for new TSB fragment to be available
+	 * @brief Wait for new TSB video fragment to be available
 	 */
-	void WaitForNewTsbFragment();
+	void WaitForNewVideoTsbFragment();
 	/**
 	 * @brief Raises the new video TSB content notification
 	 *
@@ -425,7 +425,7 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
 	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
-	bool mHasNewVideoTsbContent;			// Flag used in conjunction with condvar mNewVideoTsbContentCV to signal a segment has been added to the TSB
+	bool mHasNewVideoTsbContent;			// Flag used in conjunction with conditional variable mNewVideoTsbContentCV to signal a segment has been added to the TSB
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */

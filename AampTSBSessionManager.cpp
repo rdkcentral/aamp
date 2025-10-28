@@ -379,16 +379,17 @@ void AampTSBSessionManager::RaiseNewVideoTsbContentNotification(bool setFlag)
 {
 	if (setFlag)
 	{
+		std::unique_lock<std::mutex> lock(mReadMutex);
 		mHasNewVideoTsbContent = setFlag;
 	}
 	mNewVideoTsbContentCV.notify_one();
 }
 
-void AampTSBSessionManager::WaitForNewTsbFragment()
+void AampTSBSessionManager::WaitForNewVideoTsbFragment()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
-	mNewVideoTsbContentCV.wait(lock, [this]() { return mHasNewVideoTsbContent || !mAamp->mDownloadsEnabled; });
 	mHasNewVideoTsbContent = false;
+	mNewVideoTsbContentCV.wait(lock, [this]() { return mHasNewVideoTsbContent || !mAamp->mDownloadsEnabled; });
 }
 
 /**
