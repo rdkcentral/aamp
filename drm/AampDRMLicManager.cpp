@@ -617,7 +617,7 @@ string extractSubstring(string parentStr, string startStr, string endStr)
  */
 std::string AampDRMLicenseManager::getAccessToken(int &error_code)
 {
-	if(accessToken.length()==0 )
+	if (accessToken.empty())
 	{
 		if (ContentSecurityManager::GetInstance()->getSessionToken(accessToken))
 		{
