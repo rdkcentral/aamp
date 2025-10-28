@@ -1521,9 +1521,17 @@ void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
 	mDrmSessionManager->clearDrmSession(forceClearSession);
 	for(int i = 0 ; i < mMaxDRMSessions;i++)
-    {
-        mLicenseDownloader[i].Clear();
-    }
+	{
+		bool isFailedKeyId = mDrmSessionManager->getFailedKeyIdStatus(i);
+		if(( mDrmSessionManager->drmSessionContexts != NULL && (isFailedKeyId || forceClearSession)  ))
+		{
+			if(mDrmSessionManager->drmSessionContexts[i].drmSession != NULL)
+			{
+				AAMPLOG_INFO("Clearing Session %d, isFailedKeyId=%d, forceClearSession=%d",i, isFailedKeyId, forceClearSession);
+				mLicenseDownloader[i].Clear();
+		    }
+		}
+	}
 }
 
 /**
