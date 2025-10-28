@@ -17,15 +17,15 @@
 
 include(GoogleTest)
 
-set(AAMP_ROOT "../../../../")
+set(PLAYER_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME base16Tests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
-include_directories(${AAMP_ROOT}/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/playerJsonobject)
-include_directories(${AAMP_ROOT}/baseConversion)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/drm ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/drm/ave ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/middleware/subtitle)
+include_directories(${PLAYER_ROOT}/subtec/libsubtec)
+include_directories(${PLAYER_ROOT}/subtec/subtecparser)
+include_directories(${PLAYER_ROOT}/playerJsonobject)
+include_directories(${PLAYER_ROOT}/baseConversion)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -34,19 +34,19 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/../)
+include_directories(${PLAYER_ROOT}/tsb/api)
+include_directories(${PLAYER_ROOT}/../)
 
 
 set(TEST_SOURCES base16Tests.cpp
 	         base16playerTests.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/baseConversion/base16.cpp)
+set(PLAYER_SOURCES ${PLAYER_ROOT}/baseConversion/base16.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
-               ${AAMP_SOURCES})
+               ${PLAYER_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

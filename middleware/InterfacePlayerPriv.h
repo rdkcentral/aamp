@@ -137,7 +137,7 @@ static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable 
 struct gst_media_stream
 {
 	GstElement *sinkbin;              /**< Sink element to consume data */
-	GstElement *source;                       /**< to provide data to the pipleline */
+	GstElement *source;                       /**< to provide data to the pipeline */
 	GstStreamOutputFormat format; /**< Stream output format for this stream */
 	bool pendingSeek;                         /**< Flag denotes if a seek event has to be sent to the source */
 	bool resetPosition;                       /**< To indicate that the position of the stream is reset */

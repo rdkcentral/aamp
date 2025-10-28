@@ -206,7 +206,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
+	std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }
