@@ -289,7 +289,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					sessionToken = aampInstance->mSessionToken;
 					AAMPLOG_WARN("Got Access Token from External App");
 				}
-				if( sessionToken.length()==0 )
+				if( sessionToken.empty() )
 				{
 					// Failed to get access token
 					// licenseAnonymousRequest is not set, Report failure
