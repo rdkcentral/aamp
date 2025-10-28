@@ -619,7 +619,6 @@ std::string AampDRMLicenseManager::getAccessToken(int &error_code)
 {
 	if(accessToken.length()==0 )
 	{
-		std::string token;
 		if (ContentSecurityManager::GetInstance()->getSessionToken(accessToken))
 		{
 			if(accessToken.length() > 0)
