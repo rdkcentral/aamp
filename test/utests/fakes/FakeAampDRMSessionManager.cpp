@@ -101,6 +101,11 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 	return false;
 }
 
+bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
+{
+	return false;
+}
+
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
 }
