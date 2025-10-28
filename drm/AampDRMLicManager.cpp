@@ -355,7 +355,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 						accessToken.clear();
 						int tokenError = 0;
 						std::string sessionToken = getAccessToken(tokenError);
-						if( sessionToken.length()!=0 )
+						if( !sessionToken.empty() )
 						{
 							AAMPLOG_INFO("Requesting License with new access token");
 							challengeInfo.accessToken = std::move(sessionToken);
