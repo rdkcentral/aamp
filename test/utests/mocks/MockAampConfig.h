@@ -46,6 +46,7 @@ public:
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingInt cfg));
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingFloat cfg));
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingString cfg));
+
 };
 
 extern MockAampConfig *g_mockAampConfig;
