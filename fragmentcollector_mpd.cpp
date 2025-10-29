@@ -10395,7 +10395,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 					else
 					{
-						AAMPLOG_WARN("Should not wait for AAMP_NORMAL_PLAY_RATE <= 1");
+						AAMPLOG_WARN("Unexpected condition: Should not wait for rate <= AAMP_NORMAL_PLAY_RATE");
 					}
 				}
 			} // Loop 2 : TSB FetchLoop
