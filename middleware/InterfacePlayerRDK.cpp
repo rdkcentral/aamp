@@ -5133,6 +5133,9 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(int streamId, std::string ma
  */
 bool InterfacePlayerRDK::IsCodecSupported(const std::string &codecName)
 {
+	// do plugin registry scans work on Rialto?
+	// if not, we have option to (when using Rialto) always report 'true' with assumption that
+	// all Rialto ports support MS2V12 and ac3/ac4
 	bool retValue = false;
 	GstRegistry* registry = gst_registry_get();
 	for (std::string &componentName: gstMapDecoderLookUptable[codecName])
