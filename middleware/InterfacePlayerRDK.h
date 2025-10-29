@@ -242,49 +242,63 @@ class InterfacePlayerRDK
         	 */
         	void RegisterNeedDataCb(const HandleNeedDataCb &callback)
         	{
-        	        NeedDataCb = callback;
+				PerfTimer::perf_Start("RegisterNeedDataCb");
+				NeedDataCb = callback;
+				PerfTimer::perf_Stop("RegisterNeedDataCb");
         	}
         	/*
          	*@brief Registers enough data callback from application
         	 */
         	void RegisterEnoughDataCb(const HandleEnoughDataCb &callback)
                 {
-                        EnoughDataCb = callback;
+					PerfTimer::perf_Start("RegisterEnoughDataCb");
+                    EnoughDataCb = callback;
+					PerfTimer::perf_Stop("RegisterEnoughDataCb");
                 }
         	/*
         	 *@brief register registerHandleBuffering_timeoutCb
         	 */
         	void RegisterBufferingTimeoutCb(const HandleBuffering_timeoutCb &callback)
         	{
+				PerfTimer::perf_Start("RegisterBufferingTimeoutCb");
         		OnBuffering_timeoutCb = callback;
+				PerfTimer::perf_Stop("RegisterBufferingTimeoutCb");
         	}
         	/*
         	 *@brief register HandleOnGstPtsErrorCb
         	 */
         	void RegisterGstPtsErrorCb(const HandleOnGstPtsErrorCb &callback)
         	{
+				PerfTimer::perf_Start("RegisterGstPtsErrorCb");
         		OnGstPtsErrorCb = callback;
+				PerfTimer::perf_Stop("RegisterGstPtsErrorCb");
         	}
         	/*
         	 *@brief register handleOnGstDecodeErrorCb
         	 */
         	void RegisterGstDecodeErrorCb(const HandleOnGstDecodeErrorCb &callback)
         	{
+				PerfTimer::perf_Start("RegisterGstDecodeErrorCb");
         		OnGstDecodeErrorCb = callback;
+				PerfTimer::perf_Stop("RegisterGstDecodeErrorCb");
         	}
         	/*
         	 *@brief register OnGstBufferUnderflowCb
         	 */
         	void RegisterBufferUnderflowCb(const HandleOnGstBufferUnderflowCb &callback)
         	{
+				PerfTimer::perf_Start("RegisterBufferUnderflowCb");
         		OnGstBufferUnderflowCb = callback;
+				PerfTimer::perf_Stop("RegisterBufferUnderflowCb");
         	}
         	/*
         	 *@brief register registerHandleRedButtonCallback
         	 */
         	void RegisterHandleRedButtonCallback(const HandleRedButtonCallback &callback)
         	{
+				PerfTimer::perf_Start("RegisterHandleRedButtonCallback");
         		OnHandleRedButtonCallback = callback;
+				PerfTimer::perf_Stop("RegisterHandleRedButtonCallback");
         	}
         	/*callback declarations*/
         	BusMessageCallback busMessageCallback;
@@ -633,7 +647,9 @@ class InterfacePlayerRDK
         	 */
         	void RegisterBusEvent(const BusMessageCallback &callback)
         	{
+				PerfTimer::perf_Start("RegisterBusEvent");
         		busMessageCallback = callback;
+				PerfTimer::perf_Stop("RegisterBusEvent");
         	}
         	/**
         	 * @fn ClearProtectionEvent
