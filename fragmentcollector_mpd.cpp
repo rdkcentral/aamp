@@ -10326,7 +10326,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					cacheFullStatus[trackIdx] = true;
 					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
-						segmentFound = AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
+						segmentFound |= AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
 					}
 				}
 
@@ -10390,7 +10390,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 					else
 					{
-						AAMPLOG_WARN("Unexpected condition: Should not wait for rate <= AAMP_NORMAL_PLAY_RATE");
+						AAMPLOG_WARN("No segment found for rate <= AAMP_NORMAL_PLAY_RATE");
 					}
 				}
 			} // Loop 2 : TSB FetchLoop
