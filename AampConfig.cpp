@@ -299,7 +299,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
 	{false,"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true},
 	{true,"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false},
-	{true,"fragmp4LicensePrefetch",eAAMPConfig_Fragmp4PrefetchLicense,false},
+	{true,"fragmp4LicensePrefetch",eAAMPConfig_FragMp4PrefetchLicense,false},
 	{true,"useNewABR",eAAMPConfig_ABRBufferCheckEnabled,false},
 	{false,"useNewAdBreaker",eAAMPConfig_NewDiscontinuity,false},
 	{false,"bulkTimedMetadata",eAAMPConfig_BulkTimedMetaReport,false},
@@ -854,8 +854,8 @@ void AampConfig::ApplyDeviceCapabilities()
 	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
-	configValueBool[eAAMPConfig_DisableAC4].value = SocUtils::IsSupportedAC4();
-	configValueBool[eAAMPConfig_DisableAC3].value = SocUtils::IsSupportedAC3();
+	configValueBool[eAAMPConfig_DisableAC4].value = SocUtils::IsDisabledAC4();
+	configValueBool[eAAMPConfig_DisableAC3].value = SocUtils::IsDisabledAC3();
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);

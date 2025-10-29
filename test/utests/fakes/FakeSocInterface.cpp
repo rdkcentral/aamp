@@ -45,31 +45,19 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 }
 
-bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool DefaultSocInterface::IsVideoSink(const char* name)
 {
-	return  (!mUsingWesterosSink && StartsWith(name, "brcmvideosink") == true) || // brcmvideosink0, brcmvideosink1, ...
-        ( mUsingWesterosSink && StartsWith(name, "westerossink") == true) ||
-        (isRialto && StartsWith(name, "rialtomsevideosink") == true);
-
+	return false;
 }
 
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @param isWesteros Westeros flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool DefaultSocInterface::IsVideoDecoder(const char* name)
 {
-	if(mUsingWesterosSink)
-	{
-		return StartsWith(name, "westerossink");
-	}
-	else if (isRialto)
-	{
-		return StartsWith(name, "rialtomsevideosink");
-	}
 	return false;
 }
 
@@ -79,14 +67,9 @@ bool DefaultSocInterface::IsVideoDecoder(const char* name, bool isRialto)
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name, bool IsWesteros)
+bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(IsWesteros && StartsWith(name, "westerossink"))
-	{
-		AudioOrVideoDecoder = true;
-	}
-	return AudioOrVideoDecoder;
+	return false;
 }
 
 /**
@@ -216,21 +199,6 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         }
         return status;
 }
-/*
-void DefaultSocInterface::PrintCdmiDecryptor_Class_Init()
-{
-#if defined(UBUNTU)
-       printf("gst_cdmidecryptor_class_init\n");
-#endif
-}
-
-void DefaultSocInterface::PrintCdmiDecryptor_Init()
-{
-#if defined(UBUNTU)
-       printf("gst_cdmidecryptor_init\n");
-#endif
-}
-*/
 
 bool DefaultSocInterface::ShouldTearDownForTrickplay()
 {

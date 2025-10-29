@@ -192,7 +192,7 @@ bool PlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLen)
 			this->mStrInitDataFormated = std::string(cleanedPssh);
 			free(cleanedPssh);
 			cleanedPssh = NULL;
-			//Clear unwanted spaces from pssh data - time being not neeed
+			//Clear unwanted spaces from pssh data - time being not need
 			//std::remove(mStrInitDataFormated.begin(), mStrInitDataFormated.end(), ' ');
 			
 			keyData = extractKeyID();
