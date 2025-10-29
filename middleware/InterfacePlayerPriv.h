@@ -120,19 +120,6 @@ typedef enum
 	eGST_STATE_BLOCKED               /**< 14 - Player has blocked and cant play content*/
 } GstPrivPlayerState;
 
-/**
- * @name gstMapDecoderLookUptable
- *
- * @brief Decoder map list lookup table
- * convert from codec to string map list of gstreamer
- * component.
- */
-static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable =
-{
-	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}}, // TODO: BCOM & Amlogic?
-	{"ac-4", {"omxac4dec"} } // TODO: BCOM & Amlogic?
-};
-
 struct gst_media_stream
 {
 	GstElement *sinkbin;              /**< Sink element to consume data */
