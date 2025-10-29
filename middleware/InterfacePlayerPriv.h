@@ -129,8 +129,8 @@ typedef enum
  */
 static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable =
 {
-	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}}, // TODO: BCOM & AmLogic?
-	{"ac-4", {"omxac4dec"} } // TODO: BCOM & AmLogic?
+	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}}, // TODO: BCOM & Amlogic?
+	{"ac-4", {"omxac4dec"} } // TODO: BCOM & Amlogic?
 };
 
 struct gst_media_stream
