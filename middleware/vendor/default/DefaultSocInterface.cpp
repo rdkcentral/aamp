@@ -262,9 +262,3 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
 	}
 	return (isMaster == TRUE);
 }
-
-bool DefaultSocInterface::IsCodecSupported( const std::string &codec )
-{ // used for ac-3, ac-4 runtime capability check
-	// assumption: all modern rialto implementations are using MS12v2 and support these codecs
-	return true;
-}

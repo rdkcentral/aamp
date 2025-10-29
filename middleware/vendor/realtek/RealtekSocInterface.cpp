@@ -353,8 +353,3 @@ void RealtekSocInterface::SetHevcCaps(GstCaps *caps)
 {
 	gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 }
-
-bool RealtekSocInterface::IsCodecSupported( const std::string &codec )
-{ // ac-3 and ac-4 supported on RealTek
-	return true;
-}
