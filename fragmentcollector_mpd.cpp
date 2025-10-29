@@ -973,7 +973,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	 */
 	if (!pMediaStreamContext->mCheckForRampdown && !fragmentSaved)
 	{
-		if(mPlayRate > 0)
+		if(mPlayRate > AAMP_RATE_PAUSE)
 		{
 			pMediaStreamContext->fragmentTime += fragmentDuration;
 			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
@@ -1161,7 +1161,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
 						||(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
 							((mPlayRate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= aamp->mAbsoluteEndPosition)
-							 ||(mPlayRate < 0 && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
+							 ||(mPlayRate < AAMP_RATE_PAUSE && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
@@ -1567,7 +1567,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							}
 						}
 					}
-					else if (!skipFetch && mPlayRate < 0)
+					else if (!skipFetch && mPlayRate < AAMP_RATE_PAUSE)
 					{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 						AAMPLOG_INFO("Type[%d] presenting %f" ,pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time);
@@ -1615,7 +1615,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							while(pMediaStreamContext->fragmentDescriptor.Time < pMediaStreamContext->lastSegmentTime &&
 									pMediaStreamContext->fragmentRepeatCount < repeatCount )
 								{
-									if(mPlayRate > 0)
+									if(mPlayRate > AAMP_RATE_PAUSE)
 									{
 										pMediaStreamContext->fragmentDescriptor.Time += duration;
 										pMediaStreamContext->fragmentDescriptor.Number++;
@@ -1632,7 +1632,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					}
 					if(!pMediaStreamContext->freshManifest)
 					{
-						if(mPlayRate > 0)
+						if(mPlayRate > AAMP_RATE_PAUSE)
 						{
 							pMediaStreamContext->fragmentDescriptor.Time += duration;
 							pMediaStreamContext->fragmentDescriptor.Number++;
@@ -1762,7 +1762,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				}
 				else
 				{
-					if (mPlayRate < 0)
+					if (mPlayRate < AAMP_RATE_PAUSE)
 					{
 						pMediaStreamContext->fragmentDescriptor.Time = mPeriodEndTime;
 					}
@@ -1828,7 +1828,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					bProcessFragment = (pMediaStreamContext->fragmentDescriptor.Time+0.001 < mPeriodEndTime);
 				}
 			}
-			if ((!mIsLiveStream && ((!bProcessFragment) || (mPlayRate < 0 )))
+			if ((!mIsLiveStream && ((!bProcessFragment) || (mPlayRate < AAMP_RATE_PAUSE )))
 			|| (mIsLiveStream && (
 				(mLowLatencyMode? pMediaStreamContext->fragmentDescriptor.Time>mPeriodEndTime+availabilityTimeOffset:pMediaStreamContext->fragmentDescriptor.Time >= mPeriodEndTime)
 			|| (pMediaStreamContext->fragmentDescriptor.Time < mPeriodStartTime))))  //CID:93022 - No effect
@@ -1886,7 +1886,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 				if(!pMediaStreamContext->freshManifest)
 				{
-					if (mPlayRate > 0)
+					if (mPlayRate > AAMP_RATE_PAUSE)
 					{
 						pMediaStreamContext->fragmentDescriptor.Number++;
 						pMediaStreamContext->fragmentDescriptor.Time += fragmentDuration;
@@ -1902,7 +1902,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				}
 				else if(retval == true)
 				{
-					if (mPlayRate > 0)
+					if (mPlayRate > AAMP_RATE_PAUSE)
 					{
 						lastSegmentNumberBackup++;
 					}
@@ -2117,7 +2117,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								AAMPLOG_WARN("Zero duration in TSB");
 								return false;
 							}
-							else if(startTime > pMediaStreamContext->lastSegmentTime || 0 == pMediaStreamContext->lastSegmentTime || mPlayRate < 0 )
+							else if(startTime > pMediaStreamContext->lastSegmentTime || 0 == pMediaStreamContext->lastSegmentTime || mPlayRate < AAMP_RATE_PAUSE )
 							{
 								/*
 									Added to inject appropriate initialization header in
@@ -2210,7 +2210,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								 AAMPLOG_TRACE("PushNextFragment Exit : startTime %lld lastSegmentTime %" PRIu64 " index = %d", startTime, pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentIndex);
 							}
 						}
-						if(mPlayRate > 0)
+						if(mPlayRate > AAMP_RATE_PAUSE)
 						{
 							pMediaStreamContext->fragmentIndex++;
 							pMediaStreamContext->nextfragmentIndex = pMediaStreamContext->fragmentIndex+1;
@@ -2636,7 +2636,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						skipTime = 0;
 						// This is a special case, when we rewind to the first fragment in period, its hitting fragmentRepeatCount==0 login PushNextFragment
 						// For now, avoid this
-						if (mPlayRate < 0 && pMediaStreamContext->timeLineIndex == 0 && pMediaStreamContext->fragmentRepeatCount == 0 &&
+						if (mPlayRate < AAMP_RATE_PAUSE && pMediaStreamContext->timeLineIndex == 0 && pMediaStreamContext->fragmentRepeatCount == 0 &&
 								pMediaStreamContext->fragmentDescriptor.Time == 0)
 						{
 							AAMPLOG_INFO("Reached last fragment in the period during rewind");
@@ -2656,7 +2656,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			{
 				if(0 == pMediaStreamContext->fragmentDescriptor.Time)
 				{
-					if (mPlayRate < 0)
+					if (mPlayRate < AAMP_RATE_PAUSE)
 					{
 						pMediaStreamContext->fragmentDescriptor.Time = mPeriodEndTime;
 					}
@@ -2666,7 +2666,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					}
 				}
 
-				if(pMediaStreamContext->fragmentDescriptor.Time > mPeriodEndTime || (mPlayRate < 0 && pMediaStreamContext->fragmentDescriptor.Time <= 0))
+				if(pMediaStreamContext->fragmentDescriptor.Time > mPeriodEndTime || (mPlayRate < AAMP_RATE_PAUSE && pMediaStreamContext->fragmentDescriptor.Time <= 0))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. fragmentDescriptor.Time=%f",pMediaStreamContext->type, pMediaStreamContext->fragmentDescriptor.Time);
 					pMediaStreamContext->eos = true;
@@ -3851,7 +3851,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				liveAdjust = true;
 				notifyEnteringLive = true;
 			}
-			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (mPlayRate > 0))
+			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (mPlayRate > AAMP_RATE_PAUSE))
 			{
 				double seekWindowEnd = duration - aamp->mLiveOffset;
 				// check if seek beyond live point
@@ -9169,7 +9169,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 							skipTime = 0;
 							aamp->playerStartedWithTrickPlay = false;
 						}
-						else if((mPlayRate > 0 && skipTime <= 0) || (mPlayRate < 0 && skipTime >= 0))
+						else if((mPlayRate > AAMP_RATE_PAUSE && skipTime <= 0) || (mPlayRate < AAMP_RATE_PAUSE && skipTime >= 0))
 						{
 							skipTime = mPlayRate / vodTrickplayFPS;
 						}
@@ -9213,7 +9213,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 					//Determining the current position within the period by calculating the difference between
 					//the fragmentTime and the periodStartOffset (both in absolute terms).
 					//If this difference exceeds the total duration of the ad, the period is considered to have ended.
-					if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && mPlayRate > 0 && !(pMediaStreamContext->eos)&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
+					if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && mPlayRate > AAMP_RATE_PAUSE && !(pMediaStreamContext->eos)&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
 					{
 						//Ensuring that Ad playback doesn't go beyond Adbreak
 						AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
@@ -9457,7 +9457,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					* present after mpd update causing issues
 					*/
 					AAMPLOG_INFO("Period %s skipped. Adaptation size:%d, isEmpty:%d duration %f (ms)", newPeriod->GetId().c_str(), adaptationSetCount, mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (mPlayRate != AAMP_NORMAL_PLAY_RATE)), (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB())));
-					mIterPeriodIndex += (mPlayRate < 0) ? -1 : 1;
+					mIterPeriodIndex += (mPlayRate < AAMP_RATE_PAUSE) ? -1 : 1;
 					// Skipping period completely, so exit from period selection
 					ret = false;
 					continue;
@@ -9707,7 +9707,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		if (seekPositionSeconds)
 		{
 			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf]", currentPeriodId.c_str(), seekPositionSeconds);
-			if (mPlayRate > 0)
+			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
 				SeekInPeriod(seekPositionSeconds);
 				// Ad shorter than base period, set flag to adjust calculation on next call to UpdatePtsOffset()
@@ -9819,7 +9819,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					aamp->SetIsPeriodChangeMarked(false);
 				}
-				if (mPlayRate < 0 || mPlayRate > 1)
+				if (mPlayRate < AAMP_RATE_PAUSE || mPlayRate > 1)
 				{
 					discontinuity = true;
 					AAMPLOG_INFO("Discontinuity set for trickplay");
@@ -10001,7 +10001,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						continue;
 					}
 				}
-				if (mPlayRate < 0 && periodChanged)
+				if (mPlayRate < AAMP_RATE_PAUSE && periodChanged)
 				{
 					SeekInPeriod(0, true);
 				}
@@ -10088,10 +10088,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				if (vEos || aEos)
 				{
 					bool eosOutSideAd = (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState &&
-											((mPlayRate > 0 && mCurrentPeriodIdx >= mMPDParseHelper->mUpperBoundaryPeriod) || (mPlayRate < 0 && mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)));
+											((mPlayRate > AAMP_RATE_PAUSE && mCurrentPeriodIdx >= mMPDParseHelper->mUpperBoundaryPeriod) || (mPlayRate < AAMP_RATE_PAUSE && mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)));
 
 					bool eosAdPlayback = (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
-											((mPlayRate > 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < 0 && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
+											((mPlayRate > AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
 					if ((!mIsLiveManifest || (mPlayRate != AAMP_NORMAL_PLAY_RATE)) && (eosOutSideAd || eosAdPlayback))
 					{
 						if (vEos)
@@ -10133,7 +10133,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						}
 						// EOS from both tracks for dynamic (live) manifests for all periods.
 						// If ad state is not IN_ADBREAK_WAIT2CATCHUP, go for the manifest update, otherwise break the loop.
-						if (mIsLiveManifest && (mPlayRate > 0) && (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod) &&
+						if (mIsLiveManifest && (mPlayRate > AAMP_RATE_PAUSE) && (mIterPeriodIndex == mMPDParseHelper->mUpperBoundaryPeriod) &&
 							(AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState))
 						{
 							aamp->interruptibleMsSleep(500);
@@ -10148,8 +10148,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				if (AdState::OUTSIDE_ADBREAK != mCdaiObject->mAdState)
 				{
 					Period2AdData &curPeriod = mCdaiObject->mPeriodMap[mBasePeriodId];
-					if ((mPlayRate < 0 && mBasePeriodOffset <= 0) ||
-						(mPlayRate > 0 && curPeriod.filled && curPeriod.duration <= (uint64_t)(mBasePeriodOffset * 1000)))
+					if ((mPlayRate < AAMP_RATE_PAUSE && mBasePeriodOffset <= 0) ||
+						(mPlayRate > AAMP_RATE_PAUSE && curPeriod.filled && curPeriod.duration <= (uint64_t)(mBasePeriodOffset * 1000)))
 					{
 						AAMPLOG_INFO("[CDAI]: BasePeriod[%s] completed @%lf. Changing to next ", mBasePeriodId.c_str(), mBasePeriodOffset);
 						break;
@@ -10207,7 +10207,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			{
 				continue; // Need to finish all the ads in current before period change
 			}
-			if (mPlayRate > 0)
+			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
 				mIterPeriodIndex++;
 			}
@@ -12217,7 +12217,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				// For rewind cases, we don't need to wait for the ad to get placed. The below TODO says otherwise,
 				// but not seeing any use of base period offset for rewind in the below logic
-				if ((mPlayRate > 0) &&
+				if ((mPlayRate > AAMP_RATE_PAUSE) &&
 					!(mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placed)) //TODO: Vinod, Need to wait till the base period offset is available. 'placed' won't help in case of rewind.
 				{
 					break;
@@ -12256,7 +12256,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				}
 				else
 				{
-					if(mPlayRate > 0)
+					if(mPlayRate > AAMP_RATE_PAUSE)
 					{
 						// For forward playback, we need to wait till the adbreak is placed. Then only we will know which period to change to
 						if (!mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdBreakPlaced)
@@ -14145,7 +14145,7 @@ int StreamAbstractionAAMP_MPD::GetValidPeriodIdx(int periodIdx)
 					mpd->GetPeriods().at(periodIter)->GetId().c_str(), periodDuration);
 		// Find the next or prev non-empty period or period with duration greater than THRESHOLD_TOIGNORE_TINYPERIOD
 		bool bvalidperiodfound = false;
-		int direction = (mPlayRate < 0) ? -1 : 1;
+		int direction = (mPlayRate < AAMP_RATE_PAUSE) ? -1 : 1;
 		periodIter += direction; //point periodIter to next period
 		while((periodIter < mNumberOfPeriods) && (periodIter >= 0))
 		{
