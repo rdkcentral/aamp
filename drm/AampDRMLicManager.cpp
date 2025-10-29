@@ -282,12 +282,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 				if(!usingAppDefinedAuthToken)
 				{ /* authToken not set externally by app */
 					sessionToken = getAccessToken(tokenError);
-					AAMPLOG_WARN("Access Token from AuthServer");
+					AAMPLOG_MIL("Access Token from AuthServer");
 				}
 				else
 				{
 					sessionToken = aampInstance->mSessionToken;
-					AAMPLOG_WARN("Got Access Token from External App");
+					AAMPLOG_MIL("Got Access Token from External App");
 				}
 				if( sessionToken.empty() )
 				{
@@ -615,7 +615,7 @@ string extractSubstring(string parentStr, string startStr, string endStr)
 /**
  *  @brief Get the accessToken from authService.
  */
-std::string AampDRMLicenseManager::getAccessToken(int &error_code)
+const std::string &AampDRMLicenseManager::getAccessToken(int &error_code)
 {
 	if (accessToken.empty())
 	{

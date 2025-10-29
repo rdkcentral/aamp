@@ -72,7 +72,7 @@ public:
 	 *  @param[out] error_code error code if any associated with retrieving access token.
 	 *  @return Returns the access token as a string.
 	 */
-	std::string getAccessToken(int &error_code);
+	const std::string &getAccessToken(int &error_code);
 	/**
 	 * @fn acquireLicense
 	 */
