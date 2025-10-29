@@ -484,7 +484,5 @@ public:
 	 * @return 'true' if video master otherwise false.
 	 */
 	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
-	
-	virtual bool IsCodecSupported( const std::string &codec ){ return true; };
 };
 #endif

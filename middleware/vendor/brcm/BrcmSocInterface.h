@@ -134,8 +134,6 @@ public:
 	void SetPlaybackFlags(gint &flags, bool isSub)override;
 	
 	bool IsVideoMaster(GstElement *videoSink)override{return true;}
-	
-	bool IsCodecSupported( const std::string &codec ) override;
 };
 
 

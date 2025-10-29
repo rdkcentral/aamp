@@ -167,8 +167,6 @@ public:
 	void SetHevcCaps(GstCaps *caps)override;
 	
 	bool IsVideoMaster(GstElement *videoSink)override;
-	
-	bool IsCodecSupported( const std::string &codec ) override;
 };
 
 #endif

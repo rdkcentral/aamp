@@ -256,16 +256,3 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
 {
 	return true;
 }
-
-bool DefaultSocInterface::IsCodecSupported( const std::string &codec )
-{
-#ifdef __APPLE__
-	// FakeSocInterace used in simulator - why?
-	if( codec=="ac-4" )
-	{ // AC-4 not supported on OSX Simulator
-		return false;
-	}
-#endif
-	assert( codec=="ac-3" || codec=="ac-4" );
-	return true;
-}

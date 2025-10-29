@@ -161,11 +161,6 @@ void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	return true;
-}
-
 static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 {
 	"TRACE", // eLOGLEVEL_TRACE
