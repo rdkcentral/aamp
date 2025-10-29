@@ -1829,6 +1829,11 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	{
 		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
 	}
+	else
+	{
+		MW_LOG_MIL("Skipping caps for now, will be set from mp4Demux later");
+	}
+
 	if (caps != NULL)
 	{
 		gst_app_src_set_caps(GST_APP_SRC(source), caps);
@@ -3123,7 +3128,6 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 			{
 				interfacePlayerPriv->ForwardBuffersToAuxPipeline(buffer, mPauseInjector, this);
 			}
-#ifdef SUPPORTS_MP4DEMUX
 			if( mediaType<2 && m_gstConfigParam->useMp4Demux &&
 			   !copy /* avoid using this path for hls/ts */ )
 			{
@@ -3180,7 +3184,6 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 			}
 			else
-#endif // SUPPORTS_MP4DEMUX
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
 				
