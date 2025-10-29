@@ -854,9 +854,6 @@ void AampConfig::ApplyDeviceCapabilities()
 	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
-#ifdef __APPLE__
-	configValueBool[eAAMPConfig_DisableAC4].value = false;
-#endif
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
