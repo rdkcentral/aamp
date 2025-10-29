@@ -6607,7 +6607,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 			pMediaStreamContext->StartInjectLoop();
 		}
 	}
-	if(selAdaptationSetIndex < 0 && (mPlayRate == 1))
+	if(selAdaptationSetIndex < 0 && (mPlayRate == AAMP_NORMAL_PLAY_RATE))
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",GetMediaTypeName(eMEDIATYPE_SUBTITLE));
 	}
@@ -7299,7 +7299,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
 			}
 
-			if(selAdaptationSetIndex < 0 && (mPlayRate == 1))
+			if(selAdaptationSetIndex < 0 && (mPlayRate == AAMP_NORMAL_PLAY_RATE))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
 					GetMediaTypeName(AampMediaType(i)));
@@ -9400,7 +9400,7 @@ void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
 bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 {
 	bool ret = false;
-	if ((mPlayRate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (mPlayRate > 1 && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))
+	if ((mPlayRate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) || (mPlayRate > AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex >= mNumberOfPeriods) || (!mIsLiveManifest && waitForAdBreakCatchup != true))
 	{
 		// During rewind, due to miscalculations in fragmentTime, we could end up exiting collector loop without pushing EOS
 		// For the time being, will check additionally here to push EOS
@@ -9819,7 +9819,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					aamp->SetIsPeriodChangeMarked(false);
 				}
-				if (mPlayRate < AAMP_RATE_PAUSE || mPlayRate > 1)
+				if (mPlayRate < AAMP_RATE_PAUSE || mPlayRate > AAMP_NORMAL_PLAY_RATE)
 				{
 					discontinuity = true;
 					AAMPLOG_INFO("Discontinuity set for trickplay");
