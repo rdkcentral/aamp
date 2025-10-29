@@ -206,3 +206,13 @@ void BrcmSocInterface::SetPlaybackFlags(gint &flags, bool isSub)
 		flags = PLAY_FLAG_TEXT;
 	}
 }
+
+bool BrcmSocInterface::IsCodecSupported( const std::string &codec )
+{ // used for ac-3, ac-4 runtime capability check
+	if( codec=="ac-4" )
+	{
+		return true; // TODO: only if using ms12v2 - must return false on xg1v4!
+	}
+	return true;
+}
+

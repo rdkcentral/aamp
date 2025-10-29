@@ -300,3 +300,8 @@ void AmlogicSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *v
 		g_object_get(video_dec, "videodecoder", dec_handle, NULL);
 	}
 }
+
+bool AmlogicSocInterface::IsCodecSupported( const std::string &codec )
+{ // ac-3 and ac-4 supported on AmLogic
+	return true;
+}

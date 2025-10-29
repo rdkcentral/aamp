@@ -201,6 +201,7 @@ class AmlogicSocInterface : public SocInterface
 		 */
 		bool IsVideoMaster(GstElement *videoSink)override{return false;}
 
+		bool IsCodecSupported( const std::string &codec ) override;
 };
 
 #endif

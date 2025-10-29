@@ -51,7 +51,11 @@ namespace SocUtils
 	 */
 	bool IsDisabledAC4( void )
 	{
-		return !InterfacePlayerRDK::IsCodecSupported("ac-4");
+//		if( IsMS2V12Supported() )
+//		{ // needed to prevent attempts to use ac-4 on xg1v4
+//			return false;
+//		}
+		return !socInterface->IsCodecSupported("ac-4");
 	}
 
 	/**
@@ -63,7 +67,7 @@ namespace SocUtils
 	 */
 	bool IsDisabledAC3( void )
 	{
-		return !InterfacePlayerRDK::IsCodecSupported("ac-3");
+		return !socInterface->IsCodecSupported("ac-3");
 	}
 
 	/**

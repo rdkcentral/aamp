@@ -20,7 +20,7 @@
 #include "DefaultSocInterface.h"
 
 /**
- @brief this interface implementation used with Rialto and OSX/Ubuntu simulator
+ @brief this interface implementation used with Rialto
  */
 DefaultSocInterface::DefaultSocInterface()
 {
@@ -261,4 +261,10 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
 		MW_LOG_INFO("is-master %d", isMaster);
 	}
 	return (isMaster == TRUE);
+}
+
+bool DefaultSocInterface::IsCodecSupported( const std::string &codec )
+{ // used for ac-3, ac-4 runtime capability check
+	// assumption: all modern rialto implementations are using MS12v2 and support these codecs
+	return true;
 }

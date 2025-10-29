@@ -5125,31 +5125,6 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(int streamId, std::string ma
 	return retvalue;
 }
 
-/*
- * @brief Check whether Gstreamer platform has support of the given codec or not.
- *        codec to component mapping done in gstreamer side.
- * @param codecName - Name of codec to be checked
- * @return True if platform has the support else false
- */
-bool InterfacePlayerRDK::IsCodecSupported(const std::string &codecName)
-{
-	// do plugin registry scans work on Rialto?
-	// if not, we have option to (when using Rialto) always report 'true' with assumption that
-	// all Rialto ports support MS2V12 and ac3/ac4
-	bool retValue = false;
-	GstRegistry* registry = gst_registry_get();
-	for (std::string &componentName: gstMapDecoderLookUptable[codecName])
-	{
-		GstPluginFeature* pluginFeature = gst_registry_lookup_feature(registry, componentName.c_str());	/* searches for codec in the registry */
-		if (pluginFeature != NULL)
-		{
-			retValue = true;
-			break;
-		}
-	}
-	return retValue;
-}
-
 void InterfacePlayerRDK::DisableDecoderHandleNotified()
 {
 	interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
