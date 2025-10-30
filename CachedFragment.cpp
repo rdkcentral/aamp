@@ -108,8 +108,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
  */
 void CachedFragment::Clear()
 {
+	std::lock_guard<std::mutex> lock(mMutex);
 	// RAII: Assign a new empty buffer instead of calling Free()
-	// This is more tolerant and follows RAII principles
 	fragment = AampGrowableBuffer("cached-fragment");
 	
 	position = 0.0;
