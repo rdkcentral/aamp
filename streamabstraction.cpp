@@ -185,7 +185,7 @@ void MediaTrack::MonitorBufferHealth()
 		AAMPLOG_WARN("bufferHealthMonitorDelay (%d) is less than bufferHealthMonitorInterval (%d)", 
 					 bufferHealthMonitorDelay, bufferHealthMonitorInterval);
 	}
-	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
+	unsigned int bufferMonitorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
 	AAMPLOG_INFO("[%s] Start MonitorBufferHealth, downloads %d abort %d delay %ds interval %ds discontinuityTimeout %dms",
 				 name, aamp->DownloadsAreEnabled(), abort, bufferHealthMonitorDelay, bufferHealthMonitorInterval, discontinuityTimeoutValue);
