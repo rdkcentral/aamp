@@ -7370,7 +7370,9 @@ bool TrackState::IsExtXByteRange( lstring ptr, size_t *byteRangeLength, size_t *
     return false;
 }
 
-//Enable default text track for Rialto
+/**
+ * @brief For rialto select any valid subtitle track
+ */
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {
 	if( currentTextTrackProfileIndex  == -1)
@@ -7383,7 +7385,7 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 			aamp->SetPreferredTextTrack(mTextTracks[0]);
 		}
 	}
-	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
+	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d isCC %d lang %s", currentTextTrackProfileIndex, aamp->mIsInbandCC, mTextTracks[0].language.c_str());
 }
 
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)
