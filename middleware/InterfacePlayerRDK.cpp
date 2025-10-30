@@ -4660,8 +4660,9 @@ static gboolean buffering_timeout (gpointer data)
 			}
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
+				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
-				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), (privatePlayer->gstPrivateContext->buffering_timeout_cnt+1), frames);
+				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
 				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
 				
