@@ -90,14 +90,7 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	this->isDummy = other->isDummy;
 	this->discontinuityIndex = other->discontinuityIndex;
 	
-	// Only copy fragmentType if source has been explicitly set,
-	// otherwise preserve the existing type (which may have been initialized correctly)
-	// This prevents Copy() from overwriting properly initialized chunk types
-	if (other->fragmentType != FragmentType::COMPLETE_FRAGMENT || 
-		this->fragmentType == FragmentType::COMPLETE_FRAGMENT) 
-	{
-		this->fragmentType = other->fragmentType;
-	}
+	this->fragmentType = other->fragmentType;
 	
 	// Copy fragment data up to specified length
 	// Defensive: Check if buffer is valid before accessing
