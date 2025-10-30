@@ -191,7 +191,7 @@ void MediaTrack::MonitorBufferHealth()
 				 name, aamp->DownloadsAreEnabled(), abort, bufferHealthMonitorDelay, bufferHealthMonitorInterval, discontinuityTimeoutValue);
 	if(aamp->DownloadsAreEnabled() && !abort)
 	{
-		aamp->interruptibleMsSleep(bufferMontiorScheduleTime *1000);
+		aamp->interruptibleMsSleep(bufferMonitorScheduleTime *1000);
 		keepRunning = true;
 	}
 	int monitorInterval = bufferHealthMonitorInterval  * 1000;

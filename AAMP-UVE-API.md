@@ -2250,10 +2250,17 @@ Example:
 ### watermarkSessionUpdate
 
 **Event Payload:**
-- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details.
 - sessionHandle:string
-- status:string
-- system:string
+- system:string Identifies the content watermarking protection provider, i.e. "fmts_asid" (FriendMTS).  Note: this is only valid when using SecManager.
+- status:string Additional information regarding security system state.  See below table:
+  
+| Code      | Name         |   Definition
+| --------- |------------- |--------------
+| 1         | GRANTED      | No security issues
+| 2         | NOT_REQUIRED | Watermark session granted
+| 3         | DENIED       | Watermark session not required
+| 4 / 20001 | FAILED       | Watermark session denied
 
 **Description:**
 - Watermarking session information
