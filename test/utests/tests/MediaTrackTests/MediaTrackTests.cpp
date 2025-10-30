@@ -883,11 +883,11 @@ TEST_F(MediaTrackTests, MediaTrackConstructorFragmentTypeInitializationTest)
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 	
-	// Verify mCachedFragment array initialized to COMPLETE_FRAGMENT
-	// and active mCachedFragmentChunks initialized to FRAGMENT_CHUNK
-	// Note: In non-chunk mode, mCachedFragmentChunksSize will be set to kMaxFragmentCached (4)
+	// Verify that both mCachedFragment array (COMPLETE_FRAGMENT) and active mCachedFragmentChunks (FRAGMENT_CHUNK)
+	// are initialized to kMaxFragmentCached in non-chunk (non-LL) mode.
+	// In this mode, mCachedFragmentChunksSize is set to kMaxFragmentCached, so both fragment types are expected to have this count.
 	EXPECT_EQ(videoTrack.GetFragmentTypeInitializationCount(FragmentType::COMPLETE_FRAGMENT), 
 			  kMaxFragmentCached);
 	EXPECT_EQ(videoTrack.GetFragmentTypeInitializationCount(FragmentType::FRAGMENT_CHUNK), 
-			  kMaxFragmentCached); // Uses mCachedFragmentChunksSize = maxCachedFragmentsPerTrack in non-LL mode
+			  kMaxFragmentCached);
 }
