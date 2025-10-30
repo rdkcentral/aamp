@@ -2577,7 +2577,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 
 				if (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
 				{
-					/* For closedCaption subtitles then we need a subtitle track setup in Riato for control. The actual subtitle
+					/* For closedCaption subtitles then we need a subtitle track setup in Rialto for control. The actual subtitle
 					* data is included in the video track. In this case we are using FORMAT_INVALID. Otherwise we use FORMAT_SUBTITLE_WEBVTT
 					*/
 					format = mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID : FORMAT_SUBTITLE_WEBVTT;
@@ -7385,7 +7385,7 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 			aamp->SetPreferredTextTrack(mTextTracks[0]);
 		}
 	}
-	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d isCC %d lang %s", currentTextTrackProfileIndex, aamp->mIsInbandCC, mTextTracks[0].language.c_str());
+	AAMPLOG_INFO("using RialtoSink TextTrack Selected %d", currentTextTrackProfileIndex);
 }
 
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)
