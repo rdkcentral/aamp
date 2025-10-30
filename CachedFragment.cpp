@@ -94,7 +94,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	
 	// Copy fragment data up to specified length
 	// Defensive: Check if buffer is valid before accessing
-	if (other->fragment.GetPtr() && len > 0) 
+	bool shouldCopyFragmentData = (other->fragment.GetPtr() && len > 0);
+	if (shouldCopyFragmentData)
 	{
 		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
 	}
