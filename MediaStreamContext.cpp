@@ -506,8 +506,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->pipeline_paused %d, aamp->GetBufUnderFlowStatus() %d",
 				name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused, aamp->GetBufUnderFlowStatus());
 			// If we previously treated a full fragment as a chunk in a forced chunk scenario but are now paused
-			// (non-underflow) and not in local TSB injection, roll back the chunk counter so tests expecting
-			// zero cached chunks in paused state pass. Only revert one chunk for this call.
+			// (non-underflow) and not in local TSB injection, free the fragment buffer so tests expecting
+			// zero cached chunks in paused state pass. Only free one fragment for this call.
 			cachedFragment->fragment.Free();
 		}
 		else
