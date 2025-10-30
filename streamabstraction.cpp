@@ -1070,9 +1070,18 @@ bool MediaTrack::ProcessFragment(CachedFragment* fragment)
 			return true;
 		}
 		uint32_t timeScale = 0;
-		if(type == eTRACK_VIDEO) timeScale = aamp->GetVidTimeScale();
-		else if(type == eTRACK_AUDIO) timeScale = aamp->GetAudTimeScale();
-		else if(type == eTRACK_SUBTITLE) timeScale = aamp->GetSubTimeScale();
+		if(type == eTRACK_VIDEO)
+		{
+			timeScale = aamp->GetVidTimeScale();
+		}
+		else if(type == eTRACK_AUDIO)
+		{
+			timeScale = aamp->GetAudTimeScale();
+		}
+		else if(type == eTRACK_SUBTITLE)
+		{
+			timeScale = aamp->GetSubTimeScale();
+		}
 		if(!timeScale)
 		{
 			if(pContext) {
