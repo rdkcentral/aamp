@@ -275,12 +275,11 @@ protected:
     void TearDown() override
     {
         // Delete in reverse order of construction to avoid dangling pointers
-        delete TrackStateobj;
-        TrackStateobj = nullptr;
-
         delete mStreamAbstractionAAMP_HLS;
         mStreamAbstractionAAMP_HLS = nullptr;
 
+        delete TrackStateobj;
+        TrackStateobj = nullptr;
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
 
