@@ -9193,6 +9193,37 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 
 	// Update scheduler with new state
 	mScheduler->SetState(state);
+	
+	// Schedule a SIGABRT for live playback if enabled via environment variable
+	// This is intended for debug/testing: set AAMP_SIGABORT_AFTER_PLAYBACK=1 to enable
+	if (mState == eSTATE_PLAYING && IsLive())
+	{
+		AAMPLOG_WARN("Live Playback started, scheduling SIGABRT in 60 seconds...");
+
+		if (!mSigAbortScheduled.load())
+		{
+			mSigAbortScheduled.store(true);
+			// spawn detached thread to wait and then raise SIGABRT if still playing and live
+			std::thread([this]() {
+				int waitSecs = 60; // default
+
+				AAMPLOG_WARN("Abort Thread Started...");
+
+				std::this_thread::sleep_for(std::chrono::seconds(waitSecs));
+
+				AAMPLOG_WARN("Abort!!!");
+				try {
+					if (this->GetState() == eSTATE_PLAYING && this->IsLive())
+					{
+						raise(SIGABRT);
+					}
+				} catch(...) {
+					// swallow any exceptions in this detached thread
+				}
+			}).detach();
+		}
+	}
+
 
 	// Send state change events outside of any locks to avoid deadlock
 	if (sendStateChangeEvent && mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
