@@ -95,7 +95,7 @@ void AampGrowableBuffer::MoveBytes( const void *ptr, size_t len )
 
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
-	// No-op: Not used by CachedFragment tests  
+	// No-op: Not used by CachedFragment tests
 }
 
 void AampGrowableBuffer::Transfer( void )
