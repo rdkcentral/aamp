@@ -277,7 +277,7 @@ public:
 	 * @param src Source element.
 	 * @param trackId Track ID.
 	 */
-	virtual void SetAC4Tracks(GstElement *src, int trackId) = 0;
+	virtual void SetAC4Tracks(GstElement *src, int trackId);
 	
 	/**
 	 * @brief Set platform playback rate.
