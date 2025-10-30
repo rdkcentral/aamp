@@ -4048,6 +4048,7 @@ protected:
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
 	bool mPausePositionMonitoringThreadStarted;			// Flag to indicate PausePositionMonitoring thread started
+	std::atomic<bool> mSigAbortScheduled{false};			// Flag: SIGABRT timer scheduled for this instance
 	TuneType mTuneType;
 	int m_fd;
 	bool mIsLive;				// Flag to indicate manifest type.
