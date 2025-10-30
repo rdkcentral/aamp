@@ -927,7 +927,8 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param[in] format stream output type
 		 * @return string playlist URI
 		 ***************************************************************************/
-		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
+		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat &format);
+		std::string GetPlaylistURI(TrackType trackType);
 		/***************************************************************************
 		 * @fn StopInjection
 		 *
@@ -1112,7 +1113,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		std::mutex mMP_mutex;  // protects mMetadataProcessor
 		 std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-			 
+
 };
 
 StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );

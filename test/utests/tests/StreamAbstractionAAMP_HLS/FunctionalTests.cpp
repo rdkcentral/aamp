@@ -936,7 +936,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest)
 {
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_VIDEO;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, format);
     ASSERT_EQ(format, FORMAT_MPEGTS);
     ASSERT_EQ(type, eTRACK_VIDEO);
 }
@@ -946,7 +946,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioPlaylistURITest)
 {
     // mStreamAbstractionAAMP_HLS->currentAudioProfileIndex = 3;
     StreamOutputFormat format;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, format);
     ASSERT_NE(FORMAT_AUDIO_ES_AAC, format);
 }
 
@@ -955,7 +955,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest2)
     // mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 3;
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_SUBTITLE;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, format);
 
 }
 
@@ -2775,19 +2775,19 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 	"#EXT-X-ENDLIST\r\n";
 	lstring ii = lstring( raw, strlen(raw) );
 	auto x = IndexThumbnails( ii );
-	
+
 	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
 	EXPECT_EQ(x[0].layout.numCols,5);
 	EXPECT_EQ(x[0].layout.numRows,6);
 	EXPECT_EQ(x[0].layout.posterDuration,10);
 	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
-	
+
 	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
 	EXPECT_EQ(x[1].layout.numCols,9);
 	EXPECT_EQ(x[1].layout.numRows,17);
 	EXPECT_EQ(x[1].layout.posterDuration,20);
 	EXPECT_EQ(x[1].layout.tileSetDuration,200);
-	
+
 	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
 	EXPECT_EQ(x[2].layout.numCols,4);
 	EXPECT_EQ(x[2].layout.numRows,3);

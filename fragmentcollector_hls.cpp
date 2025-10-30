@@ -2525,9 +2525,23 @@ int StreamAbstractionAAMP_HLS::GetBestAudioTrackByLanguage( void )
 /**
  *  @brief Function to get playlist URI based on media selection
  */
-std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, StreamOutputFormat* format)
+std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType )
+{
+	StreamOutputFormat unused_format;
+	return GetPlaylistURI(trackType, unused_format);
+}
+
+/**
+ * @brief Function to get playlist URI based on media selection
+ *
+ * TrackType is used to specify the type of stream track for which the playlist URI is requested.
+ * Typical values may include audio, video, subtitle, or other media types supported by the stream abstraction.
+ */
+std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, StreamOutputFormat &format)
 {
 	std::string playlistURI;
+
+	format = FORMAT_INVALID; /* default value*/
 
 	switch (trackType)
 	{
@@ -2538,10 +2552,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			{
 				playlistURI = streamInfo->uri;
 			}
-			if (format)
-			{
-				*format = FORMAT_MPEGTS;
-			}
+			format = FORMAT_MPEGTS;
 		}
 		break;
 	case eTRACK_AUDIO:
@@ -2552,10 +2563,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 				AAMPLOG_WARN("GetPlaylistURI : AudioTrack: language selected is %s", GetLanguageCode(currentAudioProfileIndex).c_str());
 				playlistURI = mediaInfoStore[currentAudioProfileIndex].uri;
 				mAudioTrackIndex = std::to_string(currentAudioProfileIndex);
-				if (format)
-				{
-					*format = GetStreamOutputFormatForTrack(trackType);
-				}
+				format = GetStreamOutputFormatForTrack(trackType);
 			}
 		}
 		break;
@@ -2565,28 +2573,25 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			{
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
-				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
-				if (format)
-				{
-					if (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
-					{
+				SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_SubTitleLanguage, (std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
 
-						*format =mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID:FORMAT_SUBTITLE_WEBVTT;
-					}
-					else
-					{
-						*format = FORMAT_UNKNOWN;
-					}
+				if (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
+				{
+					/* For closedCaption subtitles then we need a subtitle track setup in Riato for control. The actual subtitle
+					* data is included in the video track. In this case we are using FORMAT_INVALID. Otherwise we use FORMAT_SUBTITLE_WEBVTT
+					*/
+					format = mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID : FORMAT_SUBTITLE_WEBVTT;
 				}
-				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str());
+				else
+				{
+					format = FORMAT_UNKNOWN;
+				}
+
+				AAMPLOG_TRACE("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str());
 			}
 			else
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Couldn't find subtitle URI for preferred language: %s", aamp->mSubLanguage.c_str());
-				if (format != NULL)
-				{
-					*format = FORMAT_INVALID;
-				}
 			}
 		}
 		break;
@@ -2600,10 +2605,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 				playlistURI = mediaInfoStore[index].uri;
 				AAMPLOG_WARN("GetPlaylistURI : Auxiliary Track: Audio selected name is %s", GetLanguageCode(index).c_str());
 				//No need to update back, matching track is either there or not
-				if (format)
-				{
-					*format = GetStreamOutputFormatForTrack(trackType);
-				}
+				format = GetStreamOutputFormatForTrack(trackType);
 			}
 		}
 		break;
@@ -3537,7 +3539,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						lastSelectedProfileIndex = currentProfileIndex;
 						AAMPLOG_INFO("Trying BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond,
 						GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
-						std::string uri = GetPlaylistURI(eTRACK_VIDEO, &video->streamOutputFormat);
+						std::string uri = GetPlaylistURI(eTRACK_VIDEO, video->streamOutputFormat);
 						if( !uri.empty() ){
 							aamp_ResolveURL(video->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 
@@ -4545,7 +4547,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 				continue;
 			}
 		}
-		std::string uri = GetPlaylistURI((TrackType)iTrack, &ts->streamOutputFormat);
+		std::string uri = GetPlaylistURI((TrackType)iTrack, ts->streamOutputFormat);
 		if( !uri.empty() )
 		{
 			aamp_ResolveURL(ts->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
@@ -7119,7 +7121,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
-				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
+				AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
 				mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;
