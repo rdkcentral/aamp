@@ -1126,7 +1126,7 @@ bool MediaTrack::ProcessFragment(CachedFragment* fragment)
 					fpts = fragment->absPosition;
 					TrickModePtsRestamp(parsedBufferChunk, fpts, fduration, fragment->initFragment, fragment->discontinuity);
 				}
-				else if (!fragment->initFragment)
+				else
 				{
 					int64_t ptsOffset = fragment->PTSOffsetSec * fragment->timeScale;
 					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, fragment->uri, name, fragment->timeScale);
