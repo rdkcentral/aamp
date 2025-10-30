@@ -2566,7 +2566,18 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
 				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
-				if (format) *format = (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE) ? FORMAT_SUBTITLE_WEBVTT : FORMAT_UNKNOWN;
+				if (format)
+				{
+					if (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
+					{
+
+						*format =mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID:FORMAT_SUBTITLE_WEBVTT;
+					}
+					else
+					{
+						*format = FORMAT_UNKNOWN;
+					}
+				}
 				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str());
 			}
 			else
@@ -7362,21 +7373,12 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {
 	if( currentTextTrackProfileIndex  == -1)
 	{
-		TextTrackInfo *firstAvailTextTrack = nullptr;
-		for (int j = 0; j < mTextTracks.size(); j++)
+		if( mTextTracks.size())
 		{
-			if (!mTextTracks[j].isCC)
-			{
-		firstAvailTextTrack = &mTextTracks[j];
-				break;
-			}
-		}
-		if(firstAvailTextTrack != nullptr)
-		{
-			currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
-			aamp->mIsInbandCC = false;
+			currentTextTrackProfileIndex = std::stoi(mTextTracks[0].index);
+			aamp->mIsInbandCC = mTextTracks[0].isCC;
 			aamp->SetCCStatus(false); //mute the subtitle track
-			aamp->SetPreferredTextTrack(*firstAvailTextTrack);
+			aamp->SetPreferredTextTrack(mTextTracks[0]);
 		}
 	}
 	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
