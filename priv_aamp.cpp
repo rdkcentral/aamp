@@ -13277,7 +13277,6 @@ long PrivateInstanceAAMP::LoadFogConfig()
 		AampJsonObject audioPreference;
 		AampJsonObject subtitlePreference;
 		bool aPrefAvail = false;
-		bool tPrefAvail = false;
 		if((preferredLanguagesList.size() > 0) || !preferredRenditionString.empty() || !preferredLabelsString.empty() || !preferredAudioAccessibilityNode.getSchemeId().empty())
 		{
 			aPrefAvail = true;
@@ -13316,11 +13315,6 @@ long PrivateInstanceAAMP::LoadFogConfig()
 		if(aPrefAvail)
 		{
 			jsondataForPreference.add("audio", audioPreference);
-			trackAdded = true;
-		}
-		if(tPrefAvail)
-		{
-			jsondataForPreference.add("text", subtitlePreference);
 			trackAdded = true;
 		}
 

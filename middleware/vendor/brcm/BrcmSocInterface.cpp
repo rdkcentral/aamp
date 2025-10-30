@@ -206,3 +206,4 @@ void BrcmSocInterface::SetPlaybackFlags(gint &flags, bool isSub)
 		flags = PLAY_FLAG_TEXT;
 	}
 }
+
