@@ -459,6 +459,8 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mTestableStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -544,7 +546,6 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -589,7 +590,6 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
@@ -633,7 +633,6 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 
 	/* Initialize MPD. The video initialization segment is cached. */
@@ -673,7 +672,6 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -717,7 +715,6 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
@@ -758,7 +755,6 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
@@ -809,7 +805,6 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	const AampTime expectedFirstPTSOffset = 30.0;
 
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
@@ -858,7 +853,6 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
@@ -903,7 +897,6 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -1070,7 +1063,6 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 	std::string videoFragmentUrl;
 	std::string audioFragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	static const char *multiTrackManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
 						<Period id="p0" start="PT0S">
@@ -1249,7 +1241,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>
 )";
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	bool ret = false;
 	/* Initialize MPD. The video/audio initialization segment is cached. */
 	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -1325,7 +1316,6 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 
 	// Expect initialization fragment to be cached

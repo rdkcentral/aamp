@@ -522,6 +522,8 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -570,7 +572,6 @@ public:
 TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 {
 	const auto& params = GetParam(); /*Retrieve the parameter values */
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.Times(AnyNumber())
 		.WillOnce(Return(true));
