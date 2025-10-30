@@ -1061,9 +1061,18 @@ bool MediaTrack::ProcessFragment(CachedFragment* fragment)
 		isobuf.setBuffer(reinterpret_cast<uint8_t *>(unparsedBufferChunk.GetPtr()), unparsedBufferChunk.GetLen());
 		AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name, unparsedBufferChunk.GetLen());
 		bool bParse = false;
-		try { bParse = isobuf.parseBuffer(); }
-		catch(std::exception &e) { AAMPLOG_ERR("Unhandled exception: %s", e.what()); }
-		catch(...) { AAMPLOG_ERR("Unknown exception"); }
+		try
+		{
+			bParse = isobuf.parseBuffer();
+		}
+		catch(std::exception &e)
+		{
+			AAMPLOG_ERR("Unhandled exception: %s", e.what());
+		}
+		catch(...)
+		{
+			AAMPLOG_ERR("Unknown exception");
+		}
 		if(!bParse)
 		{
 			AAMPLOG_INFO("[%s] No Box available in cache chunk index %d", name, fragmentChunkIdxToInject);
