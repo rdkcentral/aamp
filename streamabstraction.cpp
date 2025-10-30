@@ -1079,7 +1079,10 @@ bool MediaTrack::ProcessFragment(CachedFragment* fragment)
 				timeScale = pContext->GetCurrPeriodTimeScale();
 				if(!timeScale) { timeScale = 10000000.0; AAMPLOG_WARN("[%s] Empty timeScale using default %d", name, timeScale); }
 			}
-			else { timeScale = 1000.0; AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale); }
+			else {
+				timeScale = 1000.0;
+				AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
+			}
 		}
 		double fpts = 0.0, fduration = 0.0;
 		bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
