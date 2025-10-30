@@ -3003,6 +3003,18 @@ public:
 	bool IsPlayEnabled();
 
 	/**
+	 *   @fn enableEventProcessing
+	 *
+	 *   @return void
+	 */
+	void enableEventProcessing();
+	/**
+	 *   @fn disableEventProcessing
+	 *
+	 *   @return void
+	 */
+	void disableEventProcessing();
+	/**
 	 * @fn detach
 	 *
 	 */
