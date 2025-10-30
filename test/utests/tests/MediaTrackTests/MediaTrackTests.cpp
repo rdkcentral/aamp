@@ -168,7 +168,7 @@ protected:
 	}
 
 	CachedFragment* AddFragmentToBuffer(MediaTrack& mediaTrack, CachedFragment& testFragment,
-										bool lowLatencyMode, bool aampTsb = false)
+									bool lowLatencyMode, bool aampTsb = false)
 	{
 		// A pointer to the test fragment in the cache buffer
 		CachedFragment* bufferedFragment{nullptr};
@@ -186,6 +186,17 @@ protected:
 			mediaTrack.numberOfFragmentsCached = 1;
 		}
 		bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
+		
+		// Set the correct fragment type based on the buffer being used
+		if (lowLatencyMode || aampTsb)
+		{
+			bufferedFragment->SetFragmentType(FragmentType::FRAGMENT_CHUNK);
+		}
+		else
+		{
+			bufferedFragment->SetFragmentType(FragmentType::COMPLETE_FRAGMENT);
+		}
+		
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
 			// Make the buffer parser return the correct position and duration
@@ -195,8 +206,8 @@ protected:
 		}
 
 		return bufferedFragment;
-	}
-
+	}	
+	
 	void SetLowLatencyMode(bool isEnabled)
 	{
 		AampLLDashServiceData dashData{};
