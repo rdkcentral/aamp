@@ -6458,7 +6458,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	}
 
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
-	if ((AAMP_NORMAL_PLAY_RATE == mPlayRate))
+	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
 		GetBestTextTrackByLanguage(preferredTextTrack);
 	}
@@ -6470,7 +6470,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		if (mMPDParseHelper->IsContentType(adaptationSet,eMEDIATYPE_SUBTITLE))
 		{
 			ParseTrackInformation(adaptationSet, iAdaptationSet,eMEDIATYPE_SUBTITLE , aTracks, tTracks);
-			if ((AAMP_NORMAL_PLAY_RATE == mPlayRate))
+			if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 			{
 				if (selAdaptationSetIndex == -1 || isFrstAvailableTxtTrackSelected)
 				{
@@ -6580,7 +6580,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 
 		aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
 	}
-	if (((AAMP_NORMAL_PLAY_RATE == mPlayRate)) && (pMediaStreamContext->enabled == false) && selAdaptationSetIndex >= 0)
+	if ((AAMP_NORMAL_PLAY_RATE == mPlayRate) && (pMediaStreamContext->enabled == false) && (selAdaptationSetIndex >= 0))
 	{
 		pMediaStreamContext->enabled = true;
 		pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
@@ -6607,7 +6607,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 			pMediaStreamContext->StartInjectLoop();
 		}
 	}
-	if(selAdaptationSetIndex < 0 && (mPlayRate == AAMP_NORMAL_PLAY_RATE))
+	if((selAdaptationSetIndex < 0) && (mPlayRate == AAMP_NORMAL_PLAY_RATE))
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",GetMediaTypeName(eMEDIATYPE_SUBTITLE));
 	}
@@ -7182,7 +7182,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				{
 					ParseTrackInformation(adaptationSet, iAdaptationSet, (AampMediaType)i,  aTracks, tTracks);
 									//if isFrstAvailableTxtTrackSelected is true, we should look for the best option (aamp->mSubLanguage) among all the tracks
-					if ((AAMP_NORMAL_PLAY_RATE == mPlayRate))
+					if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 					{
 						if (eMEDIATYPE_AUX_AUDIO == i && aamp->IsAuxiliaryAudioEnabled())
 						{
@@ -7269,12 +7269,12 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 					}
 				}
 			}// next iAdaptationSet
-			if ((eAUDIO_UNKNOWN == mAudioType) && ((AAMP_NORMAL_PLAY_RATE == mPlayRate)) && (eMEDIATYPE_VIDEO != i) && selAdaptationSetIndex >= 0)
+			if ((eAUDIO_UNKNOWN == mAudioType) && (AAMP_NORMAL_PLAY_RATE == mPlayRate) && (eMEDIATYPE_VIDEO != i) && (selAdaptationSetIndex >= 0))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Selected Audio Track codec is unknown");
 				mAudioType = eAUDIO_AAC; // assuming content is still playable
 			}
-			if (((AAMP_NORMAL_PLAY_RATE == mPlayRate)) && (pMediaStreamContext->enabled == false) && selAdaptationSetIndex >= 0)
+			if ((AAMP_NORMAL_PLAY_RATE == mPlayRate) && (pMediaStreamContext->enabled == false) && (selAdaptationSetIndex >= 0))
 			{
 				pMediaStreamContext->enabled = true;
 				pMediaStreamContext->adaptationSetIdx = selAdaptationSetIndex;
@@ -7299,7 +7299,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				QueueContentProtection(period, pMediaStreamContext->adaptationSetIdx, (AampMediaType)i);
 			}
 
-			if(selAdaptationSetIndex < 0 && (mPlayRate == AAMP_NORMAL_PLAY_RATE))
+			if((selAdaptationSetIndex < 0) && (mPlayRate == AAMP_NORMAL_PLAY_RATE))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",
 					GetMediaTypeName(AampMediaType(i)));
@@ -7541,7 +7541,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						if(representation != NULL)
 						{
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
-							mStreamInfo[idx].isIframeTrack = !((AAMP_NORMAL_PLAY_RATE == mPlayRate));
+							mStreamInfo[idx].isIframeTrack = !(AAMP_NORMAL_PLAY_RATE == mPlayRate);
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
 							mStreamInfo[idx].resolution.width = representation->GetWidth();
 							mStreamInfo[idx].resolution.framerate = 0;
@@ -7678,7 +7678,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							IRepresentation *representation = representations.at(reprIdx);
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
-							mStreamInfo[idx].isIframeTrack = !((AAMP_NORMAL_PLAY_RATE == mPlayRate));
+							mStreamInfo[idx].isIframeTrack = !(AAMP_NORMAL_PLAY_RATE == mPlayRate);
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
 							mStreamInfo[idx].resolution.width = representation->GetWidth();
 							mStreamInfo[idx].resolution.framerate = 0;
@@ -12367,7 +12367,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			AAMPLOG_WARN("[CDAI]: State changed from [%s] => [%s].", ADSTATE_STR[static_cast<int>(oldState)],ADSTATE_STR[static_cast<int>(mCdaiObject->mAdState)]);
 		}
 
-		if((AAMP_NORMAL_PLAY_RATE == mPlayRate))
+		if(AAMP_NORMAL_PLAY_RATE == mPlayRate)
 		{
 			//Sending Ad events
 			uint64_t resPosMS = 0;
