@@ -86,7 +86,7 @@ void AampGrowableBuffer::Clear( void )
 	this->len = 0;
 }
 
-// All methods below are no-ops since tests don't use them and they have no effect on test outcomes
+// All methods below are no-op since tests don't use them and they have no effect on test outcomes
 
 void AampGrowableBuffer::MoveBytes( const void *ptr, size_t len )
 {
