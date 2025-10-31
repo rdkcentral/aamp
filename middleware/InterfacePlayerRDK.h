@@ -36,6 +36,7 @@
 #include <any>
 #include "SocUtils.h"
 #include "GstUtils.h"
+#include "TimingUtils.h"
 
 class InterfacePlayerPriv;
 
