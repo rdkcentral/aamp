@@ -1269,6 +1269,20 @@ protected:
 	 */
 	uint32_t GetSegmentRepeatCount(MediaStreamContext *pMediaStreamContext, int timeLineIndex);
 
+	/**
+	 * @fn ShouldCheckOnlyIframeAdaptation
+	 * @brief Helper function to determine if only iframe adaptations should be checked
+	 * @retval Return true if only iframe adaptations should be checked, false otherwise
+	 */
+	bool ShouldCheckOnlyIframeAdaptation();
+
+	/**
+	 * @fn IsEmptyPeriod
+	 * @param[in] period period to check whether it is empty
+	 * @retval Return true on empty Period
+	 */
+	bool IsEmptyPeriod(int iPeriodIndex);
+
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/

@@ -205,17 +205,18 @@ void AampMPDParseHelper::parseMPD()
 }
 
 /**
- * @fn to Update the upper and lower boundary periods
- * @param IsTrickMode A flag indicating whether playback is in trick mode or not
+ * @fn UpdateBoundaryPeriod
+ * @brief Update the upper and lower boundary periods by discarding empty periods at the start and end
+ * @param checkOnlyIframeAdaptation A flag indicating whether to check only iframe adaptations when determining if a period is empty
  */
-void AampMPDParseHelper::UpdateBoundaryPeriod(bool IsTrickMode)
+void AampMPDParseHelper::UpdateBoundaryPeriod(bool checkOnlyIframeAdaptation)
 {
 	mUpperBoundaryPeriod = mNumberOfPeriods - 1;
 	mLowerBoundaryPeriod = 0;
 	// Calculate lower boundary of playable periods, discard empty periods at the start
 	for(int periodIter = 0; periodIter < mNumberOfPeriods; periodIter++)
 	{
-		if(IsEmptyPeriod(periodIter, IsTrickMode))
+		if(IsEmptyPeriod(periodIter, checkOnlyIframeAdaptation))
 		{
 			mLowerBoundaryPeriod++;
 			continue;
@@ -225,7 +226,7 @@ void AampMPDParseHelper::UpdateBoundaryPeriod(bool IsTrickMode)
 	// Calculate upper boundary of playable periods, discard empty periods at the end
 	for(int periodIter = mNumberOfPeriods-1; periodIter >= 0; periodIter--)
 	{
-		if(IsEmptyPeriod(periodIter, IsTrickMode))
+		if(IsEmptyPeriod(periodIter, checkOnlyIframeAdaptation))
 		{
 			mUpperBoundaryPeriod--;
 			continue;
@@ -604,9 +605,13 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 	}
 }
 
-/*
+/**
  * @brief Get end time of current period
- * @retval current period's end time
+ * @param[in] periodIndex Index of the period
+ * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
+ * @param[in] checkIFrame Flag indicating whether to check only iframe adaptations when determining if a period is empty
+ * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
+ * @retval current period's end time in seconds
  */
 double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
@@ -809,7 +814,11 @@ bool AampMPDParseHelper::aamp_HasSegmentTimeline(IPeriod * period)
 
 /**
  * @brief Get duration of current period
- * @retval current period's duration
+ * @param[in] periodIndex Index of the period
+ * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
+ * @param[in] checkIFrame Flag indicating whether to check only iframe adaptations when determining if a period is empty
+ * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
+ * @retval current period's duration in milliseconds
  */
 double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
