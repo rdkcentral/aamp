@@ -624,12 +624,6 @@ class InterfacePlayerRDK
         	 */
         	void TriggerEvent(InterfaceCB event);
         	/**
-        	 * @brief Checks if a codec is supported.
-        	 * @param[in] codecName The name of the codec to check.
-        	 * @return True if the codec is supported, false otherwise.
-        	 */
-        	static bool IsCodecSupported(const std::string &codecName);
-        	/**
         	 * @brief Disables the decoder handle notification.
         	 */
         	void DisableDecoderHandleNotified();
