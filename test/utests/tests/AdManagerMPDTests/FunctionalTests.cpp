@@ -78,6 +78,12 @@ protected:
     AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
     AampLogManager::lockLogLevel(true);
 
+    // Ensure clean state: delete any existing mock and create a fresh one
+    if (g_mockPrivateInstanceAAMP != nullptr)
+    {
+      delete g_mockPrivateInstanceAAMP;
+      g_mockPrivateInstanceAAMP = nullptr;
+    }
     g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
@@ -96,8 +102,14 @@ protected:
     mCdaiObj = nullptr;
     mPrivateCDAIObjectMPD = nullptr;
 
-    delete g_mockPrivateInstanceAAMP;
-    g_mockPrivateInstanceAAMP = nullptr;
+    // Clean up mock completely - verify expectations and delete
+    if (g_mockPrivateInstanceAAMP != nullptr)
+    {
+      // Verify all expectations were satisfied before cleanup
+      testing::Mock::VerifyAndClearExpectations(g_mockPrivateInstanceAAMP);
+      delete g_mockPrivateInstanceAAMP;
+      g_mockPrivateInstanceAAMP = nullptr;
+    }
 
     delete mPrivateInstanceAAMP;
     mPrivateInstanceAAMP = nullptr;
