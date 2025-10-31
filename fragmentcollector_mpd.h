@@ -1132,7 +1132,7 @@ protected:
 	std::set<std::string> mLangList;
 	double seekPosition;    // Seek offset from or position at time of tuning, in seconds.
 							// The same variable is used for offset (e.g. for HLS) and position (e.g. most of the time for DASH).
-	float rate;
+	float mPlayRate;
 	std::thread fragmentCollectorThreadID;
 	std::thread tsbReaderThreadID;
 	ManifestDownloadResponsePtr mManifestDnldRespPtr ;
