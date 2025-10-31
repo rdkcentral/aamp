@@ -550,7 +550,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation
 	lastDownloadedPosition.store(dlInfo->absolutePosition + dlInfo->fragmentDurationSec);
-	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs fragmentTime %lfs",
+	AAMPLOG_DEBUG("[%s] lastDownloadedPosition %lfs fragmentTime %lfs",
 				 GetMediaTypeName(dlInfo->mediaType),
 				 lastDownloadedPosition.load(),
 				 dlInfo->absolutePosition);
@@ -857,7 +857,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;
-				AAMPLOG_INFO("current fragmentIndex = %d", dlInfo->fragmentIndex);
+				AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
 				//Find the offset of previous fragment in new representation
 				for (int i = 0; i < dlInfo->fragmentIndex; i++)
 				{
@@ -927,7 +927,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		}
 	}
 
-	AAMPLOG_INFO("[%s] DownloadFragment from position:%lf url:%s;%s", name, dlInfo->absolutePosition, dlInfo->url.c_str(), dlInfo->range.c_str());
+	AAMPLOG_DEBUG("[%s] DownloadFragment from position:%lf url:%s;%s", name, dlInfo->absolutePosition, dlInfo->url.c_str(), dlInfo->range.c_str());
 
 	if (retval && aamp->DownloadsAreEnabled())
 	{

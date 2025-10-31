@@ -42,6 +42,7 @@ using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
+using ::testing::DoAll;
 
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
@@ -325,6 +326,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			if(init)
 			{
 				EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
+				EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(90000), Return(true)));
 				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVidTimeScale(_)).Times(AtLeast(1));
 			}
 		}

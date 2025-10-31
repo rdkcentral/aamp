@@ -95,4 +95,51 @@ void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *f
  */
 bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset);
 
+/**
+ * @brief Read 16 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+unsigned int Read16( const char **pptr);
+
+/**
+ * @brief Read 32 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+unsigned int Read32( const char **pptr);
+
+/**
+ * @brief Read 64 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+uint64_t Read64( const char **pptr);
+
+/**
+ * @brief read unsigned multi-byte value and update buffer pointer
+ * @param[in] pptr buffer
+ * @param[in] n word size in bytes
+ * @retval 32 bit value
+ */
+uint64_t ReadWordHelper( const char **pptr, int n );
+
+/**
+ * @brief Replace matching token with given number
+ * @param str String in which operation to be performed
+ * @param from token
+ * @param toNumber number to replace token
+ * @retval position
+ */
+int replace(std::string& str, const std::string& from, uint64_t toNumber );
+
+/**
+ * @brief Replace matching token with given string
+ * @param str String in which operation to be performed
+ * @param from token
+ * @param toString string to replace token
+ * @retval position
+ */
+int replace(std::string& str, const std::string& from, const std::string& toString );
+
 #endif /* __AAMP_MPD_UTILS_H__ */
