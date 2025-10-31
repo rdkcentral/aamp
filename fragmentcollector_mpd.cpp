@@ -3864,7 +3864,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						notifyEnteringLive = true;
 					}
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (rate=%f) to live window!!", mPlayRate);
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (mPlayRate=%f) to live window!!", mPlayRate);
 					aamp->mDisableRateCorrection = false;
 				}
 				else
@@ -9407,7 +9407,7 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 		if ((mPlayRate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) &&
 			(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached))
 		{
-			AAMPLOG_INFO("EOS Reached. mPlayRate:%f mIterPeriodIndex:%d", mPlayRate, mIterPeriodIndex);
+			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
 			mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 			mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 		}
