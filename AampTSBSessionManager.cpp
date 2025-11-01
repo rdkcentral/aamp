@@ -1260,10 +1260,8 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		bool maintainOrder = true;
 		auto apos = a->GetPosition().milliseconds();
 		auto bpos = b->GetPosition().milliseconds();
-
-		// Different positions, sort by position
 		if (apos != bpos)
-		{
+		{ // Different positions; sort by position
 			maintainOrder = apos < bpos;
 		}
 		else
@@ -1273,19 +1271,41 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 			// Reservation events should be after Placement END
 			// Reservation events should be before Placement START
 			//
-			// This logic assumes that an advert exceeds a fragment duration, 
+			// This logic assumes that an advert exceeds a fragment duration,
 			// i.e. an advert cannot start and end in the same fragment
 			auto aType = a->GetEventType();
 			auto bType = b->GetEventType();
 			auto aAdType = a->GetAdType();
 			auto bAdType = b->GetAdType();
-
+			if( aType == bType && aAdType == bAdType )
+			{ // avoid not a valid strict-weak ordering
+				return (a<b);
+			}
 			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
-				 ((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
-				 ((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
+				((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
+				((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
 			{
 				maintainOrder = false;
-			} 
+			}
+			const char *eventTypeName[] = { "AdStart", "AdEnd", "AdError" };
+			const char *adTypeName[] = { "RESERVATION", "PLACEMENT" };
+			printf( "aType=%s bType=%s aAdType=%s bAdType=%s rc=%d\n",
+				   eventTypeName[(int)aType],
+				   eventTypeName[(int)bType],
+				   adTypeName[(int)aAdType],
+				   adTypeName[(int)bAdType],
+				   maintainOrder );
+			/*
+			aType=AdStart 	bType=AdEnd 	aAdType=RESERVATION 	bAdType=RESERVATION 	rc=0
+			aType=AdEnd 	bType=AdStart 	aAdType=PLACEMENT 		bAdType=RESERVATION 	rc=1
+			aType=AdEnd 	bType=AdEnd 	aAdType=PLACEMENT 		bAdType=RESERVATION 	rc=1
+			aType=AdStart 	bType=AdStart 	aAdType=PLACEMENT 		bAdType=RESERVATION 	rc=0
+			aType=AdEnd 	bType=AdEnd 	aAdType=RESERVATION 	bAdType=PLACEMENT 		rc=0
+			aType=AdStart 	bType=AdEnd 	aAdType=RESERVATION 	bAdType=RESERVATION 	rc=0
+			aType=AdStart 	bType=AdStart 	aAdType=PLACEMENT 		bAdType=RESERVATION 	rc=0
+			aType=AdEnd 	bType=AdEnd 	aAdType=PLACEMENT 		bAdType=RESERVATION 	rc=1
+			aType=AdEnd 	bType=AdEnd 	aAdType=PLACEMENT 		bAdType=PLACEMENT 		rc=1
+			*/
 		}
 		return maintainOrder;
 	});
