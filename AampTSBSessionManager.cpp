@@ -1260,10 +1260,8 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		bool maintainOrder = true;
 		auto apos = a->GetPosition().milliseconds();
 		auto bpos = b->GetPosition().milliseconds();
-		
-		// Different positions, sort by position
 		if (apos != bpos)
-		{
+		{ // Different positions, sort by position
 			maintainOrder = apos < bpos;
 		}
 		else
@@ -1281,11 +1279,11 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 			auto bAdType = b->GetAdType();
 			if( aType == bType && aAdType == bAdType )
 			{ // tie-breaker: avoid not a valid strict-weak ordering exception
-				maintainOrder = (a<b);
+				maintainOrder = a<b;
 			}
-			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
-				((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
-				((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
+			else if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
+					 ((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
+					 ((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
 			{
 				maintainOrder = false;
 			}
