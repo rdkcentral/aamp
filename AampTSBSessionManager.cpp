@@ -1281,7 +1281,7 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 			auto bAdType = b->GetAdType();
 			if( aType == bType && aAdType == bAdType )
 			{ // tie-breaker: avoid not a valid strict-weak ordering exception
-				maintainOrder (a<b);
+				maintainOrder = (a<b);
 			}
 			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
 				((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
