@@ -924,7 +924,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @fn GetPlaylistURI
 		 *
 		 * @param[in] trackType Track type
-		 * @param[in] format stream output type
+		 * @param[in,out] format stream output type
 		 * @return string playlist URI
 		 ***************************************************************************/
 		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat &format);
