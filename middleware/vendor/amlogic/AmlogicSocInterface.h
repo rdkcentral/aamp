@@ -200,7 +200,6 @@ class AmlogicSocInterface : public SocInterface
 		 * @return false indicating the video is not the master stream.
 		 */
 		bool IsVideoMaster(GstElement *videoSink)override{return false;}
-
 };
 
 #endif
