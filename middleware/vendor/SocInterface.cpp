@@ -248,3 +248,15 @@ void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_cla
         base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(accept_caps_func);
     }
 }
+
+/**
+ * @brief Set AC4 tracks.
+ * @param src Source element.
+ * @param trackId Track ID.
+ */
+void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+	//redirect to Default implementation
+	DefaultSocInterface defaultSoc;
+	defaultSoc.SetAC4Tracks(src, trackId);
+}
