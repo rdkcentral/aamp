@@ -4291,9 +4291,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
-							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
-							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
@@ -4306,7 +4306,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
-						
+
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -10346,7 +10346,15 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					cJSON_AddItemToArray(root, item = cJSON_CreateObject());
 					if (!iter->name.empty())
 					{
-						cJSON_AddStringToObject(item, "name", iter->name.c_str());
+						if (iter->name == "Closed Captions" )
+						{
+							AAMPLOG_WARN( "patrick, changing name field" );
+							cJSON_AddStringToObject(item, "name", "english");
+						}
+						else
+						{
+							cJSON_AddStringToObject(item, "name", iter->name.c_str());
+						}
 					}
 					if (!iter->label.empty())
 					{
@@ -11056,6 +11064,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 				}
 			}
 		}
+		AAMPLOG_INFO("idx %d", idx);
 	}
 	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
 	{
@@ -12333,7 +12342,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
-
+AAMPLOG_INFO("currentTrackIndex %d", currentTrackIndex);
 	if (currentTrackIndex >= 0)
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
