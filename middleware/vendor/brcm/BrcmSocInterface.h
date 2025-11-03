@@ -29,7 +29,7 @@
  */
 class BrcmSocInterface : public SocInterface
 {
-
+	
 public:
 	BrcmSocInterface();
 	

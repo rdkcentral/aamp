@@ -20,7 +20,7 @@
 #include "DefaultSocInterface.h"
 
 /**
- @brief this interface implementation used with Rialto and OSX/Ubuntu simulator
+ @brief this interface implementation used with Rialto
  */
 DefaultSocInterface::DefaultSocInterface()
 {

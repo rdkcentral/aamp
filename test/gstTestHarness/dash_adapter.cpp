@@ -109,7 +109,7 @@ void unsuportedTag( const XmlNode &child, const XmlNode &parent )
 		"Accessibility",
 		"AssetIdentifier",
 		"AudioChannelConfiguration",
-		"AvailableBitrates"
+		"AvailableBitrates",
 		"body",
 		"BufferLevel",
 		"EssentialProperty",
