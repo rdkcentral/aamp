@@ -98,7 +98,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER1][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
 							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
