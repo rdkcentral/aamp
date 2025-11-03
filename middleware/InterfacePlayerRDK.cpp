@@ -325,7 +325,14 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		// check if they were previously configured, and don't enable Closed Caption Control.
 		newClosedCaptionsControl &= (interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].format == GST_FORMAT_INVALID);
 
-		MW_LOG_MIL("Rialto enabled");
+		if (interfacePlayerPriv->gstPrivateContext->using_westerossink)
+		{
+			MW_LOG_WARN("Rialto and Westeros Sink enabled");
+		}
+		else
+		{
+			MW_LOG_MIL("Rialto enabled");
+		}
 		if (newClosedCaptionsControl)
 		{
 			MW_LOG_MIL("Using CC Control Stream");
