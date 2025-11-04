@@ -172,7 +172,7 @@ void DrmSessionManager::clearAccessToken()
  */
 bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
 {
-	if (sessionIndex >= 0 && sessionIndex < mMaxDrmSessions && cachedKeyIDs)
+	if (sessionIndex >= 0 && sessionIndex < mMaxDRMSessions && cachedKeyIDs)
 	{
 		return cachedKeyIDs[sessionIndex].isFailedKeyId;
 	}
