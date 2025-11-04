@@ -111,3 +111,13 @@ int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int curren
 {
     return 0;
 }
+
+int  ABRManager::getProfileIndexForLowestBandwidth()
+{
+    return 0;
+}
+
+int ABRManager::getClosestProfileIndexByBandwidth( long inputBandwidth )
+{
+    return 0;
+}

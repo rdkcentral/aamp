@@ -446,3 +446,42 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 		g_mockStreamAbstractionAAMP->ReinitializeInjection(rate);
 	}
 }
+
+void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
+{
+}
+
+void MediaTrack::LoadNewSubtitle(bool initialize)
+{
+}
+
+void MediaTrack::OffsetTrackParams(double offset, double seekPos, int trackType)
+{
+}
+
+void MediaTrack::NotifyCachedAudioFragmentAvailable()
+{
+}
+
+bool MediaTrack::IsFragmentCacheFull()
+{
+	return false;
+}
+
+void MediaTrack::UpdateInjectedDuration(double duration)
+{
+}
+
+void MediaTrack::FlushFetchedFragments()
+{
+}
+
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType)
+{
+	return nullptr;
+}
+
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType)
+{
+	return nullptr;
+}
