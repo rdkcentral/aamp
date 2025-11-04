@@ -897,7 +897,7 @@ protected:
 	/**
 	 * @fn UpdateTrackInfo
 	 */
-	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false);
+	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
@@ -1171,7 +1171,6 @@ protected:
 	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
 	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
-
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
 	// that Adaptation Set. Hence we need a mapping from a profile to
