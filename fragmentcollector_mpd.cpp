@@ -9340,36 +9340,41 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	AampTime timelineStart;
 	AampTime duration;
 
-	IPeriod *period = mCurrentPeriod;
-	GetStartAndDurationForPtsRestamping(timelineStart, duration);
-
-	if (isNewPeriod)
+	// Nothing to do during trick play, so skip code
+	if (mPlayRate == AAMP_NORMAL_PLAY_RATE)
 	{
+		IPeriod *period = mCurrentPeriod;
+		GetStartAndDurationForPtsRestamping(timelineStart, duration);
 
-		if (mShortAdOffsetCalc)
+		if (isNewPeriod)
 		{
-			/* This is for the case of a short ad that is not as long as the base period which
-			 * it replaces. The ad has been 'played' and now we need to return and play out the remaining
-			 * segments in the base period
-			 */
-			mShortAdOffsetCalc = false;
-			double audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
-								mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
-			double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
-								mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
 
-			AampTime newStart = std::max(audioStart, videoStart);
+			if (mShortAdOffsetCalc)
+			{
+				/* This is for the case of a short ad that is not as long as the base period which
+				 * it replaces. The ad has been 'played' and now we need to return and play out the remaining
+				 * segments in the base period
+				 */
+				mShortAdOffsetCalc = false;
+				double audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
+									mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
+				double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
+									mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
 
-			mNextPts += timelineStart - newStart;
-			AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
+				AampTime newStart = std::max(audioStart, videoStart);
+
+				mNextPts += timelineStart - newStart;
+				AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
+			}
+			mPTSOffset += mNextPts - timelineStart;
+
+			AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
+						mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
 		}
-		mPTSOffset += mNextPts - timelineStart;
 
-		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
-					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
+		mNextPts = duration + timelineStart;
+
 	}
-
-	mNextPts = duration + timelineStart;
 }
 
 void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
