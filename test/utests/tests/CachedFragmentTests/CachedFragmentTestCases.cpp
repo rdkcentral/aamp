@@ -1000,7 +1000,7 @@ TEST_F(CachedFragmentTest, FragmentType_EnumValues_CorrectValuesAndGetterSetterW
     cachedFragment->SetFragmentType(FragmentType::FRAGMENT_CHUNK);
     EXPECT_EQ(cachedFragment->GetFragmentType(), FragmentType::FRAGMENT_CHUNK);
     
-    // Test setter/getter for COMPLETE_FRAGMENT  
+    // Test setter/getter for COMPLETE_FRAGMENT
     cachedFragment->SetFragmentType(FragmentType::COMPLETE_FRAGMENT);
     EXPECT_EQ(cachedFragment->GetFragmentType(), FragmentType::COMPLETE_FRAGMENT);
     
