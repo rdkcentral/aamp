@@ -157,6 +157,11 @@ protected:
 		{
 			InitializeWorkers();
 		}
+		bool CallShoudResetRepresentationIndex(std::set<uint32_t>& chosenAdaptationIdxs)
+		{
+			return ShoudResetRepresentationIndex(chosenAdaptationIdxs);
+		}
+
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -260,7 +265,8 @@ protected:
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_useRialtoSink, false},
-			{eAAMPConfig_InterruptHandling, false}};
+			{eAAMPConfig_InterruptHandling, false},
+			{eAAMPConfig_DASHIgnoreBaseURLIfSlash, false}};
 
 	BoolConfigSettings mBoolConfigSettings;
 
@@ -1059,6 +1065,48 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
 
 }
+/*TEST_F(FetcherLoopTests, SkipFetchAudioTests)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="0000000000000018163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+	<Period id="901591170" start="PT416006H37M27.854S">
+		<AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:ColourPrimaries" value="1"/>
+			<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:MatrixCoefficients" value="1"/>
+			<EssentialProperty schemeIdUri="urn:mpeg:mpegB:cicp:TransferCharacteristics" value="1"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+				<SegmentTimeline>
+					<S t="1377581813" d="172800" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+			<Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+			<Representation id="root_video1" bandwidth="4461200" codecs="hvc1.1.6.L120.90" width="1280" height="720" frameRate="50000/1000"/>
+			<Representation id="root_video0" bandwidth="6052400" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
+			<AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate initialization="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--header.mp4" media="SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163-eac3/track-audio-repid-$RepresentationID$-tc--enc--frag-$Number$.mp4" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+				<SegmentTimeline>
+					<S t="1377583936" d="172800" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+	<SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="example-mod_super8-4.4.0-1"/>
+</MPD>
+)";
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+				.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 10.0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}*/
 
 /**
  * @brief BasicFetcherLoop tests.
@@ -1424,4 +1472,272 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 
 	EXPECT_TRUE(ret);
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING); // Validate expected state transition
+}
+/**
+ * @brief L1 Test - Same bandwidths same order
+ * 
+ * Tests the scenario where representations have the same bandwidths
+ * in the same order across periods. Should return false.
+ */
+TEST_F(FetcherLoopTests, ShoudResetRepresentationIndex_SameBandwidthsSameOrder)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H2M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<BaseURL>http://host/asset/</BaseURL>
+	<Period id="period1" duration="PT30S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="2" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="3" mimeType="video/mp4" codecs="avc1.640028" bandwidth="5000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="period2" duration="PT30S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="5" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="6" mimeType="video/mp4" codecs="avc1.640028" bandwidth="5000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	
+	bool periodChanged = true;
+	bool mpdChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	std::string currentPeriodId = "";
+
+	mTestableStreamAbstractionAAMP_MPD->IncrementCurrentPeriodIdx();
+	mTestableStreamAbstractionAAMP_MPD->SetCurrentPeriod(mTestableStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
+
+	bool selectResult = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
+		periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, 
+		requireStreamSelection, currentPeriodId);
+	
+	// Call the function under test - should return true for different bandwidths
+	std::set<uint32_t> chosenAdaptationIdxs = {0}; // Video adaptation set at index 0
+	
+	bool result = mTestableStreamAbstractionAAMP_MPD->CallShoudResetRepresentationIndex(chosenAdaptationIdxs);
+	EXPECT_FALSE(result);
+}
+/**
+ * @brief L1 Test - Same bandwidths in different order
+ * 
+ * Tests the scenario where representations have the same bandwidths but
+ * appear in different order across periods. Should return false.
+ */
+TEST_F(FetcherLoopTests, ShoudResetRepresentationIndex_SameBandwidthsDifferentOrder)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H2M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<BaseURL>http://host/asset/</BaseURL>
+	<Period id="period1" duration="PT30S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="2" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="3" mimeType="video/mp4" codecs="avc1.640028" bandwidth="5000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="period2" duration="PT30S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="5" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="6" mimeType="video/mp4" codecs="avc1.640028" bandwidth="5000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	
+	bool periodChanged = true;
+	bool mpdChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	std::string currentPeriodId = "";
+
+	mTestableStreamAbstractionAAMP_MPD->IncrementCurrentPeriodIdx();
+	mTestableStreamAbstractionAAMP_MPD->SetCurrentPeriod(mTestableStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
+
+	bool selectResult = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
+		periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, 
+		requireStreamSelection, currentPeriodId);
+	
+	// Call the function under test - should return true for different bandwidths
+	std::set<uint32_t> chosenAdaptationIdxs = {0}; // Video adaptation set at index 0
+	
+	bool result = mTestableStreamAbstractionAAMP_MPD->CallShoudResetRepresentationIndex(chosenAdaptationIdxs);
+	EXPECT_TRUE(result);
+}
+/**
+ * @brief L1 Test - Different bandwidths between periods
+ * 
+ * Tests the scenario where representations have different bandwidths
+ * across periods. Should return true.
+ */
+TEST_F(FetcherLoopTests, ShoudResetRepresentationIndex_DifferentBandwidths)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H2M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<BaseURL>http://host/asset/</BaseURL>
+	<Period id="period1" duration="PT30S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="2" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="1" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="period2" duration="PT30S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="3" mimeType="video/mp4" codecs="avc1.640028" bandwidth="3000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.640028" bandwidth="4000000">
+				<SegmentTemplate timescale="1000" media="video_$Number$.mp4" startNumber="8" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="4000" r="7" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	
+	bool periodChanged = true;
+	bool mpdChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	std::string currentPeriodId = "";
+
+	mTestableStreamAbstractionAAMP_MPD->IncrementCurrentPeriodIdx();
+	mTestableStreamAbstractionAAMP_MPD->SetCurrentPeriod(mTestableStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
+
+	bool selectResult = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
+		periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, 
+		requireStreamSelection, currentPeriodId);
+	
+	// Call the function under test - should return true for different bandwidths
+	std::set<uint32_t> chosenAdaptationIdxs = {0}; // Video adaptation set at index 0
+	
+	bool result = mTestableStreamAbstractionAAMP_MPD->CallShoudResetRepresentationIndex(chosenAdaptationIdxs);
+	EXPECT_TRUE(result);
 }

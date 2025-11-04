@@ -4074,7 +4074,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 			// Update track with update in stream info
 			mUpdateStreamInfo = true;
-			ret = UpdateTrackInfo(!newTune, true);
+			ret = UpdateTrackInfo(!newTune, true, true);
 
 			if(eAAMPSTATUS_OK != ret)
 			{
@@ -4442,7 +4442,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				if(((AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState))
 				   || (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && mUpdateStreamInfo))
 				{
-					AAMPLOG_TRACE("Indexing new mpd doc");
 					ret = UpdateTrackInfo(true, true);
 					if(ret != eAAMPSTATUS_OK)
 					{
@@ -7462,7 +7461,7 @@ static bool IsWebmVideoCodec(const std::string &codec )
 /**
  * @brief Updates track information based on current state
  */
-AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex)
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isUpdateDuringInit)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	long defaultBitrate = aamp->GetDefaultBitrate();
@@ -7610,8 +7609,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					mUpdateStreamInfo = false;
 					int representationCount = 0;
+					bool repCountChanged = false;
 					std::set<uint32_t> blAdaptationIdxs;
 					bool bSeenNonWebmCodec = false;
+					std::map<int, long> iBandwidthMap;
 
 					const auto &blacklistedProfiles = aamp->GetBlacklistedProfiles();
 					// Filter the blacklisted profiles in the period
@@ -7648,10 +7649,22 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
-					if ((representationCount != GetProfileCount()) && mStreamInfo)
+					bool shouldResetRepresentationIndex = (representationCount != GetProfileCount()) && (mStreamInfo != nullptr);
+					int currentRepIndex = pMediaStreamContext->representationIndex;
+					// On period change, check if current profile is present in new period
+					if( false == shouldResetRepresentationIndex && mStreamInfo != nullptr)
+					{
+						if (periodChanged && i == eMEDIATYPE_VIDEO && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+						{
+							shouldResetRepresentationIndex = ShoudResetRepresentationIndex(chosenAdaptationIdxs);
+							AAMPLOG_WARN("Period changed - representationIndex check: %s, currentProfileIndex to be maintained: %d",
+								shouldResetRepresentationIndex ? "true" : "false", currentProfileIndex);
+						}
+					}
+					if (shouldResetRepresentationIndex)
 					{
 						SAFE_DELETE_ARRAY(mStreamInfo);
-
+                        repCountChanged = (representationCount != GetProfileCount());
 						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
 						pMediaStreamContext->representationIndex = -1;
 						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
@@ -7823,6 +7836,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 						}
 					}
+					//To get the desired profile Index after period change
+					if( repCountChanged == true )
+					{
+						//Getting the desired profile to avoid crash while accessing invalid profile index
+						currentProfileIndex = GetProfileIndexForBandwidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+						AAMPLOG_INFO("Current profile index after period change: %d Bandwidth %u", currentProfileIndex, pMediaStreamContext->fragmentDescriptor.Bandwidth);
+					}
+
 					if(adaptationSets.size() > 0)
 					{
 						// Skipping blacklist check for audio only track at the moment
@@ -7936,7 +7957,22 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 							UpdateIframeTracks();
 						}
-						currentProfileIndex = GetDesiredProfile(false);
+						/* During initialization its better to call the GetDesiredProfile(), which picks up the
+						* desired profile index corresponding to default bitrate.
+						* During subsequent 'period' change its better to call the  UpdateProfileBasedOnFragmentCache()
+						* which will Rampup and pick the highest profile index if the network bandwidth is high.
+						* and also RampsDown to the lowest profile if the network bandwidth is low.
+						*/
+						if(isUpdateDuringInit == true)
+						{
+							currentProfileIndex = GetDesiredProfile(false);
+							AAMPLOG_INFO("Profile updated based on Desired profile [%d]",currentProfileIndex);
+						}
+						else
+						{
+						    UpdateProfileBasedOnFragmentCache();
+							AAMPLOG_INFO("Profile updated based on fragment cache [%d]",currentProfileIndex);
+						}
 						// Adaptation Set Index corresponding to a particular profile
 						pMediaStreamContext->adaptationSetIdx = mProfileMaps[currentProfileIndex].adaptationSetIndex;
 						// Representation Index within a particular Adaptation Set
@@ -9431,6 +9467,8 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 {
 	bool ret = false;
 	waitForAdBreakCatchup = false; // reset this flag
+	AAMPLOG_INFO("SelectSourceOdAdPeriod: mIterPeriodIndex=%d, mNumberOfPeriods=%d, mCurrentPeriodIdx=%d, mBasePeriodId=%s, mPlayRate=%f",
+					mIterPeriodIndex, mNumberOfPeriods, mCurrentPeriodIdx, mBasePeriodId.c_str(), mPlayRate);
 	while ((mIterPeriodIndex < mNumberOfPeriods) && (mIterPeriodIndex >= 0) && !ret) // CID:95090 - No effect
 	{
 		periodChanged = (mIterPeriodIndex != mCurrentPeriodIdx) || (mBasePeriodId != mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId());
@@ -9645,6 +9683,8 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 		}
 		ret = true;
 	}
+	AAMPLOG_INFO("SelectSourceOdAdPeriod: Exit mIterPeriodIndex=%d, mNumberOfPeriods=%d, mCurrentPeriodIdx=%d, mBasePeriodId=%s, periodChanged=%d, adStateChanged=%d, requireStreamSelection=%d, ret=%d",
+					mIterPeriodIndex, mNumberOfPeriods, mCurrentPeriodIdx, mBasePeriodId.c_str(), periodChanged, adStateChanged, requireStreamSelection, ret);
 	return ret;
 }
 
@@ -9675,7 +9715,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		// Reset the video skip remainder to zero as this is a new period
 		mVideoPosRemainder = 0;
 		mIsFinalFirstPTS = false;
-		AAMPStatusType ret = UpdateTrackInfo(true, resetTimeLineIndex);
+		AAMPStatusType ret = UpdateTrackInfo(true, resetTimeLineIndex, false);
 		if (ret != eAAMPSTATUS_OK)
 		{
 			AAMPLOG_WARN("manifest : %d error", ret);
@@ -14399,4 +14439,48 @@ bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
 void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 {
 	mFirstPTS = 0.0;
+}
+/**
+ * @fn ShoudResetRepresentationIndex
+ * @brief Check whether the current representation is present in the new period or not
+ * @param chosenAdaptationIdxs - set of chosen adaptation indexes
+ * @param currentRepIndex - current representation index
+ * @return true if representation is not found in new period, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::ShoudResetRepresentationIndex( std::set<uint32_t> &chosenAdaptationIdxs )
+{
+	/* Added this for loop because, sometimes the while representations splits up 
+	* across multiple adaptation sets in the new period. So we need to check all the adaptation sets
+	* for finding the current profile in the new period.
+	* Example:
+	* Period 1: AdaptationSet 0 : Representations : 1000, 2000, 3000
+	* Period 2: AdaptationSet 0 : Representations : 1000, 3000
+	*           AdaptationSet 1 : Representations : 2000, 4000
+	* Here if current profile is 2000, we need to check both the adaptation sets to find the current profile
+	* in the new period.
+	*/	
+	bool representationChanged = false;
+	int repsize	= 0, reprIdx = 0;
+	for (const uint32_t &adaptIdx : chosenAdaptationIdxs)
+	{
+		IAdaptationSet* adaptationSet = mCurrentPeriod->GetAdaptationSets().at(adaptIdx);
+		const auto &representations = adaptationSet->GetRepresentation();
+		
+		for (reprIdx = 0; reprIdx < representations.size(); reprIdx++)
+		{
+			if( ( representations.at(reprIdx)->GetBandwidth() != mStreamInfo[repsize+reprIdx].bandwidthBitsPerSecond )  )	
+			{
+				representationChanged = true;
+				AAMPLOG_INFO("Representation order changed with bandwidth:%u in AdaptationSet index:%d", representations.at(reprIdx)->GetBandwidth(), adaptIdx);
+				break;
+			}	
+		}
+		if( reprIdx < representations.size())
+		{
+			AAMPLOG_INFO("Representation changed in AdaptationSet index:%d", adaptIdx);
+			break; //break the outer loop also if representation found
+		}
+		repsize += representations.size();
+	}
+	return representationChanged;
 }

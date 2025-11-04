@@ -2618,7 +2618,6 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	return desiredProfileIndex;
 }
 
-
 /**
  *  @brief Rampdown profile
  */
@@ -2981,7 +2980,6 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 
 	return retVal;
 }
-
 /**
  *  @brief Check if playback has stalled and update related flags.
  */
