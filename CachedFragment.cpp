@@ -292,36 +292,33 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
  */
 void CachedFragment::swap(CachedFragment& other) noexcept
 {
-	if (this != &other) 
-	{
-		// Use std::lock to avoid deadlock by acquiring locks in consistent order
-		std::lock(mMutex, other.mMutex);
-		std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
-		std::lock_guard<std::mutex> lockOther(other.mMutex, std::adopt_lock);
-		
-		using std::swap;
-		
-		// RAII: Use move assignment for buffer swap
-		AampGrowableBuffer tempFragment = std::move(fragment);
-		fragment = std::move(other.fragment);
-		other.fragment = std::move(tempFragment);
-		
-		swap(position, other.position);
-		swap(duration, other.duration);
-		swap(initFragment, other.initFragment);
-		swap(discontinuity, other.discontinuity);
-		swap(isDummy, other.isDummy);
-		swap(profileIndex, other.profileIndex);
-		swap(timeScale, other.timeScale);
-		swap(uri, other.uri);
-		swap(cacheFragStreamInfo, other.cacheFragStreamInfo);
-		swap(type, other.type);
-		swap(downloadStartTime, other.downloadStartTime);
-		swap(discontinuityIndex, other.discontinuityIndex);
-		swap(PTSOffsetSec, other.PTSOffsetSec);
-		swap(absPosition, other.absPosition);
-		swap(fragmentType, other.fragmentType);
-	}
+	// Use std::lock to avoid deadlock by acquiring locks in consistent order
+	std::lock(mMutex, other.mMutex);
+	std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
+	std::lock_guard<std::mutex> lockOther(other.mMutex, std::adopt_lock);
+	
+	using std::swap;
+	
+	// RAII: Use move assignment for buffer swap
+	AampGrowableBuffer tempFragment = std::move(fragment);
+	fragment = std::move(other.fragment);
+	other.fragment = std::move(tempFragment);
+	
+	swap(position, other.position);
+	swap(duration, other.duration);
+	swap(initFragment, other.initFragment);
+	swap(discontinuity, other.discontinuity);
+	swap(isDummy, other.isDummy);
+	swap(profileIndex, other.profileIndex);
+	swap(timeScale, other.timeScale);
+	swap(uri, other.uri);
+	swap(cacheFragStreamInfo, other.cacheFragStreamInfo);
+	swap(type, other.type);
+	swap(downloadStartTime, other.downloadStartTime);
+	swap(discontinuityIndex, other.discontinuityIndex);
+	swap(PTSOffsetSec, other.PTSOffsetSec);
+	swap(absPosition, other.absPosition);
+	swap(fragmentType, other.fragmentType);
 }
 
 /**
