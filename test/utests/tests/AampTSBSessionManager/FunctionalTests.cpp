@@ -404,43 +404,48 @@ TEST_F(FunctionalTests, TSBReadTests)
 
 	// Add two MockAampTsbAdMetaData objects to reservationMetadataList
 	std::list<std::shared_ptr<AampTsbMetaData>> reservationMetadataList;
+	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList;
 	auto reservation1Start = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
 	auto reservation1End = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
 	auto reservation2Start = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
-	EXPECT_CALL(*reservation1Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS));
-	EXPECT_CALL(*reservation1Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
-	EXPECT_CALL(*reservation1Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
-
-	EXPECT_CALL(*reservation1End, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
-	EXPECT_CALL(*reservation1End, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
-	EXPECT_CALL(*reservation1End, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::END));
-
-	EXPECT_CALL(*reservation2Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
-	EXPECT_CALL(*reservation2Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
-	EXPECT_CALL(*reservation2Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
-
-	reservationMetadataList.push_back(reservation1Start);
-	reservationMetadataList.push_back(reservation1End);
-	reservationMetadataList.push_back(reservation2Start);
-
-	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList;
 	auto placement1Start = std::make_shared<StrictMock<MockAampTsbAdPlacementMetaData>>();
 	auto placement1End = std::make_shared<StrictMock<MockAampTsbAdPlacementMetaData>>();
 	auto placement2Start = std::make_shared<StrictMock<MockAampTsbAdPlacementMetaData>>();
+
+	EXPECT_CALL(*reservation1Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS));
+	EXPECT_CALL(*reservation1Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
+	EXPECT_CALL(*reservation1Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+	EXPECT_CALL(*reservation1Start, GetOrderAdded()).WillRepeatedly(Return(1));
+	reservationMetadataList.push_back(reservation1Start);
+
 	EXPECT_CALL(*placement1Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS));
 	EXPECT_CALL(*placement1Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::PLACEMENT));
 	EXPECT_CALL(*placement1Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+	EXPECT_CALL(*placement1Start, GetOrderAdded()).WillRepeatedly(Return(2));
+	placementMetadataList.push_back(placement1Start);
 
 	EXPECT_CALL(*placement1End, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
 	EXPECT_CALL(*placement1End, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::PLACEMENT));
 	EXPECT_CALL(*placement1End, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::END));
+	EXPECT_CALL(*placement1End, GetOrderAdded()).WillRepeatedly(Return(3));
+	placementMetadataList.push_back(placement1End);
+
+	EXPECT_CALL(*reservation1End, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
+	EXPECT_CALL(*reservation1End, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
+	EXPECT_CALL(*reservation1End, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::END));
+	EXPECT_CALL(*reservation1End, GetOrderAdded()).WillRepeatedly(Return(4));
+	reservationMetadataList.push_back(reservation1End);
+
+	EXPECT_CALL(*reservation2Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
+	EXPECT_CALL(*reservation2Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
+	EXPECT_CALL(*reservation2Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+	EXPECT_CALL(*reservation2Start, GetOrderAdded()).WillRepeatedly(Return(5));
+	reservationMetadataList.push_back(reservation2Start);
 
 	EXPECT_CALL(*placement2Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
 	EXPECT_CALL(*placement2Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::PLACEMENT));
 	EXPECT_CALL(*placement2Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
-
-	placementMetadataList.push_back(placement1Start);
-	placementMetadataList.push_back(placement1End);
+	EXPECT_CALL(*placement2Start, GetOrderAdded()).WillRepeatedly(Return(6));
 	placementMetadataList.push_back(placement2Start);
 
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager,

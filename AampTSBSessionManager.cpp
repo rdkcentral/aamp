@@ -1244,56 +1244,14 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
                                                                                               std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
 {
-	// Priority table for sorting ad metadata at the same position (lower value = higher priority)
-	// Assumptions:
-	// - A period/reservation cannot start and end at the same pos, i.e. have 0 duration, therefore
-	//   if both event types present it must be the previous ending, before the next starts.
-	// Rules:
-	// - PLACEMENT END before PLACEMENT START (previous placement ends before next starts)
-	// - PLACEMENT END before RESERVATION END (placement must be within reservation period)
-	// - RESERVATION END before RESERVATION START (previous reservation ends before next starts)
-	// - RESERVATION START before PLACEMENT START (placement must be within reservation period)
-	struct PriorityEntry
-	{
-		AampTsbAdMetaData::AdType adType;
-		AampTsbAdMetaData::EventType eventType;
-		int priority;
-	};
-	
-	static constexpr int PRIORITY_LOWEST = 4; // For ERROR or other unexpected types
-	static const PriorityEntry priorityTable[] =
-	{
-		{ AampTsbAdMetaData::AdType::PLACEMENT,   AampTsbAdMetaData::EventType::END,   0 },
-		{ AampTsbAdMetaData::AdType::RESERVATION, AampTsbAdMetaData::EventType::END,   1 },
-		{ AampTsbAdMetaData::AdType::RESERVATION, AampTsbAdMetaData::EventType::START, 2 },
-		{ AampTsbAdMetaData::AdType::PLACEMENT,   AampTsbAdMetaData::EventType::START, 3 }
-	};
-	static constexpr size_t priorityTableSize = sizeof(priorityTable) / sizeof(priorityTable[0]);
-	
-	auto getPriority = [](AampTsbAdMetaData::AdType adType, AampTsbAdMetaData::EventType eventType) -> int
-	{
-		int priority = PRIORITY_LOWEST;
-		
-		for (size_t i = 0; i < priorityTableSize; ++i)
-		{
-			if (priorityTable[i].adType == adType && priorityTable[i].eventType == eventType)
-			{
-				priority = priorityTable[i].priority;
-				break;
-			}
-		}
-		
-		return priority;
-	};
-	
 	// Merge both lists
 	std::vector<std::shared_ptr<AampTsbAdMetaData>> merged;
 	merged.reserve(reservationList.size() + placementList.size());
 	merged.insert(merged.end(), reservationList.begin(), reservationList.end());
 	merged.insert(merged.end(), placementList.begin(), placementList.end());
 	
-	// Sort with strict weak ordering: first by position, then by priority
-	std::sort(merged.begin(), merged.end(), [getPriority](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
+	// Sort with strict weak ordering: first by position, then by order added
+	std::sort(merged.begin(), merged.end(), [](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
 	{
 		bool aLessThanB;
 		uint64_t aPos = a->GetPosition().milliseconds();
@@ -1305,8 +1263,8 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		}
 		else
 		{
-			// Same position - sort by priority
-			aLessThanB = getPriority(a->GetAdType(), a->GetEventType()) < getPriority(b->GetAdType(), b->GetEventType());
+			// Same position - sort by order added
+			aLessThanB = a->GetOrderAdded() < b->GetOrderAdded();
 		}
 		
 		return aLessThanB;
