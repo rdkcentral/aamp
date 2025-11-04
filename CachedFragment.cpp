@@ -69,7 +69,7 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	}
 	
 	// Lock both objects to prevent data races
-	// Use std::lock to avoid deadlock by acquiring locks in consistent order
+	// Use std::lock to avoid deadlock via its deadlock-avoidance algorithm
 	std::lock(mMutex, other->mMutex);
 	std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
 	std::lock_guard<std::mutex> lockOther(other->mMutex, std::adopt_lock);
@@ -98,8 +98,7 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	
 	// Copy fragment data up to specified length
 	// Defensive: Check if buffer is valid before accessing
-	bool shouldCopyFragmentData = (other->fragment.GetPtr() && len > 0);
-	if (shouldCopyFragmentData)
+	if (other->fragment.GetPtr() && len > 0)
 	{
 		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
 	}
