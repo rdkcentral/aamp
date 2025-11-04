@@ -60,8 +60,12 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	{
 		return;
 	}
-	if (this == other) {
-		return; // Avoid self-copy and potential deadlock
+	if (this == other)
+	{
+		// Self-copy: lock only this->mMutex to ensure consistent locking semantics
+		std::lock_guard<std::mutex> lockThis(mMutex);
+		// No copy performed, but lock is held for duration
+		return;
 	}
 	
 	// Lock both objects to prevent data races
