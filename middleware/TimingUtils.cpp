@@ -13,7 +13,7 @@ void PerfTimer::perf_Stop(const std::string& name)
     auto it = s_startTimes.find(name);
     if (it == s_startTimes.end())
     {
-        MW_LOG_TIME("[PERF] perf_Stop called without matching perf_Start for '%s'", name.c_str());
+        MW_LOG_INFO("[PERF] perf_Stop called without matching perf_Start for '%s'", name.c_str());
         return;
     }
 
@@ -21,7 +21,7 @@ void PerfTimer::perf_Stop(const std::string& name)
     long long duration =
         std::chrono::duration_cast<std::chrono::nanoseconds>(end - it->second).count();
 
-    MW_LOG_TIME("[PERF] %s took %lld ns", name.c_str(), duration);
+    MW_LOG_INFO("[PERF] %s took %lld ns", name.c_str(), duration);
 
     s_startTimes.erase(it);  // optional: remove after logging
 }
