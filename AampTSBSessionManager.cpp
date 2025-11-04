@@ -1260,6 +1260,7 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		int priority;
 	};
 	
+	static constexpr int PRIORITY_LOWEST = 4; // For ERROR or other unexpected types
 	static const PriorityEntry priorityTable[] =
 	{
 		{ AampTsbAdMetaData::AdType::PLACEMENT,   AampTsbAdMetaData::EventType::END,   0 },
@@ -1267,16 +1268,17 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		{ AampTsbAdMetaData::AdType::RESERVATION, AampTsbAdMetaData::EventType::START, 2 },
 		{ AampTsbAdMetaData::AdType::PLACEMENT,   AampTsbAdMetaData::EventType::START, 3 }
 	};
+	static constexpr size_t priorityTableSize = sizeof(priorityTable) / sizeof(priorityTable[0]);
 	
 	auto getPriority = [](AampTsbAdMetaData::AdType adType, AampTsbAdMetaData::EventType eventType) -> int
 	{
-		int priority = 4; // Default for ERROR or other types
+		int priority = PRIORITY_LOWEST;
 		
-		for (const auto& entry : priorityTable)
+		for (size_t i = 0; i < priorityTableSize; ++i)
 		{
-			if (entry.adType == adType && entry.eventType == eventType)
+			if (priorityTable[i].adType == adType && priorityTable[i].eventType == eventType)
 			{
-				priority = entry.priority;
+				priority = priorityTable[i].priority;
 				break;
 			}
 		}
@@ -1291,7 +1293,7 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 	merged.insert(merged.end(), placementList.begin(), placementList.end());
 	
 	// Sort with strict weak ordering: first by position, then by priority
-	std::sort(merged.begin(), merged.end(), [&getPriority](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
+	std::sort(merged.begin(), merged.end(), [getPriority](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
 	{
 		bool aLessThanB;
 		uint64_t aPos = a->GetPosition().milliseconds();
