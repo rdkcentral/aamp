@@ -9403,7 +9403,7 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 		if ((mPlayRate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) &&
 			(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached))
 		{
-			AAMPLOG_INFO("EOS Reached. mPlayRate:%f mIterPeriodIndex:%d", mPlayRate, mIterPeriodIndex);
+			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
 			mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 			mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 		}
