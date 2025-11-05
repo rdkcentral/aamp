@@ -146,6 +146,88 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 		}
 
+		if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
+		{
+			//To read track_id from the init fragments to check if there any mismatch.
+			//A mismatch in track_id is not handled in the gstreamer version 1.10.4
+			//But is handled in the latest version (1.18.5),
+			//so upon upgrade to it or introduced a patch in qtdemux,
+			//this portion can be reverted
+			IsoBmffBuffer buffer;
+			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
+			buffer.parseBuffer();
+			uint32_t track_id = 0;
+			buffer.getTrack_id(track_id);
+			if(buffer.isInitSegment())
+			{
+				uint32_t timeScale = 0;
+				buffer.getTimeScale(timeScale);
+				if(actualType == eMEDIATYPE_INIT_VIDEO)
+				{
+					AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
+					aamp->SetVidTimeScale(timeScale);
+				}
+				else if (actualType == eMEDIATYPE_INIT_AUDIO)
+				{
+					AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
+					aamp->SetAudTimeScale(timeScale);
+				}
+				else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
+				{
+					AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
+					aamp->SetSubTimeScale(timeScale);
+				}
+			}
+			if(actualType == eMEDIATYPE_INIT_VIDEO)
+			{
+				AAMPLOG_INFO("Video track_id read from init fragment: %d ", track_id);
+				bool trackIdUpdated = false;
+				if(aamp->mCurrentVideoTrackId != -1 && track_id != aamp->mCurrentVideoTrackId)
+				{
+					if(overWriteTrackId)
+					{
+						//Overwrite the track id of the init fragment with the existing track id since overWriteTrackId is true only while pushing the encrypted init fragment while clear content is being played
+						buffer.parseBuffer(false, aamp->mCurrentVideoTrackId);
+						AAMPLOG_WARN("Video track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
+						trackIdUpdated = true;
+					}
+					else
+					{
+						aamp->mIsTrackIdMismatch = true;
+						AAMPLOG_WARN("TrackId mismatch detected for video, current track_id: %d, next period track_id: %d", aamp->mCurrentVideoTrackId, track_id);
+					}
+				}
+				if(!trackIdUpdated)
+				{
+					aamp->mCurrentVideoTrackId = track_id;
+				}
+			}
+			else if(actualType == eMEDIATYPE_INIT_AUDIO)
+			{
+				bool trackIdUpdated = false;
+				AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
+				if(aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
+				{
+					if(overWriteTrackId)
+					{
+						buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
+						AAMPLOG_WARN("Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
+						trackIdUpdated = true;
+					}
+					else
+					{
+						aamp->mIsTrackIdMismatch = true;
+						AAMPLOG_WARN("TrackId mismatch detected for audio, current track_id: %d, next period track_id: %d", aamp->mCurrentAudioTrackId, track_id);
+					}
+				}
+				if(!trackIdUpdated)
+				{
+					aamp->mCurrentAudioTrackId = track_id;
+				}
+			}
+			// Not overwriting for subtitles, as subtecmp4transform never read trackId from init fragments
+		}
+
 		if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 		{
 			if(actualType == eMEDIATYPE_VIDEO)
@@ -155,90 +237,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			else if(actualType == eMEDIATYPE_INIT_VIDEO)
 			{
 				actualType = eMEDIATYPE_INIT_IFRAME;
-			}
-		}
-		else
-		{
-			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
-			{
-				//To read track_id from the init fragments to check if there any mismatch.
-				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
-				//But is handled in the latest version (1.18.5),
-				//so upon upgrade to it or introduced a patch in qtdemux,
-				//this portion can be reverted
-				IsoBmffBuffer buffer;
-				buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
-				buffer.parseBuffer();
-				uint32_t track_id = 0;
-				buffer.getTrack_id(track_id);
-				if(buffer.isInitSegment())
-				{
-					uint32_t timeScale = 0;
-					buffer.getTimeScale(timeScale);
-					if(actualType == eMEDIATYPE_INIT_VIDEO)
-					{
-						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
-						aamp->SetVidTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_AUDIO)
-					{
-						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-						aamp->SetAudTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
-					{
-						AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
-						aamp->SetSubTimeScale(timeScale);
-					}
-				}
-				if(actualType == eMEDIATYPE_INIT_VIDEO)
-				{
-					AAMPLOG_INFO("Video track_id read from init fragment: %d ", track_id);
-					bool trackIdUpdated = false;
-					if(aamp->mCurrentVideoTrackId != -1 && track_id != aamp->mCurrentVideoTrackId)
-					{
-						if(overWriteTrackId)
-						{
-							//Overwrite the track id of the init fragment with the existing track id since overWriteTrackId is true only while pushing the encrypted init fragment while clear content is being played
-							buffer.parseBuffer(false, aamp->mCurrentVideoTrackId);
-							AAMPLOG_WARN("Video track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
-							trackIdUpdated = true;
-						}
-						else
-						{
-							aamp->mIsTrackIdMismatch = true;
-							AAMPLOG_WARN("TrackId mismatch detected for video, current track_id: %d, next period track_id: %d", aamp->mCurrentVideoTrackId, track_id);
-						}
-					}
-					if(!trackIdUpdated)
-					{
-						aamp->mCurrentVideoTrackId = track_id;
-					}
-				}
-				else if(actualType == eMEDIATYPE_INIT_AUDIO)
-				{
-					bool trackIdUpdated = false;
-					AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
-					if(aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
-					{
-						if(overWriteTrackId)
-						{
-							buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
-							AAMPLOG_WARN("Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
-							trackIdUpdated = true;
-						}
-						else
-						{
-							aamp->mIsTrackIdMismatch = true;
-							AAMPLOG_WARN("TrackId mismatch detected for audio, current track_id: %d, next period track_id: %d", aamp->mCurrentAudioTrackId, track_id);
-						}
-					}
-					if(!trackIdUpdated)
-					{
-						aamp->mCurrentAudioTrackId = track_id;
-					}
-				}
-				// Not overwriting for subtitles, as subtecmp4transform never read trackId from init fragments
 			}
 		}
 
