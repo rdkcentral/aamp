@@ -7418,18 +7418,37 @@ int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t ba
 std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaType)
 {
 	std::string mimeType;
+    if( mediaType >= mNumberOfTracks )
+    {
+    		AAMPLOG_ERR("GetCurrentMimeType: Invalid mediaType=%d mNumberOfTracks=%d", mediaType, mNumberOfTracks);
+		    return mimeType;
+	}
 	if( mediaType < mNumberOfTracks )
 	{
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		// Check if media stream context exists
+		if (!pMediaStreamContext)
+		{
+			AAMPLOG_ERR("GetCurrentMimeType: pMediaStreamContext is NULL for mediaType=%d", mediaType);
+			return mimeType; //  avoid dereferencing null
+		}
 		if( pMediaStreamContext )
 		{
-			if( pMediaStreamContext->representation )
+			if( !pMediaStreamContext->representation )
+			{
+				AAMPLOG_ERR("GetCurrentMimeType: representation is NULL for mediaType=%d", mediaType);
+			}
+			else
 			{
 				mimeType = pMediaStreamContext->representation->GetMimeType();
 			}
 			if( mimeType.empty() )
 			{
-				if( pMediaStreamContext->adaptationSet )
+				if( !pMediaStreamContext->adaptationSet )
+				{
+					AAMPLOG_ERR("GetCurrentMimeType: adaptationSet is NULL for mediaType=%d", mediaType);
+				}
+				else
 				{
 					mimeType = pMediaStreamContext->adaptationSet->GetMimeType();
 				}
@@ -7438,11 +7457,11 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 	}
 	if( mimeType.empty() )
 	{
-		AAMPLOG_WARN( "unknown" );
+		AAMPLOG_WARN("GetCurrentMimeType: unknown for mediaType=%d", mediaType);
 	}
 	else
 	{
-		AAMPLOG_DEBUG( "%s", mimeType.c_str() );
+		AAMPLOG_DEBUG("GetCurrentMimeType: mimeType=%s", mimeType.c_str());
 	}
 	return mimeType;
 }
