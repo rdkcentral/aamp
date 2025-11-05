@@ -206,7 +206,7 @@ protected:
 		}
 
 		return bufferedFragment;
-	}	
+	}
 	
 	void SetLowLatencyMode(bool isEnabled)
 	{
