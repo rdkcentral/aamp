@@ -1093,12 +1093,18 @@ bool MediaTrack::ProcessFragment(CachedFragment* fragment)
 		}
 		if(!timeScale)
 		{
-			if(pContext) {
+			if(pContext) 
+			{
 				timeScale = pContext->GetCurrPeriodTimeScale();
-				if(!timeScale) { timeScale = 10000000.0; AAMPLOG_WARN("[%s] Empty timeScale using default %d", name, timeScale); }
+				if(!timeScale) 
+				{ 
+					timeScale = 10000000; 
+					AAMPLOG_WARN("[%s] Empty timeScale using default %d", name, timeScale); 
+				}
 			}
-			else {
-				timeScale = 1000.0;
+			else 
+			{
+				timeScale = 1000;
 				AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
 			}
 		}
