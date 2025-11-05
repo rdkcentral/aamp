@@ -1242,7 +1242,7 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 }
 
 std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
-                                                                                              std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
+																							  std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
 {
 	// Merge both lists
 	std::vector<std::shared_ptr<AampTsbAdMetaData>> merged;
@@ -1266,7 +1266,7 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		}
 		return aLessThanB;
 	});
-	
+
 	return merged;
 }
 
