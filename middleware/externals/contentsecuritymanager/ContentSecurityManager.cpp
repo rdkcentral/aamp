@@ -89,6 +89,14 @@ void ContentSecurityManager::DestroyInstance()
 }
 
 /**
+ * @brief To acquire an access token from auth service
+ */
+bool ContentSecurityManager::getSessionToken(std::string &token)
+{
+	return false;
+}
+
+/**
  * @brief To indicate whether application support firebolt capability
  */
 void ContentSecurityManager::UseFireboltSDK(bool status)
