@@ -126,12 +126,10 @@ bool AAMPTelemetry2::send( const std::string &markerName, const std::map<std::st
 	return bRet;
 }
 
-
 bool AAMPTelemetry2::send( const std::string &markerName, const char *  data) {
 	bool bRet = false;
 	if(mInitializer.isInitialized()	&& NULL != data)
 	{
-		AAMPLOG_INFO("[S] Marker Name: %s value:%s", markerName.c_str(),data );
 #ifndef AAMP_SIMULATOR_BUILD
 		T2ERROR t2Error =  t2_event_s( (char *)markerName.c_str(),(char*)data );
 		
