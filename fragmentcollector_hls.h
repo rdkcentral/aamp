@@ -1111,9 +1111,8 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 
-		std::mutex mMP_mutex;  // protects mMetadataProcessor
-		 std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-
+		std::mutex mMP_mutex; // protects mMetadataProcessor
+		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
 };
 
 StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );
