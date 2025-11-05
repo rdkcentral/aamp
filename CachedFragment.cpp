@@ -56,51 +56,53 @@ CachedFragment::CachedFragment()
  */
 void CachedFragment::Copy(CachedFragment* other, size_t len)
 {
-	if (!other) 
+	if (!other)
 	{
 		return;
 	}
-	if (this == other)
+
+	if (this != other)
+	{
+		// Lock both objects to prevent data races
+		// Use std::lock to avoid deadlock via its deadlock-avoidance algorithm
+		std::lock(mMutex, other->mMutex);
+		std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
+		std::lock_guard<std::mutex> lockOther(other->mMutex, std::adopt_lock);
+
+		// RAII: Instead of calling Free() explicitly, assign a new empty buffer
+		// This is tolerant to external Free() calls and follows RAII principles
+		fragment = AampGrowableBuffer("cached-fragment");
+
+		// Copy all member variables
+		this->position = other->position;
+		this->duration = other->duration;
+		this->initFragment = other->initFragment;
+		this->discontinuity = other->discontinuity;
+		this->profileIndex = other->profileIndex;
+		this->cacheFragStreamInfo = other->cacheFragStreamInfo;
+		this->type = other->type;
+		this->downloadStartTime = other->downloadStartTime;
+		this->uri = other->uri;
+		this->timeScale = other->timeScale;
+		this->PTSOffsetSec = other->PTSOffsetSec;
+		this->absPosition = other->absPosition;
+		this->isDummy = other->isDummy;
+		this->discontinuityIndex = other->discontinuityIndex;
+
+		this->fragmentType = other->fragmentType;
+
+		// Copy fragment data up to specified length
+		// Defensive: Check if buffer is valid before accessing
+		if (other->fragment.GetPtr() && len > 0)
+		{
+			this->fragment.AppendBytes(other->fragment.GetPtr(), len);
+		}
+	}
+	else
 	{
 		// Self-copy: lock only this->mMutex to ensure consistent locking semantics
 		std::lock_guard<std::mutex> lockThis(mMutex);
 		// No copy performed, but lock is held for duration
-		return;
-	}
-	
-	// Lock both objects to prevent data races
-	// Use std::lock to avoid deadlock via its deadlock-avoidance algorithm
-	std::lock(mMutex, other->mMutex);
-	std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
-	std::lock_guard<std::mutex> lockOther(other->mMutex, std::adopt_lock);
-	
-	// RAII: Instead of calling Free() explicitly, assign a new empty buffer
-	// This is tolerant to external Free() calls and follows RAII principles
-	fragment = AampGrowableBuffer("cached-fragment");
-	
-	// Copy all member variables
-	this->position = other->position;
-	this->duration = other->duration;
-	this->initFragment = other->initFragment;
-	this->discontinuity = other->discontinuity;
-	this->profileIndex = other->profileIndex;
-	this->cacheFragStreamInfo = other->cacheFragStreamInfo;
-	this->type = other->type;
-	this->downloadStartTime = other->downloadStartTime;
-	this->uri = other->uri;
-	this->timeScale = other->timeScale;
-	this->PTSOffsetSec = other->PTSOffsetSec;
-	this->absPosition = other->absPosition;
-	this->isDummy = other->isDummy;
-	this->discontinuityIndex = other->discontinuityIndex;
-	
-	this->fragmentType = other->fragmentType;
-	
-	// Copy fragment data up to specified length
-	// Defensive: Check if buffer is valid before accessing
-	if (other->fragment.GetPtr() && len > 0)
-	{
-		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
 	}
 }
 
@@ -292,33 +294,36 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
  */
 void CachedFragment::swap(CachedFragment& other) noexcept
 {
-	// Use std::lock to avoid deadlock by acquiring locks in consistent order
-	std::lock(mMutex, other.mMutex);
-	std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
-	std::lock_guard<std::mutex> lockOther(other.mMutex, std::adopt_lock);
-	
-	using std::swap;
-	
-	// RAII: Use move assignment for buffer swap
-	AampGrowableBuffer tempFragment = std::move(fragment);
-	fragment = std::move(other.fragment);
-	other.fragment = std::move(tempFragment);
-	
-	swap(position, other.position);
-	swap(duration, other.duration);
-	swap(initFragment, other.initFragment);
-	swap(discontinuity, other.discontinuity);
-	swap(isDummy, other.isDummy);
-	swap(profileIndex, other.profileIndex);
-	swap(timeScale, other.timeScale);
-	swap(uri, other.uri);
-	swap(cacheFragStreamInfo, other.cacheFragStreamInfo);
-	swap(type, other.type);
-	swap(downloadStartTime, other.downloadStartTime);
-	swap(discontinuityIndex, other.discontinuityIndex);
-	swap(PTSOffsetSec, other.PTSOffsetSec);
-	swap(absPosition, other.absPosition);
-	swap(fragmentType, other.fragmentType);
+	if (this != &other)
+	{
+		// Use std::lock to avoid deadlock by acquiring locks in consistent order
+		std::lock(mMutex, other.mMutex);
+		std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
+		std::lock_guard<std::mutex> lockOther(other.mMutex, std::adopt_lock);
+
+		using std::swap;
+
+		// RAII: Use move assignment for buffer swap
+		AampGrowableBuffer tempFragment = std::move(fragment);
+		fragment = std::move(other.fragment);
+		other.fragment = std::move(tempFragment);
+
+		swap(position, other.position);
+		swap(duration, other.duration);
+		swap(initFragment, other.initFragment);
+		swap(discontinuity, other.discontinuity);
+		swap(isDummy, other.isDummy);
+		swap(profileIndex, other.profileIndex);
+		swap(timeScale, other.timeScale);
+		swap(uri, other.uri);
+		swap(cacheFragStreamInfo, other.cacheFragStreamInfo);
+		swap(type, other.type);
+		swap(downloadStartTime, other.downloadStartTime);
+		swap(discontinuityIndex, other.discontinuityIndex);
+		swap(PTSOffsetSec, other.PTSOffsetSec);
+		swap(absPosition, other.absPosition);
+		swap(fragmentType, other.fragmentType);
+	}
 }
 
 /**
