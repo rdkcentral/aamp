@@ -188,11 +188,8 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	, fragmentType(other.fragmentType)
 	, mMutex()  // Each object gets its own mutex
 {
-	// Lock the source object during move
-	std::lock_guard<std::mutex> lock(other.mMutex);
-	
 	// RAII: Reset moved-from object to valid default state
-	// Assign new empty buffer to ensure valid state
+	// No lock is needed here, as move operations should have exclusive access to the source.
 	other.fragment = AampGrowableBuffer("cached-fragment-moved");
 	other.position = 0.0;
 	other.duration = 0.0;
@@ -248,11 +245,8 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 {
 	if (this != &other) 
 	{
-		// Use std::lock to avoid deadlock by acquiring locks in consistent order
-		std::lock(mMutex, other.mMutex);
-		std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
-		std::lock_guard<std::mutex> lockOther(other.mMutex, std::adopt_lock);
-		
+		// Per C++ guidelines, move operations should be noexcept and assume exclusive access to the source.
+		// The caller is responsible for ensuring thread safety.
 		fragment = std::move(other.fragment);
 		position = other.position;
 		duration = other.duration;
@@ -296,11 +290,6 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 {
 	if (this != &other)
 	{
-		// Use std::lock to avoid deadlock by acquiring locks in consistent order
-		std::lock(mMutex, other.mMutex);
-		std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
-		std::lock_guard<std::mutex> lockOther(other.mMutex, std::adopt_lock);
-
 		using std::swap;
 
 		// RAII: Use move assignment for buffer swap
