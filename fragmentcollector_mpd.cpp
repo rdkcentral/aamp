@@ -7420,7 +7420,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 	std::string mimeType;
     if( mediaType >= mNumberOfTracks )
     {
-    		AAMPLOG_ERR("GetCurrentMimeType: Invalid mediaType=%d mNumberOfTracks=%d", mediaType, mNumberOfTracks);
+    		AAMPLOG_ERR("GetCurrentMimeType: Invalid mediaType=%s mNumberOfTracks=%d", GetMediaTypeName(mediaType), mNumberOfTracks);
 		    return mimeType;
 	}
 	if( mediaType < mNumberOfTracks )
@@ -7429,14 +7429,14 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 		// Check if media stream context exists
 		if (!pMediaStreamContext)
 		{
-			AAMPLOG_ERR("GetCurrentMimeType: pMediaStreamContext is NULL for mediaType=%d", mediaType);
+			AAMPLOG_ERR("GetCurrentMimeType: pMediaStreamContext is NULL for %s", GetMediaTypeName(mediaType));
 			return mimeType; //  avoid dereferencing null
 		}
 		if( pMediaStreamContext )
 		{
 			if( !pMediaStreamContext->representation )
 			{
-				AAMPLOG_ERR("GetCurrentMimeType: representation is NULL for mediaType=%d", mediaType);
+				AAMPLOG_ERR("GetCurrentMimeType: representation is NULL for %s", GetMediaTypeName(mediaType));
 			}
 			else
 			{
@@ -7446,7 +7446,7 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 			{
 				if( !pMediaStreamContext->adaptationSet )
 				{
-					AAMPLOG_ERR("GetCurrentMimeType: adaptationSet is NULL for mediaType=%d", mediaType);
+					AAMPLOG_ERR("GetCurrentMimeType: adaptationSet is NULL for %s", GetMediaTypeName(mediaType));
 				}
 				else
 				{
@@ -7457,11 +7457,11 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 	}
 	if( mimeType.empty() )
 	{
-		AAMPLOG_WARN("GetCurrentMimeType: unknown for mediaType=%d", mediaType);
+		AAMPLOG_WARN("GetCurrentMimeType: unknown for %s", GetMediaTypeName(mediaType));
 	}
 	else
 	{
-		AAMPLOG_DEBUG("GetCurrentMimeType: mimeType=%s", mimeType.c_str());
+		AAMPLOG_DEBUG("GetCurrentMimeType: mimeType=%s for %s", mimeType.c_str(), GetMediaTypeName(mediaType));
 	}
 	return mimeType;
 }
