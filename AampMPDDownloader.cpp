@@ -398,13 +398,10 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 		}
 
-		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 		{
 			if(!mMPDData->mMPDDownloadResponse->getString().empty())
 			{
-				//std::string dataStr =  std::string( mMPDData->mMPDDownloadResponse->mDownloadData.begin(), mMPDData->mMPDDownloadResponse->mDownloadData.end());
-				//mMPDData->show();
-				// store the last manifestdownloadTime
 				mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
 				mMPDData->parseMPD();
 				if(firstDownload)
@@ -454,7 +451,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				AAMPLOG_INFO("Ignoring MPD processing for empty manifest, Response Code : %d..!", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 			}
-		}
+		} // IS_HTTP_SUCCESS
 		else
 		{
 			// Failure in request
@@ -468,9 +465,18 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mEffectiveUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
-			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
+			
+			if( !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 			{ 
-				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT )
+				{
+					mMPDData->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorTimeout, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				}
+				else
+				{
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				}
 				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
 				mMPDData->mMPDDownloadResponse->show();
 			}
@@ -521,8 +527,7 @@ void AampMPDDownloader::downloadMPDThread1()
  */
 void AampMPDDownloader::harvestManifest()
 {
-	if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && 
-		(mMPDData->mMPDDownloadResponse->iHttpRetValue == 200 || mMPDData->mMPDDownloadResponse->iHttpRetValue == 206))
+	if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 	{
 			AampMediaType mediaType	=	eMEDIATYPE_MANIFEST	;
 			if((mMPDDnldCfg->mHarvestCountLimit > 0) && (mMPDDnldCfg->mHarvestConfig & getHarvestConfigForMedia(mediaType)))
@@ -584,7 +589,6 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 */
 void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime)
 {
-	CURLcode res 			=	static_cast<CURLcode>(dnldPtr->curlRetValue);
 	int http_code			=	dnldPtr->iHttpRetValue;
 	double total			=	dnldPtr->downloadCompleteMetrics.total;
 	double totalPerformRequest	= (double)(totalPerformanceTime)/1000;	// in sec
@@ -597,13 +601,22 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		appName = mAppName + ",";
 	}
 
-	if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+	switch( http_code )
 	{
-		// introduce  extra marker for connection status curl 7/18/28,
-		// example 18(0) if connection failure with PARTIAL_FILE code
-		timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
+		case CURLE_OPERATION_TIMEDOUT:
+		case CURLE_PARTIAL_FILE:
+		case CURLE_COULDNT_CONNECT:
+		case eCURL_TIMEOUT_DNS:
+		case eCURL_TIMEOUT_CONNECT:
+		case eCURL_TIMEOUT_DATA:
+			// introduce  extra marker for connection status curl 7/18/28,
+			// example 18(0) if connection failure with PARTIAL_FILE code
+			timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
+			break;
+		default:
+			break;
 	}
-	if(res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
+	if( http_code < 200 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
@@ -682,6 +695,22 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 			{
 				// Timed out
 				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+
+				CURL *curlHandle = mDownloader1.GetCurlHandle();;
+
+				// Optionally, log or use the handle
+				if (curlHandle)
+				{
+					/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
+						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through 
+						curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
+					*/
+					respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
+				}
+				else
+				{
+					AAMPLOG_WARN("GetManifest: CURL handle is null");
+				}
 				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
 				return respPtr;
 			}

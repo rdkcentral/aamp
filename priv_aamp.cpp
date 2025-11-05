@@ -213,6 +213,9 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_INVALID_MANIFEST_FAILURE, 10, "AAMP: Invalid Manifest, parse failed"},
 	{AAMP_TUNE_FAILED_PTS_ERROR, 80, "AAMP: Playback failed due to PTS error"},
 	{AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING, 10, "AAMP: init fragments missing in playlist"},
+	{AAMP_TUNE_DNS_RESOLVE_TIMEOUT, 10, "AAMP: Manifest download failed due to DNS resolve timeout"},
+	{AAMP_TUNE_CURL_CONNECTION_TIMEOUT, 10, "AAMP: Manifest download failed due to connection timeout"},
+	{AAMP_TUNE_DATA_TRANSFER_TIMEOUT, 10, "AAMP: Manifest download failed due to data transfer timeout"},
 	{AAMP_TUNE_FAILURE_UNKNOWN, 100, "AAMP: Unknown Failure"}
 };
 
@@ -2652,8 +2655,8 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 						break;
 			}
 		}
-		else if(error_code < 100)
-		{
+		else if(error_code < 100 || error_code >= eCURL_TIMEOUT_DNS )
+		{ // CURLcode or disambiguated CurlTimeoutFailureReason
 			snprintf(description,MAX_DESCRIPTION_SIZE, "%s : Curl Error Code %d", tuneFailureMap[tuneFailure].description, error_code);  //CID:86441 - DC>STRING_BUFFER
 		}
 		else
@@ -2672,7 +2675,6 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 		{
 			strcat(description, "(FOG)");
 		}
-
 		SendErrorEvent(actualFailure, description, retryStatus);
 	}
 	else
@@ -3575,7 +3577,6 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 				playbackType.append(":TSB=false");
 			}
 		}
-
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
 	}
 	AampLogManager::setLogLevel(eLOGLEVEL_WARN);
@@ -3981,6 +3982,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationS*1000);
+	const char* failureReason = nullptr;
 
 	int maxDownloadAttempt = 1;
 	switch( mediaType )
@@ -4163,6 +4165,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 				long long tStartTime = NOW_STEADY_TS_MS;
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+
+				if( res == CURLE_OPERATION_TIMEDOUT)
+				{
+					AAMPLOG_INFO("Curl Timeout detected(%d)", res);
+					res = (CURLcode)GetCurlTimeoutFailureReason(curl);
+				}
+
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
 					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
@@ -4302,12 +4311,25 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						{
 							effectiveUrl.assign(remoteUrl);
 						}
-						AampLogManager::LogNetworkError (effectiveUrl.c_str(), // Effective URL could be different than remoteURL
-						AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
+
+						if( res == CURLE_OPERATION_TIMEDOUT )
+						{
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							mediaType);
+						}
+						else
+						{
+							AampLogManager::LogNetworkError (effectiveUrl.c_str(), // Effective URL could be different than remoteURL
+							AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
+						}
 						print_headerResponse(context.allResponseHeaders, mediaType);
+
 					}
-					if (res == CURLE_COULDNT_CONNECT || res == CURLE_OPERATION_TIMEDOUT || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
+					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
+						
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -4444,7 +4466,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// append app name with class data
 						appName = mAppName + ",";
 					}
-					if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+					if ( IsCurlTimeoutFailure(res) || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
 					{
 						// introduce  extra marker for connection status curl 7/18/28,
 						// example 18(0) if connection failure with PARTIAL_FILE code
@@ -4491,9 +4513,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-		if (http_code == 200 || http_code == 206 || http_code == CURLE_OPERATION_TIMEDOUT)
+		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
 		{
-			if (http_code == CURLE_OPERATION_TIMEDOUT && buffer->GetLen() > 0)
+			if ( IsCurlTimeoutFailure (http_code) && buffer->GetLen() > 0)
 			{
 				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer->GetLen(), downloadTimeMS, isDownloadStalled);
 			}
@@ -4576,8 +4598,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			// these are generated after trick play options,
 			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
 			{
-				SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mFogTSBEnabled ? "FOG" : "CDN"),
-								 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
+				if(failureReason != nullptr)
+				{
+					SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s reason: %s", (mFogTSBEnabled ? "FOG" : "CDN"),
+									 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str(),failureReason);
+				}
+				else
+				{
+					SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mFogTSBEnabled ? "FOG" : "CDN"),
+									 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
+				}
 			}
 
 			if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_XREASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
@@ -4639,13 +4669,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			http_code = PARTIAL_FILE_START_STALL_TIMEOUT_AAMP;
 		}
 		else if (connectTime == 0.0)
-		{
-			//curl connection is failure
+		{ // curl connection failure
 			if(CURLE_PARTIAL_FILE == http_code)
 			{
 				http_code = PARTIAL_FILE_CONNECTIVITY_AAMP;
 			}
-			else if(CURLE_OPERATION_TIMEDOUT == http_code)
+			else if( IsCurlTimeoutFailure( http_code ) )
 			{
 				http_code = OPERATION_TIMEOUT_CONNECTIVITY_AAMP;
 			}
@@ -8154,7 +8183,6 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 					AAMPLOG_ERR("Failed to pause the Pipeline");
 			}
 		}
-
 
 		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), getStringForPlaybackError(errorType));
 		bool activeAAMPFound = false;

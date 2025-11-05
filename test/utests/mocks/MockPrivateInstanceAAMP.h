@@ -47,6 +47,7 @@ public:
 	MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
+	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, double, bool, bool));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType, const void *, size_t, double, double, double));
 	MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
@@ -54,11 +55,8 @@ public:
 	MOCK_METHOD(long long, GetPositionMilliseconds, ());
 	MOCK_METHOD(int, ScheduleAsyncTask, (IdleTask task, void *arg, std::string taskName));
 	MOCK_METHOD(bool, RemoveAsyncTask, (int taskId));
-
 	MOCK_METHOD(const std::string &, GetSessionId, ());
-
 	MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
-
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
@@ -79,7 +77,6 @@ public:
 	MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());
-
 	MOCK_METHOD(void, SendAdPlacementEvent, (AAMPEventType, const std::string &, uint32_t, uint64_t, uint32_t, uint32_t, bool, long));
 	MOCK_METHOD(void, SendAdReservationEvent, (AAMPEventType, const std::string &, uint64_t, uint64_t, bool));
 	MOCK_METHOD(void, CalculateTrickModePositionEOS, ());
