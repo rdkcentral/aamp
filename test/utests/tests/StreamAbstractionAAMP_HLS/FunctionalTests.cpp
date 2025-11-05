@@ -961,6 +961,10 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE1)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
 {
+    /*
+    * For test purposes we create 2 subtitle options inband and outband but
+    * in reality AAMP will not handle different subtitle formats in the same manifest
+    */
     MediaInfo MediaInfoObj0 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx0", .isCC = false};
     MediaInfo MediaInfoObj1 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx1", .isCC = true};
     StreamOutputFormat format = FORMAT_MPEGTS;
@@ -978,6 +982,11 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
     playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
     ASSERT_EQ(FORMAT_INVALID, format);
     ASSERT_EQ("idx1", playlistURI);
+
+    /* test vector index out of bounds */
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 2;
+    playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_UNKNOWN, format);
 
 }
 

@@ -2548,7 +2548,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 		break;
 	case eTRACK_AUDIO:
 		{
-			if (currentAudioProfileIndex >= 0)
+			if (currentAudioProfileIndex >= 0 && currentTextTrackProfileIndex < (int)mediaInfoStore.size())
 			{
 				//aamp->UpdateAudioLanguageSelection( GetLanguageCode(currentAudioProfileIndex).c_str() );
 				AAMPLOG_INFO("GetPlaylistURI : AudioTrack: language selected is %s", GetLanguageCode(currentAudioProfileIndex).c_str());
@@ -2560,7 +2560,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 		break;
 	case eTRACK_SUBTITLE:
 		{
-			if (currentTextTrackProfileIndex != -1)
+			if (currentTextTrackProfileIndex != -1 && currentTextTrackProfileIndex < (int)mediaInfoStore.size()	)
 			{
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
