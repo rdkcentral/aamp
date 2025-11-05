@@ -1478,7 +1478,6 @@ bool IsCurlTimeoutFailure( int httpResponseCode )
 		case CURLE_OPERATION_TIMEDOUT:
 		case eCURL_TIMEOUT_DNS:
 		case eCURL_TIMEOUT_CONNECT:
-		case eCURL_TIMEOUT_DATA:
 			return true;
 		default:
 			return false;
