@@ -2602,7 +2602,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 }
 
 /**
- *  @brief Function to get playlist URI based on media selection. format parameter not needed
+ *  @brief Function to get playlist URI based on media selection. Format parameter not needed.
  */
 std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType )
 {
