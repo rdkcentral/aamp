@@ -950,12 +950,34 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioPlaylistURITest)
     ASSERT_NE(FORMAT_AUDIO_ES_AAC, format);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest2)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE1)
 {
-    // mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 3;
+    /* test when no subtitle track selected*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = -1;
     StreamOutputFormat format = FORMAT_MPEGTS;
-    TrackType type = eTRACK_SUBTITLE;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_UNKNOWN, format);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
+{
+    MediaInfo MediaInfoObj0 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx0", .isCC = false};
+    MediaInfo MediaInfoObj1 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx1", .isCC = true};
+    StreamOutputFormat format = FORMAT_MPEGTS;
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(MediaInfoObj0);
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(MediaInfoObj1);
+
+    /* test when .isCC = false*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 0;
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_SUBTITLE_WEBVTT, format);
+    ASSERT_EQ("idx0", playlistURI);
+
+    /* test when .isCC = true*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 1;
+    playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_INVALID, format);
+    ASSERT_EQ("idx1", playlistURI);
 
 }
 

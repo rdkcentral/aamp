@@ -2532,7 +2532,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 {
 	std::string playlistURI;
 
-	format = FORMAT_INVALID; /* default value*/
+	format = FORMAT_UNKNOWN; /* default value*/
 
 	switch (trackType)
 	{
@@ -2566,7 +2566,6 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
 				SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_SubTitleLanguage, (std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
 
-				format = FORMAT_UNKNOWN;
 				if (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
 				{
 					/* For closedCaption subtitles then we need a subtitle track setup in Rialto for control. The actual subtitle
