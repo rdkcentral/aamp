@@ -1249,14 +1249,12 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 	merged.reserve(reservationList.size() + placementList.size());
 	merged.insert(merged.end(), reservationList.begin(), reservationList.end());
 	merged.insert(merged.end(), placementList.begin(), placementList.end());
-	
 	// Sort with strict weak ordering: first by position, then by order added
 	std::sort(merged.begin(), merged.end(), [](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
 	{
 		bool aLessThanB;
 		uint64_t aPos = a->GetPosition().milliseconds();
 		uint64_t bPos = b->GetPosition().milliseconds();
-		
 		if (aPos != bPos)
 		{
 			aLessThanB = aPos < bPos;
@@ -1266,7 +1264,6 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 			// Same position - sort by order added
 			aLessThanB = a->GetOrderAdded() < b->GetOrderAdded();
 		}
-		
 		return aLessThanB;
 	});
 	

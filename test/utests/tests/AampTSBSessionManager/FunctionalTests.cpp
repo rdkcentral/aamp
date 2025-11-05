@@ -402,7 +402,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 			return true;
 		}));
 
-	// Add two MockAampTsbAdMetaData objects to reservationMetadataList
+	// Create three reservation and three placement metadata objects for testing
 	std::list<std::shared_ptr<AampTsbMetaData>> reservationMetadataList;
 	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList;
 	auto reservation1Start = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
