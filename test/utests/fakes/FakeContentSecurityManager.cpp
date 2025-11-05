@@ -67,6 +67,14 @@ bool ContentSecurityManager::AcquireLicense( std::string clientId, std::string a
 }
 
 /**
+ * @brief get session token
+ */
+bool ContentSecurityManager::getSessionToken(std::string &token)
+{
+	return false;
+}
+
+/**
  * @brief To update session state to SecManager
  */
 bool ContentSecurityManager::UpdateSessionState(int64_t sessionId, bool active)

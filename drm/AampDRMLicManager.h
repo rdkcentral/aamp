@@ -71,7 +71,7 @@ public:
 	 *  @note               AccessToken memory is dynamically allocated, deallocation
 	 *                              should be handled at the caller side.
 	 */
-	const char* getAccessToken(int &tokenLength, int &error_code ,bool bSslPeerVerify);
+	const char* getAccessToken(int &tokenLength, int &error_code);
 	/**
 	 * @fn acquireLicense
 	 */

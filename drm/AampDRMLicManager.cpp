@@ -254,7 +254,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 				const char *sessionToken = NULL;
 				if(!usingAppDefinedAuthToken)
 				{ /* authToken not set externally by app */
-					sessionToken = getAccessToken(tokenLen, tokenError , aampInstance->mConfig->IsConfigSet(eAAMPConfig_SslVerifyPeer));
+					sessionToken = getAccessToken(tokenLen, tokenError);
 					AAMPLOG_WARN("Access Token from AuthServer");
 				}
 				else
@@ -333,7 +333,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 						}
 						int tokenLen = 0;
 						int tokenError = 0;
-						const char *sessionToken = getAccessToken(tokenLen, tokenError,aampInstance->mConfig->IsConfigSet(eAAMPConfig_SslVerifyPeer));
+						const char *sessionToken = getAccessToken(tokenLen, tokenError);
 						if (NULL != sessionToken)
 						{
 							AAMPLOG_INFO("Requesting License with new access token");
@@ -589,76 +589,39 @@ string extractSubstring(string parentStr, string startStr, string endStr)
 /**
  *  @brief Get the accessToken from authService.
  */
-const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_code , bool bSslPeerVerify)
+const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_code)
 {	
 	if(accessToken == NULL)
 	{
-		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();		
-		// Initialize the Seesion Token Connector
-		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
-		inpData->bIgnoreResponseHeader	= true;
-		inpData->eRequestType = eCURL_GET;
-		inpData->iStallTimeout = 0; // 2sec
-		inpData->iStartTimeout = 0; // 2sec
-		inpData->iDownloadTimeout =  DEFAULT_CURL_TIMEOUT;
-		inpData->bNeedDownloadMetrics = true;
-		inpData->bSSLVerifyPeer		=	bSslPeerVerify;
-		mAccessTokenConnector.Initialize(inpData);
-		mAccessTokenConnector.Download(SESSION_TOKEN_URL, respData);
-
-		if( respData->curlRetValue == CURLE_OK )
-		{			
-			if (respData->iHttpRetValue == 200 || respData->iHttpRetValue == 206)
-			{		
-				string tokenReplyStr;
-				mAccessTokenConnector.GetDataString(tokenReplyStr);
-				string tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", ",\"");
-				if(tokenStatusCode.length() == 0)
+		std::string token;
+		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
+		{
+			size_t len = token.length();
+			if(len > 0)
+			{
+				accessToken = (char*)malloc(len+1);
+				if(accessToken)
 				{
-					//StatusCode could be last element in the json
-					tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", "}");
-				}
-				if(tokenStatusCode.length() == 1 && tokenStatusCode.c_str()[0] == '0')
-				{
-					string token = extractSubstring(tokenReplyStr, "token\":\"", "\"");
-					size_t len = token.length();
-					if(len > 0)
-					{
-						accessToken = (char*)malloc(len+1);
-						if(accessToken)
-						{
-							accessTokenLen = (int)len;
-							memcpy( accessToken, token.c_str(), len );
-							accessToken[len] = 0x00;
-							AAMPLOG_WARN(" Received session token from auth service in [%f]",respData->downloadCompleteMetrics.total);
-						}
-						else
-						{
-							AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
-						}
-					}
-					else
-					{
-						AAMPLOG_WARN(" Could not get access token from session token reply");
-						error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
-					}
+					accessTokenLen = (int)len;
+					memcpy( accessToken, token.c_str(), len );
+					accessToken[len] = 0x00;
+					AAMPLOG_WARN(" Received session token from auth service");
 				}
 				else
 				{
-					AAMPLOG_ERR(" Missing or invalid status code in session token reply");
-					error_code = eAUTHTOKEN_INVALID_STATUS_CODE;
+					AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
 				}
 			}
 			else
 			{
-				AAMPLOG_ERR(" Get Session token call failed with http error %d", respData->iHttpRetValue);
-				error_code = respData->iHttpRetValue;
+				AAMPLOG_WARN("Invalid access token from ContentSecurityManager");
+				error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR(" Get Session token call failed with curl error %d", respData->curlRetValue);
-			error_code = respData->curlRetValue;
+			AAMPLOG_ERR("ContentSecurityManager failed to get access token");
+			error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 		}
 	}
 	
