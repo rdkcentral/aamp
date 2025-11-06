@@ -59,25 +59,12 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-//Need to do iarm initialization process before reading the tr181 aamp parameters.
-//Using printf here since AAMP logs can only use after creating the global object
-	static bool iarmInitialized = false;
-	if(!iarmInitialized)
-	{
-			char processName[20] = {0};
-
-			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
-
-			PlayerExternalsInterface::IARMInit(processName);
-
-
-			iarmInitialized = true;
-	}
-
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		
+
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
 		printf( "curl version: %s\n", vers->version );
@@ -93,12 +80,25 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			if(!gpGlobalConfig->ReadAampCfgJsonFile())
 			{
 				gpGlobalConfig->ReadAampCfgFromEnv();
-			}
+			}			
+			
 		}
+
+		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+
+		//TR181 is not supported in firebolt
+		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		pExternalsInterface->Initialize();	
+		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
+
+	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	pExternalsInterface->Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
@@ -127,6 +127,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
 
+	AAMPLOG_MIL("UseFireboltSDK=%d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
+
 	// start Scheduler Worker for task handling
 	mScheduler.StartScheduler(aamp->mPlayerId);
 	if (NULL == streamSink)
@@ -134,7 +136,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		auto id3_metadata_handler = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
 
-		AampStreamSinkManager::GetInstance().CreateStreamSink(aamp, id3_metadata_handler, exportFrames);
+		AampStreamSinkManager::GetInstance().CreateStreamSink(aamp, id3_metadata_handler, std::move(exportFrames));
 	}
 	else
 	{
@@ -296,7 +298,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		const std::string sTraceUUID = (traceUUID != NULL)? std::string(traceUUID) : std::string();
 
 		mScheduler.ScheduleTask(AsyncTaskObj(
-			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, sid,manifestData](void *data)
+			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, sid, manifestData](void *data)
 			{
 				PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 				const char * trace_uuid = sTraceUUID.empty() ? nullptr : sTraceUUID.c_str();
@@ -841,6 +843,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					if (!aamp->IsLocalAAMPTsb())
 					{
 						aamp->StopDownloads();
+						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
+						{
+							AAMPLOG_INFO("Downloads disabled on pause");
+							// for this class of playback, disable downloads indefinitely while paused. If we continue manifest downloading in this scenario, can result in playback failure due to period culling.
+							aamp->DisableDownloads();
+							aamp->mSeekFromPausedState = true;
+						}
 					}
 
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
@@ -882,7 +891,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
@@ -1708,7 +1716,7 @@ void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		aamp->AddCustomHTTPHeader(headerName, headerValue, isLicenseHeader);
+		aamp->AddCustomHTTPHeader(std::move(headerName), std::move(headerValue), isLicenseHeader);
 	}
 }
 
@@ -2442,7 +2450,7 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 		if (mAsyncTuneEnabled)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj(
-						[language,rendition,type,codec,channel, label](void *data)
+						[language, rendition, type, codec, channel, label](void *data)
 						{
 							PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 							instance->SetAudioTrackInternal(language,rendition,type,codec,channel, label);
@@ -2450,7 +2458,7 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 		}
 		else
 		{
-			SetAudioTrackInternal(language,rendition,type,codec,channel,label);
+			SetAudioTrackInternal(std::move(language), std::move(rendition), std::move(type), std::move(codec), channel, std::move(label));
 		}
 	}
 }
@@ -2592,7 +2600,7 @@ void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates)
 {
 	if( aamp )
 	{
-		aamp->SetVideoTracks(bitrates);
+		aamp->SetVideoTracks(std::move(bitrates));
 	}
 }
 
@@ -2678,7 +2686,7 @@ std::string PlayerInstanceAAMP::GetVideoRectangle()
  */
 void PlayerInstanceAAMP::SetAppName(std::string name)
 {
-	aamp->SetAppName(name);
+	aamp->SetAppName(std::move(name));
 }
 
  /**
@@ -2953,7 +2961,7 @@ void PlayerInstanceAAMP::SetSessionToken(std::string sessionToken)
 	if( aamp )
 	{ // Stored as tune setting , this will get cleared after one tune session
 		SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
-		aamp->mDynamicDrmDefaultconfig.authToken = sessionToken;
+		aamp->mDynamicDrmDefaultconfig.authToken = std::move(sessionToken);
 	}
 }
 
@@ -3142,7 +3150,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 			LicenseServerUrl = GETCONFIGVALUE(eAAMPConfig_CKLicenseServerUrl);
 			aamp->mDynamicDrmDefaultconfig.licenseEndPoint.insert(std::pair<std::string, std::string>("org.w3.clearkey",LicenseServerUrl.c_str()));
 			std::string customData = GETCONFIGVALUE(eAAMPConfig_CustomLicenseData);
-			aamp->mDynamicDrmDefaultconfig.customData = customData;
+			aamp->mDynamicDrmDefaultconfig.customData = std::move(customData);
 		}
 		cJSON_Delete(cfgdata);
 	}
@@ -3170,15 +3178,6 @@ std::string PlayerInstanceAAMP::GetAAMPConfig()
 	mConfig.GetAampConfigJSONStr(jsonStr);
 	return jsonStr;
 }
-
-/**
- *  @brief To set whether the JS playback session is from XRE or not.
- */
-void PlayerInstanceAAMP::XRESupportedTune(bool xreSupported)
-{
-        SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_XRESupportedTune,xreSupported);
-}
-
 
 /**
  *  @brief Set auxiliary language
@@ -3384,7 +3383,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				customdata = dynamicDrmCache.customData;
 			}
 			else {
-				aamp->vDynamicDrmData.push_back(dynamicDrmCache);
+				aamp->vDynamicDrmData.push_back(std::move(dynamicDrmCache));
 			}
 
 			if(tempKeyId == aamp->mcurrent_keyIdArray){

@@ -40,7 +40,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		{
 		};
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
-														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}
 	else
 	{
@@ -146,6 +146,88 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 		}
 
+		if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
+		{
+			//To read track_id from the init fragments to check if there any mismatch.
+			//A mismatch in track_id is not handled in the gstreamer version 1.10.4
+			//But is handled in the latest version (1.18.5),
+			//so upon upgrade to it or introduced a patch in qtdemux,
+			//this portion can be reverted
+			IsoBmffBuffer buffer;
+			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
+			buffer.parseBuffer();
+			uint32_t track_id = 0;
+			buffer.getTrack_id(track_id);
+			if(buffer.isInitSegment())
+			{
+				uint32_t timeScale = 0;
+				buffer.getTimeScale(timeScale);
+				if(actualType == eMEDIATYPE_INIT_VIDEO)
+				{
+					AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
+					aamp->SetVidTimeScale(timeScale);
+				}
+				else if (actualType == eMEDIATYPE_INIT_AUDIO)
+				{
+					AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
+					aamp->SetAudTimeScale(timeScale);
+				}
+				else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
+				{
+					AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
+					aamp->SetSubTimeScale(timeScale);
+				}
+			}
+			if(actualType == eMEDIATYPE_INIT_VIDEO)
+			{
+				AAMPLOG_INFO("Video track_id read from init fragment: %d ", track_id);
+				bool trackIdUpdated = false;
+				if(aamp->mCurrentVideoTrackId != -1 && track_id != aamp->mCurrentVideoTrackId)
+				{
+					if(overWriteTrackId)
+					{
+						//Overwrite the track id of the init fragment with the existing track id since overWriteTrackId is true only while pushing the encrypted init fragment while clear content is being played
+						buffer.parseBuffer(false, aamp->mCurrentVideoTrackId);
+						AAMPLOG_WARN("Video track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
+						trackIdUpdated = true;
+					}
+					else
+					{
+						aamp->mIsTrackIdMismatch = true;
+						AAMPLOG_WARN("TrackId mismatch detected for video, current track_id: %d, next period track_id: %d", aamp->mCurrentVideoTrackId, track_id);
+					}
+				}
+				if(!trackIdUpdated)
+				{
+					aamp->mCurrentVideoTrackId = track_id;
+				}
+			}
+			else if(actualType == eMEDIATYPE_INIT_AUDIO)
+			{
+				bool trackIdUpdated = false;
+				AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
+				if(aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
+				{
+					if(overWriteTrackId)
+					{
+						buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
+						AAMPLOG_WARN("Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
+						trackIdUpdated = true;
+					}
+					else
+					{
+						aamp->mIsTrackIdMismatch = true;
+						AAMPLOG_WARN("TrackId mismatch detected for audio, current track_id: %d, next period track_id: %d", aamp->mCurrentAudioTrackId, track_id);
+					}
+				}
+				if(!trackIdUpdated)
+				{
+					aamp->mCurrentAudioTrackId = track_id;
+				}
+			}
+			// Not overwriting for subtitles, as subtecmp4transform never read trackId from init fragments
+		}
+
 		if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 		{
 			if(actualType == eMEDIATYPE_VIDEO)
@@ -155,90 +237,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			else if(actualType == eMEDIATYPE_INIT_VIDEO)
 			{
 				actualType = eMEDIATYPE_INIT_IFRAME;
-			}
-		}
-		else
-		{
-			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
-			{
-				//To read track_id from the init fragments to check if there any mismatch.
-				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
-				//But is handled in the latest version (1.18.5),
-				//so upon upgrade to it or introduced a patch in qtdemux,
-				//this portion can be reverted
-				IsoBmffBuffer buffer;
-				buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
-				buffer.parseBuffer();
-				uint32_t track_id = 0;
-				buffer.getTrack_id(track_id);
-				if(buffer.isInitSegment())
-				{
-					uint32_t timeScale = 0;
-					buffer.getTimeScale(timeScale);
-					if(actualType == eMEDIATYPE_INIT_VIDEO)
-					{
-						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
-						aamp->SetVidTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_AUDIO)
-					{
-						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-						aamp->SetAudTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
-					{
-						AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
-						aamp->SetSubTimeScale(timeScale);
-					}
-				}
-				if(actualType == eMEDIATYPE_INIT_VIDEO)
-				{
-					AAMPLOG_INFO("Video track_id read from init fragment: %d ", track_id);
-					bool trackIdUpdated = false;
-					if(aamp->mCurrentVideoTrackId != -1 && track_id != aamp->mCurrentVideoTrackId)
-					{
-						if(overWriteTrackId)
-						{
-							//Overwrite the track id of the init fragment with the existing track id since overWriteTrackId is true only while pushing the encrypted init fragment while clear content is being played
-							buffer.parseBuffer(false, aamp->mCurrentVideoTrackId);
-							AAMPLOG_WARN("Video track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
-							trackIdUpdated = true;
-						}
-						else
-						{
-							aamp->mIsTrackIdMismatch = true;
-							AAMPLOG_WARN("TrackId mismatch detected for video, current track_id: %d, next period track_id: %d", aamp->mCurrentVideoTrackId, track_id);
-						}
-					}
-					if(!trackIdUpdated)
-					{
-						aamp->mCurrentVideoTrackId = track_id;
-					}
-				}
-				else if(actualType == eMEDIATYPE_INIT_AUDIO)
-				{
-					bool trackIdUpdated = false;
-					AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
-					if(aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
-					{
-						if(overWriteTrackId)
-						{
-							buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
-							AAMPLOG_WARN("Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
-							trackIdUpdated = true;
-						}
-						else
-						{
-							aamp->mIsTrackIdMismatch = true;
-							AAMPLOG_WARN("TrackId mismatch detected for audio, current track_id: %d, next period track_id: %d", aamp->mCurrentAudioTrackId, track_id);
-						}
-					}
-					if(!trackIdUpdated)
-					{
-						aamp->mCurrentAudioTrackId = track_id;
-					}
-				}
-				// Not overwriting for subtitles, as subtecmp4transform never read trackId from init fragments
 			}
 		}
 
@@ -302,7 +300,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
 						aamp->SetFlushFdsNeededInCurlStore(true);
-
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -409,7 +406,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 				}
 			}
-			tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
+			tsbSessionManager->EnqueueWrite(std::move(fragmentUrl), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());
 		}
 		// Added the duplicate conditional statements, to log only for localAAMPTSB cases.
 		else if(tsbSessionManager && cachedFragment->fragment.GetLen() == 0)
@@ -426,7 +423,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				GetContext()->UpdateStreamInfoBitrateData(fragmentToTsbSessionMgr->profileIndex, fragmentToTsbSessionMgr->cacheFragStreamInfo);
 			}
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-			CacheTsbFragment(fragmentToTsbSessionMgr);
+			CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 		}
 
 		// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
@@ -448,7 +445,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			{
 				std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 				fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
-				CacheTsbFragment(fragmentToCache);
+				CacheTsbFragment(std::move(fragmentToCache));
 			}
 
 			// If injection is from chunk buffer, remove the fragment for injection
@@ -486,7 +483,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->downloadStartTime = dnldStartTime;
 		cachedFragment->fragment.AppendBytes(ptr, size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		cachedFragment->uri = remoteUrl;
+		cachedFragment->uri = std::move(remoteUrl);
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */
@@ -687,7 +684,7 @@ std::string& MediaStreamContext::GetEffectivePlaylistUrl()
  */
 void MediaStreamContext::SetEffectivePlaylistUrl(std::string url)
 {
-	mEffectiveUrl = url;
+	mEffectiveUrl = std::move(url);
 }
 
 /**

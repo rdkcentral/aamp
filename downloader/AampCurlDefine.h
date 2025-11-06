@@ -64,6 +64,13 @@ enum CurlAbortReason
 	eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT
 };
 
+enum CurlTimeoutFailureReason
+{ // these are additional values to disambiguate CURLcode CURLE_OPERATION_TIMEDOUT (28)
+	eCURL_TIMEOUT_DNS = 1000,
+	eCURL_TIMEOUT_CONNECT = 1001,
+	eCURL_TIMEOUT_DATA = 28 // mirror CURLE_OPERATION_TIMEDOUT
+};
+
 /**
  *
  * @enum Curl Request

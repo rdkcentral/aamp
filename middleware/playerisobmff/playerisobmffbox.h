@@ -67,7 +67,7 @@
  * @param[in] buf - buffer pointer
  * @return bytes read from buffer
  */
-uint64_t ReadUint64(uint8_t *buf);
+uint64_t ReadUint64FromBuffer(uint8_t *buf);
 
 /**
  * @fn WriteUint64
@@ -76,14 +76,14 @@ uint64_t ReadUint64(uint8_t *buf);
  * @param[in] val - value to write
  * @return void
  */
-void WriteUint64(uint8_t *dst, uint64_t val);
+void WriteUint64ToBuffer(uint8_t *dst, uint64_t val);
 
 /**
  * @fn ReadCStringLen
  * @param[in] buffer Buffer to read
  * @param[in] bufferLen String length
  */
-int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
+int ReadCStringLenFromBuffer(const uint8_t* buffer, uint32_t bufferLen);
 
 namespace player_isobmff {
 /**
@@ -979,7 +979,7 @@ public:
 	/**
 	 * @fn setMediaTime
 	 *
-	 * @param[in] mediaTime - metia time value
+	 * @param[in] mediaTime - media time value
 	 * @return void
 	 */
 	void setMediaTime(uint64_t mediaTime);

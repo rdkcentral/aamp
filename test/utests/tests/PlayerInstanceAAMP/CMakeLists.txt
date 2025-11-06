@@ -29,6 +29,7 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/externals ${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -43,7 +44,8 @@ set(TEST_SOURCES PauseOnPlaybackTests.cpp
                  PlayerInstanceAAMPTestsMain.cpp
                  PlayerInstanceAAMPTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

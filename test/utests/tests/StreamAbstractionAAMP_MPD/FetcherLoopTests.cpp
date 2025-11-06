@@ -236,7 +236,7 @@ protected:
 			{eAAMPConfig_EnableClientDai, true},
 			{eAAMPConfig_MatchBaseUrl, false},
 			{eAAMPConfig_UseAbsoluteTimeline, false},
-			{eAAMPConfig_DisableAC4, true},
+			{eAAMPConfig_DisableAC4, false},
 			{eAAMPConfig_AudioOnlyPlayback, false},
 			{eAAMPConfig_LimitResolution, false},
 			{eAAMPConfig_Disable4K, false},

@@ -44,6 +44,7 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
+#include "CachedFragment.h"
 
 /**
  * @brief Media Track Types
@@ -57,37 +58,6 @@ typedef enum
 } TrackType;
 
 AampMediaType TrackTypeToMediaType( TrackType trackType );
-
-/**
- * @brief Structure holding the resolution of stream
- */
-struct StreamResolution
-{
-	int width;        /**< Width in pixels*/
-	int height;       /**< Height in pixels*/
-	double framerate; /**< Frame Rate */
-
-	StreamResolution(): width(0), height(0), framerate(0.0)
-	{
-	}
-};
-
-/**
- * @brief Structure holding the information of a stream.
- */
-struct StreamInfo
-{
-	bool enabled;			/**< indicates if the streamInfo profile is enabled */
-	bool isIframeTrack;             /**< indicates if the stream is iframe stream*/
-	bool validity;		        /**< indicates profile validity against user configured profile range */
-	std::string codecs;	        /**< Codec String */
-	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
-	StreamResolution resolution;    /**< Resolution of the stream*/
-	BitrateChangeReason reason;     /**< Reason for bitrate change*/
-	std::string baseUrl;
-	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
-};
-
 
 struct TileLayout
 {
@@ -115,72 +85,6 @@ public:
 	TileLayout layout;
 	double startTime;
 	std::string url;
-};
-
-/**
- * @brief Structure of cached fragment data
- *        Holds information about a cached fragment
- */
-class CachedFragment
-{
-public:
-	AampGrowableBuffer fragment;	/**< Buffer to keep fragment content */
-	double position;				/**< Position in the playlist, in seconds */
-	double duration;				/**< Fragment duration, in seconds */
-	bool initFragment;				/**< Is init fragment */
-	bool discontinuity;				/**< PTS discontinuity status */
-	bool isDummy;			/**< Is dummy fragment */
-	int profileIndex;				/**< Profile index; Updated internally */
-	uint32_t timeScale;				/* timescale of this fragment as read from manifest */
-	std::string uri;				/* for debug */
-	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
-	AampMediaType type;				/**< AampMediaType info of the fragment */
-	long long downloadStartTime;	/**< The start time of file download */
-	long long discontinuityIndex;
-	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
-	double absPosition;		/** Absolute position */
-	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
-					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
-					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0),
-					   isDummy(false)
-	{
-	}
-
-	void Copy(CachedFragment* other, size_t len)
-	{
-		this->position = other->position;
-		this->duration = other->duration;
-		this->initFragment = other->initFragment;
-		this->discontinuity = other->discontinuity;
-		this->profileIndex = other->profileIndex;
-		this->cacheFragStreamInfo = other->cacheFragStreamInfo;
-		this->type = other->type;
-		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
-		this->downloadStartTime = other->downloadStartTime;
-		this->uri = other->uri;
-		this->timeScale = other->timeScale;
-		this->PTSOffsetSec = other->PTSOffsetSec;
-		this->absPosition =  other->absPosition;
-		this->isDummy = other->isDummy;
-	}
-	void Clear()
-	{
-		fragment.Free();
-		position = 0.0;
-		duration = 0.0;
-		initFragment = false;
-		discontinuity = false;
-		isDummy = false;
-		profileIndex = 0;
-		timeScale = 0;
-		uri = "";
-		cacheFragStreamInfo = StreamInfo();
-		type = eMEDIATYPE_DEFAULT;
-		downloadStartTime = 0;
-		discontinuityIndex = 0;
-		PTSOffsetSec = 0;
-		absPosition = 0.0;
-	}
 };
 
 /**
@@ -1241,6 +1145,28 @@ public:
 	 */
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
 
+
+	/**
+	 *   @brief Set pipeline flush status.
+	 *
+	 *   @return void
+	 */
+	void SetPipelineFlushStatus(void){mPipelineFlushStatus = true;}
+
+	/**
+	 *   @brief Reset pipeline flush status once the pipeline reconfigured.
+	 *
+	 *   @return void
+	 */
+	void ReSetPipelineFlushStatus(void){mPipelineFlushStatus = false;}
+
+	/**
+	 *   @brief Get pipeline flush status.
+	 *
+	 *   @return true if pipeline flush is set, false otherwise
+	 */
+	bool GetPipelineFlushStatus(void){ return mPipelineFlushStatus; }
+
 	PrivateInstanceAAMP* aamp;  /**< Pointer to PrivateInstanceAAMP object associated with stream*/
 
 	/**
@@ -2153,6 +2079,7 @@ protected:
 	int mABRMinBuffer;		    /**< ABR ramp down buffer*/
 	int mABRNwConsistency;		    /**< ABR Network consistency*/
 	bool mESChangeStatus;               /**< flag value which is used to call pipeline configuration if the audio type changed in mid stream */
+	bool mPipelineFlushStatus;			/**< flag value which is used to call pipeline flush on PTS jumps or PTO */
 	unsigned int mAudiostateChangeCount;/**< variable to know how many times player need to reconfigure the pipeline for audio type change*/
 	double mLastVideoFragParsedTimeMS;  /**< timestamp when last video fragment was parsed */
 

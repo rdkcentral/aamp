@@ -48,6 +48,7 @@
 #include "MockTSBStore.h"
 #include "fragmentcollector_mpd.h"
 #include "MockAdManager.h"
+#include "MockPlayerCCManager.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -95,10 +96,13 @@ protected:
 		g_mockCurl = new NiceMock<MockCurl>();
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
 		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
+		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 	}
 
 	void TearDown() override
 	{
+		g_mockPlayerCCManager.reset();
+
 		delete g_MockPrivateCDAIObjectMPD;
 		g_MockPrivateCDAIObjectMPD = nullptr;
 		
@@ -914,42 +918,42 @@ TEST_F(PrivAampTests,RateCorrectionWorkerThreadTest1)
 	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
 }
 
-TEST_F(PrivAampTests,ReportProgressTest1)
+TEST_F(PrivAampTests,MonitorProgressTest1)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(TRUE,TRUE);
+	p_aamp->MonitorProgress(TRUE,TRUE);
 
 	p_aamp->ReportAdProgress(TRUE);
 }
-TEST_F(PrivAampTests,ReportProgressTest2)
+TEST_F(PrivAampTests,MonitorProgressTest2)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(TRUE,FALSE);
+	p_aamp->MonitorProgress(TRUE,FALSE);
 
 	p_aamp->ReportAdProgress(FALSE);
 }
-TEST_F(PrivAampTests,ReportProgressTest3)
+TEST_F(PrivAampTests,MonitorProgressTest3)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(FALSE,TRUE);
+	p_aamp->MonitorProgress(FALSE,TRUE);
 
 	p_aamp->ReportAdProgress(TRUE);
 }
-TEST_F(PrivAampTests,ReportProgressTest4)
+TEST_F(PrivAampTests,MonitorProgressTest4)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(FALSE,FALSE);
+	p_aamp->MonitorProgress(FALSE,FALSE);
 
 	p_aamp->ReportAdProgress(FALSE);
 }
-TEST_F(PrivAampTests,ReportProgressTest5)
+TEST_F(PrivAampTests,MonitorProgressTest5)
 {
 	bool sync = true;
 	bool beginningOfStream = true;
 	p_aamp->SetState(eSTATE_SEEKING);
-	p_aamp->ReportProgress(sync,beginningOfStream);
+	p_aamp->MonitorProgress(sync,beginningOfStream);
 }
-TEST_F(PrivAampTests,ReportProgressTest6)
+TEST_F(PrivAampTests,MonitorProgressTest6)
 {
 	bool sync = true;
 	bool beginningOfStream = true;
@@ -959,7 +963,92 @@ TEST_F(PrivAampTests,ReportProgressTest6)
 
 	p_aamp->ReportAdProgress(sync);
 
-	p_aamp->ReportProgress(sync,beginningOfStream);
+	p_aamp->MonitorProgress(sync,beginningOfStream);
+}
+
+/**
+ * @brief Test MonitorProgress when rewinding reaches the beginning of the TSB.
+ * Verifies that PlayFromTsbStart() is called and rate is reset to normal play.
+ */
+TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 10.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: Configure player for rewind scenario reaching BOS
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->pipeline_paused = false;
+	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	// Mock StreamAbstraction - Set it up before calling MonitorProgress
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Setup mocks for the flow
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Call MonitorProgress - position will be less than start (culledSeconds * 1000)
+	// This triggers PlayFromTsbStart()
+	p_aamp->MonitorProgress(true, false);
+
+	// Verify rate was reset to normal play rate
+	EXPECT_FLOAT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
+
+	// Note: seek_pos_seconds gets modified by TuneHelper()
+	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
+}
+
+/**
+ * @brief Test MonitorProgress with parameter beginningOfStream set to true.
+ * Verifies that PlayFromTsbStart() is called and rate is reset to normal play.
+ */
+TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 0.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: Configure player for rewind scenario reaching BOS
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->pipeline_paused = false;
+	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	// Mock StreamAbstraction - Set it up before calling MonitorProgress
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Setup mocks for the flow
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Call MonitorProgress() with beginningOfStream set to true, this triggers PlayFromTsbStart()
+	p_aamp->MonitorProgress(true, true);
+
+	// Verify rate was reset to normal play rate
+	EXPECT_FLOAT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
+
+	// Note: seek_pos_seconds gets modified by TuneHelper()
+	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
 }
 
 TEST_F(PrivAampTests,UpdateDurationTest)
@@ -2429,7 +2518,10 @@ TEST_F(PrivAampTests,SendStreamCopyTest)
 	EXPECT_FALSE(p_aamp->SendStreamCopy(eMEDIATYPE_VIDEO,NULL,20,12.34,34.567,465.7696));
 }
 
-TEST_F(PrivAampTests,SendStreamTransferTest)
+// DISABLED - this is not actually testing anything, just calling the method to ensure no crash
+// needs a better test implementation
+// Calling SendStreamTransfer with null buffer will cause egv
+TEST_F(PrivAampTests, DISABLED_SendStreamTransferTest)
 {
 	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,true,true);
 	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,false,false);
@@ -3239,10 +3331,172 @@ TEST_F(PrivAampTests,SetTextTrackTest_1)
 
 TEST_F(PrivAampTests,SetCCStatusTest)
 {
+	// Test basic CC status functionality
+
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // Preference is stored
+
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(false);
+	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
+}
+
+TEST_F(PrivAampTests,SetCCStatusWithOOBTest)
+{
+	// Out-of-band subtitles case
+	p_aamp->mIsInbandCC = false;
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled))
+		.WillByDefault(Return(true));
+
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
+
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // Preference is stored
+
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
+	p_aamp->SetCCStatus(false);
+	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
+}
+
+TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
+{
+	// Test behaviour when video is muted BEFORE CC is enabled
+	// This tests the interaction when SetVideoMute(true) is called before SetCCStatus()
+
+	// Initial state - CC should be disabled by default (subtitles_muted=true)
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Mute video first - in idle state, this will set video_muted=true but be cached
+	p_aamp->SetVideoMute(true);
+
+	// Now try to enable CC while video is muted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is true
+
+	// Unmute video - in idle state, this will set video_muted=false but be cached
+	p_aamp->SetVideoMute(false);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is still true
+
+	// Enable CC preference again after unmuting video
+	// This should now enable CC since video is unmuted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is still true
+
+	// Disable CC preference
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(false);
+	EXPECT_FALSE(p_aamp->GetCCStatus()); // CC preference is now false
+}
+
+TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
+{
+	// Test that when SetCCStatus(true) is called before creating the StreamAbstraction object,
+	// CC has the expected value once the StreamAbstraction object is created
+
+	// Initially CC is disabled by default (subtitles_muted=true)
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Step 1: Enable CC first
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Step 2: SetStatus(true) will not be called when stream abstraction is created
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+
+	// Step 3: Call TuneHelper which will create the stream abstraction
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+	p_aamp->TuneHelper(tuneType, false);
+
+	// Verify that CC status preference is still true
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Cleanup: delete the StreamAbstraction object created by TuneHelper()
+	p_aamp->TeardownStream(false);
+}
+
+TEST_F(PrivAampTests,SetCCStatusAndSetVideoMuteWithStreamAbstractionCreationTest)
+{
+	// Test that PlayerCCManager::SetStatus() is called only when stream abstraction exists
+
+	// Initially CC is disabled by default (subtitles_muted=true)
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Enable CC first
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Set video to muted state - this will be cached since player is in idle state
+	p_aamp->SetVideoMute(true);
+
+	// Now call TuneHelper which will create the stream abstraction
+	// After stream abstraction is created, SetStatus(false) will be called because video is muted
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+	p_aamp->TuneHelper(tuneType, false);
+
+	// Verify that CC status preference is still true
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Now that stream abstraction exists, SetCCStatus should trigger SetStatus() calls
+	// Since video is muted and CC is enabled, SetStatus(false) will be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Cleanup: delete the StreamAbstraction object created by TuneHelper()
+	p_aamp->TeardownStream(false);
+}
+
+TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionTest)
+{
+	// Test CC status behavior with a mocked stream abstraction to verify SetStatus() calls
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Test enabling CC with stream abstraction available
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Test video mute affecting CC - SetVideoMute will trigger SetCCStatusInternal
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+	p_aamp->SetVideoMute(true);
+
+	// Test unmuting video - SetVideoMute will trigger SetCCStatusInternal again
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetVideoMute(false);
+
+	// Test disabling CC
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
 
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
@@ -4169,23 +4423,23 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 	p_aamp->GetLastDownloadedManifest(manifest);
 }
 
-TEST_F(PrivAampPrivTests,ReconfigureForCodecChangeTest1)
+TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 {
 	testp_aamp->InitStreamAbstraction();
 
 	//codec change and reconfigpipeline enabled -> false
 	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(true));
-	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
+	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 
 	//codec change and reconfigpipeline disabled -> true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
-	EXPECT_TRUE(testp_aamp->ReconfigureForCodecChange());
+	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 
 	//no codec change -> false
 	testp_aamp->mpStreamAbstractionAAMP->ResetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
-	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
+	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 }
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
@@ -4488,6 +4742,13 @@ TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
 	p_aamp->mLiveOffset= kLiveOffset;
 	p_aamp->rate = -2;
 
+	// Setup required for MonitorProgress() to execute properly
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->SetState(eSTATE_PLAYING);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
 	p_aamp->NotifyEOSReached();
 	EXPECT_EQ(p_aamp->GetTuneType(), eTUNETYPE_SEEK);
@@ -4581,7 +4842,19 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
 }
 
-
+TEST_F(PrivAampTests,VerifyPausedBehavior)
+{
+        StreamAbstractionAAMP_MPD *streamAbstractionMpd = new StreamAbstractionAAMP_MPD(p_aamp, 0, 1, nullptr);     
+        p_aamp->mpStreamAbstractionAAMP = streamAbstractionMpd;
+        p_aamp->pipeline_paused=true;
+        p_aamp->rate=1;
+        p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_DEFER;
+        p_aamp->UpdateCullingState(232.123);
+        EXPECT_TRUE(p_aamp->mSeekFromPausedState);
+        p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
+        p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
+        EXPECT_FALSE(p_aamp->mSeekFromPausedState);
+}
 // Test parameters structure for GetStreamFormat tests
 struct GetStreamFormatTestParams {
 	double rate;

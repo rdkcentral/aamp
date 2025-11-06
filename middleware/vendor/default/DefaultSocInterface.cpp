@@ -19,6 +19,9 @@
 
 #include "DefaultSocInterface.h"
 
+/**
+ @brief this interface implementation used with Rialto
+ */
 DefaultSocInterface::DefaultSocInterface()
 {
 }
@@ -63,42 +66,23 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 }
 
-bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool DefaultSocInterface::IsVideoSink(const char* name)
 {
-	bool isVideoSink = false;
-
-	// Check for Westeros sink
-	if (mUsingWesterosSink && StartsWith(name, "westerossink"))
-	{
-		isVideoSink = true;
-	}
-
-	// Check for Rialto sink
-	if (isRialto && StartsWith(name, "rialtomsevideosink"))
-	{
-		isVideoSink = true;
-	}
-
-	return isVideoSink;
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool DefaultSocInterface::IsVideoDecoder(const char* name)
 {
-	if(mUsingWesterosSink)
-	{
-		return StartsWith(name, "westerossink");
-	}
-	else if (isRialto)
-	{
-		return StartsWith(name, "rialtomsevideosink");
-	}
-	return false;
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**
@@ -106,18 +90,12 @@ bool DefaultSocInterface::IsVideoDecoder(const char* name, bool isRialto)
  * @param name Element name.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
+bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(mUsingWesterosSink && StartsWith(name, "westerossink"))
-	{
-		AudioOrVideoDecoder = true;
-	}
-	else if(isRialto && StartsWith(name, "rialtomse"))
-	{
-		AudioOrVideoDecoder = true;
-	}
-	return AudioOrVideoDecoder;
+	return name && (
+					StartsWith(name,"rialtomsevideosink") ||
+					StartsWith(name,"rialtomseaudiosink") ||
+					StartsWith(name, "westerossink") );
 }
 
 /**
@@ -226,50 +204,6 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
 }
 
 /**
- * @brief Checks if the platform segment is ready for processing new segment.
- *
- * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
- *
- * @param videoSink The video sink element.
- * @param isRialto Flag indicating whether Rialto sink is being used.
- * @return `true` if the platform segment is ready, `false` otherwise.
- */
-bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
-{
-	gboolean isMaster{TRUE};
-
-	if (isRialto && (videoSink != nullptr))
-	{
-		// "is-master" is a Rialto sink property
-		g_object_get(videoSink, "is-master", &isMaster, nullptr);
-		MW_LOG_INFO("is-master %d", isMaster);		
-	}
-
-	return (isMaster == TRUE)? false:true;
-}
-
-/**
- * @brief Checks if the platform is video master.
- *
- * @param videoSink The video sink element.
- * @param isRialto Flag indicating whether Rialto sink is being used.
- * @return 'true' if video master otherwise false.
- */
-bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
-{
-	gboolean isMaster{TRUE};
-
-	if (isRialto && (videoSink != nullptr))
-	{
-		// "is-master" is a Rialto sink property
-		g_object_get(videoSink, "is-master", &isMaster, nullptr);
-		MW_LOG_INFO("is-master %d", isMaster);		
-	}
-
-	return (isMaster == TRUE)? true:false;
-}
-
-/**
  * @brief Sets the playback rate for the given GStreamer elements.
  *
  * @param sources A vector of GStreamer source elements.
@@ -277,10 +211,9 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
- * @param isRialto True if rialto sink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
 	#if defined(__APPLE__) || defined(UBUNTU)
 		return false;
@@ -316,4 +249,16 @@ bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& source
 		MW_LOG_MIL("Current rate: %g", rate);
 		return true;
 	#endif
+}
+
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
+{
+	gboolean isMaster{TRUE};
+	GParamSpec *pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(videoSink),"is-master");
+	if( pspec!=NULL )
+	{ // rialto-specific
+		g_object_get(videoSink, "is-master", &isMaster, nullptr);
+		MW_LOG_INFO("is-master %d", isMaster);
+	}
+	return (isMaster == TRUE);
 }

@@ -21,6 +21,12 @@ project(playerfbinterface_LIB)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
 
 find_package(PkgConfig REQUIRED)
@@ -40,6 +46,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IIarm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IFirebolt)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/IFirebolt)
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
@@ -100,6 +109,9 @@ if(CMAKE_IARM_MGR)
     message("PLAYER IARM_MGR set")
     set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DIARM_MGR=1")
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/PlayerExternalsRdkInterface.cpp)
+    set(EXT_SOURCES "${EXT_SOURCES}" rdk/IIarm/DeviceIARMInterface.cpp)
+    set(EXT_SOURCES "${EXT_SOURCES}" rdk/IFirebolt/DeviceFireboltInterface.cpp)
+    set(EXT_SOURCES "${EXT_SOURCES}" IFirebolt/FireboltInterface.cpp)
     list(APPEND LIB_EXT_DEPENDS -lIARMBus -lds -ldshalcli)
 endif()
 

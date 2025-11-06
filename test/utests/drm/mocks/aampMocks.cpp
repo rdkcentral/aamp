@@ -161,11 +161,6 @@ void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	return true;
-}
-
 static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 {
 	"TRACE", // eLOGLEVEL_TRACE
@@ -1261,7 +1256,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 }
 

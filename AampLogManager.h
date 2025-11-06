@@ -199,7 +199,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	static void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
+	static void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type )
 	{
 		std::string location;
 		std::string symptom;
@@ -218,13 +218,8 @@ public:
 				break; /*AAMPNetworkErrorHttp*/
 				
 			case AAMPNetworkErrorTimeout:
-			{
-				if(errorCode > 0)
-				{
-					logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
+				logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
 							  errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
-				}
-			}
 				break; /*AAMPNetworkErrorTimeout*/
 				
 			case AAMPNetworkErrorCurl:

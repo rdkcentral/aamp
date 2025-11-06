@@ -31,6 +31,12 @@
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
 
+enum ProfilerAction
+{
+    PROFILE_ACTION_BEGIN,
+    PROFILE_ACTION_END,
+    PROFILE_ACTION_ERROR
+};
 class AampDRMLicenseManager
 {
 public:
@@ -45,9 +51,7 @@ public:
 	~AampDRMLicenseManager();
 	DrmSessionManager *mDrmSessionManager;
 	AampCurlDownloader* mLicenseDownloader;
-
-	char* accessToken;
-	int accessTokenLen;
+	std::string accessToken;
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
 	bool licenseRequestAbort;
@@ -65,23 +69,21 @@ public:
 	/**
 	 *  @fn getAccessToken
 	 *
-	 *  @param[out] tokenLength - Gets updated with accessToken length.
-	 *  @return             Pointer to accessToken.
-	 *  @note               AccessToken memory is dynamically allocated, deallocation
-	 *                              should be handled at the caller side.
+	 *  @param[out] error_code error code if any associated with retrieving access token.
+	 *  @return Returns the access token as a string.
 	 */
-	const char* getAccessToken(int &tokenLength, int &error_code ,bool bSslPeerVerify);
+	const std::string &getAccessToken(int &error_code);
 	/**
 	 * @fn acquireLicense
 	 */
-	KeyState acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,  
+	KeyState acquireLicense(int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,  
 					AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal = false);
 
 
 	/**
 	 * @fn handleLicenseResponse
 	 */
-	KeyState handleLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
+	KeyState handleLicenseResponse(int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 					int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
 
 	/**
@@ -252,16 +254,63 @@ public:
 	 *
 	 */
 	DrmData * getLicense(LicenseRequest &licRequest, int32_t *httpError, AampMediaType streamType, void* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
-	
+
 	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
 			const ChallengeInfo& challengeInfo, void* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
-	
+        
+        /** 
+	 * @fn TriggerLAProfileBeginCb 
+	 * @param[in] StreamType - Input StreamType
+	 * @return 
+	 * @note  Callback for License Acquisition Profile Begin 
+	 *
+	 * */
+        void TriggerLAProfileBeginCb(int streamType);
+	/**
+	 * @fn TriggerLAProfileEndCb
+	 * Registration of callbacks to application 
+	 * @parm[in] StreamType - input streamType
+	 * @return void 
+	 * @note  Callback for License Acquisition Profile End 
+	 *
+	 * */
+        void TriggerLAProfileEndCb(int streamType);
+	/**
+	 * @fn TriggerLAProfileErrorCb
+	 * Registration of callbacks to application 
+	 * @parm[in] StreamType - input streamType
+	 * @return void 
+	 * @note  Callback for License Acquisition Profile Error 
+	 *
+	 * */
+        void TriggerLAProfileErrorCb(void *ptr);
+	/**
+	 * @fn TriggerSetFailure
+	 * Registration of callbacks to application 
+	 * @parm[in] StreamType
+	 * @return void 
+	 * @note  Callback for Setting Failures 
+	 *
+	 * */
+        void TriggerSetFailure(void *ptr, int err);
+	/**
+	 * @fn TriggerDrmMetaDataEvent
+	 * @parm[in] StreamType
+	 * @return void */
+        std::shared_ptr<void> TriggerDrmMetaDataEvent();
+
+        void TriggerDecryptProfile(int streamType, int action, int result /* = 0 */);
 	/**
 	 * @fn ProfilerUpdate 
 	 * @return void 
 	 * */
 	void ProfilerUpdate();
 
+	/**
+	 * @fn GetDecryptProfileBucket
+	 * return streamType
+	 */
+	ProfilerBucketType  GetDecryptProfileBucket(int streamType);
 	/** 
 	 * @fn HandleContentProtectionData
 	 * @return string

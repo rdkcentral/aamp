@@ -90,7 +90,7 @@ void parseSIDX( MediaData &obj, const ArrayBuffer &arrayBuffer, uint64_t baseCon
 				range += std::to_string(baseContentOffset);
 				range += '-';
 				range += std::to_string(next-1);
-				obj.media.push_back( range );
+				obj.media.push_back( std::move(range) );
 				//obj.media.push( "@"+baseContentOffset+"-"+(next-1) );
 				baseContentOffset = next;
 				obj.time.push_back(t);
@@ -109,7 +109,7 @@ void unsuportedTag( const XmlNode &child, const XmlNode &parent )
 		"Accessibility",
 		"AssetIdentifier",
 		"AudioChannelConfiguration",
-		"AvailableBitrates"
+		"AvailableBitrates",
 		"body",
 		"BufferLevel",
 		"EssentialProperty",
@@ -216,7 +216,7 @@ void parseSegmentTimeline( MediaData &obj, const XmlNode &SegmentTimeline )
 				t = Number(Segment.getAttribute("t"));
 			}
 			uint64_t d = Number(Segment.getAttribute("d"));
-			uint64_t repeat = 0;
+			int64_t repeat = 0;
 			if( Segment.hasAttribute("r") )
 			{
 				repeat = Number(Segment.getAttribute("r"));
@@ -521,7 +521,7 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 		{
 			Representation representation;
 			parseRepresentation( representation, child, BaseURL, adaptationSet, timeline );
-			adaptationSet.representation.push_back( representation );
+			adaptationSet.representation.push_back( std::move(representation) );
 		}
 		else if( tagName == "BaseURL" )
 		{
@@ -658,7 +658,7 @@ Timeline parseManifest( const XmlNode &MPD, const std::string url )
 	auto BaseURL = url.substr(0,url.find_last_of("/")+1);
 	printf( "BaseURL: %s\n", BaseURL.c_str() );
 //	auto BaseURL = url.substr(0,url.lastIndexOf("/")+1);
-	timeline.url = url;
+	timeline.url = std::move(url);
 	timeline.pending = 0;
 	
 	parseManifestAttributes( timeline, MPD );

@@ -146,7 +146,7 @@ typedef enum
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
-	eAAMPConfig_Fragmp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
+	eAAMPConfig_FragMp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
 	eAAMPConfig_ABRBufferCheckEnabled,					/**< Flag to enable/disable buffer based ABR handling*/
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
@@ -175,7 +175,6 @@ typedef enum
 	eAAMPConfig_UseSecManager,                                              /**< Enable/Disable secmanager instead of secclient for license acquisition */
 	eAAMPConfig_EnablePTO,								/**< Enable/Disable PTO Handling */
 	eAAMPConfig_EnableAampConfigToFog,                                      /**< Enable/Disable player config to Fog on every tune*/
-	eAAMPConfig_XRESupportedTune,						/**< Enable/Disable XRE supported tune*/
 	eAAMPConfig_GstSubtecEnabled,								/**< Force Gstreamer subtec */
 	eAAMPConfig_AllowPageHeaders,						/**< Allow page http headers*/
 	eAAMPConfig_PersistHighNetworkBandwidth,				/** Flag to enable Persist High Network Bandwidth across Tunes */

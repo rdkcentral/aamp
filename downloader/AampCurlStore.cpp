@@ -165,6 +165,7 @@ static int xferinfo_callback(
 	return ret;
 }
 #else
+#warning CURL version < 7.32.0
 /**
  * @brief
  * @param clientp app-specific as optionally set with CURLOPT_PROGRESSDATA
@@ -231,17 +232,7 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 		size_t len = size;
 		while( len>0 && data[len-1]<' ' ) len--;
 		std::string printable(data,len);
-		switch (type)
-		{
-		case CURLINFO_TEXT:
-			AAMPLOG_WARN("curl: %s", printable.c_str() );
-			break;
-		case CURLINFO_HEADER_IN:
-			AAMPLOG_WARN("curl header: %s", printable.c_str() );
-			break;
-		default:
-			break; //CID:94999 - Resolve deadcode
-		}
+		AAMPLOG_MIL("curl debug type:%d info:%s", type, printable.c_str() );
 	}
 	return 0;
 }
@@ -293,7 +284,7 @@ CURL* CurlStore::GetCurlHandle(PrivateInstanceAAMP *aamp,std::string url, AampCu
 	assert (startIdx <= eCURLINSTANCE_MAX);
 
 	std::string HostName;
-	HostName = aamp_getHostFromURL ( url );
+	HostName = aamp_getHostFromURL(std::move(url));
 
 	if (ISCONFIGSET(eAAMPConfig_EnableCurlStore) && !( aamp_IsLocalHost(HostName) ))
 	{
@@ -316,7 +307,7 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	assert (startIdx <= eCURLINSTANCE_MAX);
 
 	std::string HostName;
-	HostName = aamp_getHostFromURL ( url );
+	HostName = aamp_getHostFromURL(std::move(url));
 
 	if (ISCONFIGSET(eAAMPConfig_EnableCurlStore) && !( aamp_IsLocalHost(HostName) ))
 	{
