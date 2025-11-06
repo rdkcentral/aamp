@@ -132,6 +132,13 @@ public:
         virtual void ReleaseSession(int64_t sessionId);
 
 	/**
+	 * @fn getSessionToken
+	 *
+	 * @param[out] token - access token
+	 */
+        virtual bool getSessionToken(std::string &token);
+
+	/**
 	 *   @fn SendWatermarkSessionEvent_CB
 	 */
 	static std::function<void(uint32_t, uint32_t, const std::string&)> SendWatermarkSessionEvent_CB;
