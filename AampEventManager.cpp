@@ -160,7 +160,7 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
-			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener, pListener);
+			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener.get(), pListener);
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
 			pListener->pNext = mEventListeners[eventType];

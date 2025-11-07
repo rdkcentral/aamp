@@ -1819,7 +1819,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		auto range = obj->_listeners.equal_range(type);
 		for (auto iter = range.first; iter != range.second; ++iter)
 		{
-			AAMP_JSEventListener *listener = static_cast<AAMP_JSEventListener*>(iter->second);
+			auto listener = std::static_pointer_cast<AAMP_JSEventListener>(iter->second);
 			if (listener->p_jsCallback == jsCallback)
 			{
 				// Listener already registered for this type and callback, ignore registration
