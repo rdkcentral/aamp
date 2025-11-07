@@ -915,11 +915,11 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &id3MetadataEventsEnabled) == 2){
 							if (id3MetadataEventsEnabled)
 							{
-								playerInstanceAamp->AddEventListener(AAMP_EVENT_ID3_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->AddEventListener(AAMP_EVENT_ID3_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 							else
 							{
-								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_ID3_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_ID3_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 
 						}
@@ -938,11 +938,11 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &mediaMetadataEventsEnabled) == 2){
 							if (mediaMetadataEventsEnabled)
 							{
-								playerInstanceAamp->AddEventListener(AAMP_EVENT_MEDIA_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->AddEventListener(AAMP_EVENT_MEDIA_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 							else
 							{
-								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_MEDIA_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_MEDIA_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 						}
 						else
@@ -1228,7 +1228,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &timeout) == 2)
 						{
 							AAMPCLI_PRINTF("[AAMPCLI] Enabling AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE event registration");
-							playerInstanceAamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, lAampcli.mEventListener);
+							playerInstanceAamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							playerInstanceAamp->SetContentProtectionDataUpdateTimeout(timeout);
 						}
 						else
