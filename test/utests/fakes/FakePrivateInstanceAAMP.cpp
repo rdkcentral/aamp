@@ -1341,6 +1341,9 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMed
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		g_mockPrivateInstanceAAMP->SetVidTimeScale(vidTimeScale);
+	}
 }
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
