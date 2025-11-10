@@ -72,8 +72,8 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> responseHeaders) {  }
 	void PlayerInstanceAAMP::LoadJS(void* context) {  }
 	void PlayerInstanceAAMP::UnloadJS(void* context) {  }
-	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener) {  }
-	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener) {  }
+	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
+	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
 	void PlayerInstanceAAMP::InsertAd(const char *url, double  positionSeconds) {  }
 	void PlayerInstanceAAMP::AddPageHeaders(std::map<std::string, std::string> customHttpHeaders) {  }
 	void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader) {  }
