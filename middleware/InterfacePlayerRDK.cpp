@@ -3887,7 +3887,14 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
 	// This support is available in plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	return privatePlayer->socInterface->IsAudioOrVideoDecoder(name);
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
+	{
+		return gst_StartsWith(name,"rialtomsevideosink") || gst_StartsWith(name,"rialtomseaudiosink");
+	}
+	else
+	{
+		return privatePlayer->socInterface->IsAudioOrVideoDecoder(name);
+	}	
 }
 
 /**
@@ -3899,7 +3906,14 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
 bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	return privatePlayer->socInterface->IsVideoDecoder(name);
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
+	{
+		return gst_StartsWith(name,"rialtomsevideosink");
+	}
+	else
+	{
+		return privatePlayer->socInterface->IsVideoDecoder(name);
+	}
 }
 
 /**
@@ -3957,7 +3971,14 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 bool GstPlayer_isVideoSink(const char* name, InterfacePlayerRDK* pInterfacePlayerRDK)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	return privatePlayer->socInterface->IsVideoSink(name);
+	if( privatePlayer->gstPrivateContext->usingRialtoSink )
+	{
+		return gst_StartsWith(name,"rialtomsevideosink");
+	}
+	else
+	{
+		return privatePlayer->socInterface->IsVideoSink(name);
+	}	
 }
 
 /**
