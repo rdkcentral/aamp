@@ -4901,7 +4901,8 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{std::move(ptsUpdate)},
 	mDrmInterface(aamp),
-	mMetadataProcessor{nullptr}
+	mMetadataProcessor{nullptr},
+	indexedTileEndTime(0.0)
 {
 	if (aamp->mDRMLicenseManager)
 	{
@@ -5245,16 +5246,92 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 }
 
 /***************************************************************************
+* @fn IndexSLEThumbnails
+* @brief Function to index SLE thumbnail manifest.
+*
+* @param *ptr pointer to thumbnail manifest
+* @param start time of the requested thumbnails
+* @param  program date time from which thumbnail to be requested
+* @return Updated vector of available thumbnail tracks.
+***************************************************************************/
+static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime)
+{
+	std::vector<TileInfo> rc;
+	AampTime startTime = tStartTime;
+	TileLayout layout;
+	memset( &layout, 0, sizeof(layout) );
+	long long localProgramDateTime=0;
+	layout.numRows = DEFAULT_THUMBNAIL_TILE_ROWS;
+	layout.numCols = DEFAULT_THUMBNAIL_TILE_COLUMNS;
+
+	while(!iter.empty())
+	{
+		lstring ptr = iter.mystrpbrk();
+		if(!ptr.empty())
+		{
+			if (ptr.removePrefix("#EXT"))
+			{
+				if (ptr.removePrefix("-X-PROGRAM-DATE-TIME:"))
+				{
+					localProgramDateTime = (long long) ( ISO8601DateTimeToUTCSeconds(ptr.getPtr())*1000);
+					if(localProgramDateTime > lastProgramDateTime )
+						layout.progStartDateTime = localProgramDateTime;
+				}
+				if (ptr.removePrefix("INF:"))
+				{
+					if(localProgramDateTime > lastProgramDateTime )
+						layout.tileSetDuration = ptr.atof();
+				}
+				else if (ptr.removePrefix("-X-TILES:"))
+				{
+					if(localProgramDateTime > lastProgramDateTime )
+							ptr.ParseAttrList(ParseTileInfCallback, &layout);
+				}
+			}
+			else if( !ptr.startswith('#') )
+			{
+				TileInfo tileInfo;
+				if(localProgramDateTime > lastProgramDateTime && (ptr.tostring().length() > 4 ) )
+				{
+					if( 0.0f == layout.posterDuration )
+					{
+						if( layout.tileSetDuration )
+						{
+							layout.posterDuration = layout.tileSetDuration;
+						}
+						else
+						{
+							layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+						}
+					}
+					tileInfo.layout = layout;
+					tileInfo.url = ptr.tostring();
+					tileInfo.startTime = startTime.inSeconds();
+					startTime += layout.tileSetDuration;
+					rc.push_back( tileInfo );
+				}
+			}
+		}
+	}
+	if(rc.empty() )
+	{
+		AAMPLOG_WARN("(not an error) IndexThumbnails failed. Last PDT in manifest(ms): %lld requested PDT from app(ms): %lld",
+							localProgramDateTime,lastProgramDateTime);
+	}
+	return rc;
+}
+
+/***************************************************************************
 * @fn IndexThumbnails
 * @brief Function to index thumbnail manifest.
 *
 * @param *ptr pointer to thumbnail manifest
 * @return Updated vector of available thumbnail tracks.
 ***************************************************************************/
-std::vector<TileInfo> IndexThumbnails( lstring iter , double stTime=0 )
+std::vector<TileInfo> IndexThumbnails( lstring iter )
 {
 	std::vector<TileInfo> rc;
-	AampTime startTime = stTime;
+	AampTime startTime = 0;
 	TileLayout layout;
 	memset( &layout, 0, sizeof(layout) );
 
@@ -5280,22 +5357,25 @@ std::vector<TileInfo> IndexThumbnails( lstring iter , double stTime=0 )
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
-				if( 0.0f == layout.posterDuration )
+				if( ptr.tostring().length() > 4 )
 				{
-					if( layout.tileSetDuration )
+					if( 0.0f == layout.posterDuration )
 					{
-						layout.posterDuration = layout.tileSetDuration;
+						if( layout.tileSetDuration )
+						{
+							layout.posterDuration = layout.tileSetDuration;
+						}
+						else
+						{
+							layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+						}
 					}
-					else
-					{
-						layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
-					}
+					tileInfo.layout = layout;
+					tileInfo.url = ptr.tostring();
+					tileInfo.startTime = startTime.inSeconds();
+					startTime += layout.tileSetDuration;
+					rc.push_back( tileInfo );
 				}
-				tileInfo.layout = layout;
-				tileInfo.url = ptr.tostring();
-				tileInfo.startTime = startTime.inSeconds();
-				startTime += layout.tileSetDuration;
-				rc.push_back( tileInfo );
 			}
 		}
 	}
@@ -5372,7 +5452,66 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 	return rc;
 }
 
+/**
+ * @brief handle the SLE thumbnail data
+ */
+void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEnd)
+{
+	std::vector<TileInfo> newIndexedTileInfo;
+	lstring thumbNailIter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
+	if(!aamp->mThumbnailLastProgramDateTime )
+	{
+		//First Time;
+		indexedTileInfo.clear();
+		indexedTileInfo = IndexSLEThumbnails( thumbNailIter, tStart,aamp->mThumbnailLastProgramDateTime);
+	}
+	else
+	{
+		if(!aamp->mLastSleThumbnailInfo.empty())
+		{
+			indexedTileInfo.clear();
+			indexedTileInfo.assign(aamp->mLastSleThumbnailInfo.begin(),aamp->mLastSleThumbnailInfo.end());
+			auto findIter = std::find_if(aamp->mLastSleThumbnailInfo.begin(), aamp->mLastSleThumbnailInfo.end(),
+							[tStart](const TileInfo& s)
+			{
+				/*
+				If prevStartime is greater then input starttime OR
+				previous StartTime-tStart within the range OR
+				previous starttime is same as input start time
+				*/
+				return ( ( s.startTime == tStart)  ||
+						 ( fabs(s.startTime - tStart) < 1 ) ||
+						 ( s.startTime > tStart ) );
+   			});
 
+			if ( findIter != aamp->mLastSleThumbnailInfo.end())
+			{
+				if( ( findIter->startTime == tStart ) &&  ( tEnd <= indexedTileEndTime ))
+				{
+					//send saved data, no need to index again
+				}
+				else
+				{
+					aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
+					double startTime  =  indexedTileInfo.back().startTime+indexedTileInfo.back().layout.tileSetDuration;
+
+					newIndexedTileInfo = IndexSLEThumbnails( thumbNailIter, startTime, aamp->mThumbnailLastProgramDateTime );
+					if(!newIndexedTileInfo.empty() )
+					{
+						indexedTileInfo.insert(indexedTileInfo.end(), newIndexedTileInfo.begin(), newIndexedTileInfo.end());
+					}
+					newIndexedTileInfo.clear();
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("not found matching starttime:%lf",tStart);
+			}
+
+		}
+	}
+	indexedTileEndTime = tEnd; //copy the end time. If end time changed keeping new time as 
+}
 /**
  * @brief Function to fetch the thumbnail data.
  */
@@ -5387,8 +5526,10 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 		std::string tmpurl;
 		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
-			lstring iter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
-			indexedTileInfo = IndexThumbnails( iter, tStart );
+			HandleSLEThumbnailData( tStart, tEnd );
+			aamp->mLastSleThumbnailInfo.clear();
+			aamp->mLastSleThumbnailInfo.assign(indexedTileInfo.begin(), indexedTileInfo.end());
+			aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
 		}
 		else
 		{
@@ -5442,6 +5583,10 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	}
 	*width = streamInfo.resolution.width;
 	*height = streamInfo.resolution.height;
+	if( data.empty() )
+	{
+		AAMPLOG_WARN("thumbnail Data is empty");
+	}
 	return data;
 }
 
