@@ -1415,6 +1415,14 @@ public:
 	 * @return void
 	 */
 	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+
+	/**
+	 * @fn IsEventInProgress
+	 *
+	 * @return Returns the type of event that is currently in process
+	 */
+	AAMPEventType IsEventInProgress();
+
 	/**
 	 * @fn IsEventListenerAvailable
 	 *

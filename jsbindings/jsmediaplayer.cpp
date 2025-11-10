@@ -69,7 +69,7 @@ struct AAMPMediaPlayer_JS : public PrivAAMPStruct_JS
 	 */
 	JSObjectRef getCallbackForAdId(std::string id) override
 	{
-         	LOG_TRACE("Enter, id: %s",id);
+		LOG_TRACE("Enter, id: %s",id.c_str());
 		std::map<std::string, JSObjectRef>::const_iterator it = _promiseCallbacks.find(id);
 		if (it != _promiseCallbacks.end())
 		{
