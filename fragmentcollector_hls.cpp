@@ -5246,15 +5246,15 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 }
 
 /***************************************************************************
-* @fn IndexSLEThumbnails
+* @fn IndexSleThumbnails
 * @brief Function to index SLE thumbnail manifest.
 *
-* @param *ptr pointer to thumbnail manifest
-* @param start time of the requested thumbnails
-* @param  program date time from which thumbnail to be requested
+* @param iter Pointer to thumbnail manifest
+* @param tStartTime Start time of the requested thumbnails
+* @param lastProgramDateTime Program date time from which thumbnail to be requested
 * @return Updated vector of available thumbnail tracks.
 ***************************************************************************/
-static std::vector<TileInfo> IndexSLEThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime)
+std::vector<TileInfo> IndexSleThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime)
 {
 	std::vector<TileInfo> rc;
 	AampTime startTime = tStartTime;
@@ -5455,7 +5455,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 /**
  * @brief handle the SLE thumbnail data
  */
-void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEnd)
+void StreamAbstractionAAMP_HLS::HandleSleThumbnailData(double tStart, double tEnd)
 {
 	std::vector<TileInfo> newIndexedTileInfo;
 	lstring thumbNailIter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
@@ -5463,7 +5463,7 @@ void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEn
 	{
 		//First Time;
 		indexedTileInfo.clear();
-		indexedTileInfo = IndexSLEThumbnails( thumbNailIter, tStart,aamp->mThumbnailLastProgramDateTime);
+		indexedTileInfo = IndexSleThumbnails( thumbNailIter, tStart,aamp->mThumbnailLastProgramDateTime);
 	}
 	else
 	{
@@ -5475,7 +5475,7 @@ void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEn
 							[tStart](const TileInfo& s)
 			{
 				/*
-				If prevStartime is greater then input starttime OR
+				If prevStartTime is greater then input starttime OR
 				previous StartTime-tStart within the range OR
 				previous starttime is same as input start time
 				*/
@@ -5492,10 +5492,14 @@ void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEn
 				}
 				else
 				{
-					aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
-					double startTime  =  indexedTileInfo.back().startTime+indexedTileInfo.back().layout.tileSetDuration;
+					double startTime = 0.0f;
+					if(!indexedTileInfo.empty())
+					{
+						aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
+						startTime  =  indexedTileInfo.back().startTime+indexedTileInfo.back().layout.tileSetDuration;
+					}
 
-					newIndexedTileInfo = IndexSLEThumbnails( thumbNailIter, startTime, aamp->mThumbnailLastProgramDateTime );
+					newIndexedTileInfo = IndexSleThumbnails( thumbNailIter, startTime, aamp->mThumbnailLastProgramDateTime );
 					if(!newIndexedTileInfo.empty() )
 					{
 						indexedTileInfo.insert(indexedTileInfo.end(), newIndexedTileInfo.begin(), newIndexedTileInfo.end());
@@ -5510,7 +5514,7 @@ void StreamAbstractionAAMP_HLS::HandleSLEThumbnailData(double tStart, double tEn
 
 		}
 	}
-	indexedTileEndTime = tEnd; //copy the end time. If end time changed keeping new time as 
+	indexedTileEndTime = tEnd; // Copy the end time. If the end time has changed, update indexedTileEndTime to the new value. 
 }
 /**
  * @brief Function to fetch the thumbnail data.
@@ -5526,10 +5530,17 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 		std::string tmpurl;
 		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
-			HandleSLEThumbnailData( tStart, tEnd );
+			HandleSleThumbnailData( tStart, tEnd );
 			aamp->mLastSleThumbnailInfo.clear();
-			aamp->mLastSleThumbnailInfo.assign(indexedTileInfo.begin(), indexedTileInfo.end());
-			aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
+			if(!indexedTileInfo.empty())
+			{
+				aamp->mLastSleThumbnailInfo.assign(indexedTileInfo.begin(), indexedTileInfo.end());
+				aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
+			}
+			else
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: indexedTileInfo is empty, cannot set mThumbnailLastProgramDateTime.");
+			}
 		}
 		else
 		{
