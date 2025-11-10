@@ -703,7 +703,7 @@ TEST_F(PlayerInstanceAAMPTests, SubscribeResponseHeadersTest) {
 
 TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
     AAMPEventType eventType = AAMP_EVENT_TUNED;
-    EventListener* eventListener = nullptr ;
+    std::shared_ptr<EventListener> eventListener = nullptr;
 
     // Call the method to be tested
    mPlayerInstance->AddEventListener(eventType,eventListener);
@@ -712,7 +712,7 @@ TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
 
 TEST_F(PlayerInstanceAAMPTests, RemoveEventListenerTest) {
     AAMPEventType eventType = AAMP_EVENT_TUNED;
-    EventListener* eventListener = nullptr;
+    std::shared_ptr<EventListener> eventListener = nullptr;
 
     // Call the method to be tested
    mPlayerInstance->RemoveEventListener(eventType,eventListener);
