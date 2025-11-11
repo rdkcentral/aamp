@@ -5291,7 +5291,7 @@ std::vector<TileInfo> IndexSleThumbnails( lstring iter, double tStartTime, long 
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
-				if(localProgramDateTime > lastProgramDateTime && (ptr.tostring().length() > 4 ) )
+				if(localProgramDateTime > lastProgramDateTime && ptr.length()>4 )
 				{
 					if( 0.0f == layout.posterDuration )
 					{
