@@ -56,8 +56,8 @@ jobs:
         working-directory: ./middleware
         run: yes | ./install-middleware.sh -s subtec
         
-      # Run L1 tests
-      - name: Run unit tests
+      # Run Middleware L1 tests
+      - name: Run Middleware L1 unit tests
         working-directory: ./middleware/test/utests
         run: ./run.sh
       
