@@ -9346,7 +9346,7 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	if (isNewPeriod)
 	{
 
-		if (mShortAdOffsetCalc)
+		if (mShortAdOffsetCalc && mMediaStreamContext[eMEDIATYPE_VIDEO])
 		{
 			/* This is for the case of a short ad that is not as long as the base period which
 			 * it replaces. The ad has been 'played' and now we need to return and play out the remaining
@@ -9358,14 +9358,10 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 			if (mMediaStreamContext[eMEDIATYPE_AUDIO])
 			{
 				audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
-								mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
+							 mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
 			}
-			double videoStart = 0.0;
-			if (mMediaStreamContext[eMEDIATYPE_VIDEO])
-			{
-				videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
+			double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
-			}
 
 			AampTime newStart = std::max(audioStart, videoStart);
 
