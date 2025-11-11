@@ -68,6 +68,14 @@ bool ContentSecurityManager::UpdateSessionState(int64_t sessionId, bool active)
 }
 
 /**
+ * @brief get session token
+ */
+bool ContentSecurityManager::getSessionToken(std::string &token)
+{
+	return false;
+}
+
+/**
  * @brief To update session state to SecManager
  */
 bool ContentSecurityManager::setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height)

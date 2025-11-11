@@ -105,6 +105,23 @@ SecManagerThunder::~SecManagerThunder()
 }
 
 /**
+ * @brief To acquire access token
+ */
+bool SecManagerThunder::getSessionToken(std::string &token)
+{
+	ThunderAccessPlayer authService(AUTH_SERVICE_CALL_SIGN);
+	JsonObject param;
+	JsonObject response;
+
+	if (authService.InvokeJSONRPC("getSessionToken", param, response, 10000))
+	{
+		token = response["token"].String();
+		return true;
+	}
+	return false;
+}
+
+/**
  * @brief To acquire license from SecManager
  */
 bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],
