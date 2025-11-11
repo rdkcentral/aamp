@@ -28,15 +28,16 @@
 /**
  * @brief Default constructor for CachedFragment
  *        Initializes all members to default values.
+ *        Fragment buffer is allocated on-demand to avoid heap allocation jitter.
  */
 CachedFragment::CachedFragment() 
-	: fragment(AampGrowableBuffer("cached-fragment"))
+	: fragment()  // Default construct - no heap allocation yet
 	, position(0.0)
 	, duration(0.0)
 	, initFragment(false)
 	, discontinuity(false)
 	, profileIndex(0)
-	, cacheFragStreamInfo(StreamInfo())
+	, cacheFragStreamInfo()  // Default construct
 	, type(eMEDIATYPE_DEFAULT)
 	, downloadStartTime(0)
 	, timeScale(0)
@@ -45,9 +46,9 @@ CachedFragment::CachedFragment()
 	, isDummy(false)
 	, discontinuityIndex(0)
 	, fragmentType(FragmentType::COMPLETE_FRAGMENT)
-	, mMutex()  // Default construct the mutex
+	, mMutex()
 {
-	// RAII: All members are initialized, no manual setup needed
+	// RAII: All members are initialized, buffer allocated on-demand in AppendBytes
 }
 
 /**
@@ -69,9 +70,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 		std::lock_guard<std::mutex> lockThis(mMutex, std::adopt_lock);
 		std::lock_guard<std::mutex> lockOther(other->mMutex, std::adopt_lock);
 
-		// RAII: Instead of calling Free() explicitly, assign a new empty buffer
-		// This is tolerant to external Free() calls and follows RAII principles
-		fragment = AampGrowableBuffer("cached-fragment");
+		// RAII: Reset to default-constructed state (no heap allocation)
+		fragment = AampGrowableBuffer();
 
 		// Copy all member variables
 		this->position = other->position;
@@ -88,11 +88,9 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 		this->absPosition = other->absPosition;
 		this->isDummy = other->isDummy;
 		this->discontinuityIndex = other->discontinuityIndex;
-
 		this->fragmentType = other->fragmentType;
 
-		// Copy fragment data up to specified length
-		// Defensive: Check if buffer is valid before accessing
+		// Copy fragment data - heap allocation happens here only if needed
 		if (other->fragment.GetPtr() && len > 0)
 		{
 			this->fragment.AppendBytes(other->fragment.GetPtr(), len);
@@ -114,8 +112,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 void CachedFragment::Clear()
 {
 	std::lock_guard<std::mutex> lock(mMutex);
-	// RAII: Assign a new empty buffer instead of calling Free()
-	fragment = AampGrowableBuffer("cached-fragment");
+	// RAII: Reset to default-constructed state (no heap allocation)
+	fragment = AampGrowableBuffer();
 	
 	position = 0.0;
 	duration = 0.0;
@@ -138,8 +136,8 @@ void CachedFragment::Clear()
  * @brief Copy constructor
  */
 CachedFragment::CachedFragment(const CachedFragment& other)
-	: fragment(AampGrowableBuffer("cached-fragment"))  // RAII: Initialize with empty buffer
-	, position(other.position)  // Direct initialization where possible
+	: fragment()  // Default construct - allocate only if source has data
+	, position(other.position)
 	, duration(other.duration)
 	, initFragment(other.initFragment)
 	, discontinuity(other.discontinuity)
@@ -154,12 +152,11 @@ CachedFragment::CachedFragment(const CachedFragment& other)
 	, PTSOffsetSec(other.PTSOffsetSec)
 	, absPosition(other.absPosition)
 	, fragmentType(other.fragmentType)
-	, mMutex()  // Each object gets its own mutex
+	, mMutex()
 {
-	// Lock the source object for thread-safe reading
 	std::lock_guard<std::mutex> lock(other.mMutex);
 	
-	// Copy fragment data - defensive check for valid buffer
+	// Heap allocation only if source has data
 	if (other.fragment.GetPtr() && other.fragment.GetLen() > 0) 
 	{
 		fragment.AppendBytes(other.fragment.GetPtr(), other.fragment.GetLen());
@@ -186,11 +183,10 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	, PTSOffsetSec(other.PTSOffsetSec)
 	, absPosition(other.absPosition)
 	, fragmentType(other.fragmentType)
-	, mMutex()  // Each object gets its own mutex
+	, mMutex()
 {
-	// RAII: Reset moved-from object to valid default state
-	// No lock is needed here, as move operations should have exclusive access to the source.
-	other.fragment = AampGrowableBuffer("cached-fragment-moved");
+	// RAII: Reset moved-from object to valid default state (no heap allocation)
+	other.fragment = AampGrowableBuffer();
 	other.position = 0.0;
 	other.duration = 0.0;
 	other.initFragment = false;
@@ -245,8 +241,6 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 {
 	if (this != &other) 
 	{
-		// Per C++ guidelines, move operations should be noexcept and assume exclusive access to the source.
-		// The caller is responsible for ensuring thread safety.
 		fragment = std::move(other.fragment);
 		position = other.position;
 		duration = other.duration;
@@ -264,8 +258,8 @@ CachedFragment& CachedFragment::operator=(CachedFragment&& other) noexcept
 		absPosition = other.absPosition;
 		fragmentType = other.fragmentType;
 		
-		// RAII: Reset moved-from object to valid default state
-		other.fragment = AampGrowableBuffer("cached-fragment-moved");
+		// RAII: Reset moved-from object (no heap allocation)
+		other.fragment = AampGrowableBuffer();
 		other.position = 0.0;
 		other.duration = 0.0;
 		other.initFragment = false;
@@ -292,11 +286,8 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 	{
 		using std::swap;
 
-		// RAII: Use move assignment for buffer swap
-		AampGrowableBuffer tempFragment = std::move(fragment);
-		fragment = std::move(other.fragment);
-		other.fragment = std::move(tempFragment);
-
+		// RAII: Simple swap - no allocation
+		swap(fragment, other.fragment);
 		swap(position, other.position);
 		swap(duration, other.duration);
 		swap(initFragment, other.initFragment);
