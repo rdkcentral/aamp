@@ -88,35 +88,6 @@ struct StreamInfo
 	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
 };
 
-
-struct TileLayout
-{
-	int numRows; 		/**< Number of Rows from Tile Inf */
-	int numCols; 		/**< Number of Cols from Tile Inf */
-	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
-	double tileSetDuration; /**< Duration of whole tile set */
-};
-
-/**
-*	\struct	TileInfo
-* 	\brief	TileInfo structure for Thumbnail data
-*/
-class TileInfo
-{
-public:
-	TileInfo(): layout(), startTime(), url()
-	{
-	}
-
-	~TileInfo()
-	{
-	}
-
-	TileLayout layout;
-	double startTime;
-	std::string url;
-};
-
 /**
  * @brief Structure of cached fragment data
  *        Holds information about a cached fragment
