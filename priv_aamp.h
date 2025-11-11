@@ -1076,7 +1076,7 @@ public:
         double mProgramDateTime;
 	std::vector<PeriodInfo> mMPDPeriodsInfo;
 	float maxRefreshPlaylistIntervalSecs;
-	EventListener* mEventListener;
+	std::shared_ptr<EventListener> mEventListener;
 	long long prevFirstPeriodStartTime;
 
 	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
@@ -1438,7 +1438,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 	/**
 	 * @fn RemoveEventListener
@@ -1447,7 +1447,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 	/**
 	 * @fn IsEventListenerAvailable
 	 *
@@ -2127,7 +2127,15 @@ public:
 	 */
 	void RegisterEvent(AAMPEventType type, EventListener* listener)
 	{
-		mEventManager->AddEventListener(type, listener);
+		if (!listener)
+		{
+			AAMPLOG_WARN("Received a null listener.");
+			return;
+		}
+		std::shared_ptr<EventListener> sharedListener(listener, [](EventListener* ptr) {
+			// No-op deleter to avoid accidental deletion
+		});
+		mEventManager->AddEventListener(type, sharedListener);
 	}
 
 	/**
