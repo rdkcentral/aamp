@@ -9360,8 +9360,12 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 				audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
 								mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
 			}
-			double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
+			double videoStart = 0.0;
+			if (mMediaStreamContext[eMEDIATYPE_VIDEO])
+			{
+				videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
+			}
 
 			AampTime newStart = std::max(audioStart, videoStart);
 
