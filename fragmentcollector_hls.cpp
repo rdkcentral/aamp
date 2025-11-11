@@ -2532,8 +2532,6 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 {
 	std::string playlistURI;
 
-	format = FORMAT_UNKNOWN; /* default value*/
-
 	switch (trackType)
 	{
 	case eTRACK_VIDEO:
