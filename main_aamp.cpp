@@ -579,10 +579,10 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 	AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	if(aamp)
 	{
-		AAMPLOG
+		AAMPLOG_WARN("SetRate called with rate=%f.", rate);
 		if(rate == 0)
 		{
-			AAMPLOG_WARN("PLAYER[%d] Simulating crash for rate=0", aamp->mPlayerId);
+			AAMPLOG_WARN("Simulating crash for rate=0");
 			int *p = nullptr;
 			*p = 5;  // ❌ CRASH! Dereferencing nullptr
 		}
