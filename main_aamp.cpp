@@ -579,6 +579,13 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 	AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	if(aamp)
 	{
+		AAMPLOG
+		if(rate == 0)
+		{
+			AAMPLOG_WARN("PLAYER[%d] Simulating crash for rate=0", aamp->mPlayerId);
+			int *p = nullptr;
+			*p = 5;  // ❌ CRASH! Dereferencing nullptr
+		}
 		if(mAsyncTuneEnabled)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj([rate,overshootcorrection](void *data)
