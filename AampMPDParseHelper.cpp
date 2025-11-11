@@ -527,6 +527,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 	{
 		double periodStart = 0;
 		double  periodStartMs = 0;
+		bool isMultiplePeriods = (mNumberOfPeriods > 1);
 		if( periodIndex<0 )
 		{
 			AAMPLOG_WARN( "periodIndex<0" );
@@ -567,27 +568,39 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 					}
 
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d AvailStartTime %f periodStart %f %s", periodIndex, mAvailabilityStartTime, periodStart,startTimeStr.c_str());
+					AAMPLOG_INFO("came inside if");
 				}
 				// As per spec:If the @start attribute is absent, but the previous Period element contains a @duration attribute .The start time of the new Period PeriodStart is the sum of the start time of the previous Period PeriodStart and the value of the attribute @duration of the previous Period
 				else if (periodIndex > 0 && !mMPDInstance->GetPeriods().at(periodIndex-1)->GetDuration().empty())
 				{
+					AAMPLOG_INFO("the period index inside else if is %d", periodIndex);
 					string durationStr = mMPDInstance->GetPeriods().at(periodIndex -1)->GetDuration();
-					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1,mLastPlaylistDownloadTimeMs); 
+					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1, mLastPlaylistDownloadTimeMs); 
 					double durationTotal = ParseISO8601Duration(durationStr.c_str());
-					periodStart = previousPeriodStart + (durationTotal / 1000);
+					periodStart = previousPeriodStart + ((durationTotal) / 1000);
+					// For multiple periods, apply PTO delta for period transitions
+					double deltaInStartTime = aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mMPDInstance->GetPeriods().at(periodIndex)) * 1000;
+					periodStart += (deltaInStartTime / 1000);
+					
 				}
 				else
 				{
+					AAMPLOG_INFO("the period index inside else is %d", periodIndex);
 					double durationTotal = 0;
-					for(int idx=0;idx < periodIndex; idx++)
+					for(int idx=0; idx < periodIndex; idx++)
 					{
-						//Calculates the total duration by summing the durations of individual periods up to 'periodIndex
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart > 0))
+					if(mIsLiveManifest && (periodStart >= 0))
 					{
 						periodStart += mAvailabilityStartTime;
+					}
+					// For single period manifest, apply PTO delta in else case
+					if (!isMultiplePeriods)
+					{
+						double deltaInStartTime = aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mMPDInstance->GetPeriods().at(periodIndex)) * 1000;
+						periodStart += (deltaInStartTime / 1000);
 					}
 
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d periodStart %f", periodIndex, periodStart);
@@ -739,13 +752,13 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 				if(timelines.size() > 0)
 				{
 					ITimeline *timeline = timelines.at(0);
-					uint64_t deltaBwFirstSegmentAndOffset = 0;
+					double deltaBwFirstSegmentAndOffset = 0;
 					if(timeline != NULL)
 					{
 						uint64_t timelineStart = timeline->GetStartTime();
-						if(timelineStart > presentationTimeOffset)
+						if(presentationTimeOffset)
 						{
-							deltaBwFirstSegmentAndOffset = timelineStart - presentationTimeOffset;
+							deltaBwFirstSegmentAndOffset = (double)timelineStart - (double)presentationTimeOffset;
 						}
 						duration = (double) deltaBwFirstSegmentAndOffset / timeScale;
 						//AAMPLOG_TRACE("timeline start : %" PRIu64 " offset delta : %lf", timelineStart,duration);
@@ -1716,6 +1729,8 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 				AAMPLOG_WARN("Presentation Time Offset %" PRIu64 " ahead of segment start %" PRIu64 ", Set PTO as start time", presentationTimeOffset, startTime);
 				startTime = presentationTimeOffset;
 				duration -= (double)(presentationTimeOffset - startTime) / (double)(timeScale);
+				
+				AAMPLOG_TRACE("Adjusted duration and starttime is %lf and %" PRIu64, duration.inSeconds(), startTime);
 			}
 			scaledStartTime = ((double) startTime / (double)timeScale);
 		}

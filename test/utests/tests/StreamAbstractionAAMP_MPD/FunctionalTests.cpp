@@ -3489,7 +3489,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	 * fragmentDescriptor.Time = t + 10*d,(d = 76800) => 0+10*76800 = 768000
 	 * fragmentDescriptor.Number = 11, so fragment number = 10 + 1 (startNumber) = 11
 	 */
-	EXPECT_EQ(pMediaStreamContext->fragmentTime, 60.000000);
+	EXPECT_EQ(pMediaStreamContext->fragmentTime, -5.000000);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number,11);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time,768000.000000);
 }
@@ -3606,4 +3606,402 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_ConnectTimeout_WithManif
 	// Execute test
 	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallFetchDashManifest();
 	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+}
+
+
+TEST_F(FunctionalTests, L1_PeriodWithContentProtectionAndEvents_Seek0_StreamPosition0)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT10M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9" minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080" segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash" timescale="60000" presentationTimeOffset="37325280" media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    // Enable mid-fragment seek
+   	mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    // After seek to 0, stream position should be 0
+	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+	cout<<"Actual Position: "<<actualPosition<<endl;
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+}
+
+TEST_F(FunctionalTests, L1_LivePeriodWithContentProtectionAndEvents_Seek0_StreamPosition0)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="dynamic"
+     availabilityStartTime="2023-01-01T00:00:00Z"
+     minBufferTime="PT1.5S"
+     timeShiftBufferDepth="PT5M"
+     suggestedPresentationDelay="PT10S"
+     mediaPresentationDuration="PT10M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9"
+            minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080"
+            segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash"
+                timescale="60000" presentationTimeOffset="37325280"
+                media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+    // Enable mid-fragment seek
+    mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+	double expectedPosition = 1.6725312e+09;//AvailabilityStartTime as it is a liveStream
+
+    // After seek to 0, verify stream position is near the expected availabilityStartTime
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+
+    EXPECT_NEAR(actualPosition, expectedPosition, 0.001);
+}
+
+TEST_F(FunctionalTests, L1_PeriodWithContentProtectionAndEvents_Seek0_StreamPosition0_NoStart)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT10M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9" minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080" segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash" timescale="60000" presentationTimeOffset="37325280" media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    // Enable mid-fragment seek
+    mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    // After seek to 0, stream position should be 0
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    cout<<"Actual Position: "<<actualPosition<<endl;
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+}
+
+TEST_F(FunctionalTests, L1_LivePeriodWithContentProtectionAndEvents_Seek0_StreamPosition0_NoStart)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="dynamic"
+     availabilityStartTime="2023-01-01T00:00:00Z"
+     minBufferTime="PT1.5S"
+     timeShiftBufferDepth="PT5M"
+     suggestedPresentationDelay="PT10S"
+     mediaPresentationDuration="PT10M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9"
+            minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080"
+            segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash"
+                timescale="60000" presentationTimeOffset="37325280"
+                media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+    // Enable mid-fragment seek
+    mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double expectedPosition = 1.6725312e+09;//AvailabilityStartTime as it is a liveStream
+
+    // After seek to 0, verify stream position is near the expected availabilityStartTime
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+
+    EXPECT_NEAR(actualPosition, expectedPosition, 0.001);
+}
+
+TEST_F(FunctionalTests, L1_ThreePeriods_NoStartTimes_NoDurations_PTOGreaterThanTimeline)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+}
+
+
+TEST_F(FunctionalTests, L1_ThreePeriods_NoStartTimes_WithDurations_PTOGreaterThanTimeline)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+}
+
+TEST_F(FunctionalTests, L1_ThreePeriods_WithStartTimesAndDurations_PTOGreaterThanTimeline)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" start="PT0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" start="PT10M0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" start="PT20M0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+}
+
+TEST_F(FunctionalTests, L1_ThreePeriods_WithStartTimesNoDurations_PTOGreaterThanTimeline)
+{
+    AAMPStatusType status;
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" start="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" start="PT20M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="599" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
 }
