@@ -956,7 +956,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE1)
     mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = -1;
     StreamOutputFormat format = FORMAT_MPEGTS;
     auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
-    ASSERT_EQ(FORMAT_UNKNOWN, format);
+    ASSERT_EQ(FORMAT_MPEGTS, format); //value not changed
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
@@ -985,8 +985,9 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
 
     /* test vector index out of bounds */
     mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 2;
+    format = FORMAT_AUDIO_ES_ATMOS; //Some unlikely value
     playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
-    ASSERT_EQ(FORMAT_UNKNOWN, format);
+    ASSERT_EQ(FORMAT_AUDIO_ES_ATMOS, format); //not changed
 
 }
 
