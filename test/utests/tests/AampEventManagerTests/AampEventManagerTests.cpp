@@ -63,13 +63,14 @@ protected:
     };
     void SetUp() override {
         handler = new TestableAampEventManager();
+        eventListener = std::make_shared<AbstractEventListener>();
     }
     void TearDown() override {
     delete handler;
     handler = nullptr;
     }
 public:
-	EventListener* eventListener;
+    std::shared_ptr<EventListener> eventListener;
 
     TestableAampEventManager *handler;
 
@@ -177,7 +178,7 @@ TEST_F(AampEventManagerTest, SetPlayerStateTest)
 TEST_F(AampEventManagerTest,AddListenerForAllEventsTest1)
 {
 	//Arrange:declare the variable with size
-	handler->AddListenerForAllEvents(eventListener);
+	handler->AddListenerForAllEvents(eventListener.get());
 }
 TEST_F(AampEventManagerTest,AddListenerForAllEventsTest2)
 {
@@ -192,7 +193,7 @@ TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest1)
 {
 	//Act: call the removeEventlistener function
     eventListener = nullptr;
-	handler->RemoveListenerForAllEvents(eventListener);
+	handler->RemoveListenerForAllEvents(eventListener.get());
 }
 TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest2)
 { 
@@ -202,7 +203,7 @@ TEST_F(AampEventManagerTest,FlushPendingEventsTest)
 {
 
     //Arrange:declare the variable with size
-    handler->AddListenerForAllEvents(eventListener);
+    handler->AddListenerForAllEvents(eventListener.get());
 
     for(int i= AAMP_EVENT_ALL_EVENTS ; i< AAMP_MAX_NUM_EVENTS ;i++)
     {
@@ -242,7 +243,7 @@ TEST_F(AampEventManagerTest, SendEventTest_2)
 TEST_F(AampEventManagerTest, RemoveListenerForAllEventsTest_1)
 {
     //Act: call the removeEventlistener function
-    handler->RemoveListenerForAllEvents(eventListener);
+    handler->RemoveListenerForAllEvents(eventListener.get());
 
     for(int i= AAMP_EVENT_ALL_EVENTS ; i< AAMP_MAX_NUM_EVENTS ;i++)
     {
