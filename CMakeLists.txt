@@ -96,8 +96,8 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 			COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
 		set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
-		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
+		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX26.1.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX26.1.sdk -I/usr/local/include")
 		string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
 		pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 		set(AAMP_CLI_LD_FLAGS ${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES})
@@ -130,6 +130,8 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rialto-master/media/public/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-gstreamer/source)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-ocdm/include)
 
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
@@ -464,6 +466,15 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/rialto-gst-pipeline.h
 	test/gstTestHarness/mp4demux.hpp
 )
+
+file(GLOB RIALTO_GST_CPP_FILES middleware/rialto-gstreamer/source/*.cpp)
+file(GLOB RIALTO_OCDM_CPP_FILES middleware/rialto-ocdm/source/*.cpp)
+file(GLOB RIALTO_GST_H_FILES middleware/rialto-gstreamer/source/*.h)
+message("TEST START")
+message(${RIALTO_GST_CPP_FILES})
+message(${RIALTO_GST_H_FILES})
+list(APPEND GSTTESTHARNESS_SOURCES ${RIALTO_GST_CPP_FILES} ${RIALTO_OCDM_CPP_FILES} ${RIALTO_GST_H_FILES})
+
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
 install(TARGETS gstTestHarness
@@ -486,7 +497,10 @@ set(RIALTO_TEST_SOURCES
 	test/gstTestHarness/rialto-gst-pipeline.h
 	test/gstTestHarness/mp4demux.hpp
 )
+file(GLOB RIALTO_CPP_FILES middleware/rialto-gstreamer/source/*.cpp)
+list(APPEND RIALTO_TEST_SOURCES ${RIALTO_CPP_FILES})
 add_executable(rialtoTest ${RIALTO_TEST_SOURCES})
+
 target_link_libraries(rialtoTest ${RIALTO_TEST_DEPENDS} "-lreadline")
 install(TARGETS rialtoTest
 		DESTINATION bin

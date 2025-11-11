@@ -1449,6 +1449,8 @@ public:
      */
     virtual bool setSourcePosition(int32_t sourceId, int64_t position, bool resetTime = false, double appliedRate = 1.0,
                                    uint64_t stopPosition = kUndefinedPosition) = 0;
+    
+    virtual bool setSubtitleOffset(int32_t sourceId, int64_t position) = 0;
 
     /**
      * @brief Process audio gap

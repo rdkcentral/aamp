@@ -5,8 +5,14 @@
 //  Created by Stroffolino, Philip on 9/19/25.
 //
 #include <stdio.h>
+#include <cassert>
+#include <thread>
+#include <chrono>
 #include "mp4demux.hpp"
 #include "rialto-gst-pipeline.h"
+
+// Using Rialto pipeline only: define nanosecond conversion locally instead of relying on GST headers.
+static const int64_t NS_SECOND = 1000000000LL;
 
 static Mp4Demux trackAudio;
 static Mp4Demux trackVideo;
@@ -74,14 +80,17 @@ void ConfigureAudio( void )
 			assert(0);
 			break;
 	}
-	std::unique_ptr<IMediaPipeline::MediaSourceAudio> sourceAudio = std::make_unique<IMediaPipeline::MediaSourceAudio>(
+	std::unique_ptr<IMediaPipeline::MediaSource> sourceAudio = std::make_unique<IMediaPipeline::MediaSourceAudio>(
 																					   mimeType,
 																					   hasDrm,
 																					   audioConfig,
 																					   SegmentAlignment::UNDEFINED,
 																					   streamFormat,
 																					   nullptr /* codecData*/ );
-	gstMediaPipeline->attachSource( std::move(sourceAudio), sourceIdAudio );
+	// Attach; then read assigned id from source
+	bool okA = gstMediaPipeline->attachSource( sourceAudio );
+	assert(okA);
+	sourceIdAudio = sourceAudio->getId();
 }
 
 void ConfigureVideo( void )
@@ -112,7 +121,8 @@ void ConfigureVideo( void )
 	CodecData codecData;
 	const char *codec_ptr = trackVideo.codec_data.c_str();
 	codecData.data = std::vector<uint8_t>( codec_ptr, &codec_ptr[trackVideo.codec_data.size()] );
-	std::unique_ptr<IMediaPipeline::MediaSourceVideo> sourceVideo =
+	// Store derived video source in unique_ptr<Base> so it matches attachSource(const unique_ptr<MediaSource>&)
+	std::unique_ptr<IMediaPipeline::MediaSource> sourceVideo =
 	std::make_unique<IMediaPipeline::MediaSourceVideo>(
 									   mimeType,
 									   hasDrm,
@@ -121,7 +131,9 @@ void ConfigureVideo( void )
 									   alignment,
 									   streamFormat,
 									   std::make_shared<CodecData>(codecData) );
-	gstMediaPipeline->attachSource( std::move(sourceVideo), sourceIdVideo );
+	bool okV = gstMediaPipeline->attachSource( sourceVideo );
+	assert(okV);
+	sourceIdVideo = sourceVideo->getId();
 }
 
 void ConfigurenComplete()
@@ -140,11 +152,11 @@ void InjectAudio( void )
 		double dur = trackAudio.getDuration(i);
 		std::unique_ptr<IMediaPipeline::MediaSegmentAudio> audioSegment =
 		std::make_unique<IMediaPipeline::MediaSegmentAudio>(
-											sourceIdAudio,
-											(int64_t)(pts*GST_SECOND), // timestamp
-											(int64_t)(dur*GST_SECOND),
-											trackAudio.audio.samplerate,
-											trackAudio.audio.channel_count );
+																	sourceIdAudio,
+																	(int64_t)(pts*NS_SECOND), // timestamp
+																	(int64_t)(dur*NS_SECOND),
+																	trackAudio.audio.samplerate,
+																	trackAudio.audio.channel_count );
 		size_t len = trackAudio.getLen(i);
 		uint8_t *data = new uint8_t[len];
 		std::memcpy(data, trackAudio.getPtr(i),len);
@@ -166,11 +178,11 @@ void InjectVideo( void )
 		double dur = trackVideo.getDuration(i);
 		std::unique_ptr<IMediaPipeline::MediaSegmentVideo> videoSegment =
 		std::make_unique<IMediaPipeline::MediaSegmentVideo>(
-											sourceIdVideo,
-											(int64_t)(pts*GST_SECOND),
-											(int64_t)(dur*GST_SECOND),
-											trackVideo.video.width,
-											trackVideo.video.height );
+													sourceIdVideo,
+													(int64_t)(pts*NS_SECOND),
+													(int64_t)(dur*NS_SECOND),
+													trackVideo.video.width,
+													trackVideo.video.height );
 		size_t len = trackVideo.getLen(i);
 		uint8_t *data = new uint8_t[len];
 		std::memcpy(data, trackVideo.getPtr(i),len);
@@ -192,8 +204,6 @@ int my_main(int argc, char **argv)
 	// assert( delim );
 	gUserPathLen = (int)(delim - gUserPathPtr);
 	
-	gst_init(&argc, &argv);
-	
 	gstMediaPipeline = new GstMediaPipeline();
 	gstMediaPipeline->play();
 	ConfigureAudio();
@@ -202,9 +212,8 @@ int my_main(int argc, char **argv)
 	InjectAudio();
 	InjectVideo();
 	
-	GMainLoop *main_loop = g_main_loop_new(nullptr, FALSE);
-	g_main_loop_run(main_loop);
-	g_main_loop_unref(main_loop);
+	// Minimal sleep to allow any async Rialto operations; replace with real event loop if needed.
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 	return 0;
 }
 
