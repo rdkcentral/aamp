@@ -129,9 +129,27 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rialto-master/media/public/include)
+# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rialto-master/media/public/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/public/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/common/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/common/interface)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/logging/interface)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/main/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/ipc/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/ipc/interface)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/common/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/common/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/common/interface)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/client/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/client/source)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/common/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/common/source)
+
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-gstreamer/source)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-gstreamer/source)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-ocdm/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/test/utests/ocdm/)
 
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
@@ -468,12 +486,22 @@ set(GSTTESTHARNESS_SOURCES
 )
 
 file(GLOB RIALTO_GST_CPP_FILES middleware/rialto-gstreamer/source/*.cpp)
+
+file(GLOB RIALTO_CLIENT_MAIN_CPP_FILES middleware/rialto-client/media/client/main/source/*.cpp)
+file(GLOB RIALTO_CLIENT_IPC_CPP_FILES middleware/rialto-client/media/client/ipc/source/*.cpp)
+file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/logging/source/*.cpp)
+file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/common/source/*.cpp)
+file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/ipc/client/source/*.cpp)
+file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/ipc/common/source/*.cpp)
+
 file(GLOB RIALTO_OCDM_CPP_FILES middleware/rialto-ocdm/source/*.cpp)
+
 file(GLOB RIALTO_GST_H_FILES middleware/rialto-gstreamer/source/*.h)
+
 message("TEST START")
 message(${RIALTO_GST_CPP_FILES})
 message(${RIALTO_GST_H_FILES})
-list(APPEND GSTTESTHARNESS_SOURCES ${RIALTO_GST_CPP_FILES} ${RIALTO_OCDM_CPP_FILES} ${RIALTO_GST_H_FILES})
+list(APPEND GSTTESTHARNESS_SOURCES ${RIALTO_GST_CPP_FILES} ${RIALTO_OCDM_CPP_FILES} ${RIALTO_CLIENT_MAIN_CPP_FILES} ${RIALTO_CLIENT_IPC_CPP_FILES} ${RIALTO_CLIENT_LOGGING_CPP_FILES} ${RIALTO_GST_H_FILES})
 
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
