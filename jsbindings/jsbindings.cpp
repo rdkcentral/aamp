@@ -3027,6 +3027,7 @@ static JSValueRef AAMP_getAvailableAudioTracks(JSContextRef context, JSObjectRef
 		allTrack = JSValueToBoolean(context, arguments[0]);
 	}
 	std::string tracks = pAAMP->_aamp->GetAvailableAudioTracks(allTrack);
+	LOG_ERROR_EX("HariPriya GetAvailableAudioTracks (%d) tracks [%s]",allTrack,tracks.c_str());
 	if (!tracks.empty())
 	{
        		LOG_WARN(pAAMP,"Exit _aamp->GetAvailableAudioTracks(%d) tracks [%s]",allTrack,tracks.c_str());
@@ -3086,6 +3087,7 @@ static JSValueRef AAMP_getAudioTrackInfo(JSContextRef context, JSObjectRef funct
 	}
     	LOG_INFO(pAAMP," _aamp->GetAudioTrackInfo()");
 	std::string track = pAAMP->_aamp->GetAudioTrackInfo();
+	LOG_ERROR_EX("HariPriya GetAudioTrackInfo() [%s]",track.c_str());
 	if (!track.empty())
 	{
 		LOG_INFO(pAAMP," _aamp->GetAudioTrackInfo() [%s]",track.c_str()); 

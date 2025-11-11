@@ -3817,6 +3817,7 @@ int StreamAbstractionAAMP::GetAudioTrack()
 	int index = -1;
 	if (!mAudioTrackIndex.empty())
 	{
+		AAMPLOG_INFO("HariPriya mAudioTracks size : %ld mAudioTrackIndex = %s",mAudioTracks.size(),mAudioTrackIndex.c_str());
 		for (auto it = mAudioTracks.begin(); it != mAudioTracks.end(); it++)
 		{
 			if (it->index == mAudioTrackIndex)
@@ -3825,6 +3826,7 @@ int StreamAbstractionAAMP::GetAudioTrack()
 			}
 		}
 	}
+	AAMPLOG_INFO("HariPriya index : %d",index);
 	return index;
 }
 

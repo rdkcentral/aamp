@@ -2637,6 +2637,7 @@ std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 		AAMPPlayerState state = aamp->GetState();
 		if (state != eSTATE_IDLE && state != eSTATE_ERROR)
 		{
+			AAMPLOG_WARN("HariPriya call to GetAvailableAudioTracks with allTrack : %d",allTrack);
 			ret = aamp->GetAvailableAudioTracks(allTrack);
 		}
 		else

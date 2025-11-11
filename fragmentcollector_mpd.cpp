@@ -12781,6 +12781,8 @@ std::vector<AudioTrackInfo>& StreamAbstractionAAMP_MPD::GetAvailableAudioTracks(
 {
 	if (!allTrack)
 	{
+		AAMPLOG_INFO("HariPriya mAudioTracks = %ld",mAudioTracks.size());
+		
 		return mAudioTracks;
 	}
 	else
@@ -12788,8 +12790,10 @@ std::vector<AudioTrackInfo>& StreamAbstractionAAMP_MPD::GetAvailableAudioTracks(
 		if (aamp->IsLive() || (mAudioTracksAll.size() == 0))
 		{
 			/** Audio Track not populated yet**/
+			 AAMPLOG_INFO("HariPriya PopulateTrackInfo");
 			PopulateTrackInfo(eMEDIATYPE_AUDIO, true);
 		}
+		AAMPLOG_INFO("HariPriya mAudioTracksAll size : %ld",mAudioTracksAll.size());
 		return mAudioTracksAll;
 	}
 }

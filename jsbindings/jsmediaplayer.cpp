@@ -1016,6 +1016,7 @@ JSValueRef AAMPMediaPlayerJS_getAudioTrackInfo (JSContextRef ctx, JSObjectRef fu
 		return JSValueMakeUndefined(ctx);
 	}
 	std::string value = privObj->_aamp->GetAudioTrackInfo();
+	LOG_ERROR_EX("HariPriya GetAudioTrackInfo() value=[%s]",value.c_str());	
 	if (!value.empty())
 	{
         	LOG_INFO(privObj," _aamp->GetAudioTrackInfo() value=[%s]",value.c_str());
@@ -2659,6 +2660,7 @@ static JSValueRef AAMPMediaPlayerJS_getAvailableAudioTracks(JSContextRef ctx, JS
 		allTrack = JSValueToBoolean(ctx, arguments[0]);
 	}
 	std::string tracks = privObj->_aamp->GetAvailableAudioTracks(allTrack);
+	LOG_ERROR_EX("HariPriya GetAvailableAudioTracks(%d) tracks=%s", allTrack,tracks.c_str());
 	if (!tracks.empty())
 	{
 		LOG_WARN(privObj," _aamp->GetAvailableAudioTracks(%d) tracks=%s", allTrack,tracks.c_str());
