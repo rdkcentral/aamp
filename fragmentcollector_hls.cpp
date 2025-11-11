@@ -2532,7 +2532,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 {
 	std::string playlistURI;
 
-	format = FORMAT_UNKNOWN; /* default value*/
+	//format = FORMAT_UNKNOWN; /* default value*/ - breaks L2 2073
 
 	switch (trackType)
 	{
