@@ -378,7 +378,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		{
 			std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
 			bool fragmentEnqueued = false;
+			
+			// Always copy - ad insertion requires fragment metadata to survive multiple passes
+			// (e.g., live playback → rewind to TSB → replay same ad break position)
 			fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
+			
 			if(fragmentToTsbSessionMgr->initFragment)
 			{
 				fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -449,6 +453,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		else if(aamp->GetLLDashChunkMode() && initSegment)
 		{
 			std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
+			// Copy instead of move - init fragments may be reused during TSB rewind scenarios
 			fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 			if(fragmentToTsbSessionMgr->initFragment)
 			{
@@ -458,10 +463,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 			CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 		}
-		// Forced chunk processing (e.g. via AAMP TSB) without LLDashChunkMode still requires init segment chunk caching
 		else if (IsInjectionFromCachedFragmentChunks() && initSegment && !IsLocalTSBInjection())
 		{
 			std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
+			// Copy instead of move - init fragments may be reused during TSB rewind scenarios
 			fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 			if(fragmentToTsbSessionMgr->initFragment)
 			{
@@ -471,17 +476,12 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 			CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 		}
-		// Forced chunk processing for NON-init segments when unified chunk injection path is active
-		// (IsInjectionFromCachedFragmentChunks()) but Low-Latency DASH native chunk mode is not enabled.
-		// This occurs for scenarios where AAMP TSB forces chunk-based injection even though
-		// GetLLDashChunkMode() is false and the original 'chunk' flag in test parameters is 0.
-		// Treat the full fragment as a single chunk so that numberOfFragmentChunksCached increments.
 		else if (IsInjectionFromCachedFragmentChunks() && !initSegment && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
 		{
-			// Suppress chunk caching while paused (non-underflow); full fragment treated as chunk only when not paused
 			if (!(aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus()))
 			{
 				std::shared_ptr<CachedFragment> fragmentToChunkCache = std::make_shared<CachedFragment>();
+				// Copy required - fragment may be reused on TSB rewind
 				fragmentToChunkCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
 				fragmentToChunkCache->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 				CacheTsbFragment(std::move(fragmentToChunkCache));
