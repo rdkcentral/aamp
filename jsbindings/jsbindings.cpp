@@ -48,7 +48,7 @@ extern "C"
 	JSObjectRef AAMP_JS_AddEventTypeClass(JSGlobalContextRef context);
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
 }
-
+class AAMP_JSListener;
 /**
  * @struct AAMP_JS
  * @brief Data structure of AAMP object
@@ -57,7 +57,7 @@ struct AAMP_JS
 {
 	JSGlobalContextRef _ctx;
 	class PlayerInstanceAAMP* _aamp;
-	class AAMP_JSListener* _listeners;
+	std::shared_ptr<AAMP_JSListener> _listeners;
 	int  iPlayerId; /*An int variable iPlayerID to store Playerid */
         bool bInfoEnabled; /*A bool variable bInfoEnabled for INFO logging check*/
 	JSObjectRef _eventType;
@@ -705,7 +705,7 @@ public:
 	AAMP_JS*			_aamp;
 	AAMPEventType		_type;
 	JSObjectRef			_jsCallback;
-	AAMP_JSListener*	_pNext;
+	std::shared_ptr<AAMP_JSListener>	_pNext;
 };
 
 /**
@@ -2116,128 +2116,128 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
 {
         LOG_TRACE("(%p, %d, %p)", aamp, type, jsCallback);
 
-	AAMP_JSListener* pListener = 0;
+	std::shared_ptr<AAMP_JSListener> pListener = NULL;
 
 	if(type == AAMP_EVENT_PROGRESS)
 	{
-		pListener = new AAMP_JSListener_Progress(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_Progress>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_SPEED_CHANGED)
 	{
-		pListener = new AAMP_JSListener_SpeedChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_SpeedChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_CC_HANDLE_RECEIVED)
 	{
-		pListener = new AAMP_JSListener_CCHandleReceived(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_CCHandleReceived>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_MEDIA_METADATA)
 	{
-		pListener = new AAMP_JSListener_VideoMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_VideoMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_TUNE_FAILED)
 	{
-		pListener = new AAMP_JSListener_TuneFailed(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_TuneFailed>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_BITRATE_CHANGED)
 	{
-		pListener = new AAMP_JSListener_BitRateChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_BitRateChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_BULK_TIMED_METADATA)
 	{
-		pListener = new AAMP_JSListener_BulkTimedMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_BulkTimedMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_TIMED_METADATA)
 	{
-		pListener = new AAMP_JSListener_TimedMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_TimedMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_CONTENT_GAP)
 	{
-		pListener = new AAMP_JSListener_ContentGap(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_ContentGap>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_STATE_CHANGED)
 	{
-		pListener = new AAMP_JSListener_StatusChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_StatusChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_SPEEDS_CHANGED)
 	{
-		pListener = new AAMP_JSListener_SpeedsChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_SpeedsChanged>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_REPORT_ANOMALY)
 	{
-		pListener = new AAMP_JSListener_AnomalyReport(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AnomalyReport>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_REPORT_METRICS_DATA)
 	{
-		pListener = new AAMP_JSListener_MetricsData(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_MetricsData>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_DRM_METADATA)
 	{
-		pListener = new AAMP_JSListener_DRMMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_DRMMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_RESOLVED)
 	{
-		pListener = new AAMP_JSListener_AdResolved(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdResolved>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_RESERVATION_START)
 	{
-		pListener = new AAMP_JSListener_AdReservationStart(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdReservationStart>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_RESERVATION_END)
 	{
-		pListener = new AAMP_JSListener_AdReservationEnd(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdReservationEnd>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_START)
 	{
-		pListener = new AAMP_JSListener_AdPlacementStart(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdPlacementStart>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_END)
 	{
-		pListener = new AAMP_JSListener_AdPlacementEnd(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdPlacementEnd>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_PROGRESS)
 	{
-		pListener = new AAMP_JSListener_AdProgress(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdProgress>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_ERROR)
 	{
-		pListener = new AAMP_JSListener_AdPlacementEror(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdPlacementEror>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_BUFFERING_CHANGED)
 	{
-		pListener = new AAMP_JSListener_BufferingChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_BufferingChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_ID3_METADATA)
 	{
-		pListener = new AAMP_JSListener_Id3Metadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_Id3Metadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_DRM_MESSAGE)
 	{
-		pListener = new AAMP_JSListener_DrmMessage(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_DrmMessage>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE)
 	{
-		pListener = new AAMP_JSListener_ContentProtectionData(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_ContentProtectionData>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_MANIFEST_REFRESH_NOTIFY)
 	{
-		pListener = new AAMP_JSListener_DashManifestRefreshNotify(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_DashManifestRefreshNotify>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_TUNE_TIME_METRICS)
 	{
-		pListener = new AAMP_JSListener_TuneMetricData(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_TuneMetricData>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_MONITORAV_STATUS)
 	{
-		pListener = new AAMP_JSListener_MonitorAVStatus(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_MonitorAVStatus>(aamp, type, jsCallback);
 	}
 	else
 	{
-		pListener = new AAMP_JSListener(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener>(aamp, type, jsCallback);
 	}
 
 	pListener->_pNext = aamp->_listeners;
 	aamp->_listeners = pListener;
-	aamp->_aamp->AddEventListener(type, pListener);
+	aamp->_aamp->AddEventListener(type, std::static_pointer_cast<EventListener>(pListener));
 }
 
 /**
@@ -2302,16 +2302,15 @@ static JSValueRef AAMP_removeEventListener(JSContextRef context, JSObjectRef fun
 void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", aamp, type, jsCallback);
-	AAMP_JSListener** ppListener = &aamp->_listeners;
+	std::shared_ptr<AAMP_JSListener>* ppListener = &aamp->_listeners;
 	while (*ppListener != NULL)
 	{
-		AAMP_JSListener* pListener = *ppListener;
+		std::shared_ptr<AAMP_JSListener>& pListener = *ppListener;
 		if ((pListener->_type == type) && (pListener->_jsCallback == jsCallback))
 		{
 			*ppListener = pListener->_pNext;
-                        LOG_WARN_EX(" type=%d,pListener= %p", type, pListener);
-			aamp->_aamp->RemoveEventListener(type, pListener);
-			SAFE_DELETE(pListener);
+			LOG_WARN_EX(" type=%d,pListener= %p", type, pListener.get());
+			aamp->_aamp->RemoveEventListener(type, std::static_pointer_cast<EventListener>(pListener));
 			return;
 		}
 		ppListener = &pListener->_pNext;
