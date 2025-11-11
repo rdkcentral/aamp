@@ -348,6 +348,37 @@ struct httpRespHeaderData {
 	std::string data;     /**< Header value */
 };
 
+struct TileLayout
+{
+	int numRows; 		/**< Number of Rows from Tile Inf */
+	int numCols; 		/**< Number of Cols from Tile Inf */
+	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
+	double tileSetDuration; /**< Duration of whole tile set */
+	long long progStartDateTime; /**< Program start date time from manifest */
+	TileLayout(): numRows(0), numCols(0), posterDuration(0.0f), tileSetDuration(0.0f), progStartDateTime(0)
+	{
+	}
+};
+
+/**
+*	\struct	TileInfo
+* 	\brief	TileInfo structure for Thumbnail data
+*/
+class TileInfo
+{
+public:
+	TileInfo(): layout(), startTime(), url()
+	{
+	}
+
+	~TileInfo()
+	{
+	}
+
+	TileLayout layout;
+	double startTime;
+	std::string url;
+};
 /**
  * @struct ThumbnailData
  * @brief Holds the Thumbnail information
@@ -888,6 +919,8 @@ public:
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
+	long long mThumbnailLastProgramDateTime;
+	std::vector<TileInfo> mLastSleThumbnailInfo;
 	/**
 	 * @brief A readonly, validatable position value.
 	 */
@@ -1043,7 +1076,7 @@ public:
         double mProgramDateTime;
 	std::vector<PeriodInfo> mMPDPeriodsInfo;
 	float maxRefreshPlaylistIntervalSecs;
-	EventListener* mEventListener;
+	std::shared_ptr<EventListener> mEventListener;
 	long long prevFirstPeriodStartTime;
 
 	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
@@ -1405,7 +1438,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 	/**
 	 * @fn RemoveEventListener
@@ -1414,7 +1447,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 	/**
 	 * @fn IsEventListenerAvailable
 	 *
@@ -2094,7 +2127,15 @@ public:
 	 */
 	void RegisterEvent(AAMPEventType type, EventListener* listener)
 	{
-		mEventManager->AddEventListener(type, listener);
+		if (!listener)
+		{
+			AAMPLOG_WARN("Received a null listener.");
+			return;
+		}
+		std::shared_ptr<EventListener> sharedListener(listener, [](EventListener* ptr) {
+			// No-op deleter to avoid accidental deletion
+		});
+		mEventManager->AddEventListener(type, sharedListener);
 	}
 
 	/**
