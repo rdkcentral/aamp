@@ -6770,7 +6770,6 @@ void PrivateInstanceAAMP::detach()
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
-		// disable event processing
 		disableEventProcessing();
 		//EnableDownloads();// enable downloads
 	}
