@@ -532,7 +532,7 @@ public:
 	 *
 	 * @return true if injection is from local AAMP TSB, false otherwise
 	 */
-	bool IsLocalTSBInjection();
+	bool IsLocalTSBInjection() const;
 
 	/**
 	 * @brief Returns if the end of track reached.
@@ -650,17 +650,6 @@ public:
 	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
-	 * @fn ShouldUseChunkBasedProcessing
-	 *
-	 * @brief Enhanced decision logic that considers both environmental conditions and FragmentType
-	 *
-	 * @param[in] cachedFragment - The fragment to process (optional for environment-only check)
-	 *
-	 * @return True if chunk-based processing should be used, false for legacy fragment processing
-	 */
-	bool ShouldUseChunkBasedProcessing(const CachedFragment* cachedFragment = nullptr) const;
-
-	/**
 	 * @fn IsInjectionFromCachedFragmentChunks
 	 *
 	 * @brief Are fragments to inject coming from mCachedFragmentChunks
@@ -668,67 +657,6 @@ public:
 	 * @return True if fragments to inject are coming from mCachedFragmentChunks
 	 */
 	bool IsInjectionFromCachedFragmentChunks() const;
-
-	
-	/**
-	 * @fn ProcessFragment
-	 * @brief Unified fragment processing entry point. Handles COMPLETE_FRAGMENT and FRAGMENT_CHUNK.
-	 *        For FRAGMENT_CHUNK it will route through existing chunk parsing logic; for COMPLETE_FRAGMENT
-	 *        it invokes existing InjectFragmentInternal flow.
-	 * @param[in] fragment The cached fragment object (must not be nullptr)
-	 * @return true on successful processing/injection, false if processing indicates stop/abort.
-	 */
-	bool ProcessFragment(CachedFragment* fragment);
-
-	/**
-	 * @fn GetCachedFragmentCount
-	 * @brief Unified accessor for cached fragment count (chunks or complete) based on current mode.
-	 * @return current cached count for active injection mode.
-	 * @note Thread-safe public API
-	 */
-	int GetCachedFragmentCount() const
-	{
-		std::lock_guard<std::mutex> guard(mutex);
-		return GetCachedFragmentCount_Locked();
-	}
-
-	/**
-	 * @fn GetCachedFragmentCount_Locked
-	 * @brief Internal helper for GetCachedFragmentCount(). Assumes mutex is already held.
-	 * @return current cached count for active injection mode.
-	 * @note Caller MUST hold mutex before calling this method
-	 */
-	int GetCachedFragmentCount_Locked() const { return IsInjectionFromCachedFragmentChunks() ? numberOfFragmentChunksCached : numberOfFragmentsCached; }
-
-	/**
-	 * @fn GetMaxCachedFragmentCount
-	 * @brief Unified accessor for max cached fragment capacity (chunks or complete) based on current mode.
-	 * @return max cached capacity for active injection mode.
-	 * @note Thread-safe public API
-	 */
-	int GetMaxCachedFragmentCount() const
-	{
-		std::lock_guard<std::mutex> guard(mutex);
-		return GetMaxCachedFragmentCount_Locked();
-	}
-
-	/**
-	 * @fn GetMaxCachedFragmentCount_Locked
-	 * @brief Internal helper for GetMaxCachedFragmentCount(). Assumes mutex is already held.
-	 * @return max cached capacity for active injection mode.
-	 * @note Caller MUST hold mutex before calling this method
-	 */
-	int GetMaxCachedFragmentCount_Locked() const
-	{
-		return IsInjectionFromCachedFragmentChunks() ? (int)mCachedFragmentChunksSize : maxCachedFragmentsPerTrack;
-	}
-
-	/**
-	 * @fn GetFragmentToInject
-	 * @brief Returns pointer to the fragment (chunk or complete) at current inject index based on mode.
-	 * @return CachedFragment* for current injection, or nullptr if index invalid.
-	 */
-	CachedFragment* GetFragmentToInject() { return IsInjectionFromCachedFragmentChunks() ? &mCachedFragmentChunks[fragmentChunkIdxToInject] : &mCachedFragment[fragmentIdxToInject]; }
 
 protected:
 	/**
@@ -744,20 +672,6 @@ protected:
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
-
-	/**
-	 * @fn UpdateTSAfterInjectUnified
-	 * @brief Unified timestamp/cache update for both COMPLETE_FRAGMENT and FRAGMENT_CHUNK injection paths.
-	 *        This consolidates logic from UpdateTSAfterInject() and UpdateTSAfterChunkInject() while
-	 *        preserving their public/protected wrappers for backward compatibility.
-	 *
-	 *        Selection of branch is based on IsInjectionFromCachedFragmentChunks().
-	 *        Validation warnings are emitted if fragment types are unexpected for the chosen path.
-	 *
-	 * @note  Existing wrappers should be preferred until all call sites migrate; then these wrappers
-	 *        can be deprecated and removed in a subsequent phase.
-	 */
-	void UpdateTSAfterInjectUnified();
 
 	/**
 	 * @fn WaitForCachedFragmentAvailable
@@ -905,7 +819,7 @@ protected:
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
 	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/
-	mutable std::mutex mutex;           /**< protection of track variables accessed from multiple threads */
+	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	std::mutex audioMutex;              /**< protection of audio track reconfiguration */

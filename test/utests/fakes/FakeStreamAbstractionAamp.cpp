@@ -272,12 +272,12 @@ void MediaTrack::SetLocalTSBInjection(bool value)
 {
 }
 
-bool MediaTrack::IsLocalTSBInjection()
+bool MediaTrack::IsLocalTSBInjection() const
 {
 	bool localTsbInjection = false;
 
 	// When using mock, delegate to mock implementation
-	if (auto* mock = dynamic_cast<MockMediaTrack*>(this)) {
+	if (auto* mock = dynamic_cast<MockMediaTrack*>(const_cast<MediaTrack*>(this))) {
 		localTsbInjection = mock->IsLocalTSBInjection();
 	}
 

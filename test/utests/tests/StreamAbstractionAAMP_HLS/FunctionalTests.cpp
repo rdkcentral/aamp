@@ -2169,13 +2169,12 @@ TEST_F(TrackStateTests, AbortWaitForCachedFragmentTests)
 
 TEST_F(TrackStateTests, ProcessFragmentChunkTests)
 {
-    // This test verifies ProcessFragmentChunk() can be called and returns true.
-    // Note: The test fixture doesn't set up chunk mode (maxCachedFragmentChunksPerTrack=0),
-    // so GetFetchChunkBuffer would fail. Instead, we just verify the method doesn't crash
-    // and returns true indicating the call was handled.
+    // This test verifies ProcessFragmentChunk() can be called without crashing.
+    // Note: The test fixture doesn't set up chunk mode or populate fragments,
+    // so ProcessFragmentChunk will return false (no chunk to process).
     
     bool result = TrackStateobj->ProcessFragmentChunk();
-    ASSERT_TRUE(result);
+    ASSERT_FALSE(result);
 }
 
 TEST_F(TrackStateTests, NotifyFragmentCollectorWaittest)
