@@ -834,6 +834,9 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	bool ret = false;
 	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
 	{
+		// Instrumentation: log fragment details for L2 triage (correlate with ProcessAdMetadata)
+		AAMPLOG_INFO("AampTSB: CacheTsbFragment Type[%s] absPos=%f pos=%f discontinuity=%d duration=%f initFragment=%d",
+			name, fragment->absPosition, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
 		if(cachedFragment->fragment.GetPtr())

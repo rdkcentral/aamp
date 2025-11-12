@@ -1274,6 +1274,11 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 {
 	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
 	{
+		// Log basic context for TSB ad metadata processing to aid external L2 triage
+		AAMPLOG_INFO("AampTSB: ProcessAdMetadata enter mediaType=%d absPos=%lf duration=%lf rate=%f",
+			static_cast<int>(mediaType), nextFragmentData ? nextFragmentData->GetAbsolutePosition().inSeconds() : 0.0,
+			nextFragmentData ? nextFragmentData->GetDuration().inSeconds() : 0.0, rate);
+
 		// Reservation range
 		AampTime reservationRangeStart = (mLastAdReservationMetaDataProcessed && mLastAdReservationMetaDataProcessed->GetPosition().milliseconds() != 0)
 			? mLastAdReservationMetaDataProcessed->GetPosition()

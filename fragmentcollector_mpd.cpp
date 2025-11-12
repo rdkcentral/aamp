@@ -3505,7 +3505,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			aamp->NotifyOnEnteringLive();
 		}
 
+		// Instrumentation: log TSB reader invocation for L2 triage correlation
+		AAMPLOG_INFO("AampTSB: About to InvokeTsbReaders position=%lf rate=%f tuneType=%d", position, aamp->rate, mTuneType);
+
 		retVal = tsbSessionManager->InvokeTsbReaders(position, aamp->rate, mTuneType);
+
+		// Instrumentation: log result of InvokeTsbReaders
+		AAMPLOG_INFO("AampTSB: InvokeTsbReaders returned status=%d position=%lf", retVal, position);
 
 		if(eAAMPSTATUS_OK == retVal)
 		{
