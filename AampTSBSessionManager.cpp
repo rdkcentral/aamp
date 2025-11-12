@@ -1300,14 +1300,23 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 
 		// Remove entries up to and including the last processed for each list
 		// If no last processed, remove from beginning until a START event is found
-		auto skipUpToLast = [](std::list<std::shared_ptr<AampTsbAdMetaData>>& list, const std::shared_ptr<AampTsbMetaData>& lastProcessed)
+		// Trim items up to lastProcessed. If lastProcessed is null, conservatively trim only items
+		// with position strictly before the processing window start to avoid removing a START that
+		// falls into the current window (e.g., after a seek). The lambda takes the rangeStart to
+		// compare positions when lastProcessed is not set.
+		auto skipUpToLast = [&](std::list<std::shared_ptr<AampTsbAdMetaData>>& list,
+								const std::shared_ptr<AampTsbMetaData>& lastProcessed,
+								const AampTime& rangeStart)
 		{
+			// Instrumentation: log trimming behaviour
 			if (!lastProcessed)
 			{
-				// Remove from beginning until a START event is found
+				// Remove items strictly before the processing window start (rangeStart)
 				auto it = list.begin();
-				while (it != list.end() && (*it)->GetEventType() != AampTsbAdMetaData::EventType::START)
+				while (it != list.end() && (*it)->GetPosition().milliseconds() < rangeStart.milliseconds())
 				{
+					AAMPLOG_DEBUG("AampTSB: skipUpToLast removing item before rangeStart pos=%" PRIu64 ", type=%d, order=%u",
+						(*it)->GetPosition().milliseconds(), static_cast<int>((*it)->GetEventType()), (*it)->GetOrderAdded());
 					it = list.erase(it);
 				}
 				return;
@@ -1315,11 +1324,44 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 			auto it = std::find(list.begin(), list.end(), lastProcessed);
 			if (it != list.end())
 			{
+				// Erase everything up to and including lastProcessed
+				AAMPLOG_DEBUG("AampTSB: skipUpToLast found lastProcessed pos=%" PRIu64 ", order=%u, trimming items before it",
+					lastProcessed->GetPosition().milliseconds(), lastProcessed->GetOrderAdded());
 				list.erase(list.begin(), std::next(it));
 			}
 		};
-		skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed);
-		skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed);
+		// Log last-processed pointers before trimming
+		if (mLastAdReservationMetaDataProcessed)
+		{
+			AAMPLOG_INFO("AampTSB: lastAdReservationProcessed pos=%" PRIu64 " order=%u", mLastAdReservationMetaDataProcessed->GetPosition().milliseconds(), mLastAdReservationMetaDataProcessed->GetOrderAdded());
+		}
+		else
+		{
+			AAMPLOG_INFO("AampTSB: lastAdReservationProcessed = <none>");
+		}
+		if (mLastAdPlacementMetaDataProcessed)
+		{
+			AAMPLOG_INFO("AampTSB: lastAdPlacementProcessed pos=%" PRIu64 " order=%u", mLastAdPlacementMetaDataProcessed->GetPosition().milliseconds(), mLastAdPlacementMetaDataProcessed->GetOrderAdded());
+		}
+		else
+		{
+			AAMPLOG_INFO("AampTSB: lastAdPlacementProcessed = <none>");
+		}
+	skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed, reservationRangeStart);
+	skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed, placementRangeStart);
+
+		// Debug: log reservation and placement lists after trimming
+		AAMPLOG_INFO("AampTSB: reservationList.size=%zu placementList.size=%zu", reservationList.size(), placementList.size());
+		for (const auto &r : reservationList)
+		{
+			AAMPLOG_INFO("AampTSB: reservation item adType=%d pos=%" PRIu64 " type=%d order=%u",
+				static_cast<int>(r->GetAdType()), r->GetPosition().milliseconds(), static_cast<int>(r->GetEventType()), r->GetOrderAdded());
+		}
+		for (const auto &p : placementList)
+		{
+			AAMPLOG_INFO("AampTSB: placement item adType=%d pos=%" PRIu64 " type=%d order=%u",
+				static_cast<int>(p->GetAdType()), p->GetPosition().milliseconds(), static_cast<int>(p->GetEventType()), p->GetOrderAdded());
+		}
 		
 		std::vector<std::shared_ptr<AampTsbAdMetaData>> merged = MergeAndSortAdMetaData(std::move(reservationList), std::move(placementList));
 
