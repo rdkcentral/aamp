@@ -643,6 +643,15 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 	if( aamp )
 	{
 		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
+
+		AAMPLOG_WARN("SetRate called with rate=%f.", rate);
+		if(rate == 0)
+		{
+			AAMPLOG_WARN("Simulating crash for rate=0");
+			int *p = nullptr;
+			*p = 5;  // ❌ CRASH! Dereferencing nullptr
+		}
+
 		AAMPPlayerState state = GetState();
 
 		if (state == eSTATE_ERROR)
