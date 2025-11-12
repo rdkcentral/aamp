@@ -2390,6 +2390,8 @@ void PrivateInstanceAAMP::UpdateDuration(double seconds)
  */
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 {
+	AAMPLOG_WARN("Neil entering PrivateInstanceAAMP::UpdateCullingState()");
+
 	if (culledSecs == 0)
 	{
 		return;
@@ -2476,8 +2478,11 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 				// Live differ - Play from live position
 				// Autoplay differ -Play from eldest part (start of live window)
 				mSeekFromPausedState = true;
+					AAMPLOG_INFO("NEIL mPausedBehavior(%d)",mPausedBehavior);	
+
 				if(ePAUSED_BEHAVIOR_LIVE_DEFER == mPausedBehavior)
 				{
+					AAMPLOG_INFO("NEIL ePAUSED_BEHAVIOR_LIVE_DEFER1!");	
 					mJumpToLiveFromPause = true;
 				}
 			}
@@ -2510,6 +2515,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 				}
 				else if(mPausedBehavior >= ePAUSED_BEHAVIOR_AUTOPLAY_DEFER)
 				{
+					AAMPLOG_INFO("NEIL ePAUSED_BEHAVIOR_LIVE_DEFER!");			
 					mSeekFromPausedState = true;
 					if(ePAUSED_BEHAVIOR_LIVE_DEFER == mPausedBehavior)
 					{
@@ -2519,7 +2525,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 			}
 			else
 			{
-				AAMPLOG_WARN("Auto resume playback task already exists, avoid creating duplicates for now!");
+				AAMPLOG_WARN("NEIL Auto resume playback task already exists, avoid creating duplicates for now!");
 			}
 		}
 	}
@@ -5827,6 +5833,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 	intTmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_LivePauseBehavior);
 	mPausedBehavior = (PausedBehavior)intTmpVar;
+	AAMPLOG_INFO("Neil Parsed eAAMPConfig_LivePauseBehavior: %d", mPausedBehavior);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
 	mNetworkTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);

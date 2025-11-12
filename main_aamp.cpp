@@ -3121,10 +3121,13 @@ void PlayerInstanceAAMP::SetPausedBehavior(int behavior)
 		UsingPlayerId playerId(aamp->mPlayerId);
 		if(behavior >= 0 && behavior < ePAUSED_BEHAVIOR_MAX)
 		{
-			AAMPLOG_WARN("Player Paused behavior : %d", behavior);
+			AAMPLOG_INFO("NEIL Player Paused behavior : %d", behavior);
 			SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_LivePauseBehavior,behavior);
 		}
 	}
+	else
+		AAMPLOG_INFO("NEIL1 Player Paused behavior : %d", behavior);
+
 }
 
 /**
