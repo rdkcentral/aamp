@@ -2525,7 +2525,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 			}
 			else
 			{
-				AAMPLOG_WARN("NEIL Auto resume playback task already exists, avoid creating duplicates for now!");
+				AAMPLOG_INFO("NEIL Auto resume playback task already exists, avoid creating duplicates for now!");
 			}
 		}
 	}
@@ -6039,7 +6039,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		tuneType = eTUNETYPE_NEW_SEEK;
 	}
 
-	AAMPLOG_INFO("Paused behavior : %d", mPausedBehavior);
+	AAMPLOG_INFO("NEIL Paused behavior : %d", mPausedBehavior);
 
 	for(int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{

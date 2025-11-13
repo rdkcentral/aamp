@@ -600,21 +600,23 @@ void PlayerInstanceAAMP::SetPlaybackSpeed (float speed)
  */
 void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 {
+	AAMPLOG_INFO("Neil enter PlayerInstanceAAMP::()SetRateInternal");
+
 	if( aamp )
 	{
-		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
+		AAMPLOG_INFO("Neil PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 		AAMPPlayerState state = GetState();
 
 		if (state == eSTATE_ERROR)
 		{
-			AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");
+			AAMPLOG_WARN("Neil operation is not allowed when player in eSTATE_ERROR state !");
 			return;
 		}
 
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 		{
-			AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %f", getWorkingTrickplayRate(rate), rate);
+			AAMPLOG_WARN("Neil mRepairIframes is true, setting actual rate %f for the received rate %f", getWorkingTrickplayRate(rate), rate);
 			rate = getWorkingTrickplayRate(rate);
 		}
 
@@ -628,7 +630,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
-				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
+				AAMPLOG_WARN("Neil Ignoring trickplay. No iframe tracks in stream");
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
@@ -647,7 +649,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 			{
-				AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
+				AAMPLOG_WARN("Neil PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
 				aamp->mbPlayEnabled = true;
 				if (AAMP_NORMAL_PLAY_RATE == rate)
 				{
@@ -667,14 +669,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 				else if(AAMP_RATE_PAUSE != rate)
 				{
-					AAMPLOG_INFO("Player switched at trickplay %f", rate);
+					AAMPLOG_INFO("Neil Player switched at trickplay %f", rate);
 					aamp->playerStartedWithTrickPlay = true; //to be used to show at least one frame
 				}
 			}
 			bool retValue = true;
 			if ( AAMP_SLOWMOTION_RATE != rate && rate > 0 && aamp->IsLive() && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint() && aamp->rate >= AAMP_NORMAL_PLAY_RATE && !aamp->mbDetached)
 			{
-				AAMPLOG_WARN("Already at logical live point, hence skipping operation");
+				AAMPLOG_WARN("Neil Already at logical live point, hence skipping operation");
 				aamp->NotifyOnEnteringLive();
 				return;
 			}
@@ -683,7 +685,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
 			if ((!aamp->pipeline_paused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused))
 			{
-				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused, rate);
+				AAMPLOG_WARN("Neil Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused, rate);
 				return;
 			}
 
@@ -759,7 +761,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						}
 						else
 						{
-							AAMPLOG_WARN("new seek_pos_seconds calculated is invalid(%f), discarding it!", newSeekPosInSec);
+							AAMPLOG_WARN("Neil new seek_pos_seconds calculated is invalid(%f), discarding it!", newSeekPosInSec);
 						}
 					}
 				}
@@ -796,8 +798,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			double formattedCurrPos = aamp->GetPositionMilliseconds() - offset;
 			double formattedSeekPos = (aamp->seek_pos_seconds * 1000.0) - offset;
 
-			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
-			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
+			AAMPLOG_WARN("Neil aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
+			AAMPLOG_WARN("Neil aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
 					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
 			
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
@@ -805,12 +807,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// no deferring for playback resume
 				if (aamp->pipeline_paused && rate != 0)
 				{
-					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
+					AAMPLOG_INFO("Neil Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					// Resuming payback from pause
 					// If have local TSB, but playing from Live then seek into the TSB
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
+						AAMPLOG_INFO("Neil LocalTSB && !aamp->IsLocalAAMPTsbInjection()");
 						retValue = false;
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
@@ -822,6 +825,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					else
 					{
+						AAMPLOG_INFO("Neil check if unpausing in the middle of fragments caching");
+
 						// check if unpausing in the middle of fragments caching
 						if(!aamp->SetStateBufferingIfRequired())
 						{
@@ -841,15 +846,20 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			else if (rate == 0)
 			{
+				AAMPLOG_INFO("Neil Rate == 0 ");
 				if (!aamp->pipeline_paused)
 				{
+				AAMPLOG_INFO("Neil !aamp->pipeline_paused");
+
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
 					{
+						AAMPLOG_INFO("Neil !aamp->IsLocalAAMPTsb");
+
 						aamp->StopDownloads();
 						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
 						{
-							AAMPLOG_INFO("Downloads disabled on pause");
+							AAMPLOG_INFO("Neil Downloads disabled on pause");
 							// for this class of playback, disable downloads indefinitely while paused. If we continue manifest downloading in this scenario, can result in playback failure due to period culling.
 							aamp->DisableDownloads();
 							aamp->mSeekFromPausedState = true;
@@ -869,12 +879,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
 						aamp->SetLLDashAdjustSpeed(false);
 					}
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
+					AAMPLOG_INFO("Neil StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
 					aamp->mDisableRateCorrection = true;
 				}
 			}
 			else
 			{
+				AAMPLOG_INFO("Neil Enable playback if setRate call");
 				//Enable playback if setRate call after detach
 				if(aamp->mbDetached){
 					aamp->mbPlayEnabled = true;
@@ -918,7 +929,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 		}
 		else
 		{
-			AAMPLOG_WARN("aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
+			AAMPLOG_WARN("Neil aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
 		}
 	}
 }
@@ -928,6 +939,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
  */
 void PlayerInstanceAAMP::PauseAt(double position)
 {
+	AAMPLOG_INFO("Neil enter PlayerInstanceAAMP::PauseAt()");
+
 	if( aamp )
 	{
 		if( GetState() != eSTATE_ERROR )
