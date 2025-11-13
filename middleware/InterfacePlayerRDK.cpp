@@ -3971,7 +3971,7 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
  * @param[in] pInterfacePlayerRDK pointer to InterfacePlayerRDK instance
  * @retval TRUE if element name is that of audio sink or audio decoder
  */
-bool GstPlayer_isAudioSinkOrAudioDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
+bool GstPlayer_isAudioSinkOrAudioDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK, GstElement* element)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	return privatePlayer->socInterface->IsAudioSinkOrAudioDecoder(name);
