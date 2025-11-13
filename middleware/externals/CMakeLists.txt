@@ -148,6 +148,8 @@ if(CMAKE_IARM_MGR)
     set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
 endif()
 
+
+
 if(CMAKE_WPEFRAMEWORK_REQUIRED)
     # Append additional header(s) for WPEFramework usage
     set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerThunderAccess.h")
@@ -156,6 +158,9 @@ endif()
 set_target_properties(playerfbinterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFINES}")
 
 string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
+
+target_include_directories(playerfbinterface PRIVATE ${DS_INCLUDE_DIRS})
+target_link_libraries(playerfbinterface PRIVATE ${DS_LIBRARIES})
 
 target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 target_link_libraries(playerfbinterface playerlogmanager)

@@ -35,12 +35,13 @@ Remove the entire folder externals/rdk/IARM
 #define DEVICE_IARM_INTERFACE_H
 
 #include "DeviceInterfaceBase.h"
-
+#include "host.hpp"
+#include "interfaces/IDisplayInfo.h"
 #include <string>
 
-class DeviceIARMInterface : public DeviceInterfaceBase {
-
-    
+class DeviceIARMInterface : public DeviceInterfaceBase,
+	public Exchange::IDisplayProperties,
+	public device::Host::IVideoOutputPortEvents {
     public:
 
         DeviceIARMInterface(const DeviceIARMInterface&) = delete;
@@ -62,6 +63,10 @@ class DeviceIARMInterface : public DeviceInterfaceBase {
         void RegisterNtwMgrEventHandler() override;
 
         void RemoveEventHandlers() override;
+
+		/* IVideoOutputPortEvents */
+		void OnResolutionPreChange(const int width, const int height) override;
+		void OnResolutionPostChange(const int width, const int height) override;
 
         DeviceIARMInterface();
 
