@@ -153,7 +153,10 @@ typedef enum
 	AAMP_TUNE_INVALID_MANIFEST_FAILURE,		   /**< Manifest is invalid */
 	AAMP_TUNE_FAILED_PTS_ERROR,			   /**< Playback failed due to PTS error */
 	AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING,		   /**< Init fragments missing in playlist */
-	AAMP_TUNE_FAILURE_UNKNOWN			   /**<  Unknown failure */
+	AAMP_TUNE_DNS_RESOLVE_TIMEOUT,
+	AAMP_TUNE_CURL_CONNECTION_TIMEOUT,
+	AAMP_TUNE_DATA_TRANSFER_TIMEOUT,
+	AAMP_TUNE_FAILURE_UNKNOWN		   /**<  Unknown failure */
 } AAMPTuneFailure;
 
 /**

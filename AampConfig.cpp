@@ -299,7 +299,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
 	{false,"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true},
 	{true,"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false},
-	{true,"fragmp4LicensePrefetch",eAAMPConfig_Fragmp4PrefetchLicense,false},
+	{true,"fragmp4LicensePrefetch",eAAMPConfig_FragMp4PrefetchLicense,false},
 	{true,"useNewABR",eAAMPConfig_ABRBufferCheckEnabled,false},
 	{false,"useNewAdBreaker",eAAMPConfig_NewDiscontinuity,false},
 	{false,"bulkTimedMetadata",eAAMPConfig_BulkTimedMetaReport,false},
@@ -447,6 +447,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{0,"drmStallTimeout",eAAMPConfig_DrmStallTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStartTimeout",eAAMPConfig_DrmStartTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"timeBasedBufferSeconds",eAAMPConfig_TimeBasedBufferSeconds,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
+	{DEFAULT_MAX_DOWNLOAD_BUFFER,"maxDownloadBuffer",eAAMPConfig_MaxDownloadBuffer,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
 	{DEFAULT_TELEMETRY_REPORT_INTERVAL,"telemetryInterval",eAAMPConfig_TelemetryInterval,true},
 	{0,"rateCorrectionDelay", eAAMPConfig_RateCorrectionDelay,true},
 	{-1,"harvestDuration",eAAMPConfig_HarvestDuration,false,eCONFIG_RANGE_HARVEST_DURATION},
@@ -854,8 +855,6 @@ void AampConfig::ApplyDeviceCapabilities()
 	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
-	configValueBool[eAAMPConfig_DisableAC4].value = SocUtils::IsSupportedAC4();
-	configValueBool[eAAMPConfig_DisableAC3].value = SocUtils::IsSupportedAC3();
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);

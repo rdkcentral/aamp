@@ -44,6 +44,8 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
+#include "AampTimeBasedBufferManager.hpp"
+#include "CachedFragment.h"
 
 /**
  * @brief Media Track Types
@@ -58,130 +60,6 @@ typedef enum
 
 AampMediaType TrackTypeToMediaType( TrackType trackType );
 
-/**
- * @brief Structure holding the resolution of stream
- */
-struct StreamResolution
-{
-	int width;        /**< Width in pixels*/
-	int height;       /**< Height in pixels*/
-	double framerate; /**< Frame Rate */
-
-	StreamResolution(): width(0), height(0), framerate(0.0)
-	{
-	}
-};
-
-/**
- * @brief Structure holding the information of a stream.
- */
-struct StreamInfo
-{
-	bool enabled;			/**< indicates if the streamInfo profile is enabled */
-	bool isIframeTrack;             /**< indicates if the stream is iframe stream*/
-	bool validity;		        /**< indicates profile validity against user configured profile range */
-	std::string codecs;	        /**< Codec String */
-	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
-	StreamResolution resolution;    /**< Resolution of the stream*/
-	BitrateChangeReason reason;     /**< Reason for bitrate change*/
-	std::string baseUrl;
-	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
-};
-
-
-struct TileLayout
-{
-	int numRows; 		/**< Number of Rows from Tile Inf */
-	int numCols; 		/**< Number of Cols from Tile Inf */
-	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
-	double tileSetDuration; /**< Duration of whole tile set */
-};
-
-/**
-*	\struct	TileInfo
-* 	\brief	TileInfo structure for Thumbnail data
-*/
-class TileInfo
-{
-public:
-	TileInfo(): layout(), startTime(), url()
-	{
-	}
-
-	~TileInfo()
-	{
-	}
-
-	TileLayout layout;
-	double startTime;
-	std::string url;
-};
-
-/**
- * @brief Structure of cached fragment data
- *        Holds information about a cached fragment
- */
-class CachedFragment
-{
-public:
-	AampGrowableBuffer fragment;	/**< Buffer to keep fragment content */
-	double position;				/**< Position in the playlist, in seconds */
-	double duration;				/**< Fragment duration, in seconds */
-	bool initFragment;				/**< Is init fragment */
-	bool discontinuity;				/**< PTS discontinuity status */
-	bool isDummy;			/**< Is dummy fragment */
-	int profileIndex;				/**< Profile index; Updated internally */
-	uint32_t timeScale;				/* timescale of this fragment as read from manifest */
-	std::string uri;				/* for debug */
-	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
-	AampMediaType type;				/**< AampMediaType info of the fragment */
-	long long downloadStartTime;	/**< The start time of file download */
-	long long discontinuityIndex;
-	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
-	double absPosition;		/** Absolute position */
-	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
-					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
-					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0),
-					   isDummy(false)
-	{
-	}
-
-	void Copy(CachedFragment* other, size_t len)
-	{
-		this->position = other->position;
-		this->duration = other->duration;
-		this->initFragment = other->initFragment;
-		this->discontinuity = other->discontinuity;
-		this->profileIndex = other->profileIndex;
-		this->cacheFragStreamInfo = other->cacheFragStreamInfo;
-		this->type = other->type;
-		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
-		this->downloadStartTime = other->downloadStartTime;
-		this->uri = other->uri;
-		this->timeScale = other->timeScale;
-		this->PTSOffsetSec = other->PTSOffsetSec;
-		this->absPosition =  other->absPosition;
-		this->isDummy = other->isDummy;
-	}
-	void Clear()
-	{
-		fragment.Free();
-		position = 0.0;
-		duration = 0.0;
-		initFragment = false;
-		discontinuity = false;
-		isDummy = false;
-		profileIndex = 0;
-		timeScale = 0;
-		uri = "";
-		cacheFragStreamInfo = StreamInfo();
-		type = eMEDIATYPE_DEFAULT;
-		downloadStartTime = 0;
-		discontinuityIndex = 0;
-		PTSOffsetSec = 0;
-		absPosition = 0.0;
-	}
-};
 
 /**
  * @brief Playlist Types
@@ -781,6 +659,15 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
+	/**
+	 * @fn GetTimeBasedBufferManager 
+	 *
+	 * @brief Get the time based buffer manager for this track
+	 *
+	 * @return AampTimeBasedBufferManager object
+	 */
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> GetTimeBasedBufferManager() { return mTimeBasedBufferManager; }
+
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -949,8 +836,13 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
+	int fragmentIdxToInject;            	/**< Write position */
+	int fragmentChunkIdxToInject;       	/**< Write position */
+	int fragmentIdxToFetch;             	/**< Read position */
+	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
 
 private:
 	enum class TrickmodeState
@@ -979,10 +871,6 @@ private:
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	int fragmentIdxToInject;            	/**< Write position */
-	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
-	int fragmentChunkIdxToFetch;        	/**< Read position */
 	int bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
 	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
 	bool discontinuityProcessed;

@@ -120,24 +120,10 @@ typedef enum
 	eGST_STATE_BLOCKED               /**< 14 - Player has blocked and cant play content*/
 } GstPrivPlayerState;
 
-/**
- * @name gstMapDecoderLookUptable
- *
- * @brief Decoder map list lookup table
- * convert from codec to string map list of gstreamer
- * component.
- */
-static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable =
-{
-	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
-	{"ac-4", {"omxac4dec"}}};
-
-
-
 struct gst_media_stream
 {
 	GstElement *sinkbin;              /**< Sink element to consume data */
-	GstElement *source;                       /**< to provide data to the pipleline */
+	GstElement *source;                       /**< to provide data to the pipeline */
 	GstStreamOutputFormat format; /**< Stream output format for this stream */
 	bool pendingSeek;                         /**< Flag denotes if a seek event has to be sent to the source */
 	bool resetPosition;                       /**< To indicate that the position of the stream is reset */
@@ -212,6 +198,7 @@ struct GstPlayerPriv
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink;                                                         /**< true if westeros sink is used as video sink */
 	bool usingRialtoSink;                                                            /**< true if rialto sink is used for video and audio sinks */
+	bool usingClosedCaptionsControl;                                                 /**< true if subtitle sink being used for CC control */
 	char videoRectangle[VIDEO_COORDINATES_SIZE];
 	bool pauseOnStartPlayback;                                                               /**< true if should start playback paused */
 	std::atomic<bool> eosSignalled;                                                  /**< Indicates if EOS has signaled */

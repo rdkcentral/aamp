@@ -27,8 +27,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-#set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -205,7 +204,26 @@ install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
 )
+#Enabling systemd macro and lib
+if(CMAKE_SYSTEMD_JOURNAL)
+	message("CMAKE_SYSTEMD_JOURNAL set")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lsystemd")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+endif()
+#Enabling ethan log macro and lib
+if(CMAKE_USE_ETHAN_LOG)
+	message("DCMAKE_USE_ETHAN_LOG set")
+	# Find the ethanlog library for container logger
+	find_package( EthanLog REQUIRED )
+	# Add the include directories for EthanLog
+	include_directories(${ETHANLOG_INCLUDE_DIRS})
 
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lethanlog")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+endif()
 # Building jsbindings
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
@@ -265,6 +283,7 @@ set(LIBAAMP_SOURCES
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
 	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	CachedFragment.cpp CachedFragment.h
 	AampScheduler.cpp AampScheduler.h
 	AampUtils.cpp AampUtils.h
 	AampJsonObject.cpp AampJsonObject.h
@@ -335,6 +354,9 @@ set(LIBAAMP_SOURCES
 	AampTrackWorker.cpp AampTrackWorker.h
 	LangCodePreference.h
 	test/gstTestHarness/mp4demux.hpp
+	AampTrackWorkerManager.cpp
+	AampFragmentDescriptor.cpp
+	AampTimeBasedBufferManager.cpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -372,25 +394,6 @@ if (COVERAGE_ENABLED)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
 endif()
 
-if(CMAKE_SYSTEMD_JOURNAL)
-	message("CMAKE_SYSTEMD_JOURNAL set")
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lsystemd")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
-	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-endif()
-
-if(CMAKE_USE_ETHAN_LOG)
-	message("DCMAKE_USE_ETHAN_LOG set")
-	# Find the ethanlog library for container logger
-	find_package( EthanLog REQUIRED )
-	# Add the include directories for EthanLog
-	include_directories(${ETHANLOG_INCLUDE_DIRS})
-
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lethanlog")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
-	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
-endif()
 
 if(CMAKE_AUXILIARY_AUDIO_ENABLED)
 	message("CMAKE_AUXILIARY_AUDIO_ENABLED set")
@@ -527,6 +530,12 @@ install(FILES
 	AampLLDASHData.h
 	AampTSBSessionManager.h
 	AampTsbReader.h
+	AampTrackWorker.hpp
+	AampTrackWorkerManager.hpp
+	AampDownloadInfo.hpp
+	AampFragmentDescriptor.hpp
+	AampTimeBasedBufferManager.hpp
+	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	DESTINATION include

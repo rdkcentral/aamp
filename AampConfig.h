@@ -146,7 +146,7 @@ typedef enum
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
-	eAAMPConfig_Fragmp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
+	eAAMPConfig_FragMp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
 	eAAMPConfig_ABRBufferCheckEnabled,					/**< Flag to enable/disable buffer based ABR handling*/
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
@@ -290,6 +290,7 @@ typedef enum
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
 	eAAMPConfig_TimeBasedBufferSeconds,
+	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
 	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */

@@ -28,10 +28,6 @@ namespace SocUtils
 	{
 		return false;
 	}
-	bool IsSupportedAC4( void )
-	{
-		return false;
-	}
 	bool UseWesterosSink( void )
 	{
 		return false;
@@ -41,15 +37,6 @@ namespace SocUtils
 		return false;
 	}
 	bool EnableLiveLatencyCorrection( void )
-	{
-		return false;
-	}
-	bool DisableAC3( void )
-	{
-		return false;
-	}
-
-	bool IsSupportedAC3()
 	{
 		return false;
 	}

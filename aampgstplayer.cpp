@@ -266,7 +266,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::idleCb] = [this]()
 	{
 		UsingPlayerId playerId( aamp->mPlayerId );
-		aamp->ReportProgress();
+		aamp->MonitorProgress();
 
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
@@ -276,7 +276,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 		{
 			privateContext->mBufferControl[i].update(this, static_cast<AampMediaType>(i));
 		}
-		aamp->ReportProgress();
+		aamp->MonitorProgress();
 	};
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
@@ -1112,21 +1112,6 @@ void AAMPGstPlayer::GetVideoSize(int &width, int &height)
 {
 	playerInstance->GetVideoSize( width, height);
 }
-
-/***
- * @fn  IsCodecSupported
- *
- * @brief Check whether Gstreamer platform has support of the given codec or not.
- *        codec to component mapping done in gstreamer side.
- * @param codecName - Name of codec to be checked
- * @return True if platform has the support else false
- */
-
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	return InterfacePlayerRDK::IsCodecSupported(codecName);
-}
-
 
 /**
  *  @brief Increase the rank of AAMP decryptor plugins

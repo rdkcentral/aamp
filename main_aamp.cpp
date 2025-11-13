@@ -59,25 +59,12 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-//Need to do iarm initialization process before reading the tr181 aamp parameters.
-//Using printf here since AAMP logs can only use after creating the global object
-	static bool iarmInitialized = false;
-	if(!iarmInitialized)
-	{
-			char processName[20] = {0};
-
-			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
-
-			PlayerExternalsInterface::IARMInit(processName);
-
-
-			iarmInitialized = true;
-	}
-
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
+		
+
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
 		printf( "curl version: %s\n", vers->version );
@@ -93,12 +80,25 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			if(!gpGlobalConfig->ReadAampCfgJsonFile())
 			{
 				gpGlobalConfig->ReadAampCfgFromEnv();
-			}
+			}			
+			
 		}
+
+		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+
+		//TR181 is not supported in firebolt
+		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		pExternalsInterface->Initialize();	
+		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
+
+	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	pExternalsInterface->Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
@@ -126,6 +126,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
+
+	AAMPLOG_MIL("UseFireboltSDK=%d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 
 	// start Scheduler Worker for task handling
 	mScheduler.StartScheduler(aamp->mPlayerId);
@@ -620,6 +622,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
+			if (aamp->mbDetached)
+			{
+				aamp->enableEventProcessing();
+			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -1090,6 +1096,11 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	{
 		AAMPPlayerState state = GetState();
 		aamp->StopPausePositionMonitoring("Seek() called");
+
+		if (aamp->mbDetached)
+		{
+			aamp->enableEventProcessing();
+		}
 
 		if ((aamp->mMediaFormat == eMEDIAFORMAT_HLS || aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4) && (eSTATE_INITIALIZING == state)  && aamp->mpStreamAbstractionAAMP)
 		{
@@ -1601,20 +1612,42 @@ void PlayerInstanceAAMP::UnloadJS(void* context)
 /**
  *  @brief Support multiple listeners for multiple event type
  */
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+{
+	if(aamp){
+		aamp->AddEventListener(eventType, eventListener);
+	}
+}
+
+/**
+ * @brief Support multiple listeners for multiple event type - raw pointer version
+ */
 void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 	if(aamp){
-	aamp->AddEventListener(eventType, eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		aamp->AddEventListener(eventType, sharedListener);
 	}
 }
 
 /**
  *  @brief Remove event listener for eventType.
  */
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+{
+	if(aamp){
+		aamp->RemoveEventListener(eventType, eventListener);
+	}
+}
+
+ /**
+  * @brief Remove event listener for eventType - raw pointer version
+  */
 void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 	if(aamp){
-	aamp->RemoveEventListener(eventType, eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		aamp->RemoveEventListener(eventType, sharedListener);
 	}
 }
 

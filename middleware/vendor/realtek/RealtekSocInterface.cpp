@@ -67,10 +67,9 @@ void RealtekSocInterface::SetAudioProperty(const char * &volume, const char * &m
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
- * @param isRialto True if rialto sink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
     //SOC specific code will  be executed for rialto sink at default soc 
 	if(!pipeline)
@@ -126,55 +125,41 @@ void RealtekSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 /**
  * @brief Check if the given name is a video sink.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video sink, false otherwise.
  */
-bool RealtekSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool RealtekSocInterface::IsVideoSink(const char* name)
 {
-	if(name)
-		return (StartsWith(name, "westerossink") || StartsWith(name, "rtkv1sink") || (isRialto && StartsWith(name, "rialtomsevideosink") == true));
-	else
-		return false;
+	return name && (
+					StartsWith(name, "westerossink") ||
+					StartsWith(name, "rtkv1sink") );
 }
 
 /**
  * @brief Check if the given name is an audio sink or audio decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's an audio sink or audio decoder, false otherwise.
  */
-bool RealtekSocInterface::IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)
+bool RealtekSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
 {
-	if(name)
-	{
-		return (StartsWith(name, "rtkaudiosink")
-				|| StartsWith(name, "alsasink")
-				|| StartsWith(name, "fakesink")
-				|| (isRialto && StartsWith(name, "rialtomseaudiosink") == true));
-	}
-	else
-	{
-		return false;
-	}
+	return name && (
+					StartsWith(name, "rtkaudiosink") ||
+					StartsWith(name, "alsasink") ||
+					StartsWith(name, "fakesink") );
 }
 
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool RealtekSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool RealtekSocInterface::IsVideoDecoder(const char* name)
 {
-	if(name)
-	{
-		return (StartsWith(name, "omxwmvdec") || StartsWith(name, "omxh26")
-				|| StartsWith(name, "omxav1dec") || StartsWith(name, "omxvp") || StartsWith(name, "omxmpeg"));
-	}
-	else
-	{
-		return false;
-	}
+	return name && (
+					StartsWith(name, "omxwmvdec") ||
+					StartsWith(name, "omxh26") ||
+					StartsWith(name, "omxav1dec") ||
+					StartsWith(name, "omxvp") ||
+					StartsWith(name, "omxmpeg") );
 }
 
 /**
@@ -212,21 +197,9 @@ bool RealtekSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
+bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(name)
-	{
-		if(StartsWith(name, "omx"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-		else if(isRialto && StartsWith(name, "rialtomse"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-	}
-	return AudioOrVideoDecoder;
+	return name && StartsWith(name, "omx");
 }
 
 /**

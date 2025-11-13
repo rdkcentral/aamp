@@ -154,7 +154,8 @@ class InterfacePlayerRDK
 		bool trickTeardown;
 		std::mutex mMutex;
 		std::map<std::string, int> configMap;
-        public:
+
+	public:
 		Configs *m_gstConfigParam;
 		char *mDrmSystem;
 		void *mEncrypt;
@@ -509,6 +510,10 @@ class InterfacePlayerRDK
         	 */
         	void InitializeSourceForPlayer(void *PlayerInstance, void *source, int mediaType);
         	/**
+        	 * @brief Setup a Closed Caption control stream.
+        	 */
+        	void SetupClosedCaptionControlStream();
+        	/**
         	 * @brief Sets up the stream.
         	 * @param[in] streamId The ID of the stream to set up.
         	 * @param[in] _this The instance of the player.
@@ -618,12 +623,6 @@ class InterfacePlayerRDK
         	 * @param[in] event The event to trigger.
         	 */
         	void TriggerEvent(InterfaceCB event);
-        	/**
-        	 * @brief Checks if a codec is supported.
-        	 * @param[in] codecName The name of the codec to check.
-        	 * @return True if the codec is supported, false otherwise.
-        	 */
-        	static bool IsCodecSupported(const std::string &codecName);
         	/**
         	 * @brief Disables the decoder handle notification.
         	 */

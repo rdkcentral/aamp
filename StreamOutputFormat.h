@@ -26,7 +26,7 @@
  */
 enum StreamOutputFormat
 {
-    FORMAT_INVALID,         /**< Invalid format */
+    FORMAT_INVALID,         /**< Invalid format. Used in rialto for subtitle track when there are inband captions. */
     FORMAT_MPEGTS,          /**< MPEG Transport Stream */
     FORMAT_ISO_BMFF,        /**< ISO Base Media File format */
     FORMAT_AUDIO_ES_MP3,    /**< MP3 Audio Elementary Stream */

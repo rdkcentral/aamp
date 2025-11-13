@@ -44,6 +44,16 @@ public:
 	void StopRendering() override {}
 	int SetDigitalChannel(unsigned int id) override { return 0; }
 	int SetAnalogChannel(unsigned int id) override { return 0; }
+
+	int SetTrack(const std::string &track, const CCFormat format) override
+	{
+		int result = 0;
+		if (g_mockPlayerCCManager)
+		{
+			result = g_mockPlayerCCManager->SetTrack(track, format);
+		}
+		return result;
+	}
 };
 
 PlayerCCManagerBase* PlayerCCManager::mInstance = nullptr;
@@ -62,7 +72,7 @@ bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 	return false;
 }
 int PlayerCCManagerBase::SetStatus(bool enable)
-{ 
+{
 	return 0;
 }
 int PlayerCCManagerBase::SetStyle(const std::string &options)
@@ -71,7 +81,7 @@ int PlayerCCManagerBase::SetStyle(const std::string &options)
 }
 int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat format)
 {
-	return 0; 
+	return 0;
 }
 void PlayerCCManagerBase::SetTrickplayStatus(bool enable)
 {
@@ -84,6 +94,9 @@ void PlayerCCManagerBase::StartRendering()
 {
 }
 void PlayerCCManagerBase::StopRendering()
+{
+}
+void PlayerCCManagerBase::ResetState()
 {
 }
 
@@ -101,6 +114,10 @@ void PlayerCCManager::DestroyInstance()
 	delete mInstance;
 }
 
+void PlayerCCManager::SetRialto(bool state)
+{
+}
+
 PlayerCCManagerBase *PlayerCCManager::GetInstance()
 {
 	if (!mInstance)
@@ -109,4 +126,3 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 	}
 	return mInstance;
 }
-
