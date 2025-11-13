@@ -237,6 +237,7 @@ private:
 										   ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
 										   ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf] );
 		ptr += 16;
+		printf("[MP4DEMUX] PSSH Box detected - system_id: '%s'\n", system_id);
 		PRINTF( "%ssystem_id: '%s'\n", INDENT(), system_id );
 		
 		size_t pssh_size = next - ptr;
@@ -245,6 +246,7 @@ private:
 		//g_queue_push_tail (&stream->protection_scheme_event_queue, gst_event_ref (event));
 		//gst_pad_push_event (pad, gst_event_ref (event));
 		protectionEvents.push_back(event);
+		printf("[MP4DEMUX] Protection event created and stored. Total events: %zu\n", protectionEvents.size());
 		g_free (system_id);
 		//gst_event_unref(event);
 		gst_buffer_unref(pssh);
@@ -411,11 +413,13 @@ private:
 	{
 		ReadHeader();
 		uint32_t sampleCount = ReadU32();
+		printf("[MP4DEMUX] parseSampleEncryptionBox - sampleCount: %u, iv_size: %u\n", sampleCount, iv_size);
 		size_t maxSampleCount = sampleOffset + sampleCount;
 		assert( samples.size() == maxSampleCount );
 		// Start from sampleOffset to map samples from mdat
 		for( auto iSample=sampleOffset; iSample<maxSampleCount; iSample++ )
 		{
+			printf("[MP4DEMUX] Setting encryption info for sample %zu\n", iSample);
 			if( iv_size )
 			{
 				samples[iSample].iv = std::string((char *)ptr,iv_size);
@@ -449,6 +453,7 @@ private:
 			}
 		}
 		sencPresent = true;
+		printf("[MP4DEMUX] parseSampleEncryptionBox completed - sencPresent: true\n");
 	}
 	
 	void parseMovieFragmentHeaderBox( void )
@@ -504,6 +509,7 @@ private:
 	{
 		ReadHeader();
 		uint32_t sample_count = ReadU32();
+		printf("[MP4DEMUX] parseTrackFragmentRunBox - sample_count: %u\n", sample_count);
 		PRINTF( "%ssample_number=%" PRIu32 "\n", INDENT(), sample_count );
 		const unsigned char *data_ptr = moof_ptr;
 		//0xE01
@@ -532,6 +538,7 @@ private:
 			sample.pts = 0.0;
 			sample.dts = 0.0;
 			sample.duration = 0.0;
+			printf("[MP4DEMUX] Extracting sample %u\n", i);
 			PRINTF( "%sframe#%03d", INDENT(), i );
 			uint32_t sample_duration = default_sample_duration;
 			if (flags & 0x0100)
@@ -562,6 +569,8 @@ private:
 			PRINTF( " duration:%f dts=%f pts=%f", sample.duration, sample.dts, sample.pts );
 			dts += sample_duration;
 			samples.push_back( std::move(sample) );
+			printf("[MP4DEMUX] Sample %u extracted - size: %zu, dts: %f, pts: %f, duration: %f\n", 
+				   i, samples.back().len, samples.back().dts, samples.back().pts, samples.back().duration);
 			PRINTF( "\n" );
 		}
 	}
@@ -930,6 +939,7 @@ private:
 public:
 	void Parse( const void *ptr, size_t len )
 	{
+		printf("[MP4DEMUX] Parse() called - segment size: %zu bytes\n", len);
 		// scrub sample data from previous segment, but leave other metadata intact
 		samples.clear();
 		cenc_aux_info_sizes.clear();
@@ -940,7 +950,27 @@ public:
 			this->ptr = (const uint8_t *)ptr;
 			indent = 16+1;
 			DemuxHelper( &this->ptr[len] );
+			printf("[MP4DEMUX] Parse completed - extracted %d samples\n", (int)samples.size());
 		}
+		else
+		{
+			printf("[MP4DEMUX] Parse() called with NULL ptr\n");
+		}
+	}
+	
+	/**
+	 * @brief Clear protection events - called when switching periods/content
+	 * Do NOT call this on every Parse() as protection events are reused across segments
+	 */
+	void ClearProtectionEvents()
+	{
+		printf("[MP4DEMUX] ClearProtectionEvents() called - clearing %zu events\n", protectionEvents.size());
+		for( int i=0; i<protectionEvents.size(); i++ )
+		{
+			gst_event_unref(protectionEvents[i]);
+		}
+		protectionEvents.clear();
+		printf("[MP4DEMUX] Protection events cleared\n");
 	}
 	
 	Mp4Demux( bool verbose=false ):
@@ -1088,19 +1118,28 @@ public:
 	
 	size_t getNumProtectionEvents( void )
 	{
+		printf("[MP4DEMUX] getNumProtectionEvents() - returning %zu events\n", protectionEvents.size());
 		return protectionEvents.size();
 	}
 	
 	GstEvent *getProtectionEvent( int which )
 	{
-		return protectionEvents[which];
+		if(which >= 0 && which < (int)protectionEvents.size())
+		{
+			printf("[MP4DEMUX] getProtectionEvent(%d) - returning event from %zu total\n", which, protectionEvents.size());
+			return protectionEvents[which];
+		}
+		printf("[MP4DEMUX] getProtectionEvent(%d) - INDEX OUT OF RANGE! Total events: %zu\n", which, protectionEvents.size());
+		return NULL;
 	}
 	
 	GstStructure *getDrmMetadata( int sampleIndex )
 	{
+		printf("[MP4DEMUX] getDrmMetadata() called for sample %d, is_encrypted: %d\n", sampleIndex, is_encrypted);
 		GstStructure *metadata = NULL;
 		if( is_encrypted )
 		{
+			printf("[MP4DEMUX] Sample %d is encrypted - creating metadata structure\n", sampleIndex);
 			char original_media_type_string[5] =
 			{
 				(char)(original_media_type>>0x18),
@@ -1117,6 +1156,8 @@ public:
 				(char)(scheme_type>>0x00),
 				0x00
 			};
+			printf("[MP4DEMUX] Media type: %s, Cipher mode: %s, KID size: %zu\n", 
+				   original_media_type_string, cipher_mode_string, default_kid.size());
 			
 			GstBuffer *kid_buf = _gst_buffer_new_memdup( (gpointer)default_kid.c_str(), (gsize)default_kid.size() );
 			metadata = gst_structure_new(
@@ -1130,6 +1171,7 @@ public:
 			
 			const Mp4Sample &sample = samples[sampleIndex];
 			size_t iv_size = sample.iv.size();
+			printf("[MP4DEMUX] Sample %d IV size: %zu, Subsample size: %zu\n", sampleIndex, iv_size, sample.subsamples.size());
 			if( iv_size )
 			{
 				GstBuffer *iv_buf = _gst_buffer_new_memdup( (gpointer)sample.iv.c_str(), (gsize)iv_size );
@@ -1159,6 +1201,7 @@ public:
 			
 			if( scheme_type == MultiChar_Constant("cbcs") )
 			{
+				printf("[MP4DEMUX] Using CBCS scheme - constant IV size: %u\n", constant_iv_size);
 				GstBuffer *constant_iv_buf = _gst_buffer_new_memdup( (gpointer)constant_iv.c_str(), (gsize)constant_iv_size);
 				gst_structure_set(metadata,
 								  "iv", GST_TYPE_BUFFER, constant_iv_buf,
@@ -1172,9 +1215,14 @@ public:
 		
 		if( metadata )
 		{ // serialize and print the metadata
+			printf("[MP4DEMUX] DRM metadata created successfully for sample %d\n", sampleIndex);
 			gchar *structure_string = gst_structure_to_string( metadata );
 			PRINTF("metadata: %s\n", structure_string);
 			g_free(structure_string);
+		}
+		else
+		{
+			printf("[MP4DEMUX] getDrmMetadata() returned NULL for sample %d\n", sampleIndex);
 		}
 		
 		return metadata;
