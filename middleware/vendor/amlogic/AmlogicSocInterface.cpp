@@ -146,9 +146,28 @@ GstPad* AmlogicSocInterface::GetSourcePad(GstElement* source)
  * @param name Element name.
  * @return True if it's a video sink, false otherwise.
  */
+
 bool AmlogicSocInterface::IsVideoSink(const char* name)
 {
 	return name && StartsWith(name, "westerossink");
+}
+
+bool AmlogicSocInterface::IsVideoSink(const char* name, GstElement *element)
+{
+	// First check if it's a sink at all
+    if (!GST_OBJECT_FLAG_IS_SET(element, GST_ELEMENT_FLAG_SINK)) {
+        return FALSE;
+    }
+
+    // Get element factory and check class metadata
+    GstElementFactory *factory = gst_element_get_factory(element);
+    if (!factory) return FALSE;
+
+    const gchar *klass = gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS);
+    if (!klass) return FALSE;
+
+    // Video sinks have both "Sink" and "Video" in their klass
+    return (strstr(klass, "Sink") != NULL && strstr(klass, "Video") != NULL);
 }
 
 /**
@@ -196,6 +215,20 @@ bool AmlogicSocInterface::IsVideoDecoder(const char* name)
 	return name && StartsWith(name, "westerossink");
 }
 
+bool AmlogicSocInterface::IsVideoDecoder(const char* name, GstElement* element)
+{
+	// Get element factory
+    GstElementFactory *factory = gst_element_get_factory(element);
+    if (!factory) return FALSE;
+
+    // Get class metadata
+    const gchar *klass = gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS);
+    if (!klass) return FALSE;
+
+    // Decoders usually have "Decoder" in their klass
+    return (strstr(klass, "Decoder") != NULL);
+}
+
 /**
  * @brief Configure the audio sink.
  * @param audio_sink Pointer to the audio sink element.
@@ -234,6 +267,20 @@ bool AmlogicSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
 bool AmlogicSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
 	return name && StartsWith(name, "westerossink");
+}
+
+bool AmlogicSocInterface::IsAudioOrVideoDecoder(const char* name, GstElement* element)
+{
+	// Get element factory
+    GstElementFactory *factory = gst_element_get_factory(element);
+    if (!factory) return FALSE;
+
+    // Get class metadata
+    const gchar *klass = gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS);
+    if (!klass) return FALSE;
+
+    // Any decoder (audio or video) will have "Decoder" in its klass
+    return (strstr(klass, "Decoder") != NULL);
 }
 
 /**
