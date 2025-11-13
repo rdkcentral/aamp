@@ -3791,13 +3791,13 @@ bool gst_StartsWith( const char *inputStr, const char *prefix )
  * @param[in] pInterfacePlayerRDK pointer to InterfacePlayerRDK instance
  * @retval TRUE if element name is that of audio or video decoder
  */
-bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInterfacePlayerRDK)
+bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInterfacePlayerRDK, GstElement* element)
 {
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
 	// This support is available in plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	return privatePlayer->socInterface->IsAudioOrVideoDecoder(name);
+	return privatePlayer->socInterface->IsAudioOrVideoDecoder(name, element);
 }
 
 /**
@@ -3806,10 +3806,10 @@ bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInte
  * @param[in] pInterfacePlayerRDK pointer to InterfacePlayerRDK instance
  * @retval TRUE if element name is that of the decoder
  */
-bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK)
+bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfacePlayerRDK, GstElement* element)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	return privatePlayer->socInterface->IsVideoDecoder(name);
+	return privatePlayer->socInterface->IsVideoDecoder(name, element);
 }
 
 /**
@@ -3864,10 +3864,10 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
  * @param[in] pInterfacePlayerRDK pointer to INterfacePlayerRDK instance
  * @retval TRUE if element name is that of video sink
  */
-bool GstPlayer_isVideoSink(const char* name, InterfacePlayerRDK* pInterfacePlayerRDK)
+bool GstPlayer_isVideoSink(const char* name, InterfacePlayerRDK* pInterfacePlayerRDK, GstElement* element)
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	return privatePlayer->socInterface->IsVideoSink(name);
+	return privatePlayer->socInterface->IsVideoSink(name,element);
 }
 
 /**
@@ -4002,18 +4002,18 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 
 		if (privatePlayer->socInterface->IsVideoSinkHandleErrors())
 		{
-			isVideo = GstPlayer_isVideoSink(GST_ELEMENT_NAME(object), pInterfacePlayerRDK);
+			isVideo = GstPlayer_isVideoSink(GST_ELEMENT_NAME(object), pInterfacePlayerRDK, object);
 		}
 		else
 		{
-			isVideo = GstPlayer_isVideoDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK);
+			isVideo = GstPlayer_isVideoDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK,object);
 		}
 
 		if (isVideo)
 		{
 			type = eGST_MEDIATYPE_VIDEO;
 		}
-		else if (GstPlayer_isAudioSinkOrAudioDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK))
+		else if (GstPlayer_isAudioSinkOrAudioDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK,object))
 		{
 			type = eGST_MEDIATYPE_AUDIO;
 		}
@@ -4075,13 +4075,13 @@ static void GstPlayer_OnGstPtsErrorCb(GstElement *object, guint arg0, gpointer a
 	bool isAudioSink = false;
 	if (privatePlayer->socInterface->IsVideoSinkHandleErrors())
 	{
-		isVideo = GstPlayer_isVideoSink(GST_ELEMENT_NAME(object), pInterfacePlayerRDK);
+		isVideo = GstPlayer_isVideoSink(GST_ELEMENT_NAME(object), pInterfacePlayerRDK, object);
 	}
 	else
 	{
-		isVideo = GstPlayer_isVideoDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK);
+		isVideo = GstPlayer_isVideoDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK,object);
 	}
-	if (GstPlayer_isAudioSinkOrAudioDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK))
+	if (GstPlayer_isAudioSinkOrAudioDecoder(GST_ELEMENT_NAME(object), pInterfacePlayerRDK,object))
 	{
 		isAudioSink = true;
 	}
@@ -4280,11 +4280,11 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 
 			}
 			//this code should be handled as part of IARM modification
-			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement *)msg->src))
 			{
 				// This is the video decoder, send this to the output protection module
 				// so it can get the source width/height
-				if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+				if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement *)msg->src))
 				{
 					if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 					{
@@ -4314,7 +4314,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				}
 
 			}
-			if((NULL != msg->src) && ((privatePlayer->socInterface->IsVideoSinkHandleErrors() && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK)) || (!privatePlayer->socInterface->IsVideoSinkHandleErrors() && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src),pInterfacePlayerRDK))) && (!privatePlayer->gstPrivateContext->usingRialtoSink))
+			if((NULL != msg->src) && ((privatePlayer->socInterface->IsVideoSinkHandleErrors() && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement *)msg->src)) || (!privatePlayer->socInterface->IsVideoSinkHandleErrors() && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src),pInterfacePlayerRDK, (GstElement *)msg->src))) && (!privatePlayer->gstPrivateContext->usingRialtoSink))
 			{
 				if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 				{
@@ -4322,7 +4322,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						G_CALLBACK(GstPlayer_OnGstBufferUnderflowCb), pInterfacePlayerRDK);
 						privatePlayer->SignalConnect(msg->src, "pts-error-callback",
 													   G_CALLBACK(GstPlayer_OnGstPtsErrorCb), pInterfacePlayerRDK);
-					if (!privatePlayer->socInterface->IsVideoSinkHandleErrors() && GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+					if (!privatePlayer->socInterface->IsVideoSinkHandleErrors() && GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement *)msg->src))
 					{
 						privatePlayer->SignalConnect(msg->src, "decode-error-callback",
 														   G_CALLBACK(GstPlayer_OnGstDecodeErrorCb), pInterfacePlayerRDK);
@@ -4730,7 +4730,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			 */
 			if (new_state == GST_STATE_PAUSED && old_state == GST_STATE_READY)
 			{
-				if (GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+				if (GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement*) msg->src))
 				{ // video scaling patch
 					/*
 					 brcmvideosink doesn't sets the rectangle property correct by default
@@ -4790,9 +4790,9 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			}
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
-				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement*) msg->src))
 				{
-					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement *)msg->src))
 					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
@@ -4818,7 +4818,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 
 					}
 				}
-				if ((NULL != msg->src) && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK) && (!privatePlayer->gstPrivateContext->usingRialtoSink))
+				if ((NULL != msg->src) && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK, (GstElement*) msg->src) && (!privatePlayer->gstPrivateContext->usingRialtoSink))
 				{
 					if(privatePlayer->gstPrivateContext->enableSEITimeCode)
 					{
