@@ -357,6 +357,9 @@ set(LIBAAMP_SOURCES
 	AampTrackWorker.cpp AampTrackWorker.h
 	LangCodePreference.h
 	test/gstTestHarness/mp4demux.hpp
+	AampTrackWorkerManager.cpp
+	AampFragmentDescriptor.cpp
+	AampTimeBasedBufferManager.cpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -514,6 +517,12 @@ install(FILES
 	AampLLDASHData.h
 	AampTSBSessionManager.h
 	AampTsbReader.h
+	AampTrackWorker.hpp
+	AampTrackWorkerManager.hpp
+	AampDownloadInfo.hpp
+	AampFragmentDescriptor.hpp
+	AampTimeBasedBufferManager.hpp
+	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	DESTINATION include
