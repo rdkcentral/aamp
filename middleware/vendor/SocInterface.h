@@ -296,7 +296,7 @@ public:
 	 * @param name Element name.
 	 * @return True if it's a video sink, false otherwise.
 	 */
-	virtual bool IsVideoSink(const char* name) = 0;
+	virtual bool IsVideoSink(const char* name, GstElement *element = nullptr) = 0;
 	
 	/**
 	 * @brief Check if the given name is an audio sink or audio decoder.
@@ -310,7 +310,7 @@ public:
 	 * @param name Element name.
 	 * @return True if it's a video decoder, false otherwise.
 	 */
-	virtual bool IsVideoDecoder(const char* name) = 0;
+	virtual bool IsVideoDecoder(const char* name, GstElement* element = nullptr) = 0;
 	
 	/**
 	 * @brief Configure the audio sink.
@@ -326,7 +326,7 @@ public:
 	 * @param name Element name
 	 * @return True if it's an audio or video decoder, false otherwise.
 	 */
-	virtual bool IsAudioOrVideoDecoder(const char* name) = 0;
+	virtual bool IsAudioOrVideoDecoder(const char* name, GstElement* element = nullptr) = 0;
 	
 	/**
 	 * @brief Disable asynchronous audio.
