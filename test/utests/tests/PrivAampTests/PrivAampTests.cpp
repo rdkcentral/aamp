@@ -914,42 +914,42 @@ TEST_F(PrivAampTests,RateCorrectionWorkerThreadTest1)
 	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
 }
 
-TEST_F(PrivAampTests,ReportProgressTest1)
+TEST_F(PrivAampTests,MonitorProgressTest1)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(TRUE,TRUE);
+	p_aamp->MonitorProgress(TRUE,TRUE);
 
 	p_aamp->ReportAdProgress(TRUE);
 }
-TEST_F(PrivAampTests,ReportProgressTest2)
+TEST_F(PrivAampTests,MonitorProgressTest2)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(TRUE,FALSE);
+	p_aamp->MonitorProgress(TRUE,FALSE);
 
 	p_aamp->ReportAdProgress(FALSE);
 }
-TEST_F(PrivAampTests,ReportProgressTest3)
+TEST_F(PrivAampTests,MonitorProgressTest3)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(FALSE,TRUE);
+	p_aamp->MonitorProgress(FALSE,TRUE);
 
 	p_aamp->ReportAdProgress(TRUE);
 }
-TEST_F(PrivAampTests,ReportProgressTest4)
+TEST_F(PrivAampTests,MonitorProgressTest4)
 {
 	//checking different boolean values
-	p_aamp->ReportProgress(FALSE,FALSE);
+	p_aamp->MonitorProgress(FALSE,FALSE);
 
 	p_aamp->ReportAdProgress(FALSE);
 }
-TEST_F(PrivAampTests,ReportProgressTest5)
+TEST_F(PrivAampTests,MonitorProgressTest5)
 {
 	bool sync = true;
 	bool beginningOfStream = true;
 	p_aamp->SetState(eSTATE_SEEKING);
-	p_aamp->ReportProgress(sync,beginningOfStream);
+	p_aamp->MonitorProgress(sync,beginningOfStream);
 }
-TEST_F(PrivAampTests,ReportProgressTest6)
+TEST_F(PrivAampTests,MonitorProgressTest6)
 {
 	bool sync = true;
 	bool beginningOfStream = true;
@@ -959,7 +959,92 @@ TEST_F(PrivAampTests,ReportProgressTest6)
 
 	p_aamp->ReportAdProgress(sync);
 
-	p_aamp->ReportProgress(sync,beginningOfStream);
+	p_aamp->MonitorProgress(sync,beginningOfStream);
+}
+
+/**
+ * @brief Test MonitorProgress when rewinding reaches the beginning of the TSB.
+ * Verifies that PlayFromTsbStart() is called and rate is reset to normal play.
+ */
+TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 10.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: Configure player for rewind scenario reaching BOS
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->pipeline_paused = false;
+	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	// Mock StreamAbstraction - Set it up before calling MonitorProgress
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Setup mocks for the flow
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Call MonitorProgress - position will be less than start (culledSeconds * 1000)
+	// This triggers PlayFromTsbStart()
+	p_aamp->MonitorProgress(true, false);
+
+	// Verify rate was reset to normal play rate
+	EXPECT_FLOAT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
+
+	// Note: seek_pos_seconds gets modified by TuneHelper()
+	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
+}
+
+/**
+ * @brief Test MonitorProgress with parameter beginningOfStream set to true.
+ * Verifies that PlayFromTsbStart() is called and rate is reset to normal play.
+ */
+TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 0.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: Configure player for rewind scenario reaching BOS
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->pipeline_paused = false;
+	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	// Mock StreamAbstraction - Set it up before calling MonitorProgress
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Setup mocks for the flow
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Call MonitorProgress() with beginningOfStream set to true, this triggers PlayFromTsbStart()
+	p_aamp->MonitorProgress(true, true);
+
+	// Verify rate was reset to normal play rate
+	EXPECT_FLOAT_EQ(p_aamp->rate, AAMP_NORMAL_PLAY_RATE);
+
+	// Note: seek_pos_seconds gets modified by TuneHelper()
+	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
 }
 
 TEST_F(PrivAampTests,UpdateDurationTest)
@@ -4487,6 +4572,13 @@ TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
 	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
 	p_aamp->mLiveOffset= kLiveOffset;
 	p_aamp->rate = -2;
+
+	// Setup required for MonitorProgress() to execute properly
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->SetState(eSTATE_PLAYING);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
 	p_aamp->NotifyEOSReached();
