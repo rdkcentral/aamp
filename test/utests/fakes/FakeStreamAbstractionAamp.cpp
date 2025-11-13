@@ -19,9 +19,11 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockMediaTrack.h"
 #include <memory>
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
+MockMediaTrack *g_mockMediaTrack = nullptr;
 
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
@@ -191,7 +193,14 @@ int MediaTrack::GetCurrentBandWidth()
 
 CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 {
-	return NULL;
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->GetFetchBuffer(initialize);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
@@ -215,7 +224,7 @@ void MediaTrack::StartPlaylistDownloaderThread()
 {
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
 {
 }
 
@@ -233,6 +242,10 @@ void MediaTrack::StopPlaylistDownloaderThread()
 
 void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 {
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterFetch(isInitSegment);
+	}
 }
 
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
@@ -286,12 +299,26 @@ bool MediaTrack::IsLocalTSBInjection() const
 
 bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 {
-	return true;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->CheckForRampDownLimitReached();
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 {
-	return true;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->CheckForRampDownProfile(http_error);
+	}
+	else
+	{
+		return false;
+	}
 }
 
 double StreamAbstractionAAMP::LastVideoFragParsedTimeMS(void)
@@ -354,11 +381,22 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 
 CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
-	 return NULL;
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->GetFetchChunkBuffer(initialize);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 void MediaTrack::UpdateTSAfterChunkFetch()
 {
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterChunkFetch();
+	}
 }
 
 void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
@@ -386,6 +424,10 @@ void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 }
 void MediaTrack::UpdateTSAfterInject()
 {
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterInject();
+	}
 }
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
 {
@@ -428,8 +470,15 @@ void MediaTrack::FlushFragmentChunks()
 
 bool MediaTrack::IsInjectionFromCachedFragmentChunks() const
 {
-	bool ret = false;
-	return ret;
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->IsInjectionFromCachedFragmentChunks();
+	}
+	else
+	{
+		bool ret = false;
+		return ret;
+	}
 }
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
