@@ -923,6 +923,10 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 
 	bool ret = true;
 	AampMediaType mediaType = pMediaStreamContext->mediaType;
+	
+	// Unconditional log to verify this function is called
+	AAMPLOG_INFO("AampTSB: PushNextTsbFragment CALLED mediaType=%d numFree=%u", static_cast<int>(mediaType), numFreeFragments);
+	
 	LockReadMutex();
 	uint32_t numNeededFragments = 1;
 	std::shared_ptr<AampTsbReader> reader = GetTsbReader(mediaType);
@@ -1272,6 +1276,10 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 
 void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragmentDataPtr nextFragmentData, float rate)
 {
+	// ALWAYS log entry to diagnose why conditional may not execute
+	AAMPLOG_INFO("AampTSB: ProcessAdMetadata CALLED mediaType=%d rate=%f AAMP_NORMAL_PLAY_RATE=%f eMEDIATYPE_VIDEO=%d",
+		static_cast<int>(mediaType), rate, AAMP_NORMAL_PLAY_RATE, static_cast<int>(eMEDIATYPE_VIDEO));
+	
 	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
 	{
 		// Log basic context for TSB ad metadata processing to aid external L2 triage
