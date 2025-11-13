@@ -55,7 +55,7 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
 #endif
 }
 
-bool DefaultSocInterface::IsVideoSink(const char* name)
+bool DefaultSocInterface::IsVideoSink(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name,"rialtomsevideosink") ||
@@ -67,7 +67,7 @@ bool DefaultSocInterface::IsVideoSink(const char* name)
  * @param name Element name.
  * @return True if it's a video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsVideoDecoder(const char* name)
+bool DefaultSocInterface::IsVideoDecoder(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name,"rialtomsevideosink") ||
@@ -79,7 +79,7 @@ bool DefaultSocInterface::IsVideoDecoder(const char* name)
  * @param name Element name.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name)
+bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name,"rialtomsevideosink") ||

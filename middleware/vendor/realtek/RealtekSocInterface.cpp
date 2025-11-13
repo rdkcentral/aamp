@@ -109,7 +109,7 @@ bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& source
  * @param name Element name.
  * @return True if it's a video sink, false otherwise.
  */
-bool RealtekSocInterface::IsVideoSink(const char* name)
+bool RealtekSocInterface::IsVideoSink(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name, "westerossink") ||
@@ -134,7 +134,7 @@ bool RealtekSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
  * @param name Element name.
  * @return True if it's a video decoder, false otherwise.
  */
-bool RealtekSocInterface::IsVideoDecoder(const char* name)
+bool RealtekSocInterface::IsVideoDecoder(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name, "omxwmvdec") ||
@@ -179,7 +179,7 @@ bool RealtekSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name)
+bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name, GstElement* element)
 {
 	return name && StartsWith(name, "omx");
 }

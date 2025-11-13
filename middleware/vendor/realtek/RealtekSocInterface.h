@@ -131,7 +131,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param name Element name.
 		 * @return True if it's a video sink, false otherwise.
 		 */
-		bool IsVideoSink(const char* name)override;
+		bool IsVideoSink(const char* name, GstElement *element)override;
 
 		/**
 		 * @brief Check if the given name is an audio sink or audio decoder.
@@ -145,7 +145,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param name Element name.
 		 * @return True if it's a video decoder, false otherwise.
 		 */
-		bool IsVideoDecoder(const char* name)override;
+		bool IsVideoDecoder(const char* name, GstElement *element)override;
 
 		/**
 		 * @brief Configure the audio sink.
@@ -162,7 +162,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param IsWesteros Westeros flag.
 		 * @return True if it's an audio or video decoder, false otherwise.
 		 */
-		bool IsAudioOrVideoDecoder(const char* name)override;
+		bool IsAudioOrVideoDecoder(const char* name, GstElement* element)override;
 
 		/**
 		 * @brief Disable asynchronous audio.
