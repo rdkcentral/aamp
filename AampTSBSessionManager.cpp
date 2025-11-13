@@ -1278,7 +1278,7 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 {
 	// ALWAYS log entry to diagnose why conditional may not execute
 	AAMPLOG_INFO("AampTSB: ProcessAdMetadata CALLED mediaType=%d rate=%f AAMP_NORMAL_PLAY_RATE=%f eMEDIATYPE_VIDEO=%d",
-		static_cast<int>(mediaType), rate, AAMP_NORMAL_PLAY_RATE, static_cast<int>(eMEDIATYPE_VIDEO));
+		static_cast<int>(mediaType), rate, static_cast<double>(AAMP_NORMAL_PLAY_RATE), static_cast<int>(eMEDIATYPE_VIDEO));
 	
 	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
 	{
