@@ -163,7 +163,7 @@ void DeviceIARMInterface::RemoveEventHandlers()
 	{
 		device::Manager::DeInitialize();
 	}
-	catch(const device::Exception& err)
+	catch(...)
 	{
 		MW_LOG_WARN("DeviceSettings exception caught\n");
 	}
@@ -306,7 +306,7 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
 /**
  * @brief IARM event handler for resolution changes
  */
-void DeviceIARMInterface::OnResolutionPostChange(int width, int height) override
+void DeviceIARMInterface::OnResolutionPostChange(int width, int height)
 {
 	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
@@ -315,7 +315,7 @@ void DeviceIARMInterface::OnResolutionPostChange(int width, int height) override
 		pInstance->SetResolution(width, height);
 }
 
-void DeviceIARMInterface::OnResolutionPreChange(int width, int height) override
+void DeviceIARMInterface::OnResolutionPreChange(int width, int height)
 {
 	MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_PRECHANGE \n");
 }

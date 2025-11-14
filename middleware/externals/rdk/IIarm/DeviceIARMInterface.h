@@ -36,15 +36,19 @@ Remove the entire folder externals/rdk/IARM
 
 #include "DeviceInterfaceBase.h"
 #include "host.hpp"
-#include "interfaces/IDisplayInfo.h"
 #include <string>
 
 class DeviceIARMInterface : public DeviceInterfaceBase,
-	public Exchange::IDisplayProperties,
 	public device::Host::IVideoOutputPortEvents {
     public:
+	template <typename T>
+	   T* baseInterface()
+	{
+	    static_assert(std::is_base_of<T, DeviceIARMInterface>(), "base type mismatch");
+	    return static_cast<T*>(this);
+	}
 
-        DeviceIARMInterface(const DeviceIARMInterface&) = delete;
+	DeviceIARMInterface(const DeviceIARMInterface&) = delete;
         
         DeviceIARMInterface& operator=(const DeviceIARMInterface&) = delete;
 
@@ -52,7 +56,11 @@ class DeviceIARMInterface : public DeviceInterfaceBase,
 
         static std::shared_ptr<DeviceIARMInterface> GetInstance();
 
-        static void Initialize();
+	static void Initialize();
+
+	/* IVideoOutputPortEvents */
+	void OnResolutionPreChange(const int width, const int height) override;
+	void OnResolutionPostChange(const int width, const int height) override;
 
         ~DeviceIARMInterface();
 
@@ -63,10 +71,6 @@ class DeviceIARMInterface : public DeviceInterfaceBase,
         void RegisterNtwMgrEventHandler() override;
 
         void RemoveEventHandlers() override;
-
-		/* IVideoOutputPortEvents */
-		void OnResolutionPreChange(const int width, const int height) override;
-		void OnResolutionPostChange(const int width, const int height) override;
 
         DeviceIARMInterface();
 
