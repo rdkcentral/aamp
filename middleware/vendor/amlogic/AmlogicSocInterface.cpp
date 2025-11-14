@@ -237,8 +237,8 @@ bool AmlogicSocInterface::IsVideoDecoder(const char* name, GstElement* element)
     const gchar *klass = gst_element_factory_get_metadata(factory, GST_ELEMENT_METADATA_KLASS);
     if (!klass) return FALSE;
 
-    // Decoders usually have "Decoder" in their klass
-    return (strstr(klass, "Decoder") != NULL);
+return (strstr(klass, "Decoder") != NULL) ||
+       (strstr(klass, "Sink") != NULL && strstr(klass, "Video") != NULL);
 }
 
 /**
@@ -292,7 +292,8 @@ bool AmlogicSocInterface::IsAudioOrVideoDecoder(const char* name, GstElement* el
     if (!klass) return FALSE;
 
     // Any decoder (audio or video) will have "Decoder" in its klass
-    return (strstr(klass, "Decoder") != NULL);
+return (strstr(klass, "Decoder") != NULL) ||
+       (strstr(klass, "Sink") != NULL && strstr(klass, "Video") != NULL);
 }
 
 /**
