@@ -585,7 +585,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart > 0))
+					if(mIsLiveManifest && (periodStart >= 0))
 					{
 						periodStart += mAvailabilityStartTime;
 					}
