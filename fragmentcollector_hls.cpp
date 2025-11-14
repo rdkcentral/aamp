@@ -2317,6 +2317,8 @@ int TrackState::GetDefaultDurationBetweenPlaylistUpdates()
 void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error)
 {
 	AAMPLOG_TRACE("[%s] Enter", name);
+	AAMPLOG_INFO("Neil entering TrackState::ProcessPlaylist()");
+
 	if (newPlaylist.GetLen() )
 	{ // download successful
 		//lastPlaylistDownloadTimeMS = aamp_GetCurrentTimeMS();
@@ -2342,7 +2344,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		{
 			if(eTRACK_VIDEO == type)
 			{
-				AAMPLOG_INFO("Updating PDT (%f) and culled (%f)", mProgramDateTime.inSeconds(), culled.inSeconds());
+				AAMPLOG_INFO("Neil Updating PDT (%f) and culled (%f)", mProgramDateTime.inSeconds(), culled.inSeconds());
 				aamp->mProgramDateTime = mProgramDateTime.inSeconds();
 				aamp->UpdateCullingState(culled.inSeconds()); // report amount of content that was implicitly culled since last playlist download
 			}
@@ -3277,6 +3279,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	int http_error = 0;   //CID:81873 - Initialization
 	mainManifest.Clear();
 
+	AAMPLOG_INFO("Neil StreamAbstractionAAMP_HLS: Init()");
+
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
@@ -3651,7 +3655,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 					if( culled > 0)
 					{
-						AAMPLOG_INFO("Updating PDT (%f) and culled (%f) Updated seek_pos_seconds:%f ",ts->mProgramDateTime.inSeconds(), culled.inSeconds(), (seekPosition.inSeconds() - culled.inSeconds()));
+						AAMPLOG_INFO("Neil Updating PDT (%f) and culled (%f) Updated seek_pos_seconds:%f ",ts->mProgramDateTime.inSeconds(), culled.inSeconds(), (seekPosition.inSeconds() - culled.inSeconds()));
 						aamp->mProgramDateTime = ts->mProgramDateTime.inSeconds();
 						aamp->UpdateCullingState(culled.inSeconds()); // report amount of content that was implicitly culled since last playlist download
 						SeekPosUpdate(seekPosition.inSeconds() - culled.inSeconds());

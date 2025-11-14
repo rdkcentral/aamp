@@ -3550,6 +3550,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+
+	AAMPLOG_INFO("Neil StreamAbstractionAAMP_MPD:: Init()");
+
 	if (sink)
 	{
 		sink->ClearProtectionEvent();
@@ -4094,7 +4097,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				}
 				if(culled > 0)
 				{
-					AAMPLOG_INFO("Culled seconds = %f, Adjusting seekPos after considering new culled value", culled);
+					AAMPLOG_INFO("Neil Culled seconds = %f, Adjusting seekPos after considering new culled value", culled);
 					aamp->UpdateCullingState(culled);
 				}
 
@@ -4381,6 +4384,8 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth
 AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackInfo)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
+	AAMPLOG_INFO("Neil StreamAbstractionAAMP_MPD:: IndexNewMPDDocument()");
+
 	if( mpd )
 	{
 		int deltaInPeriodIndex = mCurrentPeriodIdx;
@@ -4467,7 +4472,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				}
 				if(culled > 0)
 				{
-					AAMPLOG_INFO("Culled seconds = %f", culled);
+					AAMPLOG_INFO("Neil Culled seconds = %f", culled);
 					if(!aamp->IsLocalAAMPTsb())
 					{
 						aamp->UpdateCullingState(culled);

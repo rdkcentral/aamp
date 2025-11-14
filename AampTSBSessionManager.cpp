@@ -1087,13 +1087,15 @@ double AampTSBSessionManager::GetManifestEndDelta()
 void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manifestCulledSecondsFromStart)
 {
 	INIT_CHECK_RETURN_VOID();
-
 	double culledSeconds = 0.0;
+	AAMPLOG_INFO("Neil entering AampTSBSessionManager::UpdateProgress()");
+
+
 	culledSeconds = CullSegments();
 	if (culledSeconds > 0.0)
 	{
 		// Update culled seconds based on seconds culled in store
-		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);
+		AAMPLOG_TRACE("Neil Updating culled seconds: %lf", culledSeconds);
 		mAamp->UpdateCullingState(culledSeconds);
 	}
 	mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
