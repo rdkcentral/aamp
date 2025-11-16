@@ -1458,7 +1458,7 @@ void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 			{
 				AAMPLOG_INFO("Clearing Session %d, isFailedKeyId=%d, forceClearSession=%d",i, isFailedKeyId, forceClearSession);
 				mLicenseDownloader[i].Clear();
-		    }
+			}
 		}
 	}
 }
