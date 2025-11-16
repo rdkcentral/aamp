@@ -175,11 +175,13 @@ void DrmSessionManager::clearAccessToken()
  */
 bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
 {
+	bool rc = false;
+	std::lock_guard<std::mutex> guard(cachedKeyMutex);
 	if (sessionIndex >= 0 && sessionIndex < mMaxDRMSessions && cachedKeyIDs)
 	{
-		return cachedKeyIDs[sessionIndex].isFailedKeyId;
+		rc = cachedKeyIDs[sessionIndex].isFailedKeyId;
 	}
-	return false;
+	return rc;
 }
 
 /**
