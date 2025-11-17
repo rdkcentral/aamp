@@ -39,6 +39,7 @@ Remove the entire folder externals/rdk/IARM
 #include <string>
 
 class DeviceIARMInterface : public DeviceInterfaceBase,
+	public device::Host::IDisplayDeviceEvents,
 	public device::Host::IVideoOutputPortEvents {
     public:
 	template <typename T>
@@ -56,11 +57,15 @@ class DeviceIARMInterface : public DeviceInterfaceBase,
 
         static std::shared_ptr<DeviceIARMInterface> GetInstance();
 
-	static void Initialize();
+        static void Initialize();
 
-	/* IVideoOutputPortEvents */
-	void OnResolutionPreChange(const int width, const int height) override;
-	void OnResolutionPostChange(const int width, const int height) override;
+        /* IVideoOutputPortEvents */
+        void OnResolutionPreChange(const int width, const int height) override;
+        void OnResolutionPostChange(const int width, const int height) override;
+        void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus);
+
+        /* IDisplayDeviceEvents */
+        void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent) override;
 
         ~DeviceIARMInterface();
 

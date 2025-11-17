@@ -148,8 +148,6 @@ if(CMAKE_IARM_MGR)
     set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
 endif()
 
-
-
 if(CMAKE_WPEFRAMEWORK_REQUIRED)
     # Append additional header(s) for WPEFramework usage
     set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerThunderAccess.h")

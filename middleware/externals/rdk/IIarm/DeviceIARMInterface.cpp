@@ -49,6 +49,8 @@ Remove the entire folder externals/rdk/IARM
 
 #include "PlayerExternalUtils.h"
 
+#define HDMI_HOT_PLUG_EVENT_CONNECTED 0
+
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
  */
@@ -74,7 +76,6 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
 std::shared_ptr<DeviceIARMInterface> s_pDeviceIARMInterface = nullptr;
 
-static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
 
@@ -145,20 +146,17 @@ void DeviceIARMInterface::RegisterDsMgrEventHandler()
     try {
 		device::Manager::Initialize();
 		device::Host::getInstance().Register(baseInterface<device::Host::IVideoOutputPortEvents>(),"PI::DisplayInfo");
+		device::Host::getInstance().Register(baseInterface<device::Host::IDisplayDeviceEvents>(), "PI::DisplaySettings");
 	}
     catch (...) {
         MW_LOG_WARN("DeviceSettings exception caught\n");
     }
-
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
 }
 
 void DeviceIARMInterface::RemoveEventHandlers()
 {
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     device::Host::getInstance().UnRegister(baseInterface<device::Host::IVideoOutputPortEvents>());
+	device::Host::getInstance().UnRegister(baseInterface<device::Host::IDisplayDeviceEvents>());
 	try
 	{
 		device::Manager::DeInitialize();
@@ -264,43 +262,28 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	
 }
 
-/**
- * @brief IARM event handler for HDCP and HDMI hot plug events
- */
-static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
+void DeviceIARMInterface::OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
 {
-    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-    switch (eventId)
-    {
-        case IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG :
-        {
-            IARM_Bus_DSMgr_EventData_t *eventData = (IARM_Bus_DSMgr_EventData_t *)data;
-            int hdmi_hotplug_event = eventData->data.hdmi_hpd.event;
+	const char *hdmihotplug = (displayEvent == HDMI_HOT_PLUG_EVENT_CONNECTED) ? "connected" : "disconnected";
+	MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG  event data:%d status: %s\n",
+			   (int)displayEvent, hdmihotplug);
 
-            const char *hdmihotplug = (hdmi_hotplug_event == dsDISPLAY_EVENT_CONNECTED) ? "connected" : "disconnected";
-            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG  event data:%d status: %s\n",
-                       hdmi_hotplug_event, hdmihotplug);
+	if(pInstance)
+		pInstance->SetHDMIStatus();
+}
 
-            pInstance->SetHDMIStatus();
+void DeviceIARMInterface::OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
+{
+	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-            break;
-        }
-        case IARM_BUS_DSMGR_EVENT_HDCP_STATUS :
-        {
-            IARM_Bus_DSMgr_EventData_t *eventData = (IARM_Bus_DSMgr_EventData_t *)data;
-            int hdcpStatus = eventData->data.hdmi_hdcp.hdcpStatus;
-            const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
-            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDCP_STATUS  event data:%d status:%s\n",
-                      hdcpStatus, hdcpStatusStr);
+	const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
+	MW_LOG_WARN(" Received EVENT_HDCP_STATUS  event data:%d status:%s\n",
+			  hdcpStatus, hdcpStatusStr);
 
-            pInstance->SetHDMIStatus();
-            break;
-        }
-        default:
-            MW_LOG_WARN(" Received unknown IARM bus event:%d\n", eventId);
-            break;
-    }
+	if(pInstance)
+		pInstance->SetHDMIStatus();
 }
 
 /**
