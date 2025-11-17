@@ -56,21 +56,29 @@ ContentSecurityManager* ContentSecurityManager::GetInstance()
 	std::lock_guard<std::mutex> lock{InstanceMutex};
 	if(Instance == nullptr)
 	{
+		MW_LOG_WARN("ContentSecurityManager::GetInstance getting created first time");
 /* Firebolt is applicable to all builds which uses either secmanager or secclient */
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 		if(mUseFireboltSDK)
 		{
+			MW_LOG_WARN("creating instance for ContentProtectionFirebolt");
 			Instance = new ContentProtectionFirebolt();
 		}
 		else
 		{
 #if defined(USE_SECMANAGER)
+			MW_LOG_WARN("creating instance for SecManagerThunder");
 			Instance = new SecManagerThunder();
 #endif
 		}
 #else
+		MW_LOG_WARN("creating instance for FakeSecManager");
 		Instance = new FakeSecManager();
 #endif
+	}
+	else
+	{
+		MW_LOG_WARN("ContentSecurityManager::GetInstance is avilable already");
 	}
 	return Instance;
 }
@@ -83,8 +91,13 @@ void ContentSecurityManager::DestroyInstance()
 	std::lock_guard<std::mutex> lock{InstanceMutex};
 	if (Instance)
 	{
+		MW_LOG_WARN("ContentSecurityManager::GetInstance is getting destoryed");
 		delete Instance;
 		Instance = nullptr;
+	}
+	else
+	{
+		MW_LOG_WARN("ContentSecurityManager::GetInstance is already destoryed");
 	}
 }
 
@@ -93,6 +106,7 @@ void ContentSecurityManager::DestroyInstance()
  */
 bool ContentSecurityManager::getSessionToken(std::string &token)
 {
+	MW_LOG_WARN("ContentSecurityManager::getSessionToken");
 	return false;
 }
 
@@ -219,3 +233,14 @@ std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityMana
 	return SendWatermarkSessionEvent_CB;
 }
 
+FakeSecManager::FakeSecManager()
+{
+	MW_LOG_WARN("FakeSecManager::FakeSecManager is getting created");
+
+}
+
+FakeSecManager::~FakeSecManager()
+{
+	MW_LOG_WARN("FakeSecManager::FakeSecManager is getting destroyed");
+
+}

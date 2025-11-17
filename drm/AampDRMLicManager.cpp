@@ -594,34 +594,43 @@ const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_cod
 	if(accessToken == NULL)
 	{
 		std::string token;
-		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
+		if(ContentSecurityManager::GetInstance())
 		{
-			size_t len = token.length();
-			if(len > 0)
+			AAMPLOG_WARN("ContentSecurityManager::GetInstance() is good");
+			if (ContentSecurityManager::GetInstance()->getSessionToken(token))
 			{
-				accessToken = (char*)malloc(len+1);
-				if(accessToken)
+				size_t len = token.length();
+				AAMPLOG_WARN("ontentSecurityManager::GetItoken.length() is %zu",len);
+				if(len > 0)
 				{
-					accessTokenLen = (int)len;
-					memcpy( accessToken, token.c_str(), len );
-					accessToken[len] = 0x00;
-					AAMPLOG_WARN(" Received session token from auth service");
+					accessToken = (char*)malloc(len+1);
+					if(accessToken)
+					{
+						accessTokenLen = (int)len;
+						memcpy( accessToken, token.c_str(), len );
+						accessToken[len] = 0x00;
+						AAMPLOG_WARN(" Received session token from auth service");
+					}
+					else
+					{
+						AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
+					}
 				}
 				else
 				{
-					AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
+					AAMPLOG_WARN("Invalid access token from ContentSecurityManager");
+					error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("Invalid access token from ContentSecurityManager");
+				AAMPLOG_ERR("ContentSecurityManager failed to get access token");
 				error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("ContentSecurityManager failed to get access token");
-			error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
+			AAMPLOG_WARN("ContentSecurityManager::GetInstance() is NULL");
 		}
 	}
 	
