@@ -137,6 +137,7 @@ AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownlo
 
 AampCurlDownloader::~AampCurlDownloader()
 {
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
 	
 	if(mCreatedNewFd && mCurl)
@@ -163,6 +164,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 	if(urlStr.size() == 0 || dnldData == nullptr)
 	{
 		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguments. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
+		return CURLE_BAD_FUNCTION_ARGUMENT; //return an appropriate error code
 	}
 	else if(mCurl)
 	{
@@ -174,15 +176,21 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadResponse = dnldData;
 				mDownloadResponse->sEffectiveUrl = urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
+				CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_TIMEOUT, 30L);        // total timeout
+				CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_CONNECTTIMEOUT, 10L); // connection timeout 
 			}
 			bool loopAgain = false;
+			int backoffMs = 1000; // start with 1s
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				if( mDnldCfg && mDnldCfg->bCurlThroughput )
 				{
 					AAMPLOG_MIL( "curl-begin type=%d", eMEDIATYPE_MANIFEST);
 				}
+				{
+				std::lock_guard<std::mutex> lock(mCurlMutex);
 				httpRetVal = curl_easy_perform(mCurl);
+				}
 				loopAgain = false;
 				numDownloadAttempts++;
 				if(httpRetVal == CURLE_OK)
@@ -218,8 +226,12 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 								mDownloadResponse->iHttpRetValue >= 500 ))
 						{
 							AAMPLOG_WARN("Download failed due to Server error http-%d numDownloadAttempts %d numRetriesAllowed %d",mDownloadResponse->iHttpRetValue,numDownloadAttempts,numRetriesAllowed);
-							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS : mDnldCfg->iDownloadRetryWaitMs;
+							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS : backoffMs;
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+							// Update backoff for next retry (only if not using fixed 502 delay)
+                			if (mDownloadResponse->iHttpRetValue != 502) {
+								backoffMs = std::min(backoffMs * 2, 16000);
+							}
 							loopAgain = true; //retry on manifest download failure
 							// In the unlikely event that we get http failure status and also a http body then the
 							// body will have got downloaded. We are not interested in it so clear the data.
@@ -235,6 +247,8 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
 						{
 							loopAgain = true;
+							std::this_thread::sleep_for(std::chrono::milliseconds(backoffMs));
+    						backoffMs = std::min(backoffMs * 2, 16000); // cap at 16s
 						}
 					}
 				}
