@@ -160,7 +160,8 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 {
 	int httpRetVal=0;
 	int numDownloadAttempts=0;
-	int numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
+	//int numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0; commented out for validation
+	int numRetriesAllowed = 2;
 	if(urlStr.size() == 0 || dnldData == nullptr)
 	{
 		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguments. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
@@ -204,6 +205,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					else
 					{
 						httpRetVal = mDownloadResponse->iHttpRetValue = (int)aamp_CurlEasyGetinfoLong( mCurl, CURLINFO_RESPONSE_CODE );
+						if(numDownloadAttempts <=2){
+						httpRetVal = mDownloadResponse->iHttpRetValue =206;//Setting to 206 to handle partial content
+						}
 					}
 
 					numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
@@ -231,7 +235,8 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 							// Update backoff for next retry (only if not using fixed 502 delay)
                 			if (mDownloadResponse->iHttpRetValue != 502) {
 								backoffMs = std::min(backoffMs * 2, 16000);
-							}
+								AAMPLOG_WARN("Testing-->BackOffMs non502 errors %d= %d", httpRetVal);
+								}
 							loopAgain = true; //retry on manifest download failure
 							// In the unlikely event that we get http failure status and also a http body then the
 							// body will have got downloaded. We are not interested in it so clear the data.
@@ -249,6 +254,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 							loopAgain = true;
 							std::this_thread::sleep_for(std::chrono::milliseconds(backoffMs));
     						backoffMs = std::min(backoffMs * 2, 16000); // cap at 16s
+							AAMPLOG_WARN("Testing-->BackOffMs due curl errors %d = %d", httpRetVal, backoffMs);
 						}
 					}
 				}
