@@ -7495,7 +7495,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	//Local copy to avoid race. consider further improvements to the thread safety of this variable.
 	double seek_pos_seconds_copy = seek_pos_seconds;
 	long long positionMilliseconds = seek_pos_seconds_copy != -1 ? seek_pos_seconds_copy * 1000.0 : 0.0;
-
+	AAMPLOG_INFO("Initial positionMilliseconds=%lld", positionMilliseconds);
 	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
 	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
@@ -7506,6 +7506,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		AAMPLOG_TRACE("rate=%f", rate_copy);
 
 		positionMilliseconds+=GetPositionRelativeToSeekMilliseconds(rate_copy, trickStartUTCMS_copy);
+		AAMPLOG_TRACE("positionMilliseconds after adding GetPositionRelativeToSeekMilliseconds=%lld", positionMilliseconds);
 
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
@@ -7520,6 +7521,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 				{
 					AAMPLOG_WARN("diff %lld prev-pos-ms %lld current-pos-ms %lld, restore prev-pos as current-pos!!", diff, prevPositionInfo.getPosition(), positionMilliseconds);
 					positionMilliseconds = prevPositionInfo.getPosition();
+					AAMPLOG_INFO("Restored positionMilliseconds to %lld", positionMilliseconds);
 				}
 			}
 			else if(prevPositionInfo.isPopulated())
@@ -7550,6 +7552,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 			{
 				AAMPLOG_WARN("Correcting positionMilliseconds %lld to contentEndMs %lld", positionMilliseconds, contentEndMs);
 				positionMilliseconds = contentEndMs;
+				AAMPLOG_INFO("ContentEndMs positionMilliseconds to %lld", positionMilliseconds);
 			}
 		}
 	}
@@ -7562,6 +7565,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		mGetPositionMillisecondsMutexSoft.unlock();
 	}
 
+	AAMPLOG_TRACE("Final positionMilliseconds=%lld", positionMilliseconds);
 	return positionMilliseconds;
 }
 

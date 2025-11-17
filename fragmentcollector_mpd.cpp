@@ -2068,6 +2068,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				double offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
 				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
 				skipTime += offset;
+				pMediaStreamContext->fragmentTime -= offset;
 			}
 		}
 		do
@@ -2238,6 +2239,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						AAMPLOG_INFO("[%s] firstPTS %f, nextPTS %f  skipTime %f  fragmentDuration %f ", pMediaStreamContext->name, firstPTS, nextPTS, skipTime, fragmentDuration);
 						if (updateFirstPTS)
 						{
+							pMediaStreamContext->fragmentTime += mVideoPosRemainder;
 							/*Keep the lower PTS */
 							if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
 							{
