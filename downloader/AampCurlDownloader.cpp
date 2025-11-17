@@ -235,7 +235,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 							// Update backoff for next retry (only if not using fixed 502 delay)
                 			if (mDownloadResponse->iHttpRetValue != 502) {
 								backoffMs = std::min(backoffMs * 2, 16000);
-								AAMPLOG_WARN("Testing-->BackOffMs non502 errors %d= %d", httpRetVal);
+								AAMPLOG_WARN("Testing-->BackOffMs non502 errors %d= %d", httpRetVal,backoffMs);
 								}
 							loopAgain = true; //retry on manifest download failure
 							// In the unlikely event that we get http failure status and also a http body then the
