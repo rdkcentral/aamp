@@ -142,7 +142,9 @@ void ContentProtectionFirebolt::DeInitialize()
 
 bool ContentProtectionFirebolt::CreateFireboltInstance(const std::string &url)
 {
-        const std::string config = "{\
+       
+	MW_LOG_ERR("creating FireboltInstance");
+		const std::string config = "{\
                                     \"waitTime\": 3000,\
                                     \"logLevel\": \"Info\",\
                                     \"workerPool\":{\

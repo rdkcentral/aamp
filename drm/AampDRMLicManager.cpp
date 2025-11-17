@@ -594,9 +594,12 @@ const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_cod
 	if(accessToken == NULL)
 	{
 		std::string token;
+		
 		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
 		{
+			AAMPLOG_WARN("ContentSecurityManager::GetInstance() is good");
 			size_t len = token.length();
+			AAMPLOG_WARN("ontentSecurityManager::GetItoken.length() is %zu",len);
 			if(len > 0)
 			{
 				accessToken = (char*)malloc(len+1);
