@@ -3140,6 +3140,35 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 				mp4Demux->Parse(ptr,len);
 				int count = mp4Demux->count();
+				/* If mp4demux extracted PSSH/protection events inside this segment (not just init header),
+				   push them to the appsrc pad right away so downstream decryptor can pick them up.
+				   Only push when the demuxer indicates caps-level encryption to avoid pushing stale
+				   events during clear ad periods. */
+				{
+					size_t _numProt = mp4Demux->getNumProtectionEvents();
+					if( _numProt && mp4Demux->isCapsEncrypted() )
+					{
+						printf("[INTERFACE] Detected %zu protection events in mp4demux - pushing to app src pad before media samples\n", _numProt);
+						for( size_t _ei=0; _ei<_numProt; _ei++ )
+						{
+							GstEvent *pe = mp4Demux->getProtectionEvent(_ei);
+							if( pe )
+							{
+								printf("[INTERFACE] Pushing protection event %zu to app src pad (media segment)\n", _ei);
+								GstPad *appsrc_pad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+								if (appsrc_pad)
+								{
+									gst_pad_push_event(appsrc_pad, gst_event_ref(pe));
+									gst_object_unref(appsrc_pad);
+								}
+								else
+								{
+									printf("[INTERFACE] Failed to get appsrc 'src' pad to push protection event\n");
+								}
+							}
+						}
+					}
+				}
 				if( count>0 )
 				{ // media segment
 					for( int i=0; i<count; i++ )

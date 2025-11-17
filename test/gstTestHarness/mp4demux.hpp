@@ -81,7 +81,11 @@ private:
 	uint32_t data_reference_index;
 	uint32_t codec_type;
 	std::string codec_data;
-	uint8_t is_encrypted;
+	// split encryption state:
+	// samples_encrypted: whether samples in this demuxed data are encrypted (used for per-sample DRM metadata)
+	// caps_encrypted: whether caps should be marked as encrypted (application/x-cenc) when setCaps() is called
+	uint8_t samples_encrypted;
+	uint8_t caps_encrypted;
 	uint8_t iv_size;
 	uint8_t crypt_byte_block;
 	uint8_t skip_byte_block;
@@ -211,7 +215,9 @@ private:
 			crypt_byte_block = (pattern>>4) & 0xf;
 			skip_byte_block = pattern & 0xf;
 		}
-		is_encrypted = *ptr++;
+		// set both sample-level and caps-level encryption; parseSampleDescriptionBox will reset before parsing a new init
+		samples_encrypted = *ptr++;
+		caps_encrypted = samples_encrypted;
 		iv_size = *ptr++;
 
 		default_kid = std::string((char *)ptr,16);
@@ -631,6 +637,20 @@ private:
 		ReadHeader();
 		uint32_t count = ReadU32();
 		assert( count == 1 );
+		// A new Sample Description (stsd) indicates a new init segment / period.
+		// Clear previously cached protection events and reset encryption flags so old PSSHs
+		// or sample-level encryption state from a prior period (e.g., main content)
+		// are not reused for a new period (e.g., clear ad).
+		ClearProtectionEvents();
+		samples_encrypted = 0;
+		caps_encrypted = 0;
+		iv_size = 0;
+		default_kid.clear();
+		constant_iv_size = 0;
+		constant_iv.clear();
+		scheme_type = 0;
+		scheme_version = 0;
+		original_media_type = 0;
 		DemuxHelper(next);
 	}
 	
@@ -946,7 +966,7 @@ public:
 	Mp4Demux( bool verbose=false ):
 		audio{}, video{}, stream_format(),
 		data_reference_index(), codec_type(),
-		codec_data(), is_encrypted(), iv_size(),
+	codec_data(), samples_encrypted(), caps_encrypted(), iv_size(),
 		crypt_byte_block(), skip_byte_block(),
 		constant_iv_size(), constant_iv(), timescale(),
 		samples(), default_kid(), got_auxiliary_information_offset(),
@@ -968,6 +988,10 @@ public:
 	{
 		return timescale;
 	}
+
+	// Accessors for encryption state
+	bool isSamplesEncrypted() const { return samples_encrypted != 0; }
+	bool isCapsEncrypted() const { return caps_encrypted != 0; }
 	
 	int count( void )
 	{
@@ -1072,7 +1096,7 @@ public:
 				g_print( "unk codec_type: %" PRIu32 "\n", codec_type );
 				return;
 		}
-		if (caps && is_encrypted)
+		if (caps && caps_encrypted)
 		{
 			GstStructure *s = gst_caps_get_structure (caps, 0);
 			gst_structure_set (s,
@@ -1081,7 +1105,12 @@ public:
 				NULL);
 			gst_structure_set_name (s, "application/x-cenc");
 		}
+
+		gchar *caps_str = gst_caps_to_string(caps);
+	printf("[MP4DEMUX] setCaps() - setting caps: %s, caps_encrypted=%d, samples_encrypted=%d\n", caps_str ? caps_str : "(null)", (int)caps_encrypted, (int)samples_encrypted);
+		g_free(caps_str);
 		gst_app_src_set_caps(appsrc, caps);
+
 		gst_caps_unref(caps);
 		gst_buffer_unref (buf);
 	}
@@ -1098,8 +1127,8 @@ public:
 	
 	GstStructure *getDrmMetadata( int sampleIndex )
 	{
-		GstStructure *metadata = NULL;
-		if( is_encrypted )
+	GstStructure *metadata = NULL;
+	if( samples_encrypted )
 		{
 			char original_media_type_string[5] =
 			{
@@ -1173,8 +1202,12 @@ public:
 		if( metadata )
 		{ // serialize and print the metadata
 			gchar *structure_string = gst_structure_to_string( metadata );
-			PRINTF("metadata: %s\n", structure_string);
+			printf("[MP4DEMUX] metadata: %s\n", structure_string);
 			g_free(structure_string);
+		}
+		else
+		{
+			printf("[MP4DEMUX] metadata: (null)\n");
 		}
 		
 		return metadata;
