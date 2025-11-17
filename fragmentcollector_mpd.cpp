@@ -3722,7 +3722,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 			// Update track with update in stream info
 			mUpdateStreamInfo = true;
-			ret = UpdateTrackInfo(!newTune, true);
+			ret = UpdateTrackInfo(!newTune, true, true);
 
 			if(eAAMPSTATUS_OK != ret)
 			{
@@ -4091,7 +4091,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				if(((AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState))
 				   || (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && mUpdateStreamInfo))
 				{
-					AAMPLOG_TRACE("Indexing new mpd doc");
 					ret = UpdateTrackInfo(true, true);
 					if(ret != eAAMPSTATUS_OK)
 					{
@@ -7102,7 +7101,7 @@ static bool IsWebmVideoCodec(const std::string &codec )
 /**
  * @brief Updates track information based on current state
  */
-AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex)
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	long defaultBitrate = aamp->GetDefaultBitrate();
@@ -7288,10 +7287,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
-					if ((representationCount != GetProfileCount()) && mStreamInfo)
+					if ( periodChanged && mStreamInfo != nullptr )
 					{
 						SAFE_DELETE_ARRAY(mStreamInfo);
-
 						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
 						pMediaStreamContext->representationIndex = -1;
 						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
@@ -7576,7 +7574,20 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 							UpdateIframeTracks();
 						}
-						currentProfileIndex = GetDesiredProfile(false);
+						/* During initialization its better to call the GetDesiredProfile(), which picks up the
+						* desired profile index corresponding to default bitrate.
+						* During subsequent 'period' change its better to call the getClosestProfileIndexByBandwidth()
+						* which picks up the profile index based on last bandwidth.
+						*/
+						if(isInit == true)
+						{
+							currentProfileIndex = GetDesiredProfile(false);
+						}
+						else
+						{
+							currentProfileIndex = GetABRManager().getClosestProfileIndexByBandwidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+						}
+						AAMPLOG_INFO("Desired profile index updated [%d]",currentProfileIndex);
 						// Adaptation Set Index corresponding to a particular profile
 						pMediaStreamContext->adaptationSetIdx = mProfileMaps[currentProfileIndex].adaptationSetIndex;
 						// Representation Index within a particular Adaptation Set
