@@ -136,19 +136,19 @@ void PlayerExternalsRdkInterface::Initialize()
 
 void PlayerExternalsRdkInterface::RegisterDsClientEventHandler()
 {
-   try {
+	try {
 		device::Manager::Initialize();
 		device::Host::getInstance().Register(baseInterface<device::Host::IVideoOutputPortEvents>(),"PI::DisplayInfo");
 		device::Host::getInstance().Register(baseInterface<device::Host::IDisplayDeviceEvents>(), "PI::DisplaySettings");
 	}
-    catch (...) {
-        MW_LOG_WARN("DeviceSettings exception caught\n");
-    }
+	catch (...) {
+		MW_LOG_WARN("DeviceSettings exception caught\n");
+	}
 }
 
 void PlayerExternalsRdkInterface::RemoveDsClientEventHandlers()
 {
-    device::Host::getInstance().UnRegister(baseInterface<device::Host::IVideoOutputPortEvents>());
+	device::Host::getInstance().UnRegister(baseInterface<device::Host::IVideoOutputPortEvents>());
 	device::Host::getInstance().UnRegister(baseInterface<device::Host::IDisplayDeviceEvents>());
 	try
 	{
@@ -162,26 +162,20 @@ void PlayerExternalsRdkInterface::RemoveDsClientEventHandlers()
 
 void PlayerExternalsRdkInterface::OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
 {
-	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
-
 	const char *hdmihotplug = (displayEvent == HDMI_HOT_PLUG_EVENT_CONNECTED) ? "connected" : "disconnected";
 	MW_LOG_WARN(" Received Display HDMI HotPlug event data:%d status: %s\n",
 			   (int)displayEvent, hdmihotplug);
 
-	if(pInstance)
-		pInstance->SetHDMIStatus();
+	SetHDMIStatus();
 }
 
 void PlayerExternalsRdkInterface::OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
 {
-	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
-
 	const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
 	MW_LOG_WARN(" Received HDCP Status Change event data:%d status:%s\n",
 			  hdcpStatus, hdcpStatusStr);
 
-	if(pInstance)
-		pInstance->SetHDMIStatus();
+	SetHDMIStatus();
 }
 
 /**
@@ -189,11 +183,9 @@ void PlayerExternalsRdkInterface::OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
  */
 void PlayerExternalsRdkInterface::OnResolutionPostChange(int width, int height)
 {
-	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
 	MW_LOG_WARN(" Received Resolution Post Change event width : %d height : %d\n", width, height);
-	if(pInstance)
-		pInstance->SetResolution(width, height);
+	SetResolution(width, height);
 }
 
 void PlayerExternalsRdkInterface::OnResolutionPreChange(int width, int height)
