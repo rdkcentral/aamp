@@ -763,17 +763,38 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
 		
-		// Only reset last-processed metadata pointers for new tunes, not for seeks/resumes
-		// Resetting on seek causes already-processed ad events to be re-emitted
-		if (tuneType == eTUNETYPE_NEW_NORMAL || tuneType == eTUNETYPE_NEW_SEEK)
+		// Reset last-processed pointers for new tunes OR backward seeks
+		// For backward seeks: If new position < last-processed position, reset to allow re-emission
+		bool shouldResetPointers = (tuneType == eTUNETYPE_NEW_NORMAL || tuneType == eTUNETYPE_NEW_SEEK);
+		
+		if (!shouldResetPointers && (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE))
 		{
-			AAMPLOG_INFO("AampTSB: InvokeTsbReaders resetting last-processed pointers for new tune (tuneType=%d)", tuneType);
+			// Check if seeking backward from last-processed position
+			AampTime newPosition(startPosSec); // startPosSec is already in seconds
+			
+			if (mLastAdReservationMetaDataProcessed)
+			{
+				AampTime lastProcessedPos = mLastAdReservationMetaDataProcessed->GetPosition();
+				if (newPosition < lastProcessedPos)
+				{
+					AAMPLOG_INFO("AampTSB: Backward seek detected: new position %.3fs < last-processed %.3fs - resetting pointers",
+						newPosition.inSeconds(), lastProcessedPos.inSeconds());
+					shouldResetPointers = true;
+				}
+			}
+		}
+		
+		if (shouldResetPointers)
+		{
+			AAMPLOG_INFO("AampTSB: InvokeTsbReaders resetting last-processed pointers (tuneType=%d, startPos=%.3fs)", 
+				tuneType, startPosSec);
 			mLastAdReservationMetaDataProcessed.reset();
 			mLastAdPlacementMetaDataProcessed.reset();
 		}
 		else
 		{
-			AAMPLOG_INFO("AampTSB: InvokeTsbReaders preserving last-processed pointers for tuneType=%d", tuneType);
+			AAMPLOG_INFO("AampTSB: InvokeTsbReaders preserving last-processed pointers for forward seek (tuneType=%d, startPos=%.3fs)", 
+				tuneType, startPosSec);
 		}
 		
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
@@ -1372,8 +1393,9 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 		{
 			AAMPLOG_INFO("AampTSB: lastAdPlacementProcessed = <none>");
 		}
-	skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed, reservationRangeStart);
-	skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed, placementRangeStart);
+
+		skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed, reservationRangeStart);
+		skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed, placementRangeStart);
 
 		// Debug: log reservation and placement lists after trimming
 		AAMPLOG_INFO("AampTSB: reservationList.size=%zu placementList.size=%zu", reservationList.size(), placementList.size());
