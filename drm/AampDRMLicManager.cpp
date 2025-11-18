@@ -112,7 +112,8 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
  *  @brief AampDRMLicenseManager constructor.
  */
 AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
-		aampInstance(aamp), mDrmSessionManager(NULL), accessToken()
+		aampInstance(aamp), mDrmSessionManager(NULL),
+		accessToken(NULL), accessTokenLen(0)
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
@@ -277,19 +278,21 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 			{
 				std::lock_guard<std::mutex> guard(accessTokenMutex);
 
+				int tokenLen = 0;
 				int tokenError = 0;
-				std::string sessionToken;
+				const char *sessionToken = NULL;
 				if(!usingAppDefinedAuthToken)
 				{ /* authToken not set externally by app */
-					sessionToken = getAccessToken(tokenError);
-					AAMPLOG_MIL("Access Token from AuthServer");
+					sessionToken = getAccessToken(tokenLen, tokenError);
+					AAMPLOG_WARN("Access Token from AuthServer");
 				}
 				else
 				{
-					sessionToken = aampInstance->mSessionToken;
-					AAMPLOG_MIL("Got Access Token from External App");
+					sessionToken = aampInstance->mSessionToken.c_str();
+					tokenLen = (int)aampInstance->mSessionToken.size();
+					AAMPLOG_WARN("Got Access Token from External App");
 				}
-				if( sessionToken.empty() )
+				if (NULL == sessionToken)
 				{
 					// Failed to get access token
 					// licenseAnonymousRequest is not set, Report failure
@@ -305,7 +308,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 				else
 				{
 					AAMPLOG_INFO("access token is available");
-					challengeInfo.accessToken = std::move(sessionToken);
+					challengeInfo.accessToken = std::string(sessionToken, tokenLen);
 				}
 			}
 			if(licenseRequestAbort)
@@ -352,15 +355,22 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					if (((412 == httpResponseCode && 401 == httpExtendedStatusCode) || sec_accessTokenExpired) && !usingAppDefinedAuthToken)
 					{
 						AAMPLOG_INFO("License Req failure by Expired access token httpResCode %d statusCode %d", httpResponseCode, httpExtendedStatusCode);
-						accessToken.clear();
+						if(accessToken)
+						{
+							free(accessToken);
+							accessToken = NULL;
+							accessTokenLen = 0;
+						}
+						int tokenLen = 0;
 						int tokenError = 0;
-						std::string sessionToken = getAccessToken(tokenError);
-						if( !sessionToken.empty() )
+						const char *sessionToken = getAccessToken(tokenLen, tokenError);
+						if (NULL != sessionToken)
 						{
 							AAMPLOG_INFO("Requesting License with new access token");
-							challengeInfo.accessToken = std::move(sessionToken);
+							challengeInfo.accessToken = std::string(sessionToken, tokenLen);
 							httpResponseCode = httpExtendedStatusCode = -1;
-							licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
+
+                                                         licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 						}
 					}
 				}
@@ -615,15 +625,28 @@ string extractSubstring(string parentStr, string startStr, string endStr)
 /**
  *  @brief Get the accessToken from authService.
  */
-const std::string &AampDRMLicenseManager::getAccessToken(int &error_code)
-{
-	if (accessToken.empty())
+const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_code)
+{	
+	if(accessToken == NULL)
 	{
-		if (ContentSecurityManager::GetInstance()->getSessionToken(accessToken))
+		std::string token;
+		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
 		{
-			if(accessToken.length() > 0)
+			size_t len = token.length();
+			if(len > 0)
 			{
-				AAMPLOG_MIL(" Received session token from auth service");
+				accessToken = (char*)malloc(len+1);
+				if(accessToken)
+				{
+					accessTokenLen = (int)len;
+					memcpy( accessToken, token.c_str(), len );
+					accessToken[len] = 0x00;
+					AAMPLOG_WARN(" Received session token from auth service");
+				}
+				else
+				{
+					AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
+				}
 			}
 			else
 			{
@@ -637,6 +660,8 @@ const std::string &AampDRMLicenseManager::getAccessToken(int &error_code)
 			error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 		}
 	}
+	
+	tokenLen = accessTokenLen;
 	return accessToken;
 }
 /**
