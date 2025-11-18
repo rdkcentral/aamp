@@ -35,7 +35,7 @@
 #include "dsAudio.h"
 
 #include <memory>
-
+#include "host.hpp"
 #include "PlayerExternalsInterfaceBase.h"
 
  /*
@@ -58,7 +58,9 @@ Replace the section between the comment section replace-start, replace-with and 
 class DeviceInterfaceBase;
 
 //class representing IARM interface in rdk
-class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
+class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase,
+	public device::Host::IDisplayDeviceEvents,
+	public device::Host::IVideoOutputPortEvents
 {
         enum InitState{
             NOT_INITIALIZED,
@@ -83,6 +85,13 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         PlayerExternalsRdkInterface();
 
     public:
+
+		template <typename T>
+		T* baseInterface()
+		{
+			static_assert(std::is_base_of<T, PlayerExternalsRdkInterface>(), "base type mismatch");
+			return static_cast<T*>(this);
+		}
 
         void Initialize() override;
 
@@ -147,7 +156,20 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
 
+		void RegisterDsClientEventHandler();
+
+		void RemoveDsClientEventHandlers();
+
         ~PlayerExternalsRdkInterface();
+
+
+        /* IVideoOutputPortEvents */
+        void OnResolutionPreChange(const int width, const int height) override;
+        void OnResolutionPostChange(const int width, const int height) override;
+        void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus);
+
+        /* IDisplayDeviceEvents */
+        void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent) override;
 };
 
 
