@@ -4475,10 +4475,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				if(culled > 0)
 				{
 					AAMPLOG_INFO("Neil Culled seconds = %f", culled);
-					if(!aamp->IsLocalAAMPTsb())
-					{
+		//			if(!aamp->IsLocalAAMPTsb())
+		//			{
 						aamp->UpdateCullingState(culled);
-					}
+		//			}
 					mCulledSeconds += culled;
 				}
 				if(!aamp->IsUninterruptedTSB())
