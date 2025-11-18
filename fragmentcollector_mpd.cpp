@@ -8506,7 +8506,6 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 			info->mediaType = (AampMediaType)trackIdx;
 			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(info);
 			temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
-			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = nullptr;
 		}
 		catch(const std::regex_error& e)
 		{
@@ -8516,6 +8515,7 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 		{
 			AAMPLOG_ERR("unknown exception calling CacheFragment");
 		}
+		mMediaStreamContext[trackIdx]->mActiveDownloadInfo = nullptr;
 		if(!temp)
 		{
 			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", headerUrl.c_str(), mMediaStreamContext[trackIdx]->fragmentTime); //CID:84438 - checked return
