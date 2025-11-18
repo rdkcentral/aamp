@@ -129,8 +129,6 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rialto-master/media/public/include)
-
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -464,35 +462,58 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/rialto-gst-pipeline.h
 	test/gstTestHarness/mp4demux.hpp
 )
+
+find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto)
+find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
+
+include( FindPackageHandleStandardArgs )
+
+find_package_handle_standard_args( RIALTO DEFAULT_MSG
+        RIALTO_LIBRARY RIALTO_INCLUDE_DIR )
+
+mark_as_advanced( RIALTO_INCLUDE_DIR RIALTO_LIBRARY )
+
+if( RIALTO_FOUND )
+    set( RIALTO_LIBRARIES ${RIALTO_LIBRARY} )
+    set( RIALTO_INCLUDE_DIRS ${RIALTO_INCLUDE_DIR} )
+endif()
+
+if( RIALTO_FOUND AND NOT TARGET Rialto::RialtoClient )
+    add_library( Rialto::RialtoClient SHARED IMPORTED )
+    set_target_properties( Rialto::RialtoClient PROPERTIES
+            IMPORTED_LOCATION "${RIALTO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${RIALTO_INCLUDE_DIR}" )
+endif()
+
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
-target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
-install(TARGETS gstTestHarness
-		DESTINATION bin
-)
+target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline" Rialto::RialtoClient)
+
+install(TARGETS gstTestHarness DESTINATION bin)
+
 # XCode schema target
 xcode_define_schema(gstTestHarness)
 
-set(RIALTO_TEST_DEPENDS
-	${OS_LD_FLAGS}
-	${CMAKE_THREAD_LIBS_INIT}
-	${GSTREAMER_LINK_LIBRARIES}
-	${GSTREAMERBASE_LINK_LIBRARIES}
-	${LIBDASH_LIBRARIES}
-	${CURL_LINK_LIBRARIES}
-)
-set(RIALTO_TEST_SOURCES
-	test/gstTestHarness/rialto-api-test.cpp
-	test/gstTestHarness/rialto-gst-pipeline.cpp
-	test/gstTestHarness/rialto-gst-pipeline.h
-	test/gstTestHarness/mp4demux.hpp
-)
-add_executable(rialtoTest ${RIALTO_TEST_SOURCES})
-target_link_libraries(rialtoTest ${RIALTO_TEST_DEPENDS} "-lreadline")
-install(TARGETS rialtoTest
-		DESTINATION bin
-)
-# XCode schema target
-xcode_define_schema(rialtoTest)
+# set(RIALTO_TEST_DEPENDS
+# 	${OS_LD_FLAGS}
+# 	${CMAKE_THREAD_LIBS_INIT}
+# 	${GSTREAMER_LINK_LIBRARIES}
+# 	${GSTREAMERBASE_LINK_LIBRARIES}
+# 	${LIBDASH_LIBRARIES}
+# 	${CURL_LINK_LIBRARIES}
+# )
+# set(RIALTO_TEST_SOURCES
+# 	test/gstTestHarness/rialto-api-test.cpp
+# 	test/gstTestHarness/rialto-gst-pipeline.cpp
+# 	test/gstTestHarness/rialto-gst-pipeline.h
+# 	test/gstTestHarness/mp4demux.hpp
+# )
+# add_executable(rialtoTest ${RIALTO_TEST_SOURCES})
+# target_link_libraries(rialtoTest ${RIALTO_TEST_DEPENDS} "-lreadline")
+# install(TARGETS rialtoTest
+# 		DESTINATION bin
+# )
+# # XCode schema target
+# xcode_define_schema(rialtoTest)
 
 #TODO: Decide which are the actual public headers
 install(FILES 

@@ -58,6 +58,7 @@ public:
 	bool setMute(int32_t sourceId, bool mute){ return false; }
 	bool getMute(int32_t sourceId, bool &mute){ return false; }
 	bool setTextTrackIdentifier(const std::string &textTrackIdentifier){ return false; }
+	bool setSubtitleOffset(int32_t sourceId, int64_t position) override { return false; }
 	
 	bool attachSource(const std::unique_ptr<MediaSource> &source, int32_t &sourceId );
 	bool removeSource(int32_t id);
