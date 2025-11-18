@@ -279,6 +279,18 @@ public:
 	 */
 	void ShiftFutureAdEvents();
 
+	/**
+	 * @brief Mark an ad placement event as already emitted to prevent duplicate emission
+	 * 
+	 * This is called when CDAI code sends an event immediately during live playback.
+	 * It updates the last-processed pointer so ProcessAdMetadata won't re-emit the 
+	 * same event during TSB playback.
+	 * 
+	 * @param[in] adId - ID of the ad
+	 * @param[in] absPosition - event absolute position
+	 */
+	void MarkAdPlacementAsEmitted(const std::string &adId, AampTime absPosition);
+
 protected:
 	/**
 	 * @brief Reads from the TSB library based on the initialization fragment data.

@@ -34,6 +34,7 @@ public:
 	MOCK_METHOD(bool, EndAdPlacement, (const std::string &, uint32_t, AampTime, double, uint32_t));
 	MOCK_METHOD(bool, EndAdPlacementWithError, (const std::string &, uint32_t, AampTime, double, uint32_t));
 	MOCK_METHOD(void, ShiftFutureAdEvents, ());
+	MOCK_METHOD(void, MarkAdPlacementAsEmitted, (const std::string &, AampTime));
 	MOCK_METHOD(void, Flush, ());
 	MOCK_METHOD(bool, PushNextTsbFragment, (MediaStreamContext*, uint32_t));
 	MOCK_METHOD(AAMPStatusType, InvokeTsbReaders, (double &, float, TuneType));

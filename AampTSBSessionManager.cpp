@@ -1278,6 +1278,32 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 	(void)mMetaDataManager.ChangeMetaDataPosition(result, currentWritePosition);
 }
 
+void AampTSBSessionManager::MarkAdPlacementAsEmitted(const std::string &adId, AampTime absPosition)
+{
+	// Get placement metadata at this position
+	// We search a small time window around the position to account for rounding
+	auto placementList = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
+		AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, 
+		absPosition - 100,  // 100ms before
+		absPosition + 100); // 100ms after
+	
+	// Find the metadata with matching adId
+	for (const auto& meta : placementList)
+	{
+		auto placementMeta = std::dynamic_pointer_cast<AampTsbAdPlacementMetaData>(meta);
+		if (placementMeta && placementMeta->GetAdId() == adId)
+		{
+			AAMPLOG_INFO("AampTSB: Marking ad placement as emitted: adId=%s absPos=%" PRIu64 " actualPos=%" PRIu64, 
+				adId.c_str(), absPosition.milliseconds(), placementMeta->GetPosition().milliseconds());
+			mLastAdPlacementMetaDataProcessed = meta;
+			return;
+		}
+	}
+	
+	AAMPLOG_WARN("AampTSB: Could not find placement metadata to mark as emitted: adId=%s absPos=%" PRIu64,
+		adId.c_str(), absPosition.milliseconds());
+}
+
 std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
 																							  std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
 {

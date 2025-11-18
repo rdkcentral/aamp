@@ -232,6 +232,14 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 	}
 }
 
+void AampTSBSessionManager::MarkAdPlacementAsEmitted(const std::string &adId, AampTime absPosition)
+{
+	if (g_mockTSBSessionManager)
+	{
+		g_mockTSBSessionManager->MarkAdPlacementAsEmitted(adId, absPosition);
+	}
+}
+
 std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initfragdata)
 {
 	return nullptr;

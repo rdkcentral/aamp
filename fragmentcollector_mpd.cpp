@@ -12057,6 +12057,12 @@ void StreamAbstractionAAMP_MPD::SendAdPlacementEvent(AAMPEventType type, const s
 	{
 		AAMPLOG_INFO("[CDAI]: AdId[%s] AdPos[ %" PRIu32 "] absPlacementEventPositionMs[%" PRIu64 "] adOffset[%u] adDuration[%u] sendImmediate[%d]", adId.c_str(), position, absolutePosition.milliseconds(), adOffset, adDuration, sendImmediate);
 		aamp->SendAdPlacementEvent(type, adId, position, absolutePosition.milliseconds(), adOffset, adDuration, sendImmediate);
+		
+		// Mark this placement event as already emitted so ProcessAdMetadata won't re-emit it during TSB playback
+		if (tsbSessionManager && (type == AAMP_EVENT_AD_PLACEMENT_START || type == AAMP_EVENT_AD_PLACEMENT_END || type == AAMP_EVENT_AD_PLACEMENT_ERROR))
+		{
+			tsbSessionManager->MarkAdPlacementAsEmitted(adId, absolutePosition);
+		}
 	}
 }
 

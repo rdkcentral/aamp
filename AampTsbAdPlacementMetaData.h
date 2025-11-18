@@ -76,6 +76,12 @@ public:
 	 */
 	void SendEvent(PrivateInstanceAAMP* aamp) const override;
 
+	/**
+	 * @brief Get the ad ID
+	 * @return The ad ID string
+	 */
+	const std::string& GetAdId() const { return mAdId; }
+
 private:
 	std::string mAdId;        		/**< Ad Id */
 	uint32_t mRelativePosition;    	/**< Ad Position relative to Reservation Start */
