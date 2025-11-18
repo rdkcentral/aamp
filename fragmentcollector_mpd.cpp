@@ -4470,6 +4470,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				{
 					culled = GetCulledSeconds(currMPDPeriodDetails);
 				}
+				AAMPLOG_INFO("Neil culled %f > 0)", culled);
+
 				if(culled > 0)
 				{
 					AAMPLOG_INFO("Neil Culled seconds = %f", culled);

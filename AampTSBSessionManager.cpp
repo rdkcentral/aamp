@@ -1090,8 +1090,10 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	double culledSeconds = 0.0;
 	AAMPLOG_INFO("Neil entering AampTSBSessionManager::UpdateProgress()");
 
-
 	culledSeconds = CullSegments();
+
+	AAMPLOG_INFO("Neil culledSeconds [%lf] > 0.0", culledSeconds);
+
 	if (culledSeconds > 0.0)
 	{
 		// Update culled seconds based on seconds culled in store
@@ -1100,15 +1102,15 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	}
 	mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
 	LockReadMutex();
-	AAMPLOG_TRACE("LiveDownloader:: Manifest total duration:%lf, ManifestCulledSeconds:%lf", manifestDuration, manifestCulledSecondsFromStart);
+	AAMPLOG_TRACE("Neil LiveDownloader:: Manifest total duration:%lf, ManifestCulledSeconds:%lf", manifestDuration, manifestCulledSecondsFromStart);
 	mStoreEndPosition = mAamp->culledSeconds + GetTotalStoreDuration(eMEDIATYPE_VIDEO);
 	if (mAamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging))
 	{
-		AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
+		AAMPLOG_INFO("Neil tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
 	}
 	UnlockReadMutex();
 	double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
-	AAMPLOG_TRACE("Updating duration: %lf", duration);
+	AAMPLOG_TRACE("Neil Updating duration: %lf", duration);
 	mAamp->UpdateDuration(duration);
 }
 
