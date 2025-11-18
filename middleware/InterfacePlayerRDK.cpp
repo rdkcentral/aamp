@@ -3142,6 +3142,27 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				int count = mp4Demux->count();
 				if( count>0 )
 				{ // media segment
+					// Push any protection events found in media segment (if caps are encrypted)
+					if( mp4Demux->isCapsEncrypted() && mp4Demux->getNumProtectionEvents() > 0 )
+					{
+						for( size_t e=0; e<mp4Demux->getNumProtectionEvents(); e++ )
+						{
+							GstEvent *protEvent = mp4Demux->getProtectionEvent(e);
+							GstPad *pad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+							if( pad )
+							{
+								gboolean pushed = gst_pad_push_event(pad, gst_event_ref(protEvent));
+								MW_LOG_MIL("[INTERFACE] Pushed protection event %zu from media segment, pushed=%d", e, pushed);
+								gst_object_unref(pad);
+							}
+							else
+							{
+								MW_LOG_ERR("[INTERFACE] Failed to get src pad for pushing protection event");
+							}
+						}
+					}
+					
+					// Push samples with per-sample DRM metadata if encrypted
 					for( int i=0; i<count; i++ )
 					{
 						size_t sampleLen = mp4Demux->getLen(i);

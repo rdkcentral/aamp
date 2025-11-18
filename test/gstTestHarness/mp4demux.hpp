@@ -81,7 +81,9 @@ private:
 	uint32_t data_reference_index;
 	uint32_t codec_type;
 	std::string codec_data;
-	uint8_t is_encrypted;
+	uint8_t is_encrypted;  // kept for backward compat; now deprecated in favor of samples_encrypted/caps_encrypted
+	uint8_t samples_encrypted;  // gates creation of per-sample DRM metadata (IV, subsamples)
+	uint8_t caps_encrypted;  // gates caps-level encryption signaling and PSSH event push to pipeline
 	uint8_t iv_size;
 	uint8_t crypt_byte_block;
 	uint8_t skip_byte_block;
@@ -211,7 +213,9 @@ private:
 			crypt_byte_block = (pattern>>4) & 0xf;
 			skip_byte_block = pattern & 0xf;
 		}
-		is_encrypted = *ptr++;
+		is_encrypted = *ptr++;  // keep for compat, but use samples_encrypted for logic
+		samples_encrypted = is_encrypted;  // samples will have per-sample DRM metadata
+		PRINTF( "%sparseTrackEncryptionBox: is_encrypted=%d, samples_encrypted=%d\n", INDENT(), is_encrypted, samples_encrypted );
 		iv_size = *ptr++;
 
 		default_kid = std::string((char *)ptr,16);
@@ -627,11 +631,24 @@ private:
 	}
 	
 	void parseSampleDescriptionBox( const uint8_t *next )
-	{ // stsd
+	{ // stsd - init header, clears old protection events and resets caps_encrypted
+		PRINTF( "%sparseSampleDescriptionBox (stsd): clearing old protection events and resetting caps_encrypted\n", INDENT() );
+		ClearProtectionEvents();
+		caps_encrypted = 0;  // reset for new init; will be set below if appropriate
+		samples_encrypted = 0;  // reset for new init; will be set by parseTrackEncryptionBox
+		
 		ReadHeader();
 		uint32_t count = ReadU32();
 		assert( count == 1 );
 		DemuxHelper(next);
+		
+		// After parsing stsd content (which includes tenc and pssh boxes), decide whether to set caps_encrypted
+		if( samples_encrypted || protectionEvents.size() > 0 )
+		{
+			caps_encrypted = 1;
+			PRINTF( "%sparseSampleDescriptionBox: setting caps_encrypted=1 (samples_encrypted=%d, protectionEvents=%zu)\n", 
+				INDENT(), samples_encrypted, protectionEvents.size() );
+		}
 	}
 	
 	void parseVideoInformation( void )
@@ -946,7 +963,7 @@ public:
 	Mp4Demux( bool verbose=false ):
 		audio{}, video{}, stream_format(),
 		data_reference_index(), codec_type(),
-		codec_data(), is_encrypted(), iv_size(),
+		codec_data(), is_encrypted(), samples_encrypted(), caps_encrypted(), iv_size(),
 		crypt_byte_block(), skip_byte_block(),
 		constant_iv_size(), constant_iv(), timescale(),
 		samples(), default_kid(), got_auxiliary_information_offset(),
@@ -999,12 +1016,29 @@ public:
 		return samples[part].duration;
 	}
 	
-	~Mp4Demux()
+	void ClearProtectionEvents( void )
 	{
+		PRINTF( "%sClearProtectionEvents: clearing %zu protection events\n", INDENT(), protectionEvents.size() );
 		for( int i=0; i<protectionEvents.size(); i++ )
 		{
 			gst_event_unref(protectionEvents[i]);
 		}
+		protectionEvents.clear();
+	}
+	
+	bool isSamplesEncrypted( void ) const
+	{
+		return samples_encrypted != 0;
+	}
+	
+	bool isCapsEncrypted( void ) const
+	{
+		return caps_encrypted != 0;
+	}
+	
+	~Mp4Demux()
+	{
+		ClearProtectionEvents();
 	}
 	
 	Mp4Demux(const Mp4Demux & other)
@@ -1072,7 +1106,7 @@ public:
 				g_print( "unk codec_type: %" PRIu32 "\n", codec_type );
 				return;
 		}
-		if (caps && is_encrypted)
+		if (caps && caps_encrypted)
 		{
 			GstStructure *s = gst_caps_get_structure (caps, 0);
 			gst_structure_set (s,
@@ -1081,6 +1115,10 @@ public:
 				NULL);
 			gst_structure_set_name (s, "application/x-cenc");
 		}
+		gchar *caps_str = gst_caps_to_string(caps);
+		PRINTF( "%ssetCaps: caps_encrypted=%d, samples_encrypted=%d, caps=%s\n", 
+			INDENT(), caps_encrypted, samples_encrypted, caps_str );
+		g_free(caps_str);
 		gst_app_src_set_caps(appsrc, caps);
 		gst_caps_unref(caps);
 		gst_buffer_unref (buf);
@@ -1099,8 +1137,9 @@ public:
 	GstStructure *getDrmMetadata( int sampleIndex )
 	{
 		GstStructure *metadata = NULL;
-		if( is_encrypted )
+		if( samples_encrypted )
 		{
+			PRINTF( "%sgetDrmMetadata: sample %d is encrypted, creating metadata\n", INDENT(), sampleIndex );
 			char original_media_type_string[5] =
 			{
 				(char)(original_media_type>>0x18),
@@ -1168,6 +1207,10 @@ public:
 								  NULL );
 				gst_buffer_unref( constant_iv_buf );
 			}
+		}
+		else
+		{
+			PRINTF( "%sgetDrmMetadata: sample %d is NOT encrypted, returning NULL\n", INDENT(), sampleIndex );
 		}
 		
 		if( metadata )
