@@ -8512,6 +8512,10 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 		{
 			AAMPLOG_ERR("regex exception in Calling CacheFragment: %s", e.what());
 		}
+		catch (...)
+		{
+			AAMPLOG_ERR("unknown exception calling CacheFragment");
+		}
 		if(!temp)
 		{
 			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", headerUrl.c_str(), mMediaStreamContext[trackIdx]->fragmentTime); //CID:84438 - checked return
