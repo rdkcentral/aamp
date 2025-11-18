@@ -241,7 +241,14 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
+
+/**
+ * @brief Decorate a GstBuffer with DRM metadata
+ * @param[in] buffer The GstBuffer to decorate
+ * @param[in] drmMetadata The DRM metadata
+ */
 static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata);
+
 /**
  * @brief Configures the GStreamer pipeline.
  * @param format Video format.
@@ -2905,6 +2912,22 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 }
 
 /**
+ *  @brief Create GstBuffer with data copied from input data pointer
+ */
+static GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
+{
+	GstBuffer *buffer = gst_buffer_new_and_alloc(size);
+	if (buffer)
+	{
+		GstMapInfo map;
+		gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+		memcpy(map.data, data, size );
+		gst_buffer_unmap(buffer, &map);
+	}
+	return buffer;
+}
+
+/**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
 bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
@@ -2980,14 +3003,10 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, boo
 
 		if(copy)
 		{
-			buffer = gst_buffer_new_and_alloc((guint)sample.dataSize);
+			buffer = CreateGstBufferWithData(sample.data, sample.dataSize);
 
 			if (buffer)
 			{
-				GstMapInfo map;
-				gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-				memcpy(map.data, sample.data, sample.dataSize);
-				gst_buffer_unmap(buffer, &map);
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
@@ -5196,6 +5215,11 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	return rate;
 }
 
+/**
+ * @brief Sets the stream capabilities.
+ * @param[in] type The media type.
+ * @param[in] codecInfo The codec information.
+ */
 void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codecInfo)
 {
 	GstCaps *caps = GetCaps(codecInfo.codecFormat);
@@ -5274,19 +5298,11 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codec
 	}
 }
 
-static GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
-{
-	GstBuffer *buffer = gst_buffer_new_and_alloc( size );
-	if (buffer)
-	{
-		GstMapInfo map;
-		gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-		memcpy(map.data, data, size );
-		gst_buffer_unmap(buffer, &map);
-	}
-	return buffer;
-}
-
+/**
+ * @brief Decorate a GstBuffer with DRM metadata
+ * @param[in] buffer The GstBuffer to decorate
+ * @param[in] drmMetadata The DRM metadata
+ */
 void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
 {
 	GstStructure *metadata = NULL;
@@ -5297,8 +5313,6 @@ void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata 
 										"application/x-cenc",
 										"encrypted", G_TYPE_BOOLEAN, TRUE,
 										"kid", GST_TYPE_BUFFER, kidBuffer,
-										// TODO: deprecate original-media-type from drmMetadata
-										//"original-media-type", G_TYPE_STRING, drmMetadata.originalMediaType.c_str(),
 										// TODO : cipher-mode to be added in caps and not drmMetadata
 										"cipher-mode", G_TYPE_STRING, drmMetadata.cipher.c_str(),
 										NULL);
@@ -5346,9 +5360,10 @@ void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata 
 	}
 
 	if (metadata)
-	{ // serialize and print the metadata
+	{
+		// serialize and print the metadata
 		gchar *metaStr = gst_structure_to_string( metadata );
-		MW_LOG_INFO("metadata: %s\n", metaStr);
+		MW_LOG_INFO("Added drm metadata: %s\n", metaStr);
 		g_free(metaStr);
 
 		gst_buffer_add_protection_meta(buffer, metadata);

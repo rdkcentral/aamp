@@ -44,6 +44,9 @@ struct AAMPGstPlayerPriv;
 */
 class SegmentInfo_t;
 
+// Forward declaration of MediaSample
+struct MediaSample;
+
 /**
  * @struct TaskControlData
  * @brief data for scheduling and handling asynchronous tasks
@@ -425,6 +428,12 @@ public:
 	 */
 	int GetMonitorAVInterval() const { return mMonitorAVInterval; }
 
+	/**
+     * @brief Set stream capabilities based on codec info
+     *
+     * @param[in] type - Media type
+     * @param[in] codecInfo - Codec information
+     */
 	void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo) override;
 
 private:

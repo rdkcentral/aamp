@@ -699,6 +699,10 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample sample, bool
 	bool notifyFirstBufferProcessed = false;
 	bool resetTrickUTC = false;
 	bool firstBufferPushed = false;
+	// To be used in buffer control notification
+	double fpts = sample.pts;
+	double fdts = sample.dts;
+	double fDuration = sample.duration;
 
 	// This block checks if the data contain a valid ID3 header and if it is the case
 	// calls the callback function.
@@ -733,8 +737,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample sample, bool
 	}
 	if(bPushBuffer)
 	{
-		// TODO: Accessing values from a moved object
-		privateContext->mBufferControl[mediaType].notifyFragmentInject(this, mediaType, sample.pts, sample.dts, sample.duration, discontinuity);
+		privateContext->mBufferControl[mediaType].notifyFragmentInject(this, mediaType, fpts, fdts, fDuration, discontinuity);
 	}
 	if (eMEDIATYPE_VIDEO == mediaType)
 	{
@@ -1327,18 +1330,24 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 	}
 }
 
+/**
+ * @brief Set stream capabilities based on codec info
+ *
+ * @param[in] type - Media type
+ * @param[in] codecInfo - Codec information
+ */
 void AAMPGstPlayer::SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo)
 {
 	CodecInfo gstCodecInfo;
 	gstCodecInfo.codecFormat = (GstStreamOutputFormat)codecInfo.mCodecFormat;
 	gstCodecInfo.codecData = std::move(codecInfo.mCodecData);
 	gstCodecInfo.isEncrypted = codecInfo.mIsEncrypted;
-	if (codecInfo.mType == eMEDIATYPE_VIDEO)
+	if (type == eMEDIATYPE_VIDEO)
 	{
 		gstCodecInfo.info.video.width = codecInfo.mInfo.video.mWidth;
 		gstCodecInfo.info.video.height = codecInfo.mInfo.video.mHeight;
 	}
-	else if (codecInfo.mType == eMEDIATYPE_AUDIO)
+	else if (type == eMEDIATYPE_AUDIO)
 	{
 		gstCodecInfo.info.audio.channelCount = codecInfo.mInfo.audio.mChannelCount;
 		gstCodecInfo.info.audio.sampleRate = codecInfo.mInfo.audio.mSampleRate;
@@ -1367,7 +1376,6 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 		gstSample.drmMetadata.cipher = std::move(sample.mDrmMetadata.mCipher);
 		gstSample.drmMetadata.cryptByteBlock = sample.mDrmMetadata.mCryptByteBlock;
 		gstSample.drmMetadata.skipByteBlock = sample.mDrmMetadata.mSkipByteBlock;
-		gstSample.drmMetadata.originalMediaType = std::move(sample.mDrmMetadata.mOriginalMediaType);
 	}
 	else
 	{

@@ -24,12 +24,13 @@
 
 #include <iomanip>
 #include <regex>
+#include <limits>
 #include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
 #include "scte35/AampSCTE35.h"
 #include "AampStreamSinkManager.h"
 #include <curl/curl.h>
-#include "Mp4Demux.hpp"
+#include "MP4Demux.h"
 
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
@@ -45,7 +46,7 @@ void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned l
 	//Parse the command line to see if all lines should be displayed, a range from start to end, or a number of lines from the end of the list.
 	//If tail is 0, start & end specify the range. If tail is non-zero it is the number of lines to display from the end of the list.
 	start = 0;
-	end = ULONG_MAX;
+	end = std::numeric_limits<unsigned long>::max();
 	tail = 0;
 	if( !strcmp(cmd, "list"))
 	{
@@ -77,7 +78,7 @@ void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned l
 	if(start > end)
 	{
 		start = 0;
-		end = ULONG_MAX;
+		end = std::numeric_limits<unsigned long>::max();
 		tail = 0;
 	}
 }
@@ -1106,7 +1107,7 @@ void PlaybackCommand::parse( const char *path )
 						if (samples.empty())
 						{
 							AAMPCLI_PRINTF("No samples found in file '%s'\n", path );
-							auto codecInfo = mp4Demux->getCodecInfo();
+							auto &codecInfo = mp4Demux->getCodecInfo();
 							AAMPCLI_PRINTF("Codec Info: Format=%d, CodecDataSize=%zu\n",
 								codecInfo.mCodecFormat,
 								codecInfo.mCodecData.size());
@@ -1142,9 +1143,8 @@ void PlaybackCommand::parse( const char *path )
 										keyIdHex += hexByte;
 									}
 
-									AAMPCLI_PRINTF("  DRM Info: Cipher:%s MediaType:%s KID=%s, IV=0x%s, SubSamples=%zu, CryptByteBlock: %d, SkipBytes: %d\n", 
+									AAMPCLI_PRINTF("  DRM Info: Cipher:%s KID=%s, IV=0x%s, SubSamples=%zu, CryptByteBlock: %d, SkipBytes: %d\n", 
 										sample.mDrmMetadata.mCipher.c_str(),
-										sample.mDrmMetadata.mOriginalMediaType.c_str(),
 										keyIdHex.c_str(),
 										ivHex.c_str(),
 										sample.mDrmMetadata.mSubSamples.size()/6,

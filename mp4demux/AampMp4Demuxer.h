@@ -26,7 +26,7 @@
 #define __AAMPMP4DEMUXER_H__
 
 #include "mediaprocessor.h"
-#include "Mp4Demux.hpp"
+#include "MP4Demux.h"
 #include "priv_aamp.h"
 
 class AampMp4Demuxer : public MediaProcessor

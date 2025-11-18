@@ -3992,6 +3992,13 @@ public:
 	 */
 	double GetFormatPositionOffsetInMSecs();
 
+	/**
+	 * @fn SetStreamCaps
+	 * @brief Set stream capabilities based on codec info
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] codecInfo - Codec information
+	 */
 	void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo);
 
 protected:

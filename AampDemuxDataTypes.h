@@ -22,22 +22,30 @@
 
 #include <string>
 #include <vector>
+#include <cstring> // for std::memset
 #include "AampGrowableBuffer.h" // for AampGrowableBuffer
 #include "AampTime.h" // for AampTime
 #include "StreamOutputFormat.h" // for StreamOutputFormat
 #include "AampMediaType.h" // for AampMediaType
 
+/*
+ * @struct AampPsshData
+ * @brief PSSH data structure
+ */
 struct AampPsshData
 {
 	std::string systemID; // 16 bytes UUID
 	std::vector<uint8_t> pssh; // variable length
 };
 
+/*
+ * @struct AampCodecInfo
+ * @brief Codec information structure
+ */
 struct AampCodecInfo
 {
 	StreamOutputFormat mCodecFormat; // FORMAT_VIDEO_ES_H264, etc
 	std::vector<uint8_t> mCodecData; // codec private data, e.g. avcC box
-	AampMediaType mType;
 	bool mIsEncrypted;
 	union
 	{
@@ -76,23 +84,30 @@ struct AampCodecInfo
 	}
 };
 
+/*
+ * @struct AampDrmMetadata
+ * @brief DRM metadata for encrypted samples
+ */
 struct AampDrmMetadata
 {
 	bool mIsEncrypted;
 	std::string mKeyId; // 16 bytes UUID
 	std::vector<uint8_t> mIV; // 8 or 16 bytes
 	std::string mCipher; // e.g. 'cenc', 'cbcs'
-	std::string mOriginalMediaType; // 'vide' or 'soun'
 	std::vector<uint8_t> mSubSamples; // optional subsample encryption data
 	uint8_t mCryptByteBlock;
 	uint8_t mSkipByteBlock;
 
-	AampDrmMetadata() : mIsEncrypted(false), mKeyId(), mIV(), mCipher(), mOriginalMediaType(),
+	AampDrmMetadata() : mIsEncrypted(false), mKeyId(), mIV(), mCipher(),
 		mSubSamples(), mCryptByteBlock(0), mSkipByteBlock(0)
 	{
 	}
 };
 
+/*
+ * @struct AampMediaSample
+ * @brief Media sample structure
+ */
 struct AampMediaSample
 {
 	AampGrowableBuffer mData;

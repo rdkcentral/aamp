@@ -418,7 +418,7 @@ set(LIBAAMP_SOURCES
 	AampFragmentDescriptor.cpp
 	AampTimeBasedBufferManager.cpp
 	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
-	mp4demux/Mp4Demux.hpp
+	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
 )
 

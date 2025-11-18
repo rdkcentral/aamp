@@ -14063,6 +14063,13 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 	}
 }
 
+/**
+ * @fn SetStreamCaps
+ * @brief Set stream capabilities based on codec info
+ *
+ * @param[in] type - Media type
+ * @param[in] codecInfo - Codec information
+ */
 void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);

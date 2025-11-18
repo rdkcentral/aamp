@@ -31,7 +31,7 @@
 AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
     MediaProcessor(), mMp4Demux(nullptr), mAamp(aamp), mEnable(true), mMediaType(type)
 {
-    AAMPLOG_INFO("AampMp4Demuxer Constructor");
+    AAMPLOG_WARN("Created AampMp4Demuxer(%p) for type %d", this, type);
     mMp4Demux = new Mp4Demux();
 }
 
@@ -40,7 +40,7 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
  */
 AampMp4Demuxer::~AampMp4Demuxer()
 {
-    AAMPLOG_INFO("AampMp4Demuxer Destructor");
+    AAMPLOG_DEBUG("AampMp4Demuxer destructor");
     if (mMp4Demux)
     {
         delete mMp4Demux;
@@ -82,13 +82,13 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
         else
         {
             const AampCodecInfo& codecInfo = mMp4Demux->getCodecInfo();
-            AAMPLOG_WARN("Updating codecInfo:%d", codecInfo.mCodecFormat);
+            AAMPLOG_WARN("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
             mAamp->SetStreamCaps(mMediaType, codecInfo);
         }
     }
     else
     {
-        AAMPLOG_WARN("AampMp4Demuxer::sendSegment Invalid buffer or demuxer disabled");
+        AAMPLOG_WARN("Invalid buffer or demuxer disabled");
     }
     ptsError = false;
     return ret;

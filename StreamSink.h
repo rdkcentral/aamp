@@ -390,6 +390,12 @@ public:
      */
     virtual void NotifyInjectorToPause() {};
 
+    /**
+     * @brief Set stream capabilities based on codec info
+     *
+     * @param[in] type - Media type
+     * @param[in] codecInfo - Codec information
+     */
     virtual void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo) {};
 
 };
