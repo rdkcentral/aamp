@@ -762,8 +762,20 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
-		mLastAdReservationMetaDataProcessed.reset();
-		mLastAdPlacementMetaDataProcessed.reset();
+		
+		// Only reset last-processed metadata pointers for new tunes, not for seeks/resumes
+		// Resetting on seek causes already-processed ad events to be re-emitted
+		if (tuneType == eTUNETYPE_NEW_NORMAL || tuneType == eTUNETYPE_NEW_SEEK)
+		{
+			AAMPLOG_INFO("AampTSB: InvokeTsbReaders resetting last-processed pointers for new tune (tuneType=%d)", tuneType);
+			mLastAdReservationMetaDataProcessed.reset();
+			mLastAdPlacementMetaDataProcessed.reset();
+		}
+		else
+		{
+			AAMPLOG_INFO("AampTSB: InvokeTsbReaders preserving last-processed pointers for tuneType=%d", tuneType);
+		}
+		
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
