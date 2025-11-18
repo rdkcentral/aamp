@@ -505,7 +505,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			{
 				MediaErrorEventPtr ev = std::dynamic_pointer_cast<MediaErrorEvent>(e);
 				mAampcli.mTuneFailureDescription = ev->getDescription();
-				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_FAILED reason=%s\n",mAampcli.mTuneFailureDescription.c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_FAILED reason=%s code [%d:%d]\n",mAampcli.mTuneFailureDescription.c_str(),ev->getCode(), ev->getSubCode());
 				break;
 			}
 		case AAMP_EVENT_SPEED_CHANGED:
