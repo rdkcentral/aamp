@@ -4296,9 +4296,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
-							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
-							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
@@ -4311,7 +4311,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
-						
+
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -12376,7 +12376,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
-
+AAMPLOG_INFO("currentTrackIndex %d", currentTrackIndex);
 	if (currentTrackIndex >= 0)
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
@@ -12399,6 +12399,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 
 				if ((trackLanguage == firstLanguage) && (trackLanguage != currentPrefLanguage))
 				{
+					AAMPLOG_INFO("Track language %s firstLanguage %s currentPrefLanguage %s",
+								 trackLanguage.c_str(), firstLanguage.c_str(), currentPrefLanguage.c_str());
 					isSelectionChange = true;
 					if (track.isAvailable)
 					{
@@ -12409,6 +12411,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 				if (preferredTextLanguagesList.size() > 1)
 				{
 					/* If multiple value of language is present then retune. */
+					AAMPLOG_INFO("Multiple preferred text languages present");
 					isSelectionChange = true;
 				}
 			}
@@ -12419,6 +12422,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			{
 				if ((track.rendition == preferredTextRenditionString) && (track.rendition != currentPrefRendition))
 				{
+					AAMPLOG_INFO("Track rendition %s preferredTextRenditionString %s currentPrefRendition %s",
+								 track.rendition.c_str(), preferredTextRenditionString.c_str(), currentPrefRendition);
 					isSelectionChange = true;
 					if (track.isAvailable)
 					{
@@ -12434,6 +12439,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			{
 				if ((track.name == preferredTextNameString) && (track.name != currentPrefName))
 				{
+					AAMPLOG_INFO("Track name %s preferredTextNameString %s currentPrefName %s",
+								 track.name.c_str(), preferredTextNameString.c_str(), currentPrefName);
 					isSelectionChange = true;
 					if (track.isAvailable)
 					{
@@ -12448,6 +12455,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			{
 				if ((track.instreamId == preferredInstreamIdString) && (track.instreamId != currentPrefInstreamId))
 				{
+					AAMPLOG_INFO("Track instreamId %s preferredInstreamIdString %s currentPrefInstreamId %s",
+								 track.instreamId.c_str(), preferredInstreamIdString.c_str(), currentPrefInstreamId);
 					isSelectionChange = true;
 				}
 			}
@@ -12456,6 +12465,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			{
 				if ((track.accessibilityItem == preferredTextAccessibilityNode) && (track.accessibilityItem != currentAccessibilityNode))
 				{
+					AAMPLOG_INFO("Track accessibility ");
 					isSelectionChange = true;
 					if (track.isAvailable)
 					{
