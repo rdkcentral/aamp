@@ -12503,7 +12503,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
-			else if (isSelectionChange && closedCaptionTrackId ==-1) /* dont tune if we are using closedCaptions*/
+			else if (isSelectionChange && closedCaptionTrackId == -1) /* dont tune if we are using closedCaptions*/
 			{
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
