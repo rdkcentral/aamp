@@ -5602,13 +5602,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (sink)
 			{
 				sink->SetVideoZoom(zoom_mode);
-				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted, mApplyCachedVideoMute);
-				sink->SetVideoMute(video_muted);
+				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted.load(), mApplyCachedVideoMute);
 				if (mApplyCachedVideoMute)
 				{
+					SetVideoMuteInternal(video_muted);
 					mApplyCachedVideoMute = false;
-					SetCCStatusInternal();
 				}
+				else
+				{
+					sink->SetVideoMute(video_muted);
+				}
+				SetCCStatusInternal();
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6205,7 +6209,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if(mApplyCachedVideoMute)
 	{
 		mApplyCachedVideoMute = false;
-		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted);
+		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted.load());
 		if (mpStreamAbstractionAAMP)
 		{
 			//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
@@ -7786,6 +7790,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
 	mDisableRateCorrection = false;
+	mIsInbandCC = true; // reset
 	mMaxLanguageCount = 0; // reset language count
 	//mPreferredAudioTrack = AudioTrackInfo(); // reset
 	mPreferredTextTrack = TextTrackInfo(); // reset
@@ -11111,28 +11116,29 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
+
 	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
 	SetCCStatusInternal();
-	ReleaseStreamLock();
 }
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
 	// StreamLock is recursive, so it is fine to call this method with it locked.
 	AcquireStreamLock();
-	// Mute subtitles if either video is muted or subtitles are muted
-	bool mute_subtitles_applied = video_muted || subtitles_muted;
-	AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-		mIsInbandCC, ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled), mute_subtitles_applied, video_muted, subtitles_muted);
-	if (mIsInbandCC || !ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled))
+	if (mpStreamAbstractionAAMP)
 	{
-		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-	}
-	else
-	{
-		if (mpStreamAbstractionAAMP)
+		// Mute subtitles if either video is muted or subtitles are muted
+		bool mute_subtitles_applied = video_muted || subtitles_muted;
+		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+		AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+
+		if (mIsInbandCC || !isGstSubtecEnabled)
+		{
+			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+		}
+		else
 		{
 			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 			if (HasSidecarData())
