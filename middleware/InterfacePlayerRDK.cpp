@@ -4160,6 +4160,7 @@ static void GstPlayer_OnGstPtsErrorCb(GstElement *object, guint arg0, gpointer a
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
+	MW_LOG_ERR("Got PTS error message from %s", GST_ELEMENT_NAME(object));
 	bool isVideo = false;
 	bool isAudioSink = false;
 	if (privatePlayer->socInterface->IsVideoSinkHandleErrors())
