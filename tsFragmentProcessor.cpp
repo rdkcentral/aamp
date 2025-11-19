@@ -562,7 +562,7 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 			/* Audio is not playing in particular hls file.
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
-			 * But in one particular hls file, we dont have PES data in the first audio pid.
+			 * But in one particular hls file, we don't have PES data in the first audio pid.
 			 * So, we have now modified to choose the next available audio pid index,
 			 * when there is no PES data available in the current audio pid.
 			 */
