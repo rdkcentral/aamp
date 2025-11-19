@@ -2394,12 +2394,13 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 
 	if (culledSecs == 0)
 	{
+		AAMPLOG_WARN("Neil culledSecs == 0"); 
 		return;
 	}
 
 	if((!this->culledSeconds) && culledSecs)
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: culling started, first value %f", culledSecs);
+		AAMPLOG_WARN("Neil PrivateInstanceAAMP: culling started, first value %f", culledSecs);
 	}
 
 	this->culledSeconds += culledSecs;
@@ -2461,7 +2462,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 					// Enable this flag to perform seek to live.
 					mSeekFromPausedState = true;
 				}
-				AAMPLOG_WARN("Resume playback since playlist start position(%f) has moved past paused position(%f) ", this->culledSeconds, position);
+				AAMPLOG_WARN("Neil Resume playback since playlist start position(%f) has moved past paused position(%f) ", this->culledSeconds, position);
 				if (!mAutoResumeTaskPending)
 				{
 					mAutoResumeTaskPending = true;
@@ -2469,7 +2470,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 				}
 				else
 				{
-					AAMPLOG_WARN("Auto resume playback task already exists, avoid creating duplicates for now!");
+					AAMPLOG_WARN("Neil Auto resume playback task already exists, avoid creating duplicates for now!");
 				}
 			}
 			else if(mPausedBehavior >= ePAUSED_BEHAVIOR_AUTOPLAY_DEFER)
@@ -2502,7 +2503,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 					{
 						mSeekFromPausedState = true;
 					}
-					AAMPLOG_WARN("Resume playback since start position(%f) moved very close to minimum resume position(%f) ", this->culledSeconds, minPlaylistPositionToResume);
+					AAMPLOG_WARN("Neil Resume playback since start position(%f) moved very close to minimum resume position(%f) ", this->culledSeconds, minPlaylistPositionToResume);
 					if (!mAutoResumeTaskPending)
 					{
 						mAutoResumeTaskPending = true;
@@ -5853,10 +5854,13 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mPlaylistTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	mFogTSBEnabled = IsFogUrl(mainManifestUrl);
 	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
+	
+	AAMPLOG_INFO("Neil  mTsbType = %s", mTsbType.c_str());
+		
 	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || (mTsbType == "local" && !mFogTSBEnabled);
 	if (mLocalAAMPTsbFromConfig && mFogTSBEnabled)
 	{
-		AAMPLOG_WARN("AAMP TSB and FOG both enabled, using AAMP TSB");
+		AAMPLOG_WARN("Neil AAMP TSB and FOG both enabled, using AAMP TSB");
 		mFogTSBEnabled = false;
 	}
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
