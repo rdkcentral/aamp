@@ -3469,7 +3469,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				ConfigureTextTrack();
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
-					AAMPLOG_INFO("No default text track is selected, configure default text track");
+					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
 					SelectSubtitleTrack();
 				}
 			}
