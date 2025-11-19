@@ -5855,8 +5855,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mFogTSBEnabled = IsFogUrl(mainManifestUrl);
 	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
 	
-	AAMPLOG_INFO("Neil  mTsbType = %s", mTsbType.c_str());
-		
+	AAMPLOG_INFO("Neil  mTsbType = %s mFogTSBEnabled= %d", mTsbType.c_str(), mFogTSBEnabled);
+	
 	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || (mTsbType == "local" && !mFogTSBEnabled);
 	if (mLocalAAMPTsbFromConfig && mFogTSBEnabled)
 	{
