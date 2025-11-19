@@ -3135,6 +3135,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
 				if( !mp4Demux )
 				{
+					MW_LOG_MIL("Creating Mp4Demux for mediaType %d", (int)mediaType);
 					mp4Demux = new Mp4Demux();
 					m_mp4Demux[mediaType] = mp4Demux;
 				}
@@ -3144,6 +3145,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				{ // media segment
 					for( int i=0; i<count; i++ )
 					{
+						MW_LOG_MIL("mp4demux processing sample %d of %d for mediaType[%d]", i+1, count, mediaType);
 						size_t sampleLen = mp4Demux->getLen(i);
 						double pts = mp4Demux->getPts(i);
 						double dts = mp4Demux->getDts(i);
@@ -3164,6 +3166,12 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 							GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source),gstBuffer);
 							if( ret == GST_FLOW_OK )
 							{
+								MW_LOG_MIL("mp4demux pushed buffer for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu dur:%" G_GUINT64_FORMAT,
+												mediaType,
+												GST_BUFFER_PTS(gstBuffer),
+												GST_BUFFER_DTS(gstBuffer),
+												sampleLen,
+												GST_BUFFER_DURATION(gstBuffer));
 								stream->bufferUnderrun = false;
 								if( isFirstBuffer )
 								{
@@ -3176,6 +3184,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 				else
 				{ // init header
+					MW_LOG_MIL("mp4demux setting caps for mediaType[%d]", mediaType);
 					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
 				}
 				if( !copy )

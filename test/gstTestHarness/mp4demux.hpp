@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <cstring> // for memcpy
 #include <string>
+#include <iostream>
 #include <gst/app/gstappsrc.h>
 
 #define INDENT() &"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"[indent]
@@ -202,6 +203,7 @@ private:
 	
 	void parseTrackEncryptionBox( void )
 	{
+		std::cout<<"\n[MP4DEMUX] parseTrackEncryptionBox()\n";
 		ReadHeader();
 
 		ptr++; // skip
@@ -402,13 +404,14 @@ private:
 		{
 			auxiliary_information_offset = ReadU64();
 		}
-		PRINTF( "%sauxiliary_information_offset = 0x%" PRIu64 "\n", INDENT(), auxiliary_information_offset );
+		printf( "%sauxiliary_information_offset = 0x%" PRIu64 "\n", INDENT(), auxiliary_information_offset );
 		got_auxiliary_information_offset = true;
 		dump_auxiliary_information();
 	}
 	
 	void parseSampleEncryptionBox( void )
 	{
+		std::cout<<"\n[MP4DEMUX] parseSampleEncryptionBox()\n";
 		ReadHeader();
 		uint32_t sampleCount = ReadU32();
 		size_t maxSampleCount = sampleOffset + sampleCount;
@@ -928,8 +931,26 @@ private:
 	}
 	
 public:
+	void clearEncryptionState()
+	{
+		is_encrypted = 0;
+		iv_size = 0;
+		crypt_byte_block = 0;
+		skip_byte_block = 0;
+		constant_iv_size = 0;
+		constant_iv.clear();
+		default_kid.clear();
+		scheme_type = 0;
+		scheme_version = 0;
+		original_media_type = 0;
+		for( auto evt : protectionEvents ) {
+	    	gst_event_unref(evt);
+		}
+		protectionEvents.clear();
+	}
 	void Parse( const void *ptr, size_t len )
 	{
+		//clearEncryptionState();
 		// scrub sample data from previous segment, but leave other metadata intact
 		samples.clear();
 		cenc_aux_info_sizes.clear();
@@ -941,6 +962,10 @@ public:
 			indent = 16+1;
 			DemuxHelper( &this->ptr[len] );
 		}
+    	if (is_encrypted)
+        	std::cout<<"[AAMP][MP4DEMUX] Parsed segment: ENCRYPTED\n";
+    	else
+        	std::cout<<"[AAMP][MP4DEMUX] Parsed segment: CLEAR\n";
 	}
 	
 	Mp4Demux( bool verbose=false ):
@@ -1016,7 +1041,7 @@ public:
 	{ // stub move constructor
 		assert(0);
 	}
-	
+
 	void setCaps( GstAppSrc *appsrc ) const
 	{
 		GstCaps * caps = NULL;
@@ -1081,6 +1106,10 @@ public:
 				NULL);
 			gst_structure_set_name (s, "application/x-cenc");
 		}
+		gchar *caps_str = gst_caps_to_string(caps);
+		std::cout << "[MP4DEMUX] setCaps() - setting caps: " << caps_str
+          << ", is_encrypted=" << (int)is_encrypted << std::endl;		
+		g_free(caps_str);
 		gst_app_src_set_caps(appsrc, caps);
 		gst_caps_unref(caps);
 		gst_buffer_unref (buf);
@@ -1099,6 +1128,11 @@ public:
 	GstStructure *getDrmMetadata( int sampleIndex )
 	{
 		GstStructure *metadata = NULL;
+		if (!is_encrypted) {
+    	// Not encrypted - do not create or return DRM metadata, no IV!
+		printf("returning from getdrmmetadata: not encrypted\n");
+    	return NULL;
+		}
 		if( is_encrypted )
 		{
 			char original_media_type_string[5] =
@@ -1173,9 +1207,13 @@ public:
 		if( metadata )
 		{ // serialize and print the metadata
 			gchar *structure_string = gst_structure_to_string( metadata );
-			PRINTF("metadata: %s\n", structure_string);
+			printf("metadata: %s\n", structure_string);
 			g_free(structure_string);
 		}
+		else
+		{
+			printf("no metadata\n");
+		}	
 		
 		return metadata;
 	}
