@@ -92,7 +92,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		pExternalsInterface->Initialize();	
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
-		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
 
@@ -126,6 +125,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
+
+	AAMPLOG_MIL("Siva ShowDevCfgConfiguration");
+	gpGlobalConfig->ShowDevCfgConfiguration();
 
 	AAMPLOG_MIL("UseFireboltSDK=%d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 
