@@ -7565,6 +7565,17 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 		{
 			score += AAMP_TYPE_SCORE; // Add score for name match
 		}
+
+		// Only if it IS specified AND matches, add score for sub-type match.
+		// If a preference is not set (or is not recognised) it doesn't match.
+		if ( (!track.isCC && aamp->preferredTextSubTypeString == "SUBTITLES")
+		  || ( track.isCC && aamp->preferredTextSubTypeString == "CLOSED-CAPTIONS") )
+		{
+			// This is intentional re-use of the AAMP_TYPE_SCORE weighting, as
+			// specifying name AND sub-type in the same preference profile is not supported.
+			score += AAMP_TYPE_SCORE;
+		}
+
 		if(score > bestScore)
 		{
 			bestTrackFound = true;
