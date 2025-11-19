@@ -413,13 +413,13 @@ Note: starting in RDK 6.9, we support ability to start video paused on first fra
 - Stop playback and free resources associated with playback.
 
 **Single Parameter Form:**
-|Name|Type|Description|
-|----|----|-----------|
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | forceCleanup | Boolean | Optional parameter. If True, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. Prevents playback failures after device wake-up from Deep Sleep by clearing stale DRM sessions and failed key IDs. |
 
 **Two Parameter Form (Advanced Usage):**
-|Name|Type|Description|
-|----|----|-----------|
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | sendStateChangeEvent | Boolean | If True, sends state change events during stop operation. Default is true. |
 | forceCleanup | Boolean | If True, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. |
 
