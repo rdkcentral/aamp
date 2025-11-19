@@ -854,8 +854,8 @@ JSValueRef AAMPMediaPlayerJS_stop (JSContextRef ctx, JSObjectRef function, JSObj
 		return JSValueMakeUndefined(ctx);
 	}
 	
-	bool sendStateChangeEvent = false;  // Default for user-initiated stop
-	bool forceCleanup = false;
+	bool sendStateChangeEvent = true;   // Default: send state change events
+	bool forceCleanup = false;          // Default: no DRM cleanup
 	
 	if (argumentCount >= 1)
 	{
@@ -864,10 +864,12 @@ JSValueRef AAMPMediaPlayerJS_stop (JSContextRef ctx, JSObjectRef function, JSObj
 		// - If 2 arguments: treat as (sendStateChangeEvent, forceCleanup)
 		if (argumentCount == 1)
 		{
+			// stop(forceCleanup) - send events by default, cleanup based on argument
 			forceCleanup = JSValueToBoolean(ctx, arguments[0]);
 		}
 		else if (argumentCount >= 2)
 		{
+			// stop(sendStateChangeEvent, forceCleanup) - both explicit
 			sendStateChangeEvent = JSValueToBoolean(ctx, arguments[0]);
 			forceCleanup = JSValueToBoolean(ctx, arguments[1]);
 		}
