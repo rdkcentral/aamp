@@ -854,7 +854,7 @@ JSValueRef AAMPMediaPlayerJS_stop (JSContextRef ctx, JSObjectRef function, JSObj
 		return JSValueMakeUndefined(ctx);
 	}
 	
-	bool sendStateChangeEvent = true;  // Default for user-initiated stop
+	bool sendStateChangeEvent = false;  // Default for user-initiated stop
 	bool forceCleanup = false;
 	
 	if (argumentCount >= 1)
