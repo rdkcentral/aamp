@@ -86,7 +86,7 @@ static std::atomic<unsigned long long> gLogSequenceNumber(0);
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
 {
 	// Get sequential log number
 	unsigned long long seqNum = gLogSequenceNumber.fetch_add(1, std::memory_order_relaxed);
@@ -105,13 +105,14 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%llu][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%llu][%d][%s][%zx][%s][%s][%d]%s\n",
 							   timestamp,
 							   seqNum,
 							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
 							   GetPrintableThreadID(),
-							   file, line,
+							   file,
+							   func, line,
 							   format );
 		if( format_bytes<=0 )
 		{ // should never happen!

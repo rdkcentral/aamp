@@ -131,7 +131,7 @@ void DumpBinaryBlob(const unsigned char *ptr, size_t len);
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...) __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...) __attribute__ ((format (printf, 5, 6)));
 
 #define MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS 20
 #define MW_CLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
@@ -140,7 +140,7 @@ extern void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, con
 do{\
 if( (LEVEL) >= PlayerLogManager::mwLoglevel ) \
 { \
- logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+ logprintf( LEVEL, __FILE__, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 }\
 }while(0)
 
