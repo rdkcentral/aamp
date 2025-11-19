@@ -240,7 +240,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
 	if (aamp)
 	{
@@ -257,7 +257,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			StopInternal(sendStateChangeEvent);
+			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
 
 		//Release lock
@@ -3056,7 +3056,7 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceCleanup)
 {
 	aamp->StopPausePositionMonitoring("Stop() called");
 	AAMPPlayerState state = aamp->GetState();
