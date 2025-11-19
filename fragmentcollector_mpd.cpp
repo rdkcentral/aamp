@@ -3722,7 +3722,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 			// Update track with update in stream info
 			mUpdateStreamInfo = true;
-			ret = UpdateTrackInfo(!newTune, true);
+			ret = UpdateTrackInfo(!newTune, true, true);
 
 			if(eAAMPSTATUS_OK != ret)
 			{
@@ -4091,7 +4091,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				if(((AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (AdState::IN_ADBREAK_WAIT2CATCHUP != mCdaiObject->mAdState))
 				   || (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && mUpdateStreamInfo))
 				{
-					AAMPLOG_TRACE("Indexing new mpd doc");
 					ret = UpdateTrackInfo(true, true);
 					if(ret != eAAMPSTATUS_OK)
 					{
@@ -7102,7 +7101,7 @@ static bool IsWebmVideoCodec(const std::string &codec )
 /**
  * @brief Updates track information based on current state
  */
-AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex)
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	long defaultBitrate = aamp->GetDefaultBitrate();
@@ -7291,10 +7290,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
-					if ((representationCount != GetProfileCount()) && mStreamInfo)
+					if ( periodChanged && mStreamInfo != nullptr )
 					{
 						SAFE_DELETE_ARRAY(mStreamInfo);
-
 						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
 						pMediaStreamContext->representationIndex = -1;
 						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
@@ -7579,7 +7577,20 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 							UpdateIframeTracks();
 						}
-						currentProfileIndex = GetDesiredProfile(false);
+						/* During initialization its better to call the GetDesiredProfile(), which picks up the
+						* desired profile index corresponding to default bitrate.
+						* During subsequent 'period' change its better to call the getClosestProfileIndexByBandwidth()
+						* which picks up the profile index based on last bandwidth.
+						*/
+						if(isInit == true)
+						{
+							currentProfileIndex = GetDesiredProfile(false);
+						}
+						else
+						{
+							currentProfileIndex = GetABRManager().getClosestProfileIndexByBandwidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+						}
+						AAMPLOG_INFO("Desired profile index updated [%d]",currentProfileIndex);
 						// Adaptation Set Index corresponding to a particular profile
 						pMediaStreamContext->adaptationSetIdx = mProfileMaps[currentProfileIndex].adaptationSetIndex;
 						// Representation Index within a particular Adaptation Set
@@ -8491,12 +8502,23 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 		bool temp = false;
 		try
 		{
+			DownloadInfoPtr info = std::make_shared<DownloadInfo>();
+			info->absolutePosition = 0;
+			info->ptsOffset = 0;
+			info->isInitSegment = true;
+			info->mediaType = (AampMediaType)trackIdx;
+			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(info);
 			temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
 		}
 		catch(const std::regex_error& e)
 		{
 			AAMPLOG_ERR("regex exception in Calling CacheFragment: %s", e.what());
 		}
+		catch (...)
+		{
+			AAMPLOG_ERR("unknown exception calling CacheFragment");
+		}
+		mMediaStreamContext[trackIdx]->mActiveDownloadInfo = nullptr;
 		if(!temp)
 		{
 			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", headerUrl.c_str(), mMediaStreamContext[trackIdx]->fragmentTime); //CID:84438 - checked return
@@ -8872,41 +8894,41 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	AampTime timelineStart;
 	AampTime duration;
 
-	// Nothing to do during trick play, so skip code
-	if (mPlayRate == AAMP_NORMAL_PLAY_RATE)
+	IPeriod *period = mCurrentPeriod;
+	GetStartAndDurationForPtsRestamping(timelineStart, duration);
+
+	if (isNewPeriod)
 	{
-		IPeriod *period = mCurrentPeriod;
-		GetStartAndDurationForPtsRestamping(timelineStart, duration);
 
-		if (isNewPeriod)
+		if (mShortAdOffsetCalc && mMediaStreamContext[eMEDIATYPE_VIDEO])
 		{
-
-			if (mShortAdOffsetCalc)
+			/* This is for the case of a short ad that is not as long as the base period which
+			 * it replaces. The ad has been 'played' and now we need to return and play out the remaining
+			 * segments in the base period
+			 */
+			mShortAdOffsetCalc = false;
+			// When not using AAMP TSB, mMediaStreamContext[eMEDIATYPE_AUDIO] is null when using trick modes.
+			double audioStart = 0.0;
+			if (mMediaStreamContext[eMEDIATYPE_AUDIO])
 			{
-				/* This is for the case of a short ad that is not as long as the base period which
-				 * it replaces. The ad has been 'played' and now we need to return and play out the remaining
-				 * segments in the base period
-				 */
-				mShortAdOffsetCalc = false;
-				double audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
-									mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
-				double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
-									mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
-
-				AampTime newStart = std::max(audioStart, videoStart);
-
-				mNextPts += timelineStart - newStart;
-				AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
+				audioStart = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.Time /
+							 mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentDescriptor.TimeScale;
 			}
-			mPTSOffset += mNextPts - timelineStart;
+			double videoStart = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time /
+								mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
 
-			AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
-						mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
+			AampTime newStart = std::max(audioStart, videoStart);
+
+			mNextPts += timelineStart - newStart;
+			AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
 		}
+		mPTSOffset += mNextPts - timelineStart;
 
-		mNextPts = duration + timelineStart;
-
+		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
+					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
 	}
+
+	mNextPts = duration + timelineStart;
 }
 
 void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
