@@ -85,7 +85,7 @@ void AampEventManager::FlushPendingEvents()
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	while(!mEventWorkerDataQue.empty())
 	{
-		// Remove each AampEventPtr from the queue, not deleting the Shard_ptr
+		// Remove each AampEventPtr from the queue, not deleting the shared_ptr
 		mEventWorkerDataQue.pop();
 	}
 

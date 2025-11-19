@@ -7261,7 +7261,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							blAdaptationIdxs.insert(blProfile.mAdaptationSetIdx);
 						}
 					}
-					if( blAdaptationIdxs.size()>0 )
+					if( blAdaptationIdxs.size() > 0 )
 					{
 						AAMPLOG_WARN("Blacklisted adaptationSet in this period: %zu", blAdaptationIdxs.size());
 					}
