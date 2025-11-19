@@ -82,6 +82,7 @@ private:
 	uint32_t codec_type;
 	std::string codec_data;
 	uint8_t is_encrypted;
+	uint8_t transient_encrypted;
 	uint8_t iv_size;
 	uint8_t crypt_byte_block;
 	uint8_t skip_byte_block;
@@ -212,6 +213,8 @@ private:
 			skip_byte_block = pattern & 0xf;
 		}
 		is_encrypted = *ptr++;
+		transient_encrypted = is_encrypted; // transient mirrors current init; reset on stsd
+		PRINTF("%sparseTrackEncryptionBox: is_encrypted=%d transient_encrypted=%d\n", INDENT(), is_encrypted, transient_encrypted);
 		iv_size = *ptr++;
 
 		default_kid = std::string((char *)ptr,16);
@@ -627,11 +630,20 @@ private:
 	}
 	
 	void parseSampleDescriptionBox( const uint8_t *next )
-	{ // stsd
+	{ // stsd - init header
+		// Reset transient flag for this init; transient_encrypted is decided by tenc/pssh in this stsd
+		transient_encrypted = 0;
 		ReadHeader();
 		uint32_t count = ReadU32();
 		assert( count == 1 );
 		DemuxHelper(next);
+
+		// After parsing stsd content, if we have seen encryption (tenc) or pssh in this init, set transient
+		if( is_encrypted || protectionEvents.size() > 0 )
+		{
+			transient_encrypted = 1;
+			PRINTF("%sparseSampleDescriptionBox: setting transient_encrypted=1 (is_encrypted=%d, protectionEvents=%zu)\n", INDENT(), is_encrypted, protectionEvents.size());
+		}
 	}
 	
 	void parseVideoInformation( void )
@@ -946,7 +958,7 @@ public:
 	Mp4Demux( bool verbose=false ):
 		audio{}, video{}, stream_format(),
 		data_reference_index(), codec_type(),
-		codec_data(), is_encrypted(), iv_size(),
+		codec_data(), is_encrypted(), transient_encrypted(), iv_size(),
 		crypt_byte_block(), skip_byte_block(),
 		constant_iv_size(), constant_iv(), timescale(),
 		samples(), default_kid(), got_auxiliary_information_offset(),
@@ -1072,7 +1084,7 @@ public:
 				g_print( "unk codec_type: %" PRIu32 "\n", codec_type );
 				return;
 		}
-		if (caps && is_encrypted)
+	if (caps && transient_encrypted)
 		{
 			GstStructure *s = gst_caps_get_structure (caps, 0);
 			gst_structure_set (s,
@@ -1081,6 +1093,15 @@ public:
 				NULL);
 			gst_structure_set_name (s, "application/x-cenc");
 		}
+
+        gchar* capsStr = gst_caps_to_string(caps);
+        char codec_type_str[5] = {
+            (char)(codec_type>>24), (char)(codec_type>>16), 
+            (char)(codec_type>>8), (char)(codec_type), 0
+        };
+        printf("Setting stream caps - codec=%s, encrypted=%d: %s\n", codec_type_str, transient_encrypted, capsStr);
+        g_free(capsStr);
+
 		gst_app_src_set_caps(appsrc, caps);
 		gst_caps_unref(caps);
 		gst_buffer_unref (buf);
@@ -1095,11 +1116,21 @@ public:
 	{
 		return protectionEvents[which];
 	}
+
+	bool isCapsEncrypted( void ) const
+	{
+		return transient_encrypted != 0;
+	}
+
+	bool isSamplesEncrypted( void ) const
+	{
+		return transient_encrypted != 0;
+	}
 	
 	GstStructure *getDrmMetadata( int sampleIndex )
 	{
 		GstStructure *metadata = NULL;
-		if( is_encrypted )
+		if( transient_encrypted )
 		{
 			char original_media_type_string[5] =
 			{
@@ -1173,8 +1204,12 @@ public:
 		if( metadata )
 		{ // serialize and print the metadata
 			gchar *structure_string = gst_structure_to_string( metadata );
-			PRINTF("metadata: %s\n", structure_string);
+			printf("metadata: %s\n", structure_string);
 			g_free(structure_string);
+		}
+		else
+		{
+			printf("no metadata\n");
 		}
 		
 		return metadata;

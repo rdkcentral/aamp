@@ -3139,6 +3139,27 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 					m_mp4Demux[mediaType] = mp4Demux;
 				}
 				mp4Demux->Parse(ptr,len);
+				// If this parse discovered protection events and the current init is encrypted,
+				// push the protection events to the pipeline so downstream decryptors receive PSSH.
+				size_t protCount = mp4Demux->getNumProtectionEvents();
+				if (protCount > 0 && mp4Demux->isCapsEncrypted())
+				{
+					for (size_t e = 0; e < protCount; ++e)
+					{
+						GstEvent *protEvent = mp4Demux->getProtectionEvent(e);
+						GstPad *pad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+						if (pad)
+						{
+							gboolean pushed = gst_pad_push_event(pad, gst_event_ref(protEvent));
+							MW_LOG_MIL("[INTERFACE] Pushed protection event %zu, pushed=%d", e, pushed);
+							gst_object_unref(pad);
+						}
+						else
+						{
+							MW_LOG_ERR("[INTERFACE] Failed to get src pad to push protection event");
+						}
+					}
+				}
 				int count = mp4Demux->count();
 				if( count>0 )
 				{ // media segment
