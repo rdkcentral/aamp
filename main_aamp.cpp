@@ -190,7 +190,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			aamp->Stop( true );
+			aamp->Stop(false); // Don't send state change events during destruction
 		}
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
@@ -356,7 +356,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			StopInternal(false, false);
+			StopInternal(true, false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
