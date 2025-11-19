@@ -4439,7 +4439,7 @@ static void AAMP_finalize(JSObjectRef thisObject)
 		{
 			//when finalizing JS object, don't generate state change events
 			LOG_WARN(pAAMP," aamp->Stop(false)");
-			_allocated_aamp->Stop(false);
+			_allocated_aamp->Stop(false, true);  // sendStateChangeEvent=false, forceCleanup=true
 			LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
 			SAFE_DELETE(_allocated_aamp);
 		}
@@ -4831,7 +4831,7 @@ void __attribute__ ((destructor(101))) _aamp_term()
 	{
 		LOG_WARN_EX("stopping aamp");
 		//when finalizing JS object, don't generate state change events
-		_allocated_aamp->Stop(false);
+		_allocated_aamp->Stop(false, true);  // sendStateChangeEvent=false, forceCleanup=true
 		LOG_WARN_EX("stopped aamp");
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;

@@ -35,6 +35,7 @@
 #include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
+#include "AampDRMLicManager.h"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -353,7 +354,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			StopInternal(false);
+			StopInternal(false, false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -3063,8 +3064,17 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 	{
 		aamp->TuneFail(true);
 	}
-	AAMPLOG_MIL("aamp_stop PlayerState=%d",state);
-	aamp->Stop();
+	AAMPLOG_MIL("aamp_stop PlayerState=%d forceCleanup=%d", state, forceCleanup);
+	
+	// Enhanced DRM cleanup for Deep Sleep scenarios
+	if (forceCleanup && aamp->mDRMLicenseManager)
+	{
+		AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
+		aamp->mDRMLicenseManager->clearDrmSession(true);
+		aamp->mDRMLicenseManager->clearFailedKeyIds();
+	}
+	// Negate sendStateChangeEvent since no need to send state change event on Destrcutor call
+	aamp->Stop(!sendStateChangeEvent);
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);

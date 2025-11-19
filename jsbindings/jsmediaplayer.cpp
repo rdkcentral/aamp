@@ -310,7 +310,7 @@ static void releaseNativeResources(AAMPMediaPlayer_JS *privObj)
 		{
 			//when finalizing JS object, don't generate state change events
 			LOG_WARN(privObj," aamp->Stop(false)");
-			privObj->_aamp->Stop(false);
+			privObj->_aamp->Stop(false, true);  // sendStateChangeEvent=false, forceCleanup=true
 			privObj->clearCallbackForAllAdIds();
 			if (privObj->_listeners.size() > 0)
 			{
