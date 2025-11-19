@@ -12333,6 +12333,26 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 }
 
 /**
+ * @brief Find the index of a text track in a vector
+ * @param tracks Vector of text tracks to search
+ * @param target Track to find
+ * @return Index of track (0-based), or -1 if not found
+ */
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+                                            const TextTrackInfo& target) const
+{
+	int index = -1;
+	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
+	
+	if (iter != tracks.cend())
+	{
+		index = static_cast<int>(std::distance(tracks.cbegin(), iter));
+	}
+	
+	return index;
+}
+
+/**
  *  @brief Find closed caption track index if any
  */
 int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const
@@ -12377,6 +12397,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
+	AAMPLOG_INFO("DJH currentTrackIndex %d", currentTrackIndex);
 	if (currentTrackIndex >= 0)
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
@@ -12391,11 +12412,14 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			// Logic to check whether the given language is present in the available tracks,
 			// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
 			// if not available, then avoid calling tune.
+			AAMPLOG_INFO("DJH preferredTextLanguagesList.size() %zu", preferredTextLanguagesList.size());
 			if (preferredTextLanguagesList.size() > 0)
 			{
 				std::string firstLanguage = preferredTextLanguagesList.at(0);
 				std::string trackLanguage = Getiso639map_NormalizeLanguageCode(
 					track.language, this->GetLangCodePreference());
+AAMPLOG_INFO("DJH trackLanguage %s firstLanguage %s currentPrefLanguage %s",
+				trackLanguage.c_str(), firstLanguage.c_str(), currentPrefLanguage.c_str());
 
 				if ((trackLanguage == firstLanguage) && (trackLanguage != currentPrefLanguage))
 				{
@@ -12522,7 +12546,23 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 						TextTrackInfo selectedTextTrack;
 						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
 						{
-							SetPreferredTextTrack(std::move(selectedTextTrack));
+							// Find the index of the selected track in the available tracks list
+							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
+							
+							if (closedCaptionTrackId >= 0)
+							{
+								SetPreferredTextTrack(std::move(selectedTextTrack));
+								AAMPLOG_INFO("Selected text track at index %d (lang=%s)", 
+								             closedCaptionTrackId, selectedTextTrack.language.c_str());
+							}
+							else
+							{
+								AAMPLOG_ERR("Selected text track not found in trackInfo vector");
+							}
+						}
+						else
+						{
+							AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
 						}
 					}
 					seek_pos_seconds = GetPositionSeconds();
@@ -12564,6 +12604,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				}
 				ReleaseStreamLock();
 
+				AAMPLOG_INFO("DJH Set closedCaptionTrackId %d", closedCaptionTrackId);
 				if (closedCaptionTrackId >= 0)
 				{
 					TextTrackInfo track = trackInfo[closedCaptionTrackId];

@@ -580,13 +580,19 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 				{
 					mediaInfoStore.emplace_back(MediaInfo{});
 					ptr.ParseAttrList(ParseMediaAttributeCallback, this);
-					if( mediaInfoStore[mMediaCount].language.empty() )
-					{ // handle non-compliant manifest missing language attribute
-						mediaInfoStore[mMediaCount].language =  mediaInfoStore[mMediaCount].name;
-					}
-					if (mediaInfoStore[mMediaCount].type == eMEDIATYPE_AUDIO && !mediaInfoStore[mMediaCount].language.empty() )
+					if (mediaInfoStore[mMediaCount].type == eMEDIATYPE_AUDIO)
 					{
-						mLangList.insert(GetLanguageCode(mMediaCount));
+						auto& audioMedia = mediaInfoStore[mMediaCount];
+						if (audioMedia.language.empty())
+						{ // handle non-compliant manifest missing language attribute
+							AAMPLOG_WARN("Audio track %d missing language, using name '%s' as fallback",
+										 mMediaCount, audioMedia.name.c_str());
+							audioMedia.language = audioMedia.name;
+						}
+						if (!audioMedia.language.empty())
+						{
+							mLangList.insert(GetLanguageCode(mMediaCount));
+						}
 					}
 					mMediaCount++;
 				}
@@ -3431,27 +3437,42 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 1: Configure the Audio for the playback .Get the audio index/group
+				// Configure the Audio for the playback .Get the audio index/group
 				ConfigureAudioTrack();
 			}
 
-			// Step 3: Based on the audio selection done , configure the profiles required
+			// Based on the audio selection done , configure the profiles required
 			ConfigureVideoProfiles();
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 2: Configure Subtitle track for the playback
-				ConfigureTextTrack();
+
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
+
+				// Select preferred text track based on user language preferences
+				TextTrackInfo selectedTextTrack;
+				if (SelectPreferredTextTrack(selectedTextTrack))
+				{
+					AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
+								 selectedTextTrack.language.c_str(),
+								 selectedTextTrack.name.c_str(),
+								 selectedTextTrack.rendition.c_str());
+					aamp->SetPreferredTextTrack(std::move(selectedTextTrack));
+				}
+				else
+				{
+					AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+				}
+
+				// Configure Subtitle track for the playback
+				ConfigureTextTrack();
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
-					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
+					AAMPLOG_INFO("No default text track is selected, configure default text track");
 					SelectSubtitleTrack();
 				}
 			}
-
-
 
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
@@ -7093,9 +7114,11 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 {
 	TextTrackInfo track = aamp->GetPreferredTextTrack();
 	currentTextTrackProfileIndex = -1;
+AAMPLOG_INFO("DJH TextTrack Language:%s Index:%s", track.language.c_str(), track.index.c_str());
 	if (!track.index.empty())
 	{
 		currentTextTrackProfileIndex = std::stoi(track.index);
+AAMPLOG_INFO("DJH TextTrack Selected by Index:%d", currentTextTrackProfileIndex);		
 	}
 	else
 	{
@@ -7288,6 +7311,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		}
 
 		tracksChanged = false;
+		AAMPLOG_INFO("DJH aamp->mCurrentTextTrackIndex :%d currentTextTrackProfileIndex:%d", aamp->mCurrentTextTrackIndex, currentTextTrackProfileIndex);
 		if (-1 != aamp->mCurrentTextTrackIndex && aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex)
 		{
 			tracksChanged = true;
@@ -7533,45 +7557,89 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 			aamp->mIsInbandCC = mTextTracks[0].isCC;
 			aamp->SetCCStatus(false); //mute the subtitle track
 			aamp->SetPreferredTextTrack(mTextTracks[0]);
+			AAMPLOG_INFO("Using TextTrack Selected %d", currentTextTrackProfileIndex);
 		}
 	}
-	AAMPLOG_INFO("using RialtoSink TextTrack Selected %d", currentTextTrackProfileIndex);
 }
 
-bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)
+/**
+ * @brief Select best text track based on user preferences
+ *
+ * Scoring algorithm:
+ * - Base: 1 point for any track
+ * - Language: (list_size - position) * AAMP_LANGUAGE_SCORE (prioritises order)
+ * - Rendition: AAMP_ROLE_SCORE
+ * - Name: AAMP_TYPE_SCORE
+ *
+ * @param[out] selectedTextTrack The best matching track
+ * @return true if a track was selected, false otherwise
+ */
+bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack)
 {
-	bool bestTrackFound = false;
-	unsigned long long bestScore = 0;
-
 	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
-
-	for (const auto& track : availableTracks)
+	if (availableTracks.empty())
 	{
-		unsigned long long score = 1; // Default score for each track
+		AAMPLOG_WARN("No text tracks available");
+		return false;
+	}
 
-		// Check for language match
-		if (!aamp->preferredTextLanguagesString.empty() && track.language == aamp->preferredTextLanguagesString)
+	unsigned long long bestScore = 0;
+	bool bestTrackFound = false;
+
+	for (const auto &track : availableTracks)
+	{
+		unsigned long long score = 1; // Base score
+
+		// Score language preference (higher priority = higher score)
+		if (!aamp->preferredTextLanguagesList.empty())
 		{
-			score += AAMP_LANGUAGE_SCORE; // Add score for language match
+			auto iter = std::find(aamp->preferredTextLanguagesList.cbegin(),
+								  aamp->preferredTextLanguagesList.cend(),
+								  track.language);
+			if (iter != aamp->preferredTextLanguagesList.cend())
+			{
+				size_t position = std::distance(aamp->preferredTextLanguagesList.cbegin(), iter);
+				size_t priorityMultiplier = aamp->preferredTextLanguagesList.size() - position;
+				score += priorityMultiplier * AAMP_LANGUAGE_SCORE;
+
+				AAMPLOG_TRACE("Track '%s' lang='%s' matches position %zu (bonus: %llu)",
+							  track.name.c_str(), track.language.c_str(),
+							  position, priorityMultiplier * AAMP_LANGUAGE_SCORE);
+			}
 		}
 
-		if( !aamp->preferredTextRenditionString.empty() && aamp->preferredTextRenditionString.compare(track.rendition) == 0)
+		// Score rendition preference
+		if (!aamp->preferredTextRenditionString.empty() &&
+			aamp->preferredTextRenditionString == track.rendition)
 		{
-			score += AAMP_ROLE_SCORE; // Add score for rendition match
+			score += AAMP_ROLE_SCORE;
 		}
 
-		// Check for name match
-		if( !aamp->preferredTextNameString.empty() && aamp->preferredTextNameString.compare(track.name) == 0)
+		// Score name preference
+		if (!aamp->preferredTextNameString.empty() &&
+			aamp->preferredTextNameString == track.name)
 		{
-			score += AAMP_TYPE_SCORE; // Add score for name match
+			score += AAMP_TYPE_SCORE;
 		}
-		if(score > bestScore)
+
+		// Update best if this score is higher
+		if (score > bestScore)
 		{
-			bestTrackFound = true;
 			bestScore = score;
+			bestTrackFound = true;
 			selectedTextTrack = track;
+
+			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, score=%llu",
+						 track.language.c_str(), track.rendition.c_str(),
+						 track.name.c_str(), score);
 		}
 	}
+
+	if (!bestTrackFound)
+	{
+		AAMPLOG_WARN("No suitable text track found");
+	}
+
 	return bestTrackFound;
 }
 
