@@ -1627,7 +1627,7 @@ void MediaTrack::StartInjectLoop()
 	try
 	{
 		std::lock_guard<std::mutex> guard(injectorStartMutex);
-		if (fragmentInjectorThreadStarted)
+		if (fragmentInjectorThreadID.joinable())
 		{
 			AAMPLOG_WARN("Fragment injector thread already started");
 		}
@@ -1638,7 +1638,6 @@ void MediaTrack::StartInjectLoop()
 			discontinuityProcessed = false;
 
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
-			fragmentInjectorThreadStarted = true;
 			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
 		}
 	}
@@ -1698,12 +1697,11 @@ void MediaTrack::RunInjectLoop()
 	StreamAbstractionAAMP* pContext = GetContext();
 	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) )
 	{
-		if (!bufferMonitorThreadDisabled && !bufferMonitorThreadStarted)
+		if (!bufferMonitorThreadDisabled && !bufferMonitorThreadID.joinable())
 		{
 			try
 			{
 				bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
-				bufferMonitorThreadStarted = true;
 				AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
 			}
 			catch(const std::exception& e)
@@ -1805,12 +1803,11 @@ void MediaTrack::StopInjectLoop()
 	NotifyCachedAudioFragmentAvailable();
 	NotifyCachedSubtitleFragmentAvailable();
 	std::lock_guard<std::mutex> guard(injectorStartMutex);
-	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
+	if(fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
 		AAMPLOG_INFO("Fragment injector thread joined");
 	}
-	fragmentInjectorThreadStarted = false;
 }
 
 /**
@@ -2023,7 +2020,7 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
 		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
-		fragmentInjectorThreadStarted(false), bufferMonitorThreadStarted(false), UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
@@ -2055,7 +2052,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
  */
 MediaTrack::~MediaTrack()
 {
-	if (bufferMonitorThreadStarted)
+	if (bufferMonitorThreadID.joinable())
 	{
 		bufferMonitorThreadID.join();
 		{

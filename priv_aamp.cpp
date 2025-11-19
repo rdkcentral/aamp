@@ -1118,7 +1118,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	//mTimeToTopProfile(0),
 	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
-	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
+	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(),
 	mTuneType(eTUNETYPE_NEW_NORMAL)
 	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
@@ -1133,7 +1133,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mNetworkBandwidth(0)
 	,mTimeToTopProfile(0)
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
-	, drmSessionThreadStarted(false), createDRMSessionThreadID()
+	, createDRMSessionThreadID()
 	, mDRMLicenseManager(NULL)
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
@@ -1668,15 +1668,17 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
 
 		AAMPLOG_INFO("Start PausePositionMonitoring at position %lld", pausePositionMilliseconds);
 
-		try
+		if (!mPausePositionMonitoringThreadID.joinable())
 		{
-			mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
-			mPausePositionMonitoringThreadStarted = true;
-			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zx]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
-		}
-		catch(const std::exception& e)
-		{
-			AAMPLOG_ERR("Failed to create PausePositionMonitor thread: %s", e.what());
+			try
+			{
+				mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
+				AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zx]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
+			}
+			catch(const std::exception& e)
+			{
+				AAMPLOG_ERR("Failed to create PausePositionMonitor thread: %s", e.what());
+			}
 		}
 	}
 }
@@ -1686,7 +1688,7 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
  */
 void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
-	if (mPausePositionMonitoringThreadStarted)
+	if (mPausePositionMonitoringThreadID.joinable())
 	{
 		std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
 
@@ -1701,7 +1703,6 @@ void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 		lock.unlock();
 		mPausePositionMonitoringThreadID.join();
 		AAMPLOG_TRACE("joined PositionMonitor");
-		mPausePositionMonitoringThreadStarted = false;
 	}
 }
 

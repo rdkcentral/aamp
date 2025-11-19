@@ -1235,7 +1235,6 @@ protected:
 
 	LatencyStatus latencyStatus; 		 /**< Latency status of the playback*/
 	LatencyStatus prevLatencyStatus;	 /**< Previous latency status of the playback*/
-	bool latencyMonitorThreadStarted;	 /**< Monitor latency thread  status*/
 	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/

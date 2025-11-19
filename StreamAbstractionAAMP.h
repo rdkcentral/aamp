@@ -486,7 +486,7 @@ public:
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
-	bool isFragmentInjectorThreadStarted( ) {  return fragmentInjectorThreadStarted;}
+	bool isFragmentInjectorThreadStarted( ) {  return fragmentInjectorThreadID.joinable();}
 	void MonitorBufferHealth();
 	/**
 	 * @brief Signal the clock to subtitle module
@@ -862,8 +862,6 @@ private:
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
-	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
-	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
