@@ -310,7 +310,7 @@ static void releaseNativeResources(AAMPMediaPlayer_JS *privObj)
 		{
 			//when finalizing JS object, don't generate state change events
 			LOG_WARN(privObj," aamp->Stop(false)");
-			privObj->_aamp->Stop(false);
+			privObj->_aamp->Stop(false, false);  // sendStateChangeEvent=false, forceCleanup=false
 			privObj->clearCallbackForAllAdIds();
 			if (privObj->_listeners.size() > 0)
 			{
@@ -839,7 +839,7 @@ JSValueRef AAMPMediaPlayerJS_pause (JSContextRef ctx, JSObjectRef function, JSOb
  * @param[in] function JSObject that is the function being called
  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
  * @param[in] argumentCount number of args
- * @param[in] arguments[] JSValue array of args
+ * @param[in] arguments[] JSValue array of args - Optional forceCleanup boolean parameter
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
@@ -853,8 +853,28 @@ JSValueRef AAMPMediaPlayerJS_stop (JSContextRef ctx, JSObjectRef function, JSObj
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call stop() on instances of AAMPPlayer");
 		return JSValueMakeUndefined(ctx);
 	}
-	LOG_WARN(privObj," _aamp->Stop()");
-	privObj->_aamp->Stop();
+	
+	bool sendStateChangeEvent = true;  // Default for user-initiated stop
+	bool forceCleanup = false;
+	
+	if (argumentCount >= 1)
+	{
+		// For backward compatibility and UVE API design:
+		// - If 1 argument: treat as forceCleanup (boolean)
+		// - If 2 arguments: treat as (sendStateChangeEvent, forceCleanup)
+		if (argumentCount == 1)
+		{
+			forceCleanup = JSValueToBoolean(ctx, arguments[0]);
+		}
+		else if (argumentCount >= 2)
+		{
+			sendStateChangeEvent = JSValueToBoolean(ctx, arguments[0]);
+			forceCleanup = JSValueToBoolean(ctx, arguments[1]);
+		}
+	}
+	
+	LOG_WARN(privObj," _aamp->Stop() sendStateChangeEvent=%d forceCleanup=%d", sendStateChangeEvent, forceCleanup);
+	privObj->_aamp->Stop(sendStateChangeEvent, forceCleanup);
 	LOG_TRACE("Exit");
 	return JSValueMakeUndefined(ctx);
 }
