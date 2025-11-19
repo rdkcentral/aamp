@@ -72,8 +72,8 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> responseHeaders) {  }
 	void PlayerInstanceAAMP::LoadJS(void* context) {  }
 	void PlayerInstanceAAMP::UnloadJS(void* context) {  }
-	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener) {  }
-	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener) {  }
+	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
+	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
 	void PlayerInstanceAAMP::InsertAd(const char *url, double  positionSeconds) {  }
 	void PlayerInstanceAAMP::AddPageHeaders(std::map<std::string, std::string> customHttpHeaders) {  }
 	void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader) {  }
@@ -206,7 +206,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
+	std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }

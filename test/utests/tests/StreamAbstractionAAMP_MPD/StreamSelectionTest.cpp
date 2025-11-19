@@ -339,7 +339,7 @@ protected:
 			{eAAMPConfig_EnableClientDai, true},
 			{eAAMPConfig_MatchBaseUrl, false},
 			{eAAMPConfig_UseAbsoluteTimeline, false},
-			{eAAMPConfig_DisableAC4, true},
+			{eAAMPConfig_DisableAC4, false},
 			{eAAMPConfig_AudioOnlyPlayback, false},
 			{eAAMPConfig_LimitResolution, false},
 			{eAAMPConfig_Disable4K, false},
@@ -383,6 +383,7 @@ protected:
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
+			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 		};
 
@@ -412,6 +413,7 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -571,7 +573,7 @@ TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 {
 	const auto& params = GetParam(); /*Retrieve the parameter values */
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.Times(AnyNumber())
 		.WillOnce(Return(true));
 	AAMPStatusType status = InitializeMPD(params.manifestUsed, TuneType::eTUNETYPE_NEW_NORMAL, params.position);

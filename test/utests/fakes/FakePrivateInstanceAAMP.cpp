@@ -138,7 +138,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mAudioFormat(),
 	mPreviousAudioType(),
 	mAuxFormat(),
-	mCurlShared()
+	mCurlShared(),
+	mIsChunkMode(false)
 {
 }
 
@@ -253,6 +254,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 {
 	// Set the Fog TSB flag based on the URL.
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
+}
+
+void PrivateInstanceAAMP::enableEventProcessing()
+{
+}
+
+void PrivateInstanceAAMP::disableEventProcessing()
+{
 }
 
 void PrivateInstanceAAMP::detach()
@@ -384,11 +393,11 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
@@ -1333,6 +1342,9 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMed
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		g_mockPrivateInstanceAAMP->SetVidTimeScale(vidTimeScale);
+	}
 }
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
@@ -1436,7 +1448,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 }
 

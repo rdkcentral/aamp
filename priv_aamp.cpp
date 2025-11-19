@@ -1298,6 +1298,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mAampTrackWorkerManager()
+	, mThumbnailLastProgramDateTime(0)
+	, mLastSleThumbnailInfo()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -1377,6 +1380,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
     AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
+	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
 }
 
 /**
@@ -1384,6 +1388,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	mAampTrackWorkerManager.reset();
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
@@ -2070,10 +2075,8 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
 	}
 	return false;
 }
-/**
- * @brief API to correct the latency by adjusting rate of playback
- */
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 	AAMPPlayerState state = GetState();
 	if (state == eSTATE_SEEKING)
@@ -2119,10 +2122,18 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			//AAMPLOG_WARN("aamp clamp end");
 			position = end;
 		}
-		else if (position < start)
-		{ // clamp start
-			AAMPLOG_WARN( "clamp position %fms < start %fms", position, start );
+		// If beginningOfStream is true or position < start, it means rewind has reached BoS
+		// Note: position could be = start immediately after tuning
+		else if (position < start || beginningOfStream)
+		{ // clamp start or handle BOS during rewind
+			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+				position, start, beginningOfStream, rate);
 			position = start;
+			// Check the rate so that PlayFromTsbStart() is not called repeatedly
+			if (rate < AAMP_RATE_PAUSE)
+			{
+				PlayFromTsbStart();
+			}
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -2520,7 +2531,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 /**
  * @brief Add listener to aamp events
  */
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	mEventManager->AddEventListener(eventType,eventListener);
 }
@@ -2529,7 +2540,7 @@ void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListene
 /**
  * @brief Deregister event lister, Remove listener to aamp events
  */
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener>& eventListener)
 {
 	mEventManager->RemoveEventListener(eventType,eventListener);
 }
@@ -2749,7 +2760,7 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
 	// Providing the Tune Timemetric info as an event
 	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
 
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
+	AAMPLOG_TRACE("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -3125,9 +3136,9 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		SyncEnd();
 
 		// To notify app of discontinuity processing complete
-		ReportProgress();
+		MonitorProgress();
 
-		// There is a chance some other operation maybe invoked from JS/App because of the above ReportProgress
+		// There is a chance some other operation maybe invoked from JS/App because of the above MonitorProgress
 		// Make sure we have still mDiscontinuityTuneOperationInProgress set
 		SyncBegin();
 		AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
@@ -3255,6 +3266,27 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 }
 
 /**
+ * @brief Play from the start of the TSB
+ */
+void PrivateInstanceAAMP::PlayFromTsbStart()
+{
+	seek_pos_seconds = culledSeconds;
+	AAMPLOG_MIL("Updated seek_pos_seconds %f on start of TSB", seek_pos_seconds);
+	if (trickStartUTCMS == -1)
+	{
+		// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables MonitorProgress to
+		// send BOS event to JSPP
+		ResetTrickStartUTCTime();
+		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+	}
+	rate = AAMP_NORMAL_PLAY_RATE;
+	AcquireStreamLock();
+	TuneHelper(eTUNETYPE_SEEK);
+	ReleaseStreamLock();
+	NotifySpeedChanged(rate);
+}
+
+/**
  * @brief Process EOS from Sink and notify listeners if required
  */
 void PrivateInstanceAAMP::NotifyEOSReached()
@@ -3321,22 +3353,8 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
-			seek_pos_seconds = culledSeconds;
-			AAMPLOG_WARN("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
-			if (trickStartUTCMS == -1)
-			{
-				// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables ReportProgress to
-				// send BOS event to JSPP
-				ResetTrickStartUTCTime();
-				AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
-			}
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
-			ReportProgress(true, true);
-			rate = AAMP_NORMAL_PLAY_RATE;
-			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEK);
-			ReleaseStreamLock();
-			NotifySpeedChanged(rate);
+			MonitorProgress(true, true);
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
@@ -5816,6 +5834,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mNetworkTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
 	mManifestTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
+	if(mPausedBehavior == ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
+	{
+		mJumpToLiveFromPause = false;
+		mSeekFromPausedState = false;
+	}
 	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_ManifestTimeout))
 	{
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,mNetworkTimeoutMs/1000);
@@ -6695,6 +6718,24 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
 }
 
 /**
+ * @brief Enable event processing
+ */
+void PrivateInstanceAAMP::enableEventProcessing()
+{
+	// Reset Event Manager State to IDLE to resume event processing
+	mEventManager->SetPlayerState(eSTATE_IDLE);
+}
+
+/**
+ * @brief Disable event processing
+ */
+void PrivateInstanceAAMP::disableEventProcessing()
+{
+	// Set Event Manager State to RELEASED to avoid further event processing
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
+}
+
+/**
  * @brief Soft stop the player instance.
  *
  */
@@ -6708,6 +6749,10 @@ void PrivateInstanceAAMP::detach()
 		seek_pos_seconds  = GetPositionSeconds();
 		AAMPLOG_WARN("Player %s=>%s and soft release.Detach at position %f", STRFGPLAYER, STRBGPLAYER,seek_pos_seconds );
 		DisableDownloads(); //disable download
+		if (mAampTrackWorkerManager)
+		{
+			mAampTrackWorkerManager->StopWorkers();
+		}
 		mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds );
 		mpStreamAbstractionAAMP->StopInjection();
 		if(mMPDDownloaderInstance != nullptr)
@@ -6732,6 +6777,7 @@ void PrivateInstanceAAMP::detach()
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
+		disableEventProcessing();
 		//EnableDownloads();// enable downloads
 	}
 	else
@@ -7656,6 +7702,13 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
+		if(DownloadsAreEnabled())
+		{
+			// Parallel TuneHelper after EOS or retune re-enables downloads
+			// but we need to disable them again before stopping the player
+			AAMPLOG_WARN("Re-Enabled downloads after Stop, Disabling again!!");
+			DisableDownloads(); // disable download
+		}
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
@@ -8943,9 +8996,13 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
  */
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
 {
-	if (mpStreamAbstractionAAMP)
+	if(TryStreamLock())
 	{
-		mpStreamAbstractionAAMP->StartSubtitleParser();
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->StartSubtitleParser();
+		}
+		ReleaseStreamLock();
 	}
 }
 
@@ -8955,9 +9012,13 @@ void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
  */
 void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
-	if (mpStreamAbstractionAAMP)
+	if(TryStreamLock())
 	{
-		mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+		}
+		ReleaseStreamLock();
 	}
 }
 
@@ -13258,7 +13319,6 @@ long PrivateInstanceAAMP::LoadFogConfig()
 		AampJsonObject audioPreference;
 		AampJsonObject subtitlePreference;
 		bool aPrefAvail = false;
-		bool tPrefAvail = false;
 		if((preferredLanguagesList.size() > 0) || !preferredRenditionString.empty() || !preferredLabelsString.empty() || !preferredAudioAccessibilityNode.getSchemeId().empty())
 		{
 			aPrefAvail = true;
@@ -13297,11 +13357,6 @@ long PrivateInstanceAAMP::LoadFogConfig()
 		if(aPrefAvail)
 		{
 			jsondataForPreference.add("audio", audioPreference);
-			trackAdded = true;
-		}
-		if(tPrefAvail)
-		{
-			jsondataForPreference.add("text", subtitlePreference);
 			trackAdded = true;
 		}
 

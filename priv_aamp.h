@@ -54,6 +54,7 @@
 #include <algorithm>
 #include <glib.h>
 #include <cjson/cJSON.h>
+#include <future>
 #include "AampConfig.h"
 #include <atomic>
 #include <memory>
@@ -68,6 +69,7 @@
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AampTrackWorkerManager.hpp"
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
@@ -91,6 +93,12 @@ typedef struct PreCacheUrlData
 typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
+
+namespace aamp
+{
+	// Other declarations
+	class AampTrackWorkerManager; // Forward declaration
+}
 #include "ID3Metadata.hpp"
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
@@ -348,6 +356,37 @@ struct httpRespHeaderData {
 	std::string data;     /**< Header value */
 };
 
+struct TileLayout
+{
+	int numRows; 		/**< Number of Rows from Tile Inf */
+	int numCols; 		/**< Number of Cols from Tile Inf */
+	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
+	double tileSetDuration; /**< Duration of whole tile set */
+	long long progStartDateTime; /**< Program start date time from manifest */
+	TileLayout(): numRows(0), numCols(0), posterDuration(0.0f), tileSetDuration(0.0f), progStartDateTime(0)
+	{
+	}
+};
+
+/**
+*	\struct	TileInfo
+* 	\brief	TileInfo structure for Thumbnail data
+*/
+class TileInfo
+{
+public:
+	TileInfo(): layout(), startTime(), url()
+	{
+	}
+
+	~TileInfo()
+	{
+	}
+
+	TileLayout layout;
+	double startTime;
+	std::string url;
+};
 /**
  * @struct ThumbnailData
  * @brief Holds the Thumbnail information
@@ -535,7 +574,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 
 	#define AAMP2ReceiverMsgHdrSz (sizeof(AAMP2ReceiverMsg)-1)
 
-	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
+	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
@@ -888,6 +927,8 @@ public:
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
+	long long mThumbnailLastProgramDateTime;
+	std::vector<TileInfo> mLastSleThumbnailInfo;
 	/**
 	 * @brief A readonly, validatable position value.
 	 */
@@ -1043,10 +1084,10 @@ public:
         double mProgramDateTime;
 	std::vector<PeriodInfo> mMPDPeriodsInfo;
 	float maxRefreshPlaylistIntervalSecs;
-	EventListener* mEventListener;
+	std::shared_ptr<EventListener> mEventListener;
 	long long prevFirstPeriodStartTime;
 
-	//updated by ReportProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
+	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
 
 	long long mAdPrevProgressTime;
@@ -1405,7 +1446,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 	/**
 	 * @fn RemoveEventListener
@@ -1414,7 +1455,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 	/**
 	 * @fn IsEventListenerAvailable
 	 *
@@ -1611,12 +1652,15 @@ public:
 	long long GetVideoPTS();
 
 	/**
-	 *   @fn ReportProgress
+	 *   @fn MonitorProgress
+	 *   @brief Monitor playback progress and report position periodically, also take any necessary actions like
+	 *          correcting the latency by adjusting rate of playback or
+	 *          transitioning from rewind to play when the start of the TSB is reached.
+	 *
  	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  beginningOfStream - Flag to indicate if the progress reporting is for the Beginning Of Stream
-	 *   @return void
 	 */
-	void ReportProgress(bool sync = true, bool beginningOfStream = false);
+	void MonitorProgress(bool sync = true, bool beginningOfStream = false);
 	/**
 	 *   @fn WakeupLatencyCheck
 	 *   @return void
@@ -2091,7 +2135,15 @@ public:
 	 */
 	void RegisterEvent(AAMPEventType type, EventListener* listener)
 	{
-		mEventManager->AddEventListener(type, listener);
+		if (!listener)
+		{
+			AAMPLOG_WARN("Received a null listener.");
+			return;
+		}
+		std::shared_ptr<EventListener> sharedListener(listener, [](EventListener* ptr) {
+			// No-op deleter to avoid accidental deletion
+		});
+		mEventManager->AddEventListener(type, sharedListener);
 	}
 
 	/**
@@ -2999,6 +3051,18 @@ public:
 	 */
 	bool IsPlayEnabled();
 
+	/**
+	 *   @fn enableEventProcessing
+	 *
+	 *   @return void
+	 */
+	void enableEventProcessing();
+	/**
+	 *   @fn disableEventProcessing
+	 *
+	 *   @return void
+	 */
+	void disableEventProcessing();
 	/**
 	 * @fn detach
 	 *
@@ -3923,6 +3987,15 @@ public:
 	void CalculateTrickModePositionEOS(void);
 
 	/**
+	 * @fn GetAampTrackWorkerManager
+	 * @brief Get the AampTrackWorkerManager instance
+	 *
+	 * @return AampTrackWorkerManager instance
+	 */
+	std::shared_ptr<aamp::AampTrackWorkerManager> GetAampTrackWorkerManager() { return mAampTrackWorkerManager; }
+
+
+	/**
 	 * @fn GetLivePlayPosition
 	 *
 	 * @brief Get current live play stream position.
@@ -4176,9 +4249,15 @@ protected:
 
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
+	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:
+	/**
+	 * @brief Play from the start of the TSB
+	 */
+	void PlayFromTsbStart();
+
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);

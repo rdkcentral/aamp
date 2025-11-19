@@ -305,7 +305,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] IP_AAMP_TUNETIME", playerActiveMode.c_str(),playerId);
 	}
 
-	AAMPLOG_WARN("%s:%d,%s,%lld," // prefix, version, build, tuneStartBaseUTCMS
+	AAMPLOG_MIL("%s:%d,%s,%lld," // prefix, version, build, tuneStartBaseUTCMS
 		"%d,%d,%d,"		// main manifest (start,total,err)
 		"%d,%d,%d,"		// video playlist (start,total,err)
 		"%d,%d,%d,"		// audio playlist (start,total,err)
