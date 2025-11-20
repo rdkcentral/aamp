@@ -851,7 +851,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 					if(mMediaPresentationDuration != 0 )
 					{
 						periodDurationMs = mMediaPresentationDuration;
-						AAMPLOG_WARN("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
+						AAMPLOG_MIL("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
 						return mMediaPresentationDuration;
 					}
 					//Next priority for duration tag
