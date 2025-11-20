@@ -36,11 +36,10 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES FunctionalTests.cpp
-                 AampTrackWorkerManagerTests.cpp
                  AampTrackWorkerTest.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampTrackWorker.cpp ${AAMP_ROOT}/AampTrackWorkerManager.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTrackWorker.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
