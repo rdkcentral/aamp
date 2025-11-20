@@ -7114,7 +7114,6 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 {
 	TextTrackInfo track = aamp->GetPreferredTextTrack();
 	currentTextTrackProfileIndex = -1;
-
 	if (!track.index.empty())
 	{
 		currentTextTrackProfileIndex = std::stoi(track.index);
