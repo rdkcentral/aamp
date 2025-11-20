@@ -7114,11 +7114,10 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 {
 	TextTrackInfo track = aamp->GetPreferredTextTrack();
 	currentTextTrackProfileIndex = -1;
-AAMPLOG_INFO("DJH TextTrack Language:%s Index:%s", track.language.c_str(), track.index.c_str());
+
 	if (!track.index.empty())
 	{
 		currentTextTrackProfileIndex = std::stoi(track.index);
-AAMPLOG_INFO("DJH TextTrack Selected by Index:%d", currentTextTrackProfileIndex);		
 	}
 	else
 	{
@@ -7311,7 +7310,6 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		}
 
 		tracksChanged = false;
-		AAMPLOG_INFO("DJH aamp->mCurrentTextTrackIndex :%d currentTextTrackProfileIndex:%d", aamp->mCurrentTextTrackIndex, currentTextTrackProfileIndex);
 		if (-1 != aamp->mCurrentTextTrackIndex && aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex)
 		{
 			tracksChanged = true;

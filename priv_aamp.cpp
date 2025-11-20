@@ -10407,11 +10407,6 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "language", iter->language.c_str());
 					}
-					//DJH
-					else
-					{
-						cJSON_AddStringToObject(item, "language", "clo");
-					}
 					if (!iter->rendition.empty())
 					{
 						cJSON_AddStringToObject(item, "rendition", iter->rendition.c_str());
