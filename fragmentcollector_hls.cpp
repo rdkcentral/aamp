@@ -7590,7 +7590,8 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		// Score language preference (higher priority = higher score)
 		if (!aamp->preferredTextLanguagesList.empty())
 		{
-			std::string normalizedTrackLanguage = Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
+			std::string normalizedTrackLanguage =
+				(track.language.empty()) ? track.language : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
 			auto iter = std::find(aamp->preferredTextLanguagesList.cbegin(),
 								  aamp->preferredTextLanguagesList.cend(),
 								  normalizedTrackLanguage);
