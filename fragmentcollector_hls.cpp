@@ -7554,9 +7554,9 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 			aamp->mIsInbandCC = mTextTracks[0].isCC;
 			aamp->SetCCStatus(false); //mute the subtitle track
 			aamp->SetPreferredTextTrack(mTextTracks[0]);
-			AAMPLOG_INFO("Using TextTrack Selected %d", currentTextTrackProfileIndex);
 		}
 	}
+	AAMPLOG_INFO("using RialtoSink TextTrack Selected %d", currentTextTrackProfileIndex);
 }
 
 /**
