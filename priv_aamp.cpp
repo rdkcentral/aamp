@@ -7515,7 +7515,6 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	{
 		mGetPositionMillisecondsMutexSoft.unlock();
 	}
-
 	return positionMilliseconds;
 }
 
