@@ -7585,7 +7585,7 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 
 	for (const auto &track : availableTracks)
 	{
-		unsigned long long score = 1; // Base score
+		unsigned long long score = 1; // Base score for any track
 
 		// Score language preference (higher priority = higher score)
 		if (!aamp->preferredTextLanguagesList.empty())
