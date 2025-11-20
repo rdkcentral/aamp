@@ -12341,8 +12341,8 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 
 /**
  * @brief Find the index of a text track in a vector
- * @param tracks Vector of text tracks to search
- * @param target Track to find
+ * @param[in] tracks Vector of text tracks to search
+ * @param[in] target Track to find
  * @return Index of track (0-based), or -1 if not found
  */
 int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
