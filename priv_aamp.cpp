@@ -12418,7 +12418,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			// Logic to check whether the given language is present in the available tracks,
 			// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
 			// if not available, then avoid calling tune.
-			AAMPLOG_INFO("DJH preferredTextLanguagesList.size() %zu", preferredTextLanguagesList.size());
 			if (preferredTextLanguagesList.size() > 0)
 			{
 				std::string firstLanguage = preferredTextLanguagesList.at(0);
