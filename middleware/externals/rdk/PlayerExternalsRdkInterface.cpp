@@ -128,12 +128,14 @@ void PlayerExternalsRdkInterface::Initialize()
     MW_PRE_LOGGER_LOG("Done getting interface \n");
 
     SetHDMIStatus();
-
+#ifdef USE_DS_EVENT_SUPPORTED
     RegisterDsClientEventHandler();
+#endif
 
     MW_PRE_LOGGER_LOG("Initializing completed \n");
 }
 
+#ifdef USE_DS_EVENT_SUPPORTED
 void PlayerExternalsRdkInterface::RegisterDsClientEventHandler()
 {
 	try {
@@ -192,11 +194,13 @@ void PlayerExternalsRdkInterface::OnResolutionPreChange(int width, int height)
 {
 	MW_LOG_WARN(" Received Resolution PreChange event \n");
 }
-
+#endif
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
+#ifdef USE_DS_EVENT_SUPPORTED
 	RemoveDsClientEventHandlers();
+#endif
     m_pDeviceInterfaceBase = nullptr;
     s_pPlayerIarmRdkOP = nullptr;
 }

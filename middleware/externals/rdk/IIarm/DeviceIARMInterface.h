@@ -35,6 +35,7 @@ Remove the entire folder externals/rdk/IARM
 #define DEVICE_IARM_INTERFACE_H
 
 #include "DeviceInterfaceBase.h"
+
 #include <string>
 
 class DeviceIARMInterface : public DeviceInterfaceBase{

@@ -91,6 +91,11 @@ if (CMAKE_WPEFRAMEWORK_REQUIRED)
     endif()
 endif()
 
+if(CMAKE_DS_EVENT_SUPPORTED)
+       message("CMAKE_DS_EVENT_SUPPORTED Set")
+       set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_DS_EVENT_SUPPORTED=1")
+endif()
+
 set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
     contentsecuritymanager/PlayerSecInterface.cpp
     contentsecuritymanager/ContentSecurityManager.cpp

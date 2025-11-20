@@ -74,6 +74,10 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
 std::shared_ptr<DeviceIARMInterface> s_pDeviceIARMInterface = nullptr;
 
+#ifndef USE_DS_EVENT_SUPPORTED
+static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
+static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
+#endif
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
 
@@ -141,11 +145,20 @@ void DeviceIARMInterface::IARMInit()
 
 void DeviceIARMInterface::RegisterDsMgrEventHandler()
 {
-
+#ifndef USE_DS_EVENT_SUPPORTED
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#endif
 }
 
 void DeviceIARMInterface::RemoveEventHandlers()
 {
+#ifndef USE_DS_EVENT_SUPPORTED
+    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
+    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
+    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#endif
     IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
 }
 
@@ -241,3 +254,74 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
     
 	
 }
+
+#ifndef USE_DS_EVENT_SUPPORTED
+/**
+ * @brief IARM event handler for HDCP and HDMI hot plug events
+ */
+static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
+{
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+
+    switch (eventId)
+    {
+        case IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG :
+        {
+            IARM_Bus_DSMgr_EventData_t *eventData = (IARM_Bus_DSMgr_EventData_t *)data;
+            int hdmi_hotplug_event = eventData->data.hdmi_hpd.event;
+
+            const char *hdmihotplug = (hdmi_hotplug_event == dsDISPLAY_EVENT_CONNECTED) ? "connected" : "disconnected";
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG  event data:%d status: %s\n",
+                       hdmi_hotplug_event, hdmihotplug);
+
+            pInstance->SetHDMIStatus();
+
+            break;
+        }
+        case IARM_BUS_DSMGR_EVENT_HDCP_STATUS :
+        {
+            IARM_Bus_DSMgr_EventData_t *eventData = (IARM_Bus_DSMgr_EventData_t *)data;
+            int hdcpStatus = eventData->data.hdmi_hdcp.hdcpStatus;
+            const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDCP_STATUS  event data:%d status:%s\n",
+                      hdcpStatus, hdcpStatusStr);
+
+            pInstance->SetHDMIStatus();
+            break;
+        }
+        default:
+            MW_LOG_WARN(" Received unknown IARM bus event:%d\n", eventId);
+            break;
+    }
+}
+
+/**
+ * @brief IARM event handler for resolution changes
+ */
+static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
+{
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+
+    switch (eventId) {
+        case IARM_BUS_DSMGR_EVENT_RES_PRECHANGE:
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_PRECHANGE \n");
+            break;
+        case IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE:
+        {
+            int width = 1280;
+            int height = 720;
+
+            IARM_Bus_DSMgr_EventData_t *eventData = (IARM_Bus_DSMgr_EventData_t *)data;
+            width   = eventData->data.resn.width ;
+            height  = eventData->data.resn.height ;
+
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE event width : %d height : %d\n", width, height);
+            pInstance->SetResolution(width, height);
+            break;
+        }
+        default:
+            MW_LOG_WARN(" Received unknown resolution event %d\n", eventId);
+            break;
+    }
+}
+#endif
