@@ -2574,7 +2574,7 @@ void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const c
 void PlayerInstanceAAMP::SetPreferredTextLanguages(const char *param)
 {
 	//DJH aamp->SetPreferredTextLanguages(param);
-	aamp->SetPreferredTextLanguages("{languages:[\"eng\",\"\"]}");
+	aamp->SetPreferredTextLanguages("{\"languages\":[\"eng\",\"\"]}");
 }
 
 /**
