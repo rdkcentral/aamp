@@ -2224,7 +2224,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					}
 					else
 					{
-						AAMPLOG_WARN("segmentURL    is null");  //CID:82493 ,86180 - Null Returns
+						AAMPLOG_WARN("segmentURL is null");  //CID:82493 ,86180 - Null Returns
 					}
 				}
 				else
@@ -2427,6 +2427,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				double offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
 				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
 				skipTime += offset;
+
+				// fragmentTime is reduced from period offset to land on the right epoch value. Later fragmentTime is added with fragmentDuration, so the PTO gap is addressed here.
+				pMediaStreamContext->fragmentTime -= offset;
 			}
 		}
 		do
@@ -2597,6 +2600,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						AAMPLOG_INFO("[%s] firstPTS %f, nextPTS %f  skipTime %f  fragmentDuration %f ", pMediaStreamContext->name, firstPTS, nextPTS, skipTime, fragmentDuration);
 						if (updateFirstPTS)
 						{
+							//If we land at the mid of a segment, the position reminder is added to fragment time. This corrects the epoch value to its original segment start time
+							pMediaStreamContext->fragmentTime += mVideoPosRemainder;
 							/*Keep the lower PTS */
 							if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
 							{
@@ -2884,7 +2889,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					}
 					else
 					{
-						AAMPLOG_WARN("videoContext  is null");  //CID:82361 - Null Returns
+						AAMPLOG_WARN("videoContext is null");  //CID:82361 - Null Returns
 					}
 				}
 
@@ -3254,7 +3259,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 				}
 				else if (tagName.find("mspr:pro") != std::string::npos)
 				{
-					AAMPLOG_WARN("Unsupported  PSSH data format - MSPR found in manifest");
+					AAMPLOG_WARN("Unsupported PSSH data format - MSPR found in manifest");
 				}
 			}
 		}
@@ -3326,7 +3331,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 				// Track the best DRM available to use
 				else if ((!drmHelper) || (GetDrmPrefs(drmInfo.systemUUID) > GetDrmPrefs(drmHelper->getUuid())))
 				{
-					AAMPLOG_WARN("(%s) Created DRM helper for UUID %s and best to use", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
+					AAMPLOG_MIL("(%s) Created DRM helper for UUID %s and best to use", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 					drmHelper = tmpDrmHelper;
 				}
 			}
@@ -3660,7 +3665,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			mAvailabilityStartTime		=	mMPDParseHelper->GetAvailabilityStartTime();
 			mTSBDepth					=	mMPDParseHelper->GetTSBDepth();
 			mPresentationOffsetDelay	=	mMPDParseHelper->GetPresentationOffsetDelay();
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: AvailabilityStartTime=%f", mAvailabilityStartTime);
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AvailabilityStartTime=%f", mAvailabilityStartTime);
 
 			mFirstPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs);
 			if(aamp->mProgressReportOffset < 0)
@@ -3670,7 +3675,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				aamp->mProgressReportAvailabilityOffset = mAvailabilityStartTime;
 			}
 
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: MPD minupdateduration val %" PRIu64 " seconds mTSBDepth %f mPresentationOffsetDelay :%f StartTimeFirstPeriod: %lf offsetStartTime: %lf",  mMinUpdateDurationMs/1000, mTSBDepth, mPresentationOffsetDelay, mFirstPeriodStartTime, aamp->mProgressReportOffset);
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: MPD minupdateduration val %" PRIu64 " seconds mTSBDepth %f mPresentationOffsetDelay :%f StartTimeFirstPeriod: %lf offsetStartTime: %lf",  mMinUpdateDurationMs/1000, mTSBDepth, mPresentationOffsetDelay, mFirstPeriodStartTime, aamp->mProgressReportOffset);
 
 			aamp->mTsbDepthMs = CONVERT_SEC_TO_MS(mTSBDepth);
 
@@ -4246,7 +4251,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		//CheckForInitalClearPeriod() check if the current period is clear or encrypted
 		if (pushEncInitFragment && CheckForInitalClearPeriod())
 		{
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Pushing EncryptedHeaders");
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Pushing EncryptedHeaders");
 			std::map<int, std::string> headers;
 
 			// Getting the headers alone will not cache the protectionEvent in sink which fails to select drmSession in decryptor
@@ -4299,7 +4304,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			ExtractAndAddSubtitleMediaHeader();
 		}
 
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
 		// all segments including the init segments for the GST buffer that goes with the init
 		mPTSOffset = 0.0;
@@ -6265,7 +6270,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 					}
 					else
 					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Audio Track - lang:%s, group:%s, name:%s, codec:%s, bandwidth:%ld, AccessibilityType:%s label:%s type:%s availability:%d",
+						AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Audio Track - lang:%s, group:%s, name:%s, codec:%s, bandwidth:%ld, AccessibilityType:%s label:%s type:%s availability:%d",
 						lang.c_str(), group.c_str(), name.c_str(), codec.c_str(), bandwidth, accessibilityType.c_str(), label.c_str(), type.c_str(), isAvailable);
 						aTracks.push_back(AudioTrackInfo(std::move(index), lang, group, std::move(name), codec, bandwidth, accessibilityType, false, label, type, accessibilityNode, isAvailable));
 					}
@@ -6586,10 +6591,10 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		pMediaStreamContext->representationIndex = selRepresentationIndex;
 		pMediaStreamContext->profileChanged = true;
 
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
 		GetMediaTypeName(eMEDIATYPE_SUBTITLE),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
 
-		AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", eMEDIATYPE_SUBTITLE);
+		AAMPLOG_MIL("Queueing content protection from StreamSelection for type:%d", eMEDIATYPE_SUBTITLE);
 		QueueContentProtection(period, selAdaptationSetIndex,eMEDIATYPE_SUBTITLE );
 		// Check if the track was enabled mid-playback, eg - subtitles. Then we might need to start injection loop
 		// For now, do this only for subtitles
@@ -6611,7 +6616,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",GetMediaTypeName(eMEDIATYPE_SUBTITLE));
 	}
 
-	AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
+	AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] %s",
 		GetMediaTypeName(eMEDIATYPE_SUBTITLE), pMediaStreamContext->enabled?"enabled":"disabled");
 
 	// Enable/ disable subtitle mediastream context based on stream selection status
@@ -7040,10 +7045,10 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	// This might cause an unwanted content prot to be queued and delay playback start
 	if ( !mMultiVideoAdaptationPresent)
 	{
-		AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", eMEDIATYPE_AUDIO);
+		AAMPLOG_MIL("Queueing content protection from StreamSelection for type:%d", eMEDIATYPE_AUDIO);
 		QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)eMEDIATYPE_AUDIO);
 	}
-	AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
+	AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
 			GetMediaTypeName(AampMediaType(eMEDIATYPE_AUDIO)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
 
 	AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Media[%s] %s",
@@ -7280,14 +7285,14 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 				pMediaStreamContext->representationIndex = selRepresentationIndex;
 				pMediaStreamContext->profileChanged = true;
 
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] Adaptation set[%d] RepIdx[%d] TrackCnt[%d]",
 					GetMediaTypeName(AampMediaType(i)),selAdaptationSetIndex,selRepresentationIndex,(mNumberOfTracks+1) );
 
 				// Skip processing content protection for multi video, since the right adaptation will be selected only after ABR
 				// This might cause an unwanted content prot to be queued and delay playback start
 				if (eMEDIATYPE_VIDEO != i || !mMultiVideoAdaptationPresent)
 				{
-					AAMPLOG_WARN("Queueing content protection from StreamSelection for type:%d", i);
+					AAMPLOG_MIL("Queueing content protection from StreamSelection for type:%d", i);
 					QueueContentProtection(period, selAdaptationSetIndex, (AampMediaType)i);
 				}
 
@@ -7304,7 +7309,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 					GetMediaTypeName(AampMediaType(i)));
 			}
 
-			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Media[%s] %s",
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] %s",
 				GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
 			//This is for cases where subtitle is not enabled, but auxiliary audio track is enabled
 			if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
@@ -7621,7 +7626,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							blAdaptationIdxs.insert(blProfile.mAdaptationSetIdx);
 						}
 					}
-					AAMPLOG_WARN("Blacklisted adaptationSet in this period: %zu", blAdaptationIdxs.size());
+					if( blAdaptationIdxs.size() > 0 )
+					{
+						AAMPLOG_WARN("Blacklisted adaptationSet in this period: %zu", blAdaptationIdxs.size());
+					}
 					const auto &adaptationSets = period->GetAdaptationSets();
 					for (uint32_t idx = 0; idx < adaptationSets.size(); idx++ )
 					{
@@ -7902,7 +7910,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// Set default init bitrate
 							else
 							{
-								AAMPLOG_WARN("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 							}
