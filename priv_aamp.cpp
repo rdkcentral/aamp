@@ -12548,12 +12548,12 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 						{
 							// Find the index of the selected track in the available tracks list
 							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
-							
+
 							if (closedCaptionTrackId >= 0)
 							{
+								AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
+											 closedCaptionTrackId, selectedTextTrack.language.c_str());
 								SetPreferredTextTrack(std::move(selectedTextTrack));
-								AAMPLOG_INFO("Selected text track at index %d (lang=%s)", 
-								             closedCaptionTrackId, selectedTextTrack.language.c_str());
 							}
 							else
 							{
