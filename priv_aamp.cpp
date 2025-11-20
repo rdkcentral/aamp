@@ -12610,7 +12610,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				}
 				ReleaseStreamLock();
 
-				AAMPLOG_INFO("DJH Set closedCaptionTrackId %d", closedCaptionTrackId);
 				if (closedCaptionTrackId >= 0)
 				{
 					TextTrackInfo track = trackInfo[closedCaptionTrackId];
