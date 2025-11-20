@@ -10403,9 +10403,14 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "sub-type", "SUBTITLES");
 					}
-					//DJH if (!iter->language.empty())
+					if (!iter->language.empty())
 					{
 						cJSON_AddStringToObject(item, "language", iter->language.c_str());
+					}
+					//DJH
+					else
+					{
+						cJSON_AddStringToObject(item, "language", "clo");
 					}
 					if (!iter->rendition.empty())
 					{
@@ -12142,7 +12147,14 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
 	std::transform( languages.begin(), languages.end(),
 					languages.begin(),
 					[this](std::string& lang)
-					{ return Getiso639map_NormalizeLanguageCode(lang, this->GetLangCodePreference()); } );
+					{
+						// Skip normalization for empty strings
+						if (lang.empty())
+						{
+							return lang;
+						}
+						return Getiso639map_NormalizeLanguageCode(lang, this->GetLangCodePreference());
+					} );
 
 	// To keep track of the languages that have already been encountered.
 	std::unordered_set<std::string> seen;
