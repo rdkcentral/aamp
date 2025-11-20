@@ -224,6 +224,11 @@ void MediaTrack::StartPlaylistDownloaderThread()
 {
 }
 
+bool MediaTrack::isFragmentInjectorThreadStarted()
+{
+	return true;
+}
+
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
 {
 }

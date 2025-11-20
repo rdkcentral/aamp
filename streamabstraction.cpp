@@ -74,7 +74,7 @@ AampMediaType TrackTypeToMediaType( TrackType trackType )
 void MediaTrack::StartPlaylistDownloaderThread()
 {
 	AAMPLOG_DEBUG("Starting playlist downloader for %s", name);
-	if(!playlistDownloaderThreadStarted)
+	if((NULL == playlistDownloaderThread) || !playlistDownloaderThread->joinable())
 	{
 		// Start a new thread for this track
 		if(NULL == playlistDownloaderThread)
@@ -82,7 +82,6 @@ void MediaTrack::StartPlaylistDownloaderThread()
 			// Set thread abort flag to false and start the thread.
 			abortPlaylistDownloader = false;
 			playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
-			playlistDownloaderThreadStarted = true;
 			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
 		}
 		else
@@ -101,14 +100,13 @@ void MediaTrack::StartPlaylistDownloaderThread()
  */
 void MediaTrack::StopPlaylistDownloaderThread()
 {
-	if ((playlistDownloaderThreadStarted) && (playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
+	if ((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
 	{
 		abortPlaylistDownloader = true;
 		AbortWaitForPlaylistDownload();
 		AbortFragmentDownloaderWait();
 		playlistDownloaderThread->join();
 		SAFE_DELETE(playlistDownloaderThread);
-		playlistDownloaderThreadStarted = false;
 		AAMPLOG_WARN("[%s] Aborted", name);
 	}
 }
@@ -1819,6 +1817,16 @@ bool MediaTrack::Enabled()
 }
 
 /**
+ * @brief Check if fragment injector thread is started
+ * @return true if thread is joinable, false otherwise
+ */
+bool MediaTrack::isFragmentInjectorThreadStarted()
+{
+	std::lock_guard<std::mutex> guard(injectorStartMutex);
+	return fragmentInjectorThreadID.joinable();
+}
+
+/**
  *  @brief Get buffer to store the downloaded fragment content to cache next fragment
  */
 CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
@@ -2029,7 +2037,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
 		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
-		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
+		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
@@ -4175,7 +4183,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
 	std::unique_lock<std::mutex> lock(dwnldMutex);
-	if(playlistDownloaderThreadStarted)
+	if((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
 	{
 		plDownloadWait.notify_one();
 	}

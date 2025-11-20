@@ -1129,7 +1129,6 @@ protected:
 	AudioType mAudioType;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
-	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	double mLivePeriodCulledSeconds;
 	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 	// In case of streams with multiple video Adaptation Sets, A profile

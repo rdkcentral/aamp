@@ -138,7 +138,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mStreamLock()
 	,mProfileCount(0)
 	,mIterPeriodIndex(0), mNumberOfPeriods(0)
-	,playlistDownloaderThreadStarted(false)
 	,mSubtitleParser()
 	,mMultiVideoAdaptationPresent(false)
 	,mLocalUtcTime(0)
@@ -9560,11 +9559,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			double lastPrdOffset = mBasePeriodOffset;
 			while (!exitFetchLoop)
 			{
-				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderThreadStarted)
+				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->IsPlaylistDownloaderThreadActive())
 				{
 					// CDVR moved from "dynamic" to "static"
 					playlistDownloaderContext->StopPlaylistDownloaderThread();
-					playlistDownloaderThreadStarted = false;
 				}
 				/* Calling the Refresh audio track, in order to switch to the newly selected Audio Track */
 				if(mPlayRate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_AUDIO] && mMediaStreamContext[eTRACK_AUDIO]->refreshAudio )

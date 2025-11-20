@@ -486,7 +486,8 @@ public:
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
-	bool isFragmentInjectorThreadStarted( ) {  return fragmentInjectorThreadID.joinable();}
+	bool isFragmentInjectorThreadStarted();
+	bool IsPlaylistDownloaderThreadActive() { return (playlistDownloaderThread != NULL) && playlistDownloaderThread->joinable(); }
 	void MonitorBufferHealth();
 	/**
 	 * @brief Signal the clock to subtitle module
@@ -877,7 +878,6 @@ private:
 	long long prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
-	bool playlistDownloaderThreadStarted;	/**< Playlist downloader thread started or not*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
