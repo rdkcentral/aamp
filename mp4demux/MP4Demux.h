@@ -74,66 +74,66 @@ class Mp4Demux
 {
 private:
 	// Stream format and configuration
-	uint32_t stream_format;                         /**< Stream format identifier */
-	uint32_t data_reference_index;                  /**< Data reference index */
+	uint32_t streamFormat;                         /**< Stream format identifier */
+	uint32_t dataReferenceIndex;                   /**< Data reference index */
 	
 	// Encryption parameters
-	uint8_t iv_size;                               /**< Initialization vector size */
-	uint8_t crypt_byte_block;                      /**< Encrypted byte block count */
-	uint8_t skip_byte_block;                       /**< Skipped byte block count */
-	uint8_t constant_iv_size;                      /**< Constant IV size */
-	std::vector<uint8_t> constant_iv;              /**< Constant initialization vector */
+	uint8_t ivSize;                               /**< Initialization vector size */
+	uint8_t cryptByteBlock;                       /**< Encrypted byte block count */
+	uint8_t skipByteBlock;                        /**< Skipped byte block count */
+	uint8_t constantIvSize;                       /**< Constant IV size */
+	std::vector<uint8_t> constantIv;              /**< Constant initialization vector */
 	
 	// Media timing and samples
-	uint32_t timescale;                            /**< Media timescale */
-	std::vector<AampMediaSample> samples;          /**< Parsed media samples */
+	uint32_t timeScale;                           /**< Media timescale */
+	std::vector<AampMediaSample> samples;         /**< Parsed media samples */
 	
 	// Encryption-specific data
-	std::string default_kid;                       /**< Default key identifier */
-	bool got_auxiliary_information_offset;         /**< Flag for auxiliary info offset */
-	uint64_t auxiliary_information_offset;         /**< Auxiliary information offset */
-	uint32_t scheme_type;                          /**< Encryption scheme ('cenc' or 'cbcs') */
-	uint32_t scheme_version;                       /**< Encryption scheme version */
-	uint32_t original_media_type;                  /**< Original media type before encryption */
-	std::vector<uint8_t> cenc_aux_info_sizes;      /**< CENC auxiliary info sizes */
-	std::vector<AampPsshData> protectionData;      /**< DRM protection system data */
-	AampCodecInfo mCodecInfo;                      /**< Codec information */
+	std::string defaultKid;                       /**< Default key identifier */
+	bool gotAuxiliaryInformationOffset;           /**< Flag for auxiliary info offset */
+	uint64_t auxiliaryInformationOffset;          /**< Auxiliary information offset */
+	uint32_t schemeType;                          /**< Encryption scheme ('cenc' or 'cbcs') */
+	uint32_t schemeVersion;                       /**< Encryption scheme version */
+	uint32_t originalMediaType;                   /**< Original media type before encryption */
+	std::vector<uint8_t> cencAuxInfoSizes;        /**< CENC auxiliary info sizes */
+	std::vector<AampPsshData> protectionData;     /**< DRM protection system data */
 
 	// Parser state
-	const uint8_t *moof_ptr;                       /**< Base address for sample data */
+	const uint8_t *moofPtr;                       /**< Base address for sample data */
 	const uint8_t *ptr;                           /**< Current parser position */
 	
 	// Box header fields
-	uint8_t version;                               /**< Box version */
+	uint8_t version;                              /**< Box version */
 	uint32_t flags;                               /**< Box flags */
 	
 	// Track fragment fields
-	uint64_t baseMediaDecodeTime;                  /**< Base media decode time */
-	uint32_t fragment_duration;                    /**< Fragment duration */
-	uint32_t track_id;                            /**< Track identifier */
-	uint64_t base_data_offset;                    /**< Base data offset */
-	uint32_t default_sample_description_index;     /**< Default sample description index */
-	uint32_t default_sample_duration;             /**< Default sample duration */
-	uint32_t default_sample_size;                 /**< Default sample size */
-	uint32_t default_sample_flags;                /**< Default sample flags */
+	uint64_t baseMediaDecodeTime;                 /**< Base media decode time */
+	uint32_t fragmentDuration;                    /**< Fragment duration */
+	uint32_t trackId;                             /**< Track identifier */
+	uint64_t baseDataOffset;                      /**< Base data offset */
+	uint32_t defaultSampleDescriptionIndex;       /**< Default sample description index */
+	uint32_t defaultSampleDuration;               /**< Default sample duration */
+	uint32_t defaultSampleSize;                   /**< Default sample size */
+	uint32_t defaultSampleFlags;                  /**< Default sample flags */
 	
 	// Track header fields
-	uint64_t creation_time;                       /**< Track creation time */
-	uint64_t modification_time;                   /**< Track modification time */
-	uint32_t duration;                           /**< Track duration */
-	uint32_t rate;                              /**< Playback rate */
-	uint32_t volume;                            /**< Audio volume */
-	int32_t matrix[9];                          /**< Transformation matrix */
-	uint16_t layer;                             /**< Visual layer */
-	uint16_t alternate_group;                   /**< Alternate group */
-	uint32_t width_fixed;                       /**< Video width (fixed point) */
-	uint32_t height_fixed;                      /**< Video height (fixed point) */
-	uint16_t language;                          /**< Language code */
+	uint64_t creationTime;                        /**< Track creation time */
+	uint64_t modificationTime;                    /**< Track modification time */
+	uint32_t duration;                            /**< Track duration */
+	uint32_t rate;                                /**< Playback rate */
+	uint32_t volume;                              /**< Audio volume */
+	int32_t matrix[9];                            /**< Transformation matrix */
+	uint16_t layer;                               /**< Visual layer */
+	uint16_t alternateGroup;                      /**< Alternate group */
+	uint32_t widthFixed;                          /**< Video width (fixed point) */
+	uint32_t heightFixed;                         /**< Video height (fixed point) */
+	uint16_t language;                            /**< Language code */
 	
 	// Sample processing
-	uint64_t sampleOffset;                       /**< Current sample offset */
-	bool sencPresent;                           /**< SENC box present flag */
-	bool verbose;                               /**< Verbose logging flag */
+	uint64_t sampleOffset;                        /**< Current sample offset */
+	bool sencPresent;                             /**< SENC box present flag */
+	bool handledEncryptedSamples;                 /**< Flag indicating encrypted samples have been handled */
+	AampCodecInfo codecInfo;                      /**< Codec information */
 
 	/**
 	 * @brief Get stream output format from FourCC code
@@ -194,150 +194,150 @@ private:
 	/**
 	 * @brief Parse original format box for encrypted media
 	 */
-	void parseOriginalFormat();
+	void ParseOriginalFormat();
 	
 	/**
 	 * @brief Parse scheme management box for DRM information
 	 */
-	void parseSchemeManagementBox();
+	void ParseSchemeManagementBox();
 	
 	/**
 	 * @brief Parse track encryption box
 	 */
-	void parseTrackEncryptionBox();
+	void ParseTrackEncryptionBox();
 	
 	/**
 	 * @brief Parse protection system specific header box (PSSH)
 	 * @param next Pointer to next box
 	 */
-	void parseProtectionSystemSpecificHeaderBox(const uint8_t *next);
+	void ParseProtectionSystemSpecificHeaderBox(const uint8_t *next);
 	
 	/**
 	 * @brief Process auxiliary information for encrypted samples
 	 */
-	void process_auxiliary_information();
+	void ProcessAuxiliaryInformation();
 	
 	/**
 	 * @brief Parse sample auxiliary information sizes box
 	 */
-	void parseSampleAuxiliaryInformationSizes();
+	void ParseSampleAuxiliaryInformationSizes();
 	
 	/**
 	 * @brief Parse auxiliary information box
 	 */
-	void parseAuxInfo();
+	void ParseAuxInfo();
 	
 	/**
 	 * @brief Parse sample auxiliary information offsets box
 	 */
-	void parseSampleAuxiliaryInformationOffsets();
+	void ParseSampleAuxiliaryInformationOffsets();
 	
 	/**
 	 * @brief Parse sample encryption box (SENC)
 	 */
-	void parseSampleEncryption();
+	void ParseSampleEncryption();
 	
 	/**
 	 * @brief Parse track run box (TRUN)
 	 */
-	void parseTrackRun();
+	void ParseTrackRun();
 	
 	/**
 	 * @brief Parse track fragment header box (TFHD)
 	 */
-	void parseTrackFragmentHeader();
+	void ParseTrackFragmentHeader();
 	
 	/**
 	 * @brief Parse track fragment decode time box (TFDT)
 	 */
-	void parseTrackFragmentDecodeTime();
+	void ParseTrackFragmentDecodeTime();
 	
 	/**
 	 * @brief Parse video sample entry box
 	 */
-	void parseVideoSampleEntry();
+	void ParseVideoSampleEntry();
 	
 	/**
 	 * @brief Parse audio sample entry box
 	 */
-	void parseAudioSampleEntry();
+	void ParseAudioSampleEntry();
 	
 	/**
 	 * @brief Parse video information from sample entry
 	 */
-	void parseVideoInformation();
+	void ParseVideoInformation();
 	
 	/**
 	 * @brief Parse audio information from sample entry
 	 */
-	void parseAudioInformation();
+	void ParseAudioInformation();
 	
 	/**
 	 * @brief Parse movie header box (MVHD)
 	 */
-	void parseMovieHeader();
+	void ParseMovieHeader();
 	
 	/**
 	 * @brief Parse track header box (TKHD)
 	 */
-	void parseTrackHeader();
+	void ParseTrackHeader();
 	
 	/**
 	 * @brief Parse media header box (MDHD)
 	 */
-	void parseMediaHeader();
+	void ParseMediaHeader();
 	
 	/**
 	 * @brief Parse handler reference box (HDLR)
 	 */
-	void parseHandlerReference();
+	void ParseHandlerReference();
 	
 	/**
 	 * @brief Parse stream format box
 	 * @param type FourCC type
 	 * @param next Pointer to next box
 	 */
-	void parseStreamFormatBox(uint32_t type, const uint8_t *next);
+	void ParseStreamFormatBox(uint32_t type, const uint8_t *next);
 	
 	/**
 	 * @brief Read length field with variable encoding
 	 * @return Length value
 	 */
-	int readLen();
+	int ReadLen();
 	
 	/**
 	 * @brief Parse codec configuration helper
 	 * @param next Pointer to end of data
 	 */
-	void parseCodecConfigHelper(const uint8_t *next);
+	void ParseCodecConfigHelper(const uint8_t *next);
 	
 	/**
 	 * @brief Parse codec configuration box
 	 * @param type FourCC type
 	 * @param next Pointer to next box
 	 */
-	void parseCodecConfigurationBox(uint32_t type, const uint8_t *next);
+	void ParseCodecConfigurationBox(uint32_t type, const uint8_t *next);
 	
 	/**
 	 * @brief Parse movie fragment header box
 	 */
-	void parseMovieFragmentHeaderBox();
+	void ParseMovieFragmentHeaderBox();
 	
 	/**
 	 * @brief Parse movie extends header box
 	 */
-	void parseMovieExtendsHeader();
+	void ParseMovieExtendsHeader();
 	
 	/**
 	 * @brief Parse track extends box
 	 */
-	void parseTrackExtendsBox();
+	void ParseTrackExtendsBox();
 	
 	/**
 	 * @brief Parse sample description box
 	 * @param next Pointer to next box
 	 */
-	void parseSampleDescriptionBox(const uint8_t *next);
+	void ParseSampleDescriptionBox(const uint8_t *next);
 	
 	/**
 	 * @brief Main demux helper function
@@ -348,9 +348,8 @@ private:
 public:
 	/**
 	 * @brief Constructor
-	 * @param verbose Enable verbose logging
 	 */
-	Mp4Demux(bool verbose = false);
+	Mp4Demux();
 	
 	/**
 	 * @brief Destructor
@@ -378,25 +377,35 @@ public:
 	 * @brief Get timescale value
 	 * @return Media timescale
 	 */
-	uint32_t getTimeScale() const;
+	uint32_t GetTimeScale() const;
 
 	/**
 	 * @brief Get codec information
-	 * @return Const reference to codec info
+	 * Returns comprehensive codec information including format,
+	 * media type, and codec-specific parameters extracted from
+	 * the MP4 sample description.
+	 * 
+	 * @return Codec information with ownership transferred to caller
 	 */
-	const AampCodecInfo& getCodecInfo() const;
+	AampCodecInfo GetCodecInfo();
 
 	/**
 	 * @brief Get protection system data
-	 * @return Const reference to protection data vector
+	 * Returns all PSSH (Protection System Specific Header) data
+	 * extracted from the MP4 container for DRM license acquisition.
+	 * 
+	 * @return Protection data vector with ownership transferred to caller
 	 */
-	const std::vector<AampPsshData>& getProtectionEvents() const;
+	std::vector<AampPsshData> GetProtectionEvents();
 
 	/**
 	 * @brief Get parsed media samples
-	 * @return Reference to samples vector
+	 * Returns all media samples extracted from the current MP4 fragment,
+	 * including sample data, timing information, and encryption metadata.
+	 * 
+	 * @return Media samples vector with ownership transferred to caller
 	 */
-	std::vector<AampMediaSample>& getSamples();
+	std::vector<AampMediaSample> GetSamples();
 };
 
 #endif /* __MP4_DEMUX_H__ */

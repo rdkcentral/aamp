@@ -71,7 +71,7 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
     {
         AAMPLOG_WARN("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
         mMp4Demux->Parse(pBuffer->GetPtr(), pBuffer->GetLen());
-        auto &samples = mMp4Demux->getSamples();
+        auto samples = mMp4Demux->GetSamples();
         if (samples.size() > 0)
         {
             for (auto& sample : samples)
@@ -81,7 +81,7 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
         }
         else
         {
-            const AampCodecInfo& codecInfo = mMp4Demux->getCodecInfo();
+            auto codecInfo = mMp4Demux->GetCodecInfo();
             AAMPLOG_WARN("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
             mAamp->SetStreamCaps(mMediaType, codecInfo);
         }
@@ -92,9 +92,4 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
     }
     ptsError = false;
     return ret;
-}
-
-const AampCodecInfo& AampMp4Demuxer::getCodecInfo()
-{
-    return mMp4Demux->getCodecInfo();
 }

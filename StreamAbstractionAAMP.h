@@ -1983,8 +1983,6 @@ public:
 	 */	
 	void ReinitializeInjection(double rate);
 
-	virtual void GetStreamCodecInfo (AampCodecInfo &videoCodec, AampCodecInfo &audioCodec, AampCodecInfo &textCodec) { (void)videoCodec; (void)audioCodec; (void)textCodec; }
-
 protected:
 	/**
 	 *   @brief Get stream information of a profile from subclass.

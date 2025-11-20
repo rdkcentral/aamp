@@ -10450,11 +10450,17 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  * @brief Get output format of stream.
  *
  */
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat StreamOutputFormat &subtitleOutputFormat)
 {
+	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		format = FORMAT_UNKNOWN;
+	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = FORMAT_ISO_BMFF;
+		primaryOutputFormat = format;
 	}
 	else
 	{
@@ -10462,7 +10468,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = FORMAT_ISO_BMFF;
+		audioOutputFormat = format;
 	}
 	else
 	{
@@ -10491,6 +10497,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			else
 			{
 				AAMPLOG_INFO("mimeType empty");
+				// Mp4Demux is skipped for subtitles
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 			}
 		}
@@ -14210,35 +14217,4 @@ bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
 void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 {
 	mFirstPTS = 0.0;
-}
-
-void StreamAbstractionAAMP_MPD::GetStreamCodecInfo(AampCodecInfo &videoCodec, AampCodecInfo &audioCodec, AampCodecInfo &textCodec)
-{
-	// Initialize with unknown format
-	videoCodec = AampCodecInfo(FORMAT_UNKNOWN);
-	audioCodec = AampCodecInfo(FORMAT_UNKNOWN);
-	textCodec = AampCodecInfo(FORMAT_UNKNOWN);
-
-	// Aux audio to be deprecated in future
-	for (const auto& mediaStreamContext : mMediaStreamContext)
-	{
-		// TODO: Optimize later
-		if (mediaStreamContext && mediaStreamContext->enabled && mediaStreamContext->playContext)
-		{
-			switch (mediaStreamContext->type)
-			{
-				case eTRACK_VIDEO:
-					videoCodec = mediaStreamContext->playContext->getCodecInfo();
-					break;
-				case eTRACK_AUDIO:
-					audioCodec = mediaStreamContext->playContext->getCodecInfo();
-					break;
-				case eTRACK_SUBTITLE:
-					textCodec = mediaStreamContext->playContext->getCodecInfo();
-					break;
-				default:
-					break;
-			}
-		}
-	}
 }

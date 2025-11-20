@@ -213,10 +213,5 @@ public:
 	 * @brief Function to abort wait for videoPTS arrival
 	 */
 	virtual void abortWaitForVideoPTS() {}
-
-	/**
-	 * @brief Function to get codec information
-	 */
-	virtual const AampCodecInfo& getCodecInfo() { static AampCodecInfo info(FORMAT_UNKNOWN); return info; }
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

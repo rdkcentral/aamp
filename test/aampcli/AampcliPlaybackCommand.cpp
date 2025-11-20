@@ -1100,17 +1100,26 @@ void PlaybackCommand::parse( const char *path )
 					{
 						if (!mp4Demux)
 						{
-							mp4Demux = std::make_shared<Mp4Demux>(true);
+							mp4Demux = std::make_shared<Mp4Demux>();
 						}
 						mp4Demux->Parse(ptr,len);
-						auto &samples = mp4Demux->getSamples();
+						auto samples = mp4Demux->GetSamples();
 						if (samples.empty())
 						{
 							AAMPCLI_PRINTF("No samples found in file '%s'\n", path );
-							auto &codecInfo = mp4Demux->getCodecInfo();
-							AAMPCLI_PRINTF("Codec Info: Format=%d, CodecDataSize=%zu\n",
+							auto codecInfo = mp4Demux->GetCodecInfo();
+							std::string codecDataHex;
+							for (auto b : codecInfo.mCodecData)
+							{
+								char hexByte[3];
+								snprintf(hexByte, sizeof(hexByte), "%02x", b);
+								codecDataHex += hexByte;
+							}
+							AAMPCLI_PRINTF("Codec Info: Format=%d, CodecData=%s CodecDataSize:%zu Encrypted:%d\n",
 								codecInfo.mCodecFormat,
-								codecInfo.mCodecData.size());
+								codecDataHex.c_str(),
+								codecInfo.mCodecData.size(),
+								codecInfo.mIsEncrypted ? 1 : 0);
 						}
 						else
 						{

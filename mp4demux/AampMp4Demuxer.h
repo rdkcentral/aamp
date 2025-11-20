@@ -122,8 +122,6 @@ public:
 	 */
 	void setTrackOffset(double offset) override { }
 
-	virtual const AampCodecInfo& getCodecInfo() override;
-
 private:
     bool mEnable;
     Mp4Demux* mMp4Demux;

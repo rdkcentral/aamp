@@ -82,6 +82,19 @@ struct AampCodecInfo
 	{
 		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
+
+	AampCodecInfo(AampCodecInfo&& other) noexcept
+        : mCodecFormat(other.mCodecFormat)
+        , mCodecData(std::move(other.mCodecData))
+        , mIsEncrypted(other.mIsEncrypted)
+        , mInfo(other.mInfo)
+    {
+        // Reset the source object to default state
+        other.mCodecFormat = FORMAT_INVALID;
+        other.mIsEncrypted = false;
+        std::memset(&other.mInfo, 0, sizeof(other.mInfo));
+        // mCodecData is already empty after std::move
+    }
 };
 
 /*

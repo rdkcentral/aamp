@@ -83,7 +83,6 @@ bool ElementaryProcessor::setTuneTimePTS(char *segment, const size_t& size, doub
 
 	AAMPLOG_INFO("ElementaryProcessor:: sending segment at pos:%f dur:%f", position, duration);
 
-	// Logic for Audio Track
 	// Wait for video to parse PTS
 	std::unique_lock<std::mutex> guard(accessMutex);
 
