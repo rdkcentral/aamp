@@ -81,8 +81,8 @@ bool PlayerLogManager::locked = false;
 bool PlayerLogManager::disableLogRedirection = false;
 bool PlayerLogManager::enableEthanLogRedirection = false;
 
-// Sequential log counter for identifying missing log lines
-static std::atomic<unsigned long long> gMwLogSequenceNumber(0);
+// Sequential log counter for identifying missing log lines (wraps at 1000)
+static std::atomic<unsigned int> gMwLogSequenceNumber(0);
 
 static std::hash<std::thread::id> std_thread_hasher;
 std::size_t GetPlayerPrintableThreadID( void )
@@ -94,8 +94,8 @@ std::size_t GetPlayerPrintableThreadID( void )
  */
 void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
 {
-	// Get sequential log number
-	unsigned long long seqNum = gMwLogSequenceNumber.fetch_add(1, std::memory_order_relaxed);
+	// Get sequential log number (wraps at 1000)
+	unsigned int seqNum = gMwLogSequenceNumber.fetch_add(1, std::memory_order_relaxed) % 1000;
 	
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
@@ -110,7 +110,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, in
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[PLAYER_IF][%llu][%s][%zx][%s][%s][%d]%s\n",
+                                                           "%s[PLAYER_IF][%03u][%s][%zx][%s][%s][%d]%s\n",
                                                            timestamp,
                                                            seqNum,
                                                            mLogLevelStr[logLevelIndex],
