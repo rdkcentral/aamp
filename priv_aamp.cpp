@@ -12423,8 +12423,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 				std::string firstLanguage = preferredTextLanguagesList.at(0);
 				std::string trackLanguage = Getiso639map_NormalizeLanguageCode(
 					track.language, this->GetLangCodePreference());
-AAMPLOG_INFO("DJH trackLanguage %s firstLanguage %s currentPrefLanguage %s",
-				trackLanguage.c_str(), firstLanguage.c_str(), currentPrefLanguage.c_str());
 
 				if ((trackLanguage == firstLanguage) && (trackLanguage != currentPrefLanguage))
 				{
@@ -12554,16 +12552,9 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 							// Find the index of the selected track in the available tracks list
 							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
 
-							if (closedCaptionTrackId >= 0)
-							{
-								AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
-											 closedCaptionTrackId, selectedTextTrack.language.c_str());
-								SetPreferredTextTrack(std::move(selectedTextTrack));
-							}
-							else
-							{
-								AAMPLOG_ERR("Selected text track not found in trackInfo vector");
-							}
+							AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
+										 closedCaptionTrackId, selectedTextTrack.language.c_str());
+							SetPreferredTextTrack(std::move(selectedTextTrack));
 						}
 						else
 						{
