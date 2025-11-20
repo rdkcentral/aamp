@@ -12170,7 +12170,7 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 {
 #define _KD_TEST
 #ifdef _KD_TEST
-	AAMPLOG_INFO(":KD:mManifestUrl:'%s'", mManifestUrl);
+	AAMPLOG_INFO(":KD:mManifestUrl:'%s'", mManifestUrl.c_str());
 	if (mManifestUrl.find("NewsNOW") != string::npos)
 	{
 		AAMPLOG_INFO(":KD:Match 1");
