@@ -12404,7 +12404,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
-	AAMPLOG_INFO("DJH currentTrackIndex %d", currentTrackIndex);
 	if (currentTrackIndex >= 0)
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
