@@ -92,7 +92,7 @@ std::size_t GetPlayerPrintableThreadID( void )
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
 {
 	// Increment log counter for each log line
 	uint32_t logSeqNum = gMWLogCounter.fetch_add(1, std::memory_order_relaxed);
@@ -124,12 +124,12 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[PLAYER_IF][%u][%s][%zx][%s][%d]%s\n",
+                                                           "%s[PLAYER_IF][%u][%s][%zx][%s][%s][%d]%s\n",
                                                            timestamp,
                                                            logSeqNum,
                                                            mLogLevelStr[logLevelIndex],
 							   GetPlayerPrintableThreadID(),
-                                                           filename, line,
+                                                           filename, func, line,
                                                            format );
             if( format_bytes<=0 )
             { // should never happen!
