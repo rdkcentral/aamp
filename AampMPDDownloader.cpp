@@ -204,15 +204,20 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	// reset
 	Release();
 	mReleaseCalled = false;
-
+	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in Initialize()");
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+<<<<<<< HEAD
 	mMPDDnldCfg = std::move(mpdDnldCfg);
+=======
+	AAMPLOG_WARN("DEBUG --> Locked mMPDDnldMutex in Initialize()");
+	mMPDDnldCfg = mpdDnldCfg;
+>>>>>>> b0413c74 (Added more debug logs)
 
 	if(mpdPreProcessFuncptr)
 	{
 		mMpdPreProcessFuncptr = std::move(mpdPreProcessFuncptr);
 	}
-
+	AAMPLOG_WARN("DEBUG -->	Exiting Initialize()");
 }
 
 /**
@@ -221,11 +226,14 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 */
 void AampMPDDownloader::SetNetworkTimeout(uint32_t iDurationSec)
 {
+	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in SetNetworkTimeout()");
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	AAMPLOG_WARN("DEBUG --> Locked mMPDDnldMutex in SetNetworkTimeout()");
 	if(mMPDDnldCfg && iDurationSec > 0)
 	{
 		mMPDDnldCfg->mDnldConfig->iDownloadTimeout = iDurationSec;
 	}
+	AAMPLOG_WARN("DEBUG --> Unlocking mMPDDnldMutex in SetNetworkTimeout()");
 }
 /**
 *   @fn SetStallTimeout
@@ -233,11 +241,14 @@ void AampMPDDownloader::SetNetworkTimeout(uint32_t iDurationSec)
 */
 void AampMPDDownloader::SetStallTimeout(uint32_t iDurationSec)
 {
+	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in SetStallTimeout()");
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	AAMPLOG_WARN("DEBUG --> Locked mMPDDnldMutex in SetStallTimeout()");
 	if(mMPDDnldCfg)
 	{
 		mMPDDnldCfg->mDnldConfig->iStallTimeout = iDurationSec;
 	}
+	AAMPLOG_WARN("DEBUG --> Unlocking mMPDDnldMutex in SetStallTimeout()");
 }
 /**
 *   @fn SetStartTimeout
@@ -245,11 +256,14 @@ void AampMPDDownloader::SetStallTimeout(uint32_t iDurationSec)
 */
 void AampMPDDownloader::SetStartTimeout(uint32_t iDurationSec)
 {
+	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in SetStartTimeout()");
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	AAMPLOG_WARN("DEBUG --> Locked mMPDDnldMutex in SetStartTimeout()");
 	if(mMPDDnldCfg)
 	{
 		mMPDDnldCfg->mDnldConfig->iStartTimeout = iDurationSec;
 	}
+	AAMPLOG_WARN("DEBUG --> Unlocking mMPDDnldMutex in SetStartTimeout()");
 }
 /**
 *   @fn SetBufferAvailability
@@ -257,8 +271,11 @@ void AampMPDDownloader::SetStartTimeout(uint32_t iDurationSec)
 */
 void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
 {
+	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in SetBufferAvailability()");
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mLatencyValue	=	iDurationMilliSec;
+	AAMPLOG_WARN("DEBUG --> Unlocking mMPDDnldMutex in SetBufferAvailability()");
+
 }
 
 /**
@@ -272,12 +289,15 @@ void AampMPDDownloader::Release()
 	if(!mReleaseCalled)
 	{
 		{
+			AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in Release()");
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+			AAMPLOG_WARN("DEBUG --> Locked mMPDDnldMutex in Release()");
 			mReleaseCalled = true;
+
 			mRefreshCondVar.notify_all();
 			mMPDDnldDataCondVar.notify_all();
 			mMPDNotifierCondVar.notify_all();
-
+			AAMPLOG_WARN("DEBUG -->	NotifiedmRefreshCondVar ,mMPDDnldDataCondVar ,mMPDNotifierCondVar");
 		}
 
 		mDownloader1.Release();
@@ -317,6 +337,7 @@ void AampMPDDownloader::Start()
 	AAMPLOG_WARN("DEBUG--> Inside Start in AampMPDDownloader");
 	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in Start()");
  	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+	AAMPLOG_WARN("DEBUG --> mReleaseCalled value in Start(): %d", mReleaseCalled);
 	// Start the thread to initiate the download of manifest
 	if(mMPDDnldCfg && !mMPDDnldCfg->mTuneUrl.empty())
 	{
