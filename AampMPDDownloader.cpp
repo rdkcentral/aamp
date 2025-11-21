@@ -314,6 +314,8 @@ void AampMPDDownloader::Release()
 */
 void AampMPDDownloader::Start()
 {
+	AAMPLOG_WARN("DEBUG--> Inside Start in AampMPDDownloader");
+	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in Start()");
  	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	// Start the thread to initiate the download of manifest
 	if(mMPDDnldCfg && !mMPDDnldCfg->mTuneUrl.empty())
@@ -333,6 +335,7 @@ void AampMPDDownloader::Start()
 	{
 		AAMPLOG_ERR("No Tune Url provided for download ");
 	}
+	AAMPLOG_WARN("DEBUG --> Unlocking mMPDDnldMutex in Start() and out of Start()");
 }
 
 /**
@@ -341,6 +344,7 @@ void AampMPDDownloader::Start()
 */
 void AampMPDDownloader::downloadMPDThread1()
 {
+	AAMPLOG_WARN("DEBUG--> Inside downloadMPDThread1 in AampMPDDownloader");
 	UsingPlayerId playerId(mMPDDnldCfg->mPlayerId);
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
@@ -349,10 +353,21 @@ void AampMPDDownloader::downloadMPDThread1()
 	do
 	{
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
+		AAMPLOG_WARN("DEBUG -->Headers key and values before manifest download:");
+		for (const auto& headerPair : Headers)
+		{
+			AAMPLOG_WARN("DEBUG --> Header Key: %s", headerPair.first.c_str());
+			for (const auto& value : headerPair.second)
+			{
+				AAMPLOG_WARN("DEBUG -->     Value: %s", value.c_str());
+			}
+		}
 		bool doPush = true;
 		long long tStartTime = NOW_STEADY_TS_MS;
 		{
+			AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in downloadMPDThread1()");
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
+			AAMPLOG_WARN("DEBUG -->mReleaseCalled value in downloadMPDThread1(): %d", mReleaseCalled);
 			if(mReleaseCalled)
 				break;
 			if(mMPDDnldCfg->mCMCDCollector)
@@ -362,11 +377,13 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
 			mMPDDnldCfg->mDnldConfig->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
+			AAMPLOG_WARN("DEBUG --> Calling mDownloader1.Initialize()");
 			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
 			refreshNeeded = false;
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = MakeSharedManifestDownloadResponsePtr();
+			AAMPLOG_WARN("DEBUG --> Unlocking mMPDDnldMutex in downloadMPDThread1()" );
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
@@ -389,11 +406,13 @@ void AampMPDDownloader::downloadMPDThread1()
 				}
 				else
 				{
+					AAMPLOG_WARN("DEBUG--> Preprocess function returned timeout");
 					mMPDData->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
 				}
 			}
 			else
 			{
+				AAMPLOG_WARN("DEBUG--> Calling mDownloader1.Download()");
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}

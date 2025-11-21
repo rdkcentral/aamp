@@ -4760,6 +4760,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		AAMPLOG_WARN("DEBUG --> Calling Stop  of StreamAbstraction from TeardownStream");
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
@@ -5051,6 +5052,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	{
 		std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+		AAMPLOG_WARN("DEBUG --> Calling EnableAllMediaDownloads()");
 		EnableAllMediaDownloads();
 		//LazilyLoadConfigIfNeeded();
 		mFragmentCachingRequired = false;
@@ -5182,6 +5184,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			{
 				mMPDDownloaderInstance->Initialize(inpData, mAppName, nullptr);
 			}
+			AAMPLOG_WARN("DEBUG--> Calling mMPDDownloaderInstance->Start()");
 			mMPDDownloaderInstance->Start();
 		}
 	}
@@ -7096,9 +7099,12 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
  */
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
+	AAMPLOG_WARN("DEBUG --> DisableDownloads called");
 	{
+		
 		std::lock_guard<std::recursive_mutex> guard(mLock);
 		AAMPLOG_MIL("Disable downloads");
+		AAMPLOG_WARN("DEBUG-->DisableDownloads: Setting mDownloadsEnabled to false");
 		mDownloadsEnabled = false;
 		mDownloadsDisabled.notify_all();
 	}
@@ -7472,7 +7478,7 @@ void PrivateInstanceAAMP::Stop()
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
+    AAMPLOG_WARN("DEBUG --> Disabling downloads");
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
@@ -7484,7 +7490,9 @@ void PrivateInstanceAAMP::Stop()
 		inpData->bIgnoreResponseHeader	= true;
 		inpData->eRequestType = eCURL_DELETE;
 		inpData->proxyName        = GetNetworkProxy();
+		AAMPLOG_WARN("DEBUG -->Calling Initialize from Stop()");
 		T1.Initialize(inpData);
+		AAMPLOG_WARN("DEBUG -->Calling Download from Stop()");
 		T1.Download(remoteUrl, respData );
 	}
 
@@ -12315,6 +12323,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
  */
 void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
 {
+	AAMPLOG_WARN("DEBUG--> Inside EnableMediaDownloads for mediaType %d", type);
 	mMediaDownloadsEnabled[type] = true;
 }
 
@@ -12331,9 +12340,11 @@ void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
  */
 void PrivateInstanceAAMP::EnableAllMediaDownloads()
 {
+	AAMPLOG_WARN("DEBUG--> Inside EnableAllMediaDownloads");
 	for (int i = 0; i <= eMEDIATYPE_DEFAULT; i++)
 	{
 		// Enable downloads for all mediaTypes
+		AAMPLOG_WARN("DEBUG--> Calling EnableMediaDownloads for mediaType %d", i);
 		EnableMediaDownloads((AampMediaType) i);
 	}
 }
