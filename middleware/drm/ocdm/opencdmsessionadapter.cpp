@@ -216,11 +216,15 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 	if (m_pOpenCDMSession) {
 		m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
 		m_keyStateIndeterminate = false;
+		std::vector<uint8_t> keyData = RawKeyToKeyId(key, keySize);
+		m_UsableKeys.push_back(keyData);
 	} 
 	else {
 		m_keyStored.clear();
 		m_keyStored.assign(key, key+keySize);
 		m_keyStateIndeterminate = true;
+		std::vector<uint8_t> keyData = RawKeyToKeyId(key, keySize);
+		m_UsableKeys.push_back(keyData);
 	}
   
 }

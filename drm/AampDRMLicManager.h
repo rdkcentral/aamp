@@ -196,7 +196,7 @@ public:
 	/**
 	 * @fn ContentProtectionDataUpdate
 	 */
-	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType);
+	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, const std::vector<uint8_t>& keyId, AampMediaType streamType);
 	/**
 	 * @brief Set the Common Key Duration object
 	 * 
@@ -315,7 +315,7 @@ public:
 	 * @fn HandleContentProtectionData
 	 * @return string
 	 */
-	std::string HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd);
+	std::string HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, const std::vector<uint8_t>& keyId, int contentProtectionUpd);
 
 	/** @fn 	Create the DRM session with DRM helper.
 	 * @param[in]   drmHelper shared ptr to drmhelper 

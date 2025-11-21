@@ -136,6 +136,12 @@ public:
 	virtual void clearDecryptContext() = 0;
 
 	/**
+	 * @brief Get the list of usable key IDs from the DRM session
+	 * @retval Vector of key IDs that are currently usable
+	 */
+	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const { return std::vector<std::vector<uint8_t>>(); }
+
+	/**
 	 * @fn DrmSession
 	 * @param keySystem : DRM key system uuid
 	 */
