@@ -176,13 +176,13 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 				mFetchQueue.push_back(std::move(fetchObject));
 				if (!mPreFetchThreadStarted)
 				{
-					AAMPLOG_WARN("Starting mPreFetchThread");
+					AAMPLOG_MIL("Starting mPreFetchThread");
 					mPreFetchThread = std::thread(&AampLicensePreFetcher::PreFetchThread, this);
 					mPreFetchThreadStarted = true;
 				}
 				else
 				{
-					AAMPLOG_WARN("Notify mPreFetchThread");
+					AAMPLOG_MIL("Notify mPreFetchThread");
 					mQCond.notify_one();
 				}
 			}
