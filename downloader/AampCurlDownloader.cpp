@@ -654,7 +654,7 @@ int AampCurlDownloader::progress_callback(
 	}
 	else
 	{
-		AAMPLOG_WARN("DEBUG--> dlnow:%f startTimeout:%d stallTimeout:%d Time:%ld StartTime:%lld",dlnow,mDnldCfg->iStartTimeout,mDnldCfg->iStallTimeout,NOW_STEADY_TS_MS,mDownloadStartTime);
+		AAMPLOG_WARN("DEBUG--> Checking for timeouts in progress_callback()");
 		if (this->mWriteCallbackBufferSize == 0 && mDnldCfg->iStartTimeout > 0)
 		{ // check to handle scenario where <startTimeout> seconds delay occurs without any bytes having been downloaded (stall at start)
 			double timeElapsedInSec = (double)(NOW_STEADY_TS_MS - mDownloadStartTime) /1000;
