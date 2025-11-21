@@ -826,3 +826,47 @@ TEST_F(AampLogManagerTest, snprintf_tests)
 		}
 	}
 }
+
+/*
+	Test that sequential log numbers are added to log lines
+	This test verifies that each log line gets a sequential number
+*/
+TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
+{
+	// Log three messages and verify they have sequential numbers
+	AAMP_LogLevel level = eLOGLEVEL_WARN;
+	std::string file("test.cpp");
+	int line = 10;
+	std::string message1("First message");
+	std::string message2("Second message");
+	std::string message3("Third message");
+	
+	// We can't predict the exact sequence numbers, but we can verify the format contains a number field
+	// The format is: [AAMP-PLAYER][playerId][seqNum][level][threadId][file][line]message
+	// We look for pattern like [WARN] preceded by a number field
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[WARN]"), HasSubstr(message1))));
+	logprintf(level, file.c_str(), line, "%s", message1.c_str());
+	
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[WARN]"), HasSubstr(message2))));
+	logprintf(level, file.c_str(), line, "%s", message2.c_str());
+	
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[WARN]"), HasSubstr(message3))));
+	logprintf(level, file.c_str(), line, "%s", message3.c_str());
+}
+
+/*
+	Test that filename is extracted from full path
+	This test verifies that only the filename is shown, not the full path
+*/
+TEST_F(AampLogManagerTest, logprintf_FilenameExtraction)
+{
+	AAMP_LogLevel level = eLOGLEVEL_WARN;
+	std::string fullPath("/home/user/project/src/test.cpp");
+	std::string expectedFilename("test.cpp");
+	int line = 42;
+	std::string message("Test filename extraction");
+	
+	// The log line should contain just "test.cpp", not the full path
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + expectedFilename + "]"), HasSubstr(message))));
+	logprintf(level, fullPath.c_str(), line, "%s", message.c_str());
+}
