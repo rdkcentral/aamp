@@ -206,12 +206,8 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	mReleaseCalled = false;
 	AAMPLOG_WARN("DEBUG --> Locking mMPDDnldMutex in Initialize()");
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
-<<<<<<< HEAD
-	mMPDDnldCfg = std::move(mpdDnldCfg);
-=======
 	AAMPLOG_WARN("DEBUG --> Locked mMPDDnldMutex in Initialize()");
 	mMPDDnldCfg = mpdDnldCfg;
->>>>>>> b0413c74 (Added more debug logs)
 
 	if(mpdPreProcessFuncptr)
 	{
