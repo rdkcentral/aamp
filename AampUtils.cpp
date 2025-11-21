@@ -365,6 +365,7 @@ void aamp_DecodeUrlParameter( std::string &uriParam )
 			uriParam = std::string(unescapedData, unescapedLen);
 			curl_free((void*)unescapedData);
 		}
+		AAMPLOG_WARN("DEBUG --> Unescaped URL parameter: %s", uriParam.c_str());
 		curl_easy_cleanup(curl);
 	}
 }

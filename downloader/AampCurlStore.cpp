@@ -324,6 +324,7 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	}
 	else
 	{
+		AAMPLOG_WARN("DEBUG--> Cleaning up curl handle in CurlStore::SaveCurlHandle()");
 		curl_easy_cleanup(curl);
 	}
 }
@@ -521,6 +522,7 @@ void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 		{
 			if (aamp->curl[i])
 			{
+				AAMPLOG_WARN("DEBUG--> Cleaning up curl handle in CurlStore::CurlTerm()");
 				curl_easy_cleanup(aamp->curl[i]);
 				aamp->curl[i] = NULL;
 				aamp->curlDLTimeout[i] = 0;
@@ -556,6 +558,7 @@ CurlStore::~CurlStore()
 		{
 			if(itFreeQ.curl)
 			{
+				AAMPLOG_WARN("DEBUG--> Cleaning up curl handle in CurlStore destructor");
 				curl_easy_cleanup(itFreeQ.curl);
 			}
 		}
@@ -598,6 +601,7 @@ CURL *CurlStore::GetCurlHandleFromFreeQ ( CurlSocketStoreStruct *CurlSock, int i
 		{
 			CurlSock->mFreeQ.pop_front();
 			AAMPLOG_TRACE("Remove old curl hdl:%p", mObj.curl);
+			AAMPLOG_WARN("DEBUG--> Cleaning up curl handle in CurlStore::GetCurlHandleFromFreeQ()");
 			curl_easy_cleanup(mObj.curl);
 			mObj.curl = NULL;
 			continue;
@@ -870,6 +874,7 @@ void CurlStore::RemoveCurlSock ( void )
 		{
 			if(it->curl)
 			{
+				AAMPLOG_WARN("DEBUG--> Cleaning up curl handle in CurlStore::RemoveCurlSock()");	
 				curl_easy_cleanup(it->curl);
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
@@ -914,6 +919,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			if(it->curl)
 			{
 				AAMPLOG_INFO("Removing host:%s curlInstance:%d:%p", (removeIter->first).c_str(), it->curlId,it->curl);
+				AAMPLOG_WARN("DEBUG--> Cleaning up curl handle in CurlStore::FlushCurlSockForHost()");	
 				curl_easy_cleanup(it->curl);
 				it->curl = NULL;
 			}
