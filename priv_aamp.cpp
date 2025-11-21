@@ -2260,7 +2260,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			if (mFirstProgress)
 			{
 				mFirstProgress = false;
-				AAMPLOG_WARN("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
+				AAMPLOG_MIL("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
 			}
 
 
@@ -2933,12 +2933,12 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 
 		if(GetBWIndex)
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 
@@ -2948,17 +2948,17 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 	{
 		if(GetBWIndex)
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 	}
 
-	AAMPLOG_WARN("BitrateChanged:%d", reason);
+	AAMPLOG_MIL("BitrateChanged:%d", reason);
 }
 
 
@@ -4576,7 +4576,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				mediaType = eMEDIATYPE_IFRAME;
 			}
 
-			// dont generate anomaly reports for write and aborted errors
+			// don't generate anomaly reports for write and aborted errors
 			// these are generated after trick play options,
 			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
 			{
@@ -4800,7 +4800,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
-	AAMPLOG_WARN(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
+	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
 	{
 		bool waitForDiscontinuityProcessing = true;
@@ -5236,7 +5236,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// send previous tune VideoEnd Metrics data
 		// this is done here because events are cleared on stop and there is chance that event may not get sent
 		// check for mEnableVideoEndEvent and call SendVideoEndEvent ,object mVideoEnd is created inside SendVideoEndEvent
-		if(mTuneAttempts == 1) // only for first attempt, dont send event when JSPP retunes.
+		if(mTuneAttempts == 1) // only for first attempt, don't send event when JSPP retunes.
 		{
 			SendVideoEndEvent();
 		}
@@ -5702,7 +5702,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(!mIsFakeTune)
 	{
 		AAMPLOG_INFO("mCCId: %d",mCCId);
-		// if mCCId has non zero value means it is same instance and cc release was not callee then dont get id. if zero then call getid.
+		// if mCCId has non zero value means it is same instance and cc release was not callee then don't get id. if zero then call getid.
 		if(mCCId == 0 )
 		{
 			mCCId = PlayerCCManager::GetInstance()->GetId();
@@ -7561,7 +7561,6 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	{
 		mGetPositionMillisecondsMutexSoft.unlock();
 	}
-
 	return positionMilliseconds;
 }
 
@@ -8142,7 +8141,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 		// This is an idle callback, so we can sent event synchronously
 		if (SendTunedEvent())
 		{
-			AAMPLOG_WARN("aamp: - sent tune event on Tune Completion.");
+			AAMPLOG_MIL("aamp: - sent tune event on Tune Completion.");
 		}
 	}
 	InitializeCC(ccDecoderHandle);
@@ -9045,7 +9044,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	}
 	trickStartUTCMS = aamp_GetCurrentTimeMS();
 	//Do not edit or remove this log - it is used in L2 test
-	AAMPLOG_WARN("seek pos %.3f", seek_pos_seconds);
+	AAMPLOG_MIL("seek pos %.3f", seek_pos_seconds);
 
 
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
@@ -12530,7 +12529,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
-			else if (isSelectionChange) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			else if (isSelectionChange && closedCaptionTrackId == -1) /* don't tune if we are using closedCaptions*/
 			{
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
@@ -12599,12 +12598,11 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 					discardEnteringLiveEvt = false;
 				}
 				ReleaseStreamLock();
-
-				if (closedCaptionTrackId >= 0)
-				{
-					TextTrackInfo track = trackInfo[closedCaptionTrackId];
-					SetClosedCaptionsFromTextTrack(track);
-				}
+			}
+			if (closedCaptionTrackId >= 0)
+			{
+				TextTrackInfo track = trackInfo[closedCaptionTrackId];
+				SetClosedCaptionsFromTextTrack(track);
 			}
 		}
 	}

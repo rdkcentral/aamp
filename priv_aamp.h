@@ -599,6 +599,14 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	 * @return index of closed caption track otherwise -1 if not found
 	 */
 	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
+	/**
+	 * @fn CheckPreferredTextLanguages
+	 * @param[in] trackInfo - Text track information
+	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
+	 * @param[out] closedCaptionTrackIdx - closed caption track index
+	 */
+	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 	/**
 	 * @brief Find the index of a text track in a vector
@@ -868,14 +876,6 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
-	/**
-	 * @fn CheckPreferredTextLanguages
-	 * @param[in] trackInfo - Text track information
-	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
- 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
-	 * @param[out] closedCaptionTrackIdx - closed caption track index
-	 */
-	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;

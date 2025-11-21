@@ -3428,7 +3428,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					//set default bitrate
 					else
 					{
-						AAMPLOG_WARN("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+						AAMPLOG_MIL("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 						aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 					}
