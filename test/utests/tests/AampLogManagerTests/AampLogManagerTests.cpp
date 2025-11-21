@@ -737,7 +737,7 @@ TEST_F(AampLogManagerTest, logprintf_TRACE)
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
-	// The printed log line must contain the player ID, level, file, function and the message /
+	// The printed log line must contain the player ID, level, file, function and the message
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[TRACE]"), HasSubstr("[" + file + "]"), HasSubstr("[" + func + "]"), HasSubstr(message))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
@@ -749,7 +749,7 @@ TEST_F(AampLogManagerTest, logprintf_INFO)
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
-	// The printed log line must contain the player ID, level, file, function and the message /
+	// The printed log line must contain the player ID, level, file, function and the message
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"), HasSubstr("[" + func + "]"), HasSubstr(message))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
