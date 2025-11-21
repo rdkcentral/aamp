@@ -157,7 +157,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
 	{
-		AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
+		AAMPLOG_MIL("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
 					 name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
 		if (bufferedTime <= 0)
 		{
@@ -1687,7 +1687,7 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
 void MediaTrack::RunInjectLoop()
 {
 	UsingPlayerId playerId( aamp->mPlayerId );
-	AAMPLOG_WARN("fragment injector started. track %s", name);
+	AAMPLOG_MIL("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -2281,7 +2281,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
 				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-				AAMPLOG_WARN("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
+				AAMPLOG_MIL("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
 				aamp->IsTuneTypeNew = false;
 				lGetBWIndex = true;
 			}
@@ -2296,7 +2296,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 		}
 		else
 		{
-			AAMPLOG_WARN("StreamInfo  is null");  //CID:82200 - Null Returns
+			AAMPLOG_WARN("StreamInfo is null");  //CID:82200 - Null Returns
 		}
 	}
 }
@@ -4084,7 +4084,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
 		if(track && track->enabled && track->playContext == nullptr)
 		{
-			AAMPLOG_WARN("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
+			AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
 
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
