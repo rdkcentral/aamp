@@ -52,7 +52,7 @@ bool AampLogManager::locked = true;
 
 thread_local int gPlayerId = -1;
 
-void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
+void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...)
 {
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
@@ -67,12 +67,12 @@ void logprintf(AAMP_LogLevel level, const char* file, int line, const char *form
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%s][%d]%s\n",
 							   timestamp,
 							   gPlayerId,
 							   mLogLevelStr[level],
 							   std_thread_hasher( std::this_thread::get_id() ),
-							   file, line,
+							   file, func, line,
 							   format );
 		assert( format_bytes>0 );
 		if( pass==0 )
