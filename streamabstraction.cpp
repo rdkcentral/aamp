@@ -74,10 +74,10 @@ AampMediaType TrackTypeToMediaType( TrackType trackType )
 void MediaTrack::StartPlaylistDownloaderThread()
 {
 	AAMPLOG_DEBUG("Starting playlist downloader for %s", name);
-	if((NULL == playlistDownloaderThread) || !playlistDownloaderThread->joinable())
+	if(!playlistDownloaderThread || !playlistDownloaderThread->joinable())
 	{
 		// Start a new thread for this track
-		if(NULL == playlistDownloaderThread)
+		if(!playlistDownloaderThread)
 		{
 			// Set thread abort flag to false and start the thread.
 			abortPlaylistDownloader = false;
@@ -1824,6 +1824,15 @@ bool MediaTrack::isFragmentInjectorThreadStarted()
 {
 	std::lock_guard<std::mutex> guard(injectorStartMutex);
 	return fragmentInjectorThreadID.joinable();
+}
+
+/**
+ * @brief Check if playlist downloader thread is started
+ * @return true if thread is joinable, false otherwise
+ */
+bool MediaTrack::isPlaylistDownloaderThreadStarted()
+{
+	return (playlistDownloaderThread && playlistDownloaderThread->joinable());
 }
 
 /**

@@ -487,7 +487,7 @@ public:
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
 	bool isFragmentInjectorThreadStarted();
-	bool IsPlaylistDownloaderThreadActive() { return (playlistDownloaderThread != NULL) && playlistDownloaderThread->joinable(); }
+	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();
 	/**
 	 * @brief Signal the clock to subtitle module

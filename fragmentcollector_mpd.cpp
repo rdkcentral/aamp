@@ -9567,7 +9567,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			double lastPrdOffset = mBasePeriodOffset;
 			while (!exitFetchLoop)
 			{
-				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->IsPlaylistDownloaderThreadActive())
+				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->isPlaylistDownloaderThreadStarted())
 				{
 					// CDVR moved from "dynamic" to "static"
 					playlistDownloaderContext->StopPlaylistDownloaderThread();

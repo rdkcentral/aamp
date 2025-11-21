@@ -1546,6 +1546,7 @@ void PrivateCDAIObjectMPD::StopFulfillAdLoop()
 		mExitFulfillAdLoop = true;
 		NotifyAdLoopWait();
 		mAdObjThreadID.join();
+		AAMPLOG_INFO("mAdObjThreadID joined.");
 	}
 }
 

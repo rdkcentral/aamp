@@ -148,7 +148,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 				mVssFetchQueue.push_back(std::move(fetchObject));
 				if (!mVssPreFetchThread.joinable())
 				{
-					AAMPLOG_WARN("Starting mVssPreFetchThread");
+					AAMPLOG_MIL("Starting mVssPreFetchThread");
 					mVssPreFetchThread = std::thread(&AampLicensePreFetcher::VssPreFetchThread, this);
 				}
 				else
