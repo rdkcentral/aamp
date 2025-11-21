@@ -33,6 +33,8 @@ public:
 	ToBeTestedStub(class PrivateInstanceAAMP *aamp, double seekpos, float rate,
 				   id3_callback_t id3Handler = nullptr) : StreamAbstractionAAMP_MPD(aamp, seekpos, rate){};
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest1);
+	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest_WithTrickPlayRate);
+	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd);
 };
 
 class fragmentcollector_mpd : public ::testing::Test
@@ -314,4 +316,102 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 		// End of period call to read duration of the period to feed into calc for next period
 		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(false);
 	}
+}
+
+TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithTrickPlayRate)
+{
+	// Minimal manifest - content doesn't matter as we mock GetStartAndDurationFromTimeline
+	static const char *manifest = R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+<Period id="p0"><AdaptationSet><Representation/></AdaptationSet></Period>
+</MPD>)";
+
+	// Setup MPD
+	mManifest = manifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+	// Create stub with 2x trick play rate
+	const float trickPlayRate = 2.0f;
+	ToBeTestedStub streamAbstractionStub(mPrivateInstanceAAMP, 0.0, trickPlayRate);
+
+	// Setup media stream contexts (needed by UpdatePtsOffset)
+	MediaStreamContext ms(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+
+	// Test data: simple case with both tracks aligned at start with 10s duration
+	const double start = 0.0;
+	const double duration = 10.0;
+
+	// Mock GetStartAndDurationFromTimeline (called for audio then video)
+	Sequence s1;
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.InSequence(s1)
+		.WillOnce(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.InSequence(s1)
+		.WillOnce(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+
+	// Initialize state
+	streamAbstractionStub.mpd = respData->mMPDInstance.get();
+	streamAbstractionStub.mCurrentPeriod = streamAbstractionStub.mpd->GetPeriods().at(0);
+	streamAbstractionStub.mNextPts = 0;
+	streamAbstractionStub.mPTSOffset = 0;
+
+	// Test UpdatePtsOffset
+	streamAbstractionStub.UpdatePtsOffset(true);
+
+	// Verify: offset=0 (first period), nextPts=10 (duration+start), rate=2.0
+	EXPECT_DOUBLE_EQ(streamAbstractionStub.mPTSOffset.inSeconds(), 0.0);
+	EXPECT_DOUBLE_EQ(streamAbstractionStub.mNextPts.inSeconds(), 10.0);
+	EXPECT_FLOAT_EQ(streamAbstractionStub.mPlayRate, trickPlayRate);
+}
+
+TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest_WithShortAd)
+{
+	// Minimal manifest - content doesn't matter as we mock GetStartAndDurationFromTimeline
+	static const char *manifest = R"(<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+<Period id="p0"><AdaptationSet><Representation/></AdaptationSet></Period>
+</MPD>)";
+
+	// Setup MPD
+	mManifest = manifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+
+	// Create stub with 2x trick play rate
+	const float trickPlayRate = 2.0f;
+	ToBeTestedStub streamAbstractionStub(mPrivateInstanceAAMP, 0.0, trickPlayRate);
+
+	// Setup media stream contexts (needed by UpdatePtsOffset)
+	MediaStreamContext ms(eTRACK_VIDEO, &streamAbstractionStub, mPrivateInstanceAAMP, "TEST");
+	// When AAMP TSB is not enabled, audio stream context will be null when using trick modes
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_AUDIO] = nullptr;
+	streamAbstractionStub.mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
+
+	// Test data: video track and period with 10s duration
+	const double start = 0.0;
+	const double duration = 10.0;
+
+	// Mock GetStartAndDurationFromTimeline (called for video)
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetStartAndDurationFromTimeline(_, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<3>(start), SetArgReferee<4>(duration)));
+	// Return period duration in ms
+	EXPECT_CALL(*g_mockAampMPDParseHelper, GetPeriodDuration(_, _, _, _))
+		.WillOnce(Return(duration * 1000.0));
+
+	// Initialize state
+	streamAbstractionStub.mpd = respData->mMPDInstance.get();
+	streamAbstractionStub.mCurrentPeriod = streamAbstractionStub.mpd->GetPeriods().at(0);
+	streamAbstractionStub.mNextPts = 0;
+	streamAbstractionStub.mPTSOffset = 0;
+	streamAbstractionStub.mShortAdOffsetCalc = true;
+
+	// Test UpdatePtsOffset
+	streamAbstractionStub.UpdatePtsOffset(true);
+
+	// Verify: offset=0 (first period), nextPts=10 (duration+start), rate=2.0
+	EXPECT_DOUBLE_EQ(streamAbstractionStub.mPTSOffset.inSeconds(), 0.0);
+	EXPECT_DOUBLE_EQ(streamAbstractionStub.mNextPts.inSeconds(), 10.0);
+	EXPECT_FLOAT_EQ(streamAbstractionStub.mPlayRate, trickPlayRate);
 }

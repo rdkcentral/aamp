@@ -74,7 +74,7 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 			traceId = sid;
 		}
 		mTraceId = traceId;
-		AAMPLOG_WARN("CMCD Enabled. TraceId:%s", mTraceId.c_str());
+		AAMPLOG_MIL("CMCD Enabled. TraceId:%s", mTraceId.c_str());
 		// Create metric handlers for each stream type
 		// Add it to table
 		CMCDHeaders *pCMCDMetrics = NULL;
