@@ -118,7 +118,3 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
-bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
-{
-	return false;
-}
