@@ -50,6 +50,7 @@
 #include "MockAdManager.h"
 #include "MockPlayerCCManager.h"
 #include "MockMediaStreamContext.h"
+#include "MockMediaTrack.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -99,10 +100,14 @@ protected:
 		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
+		g_mockMediaTrack = new NiceMock<MockMediaTrack>();
 	}
 
 	void TearDown() override
 	{
+		delete g_mockMediaTrack;
+		g_mockMediaTrack = nullptr;
+
 		g_mockPlayerCCManager.reset();
 
 		delete g_MockPrivateCDAIObjectMPD;
@@ -843,7 +848,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	// Set up stream abstraction to return our mock MediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(g_mockMediaTrack));
 
 	p_aamp->pipeline_paused = true;
 	p_aamp->mBufUnderFlowStatus = false;
@@ -865,7 +870,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
 
 	// Simulate paused from live, not AAMP TSB
-	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
 	// Check that AAMP is NOT injecting segments if playback is paused by the user
@@ -904,7 +909,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	// Set up stream abstraction to return our mock MediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(g_mockMediaTrack));
 
 	p_aamp->pipeline_paused = true;
 	p_aamp->mBufUnderFlowStatus = true;
@@ -926,7 +931,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
 
 	// Simulate paused from live, not AAMP TSB
-	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
 	// Check that AAMP is injecting segments if playback is paused due to underflow
