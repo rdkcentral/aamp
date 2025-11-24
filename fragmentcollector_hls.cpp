@@ -3467,6 +3467,10 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 				// Configure Subtitle track for the playback
 				ConfigureTextTrack();
+				
+				// Check for text track changes and notify
+				NotifyTextTrackChanges();
+				
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
 					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
@@ -7307,21 +7311,12 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyAudioTracksChanged();
 		}
-
-		tracksChanged = false;
-		if (-1 != aamp->mCurrentTextTrackIndex && aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex)
-		{
-			tracksChanged = true;
-		}
-		aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
-		if (tracksChanged)
-		{
-			aamp->NotifyTextTracksChanged();
-		}
+		
+		// Update closed caption track info
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
-		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		aamp->UpdateCCTrackInfo(textTracksCopy, updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
@@ -7330,6 +7325,25 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 
+}
+
+/**
+ * @brief Check for text track changes and send notification events
+ */
+void StreamAbstractionAAMP_HLS::NotifyTextTrackChanges()
+{
+	// Check if text track has changed from a valid previous selection
+	bool tracksChanged = (aamp->mCurrentTextTrackIndex != -1 && 
+	                      aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex);
+	
+	// Update current track index
+	aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
+	
+	// Send notification if track changed
+	if (tracksChanged)
+	{
+		aamp->NotifyTextTracksChanged();
+	}
 }
 
 /**
@@ -7593,6 +7607,8 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		{
 			std::string normalizedTrackLanguage =
 				(track.language.empty()) ? track.language : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
+			AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s')", track.name.c_str(), track.language.c_str(), normalizedTrackLanguage.c_str());
+
 			auto iter = std::find(languageVectorToCheck.cbegin(),
 								  languageVectorToCheck.cend(),
 								  normalizedTrackLanguage);
