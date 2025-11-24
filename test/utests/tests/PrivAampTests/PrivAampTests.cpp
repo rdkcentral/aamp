@@ -3385,14 +3385,14 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
 	// Now call TuneHelper to create the StreamAbstraction object
-	// SetSubtitleMute(true) should be called to apply the stored CC status
+	// SetSubtitleMute(false) should be called to apply the stored CC status
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->mIsInbandCC = false;
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
 	// Disable CCStatus and check that status is stored,
-	// and SetSubtitleMute(false) is called since we are now tuned
+	// and SetSubtitleMute(true) is called since we are now tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
@@ -3465,7 +3465,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 }
 
-TEST_F(PrivAampTests,SetCCStatusPstTuneWithVideoMute)
+TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 {
 	// Test basic CC status functionality
 	p_aamp->mIsInbandCC = true;
@@ -3486,7 +3486,7 @@ TEST_F(PrivAampTests,SetCCStatusPstTuneWithVideoMute)
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Enable CC and check that status is stored, howerver SetStatus(false) is called since video is still muted
+	// Enable CC and check that status is stored, however SetStatus(false) is called since video is still muted
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
