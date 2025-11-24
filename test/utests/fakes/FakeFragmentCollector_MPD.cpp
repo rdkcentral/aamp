@@ -305,3 +305,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	return false;
 }
+void StreamAbstractionAAMP_MPD::GetStreamCodecInfo (AampCodecInfo &videoCodec, AampCodecInfo &audioCodec)
+{
+    
+}

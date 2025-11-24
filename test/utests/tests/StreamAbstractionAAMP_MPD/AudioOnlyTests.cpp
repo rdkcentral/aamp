@@ -93,6 +93,7 @@ protected:
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_UseMp4Demux, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;

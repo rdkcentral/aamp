@@ -260,3 +260,6 @@ void AAMPGstPlayer::NotifyInjectorToPause()
 void AAMPGstPlayer::NotifyInjectorToResume()
 {
 }
+void AAMPGstPlayer::SetStreamCaps(AampMediaType type, StreamOutputFormat format, const AampCodecInfo &codecInfo)
+{
+}
