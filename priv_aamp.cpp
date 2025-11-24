@@ -2106,15 +2106,23 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+		AAMPLOG_DEBUG("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
+		AAMPLOG_DEBUG("supriya added Debuglogs: position_ms=%.3f start_ms=%.3f durationSeconds_s=%f culledSeconds_s=%f mAbsoluteEndPosition_s=%f mProgressReportOffset_s=%f IsUninterruptedTSB=%d mFirstFragmentTimeOffset_s=%f mProgressReportAvailabilityOffset_s=%f contentType=%s fogTSB=%d localAampTsb=%d",
+                      position, start,
+                      durationSeconds, culledSeconds,
+                      (double)mAbsoluteEndPosition, mProgressReportOffset,
+                      (int)IsUninterruptedTSB(), (double)mFirstFragmentTimeOffset, (double)mProgressReportAvailabilityOffset,
+                      GetContentTypString().c_str(), (int)mFogTSBEnabled, (int)IsLocalAAMPTsb());
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
 			end = (mAbsoluteEndPosition * 1000);
+			AAMPLOG_DEBUG("supriya added Debuglogs: used mAbsoluteEndPosition -> mAbsoluteEndPosition_s=%f raw_end_ms=%.3f", (double)mAbsoluteEndPosition, end);
 		}
 		else
 		{
 			end = start + duration;
+			AAMPLOG_DEBUG("supriya added Debuglogs: used start+duration -> start_ms=%.3f duration_ms=%.3f raw_end_ms=%.3f", start, (durationSeconds * 1000.0), end);
 		}
 
 		if (position > end)
@@ -2186,10 +2194,13 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// If tsb is not available for linear send -1  for start and end
 		// so that xre detect this as tsbless playback
 		// Override above logic if mEnableSeekableRange is set, used by third-party apps
+		AAMPLOG_DEBUG("DBG PRE-END-OVERRIDE: EnableSeekRange=%d contentType=%s fogTSB=%d localAampTsb=%d start_ms=%.3f end_ms=%.3f culledSeconds=%f durationSeconds=%f mAbsoluteEndPosition_s=%f mProgressReportOffset_s=%f mProgressReportAvailabilityOffset_s=%f",
+                      (int)ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange), GetContentTypString().c_str(), (int)mFogTSBEnabled, (int)IsLocalAAMPTsb(), start, end, culledSeconds, durationSeconds, (double)mAbsoluteEndPosition, mProgressReportOffset, (double)mProgressReportAvailabilityOffset);
 		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
 		{
 			start = -1;
 			end = -1;
+			AAMPLOG_DEBUG("supriya: branch=TSB_LESS -> start_ms=%f end_ms=%f", start, end);
 		}
 
 		if(IsLiveStream())
