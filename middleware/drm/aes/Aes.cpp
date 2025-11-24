@@ -33,7 +33,6 @@
 #include <errno.h>
 #include <mutex>
 #include "PlayerLogManager.h"
-#include "AampUtils.h"
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 #define OPEN_SSL_CONTEXT mOpensslCtx
 #else
@@ -189,7 +188,7 @@ DrmReturn AesDec::SetDecryptInfo(const struct DrmInfo *drmInfo, int acquireKeyWa
 		{
 			licenseAcquisitionThreadId = std::thread(&AesDec::acquire_key, this);
 			err = eDRM_SUCCESS;
-			MW_LOG_INFO("Thread created for acquire_key [%zx]", GetPrintableThreadID(licenseAcquisitionThreadId));
+//TODO		MW_LOG_INFO("Thread created for acquire_key [%zx]", GetPrintableThreadID(licenseAcquisitionThreadId));
 		}
 		catch(const std::exception& e)
 		{
