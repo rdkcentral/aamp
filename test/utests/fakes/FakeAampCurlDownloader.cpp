@@ -98,6 +98,10 @@ void AampCurlDownloader::Release()
 {
 }
 
+void AampCurlDownloader::ReleaseHeaders()
+{
+}
+
 
 void AampCurlDownloader::Clear()
 {

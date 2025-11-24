@@ -383,6 +383,11 @@ void AampCurlDownloader::Release()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
+}
+
+void AampCurlDownloader::ReleaseHeaders()
+{
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;
 	mWriteCallbackBufferSize = 0;
