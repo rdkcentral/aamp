@@ -97,20 +97,6 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, in
 	// Increment log counter for each log line
 	uint32_t logSeqNum = gMWLogCounter.fetch_add(1, std::memory_order_relaxed);
 	
-	// Extract just the filename from the full path
-	const char* filename = strrchr(file, '/');
-	if (filename) {
-		filename++; // Move past the '/'
-	} else {
-		// Try Windows-style path separator
-		filename = strrchr(file, '\\');
-		if (filename) {
-			filename++; // Move past the '\'
-		} else {
-			filename = file; // No path separator found, use as-is
-		}
-	}
-	
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
 	if( PlayerLogManager::disableLogRedirection )
@@ -124,12 +110,12 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, in
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[PLAYER_IF][%u][%s][%zx][%s][%s][%d]%s\n",
+                                                           "%s[PLAYER_IF][%03u][%s][%zx][%s][%d]%s\n",
                                                            timestamp,
                                                            logSeqNum,
                                                            mLogLevelStr[logLevelIndex],
 							   GetPlayerPrintableThreadID(),
-                                                           filename, func, line,
+                                                           func, line,
                                                            format );
             if( format_bytes<=0 )
             { // should never happen!

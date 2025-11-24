@@ -737,8 +737,8 @@ TEST_F(AampLogManagerTest, logprintf_TRACE)
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
-	// The printed log line must contain the player ID, level, file, function and the message
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[TRACE]"), HasSubstr("[" + file + "]"), HasSubstr("[" + func + "]"), HasSubstr(message))));
+	// The printed log line must contain the player ID, level, function and the message
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[TRACE]"), HasSubstr("[" + func + "]"), HasSubstr(message))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
@@ -749,8 +749,8 @@ TEST_F(AampLogManagerTest, logprintf_INFO)
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
-	// The printed log line must contain the player ID, level, file, function and the message
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"), HasSubstr("[" + func + "]"), HasSubstr(message))));
+	// The printed log line must contain the player ID, level, function and the message
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + func + "]"), HasSubstr(message))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
@@ -783,7 +783,7 @@ TEST_F(AampLogManagerTest, logprintf_LongMessage)
 	int line = 2;
 	std::string message(MAX_DEBUG_LOG_BUFF_SIZE, '*');
 	EXPECT_CALL(*g_mockSdJournal,
-				sd_journal_print_mock( LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"))));
+				sd_journal_print_mock( LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
@@ -800,9 +800,9 @@ TEST_F(AampLogManagerTest, logprintf_MaxMessage)
 	std::ostringstream ossthread;
 	ossthread << std::this_thread::get_id();
 	// Note: header format now includes sequence number and function name
-	std::string header("[AAMP-PLAYER][" + std::to_string(-1) + "][0][INFO][" + ossthread.str() + "][" + file + "][" + func + "][" + std::to_string(line) + "]");
+	std::string header("[AAMP-PLAYER][000][" + std::to_string(-1) + "][INFO][" + ossthread.str() + "][" + func + "][" + std::to_string(line) + "]");
 	std::string message((MAX_DEBUG_LOG_BUFF_SIZE - header.length() - 1), '*');
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr("[" + file + "]"), HasSubstr(message))));
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + std::to_string(-1) + "]"), HasSubstr("[INFO]"), HasSubstr(message))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
@@ -862,20 +862,4 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message3.c_str());
 }
 
-/*
-	Test that filename is extracted from full path
-	This test verifies that only the filename is shown, not the full path
-*/
-TEST_F(AampLogManagerTest, logprintf_FilenameExtraction)
-{
-	AAMP_LogLevel level = eLOGLEVEL_WARN;
-	std::string fullPath("/home/user/project/src/test.cpp");
-	std::string expectedFilename("test.cpp");
-	std::string func("testFunc");
-	int line = 42;
-	std::string message("Test filename extraction");
-	
-	// The log line should contain just "test.cpp", not the full path
-	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[" + expectedFilename + "]"), HasSubstr(message))));
-	logprintf(level, fullPath.c_str(), func.c_str(), line, "%s", message.c_str());
-}
+

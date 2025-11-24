@@ -67,12 +67,12 @@ void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
 							   gPlayerId,
 							   mLogLevelStr[level],
 							   std_thread_hasher( std::this_thread::get_id() ),
-							   file, func, line,
+							   func, line,
 							   format );
 		assert( format_bytes>0 );
 		if( pass==0 )

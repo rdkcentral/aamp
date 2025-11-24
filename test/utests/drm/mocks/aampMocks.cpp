@@ -185,10 +185,9 @@ void logprintf(AAMP_LogLevel level, const char *file, const char *func, int line
 	char fmt[512];
 	snprintf(
 			 fmt, sizeof(fmt),
-			 "[AAMP-PLAYER][%d][%s][%s][%s][%d]%s\n",
+			 "[AAMP-PLAYER][%d][%s][%s][%d]%s\n",
 			 playerId,
 			 mLogLevelStr[level],
-			 file,
 			 func,
 			 line,
 			 format );

@@ -92,20 +92,6 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 	// Increment log counter for each log line
 	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed);
 	
-	// Extract just the filename from the full path
-	const char* filename = strrchr(file, '/');
-	if (filename) {
-		filename++; // Move past the '/'
-	} else {
-		// Try Windows-style path separator
-		filename = strrchr(file, '\\');
-		if (filename) {
-			filename++; // Move past the '\'
-		} else {
-			filename = file; // No path separator found, use as-is
-		}
-	}
-	
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
 	if( AampLogManager::disableLogRedirection )
@@ -120,13 +106,13 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%d][%u][%s][%zx][%s][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%03u][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
-							   gPlayerId,
 							   logSeqNum,
+							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
 							   GetPrintableThreadID(),
-							   filename, func, line,
+							   func, line,
 							   format );
 		if( format_bytes<=0 )
 		{ // should never happen!
