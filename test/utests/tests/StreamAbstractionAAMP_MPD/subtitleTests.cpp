@@ -130,6 +130,7 @@ public:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_UseMp4Demux, false},
 	};
 	BoolConfigSettings mBoolConfigSettings;
 
