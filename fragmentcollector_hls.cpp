@@ -7582,23 +7582,24 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 
 	unsigned long long bestScore = 0;
 	bool bestTrackFound = false;
+	auto languageVectorToCheck = (aamp->preferredTextLanguagesList.empty()) ? aamp->preferredSubtitleLanguageVctr : aamp->preferredTextLanguagesList;
 
 	for (const auto &track : availableTracks)
 	{
 		unsigned long long score = 1; // Base score for any track
 
 		// Score language preference (higher priority = higher score)
-		if (!aamp->preferredTextLanguagesList.empty())
+		if (!languageVectorToCheck.empty())
 		{
 			std::string normalizedTrackLanguage =
 				(track.language.empty()) ? track.language : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
-			auto iter = std::find(aamp->preferredTextLanguagesList.cbegin(),
-								  aamp->preferredTextLanguagesList.cend(),
+			auto iter = std::find(languageVectorToCheck.cbegin(),
+								  languageVectorToCheck.cend(),
 								  normalizedTrackLanguage);
-			if (iter != aamp->preferredTextLanguagesList.cend())
+			if (iter != languageVectorToCheck.cend())
 			{
-				size_t position = std::distance(aamp->preferredTextLanguagesList.cbegin(), iter);
-				size_t priorityMultiplier = aamp->preferredTextLanguagesList.size() - position;
+				size_t position = std::distance(languageVectorToCheck.cbegin(), iter);
+				size_t priorityMultiplier = languageVectorToCheck.size() - position;
 				score += priorityMultiplier * AAMP_LANGUAGE_SCORE;
 
 				AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s') matches position %zu (bonus: %llu)",
