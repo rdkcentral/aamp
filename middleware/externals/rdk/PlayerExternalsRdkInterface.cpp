@@ -115,7 +115,7 @@ void PlayerExternalsRdkInterface::Initialize()
     }
     else
     {
-        MW_PRE_LOGGER_LOG("Using IARM \n");
+        MW_PRE_LOGGER_LOG("Using IARM  test\n");
         m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
         DeviceIARMInterface::Initialize();
         m_initialized = PlayerExternalsRdkInterface::InitState::IARM;
