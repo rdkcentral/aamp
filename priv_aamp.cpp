@@ -1317,6 +1317,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mThumbnailLastProgramDateTime(0)
+	, mLastSleThumbnailInfo()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
