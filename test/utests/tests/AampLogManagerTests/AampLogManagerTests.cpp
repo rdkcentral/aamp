@@ -850,8 +850,8 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 	std::string message3("Third message");
 	
 	// We can't predict the exact sequence numbers, but we can verify the format contains a number field
-	// The format is: [AAMP-PLAYER][playerId][seqNum][level][threadId][file][func][line]message
-	// We look for pattern like [WARN] preceded by a number field
+	// The format is: [AAMP-PLAYER][seqNum][playerId][level][threadId][func][line]message
+	// We look for pattern like [WARN] with sequential numbers
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(HasSubstr("[WARN]"), HasSubstr(message1))));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message1.c_str());
 	
