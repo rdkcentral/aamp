@@ -26,6 +26,8 @@
 #include "AampLogManager.h"
 #include "MockCurl.h"
 #include <thread>
+#include <atomic>
+#include <vector>
 #include <unistd.h>
 
 using ::testing::DoAll;
@@ -48,6 +50,8 @@ protected:
 	curl_progress_callback_t mCurlProgressCallback = nullptr;
 	curl_write_func_t mCurlWriteFunc = nullptr;
 	std::string mUrl = "https://some.server/manifest.mpd";
+
+	
 
 	void SetUp() override
 	{
@@ -466,4 +470,61 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 	EXPECT_EQ(408, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
+}
+
+/**
+ * @brief Test case to verify correct order: Release() before InitializeCurlHeaderResources()
+ * 
+ * This test ensures that Release() is called before InitializeCurlHeaderResources()
+ * to prevent race conditions. Release() stops downloads, then cleanup can safely proceed.
+ */
+TEST_F(FunctionalTests, Release_BeforeInitializeCurlHeaderResources_PreventRaceCondition) {
+    DownloadConfigPtr config = std::make_shared<DownloadConfig>();
+    
+    EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+    EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+        .WillOnce(Return(CURLE_OK));
+    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+        .WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+        .WillOnce(Return(CURLE_OK));
+    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+        .WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+    
+    mAampCurlDownloader->Initialize(config);
+    
+    std::atomic<bool> releaseCompleted(false);
+    std::atomic<bool> headerCleanupStarted(false);
+    std::atomic<bool> raceConditionDetected(false);
+    
+    // Thread 1: Simulates download activity
+    std::thread downloadThread([&]() {
+        for (int i = 0; i < 100 && !releaseCompleted.load(); ++i) {
+            if (headerCleanupStarted.load() && !releaseCompleted.load()) {
+                raceConditionDetected.store(true);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+    
+    // Allow download thread to start
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
+    // Step 1: Call Release() first to stop downloads
+  	mAampCurlDownloader->Release();
+  	releaseCompleted.store(true);
+    
+    // Step 2: Call InitializeCurlHeaderResources() after downloads stopped
+    headerCleanupStarted.store(true);
+    mAampCurlDownloader->InitializeCurlHeaderResources();
+    
+    downloadThread.join();
+    
+    // Verify no race condition detected
+    EXPECT_FALSE(raceConditionDetected.load()) 
+        << "Race condition detected: InitializeCurlHeaderResources() called before Release() completed";
+    
+    // Verify download is stopped
+    EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
 }
