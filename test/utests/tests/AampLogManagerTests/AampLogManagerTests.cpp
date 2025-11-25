@@ -879,7 +879,7 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 	// Extract sequence numbers from the log strings
 	// Format: [AAMP-PLAYER][###][...]
 	constexpr const char* LOG_PREFIX = "[AAMP-PLAYER][";
-	constexpr size_t LOG_PREFIX_LEN = 15; // Length of "[AAMP-PLAYER]["
+	constexpr size_t LOG_PREFIX_LEN = sizeof(LOG_PREFIX) - 1; // Length of "[AAMP-PLAYER][" excluding null terminator
 	
 	auto extractSeqNum = [](const std::string& logStr) -> int {
 		size_t pos = logStr.find(LOG_PREFIX);
