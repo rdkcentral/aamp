@@ -229,9 +229,9 @@ public:
 	*/	
 	void Release();
 	/**
-	* @brief ReleaseHeaders - function to cleanup headers after thread join
+	* @brief InitializeCurlHeaderResources - function to cleanup headers after thread join
 	*/
-	void ReleaseHeaders();
+	void InitializeCurlHeaderResources();
 	void Clear();
 	/**
 	* @brief Download - function to start  download 

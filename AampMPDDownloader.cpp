@@ -289,8 +289,8 @@ void AampMPDDownloader::Release()
 		if(mDownloaderThread_t2.joinable())
 			mDownloaderThread_t2.join();
 		// Clear the headers only after the gracefull exit of download threads.
-		mDownloader1.ReleaseHeaders();
-		mDownloader2.ReleaseHeaders();
+		mDownloader1.InitializeCurlHeaderResources();
+		mDownloader2.InitializeCurlHeaderResources();
 
 		if(mManifestUpdateCb != NULL)
 		{
