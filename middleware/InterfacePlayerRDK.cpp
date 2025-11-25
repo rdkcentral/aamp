@@ -35,7 +35,8 @@
 #include "player-xternal-stats.h"
 #endif
 #include "PlayerUtils.h"
-#include "TimingUtils.h"
+#include "PerfProfiler.h"
+
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
@@ -260,7 +261,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
-	PerfTimer::perf_Start("ConfigurePipeline");
+	MW_PROFILE_FUNCTION();
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -501,7 +502,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 
 void InterfacePlayerRDK::SetPauseOnStartPlayback(bool enable)
 {
-	PerfTimer::perf_Start("SetPauseOnStartPlayback");
+	MW_PROFILE_FUNCTION();
 	interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback = enable;
 	PerfTimer::perf_Stop("SetPauseOnStartPlayback");
 }
@@ -550,7 +551,7 @@ static void GstPlayer_OnFirstVideoFrameCallback(GstElement* object, guint arg0, 
  */
 const MonitorAVState& InterfacePlayerRDK::GetMonitorAVState()
 {
-	PerfTimer::perf_Start("GetMonitorAVState");
+	MW_PROFILE_FUNCTION();
 	return interfacePlayerPriv->gstPrivateContext->monitorAVstate;
 	PerfTimer::perf_Stop("GetMonitorAVState");
 }
@@ -798,7 +799,7 @@ bool gst_StartsWith( const char *inputStr, const char *prefix );
  */
 void InterfacePlayerRDK::setEncryption(void *Encrypt, void *DRMSessionManager)
 {
-	PerfTimer::perf_Start("setEncryption");
+	MW_PROFILE_FUNCTION();
 	mEncrypt = Encrypt;
 	mDRMSessionManager = DRMSessionManager;
 	PerfTimer::perf_Stop("SetEncryption");
@@ -810,7 +811,7 @@ void InterfacePlayerRDK::setEncryption(void *Encrypt, void *DRMSessionManager)
  */
 void InterfacePlayerRDK::SetPreferredDRM(const char *drmID)
 {
-	PerfTimer::perf_Start("SetPreferredDRM");
+	MW_PROFILE_FUNCTION();
 	if (drmID != NULL)
 	{
 		if (mDrmSystem != NULL)
@@ -1039,7 +1040,7 @@ void InterfacePlayerRDK::RemoveProbe(int type)
  */
 void InterfacePlayerRDK::DestroyPipeline()
 {
-	PerfTimer::perf_Start("DestroyPipeline");
+	MW_PROFILE_FUNCTION();
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
 	{
 		/*"Destroying gstreamer pipeline" should only be logged when there is a pipeline to destroy
@@ -1359,7 +1360,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
-	PerfTimer::perf_Start("Stop");
+	MW_PROFILE_FUNCTION();
 	std::lock_guard<std::mutex> lock(mMutex);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
@@ -1529,8 +1530,7 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
  */
 bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
 {
-
-       	PerfTimer::perf_Start("Flush");
+	MW_PROFILE_FUNCTION();
 	GstState aud_current;
 	GstState aud_pending;
 	GstState current;
@@ -2469,14 +2469,14 @@ bool InterfacePlayerRDK::ForwardAudioBuffersToAux()
  */
 std::string InterfacePlayerRDK::GetVideoRectangle()
 {
-	PerfTimer::perf_Start("GetVideoRectangle");
+	MW_PROFILE_FUNCTION();
 	return std::string(interfacePlayerPriv->gstPrivateContext->videoRectangle);
 	PerfTimer::perf_Stop("GetVideoRectangle");
 }
 
 void InterfacePlayerRDK::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
-	PerfTimer::perf_Start("SetSubtitlePtsOffset")
+	MW_PROFILE_FUNCTION();
 	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
 		if(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source)
@@ -2514,7 +2514,7 @@ void InterfacePlayerRDK::ResetFirstFrame(void)
 
 GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
-	PerfTimer::perf_Start("GetVideoPlaybackQuality");
+	MW_PROFILE_FUNCTION();
 	GstStructure *stats= 0;
 	GstElement *element;
 	if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
@@ -2559,7 +2559,7 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
  */
 long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 {
-	PerfTimer::perf_Start("GetPositionMilliseconds");
+	MW_PROFILE_FUNCTION();
 	long long rc = 0;
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
@@ -2633,7 +2633,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
  */
 long InterfacePlayerRDK::GetDurationMilliseconds(void)
 {
-	PerfTimer::perf_Start("GetDurationMilliseconds");
+	MW_PROFILE_FUNCTION();
 	long rc = 0;
 	if( interfacePlayerPriv->gstPrivateContext->pipeline )
 	{
@@ -2679,7 +2679,7 @@ long InterfacePlayerRDK::GetDurationMilliseconds(void)
  */
 void InterfacePlayerRDK::GetVideoSize(int &width, int &height)
 {
-	PerfTimer::perf_Start("GetVideoSize");
+	MW_PROFILE_FUNCTION();
 	int x;
 	int y;
 	int w = 0;
@@ -2694,7 +2694,7 @@ void InterfacePlayerRDK::GetVideoSize(int &width, int &height)
 
 void InterfacePlayerRDK::SetSubtitleMute(bool muted)
 {
-	PerfTimer::perf_Start("SetSubtitleMute");
+	MW_PROFILE_FUNCTION();
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = muted;
 	if (interfacePlayerPriv->gstPrivateContext->subtitle_sink)
 	{
@@ -2711,7 +2711,7 @@ void InterfacePlayerRDK::SetSubtitleMute(bool muted)
  */
 void InterfacePlayerRDK::SetVideoRectangle(int x, int y, int w, int h)
 {
-	PerfTimer::perf_Start("SetVideoRectangle");
+	MW_PROFILE_FUNCTION();
 	int currentX = 0, currentY = 0, currentW = 0, currentH = 0;
 	if (strcmp(interfacePlayerPriv->gstPrivateContext->videoRectangle, "") != 0)
 	{
@@ -2750,7 +2750,7 @@ void InterfacePlayerRDK::SetVideoRectangle(int x, int y, int w, int h)
  */
 bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
 {
-	PerfTimer::perf_Start("StopBuffering");
+	MW_PROFILE_FUNCTION();
 	bool sendEndEvent = false;
 	if (interfacePlayerPriv->gstPrivateContext->video_dec)
 	{
@@ -2803,7 +2803,7 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
  */
 unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 {
-	PerfTimer::perf_Start("GetCCDecoderHandle");
+	MW_PROFILE_FUNCTION();
 	gpointer dec_handle = NULL;
 	if(this->interfacePlayerPriv->gstPrivateContext->video_dec != NULL)
 	{
@@ -2900,7 +2900,7 @@ void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pa
 
 bool InterfacePlayerRDK::HandleVideoBufferSent()
 {
-	PerfTimer::perf_Start("HandleVideoBufferSent");
+	MW_PROFILE_FUNCTION();
 	bool isFirstBuffer = (interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent == 0);
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent++;
 	PerfTimer::perf_Stop("HandleVideoBufferSent");
@@ -2909,7 +2909,7 @@ bool InterfacePlayerRDK::HandleVideoBufferSent()
 
 void InterfacePlayerRDK::SetPlayerName(std::string name)
 {
-	PerfTimer::perf_Start("SetPlayerName");
+	MW_PROFILE_FUNCTION();
 	interfacePlayerPriv->mPlayerName = name;
 	PerfTimer::perf_Stop("SetPlayerName");
 }
@@ -2919,7 +2919,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
  */
 bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
-	PerfTimer::perf_Start("SendHelper");
+	MW_PROFILE_FUNCTION();
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(fpts * GST_SECOND);
 	GstClockTime dts = (GstClockTime)(fdts * GST_SECOND);
@@ -3164,7 +3164,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 void InterfacePlayerRDK::PauseInjector()
 {
-	PerfTimer::perf_Start("PauseInjector");
+	MW_PROFILE_FUNCTION();
 	std::unique_lock<std::mutex> lock(mSourceSetupMutex);
 	mPauseInjector = true;
 	PerfTimer::perf_Stop("PauseInjector");
@@ -3172,7 +3172,7 @@ void InterfacePlayerRDK::PauseInjector()
 
 void InterfacePlayerRDK::ResumeInjector()
 {
-	PerfTimer::perf_Start("ResumeInjector");
+	MW_PROFILE_FUNCTION();
 	std::unique_lock<std::mutex> lock(mSourceSetupMutex);
 	mPauseInjector = false;
 	mSourceSetupCV.notify_all();
@@ -3242,7 +3242,7 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
  */
 void InterfacePlayerRDK::QueueProtectionEvent(const std::string& formatType, const char *protSystemId, const void *initData, size_t initDataSize, int mediaType)
 {
-	PerfTimer::perf_Start("QueueProtectionEvent");
+	MW_PROFILE_FUNCTION();
 	/* There is a possibility that only single protection event is queued for multiple type since they are encrypted using same id.
 	 * Don't worry if you see only one protection event queued here.
 	 */
@@ -3278,7 +3278,7 @@ void InterfacePlayerRDK::QueueProtectionEvent(const std::string& formatType, con
  */
 void InterfacePlayerRDK::ClearProtectionEvent()
 {
-	PerfTimer::perf_Start("ClearProtectionEvent");
+	MW_PROFILE_FUNCTION();
 	pthread_mutex_lock(&mProtectionLock);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
@@ -3332,7 +3332,7 @@ static GstState validateStateWithMsTimeout( InterfacePlayerRDK *pInterfacePlayer
  */
 bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 {
-	PerfTimer::perf_Start("Pause");
+	MW_PROFILE_FUNCTION();
 	bool retValue = true;
 	if (interfacePlayerPriv->gstPrivateContext->pipeline != NULL)
 	{
@@ -3385,7 +3385,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
  */
 bool InterfacePlayerRDK::CheckForPTSChangeWithTimeout(long timeout)
 {
-	PerfTimer::perf_Start("CheckForPTSChangeWithTimeout");
+	MW_PROFILE_FUNCTION();
 	bool ret = true;
 	gint64 currentPTS = GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
 	if (currentPTS != 0)
@@ -3420,7 +3420,7 @@ bool InterfacePlayerRDK::CheckForPTSChangeWithTimeout(long timeout)
  */
 bool InterfacePlayerRDK::IsCacheEmpty(int Type)
 {
-	PerfTimer::perf_Start("IsCacheEmpty");
+	MW_PROFILE_FUNCTION();
 	GstMediaType mediaType = (GstMediaType)Type;
 	bool ret = true;
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
@@ -3478,7 +3478,7 @@ void InterfacePlayerRDK::ResetEOSSignalledFlag()
  */
 bool InterfacePlayerRDK::PipelineConfiguredForMedia(int type)
 {
-	PerfTimer::perf_Start("PipelineConfiguredForMedia");
+	MW_PROFILE_FUNCTION();
 	bool pipelineConfigured = true;
 
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
@@ -3492,7 +3492,7 @@ bool InterfacePlayerRDK::PipelineConfiguredForMedia(int type)
 
 bool InterfacePlayerRDK::GetBufferControlData(int iMediaType)
 {
-	PerfTimer::perf_Start("GetBufferControlData");
+	MW_PROFILE_FUNCTION();
 	bool GstWaitingForData = false;
 	GstState current;
 	GstState pending;
@@ -3518,7 +3518,7 @@ bool InterfacePlayerRDK::GetBufferControlData(int iMediaType)
 
 bool InterfacePlayerRDK::IsStreamReady(int mediaType)
 {
-	PerfTimer::perf_Start("IsStreamReady");
+	MW_PROFILE_FUNCTION();
 	bool StreamReady = false;
 
 	const gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
@@ -3532,7 +3532,7 @@ bool InterfacePlayerRDK::IsStreamReady(int mediaType)
  */
 void InterfacePlayerRDK::SignalTrickModeDiscontinuity()
 {
-	PerfTimer::perf_Start("SignalTrickModeDiscontinuity");
+	MW_PROFILE_FUNCTION();
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	if (stream && (interfacePlayerPriv->gstPrivateContext->rate != GST_NORMAL_PLAY_RATE) )
 	{
@@ -3554,7 +3554,7 @@ void InterfacePlayerRDK::SignalTrickModeDiscontinuity()
 
 void InterfacePlayerRDK::EnableGstDebugLogging(std::string debugLevel)
 {
-	PerfTimer::perf_Start("EnableGstDebugLogging");
+	MW_PROFILE_FUNCTION();
 	if (!debugLevel.empty())
 	{
 		gst_debug_set_threshold_from_string(debugLevel.c_str(), 1);
@@ -3567,7 +3567,7 @@ void InterfacePlayerRDK::EnableGstDebugLogging(std::string debugLevel)
  */
 bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bool codecChange, bool &unblockDiscProcess, bool &shouldHaltBuffering)
 {
-	PerfTimer::perf_Start("CheckDiscontinuity");
+	MW_PROFILE_FUNCTION();
 	bool ret = false;
 	GstMediaType type = (GstMediaType)mediaType;
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
@@ -3987,7 +3987,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
  */
 long long InterfacePlayerRDK::GetVideoPTS(void)
 {
-	PerfTimer::perf_Start("GetVideoPTS");
+	MW_PROFILE_FUNCTION();
 	gint64 currentPTS = 0;
 	currentPTS = interfacePlayerPriv->socInterface->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
 	PerfTimer::perf_Stop("GetVideoPTS");
@@ -4494,7 +4494,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 
 bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 {
-	PerfTimer::perf_Start("SetPlayBackRate");
+	MW_PROFILE_FUNCTION();
 	bool ret = false;
 	std::vector<GstElement*> sources;
 	MW_LOG_TRACE("InterfacePlayerRDK: gst_event_new_instant_rate_change: %f ...V6", rate);
@@ -4517,7 +4517,7 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
  */
 void InterfacePlayerRDK::SetAudioVolume(int volume)
 {
-	PerfTimer::perf_Start("SetAudioVolume");
+	MW_PROFILE_FUNCTION();
 	interfacePlayerPriv->gstPrivateContext->audioVolume = static_cast<double>(volume) / 100.0;
 	PerfTimer::perf_Stop("SetAudioVolume");
 }
@@ -4527,7 +4527,7 @@ void InterfacePlayerRDK::SetAudioVolume(int volume)
  */
 void InterfacePlayerRDK::SetVolumeOrMuteUnMute(void)
 {
-	PerfTimer::perf_Start("SetVolumeOrMuteUnMute");
+	MW_PROFILE_FUNCTION();
 	const std::lock_guard<std::mutex> lock(interfacePlayerPriv->gstPrivateContext->volumeMuteMutex);
 	GstElement *gSource = nullptr;
 	const char *mutePropertyName = nullptr;
@@ -4664,7 +4664,7 @@ static gboolean buffering_timeout (gpointer data)
  */
 void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
 {
-	PerfTimer::perf_Start("SetVideoZoom");
+	MW_PROFILE_FUNCTION();
 	MW_LOG_MIL(" SetVideoZoom :: ZoomMode %d, video_sink =%p",zoom_mode, interfacePlayerPriv->gstPrivateContext->video_sink);
 
 	interfacePlayerPriv->gstPrivateContext->zoom = static_cast<GstVideoZoomMode>(zoom_mode);
@@ -4684,7 +4684,7 @@ void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
  */
 void InterfacePlayerRDK::SetVideoMute(bool muted)
 {
-	PerfTimer::perf_Start("SetVideoMute");
+	MW_PROFILE_FUNCTION();
 	MW_LOG_INFO("muted=%d video_sink =%p", muted, interfacePlayerPriv->gstPrivateContext->video_sink);
 	interfacePlayerPriv->gstPrivateContext->videoMuted = muted;
 	if (interfacePlayerPriv->gstPrivateContext->video_sink)
@@ -4703,7 +4703,7 @@ void InterfacePlayerRDK::SetVideoMute(bool muted)
  */
 bool InterfacePlayerRDK::SetTextStyle(const std::string &options)
 {
-	PerfTimer::perf_Start("SetTextStyle");
+	MW_PROFILE_FUNCTION();
 	bool ret = false;
 	if (interfacePlayerPriv->gstPrivateContext->subtitle_sink)
 	{
@@ -5029,7 +5029,7 @@ void InterfacePlayerRDK::NotifyEOS()
  */
 void InterfacePlayerRDK::NotifyFragmentCachingComplete()
 {
-	PerfTimer::perf_Start("NotifyFragmentCachingComplete");
+	MW_PROFILE_FUNCTION();
 	if(interfacePlayerPriv->gstPrivateContext->pendingPlayState)
 	{
 		MW_LOG_MIL("InterfacePlayer: Setting pipeline to PLAYING state ");
@@ -5052,7 +5052,7 @@ void InterfacePlayerRDK::NotifyFragmentCachingComplete()
  */
 void InterfacePlayerRDK::EndOfStreamReached(int mediaType, bool &shouldHaltBuffering)
 {
-	PerfTimer::perf_Start("EndOfStreamReached");
+	MW_PROFILE_FUNCTION();
 	MW_LOG_MIL("entering InterfacePlayer_EndOfStreamReached type %d", mediaType);
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
@@ -5134,7 +5134,7 @@ bool InterfacePlayerRDK::IsCodecSupported(const std::string &codecName)
 
 void InterfacePlayerRDK::DisableDecoderHandleNotified()
 {
-	PerfTimer::perf_Start("DisableDecoderHandleNotified");
+	MW_PROFILE_FUNCTION();
 	interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 	PerfTimer::perf_Stop("DisableDecoderHandleNotified");
 }
@@ -5325,7 +5325,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
  */
 double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDelta, double subDelta)
 {
-	PerfTimer::perf_Start("FlushTrack");
+	MW_PROFILE_FUNCTION();
 	double startPosition = 0;
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
