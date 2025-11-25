@@ -32,8 +32,8 @@ using namespace testing;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
+using ::testing::Invoke;
 using ::testing::NiceMock;
-using ::testing::SaveArg;
 using ::testing::SizeIs;
 
 AampConfig *gpGlobalConfig{nullptr};
@@ -859,21 +859,27 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 		ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]\\["),
 		HasSubstr("[WARN]"), 
 		HasSubstr(message1)
-	))).WillOnce(SaveArg<1>(&logStr1));
+	))).WillOnce(Invoke([&logStr1](int priority, const char* message) {
+		logStr1 = message;
+	}));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message1.c_str());
 	
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(
 		ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]\\["),
 		HasSubstr("[WARN]"), 
 		HasSubstr(message2)
-	))).WillOnce(SaveArg<1>(&logStr2));
+	))).WillOnce(Invoke([&logStr2](int priority, const char* message) {
+		logStr2 = message;
+	}));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message2.c_str());
 	
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(
 		ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]\\["),
 		HasSubstr("[WARN]"), 
 		HasSubstr(message3)
-	))).WillOnce(SaveArg<1>(&logStr3));
+	))).WillOnce(Invoke([&logStr3](int priority, const char* message) {
+		logStr3 = message;
+	}));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message3.c_str());
 	
 	// Extract sequence numbers from the log strings
