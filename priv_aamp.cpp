@@ -11114,10 +11114,11 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-
+	AcquireStreamLock();
 	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
 	SetCCStatusInternal();
+	ReleaseStreamLock();
 }
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)

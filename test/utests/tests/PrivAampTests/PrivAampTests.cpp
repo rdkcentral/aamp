@@ -3388,6 +3388,8 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 	// SetSubtitleMute(false) should be called to apply the stored CC status
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Set mIsInbandCC to false to simulate it being done during Tune for OOB subtitles
 	p_aamp->mIsInbandCC = false;
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
