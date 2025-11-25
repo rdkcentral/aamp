@@ -188,6 +188,20 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
+	
+#if defined(USE_SECCLIENT)
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECCLIENT enabled");
+#else
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECCLIENT disabled");
+#endif
+
+#if defined(USE_SECMANAGER)
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECMANAGER enabled");
+#else
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECMANAGER disabled");
+#endif
+	
+	
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
 	DrmMetaDataEventPtr& eventHandle = *eventHandlePtr;
 

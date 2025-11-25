@@ -122,6 +122,7 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
  */
 ThunderAccessPlayer::~ThunderAccessPlayer()
 {
+    MW_LOG_WARN( "ThunderAccessPlayer::~ThunderAccessPlayer getting destroyed");
     SAFE_DELETE(controllerObject);
     SAFE_DELETE(remoteObject);
 }

@@ -246,6 +246,11 @@ std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityMana
 	return SendWatermarkSessionEvent_CB;
 }
 
+ContentSecurityManager::~ContentSecurityManager()
+{
+	MW_LOG_WARN("ContentSecurityManager::~ContentSecurityManager is getting destroyed");
+}
+
 FakeSecManager::FakeSecManager()
 {
 	MW_LOG_WARN("FakeSecManager::FakeSecManager is getting created");
@@ -254,6 +259,6 @@ FakeSecManager::FakeSecManager()
 
 FakeSecManager::~FakeSecManager()
 {
-	MW_LOG_WARN("FakeSecManager::FakeSecManager is getting destroyed");
+	MW_LOG_WARN("FakeSecManager::~FakeSecManager is getting destroyed");
 
 }

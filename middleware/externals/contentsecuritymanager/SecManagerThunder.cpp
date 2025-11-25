@@ -65,7 +65,7 @@ SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), m
 	 * InstanceMutex use in GetInstance() makes this thread safe
 	 * (currently mSecMutex is also locked but ideally the scope of this would be reduced)*/
 	static bool firstInstance = true;
-	MW_LOG_WARN("SecManagerThunder::SecManagerThunder()",firstInstance);
+	MW_LOG_WARN("SecManagerThunder::SecManagerThunder() %d",firstInstance);
 	if(firstInstance)
 	{
 		firstInstance=false;
