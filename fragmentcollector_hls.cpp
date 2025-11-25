@@ -7605,7 +7605,7 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		if (!languageVectorToCheck.empty())
 		{
 			std::string normalizedTrackLanguage =
-				(track.language.empty()) ? track.language : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
+				track.language.empty() ? "" : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
 			AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s')", track.name.c_str(), track.language.c_str(), normalizedTrackLanguage.c_str());
 
 			auto iter = std::find(languageVectorToCheck.cbegin(),
