@@ -878,10 +878,13 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 	
 	// Extract sequence numbers from the log strings
 	// Format: [AAMP-PLAYER][###][...]
+	constexpr const char* LOG_PREFIX = "[AAMP-PLAYER][";
+	constexpr size_t LOG_PREFIX_LEN = 15; // Length of "[AAMP-PLAYER]["
+	
 	auto extractSeqNum = [](const std::string& logStr) -> int {
-		size_t pos = logStr.find("[AAMP-PLAYER][");
+		size_t pos = logStr.find(LOG_PREFIX);
 		if (pos != std::string::npos) {
-			pos += 14; // Move past "[AAMP-PLAYER]["
+			pos += LOG_PREFIX_LEN; // Move past "[AAMP-PLAYER]["
 			std::string numStr = logStr.substr(pos, 3);
 			return std::stoi(numStr);
 		}
