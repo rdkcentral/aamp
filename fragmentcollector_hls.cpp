@@ -7545,6 +7545,10 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 
 	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
 
+	AAMPLOG_INFO("Preferences: language='%s' rendition='%s' name='%s' sub-type='%s'",
+		aamp->preferredTextLanguagesString.c_str(), aamp->preferredTextRenditionString.c_str(),
+		aamp->preferredTextNameString.c_str(), aamp->preferredTextSubTypeString.c_str());
+
 	for (const auto& track : availableTracks)
 	{
 		unsigned long long score = 1; // Default score for each track
@@ -7578,11 +7582,16 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 
 		if(score > bestScore)
 		{
+			AAMPLOG_INFO("language='%s' rendition='%s' name='%s' CC=%s score=%llu",
+				track.language.c_str(), track.rendition.c_str(),
+				track.name.c_str(), track.isCC ? "True" : "False", score);
+
 			bestTrackFound = true;
 			bestScore = score;
 			selectedTextTrack = track;
 		}
 	}
+
 	return bestTrackFound;
 }
 
