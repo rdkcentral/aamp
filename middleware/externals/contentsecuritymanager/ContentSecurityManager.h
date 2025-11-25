@@ -216,7 +216,7 @@ protected:
 	/**
 	 * @fn ~ContentSecurityManager
 	 */
-	~ContentSecurityManager(){};
+	virtual ~ContentSecurityManager();
 	/**     
      	 * @brief Copy constructor disabled
     	 *
