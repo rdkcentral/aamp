@@ -33,6 +33,7 @@ using ::testing::_;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
 using ::testing::NiceMock;
+using ::testing::SaveArg;
 using ::testing::SizeIs;
 
 AampConfig *gpGlobalConfig{nullptr};
@@ -836,7 +837,7 @@ TEST_F(AampLogManagerTest, snprintf_tests)
 
 /*
 	Test that sequential log numbers are added to log lines
-	This test verifies that each log line gets a sequential number
+	This test verifies that each log line gets a sequential number and that the numbers are consecutive
 */
 TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 {
@@ -851,28 +852,52 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 	
 	// The format is: [AAMP-PLAYER][seqNum][playerId][level][threadId][func][line]message
 	// The sequence number is a 3-digit zero-padded number [000]-[999]
-	// We verify the log contains the sequence number pattern and the message
-	// Use regex to match the pattern [AAMP-PLAYER][digits][playerId]
+	// We capture the log strings to extract and verify consecutive sequence numbers
+	std::string logStr1, logStr2, logStr3;
+	
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(
 		ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]\\["),
 		HasSubstr("[WARN]"), 
 		HasSubstr(message1)
-	)));
+	))).WillOnce(SaveArg<1>(&logStr1));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message1.c_str());
 	
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(
 		ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]\\["),
 		HasSubstr("[WARN]"), 
 		HasSubstr(message2)
-	)));
+	))).WillOnce(SaveArg<1>(&logStr2));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message2.c_str());
 	
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE, AllOf(
 		ContainsRegex("\\[AAMP-PLAYER\\]\\[[0-9]{3}\\]\\["),
 		HasSubstr("[WARN]"), 
 		HasSubstr(message3)
-	)));
+	))).WillOnce(SaveArg<1>(&logStr3));
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message3.c_str());
+	
+	// Extract sequence numbers from the log strings
+	// Format: [AAMP-PLAYER][###][...]
+	auto extractSeqNum = [](const std::string& logStr) -> int {
+		size_t pos = logStr.find("[AAMP-PLAYER][");
+		if (pos != std::string::npos) {
+			pos += 14; // Move past "[AAMP-PLAYER]["
+			std::string numStr = logStr.substr(pos, 3);
+			return std::stoi(numStr);
+		}
+		return -1;
+	};
+	
+	int seqNum1 = extractSeqNum(logStr1);
+	int seqNum2 = extractSeqNum(logStr2);
+	int seqNum3 = extractSeqNum(logStr3);
+	
+	// Verify sequence numbers are valid and consecutive
+	EXPECT_GE(seqNum1, 0);
+	EXPECT_GE(seqNum2, 0);
+	EXPECT_GE(seqNum3, 0);
+	EXPECT_EQ(seqNum2, seqNum1 + 1);
+	EXPECT_EQ(seqNum3, seqNum2 + 1);
 }
 
 
