@@ -7595,7 +7595,6 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 	}
 
 	unsigned long long bestScore = 0;
-	bool bestTrackFound = false;
 	const auto& languageVectorToCheck = (aamp->preferredTextLanguagesList.empty()) ? aamp->preferredSubtitleLanguageVctr : aamp->preferredTextLanguagesList;
 
 	for (const auto &track : availableTracks)
@@ -7642,7 +7641,6 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		if (score > bestScore)
 		{
 			bestScore = score;
-			bestTrackFound = true;
 			selectedTextTrack = track;
 
 			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, score=%llu",
@@ -7651,12 +7649,12 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		}
 	}
 
-	if (!bestTrackFound)
+	if (bestScore == 0)
 	{
 		AAMPLOG_WARN("No suitable text track found");
 	}
 
-	return bestTrackFound;
+	return (bestScore > 0);
 }
 
 /*
