@@ -74,20 +74,18 @@ AampMediaType TrackTypeToMediaType( TrackType trackType )
 void MediaTrack::StartPlaylistDownloaderThread()
 {
 	AAMPLOG_DEBUG("Starting playlist downloader for %s", name);
-	if(!playlistDownloaderThread || !playlistDownloaderThread->joinable())
+
+	if(!playlistDownloaderThread)
 	{
 		// Start a new thread for this track
-		if(!playlistDownloaderThread)
-		{
-			// Set thread abort flag to false and start the thread.
-			abortPlaylistDownloader = false;
-			playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
-			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
-		}
-		else
-		{
-			AAMPLOG_ERR("Failed to start thread, already initialized for %s", name);
-		}
+		// Set thread abort flag to false and start the thread.
+		abortPlaylistDownloader = false;
+		playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
+		AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
+	}
+	else if(!playlistDownloaderThread->joinable())
+	{
+		AAMPLOG_ERR("Failed to start thread, already initialized for %s", name);
 	}
 	else
 	{
@@ -1622,14 +1620,14 @@ bool MediaTrack::SignalIfEOSReached()
 void MediaTrack::StartInjectLoop()
 {
 
-	try
+	std::lock_guard<std::mutex> guard(injectorStartMutex);
+	if (fragmentInjectorThreadID.joinable())
 	{
-		std::lock_guard<std::mutex> guard(injectorStartMutex);
-		if (fragmentInjectorThreadID.joinable())
-		{
-			AAMPLOG_WARN("Fragment injector thread already started");
-		}
-		else
+		AAMPLOG_WARN("Fragment injector thread already started");
+	}
+	else
+	{
+		try
 		{
 			abort = false;
 			abortInject = false;
@@ -1638,10 +1636,10 @@ void MediaTrack::StartInjectLoop()
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
 		}
-	}
-	catch(const std::exception& e)
-	{
-		AAMPLOG_WARN("Failed to create FragmentInjector thread ; %s", e.what());
+		catch(const std::exception& e)
+		{
+			AAMPLOG_WARN("Failed to create FragmentInjector thread ; %s", e.what());
+		}
 	}
 }
 
