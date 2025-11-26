@@ -12168,24 +12168,6 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
  */
 void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &isSelectionChange )
 {
-#define _KD_TEST
-#ifdef _KD_TEST
-	AAMPLOG_INFO(":KD:mManifestUrl:'%s'", mManifestUrl.c_str());
-	if (mManifestUrl.find("NewsNOW") != string::npos)
-	{
-		AAMPLOG_INFO(":KD:Match 1");
-		param = R"({"language":"eng","sub-type":"SUBTITLES"})";
-	}
-	else if (mManifestUrl.find("bionic") != string::npos)
-	{
-		AAMPLOG_INFO(":KD:Match 2");
-		param = R"({"language":"eng","sub-type":"CLOSED-CAPTIONS"})";
-	}
-	else
-	{
-		AAMPLOG_INFO(":KD:No Match");
-	}
-#endif
 	/**< First argument is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = nullptr;
 
