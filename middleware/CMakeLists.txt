@@ -123,6 +123,7 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	gstplayertaskpool.h
 	GstHandlerControl.h
 	InterfacePlayerRDK.h
+	PerfProfiler.h
 	drm/DrmUtils.h
 	drm/aes/Aes.h
 	drm/HlsDrmBase.h
@@ -145,6 +146,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 	GstHandlerControl.h
 	InterfacePlayerRDK.h
 	SocUtils.h
+	PerfProfiler.h
 	drm/DrmUtils.h
 	GstUtils.h
 	PlayerMetadata.hpp
@@ -175,6 +177,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 	DESTINATION include)
 
 set(SOURCES
+	PerfProfiler.cpp
 	InterfacePlayerRDK.cpp
 	SocUtils.cpp
 	GstUtils.cpp
