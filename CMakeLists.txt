@@ -129,28 +129,6 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
-# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rialto-master/media/public/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/public/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/common/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/common/interface)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/logging/interface)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/main/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/ipc/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/ipc/interface)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/media/client/common/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/common/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/common/interface)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/client/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/client/source)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/common/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-client/ipc/common/source)
-
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-gstreamer/source)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-gstreamer/source)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/rialto-ocdm/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/test/utests/ocdm/)
-
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -485,56 +463,59 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/mp4demux.hpp
 )
 
-file(GLOB RIALTO_GST_CPP_FILES middleware/rialto-gstreamer/source/*.cpp)
+find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto)
 
-file(GLOB RIALTO_CLIENT_MAIN_CPP_FILES middleware/rialto-client/media/client/main/source/*.cpp)
-file(GLOB RIALTO_CLIENT_IPC_CPP_FILES middleware/rialto-client/media/client/ipc/source/*.cpp)
-file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/logging/source/*.cpp)
-file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/common/source/*.cpp)
-file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/ipc/client/source/*.cpp)
-file(GLOB RIALTO_CLIENT_LOGGING_CPP_FILES middleware/rialto-client/ipc/common/source/*.cpp)
+# find_path(RIALTO_GSTREAMER_INCLUDE_DIR
+#     NAMES client/GStreamerMSEMediaPlayerClient.h
+#     PATH_SUFFIXES rialto-gstreamer
+# )
 
-file(GLOB RIALTO_OCDM_CPP_FILES middleware/rialto-ocdm/source/*.cpp)
 
-file(GLOB RIALTO_GST_H_FILES middleware/rialto-gstreamer/source/*.h)
+find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
 
-message("TEST START")
-message(${RIALTO_GST_CPP_FILES})
-message(${RIALTO_GST_H_FILES})
-list(APPEND GSTTESTHARNESS_SOURCES ${RIALTO_GST_CPP_FILES} ${RIALTO_OCDM_CPP_FILES} ${RIALTO_CLIENT_MAIN_CPP_FILES} ${RIALTO_CLIENT_IPC_CPP_FILES} ${RIALTO_CLIENT_LOGGING_CPP_FILES} ${RIALTO_GST_H_FILES})
+# find_library(RIALTO_SERVER_MANAGER
+#     NAMES RialtoServerManager libRialtoServerManager.so
+# )
+
+# find_library(RIALTO_OCDM
+#     NAMES ocdmRialto libocdmRialto.so
+# )
+
+include( FindPackageHandleStandardArgs )
+
+# find_package_handle_standard_args( RIALTO DEFAULT_MSG
+#         RIALTO_LIBRARY RIALTO_INCLUDE_DIR RIALTO_SERVER_MANAGER RIALTO_OCDM )
+
+find_package_handle_standard_args( RIALTO DEFAULT_MSG
+        RIALTO_LIBRARY RIALTO_INCLUDE_DIR )
+
+mark_as_advanced(
+    RIALTO_INCLUDE_DIR
+    RIALTO_LIBRARY
+    RIALTO_GSTREAMER_INCLUDE_DIR
+)
+
+if( RIALTO_FOUND )
+    set( RIALTO_LIBRARIES ${RIALTO_LIBRARY} )
+    set(RIALTO_INCLUDE_DIRS
+		${RIALTO_INCLUDE_DIR}
+		${RIALTO_GSTREAMER_INCLUDE_DIR}
+)
+endif()
+
+if( RIALTO_FOUND AND NOT TARGET Rialto::RialtoClient )
+    add_library( Rialto::RialtoClient SHARED IMPORTED )
+    set_target_properties( Rialto::RialtoClient PROPERTIES
+            IMPORTED_LOCATION "${RIALTO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${RIALTO_INCLUDE_DIR}" )
+endif()
 
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
-target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
-install(TARGETS gstTestHarness
-		DESTINATION bin
-)
+target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline" Rialto::RialtoClient)
+
+install(TARGETS gstTestHarness DESTINATION bin)
 # XCode schema target
 xcode_define_schema(gstTestHarness)
-
-set(RIALTO_TEST_DEPENDS
-	${OS_LD_FLAGS}
-	${CMAKE_THREAD_LIBS_INIT}
-	${GSTREAMER_LINK_LIBRARIES}
-	${GSTREAMERBASE_LINK_LIBRARIES}
-	${LIBDASH_LIBRARIES}
-	${CURL_LINK_LIBRARIES}
-)
-set(RIALTO_TEST_SOURCES
-	test/gstTestHarness/rialto-api-test.cpp
-	test/gstTestHarness/rialto-gst-pipeline.cpp
-	test/gstTestHarness/rialto-gst-pipeline.h
-	test/gstTestHarness/mp4demux.hpp
-)
-file(GLOB RIALTO_CPP_FILES middleware/rialto-gstreamer/source/*.cpp)
-list(APPEND RIALTO_TEST_SOURCES ${RIALTO_CPP_FILES})
-add_executable(rialtoTest ${RIALTO_TEST_SOURCES})
-
-target_link_libraries(rialtoTest ${RIALTO_TEST_DEPENDS} "-lreadline")
-install(TARGETS rialtoTest
-		DESTINATION bin
-)
-# XCode schema target
-xcode_define_schema(rialtoTest)
 
 #TODO: Decide which are the actual public headers
 install(FILES 
@@ -560,7 +541,6 @@ install(FILES
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	DESTINATION include
 )
-
 
 if (UTEST_ENABLED)
 	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
