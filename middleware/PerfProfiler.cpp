@@ -1,5 +1,5 @@
 #include "PerfProfiler.h"
-#include <iostream>
+#include "PlayerLogManager.h" 
 #include <thread>
 
 ScopedTimer::ScopedTimer(const std::string& funcName, const std::string& fileName, int line)
