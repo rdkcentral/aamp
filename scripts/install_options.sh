@@ -106,7 +106,8 @@ function install_options_fn()
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Skip aamp-cli Kotlin build and installation]
-        [-t] Remove .libs and build directories before build (full rebuild)"
+        [-t] Remove .libs and build directories before build (full rebuild)
+        [-u] Enable Ubuntu address sanitizer (Linux only)"
 
         echo "
         [-r] Specify rialto to be built
