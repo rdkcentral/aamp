@@ -3643,7 +3643,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
     std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
         .WillOnce(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -3698,7 +3698,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
     std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
         .WillOnce(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -3740,7 +3740,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
     std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
         .WillOnce(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -3795,7 +3795,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
     std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
         .WillOnce(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -3852,7 +3852,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 1;
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -3903,7 +3903,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -3954,7 +3954,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 0; 
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -4005,7 +4005,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 10 * 60; // Seek to 10 minutes (middle of period p1)
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -4055,7 +4055,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 1;
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -4106,7 +4106,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -4157,7 +4157,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 0;
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
@@ -4208,7 +4208,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
     double seekPosition = 10 * 60; // Seek to 10 minutes (middle of period p1)
     int rate = 1;
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
     status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
