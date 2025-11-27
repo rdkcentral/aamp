@@ -600,6 +600,15 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	 */
 	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
+	/**
+	 * @brief Find the index of a text track in a vector
+	 * @param[in] tracks - Vector of text tracks to search
+	 * @param[in] target - Track to find
+	 * @return Index of track (0-based), or -1 if not found
+	 */
+	int FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+	                       const TextTrackInfo& target) const;
+
 public:
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
