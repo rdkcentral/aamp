@@ -7599,6 +7599,10 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		return false;
 	}
 
+	AAMPLOG_INFO("Preferences: language='%s' rendition='%s' name='%s' sub-type='%s'",
+		aamp->preferredTextLanguagesString.c_str(), aamp->preferredTextRenditionString.c_str(),
+		aamp->preferredTextNameString.c_str(), aamp->preferredTextSubTypeString.c_str());
+
 	unsigned long long bestScore = 0;
 	const auto& languageVectorToCheck = (aamp->preferredTextLanguagesList.empty()) ? aamp->preferredSubtitleLanguageVctr : aamp->preferredTextLanguagesList;
 
@@ -7642,15 +7646,25 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 			score += AAMP_TYPE_SCORE;
 		}
 
+		// Only if it IS specified AND matches, add score for sub-type match.
+		// If a preference is not set (or is not recognised) it doesn't match.
+		if ( (!track.isCC && aamp->preferredTextSubTypeString == "SUBTITLES")
+		  || ( track.isCC && aamp->preferredTextSubTypeString == "CLOSED-CAPTIONS") )
+		{
+			// This is intentional re-use of the AAMP_TYPE_SCORE weighting, as
+			// specifying name AND sub-type in the same preference profile is not supported.
+			score += AAMP_TYPE_SCORE;
+		}
+
 		// Update best if this score is higher
 		if (score > bestScore)
 		{
 			bestScore = score;
 			selectedTextTrack = track;
 
-			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, score=%llu",
+			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, CC=%s score=%llu",
 						 track.language.c_str(), track.rendition.c_str(),
-						 track.name.c_str(), score);
+						 track.name.c_str(), track.isCC ? "True" : "False", score);
 		}
 	}
 

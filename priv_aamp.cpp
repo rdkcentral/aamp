@@ -12250,6 +12250,15 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			}
 		}
 
+		std::string inputTextSubTypeString;
+		if (jsObject->isString("sub-type"))
+		{
+			if (jsObject->get("sub-type", inputTextSubTypeString))
+			{
+				AAMPLOG_INFO("Preferred sub-type string: %s", inputTextSubTypeString.c_str());
+			}
+		}
+
 		Accessibility  inputTextAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -12279,6 +12288,7 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		preferredTextTypeString = std::move(inputTextTypeString);
 		preferredInstreamIdString = std::move(inputInstreamIdString);
 		preferredTextNameString = std::move(inputTextNameString);
+		preferredTextSubTypeString = std::move(inputTextSubTypeString);
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
