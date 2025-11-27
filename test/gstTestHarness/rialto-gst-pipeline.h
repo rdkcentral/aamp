@@ -1,19 +1,14 @@
 #ifndef GST_MEDIA_PIPELINE_H
 #define GST_MEDIA_PIPELINE_H
 
-#include <IMediaPipeline.h>
-#include <IClient.h>
-#include <IControl.h>
-#include <IMessageQueue.h>
-#include <gst/gst.h>
+#include "IMediaPipeline.h"
 
 using namespace firebolt::rialto;
 
 class GstMediaPipeline : public IMediaPipeline
 {
 private:
-    std::shared_ptr<IClient> m_rialtoClient;
-    std::shared_ptr<IMessageQueueFactory> m_messageQueueFactory;
+    std::shared_ptr<IMediaPipeline> m_pipeline;  // Rialto-managed pipeline
 
 protected:
     std::weak_ptr<IMediaPipelineClient> client;
@@ -56,8 +51,6 @@ public:
     bool setMute(int32_t sourceId, bool mute) override;
     bool getMute(int32_t sourceId, bool &mute) override;
     bool setTextTrackIdentifier(const std::string &textTrackIdentifier) override;
-
-    // Rialto pattern: attach source; after true, caller reads source->getId()
     bool attachSource(const std::unique_ptr<MediaSource> &source) override;
     bool removeSource(int32_t id) override;
     bool allSourcesAttached() override;
