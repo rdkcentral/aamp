@@ -1475,6 +1475,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
+	PerfProfiler::PrintStats();
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
