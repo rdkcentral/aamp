@@ -78,6 +78,8 @@
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
 
+#include <cstdlib>
+
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
 #define AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS/10)
@@ -3883,6 +3885,17 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 	}
 }
 
+static bool fileHasBeenDumped=false;
+
+static void dumpFiles(void)
+{
+        AAMPLOG_ERR("THREAD STARTED FOR MANIFEST DATA CAPTURE. Waiting 20s.");
+        sleep(20);
+        AAMPLOG_ERR("STARTING TAR PROCESS");
+        std::system("/bin/tar -czvf /tmp/FOG-NoAltFile.tar.gz /tmp/harvest/* /opt/logs/*");
+        AAMPLOG_ERR("TAR PROCESS COMPLETE");
+}
+
 /**
  * @brief Download a file from the CDN
  */
@@ -4475,6 +4488,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					buffer->Free();
 				}
 			}
+#if 0
+			// enable to test this thread works.
+			if (!fileHasBeenDumped)
+                        {
+				AAMPLOG_ERR("TRIGGERING MANIFEST DATA CAPTURE THREAD.");
+				std::thread t1(dumpFiles);
+				t1.detach();
+				fileHasBeenDumped=true;
+                        }
+#endif
 		}
 		else
 		{
@@ -4541,6 +4564,18 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 				AAMPLOG_WARN("Received FOG-Reason header: '%s'", httpRespHeaders[curlInstance].data.c_str());
 				SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", httpRespHeaders[curlInstance].data.c_str());
+				// GNP - tar files in a new thread if we see the failed fog header..
+				std::string compareTo("Canceled but Could not find alternative file");				
+				if (0 == httpRespHeaders[curlInstance].data.compare(0, compareTo.length(), compareTo.c_str()))
+				{
+					if (!fileHasBeenDumped)
+					{
+						AAMPLOG_ERR("TRIGGERING MANIFEST DATA CAPTURE THREAD.");
+						std::thread t1(dumpFiles);
+						t1.detach();
+						fileHasBeenDumped=true;
+					}
+				}
 			}
 		}
 
