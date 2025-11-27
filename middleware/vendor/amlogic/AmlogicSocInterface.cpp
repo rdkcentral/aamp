@@ -189,7 +189,6 @@ void AmlogicSocInterface::SvpGetContext(void **svpCtx, int flags)
 void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
 {
 #ifdef USE_SVP
-	#errrr 1234
 	gst_svp_ext_free_context(svpCtx);
 #endif
 }
