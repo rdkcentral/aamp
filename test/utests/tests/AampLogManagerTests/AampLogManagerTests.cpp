@@ -881,6 +881,15 @@ TEST_F(AampLogManagerTest, snprintf_tests)
 }
 
 /*
+	Helper function to format sequence number as 3-digit zero-padded string
+*/
+std::string formatSeqNum(int seqNum)
+{
+	std::string numStr = std::to_string(seqNum);
+	return (std::string(3 - numStr.length(), '0') + numStr);
+}
+
+/*
 	Test that sequential log numbers are added to log lines
 	This test verifies that each log line gets a sequential number and that the numbers are consecutive
 */
@@ -905,7 +914,7 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
 		AllOf(
-			HasSubstr("[" + std::string(3 - std::to_string(seqNum).length(), '0') + std::to_string(seqNum) + "]"),
+			HasSubstr("[" + formatSeqNum(seqNum) + "]"),
 			HasSubstr("[WARN]"),
 			HasSubstr(message1)
 		))).Times(1);
@@ -914,7 +923,7 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
 		AllOf(
-			HasSubstr("[" + std::string(3 - std::to_string(seqNum).length(), '0') + std::to_string(seqNum) + "]"),
+			HasSubstr("[" + formatSeqNum(seqNum) + "]"),
 			HasSubstr("[WARN]"),
 			HasSubstr(message2)
 		))).Times(1);
@@ -923,7 +932,7 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
 		AllOf(
-			HasSubstr("[" + std::string(3 - std::to_string(seqNum).length(), '0') + std::to_string(seqNum) + "]"),
+			HasSubstr("[" + formatSeqNum(seqNum) + "]"),
 			HasSubstr("[WARN]"),
 			HasSubstr(message3)
 		))).Times(1);
