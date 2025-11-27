@@ -94,8 +94,8 @@ std::size_t GetPlayerPrintableThreadID( void )
  */
 void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
 {
-	// Increment log counter for each log line
-	uint32_t logSeqNum = gMWLogCounter.fetch_add(1, std::memory_order_relaxed);
+	// Increment log counter for each log line, wrap at 1000 for consistent 3-digit formatting
+	uint32_t logSeqNum = gMWLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
 	
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
