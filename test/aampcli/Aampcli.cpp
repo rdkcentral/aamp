@@ -21,7 +21,7 @@
  * @file Aampcli.cpp
  * @brief Stand alone AAMP player with command line interface.
  */
-
+#include <unistd.h>
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
 
