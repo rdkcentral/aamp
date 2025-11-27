@@ -284,6 +284,7 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}

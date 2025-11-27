@@ -116,3 +116,8 @@ int  ABRManager::getProfileIndexForLowestBandwidth()
 {
     return 0;
 }
+
+int ABRManager::getClosestProfileIndexByBandwidth( long inputBandwidth )
+{
+    return 0;
+}

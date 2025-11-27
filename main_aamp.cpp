@@ -622,6 +622,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
+			if (aamp->mbDetached)
+			{
+				aamp->enableEventProcessing();
+			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -1092,6 +1096,11 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	{
 		AAMPPlayerState state = GetState();
 		aamp->StopPausePositionMonitoring("Seek() called");
+
+		if (aamp->mbDetached)
+		{
+			aamp->enableEventProcessing();
+		}
 
 		if ((aamp->mMediaFormat == eMEDIAFORMAT_HLS || aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4) && (eSTATE_INITIALIZING == state)  && aamp->mpStreamAbstractionAAMP)
 		{
@@ -1603,20 +1612,42 @@ void PlayerInstanceAAMP::UnloadJS(void* context)
 /**
  *  @brief Support multiple listeners for multiple event type
  */
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+{
+	if(aamp){
+		aamp->AddEventListener(eventType, eventListener);
+	}
+}
+
+/**
+ * @brief Support multiple listeners for multiple event type - raw pointer version
+ */
 void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 	if(aamp){
-	aamp->AddEventListener(eventType, eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		aamp->AddEventListener(eventType, sharedListener);
 	}
 }
 
 /**
  *  @brief Remove event listener for eventType.
  */
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener)
+{
+	if(aamp){
+		aamp->RemoveEventListener(eventType, eventListener);
+	}
+}
+
+ /**
+  * @brief Remove event listener for eventType - raw pointer version
+  */
 void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 	if(aamp){
-	aamp->RemoveEventListener(eventType, eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) { /* do nothing, non-owning */ });
+		aamp->RemoveEventListener(eventType, sharedListener);
 	}
 }
 

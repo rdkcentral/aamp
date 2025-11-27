@@ -1298,6 +1298,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mAampTrackWorkerManager()
+	, mThumbnailLastProgramDateTime(0)
+	, mLastSleThumbnailInfo()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -1377,6 +1380,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
     AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
+	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
 }
 
 /**
@@ -1384,6 +1388,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	mAampTrackWorkerManager.reset();
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
@@ -2255,7 +2260,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			if (mFirstProgress)
 			{
 				mFirstProgress = false;
-				AAMPLOG_WARN("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
+				AAMPLOG_MIL("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
 			}
 
 
@@ -2526,7 +2531,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 /**
  * @brief Add listener to aamp events
  */
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	mEventManager->AddEventListener(eventType,eventListener);
 }
@@ -2535,7 +2540,7 @@ void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListene
 /**
  * @brief Deregister event lister, Remove listener to aamp events
  */
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener>& eventListener)
 {
 	mEventManager->RemoveEventListener(eventType,eventListener);
 }
@@ -2755,7 +2760,7 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
 	// Providing the Tune Timemetric info as an event
 	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
 
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
+	AAMPLOG_TRACE("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -2928,12 +2933,12 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 
 		if(GetBWIndex)
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 
@@ -2943,17 +2948,17 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 	{
 		if(GetBWIndex)
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
-			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
+			AAMPLOG_MIL("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 	}
 
-	AAMPLOG_WARN("BitrateChanged:%d", reason);
+	AAMPLOG_MIL("BitrateChanged:%d", reason);
 }
 
 
@@ -4571,7 +4576,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				mediaType = eMEDIATYPE_IFRAME;
 			}
 
-			// dont generate anomaly reports for write and aborted errors
+			// don't generate anomaly reports for write and aborted errors
 			// these are generated after trick play options,
 			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
 			{
@@ -4795,7 +4800,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
-	AAMPLOG_WARN(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
+	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
 	{
 		bool waitForDiscontinuityProcessing = true;
@@ -5231,7 +5236,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// send previous tune VideoEnd Metrics data
 		// this is done here because events are cleared on stop and there is chance that event may not get sent
 		// check for mEnableVideoEndEvent and call SendVideoEndEvent ,object mVideoEnd is created inside SendVideoEndEvent
-		if(mTuneAttempts == 1) // only for first attempt, dont send event when JSPP retunes.
+		if(mTuneAttempts == 1) // only for first attempt, don't send event when JSPP retunes.
 		{
 			SendVideoEndEvent();
 		}
@@ -5697,7 +5702,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(!mIsFakeTune)
 	{
 		AAMPLOG_INFO("mCCId: %d",mCCId);
-		// if mCCId has non zero value means it is same instance and cc release was not callee then dont get id. if zero then call getid.
+		// if mCCId has non zero value means it is same instance and cc release was not callee then don't get id. if zero then call getid.
 		if(mCCId == 0 )
 		{
 			mCCId = PlayerCCManager::GetInstance()->GetId();
@@ -6713,6 +6718,24 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
 }
 
 /**
+ * @brief Enable event processing
+ */
+void PrivateInstanceAAMP::enableEventProcessing()
+{
+	// Reset Event Manager State to IDLE to resume event processing
+	mEventManager->SetPlayerState(eSTATE_IDLE);
+}
+
+/**
+ * @brief Disable event processing
+ */
+void PrivateInstanceAAMP::disableEventProcessing()
+{
+	// Set Event Manager State to RELEASED to avoid further event processing
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
+}
+
+/**
  * @brief Soft stop the player instance.
  *
  */
@@ -6726,6 +6749,10 @@ void PrivateInstanceAAMP::detach()
 		seek_pos_seconds  = GetPositionSeconds();
 		AAMPLOG_WARN("Player %s=>%s and soft release.Detach at position %f", STRFGPLAYER, STRBGPLAYER,seek_pos_seconds );
 		DisableDownloads(); //disable download
+		if (mAampTrackWorkerManager)
+		{
+			mAampTrackWorkerManager->StopWorkers();
+		}
 		mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds );
 		mpStreamAbstractionAAMP->StopInjection();
 		if(mMPDDownloaderInstance != nullptr)
@@ -6750,6 +6777,7 @@ void PrivateInstanceAAMP::detach()
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
+		disableEventProcessing();
 		//EnableDownloads();// enable downloads
 	}
 	else
@@ -7533,7 +7561,6 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	{
 		mGetPositionMillisecondsMutexSoft.unlock();
 	}
-
 	return positionMilliseconds;
 }
 
@@ -7674,6 +7701,13 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
+		if(DownloadsAreEnabled())
+		{
+			// Parallel TuneHelper after EOS or retune re-enables downloads
+			// but we need to disable them again before stopping the player
+			AAMPLOG_WARN("Re-Enabled downloads after Stop, Disabling again!!");
+			DisableDownloads(); // disable download
+		}
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
@@ -8107,7 +8141,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 		// This is an idle callback, so we can sent event synchronously
 		if (SendTunedEvent())
 		{
-			AAMPLOG_WARN("aamp: - sent tune event on Tune Completion.");
+			AAMPLOG_MIL("aamp: - sent tune event on Tune Completion.");
 		}
 	}
 	InitializeCC(ccDecoderHandle);
@@ -8961,9 +8995,13 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
  */
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
 {
-	if (mpStreamAbstractionAAMP)
+	if(TryStreamLock())
 	{
-		mpStreamAbstractionAAMP->StartSubtitleParser();
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->StartSubtitleParser();
+		}
+		ReleaseStreamLock();
 	}
 }
 
@@ -8973,9 +9011,13 @@ void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
  */
 void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
-	if (mpStreamAbstractionAAMP)
+	if(TryStreamLock())
 	{
-		mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+		}
+		ReleaseStreamLock();
 	}
 }
 
@@ -9002,7 +9044,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	}
 	trickStartUTCMS = aamp_GetCurrentTimeMS();
 	//Do not edit or remove this log - it is used in L2 test
-	AAMPLOG_WARN("seek pos %.3f", seek_pos_seconds);
+	AAMPLOG_MIL("seek pos %.3f", seek_pos_seconds);
 
 
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
@@ -12460,7 +12502,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
-			else if (isSelectionChange) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			else if (isSelectionChange && closedCaptionTrackId == -1) /* don't tune if we are using closedCaptions*/
 			{
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
@@ -12520,12 +12562,11 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 					discardEnteringLiveEvt = false;
 				}
 				ReleaseStreamLock();
-
-				if (closedCaptionTrackId >= 0)
-				{
-					TextTrackInfo track = trackInfo[closedCaptionTrackId];
-					SetClosedCaptionsFromTextTrack(track);
-				}
+			}
+			if (closedCaptionTrackId >= 0)
+			{
+				TextTrackInfo track = trackInfo[closedCaptionTrackId];
+				SetClosedCaptionsFromTextTrack(track);
 			}
 		}
 	}

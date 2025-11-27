@@ -54,6 +54,7 @@
 #include <algorithm>
 #include <glib.h>
 #include <cjson/cJSON.h>
+#include <future>
 #include "AampConfig.h"
 #include <atomic>
 #include <memory>
@@ -68,6 +69,7 @@
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AampTrackWorkerManager.hpp"
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
@@ -91,6 +93,12 @@ typedef struct PreCacheUrlData
 typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
+
+namespace aamp
+{
+	// Other declarations
+	class AampTrackWorkerManager; // Forward declaration
+}
 #include "ID3Metadata.hpp"
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
@@ -348,6 +356,37 @@ struct httpRespHeaderData {
 	std::string data;     /**< Header value */
 };
 
+struct TileLayout
+{
+	int numRows; 		/**< Number of Rows from Tile Inf */
+	int numCols; 		/**< Number of Cols from Tile Inf */
+	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
+	double tileSetDuration; /**< Duration of whole tile set */
+	long long progStartDateTime; /**< Program start date time from manifest */
+	TileLayout(): numRows(0), numCols(0), posterDuration(0.0f), tileSetDuration(0.0f), progStartDateTime(0)
+	{
+	}
+};
+
+/**
+*	\struct	TileInfo
+* 	\brief	TileInfo structure for Thumbnail data
+*/
+class TileInfo
+{
+public:
+	TileInfo(): layout(), startTime(), url()
+	{
+	}
+
+	~TileInfo()
+	{
+	}
+
+	TileLayout layout;
+	double startTime;
+	std::string url;
+};
 /**
  * @struct ThumbnailData
  * @brief Holds the Thumbnail information
@@ -560,6 +599,14 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	 * @return index of closed caption track otherwise -1 if not found
 	 */
 	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
+	/**
+	 * @fn CheckPreferredTextLanguages
+	 * @param[in] trackInfo - Text track information
+	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
+	 * @param[out] closedCaptionTrackIdx - closed caption track index
+	 */
+	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 public:
 	/* @fn RecalculatePTS
@@ -820,14 +867,6 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
-	/**
-	 * @fn CheckPreferredTextLanguages
-	 * @param[in] trackInfo - Text track information
-	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
- 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
-	 * @param[out] closedCaptionTrackIdx - closed caption track index
-	 */
-	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
@@ -888,6 +927,8 @@ public:
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
+	long long mThumbnailLastProgramDateTime;
+	std::vector<TileInfo> mLastSleThumbnailInfo;
 	/**
 	 * @brief A readonly, validatable position value.
 	 */
@@ -1043,7 +1084,7 @@ public:
         double mProgramDateTime;
 	std::vector<PeriodInfo> mMPDPeriodsInfo;
 	float maxRefreshPlaylistIntervalSecs;
-	EventListener* mEventListener;
+	std::shared_ptr<EventListener> mEventListener;
 	long long prevFirstPeriodStartTime;
 
 	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
@@ -1405,7 +1446,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 
 	/**
 	 * @fn RemoveEventListener
@@ -1414,7 +1455,7 @@ public:
 	 * @param[in] eventListener - Event handler
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
 	/**
 	 * @fn IsEventListenerAvailable
 	 *
@@ -2094,7 +2135,15 @@ public:
 	 */
 	void RegisterEvent(AAMPEventType type, EventListener* listener)
 	{
-		mEventManager->AddEventListener(type, listener);
+		if (!listener)
+		{
+			AAMPLOG_WARN("Received a null listener.");
+			return;
+		}
+		std::shared_ptr<EventListener> sharedListener(listener, [](EventListener* ptr) {
+			// No-op deleter to avoid accidental deletion
+		});
+		mEventManager->AddEventListener(type, sharedListener);
 	}
 
 	/**
@@ -3002,6 +3051,18 @@ public:
 	 */
 	bool IsPlayEnabled();
 
+	/**
+	 *   @fn enableEventProcessing
+	 *
+	 *   @return void
+	 */
+	void enableEventProcessing();
+	/**
+	 *   @fn disableEventProcessing
+	 *
+	 *   @return void
+	 */
+	void disableEventProcessing();
 	/**
 	 * @fn detach
 	 *
@@ -3926,6 +3987,15 @@ public:
 	void CalculateTrickModePositionEOS(void);
 
 	/**
+	 * @fn GetAampTrackWorkerManager
+	 * @brief Get the AampTrackWorkerManager instance
+	 *
+	 * @return AampTrackWorkerManager instance
+	 */
+	std::shared_ptr<aamp::AampTrackWorkerManager> GetAampTrackWorkerManager() { return mAampTrackWorkerManager; }
+
+
+	/**
 	 * @fn GetLivePlayPosition
 	 *
 	 * @brief Get current live play stream position.
@@ -4179,6 +4249,7 @@ protected:
 
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
+	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:

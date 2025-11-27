@@ -35,7 +35,7 @@
 #include "MockAampStreamSinkManager.h"
 #include "MockTSBSessionManager.h"
 #include "MockAdManager.h"
-#include "AampTrackWorker.h"
+#include "AampTrackWorker.hpp"
 
 using ::testing::_;
 using ::testing::AnyNumber;
@@ -50,7 +50,7 @@ using ::testing::WithoutArgs;
 /**
  * @brief LinearTests tests common base class.
  */
-class FetcherLoopTests : public testing::TestWithParam<double>
+class FetcherLoopTests : public ::testing::Test
 {
 protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
@@ -279,6 +279,7 @@ protected:
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
+			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 		};
 
@@ -318,6 +319,7 @@ protected:
 	{
 		if (mTestableStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mTestableStreamAbstractionAAMP_MPD;
 			mTestableStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -549,7 +551,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests1)
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mVodManifest);
@@ -593,7 +595,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 35);
@@ -637,7 +639,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mLiveManifest);
@@ -675,7 +677,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 15);
@@ -717,7 +719,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 	AAMPStatusType status;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 0);
@@ -757,7 +759,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 	AAMPStatusType status;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 15);
@@ -785,7 +787,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 	 * for the next period.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, true, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, true, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 
@@ -807,9 +809,9 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	AAMPStatusType status;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	status = InitializeMPD(mVodManifest);
@@ -819,9 +821,9 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	 * The segment starts at time 40.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
@@ -855,7 +857,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 	AAMPStatusType status;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
@@ -874,10 +876,10 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 							static int counter = 0;
 							return (++counter < 20); });
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	/* Invoke the fetcher loop. */
@@ -900,7 +902,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 10);
@@ -1031,7 +1033,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	<SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="example-mod_super8-4.4.0-1"/>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 				.WillRepeatedly(Return(true));
 
 	AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 10.0);
@@ -1044,7 +1046,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	mTestableStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_AUDIO);
 	pMediaStreamContext->freshManifest=true;
 	//when skipfetch sets to true, fetchfragment will be avoided
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_AUDIO, _,_, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_AUDIO, _,_, _, false, _, _, _))
 				.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
 
@@ -1111,8 +1113,8 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 	/* Initialize MPD. The video initialization segment is cached. */
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(multiTrackManifest, eTUNETYPE_SEEK, 24.0);
@@ -1134,10 +1136,10 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 							return (++counter < 20); });
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	// Expect the segments to be downloaded from track
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _)).WillRepeatedly(Return(true));
 
 	/* Invoke the fetcher loop. */
 	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
@@ -1245,10 +1247,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Initialize MPD. The video/audio initialization segment is cached. */
 	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	audioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioInitFragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	// Seek to Period 1
@@ -1320,7 +1322,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 
 	// Expect initialization fragment to be cached
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 
@@ -1415,3 +1417,329 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 	EXPECT_TRUE(ret);
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING); // Validate expected state transition
 }
+// Structure to hold test parameters
+struct TestParams
+{
+	const char *manifest;
+	double seekPos;
+	const char *videoInitFragment;
+	const char *audioInitFragment;
+	const char *videoFragmentP1;
+	const char *audioFragmentP1;
+};
+
+// Test cases
+TestParams testCases[] = {
+	{
+		R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+				<Period id="p0" start="PT0S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+								<SegmentTimeline>
+									<S t="0" d="5000" r="14" />
+								</SegmentTimeline>
+							</SegmentTemplate>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4" media="audio_p0_$Number$.m4s" startNumber="1">
+								<SegmentTimeline>
+									<S t="0" d="5000" r="14" />
+								</SegmentTimeline>
+							</SegmentTemplate>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+				<Period id="p1" start="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16">
+								<SegmentTimeline>
+									<S t="0" d="5000" r="14" />
+								</SegmentTimeline>
+							</SegmentTemplate>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.m4s" startNumber="16">
+								<SegmentTimeline>
+									<S t="0" d="5000" r="14" />
+								</SegmentTimeline>
+							</SegmentTemplate>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+			</MPD>
+		)",
+		24.0,
+		"video_p0_init.mp4",
+		"audio_p0_init.mp4",
+		"video_p1_init.mp4",
+		"audio_p1_init.mp4"},
+	{
+		R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+				<Period id="p0" start="PT0S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization sourceURL="video_p0_init.m4s"/>
+								<SegmentURL media="video_p0_1.m4s"/>
+								<SegmentURL media="video_p0_2.m4s"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization sourceURL="audio_p0_init.m4s"/>
+								<SegmentURL media="audio_p0_1.m4s"/>
+								<SegmentURL media="audio_p0_2.m4s"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+				<Period id="p1" start="PT30S" duration="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization sourceURL="video_p1_init.m4s"/>
+								<SegmentURL media="video_p1_1.m4s"/>
+								<SegmentURL media="video_p1_2.m4s"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization sourceURL="audio_p1_init.m4s"/>
+								<SegmentURL media="audio_p1_1.m4s"/>
+								<SegmentURL media="audio_p1_2.m4s"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+			</MPD>
+		)",
+		0,
+		"video_p0_init.m4s",
+		"audio_p0_init.m4s",
+		"video_p1_init.m4s",
+		"audio_p1_init.m4s"},
+	{
+		R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+				<Period id="p0" start="PT0S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/video_p0.m4s</BaseURL>
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization range="0-496"/>
+								<SegmentURL mediaRange="500-999"/>
+								<SegmentURL mediaRange="1000-1499"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/audio_p0.m4s</BaseURL>
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization range="0-496"/>
+								<SegmentURL mediaRange="500-999"/>
+								<SegmentURL mediaRange="1000-1499"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+				<Period id="p1" start="PT30S" duration="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/video_p1.m4s</BaseURL>
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization range="0-496"/>
+								<SegmentURL mediaRange="500-999"/>
+								<SegmentURL mediaRange="1000-1499"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/audio_p1.m4s</BaseURL>
+							<SegmentList timescale="2500" duration="5000">
+								<Initialization range="0-496"/>
+								<SegmentURL mediaRange="500-999"/>
+								<SegmentURL mediaRange="1000-1499"/>
+							</SegmentList>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+			</MPD>
+		)",
+		0,
+		"video_p0.m4s",
+		"audio_p0.m4s",
+		"video_p1.m4s",
+		"audio_p1.m4s"},
+	{
+		R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+				<Period id="p0" start="PT0S" duration="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/video_p0.m4s</BaseURL>
+							<SegmentBase indexRange="500-999"/>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/audio_p0.m4s</BaseURL>
+							<SegmentBase indexRange="500-999"/>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+				<Period id="p1" start="PT30S" duration="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/video_p1.m4s</BaseURL>
+							<SegmentBase indexRange="500-999"/>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/audio_p1.m4s</BaseURL>
+							<SegmentBase indexRange="500-999"/>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+			</MPD>
+		)",
+		0,
+		"video_p0.m4s",
+		"audio_p0.m4s",
+		"video_p1.m4s",
+		"audio_p1.m4s"},
+	{
+		R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+				<Period id="p0" start="PT0S" duration="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/video_p0.m4s</BaseURL>
+							<SegmentBase indexRange="500-1999">
+								<Initialization range="0-499"/>
+							</SegmentBase>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/audio_p0.m4s</BaseURL>
+							<SegmentBase indexRange="500-1999">
+								<Initialization range="0-499"/>
+							</SegmentBase>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+				<Period id="p1" start="PT30S" duration="PT30S">
+					<AdaptationSet id="0" contentType="video">
+						<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/video_p1.m4s</BaseURL>
+							<SegmentBase indexRange="500-1999">
+								<Initialization range="0-499"/>
+							</SegmentBase>
+						</Representation>
+					</AdaptationSet>
+					<AdaptationSet id="1" contentType="audio" lang="eng">
+						<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+							<BaseURL>http://host/asset/audio_p1.m4s</BaseURL>
+							<SegmentBase indexRange="500-1999">
+								<Initialization range="0-499"/>
+							</SegmentBase>
+						</Representation>
+					</AdaptationSet>
+				</Period>
+			</MPD>
+		)",
+		0,
+		"video_p0.m4s",
+		"audio_p0.m4s",
+		"video_p1.m4s",
+		"audio_p1.m4s"}};
+
+class AdvancedFetcherLoopTests : public FetcherLoopTests, public ::testing::WithParamInterface<TestParams>
+{
+public:
+	void SetUp() override
+	{
+		counter = 0;
+		FetcherLoopTests::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FetcherLoopTests::TearDown();
+	}
+	int counter;
+};
+
+/**
+ * @brief FetcherLoopTests
+ * Verifies the fetcher loop with different formats of MPDs
+ */
+TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
+{
+	std::string videoFragmentUrl;
+	std::string audioFragmentUrl;
+	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	bool ret = false;
+
+	// Access struct elements
+	TestParams param = GetParam();
+	const char *manifest = param.manifest;
+	double seekPos = param.seekPos;
+	const char *videoInitFragment = param.videoInitFragment;
+	const char *audioInitFragment = param.audioInitFragment;
+	const char *videoFragmentP1 = param.videoFragmentP1;
+	const char *audioFragmentP1 = param.audioFragmentP1;
+
+	/* Initialize MPD. The video/audio initialization segment is cached. */
+	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoInitFragment);
+	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioInitFragment);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+
+	status = InitializeMPD(manifest, eTUNETYPE_SEEK, seekPos);
+
+	/* Invoke Worker threads */
+	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
+
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Push the first video segment to present.
+	 * The segment starts at time 40.0s and has a duration of 2.0s.
+	 */
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([this]() { return (++counter < 20); });
+	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoFragmentP1);
+	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioFragmentP1);
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _)).WillRepeatedly(Return(true));
+
+	/* Invoke the fetcher loop. */
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+	BasicFetcherLoopMPDTests,
+	AdvancedFetcherLoopTests,
+	::testing::ValuesIn(testCases));
