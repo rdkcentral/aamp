@@ -8,15 +8,17 @@ using namespace firebolt::rialto;
 class GstMediaPipeline : public IMediaPipeline
 {
 private:
-    std::shared_ptr<IMediaPipeline> m_pipeline;  // Rialto-managed pipeline
+    std::shared_ptr<IMediaPipeline> m_pipeline;
 
 protected:
     std::weak_ptr<IMediaPipelineClient> client;
-    std::weak_ptr<IMediaPipelineClient> getClient() { return client; }
 
 public:
     GstMediaPipeline();
     ~GstMediaPipeline();
+
+    // REQUIRED override — must be public:
+    std::weak_ptr<IMediaPipelineClient> getClient() override { return client; }
 
     // IMediaPipeline interface
     bool pause() override;
@@ -30,7 +32,7 @@ public:
     bool setVideoWindow(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;
     bool haveData(MediaSourceStatus status, uint32_t needDataRequestId) override;
     bool renderFrame() override;
-    bool setVolume(double targetVolume, uint32_t volumeDuration = 0, EaseType easeType = EaseType::EASE_LINEAR) override;
+    bool setVolume(double targetVolume, uint32_t volumeDuration, EaseType easeType) override;
     bool getTextTrackIdentifier(std::string &textTrackIdentifier) override;
     bool setLowLatency(bool lowLatency) override;
     bool setSync(bool sync) override;
@@ -39,7 +41,7 @@ public:
     bool setStreamSyncMode(int32_t sourceId, int32_t streamSyncMode) override;
     bool getStreamSyncMode(int32_t &streamSyncMode) override;
     bool flush(int32_t sourceId, bool resetTime, bool &async) override;
-    bool setSourcePosition(int32_t sourceId, int64_t position, bool resetTime = false, double appliedRate = 1.0, uint64_t stopPosition = kUndefinedPosition) override;
+    bool setSourcePosition(int32_t sourceId, int64_t position, bool resetTime, double appliedRate, uint64_t stopPosition) override;
     bool setSubtitleOffset(int32_t sourceId, int64_t position) override;
     bool processAudioGap(int64_t position, uint32_t duration, int64_t discontinuityGap, bool audioAac) override;
     bool setBufferingLimit(uint32_t limitBufferingMs) override;

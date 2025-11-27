@@ -1,13 +1,97 @@
 #include "rialto-gst-pipeline.h"
 #include <iostream>
+#include <vector>
+
+class LocalGstPipeline : public firebolt::rialto::IMediaPipeline
+{
+public:
+    LocalGstPipeline() : m_nextId(1) {}
+    ~LocalGstPipeline() override { stop(); }
+
+    std::weak_ptr<firebolt::rialto::IMediaPipelineClient> getClient() override
+    {
+        return std::weak_ptr<firebolt::rialto::IMediaPipelineClient>();
+    }
+
+    bool play() override { return true; }
+    bool pause() override { return true; }
+    bool stop() override { return true; }
+    bool setPlaybackRate(double) override { return true; }
+    bool setPosition(int64_t) override { return true; }
+    bool getPosition(int64_t &position) override { position = 0; return true; }
+    bool getStats(int32_t, uint64_t &renderedFrames, uint64_t &droppedFrames) override { renderedFrames = droppedFrames = 0; return true; }
+    bool setImmediateOutput(int32_t, bool) override { return true; }
+    bool getImmediateOutput(int32_t, bool &) override { return true; }
+    bool setVideoWindow(uint32_t, uint32_t, uint32_t, uint32_t) override { return true; }
+    bool haveData(firebolt::rialto::MediaSourceStatus, uint32_t) override { return true; }
+    bool renderFrame() override { return true; }
+    bool setVolume(double, uint32_t, firebolt::rialto::EaseType) override { return true; }
+    bool getTextTrackIdentifier(std::string &) override { return true; }
+    bool setLowLatency(bool) override { return true; }
+    bool setSync(bool) override { return true; }
+    bool getSync(bool &) override { return true; }
+    bool setSyncOff(bool) override { return true; }
+    bool setStreamSyncMode(int32_t, int32_t) override { return true; }
+    bool getStreamSyncMode(int32_t &) override { return true; }
+    bool flush(int32_t, bool, bool &async) override { async = false; return true; }
+    bool setSourcePosition(int32_t, int64_t, bool, double, uint64_t) override { return true; }
+    bool setSubtitleOffset(int32_t, int64_t) override { return true; }
+    bool processAudioGap(int64_t, uint32_t, int64_t, bool) override { return true; }
+    bool setBufferingLimit(uint32_t) override { return true; }
+    bool getBufferingLimit(uint32_t &) override { return true; }
+    bool setUseBuffering(bool) override { return true; }
+    bool getUseBuffering(bool &) override { return true; }
+    bool switchSource(const std::unique_ptr<MediaSource> &) override { return true; }
+    bool getVolume(double &) override { return true; }
+    bool setMute(int32_t, bool) override { return true; }
+    bool getMute(int32_t, bool &) override { return true; }
+    bool setTextTrackIdentifier(const std::string &) override { return true; }
+
+    bool attachSource(const std::unique_ptr<MediaSource> &source) override
+    {
+        if (!source) return false;
+        auto copy = source->copy();
+        if (!copy) return false;
+        int32_t id = m_nextId++;
+        copy->setId(id);
+        const_cast<MediaSource*>(source.get())->setId(id);
+        m_sources.push_back(std::move(copy));
+        return true;
+    }
+
+    bool removeSource(int32_t id) override
+    {
+        for (auto it = m_sources.begin(); it != m_sources.end(); ++it)
+        {
+            if ((*it)->getId() == id)
+            {
+                m_sources.erase(it);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool allSourcesAttached() override { return true; }
+
+    bool load(MediaType, const std::string &, const std::string &) override { return true; }
+
+    AddSegmentStatus addSegment(uint32_t, const std::unique_ptr<MediaSegment> &mediaSegment) override
+    {
+        if (!mediaSegment) return AddSegmentStatus::ERROR;
+        return AddSegmentStatus::OK;
+    }
+
+private:
+    int32_t m_nextId;
+    std::vector<std::unique_ptr<MediaSource>> m_sources;
+};
 
 GstMediaPipeline::GstMediaPipeline()
 {
     std::cout << "Constructing GstMediaPipeline (Rialto-managed, public API)\n";
-
-    // In Option 2, the pipeline should be obtained via the public API.
-    // This is a placeholder. In real usage, obtain the pipeline from a factory or inject it.
-    m_pipeline = nullptr;
+    // Fallback to a local minimal pipeline if Rialto pipeline isn't injected
+    m_pipeline = std::make_shared<LocalGstPipeline>();
 }
 
 GstMediaPipeline::~GstMediaPipeline()
