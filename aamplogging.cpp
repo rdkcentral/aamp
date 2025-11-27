@@ -90,7 +90,7 @@ static std::atomic<uint32_t> gLogCounter(0);
 void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
 {
 	// Increment log counter for each log line
-	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed);
+	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
 	
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
