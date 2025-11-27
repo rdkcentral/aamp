@@ -66,7 +66,6 @@ set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
 if(CMAKE_RDK_SVP)
        message("CMAKE_RDK_SVP Set")
        set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_SVP=1")
-       target_link_libraries(playergstinterface gstsvpext)
 endif()
 
 if(CMAKE_PLATFORM_UBUNTU)
@@ -375,6 +374,10 @@ target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
+
+if (CMAKE_RDK_SVP)
+	target_link_libraries(playergstinterface gstsvpext)
+endif()
 
 set_target_properties(playergstinterface PROPERTIES COMPILE_FLAGS "${LIBPLAYERGSTINTERFACE_DEFINES} ${OS_CXX_FLAGS}")
 
