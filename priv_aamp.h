@@ -1054,8 +1054,8 @@ public:
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
 	AudioTrackTuple mAudioTuple;				/**< Deprecated **/
 	VideoZoomMode zoom_mode;
-	bool video_muted; /**< true iff video plane is logically muted */
-	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
+	std::atomic<bool> video_muted; /**< true if video plane is logically muted */
+	std::atomic<bool> subtitles_muted; /**< true if subtitle plane is logically muted */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
