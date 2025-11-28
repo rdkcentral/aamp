@@ -1,7 +1,7 @@
 #ifndef GST_MEDIA_PIPELINE_H
 #define GST_MEDIA_PIPELINE_H
 
-#include "IMediaPipeline.h" // Includes IMediaPipelineFactory
+#include "IMediaPipeline.h"
 #include <memory>
 #include <iostream>
 #include <vector>
@@ -13,16 +13,14 @@ class GstMediaPipeline : public IMediaPipeline,
                          public std::enable_shared_from_this<GstMediaPipeline>
 {
 private:
-    std::shared_ptr<IMediaPipeline> m_pipeline; 
+    std::shared_ptr<IMediaPipeline> m_pipeline;
 
 public:
     GstMediaPipeline();
     ~GstMediaPipeline() override;
 
-    
     bool init();
 
-    
     std::weak_ptr<IMediaPipelineClient> getClient() override { return weak_from_this(); }
 
     void notifyNetworkState(NetworkState state) override;
@@ -36,17 +34,16 @@ public:
     void notifyPlaybackError(int32_t sourceId, PlaybackError error) override;
     void notifySourceFlushed(int32_t sourceId) override;
 
-    
-    bool play() override;
-    bool stop() override;
-    bool setVideoWindow(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;
-    bool attachSource(const std::unique_ptr<MediaSource> &source) override;
+    bool attachSource(std::unique_ptr<MediaSource> &&source, int32_t &sourceId) override;
+    bool attachSource(const std::unique_ptr<MediaSource> &source) override { return false; }
     bool removeSource(int32_t id) override;
     bool allSourcesAttached() override;
     bool load(MediaType type, const std::string &mimeType, const std::string &url) override;
     AddSegmentStatus addSegment(uint32_t needDataRequestId, const std::unique_ptr<MediaSegment> &mediaSegment) override;
 
-    
+    bool play() override;
+    bool stop() override;
+    bool setVideoWindow(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;
     bool pause() override;
     bool setPlaybackRate(double) override;
     bool setPosition(int64_t) override;
@@ -79,4 +76,4 @@ public:
     bool setTextTrackIdentifier(const std::string &) override;
 };
 
-#endif // GST_MEDIA_PIPELINE_H
+#endif

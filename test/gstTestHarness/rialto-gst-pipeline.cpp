@@ -4,7 +4,6 @@
 #include <cassert>
 #include <cstring>
 
-
 GstMediaPipeline::GstMediaPipeline()
 {
     std::cout << "Constructing GstMediaPipeline (Rialto-managed, public API)\n";
@@ -18,18 +17,14 @@ GstMediaPipeline::~GstMediaPipeline()
     }
 }
 
-
 bool GstMediaPipeline::init()
 {
-    
     std::shared_ptr<IMediaPipelineFactory> factory = IMediaPipelineFactory::createFactory();
     if (!factory)
     {
-        std::cerr << "[GstMediaPipeline] ERROR: Failed to create IMediaPipelineFactory. Is libRialtoClient linked?\n";
+        std::cerr << "[GstMediaPipeline] ERROR: Failed to create IMediaPipelineFactory.\n";
         return false;
     }
-
-    
     VideoRequirements requirements = {1920, 1080};
 
     m_pipeline = factory->createMediaPipeline(weak_from_this(), requirements);
@@ -44,6 +39,10 @@ bool GstMediaPipeline::init()
     return true;
 }
 
+bool GstMediaPipeline::attachSource(std::unique_ptr<MediaSource> &&source, int32_t &sourceId)
+{
+    return m_pipeline ? m_pipeline->attachSource(std::move(source), sourceId) : false;
+}
 
 bool GstMediaPipeline::play()
 {
@@ -59,13 +58,6 @@ bool GstMediaPipeline::setVideoWindow(uint32_t x, uint32_t y, uint32_t width, ui
 {
     std::cout << "[GstMediaPipeline] Forwarding setVideoWindow to Rialto Server: " << width << "x" << height << "\n";
     return m_pipeline ? m_pipeline->setVideoWindow(x, y, width, height) : false;
-}
-
-bool GstMediaPipeline::attachSource(const std::unique_ptr<MediaSource> &source)
-{
-    if (!m_pipeline || !source) return false;
-    
-    return m_pipeline->attachSource(source->copy());
 }
 
 bool GstMediaPipeline::removeSource(int32_t id)
@@ -88,8 +80,6 @@ AddSegmentStatus GstMediaPipeline::addSegment(uint32_t needDataRequestId, const 
     return m_pipeline ? m_pipeline->addSegment(needDataRequestId, mediaSegment) : AddSegmentStatus::ERROR;
 }
 
-// --- Callbacks from Rialto Server ---
-
 void GstMediaPipeline::notifyPlaybackState(PlaybackState state)
 {
     std::cout << "[Rialto Callback] PlaybackState: " << (int)state << "\n";
@@ -110,7 +100,6 @@ void GstMediaPipeline::notifyNeedMediaData(int32_t sourceId, size_t frameCount,
                              uint32_t needDataRequestId, 
                              const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
 {
-    // std::cout << "[Rialto Callback] NeedData request: " << needDataRequestId << "\n";
 }
 
 bool GstMediaPipeline::pause() { return m_pipeline ? m_pipeline->pause() : false; }
