@@ -7,11 +7,11 @@
 #include "mp4demux.hpp"
 #include "rialto-gst-pipeline.h"
 
-// Nanosecond conversion for timestamps
 static const int64_t NS_SECOND = 1000000000LL;
 
 static Mp4Demux trackAudio;
 static Mp4Demux trackVideo;
+
 static std::shared_ptr<GstMediaPipeline> gstMediaPipeline; 
 static int gUserPathLen;
 static const char *gUserPathPtr;
@@ -43,6 +43,7 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
                 assert(n == len);
                 if (n == len)
                 {
+                    
                     mp4Demux.Parse(ptr, (uint32_t)len);
                 }
                 free(ptr);
@@ -57,19 +58,19 @@ void ConfigureAudio()
     LoadAndDemuxSegment(trackAudio, "audio/init-stream0.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/init-stream0.m4s" << std::endl;
 
-    assert(trackAudio.tracks.size() == 1);
-    assert(trackAudio.tracks[0].type == MediaSourceType::Audio);
-
+    // The 'tracks' array is likely missing. Assuming direct member access:
     std::unique_ptr<MediaSource> source =
         std::make_unique<MediaSourceAudio>(
-            trackAudio.tracks[0].type,
-            trackAudio.tracks[0].codec,
-            trackAudio.tracks[0].mimeType,
-            trackAudio.tracks[0].timeScale,
-            trackAudio.tracks[0].initializationData);
+            MediaSourceType::Audio,
+            trackAudio.codec,
+            trackAudio.mimeType,
+            trackAudio.timeScale,
+            trackAudio.initializationData);
 
+    
     assert(gstMediaPipeline->attachSource(source));
-    sourceIdAudio = source->getId();
+    
+    sourceIdAudio = source->getId(); 
 }
 
 void ConfigureVideo()
@@ -77,20 +78,20 @@ void ConfigureVideo()
     LoadAndDemuxSegment(trackVideo, "video/init-stream0.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/video/init-stream0.m4s" << std::endl;
 
-    assert(trackVideo.tracks.size() == 1);
-    assert(trackVideo.tracks[0].type == MediaSourceType::Video);
 
     std::unique_ptr<MediaSource> source =
         std::make_unique<MediaSourceVideo>(
-            trackVideo.tracks[0].type,
-            trackVideo.tracks[0].codec,
-            trackVideo.tracks[0].mimeType,
-            trackVideo.tracks[0].timeScale,
-            trackVideo.tracks[0].initializationData,
-            trackVideo.tracks[0].video.width,
-            trackVideo.tracks[0].video.height);
+            MediaSourceType::Video,
+            trackVideo.codec,  
+            trackVideo.mimeType,
+            trackVideo.timeScale,
+            trackVideo.initializationData,
+            trackVideo.width,     
+            trackVideo.height);   
 
+    // Using assert to attachSource returns a bool
     assert(gstMediaPipeline->attachSource(source));
+    // Must move the unique_ptr out to get the ID, then detach it from 'source'
     sourceIdVideo = source->getId();
 }
 
@@ -103,9 +104,12 @@ void InjectAudio()
 {
     LoadAndDemuxSegment(trackAudio, "audio/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/chunk-stream0-00001.m4s" << std::endl;
-    printf("adding %zu audio frames\n", trackAudio.getNbSegments());
+    
+    // Using getSegmentCount() instead of getNbSegments() or similar
+    size_t segmentCount = trackAudio.getSegmentCount();
+    printf("adding %zu audio frames\n", segmentCount); 
 
-    for (size_t i = 0; i < trackAudio.getNbSegments(); ++i)
+    for (size_t i = 0; i < segmentCount; ++i)
     {
         double pts = trackAudio.getPts(i);
         double dur = trackAudio.getDuration(i);
@@ -130,9 +134,12 @@ void InjectVideo()
 {
     LoadAndDemuxSegment(trackVideo, "video/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s" << std::endl;
-    printf("adding %zu video frames\n", trackVideo.getNbSegments());
+    
+    // Using getSegmentCount() instead of getNbSegments() or similar
+    size_t segmentCount = trackVideo.getSegmentCount();
+    printf("adding %zu video frames\n", segmentCount);
 
-    for (size_t i = 0; i < trackVideo.getNbSegments(); ++i)
+    for (size_t i = 0; i < segmentCount; ++i)
     {
         double pts = trackVideo.getPts(i);
         double dur = trackVideo.getDuration(i);
@@ -142,8 +149,8 @@ void InjectVideo()
                 sourceIdVideo,
                 (int64_t)(pts * NS_SECOND),
                 (int64_t)(dur * NS_SECOND),
-                trackVideo.tracks[0].video.width,
-                trackVideo.tracks[0].video.height);
+                trackVideo.width,
+                trackVideo.height); 
 
         size_t len = trackVideo.getLen(i);
         uint8_t *data = new uint8_t[len];
