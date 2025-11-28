@@ -23,6 +23,7 @@ public:
 
     std::weak_ptr<IMediaPipelineClient> getClient() override { return weak_from_this(); }
 
+    // IMediaPipelineClient Implementation (All required pure virtuals)
     void notifyNetworkState(NetworkState state) override;
     void notifyPlaybackState(PlaybackState state) override;
     void notifyPosition(int64_t position) override;
@@ -33,9 +34,18 @@ public:
     void notifyBufferUnderflow(int32_t sourceId) override;
     void notifyPlaybackError(int32_t sourceId, PlaybackError error) override;
     void notifySourceFlushed(int32_t sourceId) override;
+    void notifyDuration(int64_t duration) override;
+    void notifyNativeSize(uint32_t width, uint32_t height, double aspect = 1.0) override;
+    void notifyVideoData(bool hasData) override;
+    void notifyAudioData(bool hasData) override;
+    void notifyCancelNeedMediaData(int32_t sourceId) override;
 
-    bool attachSource(std::unique_ptr<MediaSource> &&source, int32_t &sourceId) override;
-    bool attachSource(const std::unique_ptr<MediaSource> &source) override { return false; }
+    // IMediaPipeline Implementation
+
+    
+    bool attachSource(const std::unique_ptr<MediaSource> &source) override; 
+    bool attachSource(std::unique_ptr<MediaSource> &&source, int32_t &sourceId);
+
     bool removeSource(int32_t id) override;
     bool allSourcesAttached() override;
     bool load(MediaType type, const std::string &mimeType, const std::string &url) override;

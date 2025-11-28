@@ -59,23 +59,32 @@ void ConfigureAudio()
 
     bool hasDrm = false;
     std::string mimeType;
-    StreamFormat streamFormat = StreamFormat::AAC; 
-    SegmentAlignment alignment = SegmentAlignment::AU;
+    StreamFormat streamFormat;
+	AudioConfig audioConfig;
+    audioConfig.numberOfChannels = trackAudio.audio.channel_count;
+	audioConfig.sampleRate = trackAudio.audio.samplerate;
+
+    // StreamFormat streamFormat = StreamFormat::AAC; 
+    // SegmentAlignment alignment = SegmentAlignment::AU;
 
     switch( trackAudio.codec_type )
-    {
-        case MultiChar_Constant("mp4a"):
-            mimeType = "audio/mp4"; 
-            streamFormat = StreamFormat::AAC;
-            break;
-        default:
-            assert(0);
-            break;
-    }
+	{
+		case MultiChar_Constant("esds"):
+			mimeType = "audio/mpeg";
+			streamFormat = StreamFormat::RAW;
+			break;
+		case MultiChar_Constant("dec3"):
+			mimeType = "audio/x-eac3";
+			streamFormat = StreamFormat::UNDEFINED;
+			break;
+		default:
+			assert(0);
+			break;
+	}
     
-    CodecData codecData;
-    const char *codec_ptr = trackAudio.codec_data.c_str();
-    codecData.data = std::vector<uint8_t>( codec_ptr, &codec_ptr[trackAudio.codec_data.size()] );
+    // CodecData codecData;
+    // const char *codec_ptr = trackAudio.codec_data.c_str();
+    // codecData.data = std::vector<uint8_t>( codec_ptr, &codec_ptr[trackAudio.codec_data.size()] );
 
     std::unique_ptr<IMediaPipeline::MediaSourceAudio> sourceAudio =
     std::make_unique<IMediaPipeline::MediaSourceAudio>(
@@ -142,7 +151,7 @@ void InjectAudio()
     LoadAndDemuxSegment(trackAudio, "audio/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/chunk-stream0-00001.m4s" << std::endl;
     
-    size_t segmentCount = trackAudio.getSegmentCount();
+    size_t segmentCount = trackAudio.getNbSegments(); // Corrected function name
     printf("adding %zu audio frames\n", segmentCount); 
 
     for (size_t i = 0; i < segmentCount; ++i)
@@ -171,7 +180,7 @@ void InjectVideo()
     LoadAndDemuxSegment(trackVideo, "video/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s" << std::endl;
     
-    size_t segmentCount = trackVideo.getSegmentCount();
+    size_t segmentCount = trackVideo.getNbSegments(); // Corrected function name
     printf("adding %zu video frames\n", segmentCount);
 
     for (size_t i = 0; i < segmentCount; ++i)
