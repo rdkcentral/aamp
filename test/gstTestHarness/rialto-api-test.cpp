@@ -12,11 +12,13 @@ static const int64_t NS_SECOND = 1000000000LL;
 
 static Mp4Demux trackAudio;
 static Mp4Demux trackVideo;
-static GstMediaPipeline *gstMediaPipeline;
+static std::shared_ptr<GstMediaPipeline> gstMediaPipeline; 
 static int gUserPathLen;
 static const char *gUserPathPtr;
 static int32_t sourceIdAudio;
 static int32_t sourceIdVideo;
+
+using namespace firebolt::rialto; 
 
 void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
 {
@@ -41,7 +43,7 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
                 assert(n == len);
                 if (n == len)
                 {
-                    mp4Demux.Parse(ptr, len);
+                    mp4Demux.Parse(ptr, (uint32_t)len);
                 }
                 free(ptr);
             }
@@ -53,75 +55,43 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
 void ConfigureAudio()
 {
     LoadAndDemuxSegment(trackAudio, "audio/init-stream0.m4s");
+    std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/init-stream0.m4s" << std::endl;
 
-    bool hasDrm = false;
-    std::string mimeType;
-    StreamFormat streamFormat;
-    AudioConfig audioConfig;
-    audioConfig.numberOfChannels = trackAudio.audio.channel_count;
-    audioConfig.sampleRate = trackAudio.audio.samplerate;
+    assert(trackAudio.tracks.size() == 1);
+    assert(trackAudio.tracks[0].type == MediaSourceType::Audio);
 
-    switch (trackAudio.codec_type)
-    {
-    case MultiChar_Constant("esds"):
-        mimeType = "audio/mpeg";
-        streamFormat = StreamFormat::RAW;
-        break;
-    case MultiChar_Constant("dec3"):
-        mimeType = "audio/x-eac3";
-        streamFormat = StreamFormat::UNDEFINED;
-        break;
-    default:
-        assert(0);
-    }
+    std::unique_ptr<MediaSource> source =
+        std::make_unique<MediaSourceAudio>(
+            trackAudio.tracks[0].type,
+            trackAudio.tracks[0].codec,
+            trackAudio.tracks[0].mimeType,
+            trackAudio.tracks[0].timeScale,
+            trackAudio.tracks[0].initializationData);
 
-    std::unique_ptr<IMediaPipeline::MediaSource> sourceAudio =
-        std::make_unique<IMediaPipeline::MediaSourceAudio>(
-            mimeType, hasDrm, audioConfig, SegmentAlignment::UNDEFINED, streamFormat, nullptr);
-
-    bool okA = gstMediaPipeline->attachSource(sourceAudio);
-    // assert(okA);
-
-    sourceIdAudio = sourceAudio->getId();
+    assert(gstMediaPipeline->attachSource(source));
+    sourceIdAudio = source->getId();
 }
 
 void ConfigureVideo()
 {
     LoadAndDemuxSegment(trackVideo, "video/init-stream0.m4s");
+    std::cout << "loading rialtotest /tmp/data/bipbop-gen/video/init-stream0.m4s" << std::endl;
 
-    bool hasDrm = false;
-    std::string mimeType;
-    StreamFormat streamFormat;
-    int32_t width = trackVideo.video.width;
-    int32_t height = trackVideo.video.height;
-    SegmentAlignment alignment = SegmentAlignment::AU;
+    assert(trackVideo.tracks.size() == 1);
+    assert(trackVideo.tracks[0].type == MediaSourceType::Video);
 
-    switch (trackVideo.codec_type)
-    {
-    case MultiChar_Constant("hvcC"):
-        mimeType = "video/x-h265";
-        streamFormat = StreamFormat::HVC1;
-        break;
-    case MultiChar_Constant("avcC"):
-        mimeType = "video/x-h264";
-        streamFormat = StreamFormat::AVC;
-        break;
-    default:
-        assert(0);
-    }
+    std::unique_ptr<MediaSource> source =
+        std::make_unique<MediaSourceVideo>(
+            trackVideo.tracks[0].type,
+            trackVideo.tracks[0].codec,
+            trackVideo.tracks[0].mimeType,
+            trackVideo.tracks[0].timeScale,
+            trackVideo.tracks[0].initializationData,
+            trackVideo.tracks[0].video.width,
+            trackVideo.tracks[0].video.height);
 
-    CodecData codecData;
-    const char *codec_ptr = trackVideo.codec_data.c_str();
-    codecData.data = std::vector<uint8_t>(codec_ptr, &codec_ptr[trackVideo.codec_data.size()]);
-
-    std::unique_ptr<IMediaPipeline::MediaSource> sourceVideo =
-        std::make_unique<IMediaPipeline::MediaSourceVideo>(
-            mimeType, hasDrm, width, height, alignment, streamFormat, std::make_shared<CodecData>(codecData));
-
-    bool okV = gstMediaPipeline->attachSource(sourceVideo);
-    // assert(okV);
-
-    sourceIdVideo = sourceVideo->getId();
+    assert(gstMediaPipeline->attachSource(source));
+    sourceIdVideo = source->getId();
 }
 
 void ConfigureComplete()
@@ -132,10 +102,10 @@ void ConfigureComplete()
 void InjectAudio()
 {
     LoadAndDemuxSegment(trackAudio, "audio/chunk-stream0-00001.m4s");
-    int count = trackAudio.count();
-    printf("adding %d audio frames\n", count);
+    std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/chunk-stream0-00001.m4s" << std::endl;
+    printf("adding %zu audio frames\n", trackAudio.getNbSegments());
 
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < trackAudio.getNbSegments(); ++i)
     {
         double pts = trackAudio.getPts(i);
         double dur = trackAudio.getDuration(i);
@@ -144,9 +114,7 @@ void InjectAudio()
             std::make_unique<IMediaPipeline::MediaSegmentAudio>(
                 sourceIdAudio,
                 (int64_t)(pts * NS_SECOND),
-                (int64_t)(dur * NS_SECOND),
-                trackAudio.audio.samplerate,
-                trackAudio.audio.channel_count);
+                (int64_t)(dur * NS_SECOND));
 
         size_t len = trackAudio.getLen(i);
         uint8_t *data = new uint8_t[len];
@@ -161,10 +129,10 @@ void InjectAudio()
 void InjectVideo()
 {
     LoadAndDemuxSegment(trackVideo, "video/chunk-stream0-00001.m4s");
-    int count = trackVideo.count();
-    printf("adding %d video frames\n", count);
+    std::cout << "loading rialtotest /tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s" << std::endl;
+    printf("adding %zu video frames\n", trackVideo.getNbSegments());
 
-    for (int i = 0; i < count; i++)
+    for (size_t i = 0; i < trackVideo.getNbSegments(); ++i)
     {
         double pts = trackVideo.getPts(i);
         double dur = trackVideo.getDuration(i);
@@ -174,8 +142,8 @@ void InjectVideo()
                 sourceIdVideo,
                 (int64_t)(pts * NS_SECOND),
                 (int64_t)(dur * NS_SECOND),
-                trackVideo.video.width,
-                trackVideo.video.height);
+                trackVideo.tracks[0].video.width,
+                trackVideo.tracks[0].video.height);
 
         size_t len = trackVideo.getLen(i);
         uint8_t *data = new uint8_t[len];
@@ -196,7 +164,18 @@ int my_main(int argc, char **argv)
     const char *delim = strchr(&gUserPathPtr[prefixLen], '/');
     gUserPathLen = (int)(delim - gUserPathPtr);
 
-    gstMediaPipeline = new GstMediaPipeline();
+    gstMediaPipeline = std::make_shared<GstMediaPipeline>();
+    if (!gstMediaPipeline->init())
+    {
+        fprintf(stderr, "FATAL: Failed to initialize Rialto pipeline. Check logs/server status.\n");
+        return -1;
+    }
+    
+    if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
+    {
+        fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
+    }
+
     gstMediaPipeline->play();
 
     ConfigureAudio();
@@ -206,7 +185,8 @@ int my_main(int argc, char **argv)
     InjectAudio();
     InjectVideo();
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    gstMediaPipeline->stop();
+
     return 0;
 }
 

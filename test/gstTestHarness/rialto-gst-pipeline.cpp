@@ -1,169 +1,145 @@
 #include "rialto-gst-pipeline.h"
 #include <iostream>
 #include <vector>
+#include <cassert>
+#include <cstring>
 
-class LocalGstPipeline : public firebolt::rialto::IMediaPipeline
-{
-public:
-    LocalGstPipeline() : m_nextId(1) {}
-    ~LocalGstPipeline() override { stop(); }
-
-    std::weak_ptr<firebolt::rialto::IMediaPipelineClient> getClient() override
-    {
-        return std::weak_ptr<firebolt::rialto::IMediaPipelineClient>();
-    }
-
-    bool play() override { return true; }
-    bool pause() override { return true; }
-    bool stop() override { return true; }
-    bool setPlaybackRate(double) override { return true; }
-    bool setPosition(int64_t) override { return true; }
-    bool getPosition(int64_t &position) override { position = 0; return true; }
-    bool getStats(int32_t, uint64_t &renderedFrames, uint64_t &droppedFrames) override { renderedFrames = droppedFrames = 0; return true; }
-    bool setImmediateOutput(int32_t, bool) override { return true; }
-    bool getImmediateOutput(int32_t, bool &) override { return true; }
-    bool setVideoWindow(uint32_t, uint32_t, uint32_t, uint32_t) override { return true; }
-    bool haveData(firebolt::rialto::MediaSourceStatus, uint32_t) override { return true; }
-    bool renderFrame() override { return true; }
-    bool setVolume(double, uint32_t, firebolt::rialto::EaseType) override { return true; }
-    bool getTextTrackIdentifier(std::string &) override { return true; }
-    bool setLowLatency(bool) override { return true; }
-    bool setSync(bool) override { return true; }
-    bool getSync(bool &) override { return true; }
-    bool setSyncOff(bool) override { return true; }
-    bool setStreamSyncMode(int32_t, int32_t) override { return true; }
-    bool getStreamSyncMode(int32_t &) override { return true; }
-    bool flush(int32_t, bool, bool &async) override { async = false; return true; }
-    bool setSourcePosition(int32_t, int64_t, bool, double, uint64_t) override { return true; }
-    bool setSubtitleOffset(int32_t, int64_t) override { return true; }
-    bool processAudioGap(int64_t, uint32_t, int64_t, bool) override { return true; }
-    bool setBufferingLimit(uint32_t) override { return true; }
-    bool getBufferingLimit(uint32_t &) override { return true; }
-    bool setUseBuffering(bool) override { return true; }
-    bool getUseBuffering(bool &) override { return true; }
-    bool switchSource(const std::unique_ptr<MediaSource> &) override { return true; }
-    bool getVolume(double &) override { return true; }
-    bool setMute(int32_t, bool) override { return true; }
-    bool getMute(int32_t, bool &) override { return true; }
-    bool setTextTrackIdentifier(const std::string &) override { return true; }
-
-    bool attachSource(const std::unique_ptr<MediaSource> &source) override
-    {
-        if (!source) return false;
-        auto copy = source->copy();
-        if (!copy) return false;
-        int32_t id = m_nextId++;
-        copy->setId(id);
-        const_cast<MediaSource*>(source.get())->setId(id);
-        m_sources.push_back(std::move(copy));
-        return true;
-    }
-
-    bool removeSource(int32_t id) override
-    {
-        for (auto it = m_sources.begin(); it != m_sources.end(); ++it)
-        {
-            if ((*it)->getId() == id)
-            {
-                m_sources.erase(it);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool allSourcesAttached() override { return true; }
-
-    bool load(MediaType, const std::string &, const std::string &) override { return true; }
-
-    AddSegmentStatus addSegment(uint32_t, const std::unique_ptr<MediaSegment> &mediaSegment) override
-    {
-        if (!mediaSegment) return AddSegmentStatus::ERROR;
-        return AddSegmentStatus::OK;
-    }
-
-private:
-    int32_t m_nextId;
-    std::vector<std::unique_ptr<MediaSource>> m_sources;
-};
 
 GstMediaPipeline::GstMediaPipeline()
 {
     std::cout << "Constructing GstMediaPipeline (Rialto-managed, public API)\n";
-    // Fallback to a local minimal pipeline if Rialto pipeline isn't injected
-    m_pipeline = std::make_shared<LocalGstPipeline>();
 }
 
 GstMediaPipeline::~GstMediaPipeline()
 {
-    std::cout << "Destructing GstMediaPipeline\n";
     if (m_pipeline)
     {
         m_pipeline->stop();
     }
-    m_pipeline.reset();
 }
 
-// Rialto-managed methods delegate to IMediaPipeline if available
-bool GstMediaPipeline::play() { return m_pipeline ? m_pipeline->play() : false; }
-bool GstMediaPipeline::removeSource(int32_t id) { return m_pipeline ? m_pipeline->removeSource(id) : false; }
-bool GstMediaPipeline::allSourcesAttached() { return m_pipeline ? m_pipeline->allSourcesAttached() : false; }
+
+bool GstMediaPipeline::init()
+{
+    
+    std::shared_ptr<IMediaPipelineFactory> factory = IMediaPipelineFactory::createFactory();
+    if (!factory)
+    {
+        std::cerr << "[GstMediaPipeline] ERROR: Failed to create IMediaPipelineFactory. Is libRialtoClient linked?\n";
+        return false;
+    }
+
+    
+    VideoRequirements requirements = {1920, 1080};
+
+    m_pipeline = factory->createMediaPipeline(weak_from_this(), requirements);
+
+    if (!m_pipeline)
+    {
+        std::cerr << "[GstMediaPipeline] ERROR: Failed to create Remote MediaPipeline. Is Rialto Server running?\n";
+        return false;
+    }
+
+    std::cout << "[GstMediaPipeline] SUCCESS: Rialto IPC Pipeline created.\n";
+    return true;
+}
+
+
+bool GstMediaPipeline::play()
+{
+    return m_pipeline ? m_pipeline->play() : false;
+}
+
+bool GstMediaPipeline::stop()
+{
+    return m_pipeline ? m_pipeline->stop() : false;
+}
+
+bool GstMediaPipeline::setVideoWindow(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+    std::cout << "[GstMediaPipeline] Forwarding setVideoWindow to Rialto Server: " << width << "x" << height << "\n";
+    return m_pipeline ? m_pipeline->setVideoWindow(x, y, width, height) : false;
+}
+
+bool GstMediaPipeline::attachSource(const std::unique_ptr<MediaSource> &source)
+{
+    if (!m_pipeline || !source) return false;
+    
+    return m_pipeline->attachSource(source->copy());
+}
+
+bool GstMediaPipeline::removeSource(int32_t id)
+{
+    return m_pipeline ? m_pipeline->removeSource(id) : false;
+}
+
+bool GstMediaPipeline::allSourcesAttached()
+{
+    return m_pipeline ? m_pipeline->allSourcesAttached() : false;
+}
+
 bool GstMediaPipeline::load(MediaType type, const std::string &mimeType, const std::string &url)
 {
     return m_pipeline ? m_pipeline->load(type, mimeType, url) : false;
 }
 
-AddSegmentStatus GstMediaPipeline::addSegment(uint32_t needDataRequestId,
-        const std::unique_ptr<IMediaPipeline::MediaSegment> &mediaSegment)
+AddSegmentStatus GstMediaPipeline::addSegment(uint32_t needDataRequestId, const std::unique_ptr<MediaSegment> &mediaSegment)
 {
     return m_pipeline ? m_pipeline->addSegment(needDataRequestId, mediaSegment) : AddSegmentStatus::ERROR;
 }
 
-bool GstMediaPipeline::attachSource(const std::unique_ptr<IMediaPipeline::MediaSource> &source)
+// --- Callbacks from Rialto Server ---
+
+void GstMediaPipeline::notifyPlaybackState(PlaybackState state)
 {
-    if (!m_pipeline || !source) return false;
-
-    std::unique_ptr<IMediaPipeline::MediaSource> temp = source->copy();
-    if (!temp) return false;
-
-    bool ok = m_pipeline->attachSource(temp);
-    if (!ok) return false;
-
-    const int32_t assignedId = temp->getId();
-    const_cast<IMediaPipeline::MediaSource*>(source.get())->setId(assignedId);
-    return true;
+    std::cout << "[Rialto Callback] PlaybackState: " << (int)state << "\n";
 }
 
-// All other IMediaPipeline methods: return false or default values
-bool GstMediaPipeline::pause() { return false; }
-bool GstMediaPipeline::stop() { return false; }
-bool GstMediaPipeline::setPlaybackRate(double) { return false; }
-bool GstMediaPipeline::setPosition(int64_t) { return false; }
-bool GstMediaPipeline::getPosition(int64_t &position) { position = 0; return false; }
-bool GstMediaPipeline::getStats(int32_t, uint64_t &renderedFrames, uint64_t &droppedFrames) { renderedFrames = droppedFrames = 0; return false; }
-bool GstMediaPipeline::setImmediateOutput(int32_t, bool) { return false; }
-bool GstMediaPipeline::getImmediateOutput(int32_t, bool &) { return false; }
-bool GstMediaPipeline::setVideoWindow(uint32_t, uint32_t, uint32_t, uint32_t) { return false; }
-bool GstMediaPipeline::haveData(MediaSourceStatus, uint32_t) { return false; }
-bool GstMediaPipeline::renderFrame() { return false; }
-bool GstMediaPipeline::setVolume(double, uint32_t, EaseType) { return false; }
-bool GstMediaPipeline::getTextTrackIdentifier(std::string &) { return false; }
-bool GstMediaPipeline::setLowLatency(bool) { return false; }
-bool GstMediaPipeline::setSync(bool) { return false; }
-bool GstMediaPipeline::getSync(bool &) { return false; }
-bool GstMediaPipeline::setSyncOff(bool) { return false; }
-bool GstMediaPipeline::setStreamSyncMode(int32_t, int32_t) { return false; }
-bool GstMediaPipeline::getStreamSyncMode(int32_t &) { return false; }
-bool GstMediaPipeline::flush(int32_t, bool, bool &) { return false; }
-bool GstMediaPipeline::setSourcePosition(int32_t, int64_t, bool, double, uint64_t) { return false; }
-bool GstMediaPipeline::setSubtitleOffset(int32_t, int64_t) { return false; }
-bool GstMediaPipeline::processAudioGap(int64_t, uint32_t, int64_t, bool) { return false; }
-bool GstMediaPipeline::setBufferingLimit(uint32_t) { return false; }
-bool GstMediaPipeline::getBufferingLimit(uint32_t &) { return false; }
-bool GstMediaPipeline::setUseBuffering(bool) { return false; }
-bool GstMediaPipeline::getUseBuffering(bool &) { return false; }
-bool GstMediaPipeline::switchSource(const std::unique_ptr<MediaSource> &) { return false; }
-bool GstMediaPipeline::getVolume(double &) { return false; }
-bool GstMediaPipeline::setMute(int32_t, bool) { return false; }
-bool GstMediaPipeline::getMute(int32_t, bool &) { return false; }
-bool GstMediaPipeline::setTextTrackIdentifier(const std::string &) { return false; }
+void GstMediaPipeline::notifyPlaybackError(int32_t sourceId, PlaybackError error)
+{
+    std::cerr << "[Rialto Callback] ERROR on source " << sourceId << ": " << (int)error << "\n";
+}
+
+void GstMediaPipeline::notifyPosition(int64_t position) {}
+void GstMediaPipeline::notifyNetworkState(NetworkState state) {}
+void GstMediaPipeline::notifyQos(int32_t sourceId, const QosInfo &qosInfo) {}
+void GstMediaPipeline::notifyBufferUnderflow(int32_t sourceId) {}
+void GstMediaPipeline::notifySourceFlushed(int32_t sourceId) {}
+
+void GstMediaPipeline::notifyNeedMediaData(int32_t sourceId, size_t frameCount, 
+                             uint32_t needDataRequestId, 
+                             const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
+{
+    // std::cout << "[Rialto Callback] NeedData request: " << needDataRequestId << "\n";
+}
+
+bool GstMediaPipeline::pause() { return m_pipeline ? m_pipeline->pause() : false; }
+bool GstMediaPipeline::setPlaybackRate(double rate) { return m_pipeline ? m_pipeline->setPlaybackRate(rate) : false; }
+bool GstMediaPipeline::setPosition(int64_t position) { return m_pipeline ? m_pipeline->setPosition(position) : false; }
+bool GstMediaPipeline::getPosition(int64_t &position) { return m_pipeline ? m_pipeline->getPosition(position) : false; }
+bool GstMediaPipeline::getStats(int32_t sourceId, uint64_t &renderedFrames, uint64_t &droppedFrames) { return m_pipeline ? m_pipeline->getStats(sourceId, renderedFrames, droppedFrames) : false; }
+bool GstMediaPipeline::setImmediateOutput(int32_t sourceId, bool immediateOutput) { return m_pipeline ? m_pipeline->setImmediateOutput(sourceId, immediateOutput) : false; }
+bool GstMediaPipeline::getImmediateOutput(int32_t sourceId, bool &immediateOutput) { return m_pipeline ? m_pipeline->getImmediateOutput(sourceId, immediateOutput) : false; }
+bool GstMediaPipeline::haveData(MediaSourceStatus status, uint32_t needDataRequestId) { return m_pipeline ? m_pipeline->haveData(status, needDataRequestId) : false; }
+bool GstMediaPipeline::renderFrame() { return m_pipeline ? m_pipeline->renderFrame() : false; }
+bool GstMediaPipeline::setVolume(double targetVolume, uint32_t volumeDuration, EaseType easeType) { return m_pipeline ? m_pipeline->setVolume(targetVolume, volumeDuration, easeType) : false; }
+bool GstMediaPipeline::getTextTrackIdentifier(std::string &textTrackIdentifier) { return m_pipeline ? m_pipeline->getTextTrackIdentifier(textTrackIdentifier) : false; }
+bool GstMediaPipeline::setLowLatency(bool lowLatency) { return m_pipeline ? m_pipeline->setLowLatency(lowLatency) : false; }
+bool GstMediaPipeline::setSync(bool sync) { return m_pipeline ? m_pipeline->setSync(sync) : false; }
+bool GstMediaPipeline::getSync(bool &sync) { return m_pipeline ? m_pipeline->getSync(sync) : false; }
+bool GstMediaPipeline::setSyncOff(bool syncOff) { return m_pipeline ? m_pipeline->setSyncOff(syncOff) : false; }
+bool GstMediaPipeline::setStreamSyncMode(int32_t sourceId, int32_t streamSyncMode) { return m_pipeline ? m_pipeline->setStreamSyncMode(sourceId, streamSyncMode) : false; }
+bool GstMediaPipeline::getStreamSyncMode(int32_t &streamSyncMode) { return m_pipeline ? m_pipeline->getStreamSyncMode(streamSyncMode) : false; }
+bool GstMediaPipeline::flush(int32_t sourceId, bool resetTime, bool &async) { return m_pipeline ? m_pipeline->flush(sourceId, resetTime, async) : false; }
+bool GstMediaPipeline::setSourcePosition(int32_t sourceId, int64_t position, bool resetTime, double appliedRate, uint64_t stopPosition) { return m_pipeline ? m_pipeline->setSourcePosition(sourceId, position, resetTime, appliedRate, stopPosition) : false; }
+bool GstMediaPipeline::setSubtitleOffset(int32_t sourceId, int64_t position) { return m_pipeline ? m_pipeline->setSubtitleOffset(sourceId, position) : false; }
+bool GstMediaPipeline::processAudioGap(int64_t position, uint32_t duration, int64_t discontinuityGap, bool audioAac) { return m_pipeline ? m_pipeline->processAudioGap(position, duration, discontinuityGap, audioAac) : false; }
+bool GstMediaPipeline::setBufferingLimit(uint32_t limitBufferingMs) { return m_pipeline ? m_pipeline->setBufferingLimit(limitBufferingMs) : false; }
+bool GstMediaPipeline::getBufferingLimit(uint32_t &limitBufferingMs) { return m_pipeline ? m_pipeline->getBufferingLimit(limitBufferingMs) : false; }
+bool GstMediaPipeline::setUseBuffering(bool useBuffering) { return m_pipeline ? m_pipeline->setUseBuffering(useBuffering) : false; }
+bool GstMediaPipeline::getUseBuffering(bool &useBuffering) { return m_pipeline ? m_pipeline->getUseBuffering(useBuffering) : false; }
+bool GstMediaPipeline::switchSource(const std::unique_ptr<MediaSource> &source) { return m_pipeline ? m_pipeline->switchSource(source->copy()) : false; }
+bool GstMediaPipeline::getVolume(double &currentVolume) { return m_pipeline ? m_pipeline->getVolume(currentVolume) : false; }
+bool GstMediaPipeline::setMute(int32_t sourceId, bool mute) { return m_pipeline ? m_pipeline->setMute(sourceId, mute) : false; }
+bool GstMediaPipeline::getMute(int32_t sourceId, bool &mute) { return m_pipeline ? m_pipeline->getMute(sourceId, mute) : false; }
+bool GstMediaPipeline::setTextTrackIdentifier(const std::string &textTrackIdentifier) { return m_pipeline ? m_pipeline->setTextTrackIdentifier(textTrackIdentifier) : false; }
