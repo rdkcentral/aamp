@@ -13,13 +13,21 @@ void PerfProfiler::AddStat(const std::string& name, long long duration) {
 }
 
 void PerfProfiler::PrintStats() {
-    std::lock_guard<std::mutex> lock(statsMutex);
-    MW_LOG_WARN("\n=== Performance Stats ===\n");
-    for (const auto& [func, s] : stats) {
-        long long avg = s.callCount ? (s.totalTime / s.callCount) : 0;
-        MW_LOG_WARN("[PERF] %s called %zu times, avg %lld µs, total %lld µs\n",func.c_str(),s.callCount,avg,s.totalTime);
-
+    // Take a snapshot under lock
+    std::unordered_map<std::string, PerfStats> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(statsMutex);
+        snapshot = stats; // Copy current stats
     }
+
+    // Print outside lock to avoid blocking updates
+    printf("\n=== Performance Stats ===\n");
+    for (const auto& [func, s] : snapshot) {
+        long long avg = s.callCount ? (s.totalTime / s.callCount) : 0;
+        printf("[PERF] %s called %zu times, avg %lld µs, total %lld µs\n",
+               func.c_str(), s.callCount, avg, s.totalTime);
+    }
+    fflush(stdout);
 }
 
 ScopedTimer::ScopedTimer(const std::string& funcName)
