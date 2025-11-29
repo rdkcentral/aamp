@@ -2931,7 +2931,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 				if (HasSidecarData())
 				{ // has sidecar data
 					if (mpStreamAbstractionAAMP)
-						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted, mData.get());
+						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
 				}
 			}
 			SetState(eSTATE_PLAYING);
@@ -5544,12 +5544,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (sink)
 			{
 				sink->SetVideoZoom(zoom_mode);
-				sink->SetVideoMute(video_muted);
+				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted.load(), mApplyCachedVideoMute);
 				if (mApplyCachedVideoMute)
 				{
+					SetVideoMuteInternal(video_muted.load());
 					mApplyCachedVideoMute = false;
-					CacheAndApplySubtitleMute(video_muted);
 				}
+				else
+				{
+					sink->SetVideoMute(video_muted.load());
+				}
+				SetCCStatusInternal();
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -5584,7 +5589,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (HasSidecarData())
 			{
 				// has sidecar data
-				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted, mData.get());
+				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted.load(), mData.get());
 			}
 
 			if (!mTextStyle.empty())
@@ -6112,12 +6117,16 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if(mApplyCachedVideoMute)
 	{
 		mApplyCachedVideoMute = false;
-		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted);
+		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted.load());
 		if (mpStreamAbstractionAAMP)
 		{
-			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
-			SetVideoMute(video_muted);
-			CacheAndApplySubtitleMute(video_muted);
+			//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
+			SetVideoMuteInternal(video_muted.load());
+			SetCCStatusInternal();
+		}
+		else
+		{
+			AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 		}
 	}
 	ReleaseStreamLock();
@@ -7055,10 +7064,44 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted.load()?"true":"false");
+	video_muted = muted;
+
+	//If lock could not be acquired, then cache it
+	if (TryStreamLock())
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			SetVideoMuteInternal(muted); // hide/show video plane
+			SetCCStatusInternal();
+		}
+		else
+		{
+			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+			mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
+		}
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamLock is not available, value has been cached");
+		mApplyCachedVideoMute = true;
+	}
+}
+
+/**
+ *   @brief Enable/ Disable Video.
+ */
+void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
+{
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
 		sink->SetVideoMute(muted);
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamSink not available, muted %d", muted);
 	}
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
@@ -7074,6 +7117,26 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
  *   @param  muted - true to disable subtitles, false to enable subtitles.
  */
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
+{
+	subtitles_muted = muted;
+	AcquireStreamLock();
+	if (mpStreamAbstractionAAMP)
+	{
+		SetSubtitleMuteInternal(video_muted.load() || muted);
+	}
+	else
+	{
+		AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+	}
+	ReleaseStreamLock();
+}
+
+/**
+ *   @brief Enable/ Disable Subtitles (Internal private copy).
+ *
+ *   @param  muted - true to disable subtitles, false to enable subtitles.
+ */
+void PrivateInstanceAAMP::SetSubtitleMuteInternal(bool muted)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
@@ -10796,7 +10859,6 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 	}
 }
 
-
 /**
  * @brief Switch the subtitle track following a change to the preferredTextTrack
  */
@@ -10830,7 +10892,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 			}
 		}
 	}
-	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
+	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
@@ -10843,18 +10905,40 @@ int PrivateInstanceAAMP::GetTextTrack()
  */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
-	PlayerCCManager::GetInstance()->SetStatus(enabled);
+	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
 	AcquireStreamLock();
+	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
+	SetCCStatusInternal();
+	ReleaseStreamLock();
+}
+
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
+{
+	// StreamLock is recursive, so it is fine to call this method with it locked.
+	AcquireStreamLock();
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+		// Mute subtitles if either video is muted or subtitles are muted
+		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
+		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+		AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+
+		if (mIsInbandCC || !isGstSubtecEnabled)
+		{
+			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+		}
+		else
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
+			}
+			SetSubtitleMuteInternal(mute_subtitles_applied);
 		}
 	}
-	SetSubtitleMute(subtitles_muted);
 	ReleaseStreamLock();
 }
 
@@ -10863,7 +10947,7 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
  */
 bool PrivateInstanceAAMP::GetCCStatus(void)
 {
-	return !(subtitles_muted);
+	return !(subtitles_muted.load());
 }
 
 /**
@@ -11294,7 +11378,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("languages", inputLanguagesList))
 			{
-				for (auto preferredLanguage : inputLanguagesList)
+				for (const auto& preferredLanguage : inputLanguagesList)
 				{
 					if (!inputLanguagesString.empty())
 					{
@@ -11350,7 +11434,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("codec", inputCodecList))
 			{
-				for (auto preferredCodec : inputCodecList)
+				for (const auto& preferredCodec : inputCodecList)
 				{
 					if (!inputCodecString.empty())
 					{

@@ -549,6 +549,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
+
 public:
 	/**
 	 * @brief Get profiler bucket type
@@ -994,8 +995,8 @@ public:
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
 	AudioTrackTuple mAudioTuple;				/**< Deprecated **/
 	VideoZoomMode zoom_mode;
-	bool video_muted; /**< true iff video plane is logically muted */
-	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
+	std::atomic<bool> video_muted; /**< true if video plane is logically muted */
+	std::atomic<bool> subtitles_muted; /**< true if subtitle plane is logically muted */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -4139,5 +4140,30 @@ private:
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
+
+	/**
+	 *   @fn SetVideoMuteInternal
+	 *   @brief Set video mute state, internal method
+	 *
+	 *   @param[in] muted - muted or unmuted
+	 *   @return void
+	 */
+	void SetVideoMuteInternal(bool muted);
+
+	/**
+	 *   @fn SetSubtitleMuteInternal
+	 *   @brief Set subtitle mute state, internal method
+	 *
+	 *   @param[in] muted - muted or unmuted
+	 *   @return void
+	 */
+	void SetSubtitleMuteInternal(bool muted);
+
+	/**
+	 *   @fn SetCCStatusInternal
+	 *   @brief Set CC visibility on/off according to the current values of
+	 *          video_muted and subtitle_muted.
+	 */
+	void SetCCStatusInternal(void);
 };
 #endif // PRIVAAMP_H
