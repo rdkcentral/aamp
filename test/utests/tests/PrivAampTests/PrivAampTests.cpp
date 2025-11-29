@@ -49,6 +49,7 @@
 #include "fragmentcollector_mpd.h"
 #include "MockAdManager.h"
 #include "MockPlayerCCManager.h"
+#include "MockMediaStreamContext.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -97,6 +98,7 @@ protected:
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
 		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
+		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
 	}
 
 	void TearDown() override
@@ -111,6 +113,8 @@ protected:
 
 		delete g_mockCurl;
 		g_mockCurl = nullptr;
+		delete g_mockMediaStreamContext;
+		g_mockMediaStreamContext = nullptr;
 
 		delete g_mockStreamAbstractionAAMP;
 		g_mockStreamAbstractionAAMP = nullptr;
@@ -816,6 +820,128 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
 
 	size_t val1 = p_aamp->HandleSSLWriteCallback(NULL,1000,2000,NULL);
 	EXPECT_EQ(val,0);
+}
+
+TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
+{
+	// Test HandleSSLWriteCallback when pipeline is paused and no underflow
+	// CacheFragmentChunk() should NOT be called
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setting up");
+
+	// Enable AAMP TSB for this test
+	p_aamp->SetLocalAAMPTsb(true);
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+
+	p_aamp->pipeline_paused = true;
+	p_aamp->mBufUnderFlowStatus = false;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
+		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
+
+	// Simulate paused from live, not AAMP TSB
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	// Check that AAMP is NOT injecting segments if playback is paused by the user
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.Times(0);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Calling HandleSSLWriteCallback");
+
+	// Call with valid context - ptr is not NULL, so data processing happens
+	char testData[] = "test data";
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Result: %zu", result);
+	// Result should be size*nmemb = strlen(testData)*1
+	EXPECT_EQ(result, strlen(testData));
+}
+
+TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
+{
+	// Test HandleSSLWriteCallback when pipeline is paused and there is underflow
+	// injection should not be paused and CacheFragmentChunk() should be called
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setting up");
+
+	// Enable AAMP TSB for this test
+	p_aamp->SetLocalAAMPTsb(true);
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+
+	p_aamp->pipeline_paused = true;
+	p_aamp->mBufUnderFlowStatus = true;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
+		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
+
+	// Simulate paused from live, not AAMP TSB
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	// Check that AAMP is injecting segments if playback is paused due to underflow
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.WillOnce(Return(true));
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Calling HandleSSLWriteCallback");
+
+	// Call with valid context - ptr is not NULL, so data processing happens
+	char testData[] = "test data with underflow";
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Result: %zu", result);
+	// Result should be size*nmemb = strlen(testData)*1
+	EXPECT_EQ(result, strlen(testData));
 }
 
 TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
