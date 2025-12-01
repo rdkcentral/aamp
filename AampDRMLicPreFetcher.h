@@ -229,7 +229,6 @@ private:
 	std::deque<LicensePreFetchObjectPtr> mFetchQueue;   /** Queue for storing content protection objects*/
 	std::mutex mQMutex;                                 /** Mutex for accessing the mFetchQueue*/
 	std::condition_variable mQCond;                     /** Conditional variable to notify addition of an obj to mFetchQueue*/
-	bool mPreFetchThreadStarted;                        /** Flag denotes if thread started*/
 	bool mExitLoop;                                     /** Flag denotes if pre-fetch thread has to be exited*/
 	int mCommonKeyDuration;                             /** Common key duration for deferred license acquisition*/
 	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquisition for tracks*/
@@ -241,7 +240,6 @@ private:
 	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/
 	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
 	std::condition_variable mQVssCond;                  /** Conditional variable to notify addition of an obj to mVssFetchQueue*/
-	bool mVssPreFetchThreadStarted;                     /** Flag denotes if Vss thread started*/
 	bool mIsSecClientError;
 };
 

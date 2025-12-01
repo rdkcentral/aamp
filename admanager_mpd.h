@@ -351,7 +351,6 @@ public:
 	std::unordered_map<std::string, Period2AdData> mPeriodMap;          /**< periodId to Ad map */
 	std::string                                    mCurPlayingBreakId;  /**< Currently playing Ad */
 	std::thread                                    mAdObjThreadID;      /**< ThreadId of Ad fulfillment */
-	bool                                           mAdObjThreadStarted; /**< Flag denotes if ad object thread is started */
 	AdNodeVectorPtr                                mCurAds;             /**< Vector of ads from the current Adbreak */
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */
 	AdFulfillObj                                   mAdFulfillObj;       /**< Temporary object for Ad fulfillment (to pass to the fulfillment thread) */

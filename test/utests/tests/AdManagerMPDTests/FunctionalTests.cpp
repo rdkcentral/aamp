@@ -83,7 +83,7 @@ protected:
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
 
     mManifest = nullptr;
     mMPD = nullptr;
@@ -427,7 +427,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -497,7 +497,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -549,7 +549,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
 
   // Verify the result
   // mAdBreak updated and placementObj not created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -619,7 +619,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -691,7 +691,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 2);
@@ -825,7 +825,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_10)
 
     // Verify the result
     // mAdBreak updated and placementObj not created
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
     EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -860,7 +860,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_11)
 
     // Verify the result
     // mAdBreak updated and placementObj not created
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
     EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -895,7 +895,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_12)
 
     // Verify the result
     // mAdBreak updated and placementObj not created
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
     EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -953,7 +953,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
 
     // Verify the result
     // mAdBreak updated and placementObj not created
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
     EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -1003,7 +1003,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
 
     // Assert
     // mAdBreak updated and placementObj not created 
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
     EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
