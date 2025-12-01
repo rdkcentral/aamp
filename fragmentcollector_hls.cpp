@@ -7583,7 +7583,7 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
  *
  * Scoring algorithm:
  * - Base: 1 point for any track
- * - Language: (list_size - position) * AAMP_LANGUAGE_SCORE (prioritizes order)
+ * - Language: (list_size - position) * AAMP_LANGUAGE_SCORE (prioritize order)
  * - Rendition: AAMP_ROLE_SCORE
  * - Name: AAMP_TYPE_SCORE
  *
