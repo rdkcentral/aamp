@@ -66,6 +66,8 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
 
+#define SUBSAMPLE_ENTRY_SIZE 6 /**< Each subsample entry is 6 bytes (2 bytes for clear + 4 bytes for encrypted) */
+
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
@@ -241,6 +243,14 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
+
+/**
+ * @brief Create GstBuffer with data copied from input data pointer
+ * @param[in] data The data to copy
+ * @param[in] size The size of data in bytes
+ * @return GstBuffer pointer or NULL on failure
+ */
+static GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size);
 
 /**
  * @brief Decorate a GstBuffer with DRM metadata
@@ -2920,9 +2930,21 @@ static GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
 	if (buffer)
 	{
 		GstMapInfo map;
-		gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-		memcpy(map.data, data, size );
-		gst_buffer_unmap(buffer, &map);
+		if (gst_buffer_map(buffer, &map, GST_MAP_WRITE))
+		{
+			memcpy(map.data, data, size);
+			gst_buffer_unmap(buffer, &map);
+		}
+		else
+		{
+			MW_LOG_ERR("Failed to map GstBuffer for writing");
+			gst_buffer_unref(buffer);
+			buffer = NULL;
+		}
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to allocate GstBuffer of size %zu", size);
 	}
 	return buffer;
 }
@@ -3034,6 +3056,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, boo
 				{
 					// Set DRM metadata to buffer
 					// Skipped for copy as that path is not used for demuxed content
+					// TODO: Handle copy path also if required in future
 					DecorateGstBufferWithDrmMetadata(buffer, sample.drmMetadata);
 				}
 				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
@@ -5224,7 +5247,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codec
 {
 	GstCaps *caps = GetCaps(codecInfo.codecFormat);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
-	stream->format = GST_FORMAT_ISO_BMFF; // Hack to workaround different checks in InterfacePlayerRDK
+	// Hack to workaround different checks in InterfacePlayerRDK for format validity
+	// Especially in SendGstEvents() where its checked before sending protection events
+	stream->format = GST_FORMAT_ISO_BMFF;
 	if (caps)
 	{
 		// Append some additional info to caps
@@ -5284,9 +5309,13 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codec
 			GstStructure *s = gst_caps_get_structure (caps, 0);
 			gst_structure_set (s,
 				"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
-				//TODO: Support other DRM systems
-				GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed",
 				NULL);
+			if (mDrmSystem != NULL)
+			{
+				gst_structure_set (s,
+					GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
+					NULL);
+			}
 			// Same for both cenc and cbcs
 			gst_structure_set_name (s, "application/x-cenc");
 		}
@@ -5303,20 +5332,17 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codec
  * @param[in] buffer The GstBuffer to decorate
  * @param[in] drmMetadata The DRM metadata
  */
-void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
+static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
 {
 	GstStructure *metadata = NULL;
 	if (drmMetadata.isEncrypted)
 	{
-		GstBuffer *kidBuffer = CreateGstBufferWithData((gpointer)drmMetadata.keyId.c_str(), (gsize)drmMetadata.keyId.size());
 		metadata = gst_structure_new(
 										"application/x-cenc",
 										"encrypted", G_TYPE_BOOLEAN, TRUE,
-										"kid", GST_TYPE_BUFFER, kidBuffer,
-										// TODO : cipher-mode to be added in caps and not drmMetadata
+										// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
 										"cipher-mode", G_TYPE_STRING, drmMetadata.cipher.c_str(),
 										NULL);
-		gst_buffer_unref(kidBuffer);
 
 		if (!metadata)
 		{
@@ -5324,24 +5350,54 @@ void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata 
 			return;
 		}
 
+		if (!drmMetadata.keyId.empty())
+		{
+			GstBuffer *kidBuffer = CreateGstBufferWithData((gpointer)drmMetadata.keyId.data(), (gsize)drmMetadata.keyId.size());
+			if (kidBuffer)
+			{
+				gst_structure_set(metadata,
+									"kid", GST_TYPE_BUFFER, kidBuffer,
+									NULL);
+				gst_buffer_unref(kidBuffer);
+			}
+			else
+			{
+				MW_LOG_ERR("Failed to allocate keyID buffer for DRM metadata");
+			}
+		}
+
 		if (!drmMetadata.iv.empty())
 		{
 			GstBuffer *ivBuffer = CreateGstBufferWithData((gpointer)drmMetadata.iv.data(), (gsize)drmMetadata.iv.size());
-			gst_structure_set(metadata,
-								"iv_size", G_TYPE_UINT, drmMetadata.iv.size(),
-								"iv", GST_TYPE_BUFFER, ivBuffer,
-								NULL);
-			gst_buffer_unref(ivBuffer);
+			if (ivBuffer)
+			{
+				gst_structure_set(metadata,
+									"iv_size", G_TYPE_UINT, drmMetadata.iv.size(),
+									"iv", GST_TYPE_BUFFER, ivBuffer,
+									NULL);
+				gst_buffer_unref(ivBuffer);
+			}
+			else
+			{
+				MW_LOG_ERR("Failed to allocate IV buffer for DRM metadata");
+			}
 		}
 
 		if (!drmMetadata.subSamples.empty())
 		{
 			GstBuffer *ssBuffer = CreateGstBufferWithData( (gpointer)drmMetadata.subSamples.data(), (gsize)drmMetadata.subSamples.size());
-			gst_structure_set(metadata,
-								"subsample_count", G_TYPE_UINT, drmMetadata.subSamples.size()/6,
-								"subsamples", GST_TYPE_BUFFER, ssBuffer,
-								NULL);
-			gst_buffer_unref(ssBuffer);
+			if (ssBuffer)
+			{
+				gst_structure_set(metadata,
+									"subsample_count", G_TYPE_UINT, drmMetadata.subSamples.size() / SUBSAMPLE_ENTRY_SIZE,
+									"subsamples", GST_TYPE_BUFFER, ssBuffer,
+									NULL);
+				gst_buffer_unref(ssBuffer);
+			}
+			else
+			{
+				MW_LOG_ERR("Failed to allocate subsample buffer for DRM metadata");
+			}
 		}
 		else
 		{
@@ -5363,7 +5419,7 @@ void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata 
 	{
 		// serialize and print the metadata
 		gchar *metaStr = gst_structure_to_string( metadata );
-		MW_LOG_INFO("Added drm metadata: %s\n", metaStr);
+		MW_LOG_INFO("Added drm metadata: %s", metaStr);
 		g_free(metaStr);
 
 		gst_buffer_add_protection_meta(buffer, metadata);

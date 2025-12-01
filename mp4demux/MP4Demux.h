@@ -45,6 +45,13 @@
 (static_cast<uint32_t>(TEXT[2]) << 0x08) | \
 (static_cast<uint32_t>(TEXT[3]) << 0x00) )
 
+#define FourCCToString(FOURCC) ( \
+	std::string( \
+		{ static_cast<char>((FOURCC >> 24) & 0xFF), \
+		  static_cast<char>((FOURCC >> 16) & 0xFF), \
+		  static_cast<char>((FOURCC >> 8) & 0xFF), \
+		  static_cast<char>(FOURCC & 0xFF) } ) )
+
 /**
  * @brief MP4 logging levels
  */
@@ -61,7 +68,27 @@ enum mp4LogLevel
 /**
  * @brief MP4 logger macro
  */
-#define MP4_LOGGER(level, ...) AAMPLOG_WARN(__VA_ARGS__)
+#define MP4_LOG(level, ...) AAMPLOG_WARN(__VA_ARGS__)
+#define MP4_LOG_ERR(...) AAMPLOG_ERR(__VA_ARGS__)
+#define MP4_LOG_INFO(...) AAMPLOG_INFO(__VA_ARGS__)
+
+/**
+ * Enum for MP4 parsing errors
+ */
+enum Mp4ParseError
+{
+	MP4_PARSE_OK = 0,                              /**< No error */
+	MP4_PARSE_ERROR_INVALID_BOX,                   /**< Invalid box encountered */
+	MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE,      /**< Invalid constant IV size */
+	MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH,         /**< Sample count mismatch */
+	MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME, /**< Invalid auxiliary info type */
+	MP4_PARSE_ERROR_MISSING_DATA_OFFSET,           /**< Missing data offset in TRUN */
+	MP4_PARSE_ERROR_INVALID_PADDING,               /**< Invalid padding value */
+	MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT,/**< Unsupported sample entry count */
+	MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT,     /**< Unsupported stream format */
+	MP4_PARSE_ERROR_INVALID_ESDS_TAG,              /**< Invalid ESDS tag */
+	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH         /**< Data boundary mismatch */
+};
 
 /**
  * @brief MP4 Demultiplexer class
@@ -134,6 +161,7 @@ private:
 	bool sencPresent;                             /**< SENC box present flag */
 	bool handledEncryptedSamples;                 /**< Flag indicating encrypted samples have been handled */
 	AampCodecInfo codecInfo;                      /**< Codec information */
+	Mp4ParseError parseError;                     /**< Current parse error state */
 
 	/**
 	 * @brief Get stream output format from FourCC code
@@ -370,8 +398,15 @@ public:
 	 * @brief Parse MP4 data
 	 * @param ptr Pointer to MP4 data
 	 * @param len Length of data
+	 * @return true if parsing succeeded, false on error
 	 */
-	void Parse(const void *ptr, size_t len);
+	bool Parse(const void *ptr, size_t len);
+
+	/**
+	 * @brief Get last parser error
+	 * @return Mp4ParseError indicating the last error that occurred
+	 */
+	Mp4ParseError GetLastError() const;
 	
 	/**
 	 * @brief Get timescale value

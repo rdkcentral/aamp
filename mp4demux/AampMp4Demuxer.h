@@ -28,6 +28,7 @@
 #include "mediaprocessor.h"
 #include "MP4Demux.h"
 #include "priv_aamp.h"
+#include <memory>
 
 class AampMp4Demuxer : public MediaProcessor
 {
@@ -123,8 +124,7 @@ public:
 	void setTrackOffset(double offset) override { }
 
 private:
-    bool mEnable;
-    Mp4Demux* mMp4Demux;
+    std::unique_ptr<Mp4Demux> mMp4Demux;
     PrivateInstanceAAMP* mAamp;
 	AampMediaType mMediaType;
 };

@@ -24,15 +24,15 @@
 
 #include "AampMp4Demuxer.h"
 #include "AampLogManager.h"
+#include "AampUtils.h"
 
 /**
  * @brief MP4 Demuxer constructor
  */
 AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
-    MediaProcessor(), mMp4Demux(nullptr), mAamp(aamp), mEnable(true), mMediaType(type)
+    MediaProcessor(), mMp4Demux(aamp_utils::make_unique<Mp4Demux>()), mAamp(aamp), mMediaType(type)
 {
     AAMPLOG_WARN("Created AampMp4Demuxer(%p) for type %d", this, type);
-    mMp4Demux = new Mp4Demux();
 }
 
 /**
@@ -41,11 +41,7 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
 AampMp4Demuxer::~AampMp4Demuxer()
 {
     AAMPLOG_DEBUG("AampMp4Demuxer destructor");
-    if (mMp4Demux)
-    {
-        delete mMp4Demux;
-        mMp4Demux = nullptr;
-    }
+    // std::unique_ptr automatically handles cleanup
 }
 
 
@@ -67,28 +63,36 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
 {
     bool ret = true;
     (void) processor;
-    if (pBuffer && pBuffer->GetLen() && mEnable)
+    if (mMp4Demux.get() && pBuffer && pBuffer->GetPtr() && pBuffer->GetLen())
     {
-        AAMPLOG_WARN("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-        mMp4Demux->Parse(pBuffer->GetPtr(), pBuffer->GetLen());
-        auto samples = mMp4Demux->GetSamples();
-        if (samples.size() > 0)
+        AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
+        bool ret = mMp4Demux->Parse(pBuffer->GetPtr(), pBuffer->GetLen());
+        if (!ret)
         {
-            for (auto& sample : samples)
-            {
-                mAamp->SendStreamTransfer(mMediaType, sample);
-            }
+            AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
         }
         else
         {
-            auto codecInfo = mMp4Demux->GetCodecInfo();
-            AAMPLOG_WARN("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
-            mAamp->SetStreamCaps(mMediaType, codecInfo);
+            auto samples = mMp4Demux->GetSamples();
+            if (samples.size() > 0)
+            {
+                for (auto& sample : samples)
+                {
+                    mAamp->SendStreamTransfer(mMediaType, sample);
+                }
+            }
+            else
+            {
+                auto codecInfo = mMp4Demux->GetCodecInfo();
+                AAMPLOG_INFO("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
+                mAamp->SetStreamCaps(mMediaType, std::move(codecInfo));
+            }
         }
     }
     else
     {
-        AAMPLOG_WARN("Invalid buffer or demuxer disabled");
+        AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer invalid (%p, %p, %zu)", mMp4Demux.get(), pBuffer, pBuffer ? pBuffer->GetPtr() : nullptr, pBuffer ? pBuffer->GetLen() : 0);
+        ret = false;
     }
     ptsError = false;
     return ret;

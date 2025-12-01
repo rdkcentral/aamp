@@ -184,8 +184,11 @@ struct MediaDrmMetadata
 	uint8_t cryptByteBlock;
 	uint8_t skipByteBlock;
 
-	MediaDrmMetadata() : isEncrypted(false), keyId(), iv(), cipher(),
-		subSamples(), cryptByteBlock(0), skipByteBlock(0)
+	MediaDrmMetadata() : isEncrypted(false),
+		keyId(),
+		iv(), cipher(),
+		subSamples(),
+		cryptByteBlock(0), skipByteBlock(0)
 	{
 	}
 };
@@ -201,7 +204,12 @@ struct MediaSample
 	double ptsOffset;
 	MediaDrmMetadata drmMetadata;
 
-	MediaSample() : data(nullptr), dataSize(0), pts(0.0), dts(0.0), duration(0.0), ptsOffset(0.0), drmMetadata()
+	MediaSample() : data(nullptr),
+		dataSize(0),
+		pts(0.0), dts(0.0),
+		duration(0.0),
+		ptsOffset(0.0),
+		drmMetadata()
 	{
 	}
 };

@@ -36,6 +36,24 @@ struct AampPsshData
 {
 	std::string systemID; // 16 bytes UUID
 	std::vector<uint8_t> pssh; // variable length
+
+	// Default constructor
+	AampPsshData(): systemID(), pssh()
+	{
+	}
+
+	// Constructor with parameters
+	AampPsshData(std::string id, std::vector<uint8_t> data): systemID(std::move(id)), pssh(std::move(data))
+	{
+	}
+
+	// Move constructor and move assignment (allow efficient transfers)
+	AampPsshData(AampPsshData&&) = default;
+	AampPsshData& operator=(AampPsshData&&) = default;
+
+	// delete copy constructor and copy assignment to prevent accidental copies
+	AampPsshData(const AampPsshData&) = delete;
+	AampPsshData& operator=(const AampPsshData&) = delete;
 };
 
 /*
@@ -73,28 +91,64 @@ struct AampCodecInfo
 		} video;
 	} mInfo;
 
+	/**
+	 * @brief Constructor for AampCodecInfo
+	 */
 	AampCodecInfo() : mCodecFormat(FORMAT_INVALID), mIsEncrypted(false), mCodecData()
 	{
 		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
 
+	/**
+	 * @brief Constructor for AampCodecInfo with format
+	 * @param format Stream output format
+	 */
 	AampCodecInfo(StreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData()
 	{
 		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
 
+	// Delete copy constructor and copy assignment to prevent accidental copies
+	AampCodecInfo(const AampCodecInfo&) = delete;
+	AampCodecInfo& operator=(const AampCodecInfo&) = delete;
+
+	/**
+	 * @brief Move constructor for AampCodecInfo
+	 * @param other Source AampCodecInfo to move from
+	 */
 	AampCodecInfo(AampCodecInfo&& other) noexcept
-        : mCodecFormat(other.mCodecFormat)
+        : mCodecFormat(std::move(other.mCodecFormat))
         , mCodecData(std::move(other.mCodecData))
-        , mIsEncrypted(other.mIsEncrypted)
-        , mInfo(other.mInfo)
+        , mIsEncrypted(std::move(other.mIsEncrypted))
+        , mInfo(std::move(other.mInfo))
     {
-        // Reset the source object to default state
+        // Explicitly reset the source object to default state after move
         other.mCodecFormat = FORMAT_INVALID;
         other.mIsEncrypted = false;
         std::memset(&other.mInfo, 0, sizeof(other.mInfo));
         // mCodecData is already empty after std::move
     }
+
+	/** Move assignment operator for AampCodecInfo
+	 * @param other Source AampCodecInfo to move from
+	 */
+	AampCodecInfo& operator=(AampCodecInfo&& other) noexcept
+	{
+		if (this != &other)
+		{
+			mCodecFormat = std::move(other.mCodecFormat);
+			mCodecData = std::move(other.mCodecData);
+			mIsEncrypted = std::move(other.mIsEncrypted);
+			mInfo = std::move(other.mInfo);
+
+			// Explicitly reset the source object to default state after move
+			other.mCodecFormat = FORMAT_INVALID;
+			other.mIsEncrypted = false;
+			std::memset(&other.mInfo, 0, sizeof(other.mInfo));
+			// mCodecData is already empty after std::move
+		}
+		return *this;
+	}
 };
 
 /*
@@ -111,10 +165,61 @@ struct AampDrmMetadata
 	uint8_t mCryptByteBlock;
 	uint8_t mSkipByteBlock;
 
+	/**
+	 * @brief Constructor for AampDrmMetadata
+	 */
 	AampDrmMetadata() : mIsEncrypted(false), mKeyId(), mIV(), mCipher(),
 		mSubSamples(), mCryptByteBlock(0), mSkipByteBlock(0)
 	{
 	}
+
+	/**
+	 * @brief Move constructor for AampDrmMetadata
+	 * @param other Source AampDrmMetadata to move from
+	 */
+	AampDrmMetadata(AampDrmMetadata&& other) noexcept
+		: mIsEncrypted(other.mIsEncrypted),
+		  mKeyId(std::move(other.mKeyId)),
+		  mIV(std::move(other.mIV)),
+		  mCipher(std::move(other.mCipher)),
+		  mSubSamples(std::move(other.mSubSamples)),
+		  mCryptByteBlock(other.mCryptByteBlock),
+		  mSkipByteBlock(other.mSkipByteBlock)
+	{
+		// Reset source object to default state after move
+		other.mIsEncrypted = false;
+		other.mCryptByteBlock = 0;
+		other.mSkipByteBlock = 0;
+	}
+
+	/**
+	 * @brief Move assignment operator for AampDrmMetadata
+	 * @param other Source AampDrmMetadata to move from
+	 * @return Reference to this object
+	 */
+	AampDrmMetadata& operator=(AampDrmMetadata&& other) noexcept
+	{
+		if (this != &other)
+		{
+			mIsEncrypted = other.mIsEncrypted;
+			mKeyId = std::move(other.mKeyId);
+			mIV = std::move(other.mIV);
+			mCipher = std::move(other.mCipher);
+			mSubSamples = std::move(other.mSubSamples);
+			mCryptByteBlock = other.mCryptByteBlock;
+			mSkipByteBlock = other.mSkipByteBlock;
+
+			// Reset source object to default state after move
+			other.mIsEncrypted = false;
+			other.mCryptByteBlock = 0;
+			other.mSkipByteBlock = 0;
+		}
+		return *this;
+	}
+
+	// Delete copy constructor and copy assignment to prevent accidental copies
+	AampDrmMetadata(const AampDrmMetadata&) = delete;
+	AampDrmMetadata& operator=(const AampDrmMetadata&) = delete;
 };
 
 /*
@@ -130,9 +235,20 @@ struct AampMediaSample
 
     AampDrmMetadata mDrmMetadata; // empty if not encrypted
 
+	/**
+	 * @brief Constructor for AampMediaSample
+	 */
 	AampMediaSample() : mData("AampMediaSample"), mPts(0), mDts(0), mDuration(0), mDrmMetadata()
 	{
 	}
+
+	// Move constructor and move assignment (allow efficient transfers)
+	AampMediaSample(AampMediaSample&&) = default;
+	AampMediaSample& operator=(AampMediaSample&&) = default;
+
+	// Delete copy constructor and copy assignment to prevent accidental copies
+	AampMediaSample(const AampMediaSample&) = delete;
+	AampMediaSample& operator=(const AampMediaSample&) = delete;
 };
 
 #endif /* __AAMP_DEMUX_DATA_TYPES_H__ */

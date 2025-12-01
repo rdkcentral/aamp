@@ -25,17 +25,15 @@
  * For more advanced testing scenarios, use the comprehensive fake in test/mocks/.
  */
 
-#include "mp4demux/AampMp4Demuxer.h"
+#include "AampMp4Demuxer.h"
 #include "AampLogManager.h"
 
 /**
  * @brief Fake MP4 Demuxer constructor
  */
 AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
-    MediaProcessor(), mMp4Demux(nullptr), mAamp(aamp), mEnable(true), mMediaType(type)
+    MediaProcessor(), mMp4Demux(nullptr), mAamp(aamp), mMediaType(type)
 {
-    AAMPLOG_INFO("FakeAampMp4Demuxer Constructor");
-    // Don't create real Mp4Demux in fake - just set to nullptr
 }
 
 /**
@@ -43,8 +41,6 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
  */
 AampMp4Demuxer::~AampMp4Demuxer()
 {
-    AAMPLOG_INFO("FakeAampMp4Demuxer Destructor");
-    // No cleanup needed for fake
 }
 
 bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, 

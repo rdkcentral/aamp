@@ -396,7 +396,7 @@ public:
      * @param[in] type - Media type
      * @param[in] codecInfo - Codec information
      */
-    virtual void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo) {};
+    virtual void SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo) {};
 
 };
 

@@ -23,7 +23,7 @@
  */
 
 #include "MP4Demux.h"
-#include <assert.h>
+#include "AampDefine.h"
 #include <inttypes.h>
 #include <cstdio>
 #include <cstring>
@@ -53,7 +53,7 @@ Mp4Demux::Mp4Demux() :
 	widthFixed(), heightFixed(), language(),
 	sampleOffset(), sencPresent(false),
 	handledEncryptedSamples(false),
-	codecInfo(FORMAT_INVALID)
+	codecInfo(FORMAT_INVALID), parseError(MP4_PARSE_OK)
 {
 }
 
@@ -259,18 +259,20 @@ void Mp4Demux::ParseTrackEncryptionBox()
 	handledEncryptedSamples = true;
 	ivSize = *ptr++;
 
-	defaultKid = std::string((char *)ptr, 16);
+	defaultKid = std::string(reinterpret_cast<const char*>(ptr), 16);
 	ptr += 16;
 	if (schemeType == MultiChar_Constant("cbcs"))
 	{
 		constantIvSize = *ptr++;
-		// TODO : Send proper error event, instead of assert
-		assert(constantIvSize == 8 || constantIvSize == 16);
+		if (constantIvSize != 8 && constantIvSize != 16)
+		{
+			parseError = MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE;
+			MP4_LOG_ERR("Invalid constant IV size: %u, expected 8 or 16", constantIvSize);
+			return;
+		}
 		constantIv = std::vector<uint8_t>(ptr, ptr + constantIvSize);
 		ptr += constantIvSize;
 	}
-	MP4_LOGGER(MP4_LOG_WARNING, "TrackEncryptionBox: schemeType=0x%08x, cryptByteBlock=%u, skipByteBlock=%u, ivSize=%u, mIsEncrypted=%d",
-	           schemeType, cryptByteBlock, skipByteBlock, ivSize, codecInfo.mIsEncrypted);
 }
 
 /**
@@ -291,11 +293,13 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 			ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf]);
 	ptr += 16;
 	size_t pssh_size = next - ptr;
-	// TODO: Limit the number of PSSH boxes stored to avoid excessive memory usage
+
 	protectionData.emplace_back();
 	AampPsshData &psshData = protectionData.back();
 	psshData.systemID = std::string(system_id);
 	psshData.pssh = std::vector<uint8_t>(ptr, ptr + pssh_size);
+	// Update ptr to next box
+	SkipBytes(pssh_size);
 }
 
 /**
@@ -313,7 +317,12 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 	{
 		ptr = moofPtr + auxiliaryInformationOffset;
 		uint64_t maxSampleCount = sampleOffset + sample_count;
-		assert(samples.size() == maxSampleCount);
+		if (samples.size() != maxSampleCount)
+		{
+			parseError = MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH;
+			MP4_LOG_ERR("Sample count mismatch: expected %" PRIu64 ", got %zu", maxSampleCount, samples.size());
+			return;
+		}
 		for (auto i = sampleOffset; i < maxSampleCount; i++)
 		{
 			samples[i].mDrmMetadata.mIsEncrypted = true;
@@ -348,7 +357,7 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			{
 				// Sub-sample encryption info present
 				uint16_t n_subsamples = ReadU16();
-				size_t subsamples_size = n_subsamples * 6;
+				size_t subsamples_size = n_subsamples * MP4_SUBSAMPLE_ENTRY_SIZE;
 				samples[i].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subsamples_size);
 				ptr += subsamples_size;
 			}
@@ -379,16 +388,16 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 	}
 	uint8_t default_info_size = *ptr++;
 	uint32_t sampleCount = ReadU32();
-	if( default_info_size )
+	if (default_info_size)
 	{
-		for( int i=0; i<sampleCount; i++ )
+		for (auto i = 0u; i < sampleCount; i++ )
 		{
 			cencAuxInfoSizes.push_back(default_info_size);
 		}
 	}
 	else
 	{
-		for( int i=0; i<sampleCount; i++ )
+		for (auto i = 0u; i < sampleCount; i++ )
 		{
 			cencAuxInfoSizes.push_back(ptr[i]);
 		}
@@ -404,9 +413,13 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
  */
 void Mp4Demux::ParseAuxInfo()
 {
-	uint32_t auxInfoType = ReadU32(); // cenc or cbcs
-	// TODO : Send proper error event, instead of assert
-	assert( auxInfoType == MultiChar_Constant("cenc") || auxInfoType == MultiChar_Constant("cbcs") );
+	uint32_t schemeType = ReadU32(); // cenc or cbcs
+	if (schemeType != MultiChar_Constant("cenc") && schemeType != MultiChar_Constant("cbcs"))
+	{
+		parseError = MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME;
+		MP4_LOG_ERR("Unsupported encryption scheme type: 0x%08x, expected 'cenc' or 'cbcs'", schemeType);
+		return;
+	}
 
 	uint32_t auxInfoTypeParameter = ReadU32();
 	(void)auxInfoTypeParameter;
@@ -457,7 +470,12 @@ void Mp4Demux::ParseSampleEncryption()
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
-	assert(samples.size() == maxSampleCount);
+	if (samples.size() != maxSampleCount)
+	{
+		parseError = MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH;
+		MP4_LOG_ERR("Sample count mismatch in SENC: expected %" PRIu64 ", got %zu", maxSampleCount, samples.size());
+		return;
+	}
 	for (auto iSample = sampleOffset; iSample < maxSampleCount; iSample++)
 	{
 		samples[iSample].mDrmMetadata.mIsEncrypted = true;
@@ -485,7 +503,7 @@ void Mp4Demux::ParseSampleEncryption()
 		if (flags & 2)
 		{ // sub sample encryption
 			uint16_t n_subsamples = ReadU16();
-			size_t subsamples_size = n_subsamples * 6;
+			size_t subsamples_size = n_subsamples * MP4_SUBSAMPLE_ENTRY_SIZE;
 			samples[iSample].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subsamples_size);
 			ptr += subsamples_size;
 		}
@@ -516,8 +534,9 @@ void Mp4Demux::ParseTrackRun()
 	else
 	{
 		// mandatory field? should never reach here
-		//TODO: Return proper error here instead of assert
-		assert(0);
+		parseError = MP4_PARSE_ERROR_MISSING_DATA_OFFSET;
+		MP4_LOG_ERR("Missing data offset in TRUN box");
+		return;
 	}
 	uint32_t sample_flags = 0;
 	if (flags & 0x0004)
@@ -525,7 +544,7 @@ void Mp4Demux::ParseTrackRun()
 		sample_flags = ReadU32();
 	}
 	uint64_t dts = baseMediaDecodeTime;
-	for (unsigned int i = 0; i < sample_count; i++)
+	for (auto i = 0u; i < sample_count; i++)
 	{
 		samples.emplace_back();
 		// Get reference to newly added sample
@@ -627,8 +646,13 @@ void Mp4Demux::ParseVideoInformation()
 	SkipBytes(32); // compressor_name
 	codecInfo.mInfo.video.mDepth = ReadU16();
 	int pad = ReadU16();
-	// TODO: Return proper error here instead of assert
-	assert(pad == 0xffff);
+	if (pad != 0xffff)
+	{
+		// TODO: Is it a critical error?
+		parseError = MP4_PARSE_ERROR_INVALID_PADDING;
+		MP4_LOG_ERR("Invalid padding value: 0x%04x, expected 0xffff", pad);
+		return;
+	}
 }
 
 /**
@@ -665,14 +689,18 @@ void Mp4Demux::ParseMovieHeader()
 	creationTime = ReadBytes(sz);
 	modificationTime = ReadBytes(sz);
 	timeScale = ReadU32();
-	duration = ReadU32();
+	duration = ReadBytes(sz);
 	rate = ReadU32();
 	volume = ReadU32(); // fixed point
-	ptr += 8;
+	ptr += 8; // reserved
 	for (int i = 0; i < 9; i++)
 	{
 		matrix[i] = ReadI32();
 	}
+	// skip pre_defined
+	SkipBytes(24);
+	// skip next trackID
+	SkipBytes(4);
 }
 
 /**
@@ -713,8 +741,10 @@ void Mp4Demux::ParseMediaHeader()
 	creationTime = ReadBytes(sz);
 	modificationTime = ReadBytes(sz);
 	timeScale = ReadU32();
-	duration = ReadU32();
+	duration = ReadBytes(sz);
 	language = ReadU16();
+	// skip pre_defined
+	SkipBytes(2);
 }
 
 /**
@@ -779,11 +809,15 @@ void Mp4Demux::ParseTrackExtendsBox()
  * @param next Pointer to next box
  */
 void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
-{ // stsd
+{
 	ReadHeader();
 	uint32_t count = ReadU32();
-	// TODO: Return proper error here instead of assert
-	assert(count == 1);
+	if (count != 1)
+	{
+		parseError = MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT;
+		MP4_LOG_ERR("Unsupported sample description count: %u, expected 1", count);
+		return;
+	}
 	DemuxHelper(next);
 }
 
@@ -816,9 +850,14 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 			break;
 
 		default:
-			// TODO: Return proper error here instead of assert
-			assert(0);
+			parseError = MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT;
+			MP4_LOG_ERR("Unsupported stream format: 0x%08x", streamFormat);
 			break;
+	}
+	// No need to continue if error occurred
+	if (parseError != MP4_PARSE_OK)
+	{
+		return;
 	}
 	DemuxHelper(next);
 }
@@ -887,11 +926,20 @@ void Mp4Demux::ParseCodecConfigHelper(const uint8_t *next)
 				break;
 
 			default:
-				assert(0);
+				parseError = MP4_PARSE_ERROR_INVALID_ESDS_TAG;
+				MP4_LOG_ERR("Invalid ESDS tag: 0x%02x", tag);
+				return;
 				break;
 		}
-		assert(ptr == end);
-		ptr = end;
+		if (parseError != MP4_PARSE_OK)
+		{
+			return;
+		}
+		if (ptr != end)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			MP4_LOG_ERR("Data boundary mismatch in codec config, ptr offset: %td", ptr - end);
+		}
 	}
 }
 
@@ -914,11 +962,16 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 		SkipBytes(4);
 		ParseCodecConfigHelper(next);
 	}
-	else if (type != MultiChar_Constant("dec3"))
+	else
 	{
-		//TODO: No need to read this for dec3 box. Filter this against other types if any.
 		size_t codec_data_len = next - ptr;
-		codecInfo.mCodecData = std::vector<uint8_t>(ptr, ptr + codec_data_len);
+		//No need to read this for dec3 box. Filter this against other types if any.
+		if (type != MultiChar_Constant("dec3"))
+		{
+			codecInfo.mCodecData = std::vector<uint8_t>(ptr, ptr + codec_data_len);
+		}
+		// Update ptr to next box
+		SkipBytes(codec_data_len);
 	}
 }
 
@@ -963,12 +1016,10 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 
 			case MultiChar_Constant("saio"): // points to first IV in senc box
 				ParseSampleAuxiliaryInformationOffsets();
-				assert(ptr == next);
 				break;
 
 			case MultiChar_Constant("saiz"): // defines size of senc entries
 				ParseSampleAuxiliaryInformationSizes();
-				assert(ptr == next);
 				break;
 
 			case MultiChar_Constant("senc"): // modern, optional
@@ -1020,7 +1071,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
 			case MultiChar_Constant("smhd"): // Sound Media Header (balance)
 			case MultiChar_Constant("dref"): // Data Reference (url) (under dinf box)
-			case MultiChar_Constant("stts"): // Decoding Time To Sample (under stb boxl)
+			case MultiChar_Constant("stts"): // Decoding Time To Sample (under stbl box)
 			case MultiChar_Constant("stsc"): // Sample To Chunk (under stbl box)
 			case MultiChar_Constant("stsz"): // Sample Size Boxes (under stbl box)
 			case MultiChar_Constant("stco"): // Chunk Offsets (under stbl box)
@@ -1035,7 +1086,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("sidx"): // Segment Index
 			case MultiChar_Constant("udta"): // User Data (can appear under moov, trak, moof, traf)
 			case MultiChar_Constant("mdat"): // Movie Data (under file box)
-				// TODO - parse if needed
+				// Skip these boxes for now
+				ptr = next;
 				break;
 
 			case MultiChar_Constant("schm"):
@@ -1048,7 +1100,6 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 
 			case MultiChar_Constant("tenc"):
 				ParseTrackEncryptionBox();
-				assert(ptr == next);
 				break;
 
 			case MultiChar_Constant("moof"):  // Movie Fragment
@@ -1086,7 +1137,16 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			default:
 				break;
 		}
-		ptr = next;
+		if (parseError != MP4_PARSE_OK)
+		{
+			return;
+		}
+		if (ptr != next)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			MP4_LOG_ERR("Box type %s data boundary mismatch, ptr offset: %td", FourCCToString(type).c_str(), ptr - next);
+			return;
+		}
 	}
 }
 
@@ -1099,27 +1159,48 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
  * 
  * @param ptr Pointer to MP4 data buffer
  * @param len Length of data buffer in bytes
+ * @return true if parsing succeeded, false on error
  */
-void Mp4Demux::Parse(const void *ptr, size_t len)
+bool Mp4Demux::Parse(const void *ptr, size_t len)
 {
+	// Reset error state
+	parseError = MP4_PARSE_OK;
+
 	// scrub sample data from previous segment, but leave other metadata intact
 	samples.clear();
 	cencAuxInfoSizes.clear();
+	protectionData.clear();
 	gotAuxiliaryInformationOffset = false;
 	moofPtr = NULL;
 	if (ptr)
 	{
 		this->ptr = (const uint8_t *)ptr;
 		DemuxHelper(&this->ptr[len]);
+		if (parseError != MP4_PARSE_OK)
+		{
+			return false;
+		}
 	}
 	// Force encrypted flag if any encrypted samples were handled previously
 	// For GStreamer, renegotiation will fail if the caps change from
 	// encrypted to clear, so we need to keep the encrypted flag set.
 	if (handledEncryptedSamples && codecInfo.mIsEncrypted == false)
 	{
-		MP4_LOGGER(MP4_LOG_WARNING, "Forcing encrypted flag in codec info due to prior encrypted samples");
+		MP4_LOG(MP4_LOG_WARNING, "Forcing encrypted flag in codec info due to prior encrypted samples");
 		codecInfo.mIsEncrypted = true;
 	}
+	return true;
+}
+
+/**
+ * @brief Get last parser error
+ * Returns the last error that occurred during parsing.
+ * 
+ * @return Mp4ParseError indicating the last error
+ */
+Mp4ParseError Mp4Demux::GetLastError() const
+{
+	return parseError;
 }
 
 /**

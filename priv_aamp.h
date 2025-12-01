@@ -3999,7 +3999,7 @@ public:
 	 * @param[in] type - Media type
 	 * @param[in] codecInfo - Codec information
 	 */
-	void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo);
+	void SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo);
 
 protected:
 

@@ -678,7 +678,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample sample, bool copy, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -1336,7 +1336,7 @@ void AAMPGstPlayer::StopMonitorAvTimer()
  * @param[in] type - Media type
  * @param[in] codecInfo - Codec information
  */
-void AAMPGstPlayer::SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo)
+void AAMPGstPlayer::SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo)
 {
 	CodecInfo gstCodecInfo;
 	gstCodecInfo.codecFormat = (GstStreamOutputFormat)codecInfo.mCodecFormat;
@@ -1355,9 +1355,15 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, const AampCodecInfo &codec
 	playerInstance->SetStreamCaps((GstMediaType)type, gstCodecInfo);
 }
 
+/**
+ * @brief Inject AampMediaSample to gstreamer pipeline
+ * 
+ * @param[in] mediaType - Media type
+ * @param[in,out] sample - Media sample to inject
+ * @return true if sample is successfully injected, false otherwise
+ */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 {
-	bool ret = false;
 	MediaSample gstSample;
 
 	// Convert AampMediaSample to MediaSample
@@ -1382,7 +1388,7 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 		gstSample.drmMetadata.isEncrypted = false;
 	}
 
-	ret = SendHelper( mediaType, std::move(gstSample), false /*transfer*/);
+	bool ret = SendHelper( mediaType, std::move(gstSample), false /*transfer*/);
 
 	if (ret)
 	{

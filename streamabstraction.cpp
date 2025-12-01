@@ -39,7 +39,7 @@
 #include "AampConfig.h"
 #include "SubtecFactory.hpp"
 #include "AampUtils.h"
-#include "mp4demux/AampMp4Demuxer.h"
+#include "AampMp4Demuxer.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))

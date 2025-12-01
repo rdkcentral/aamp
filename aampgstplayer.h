@@ -105,7 +105,7 @@ private:
 	 * @param[in] copy to map or transfer the buffer
 	 * @param[in] initFragment flag for buffer type (init, data)
 	 */
-	bool SendHelper(AampMediaType mediaType, MediaSample sample, bool copy, bool initFragment = false, bool discontinuity = false);
+	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment = false, bool discontinuity = false);
 
 public:
 	class PrivateInstanceAAMP *aamp;
@@ -143,7 +143,13 @@ public:
 		 */
 	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
 
- 	bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) override;
+	/**
+	 * @fn SendSample
+	 * @param[in] mediaType stream type
+	 * @param[in] sample media sample
+	 */
+	bool SendSample(AampMediaType mediaType, AampMediaSample& sample) override;
+
 	/**
 		 * @fn PipelineConfiguredForMedia
 		 * @param[in] type stream type
@@ -434,7 +440,7 @@ public:
      * @param[in] type - Media type
      * @param[in] codecInfo - Codec information
      */
-	void SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo) override;
+	void SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo) override;
 
 private:
 	std::mutex mBufferingLock;

@@ -14060,11 +14060,11 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
  * @param[in] type - Media type
  * @param[in] codecInfo - Codec information
  */
-void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, const AampCodecInfo &codecInfo)
+void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SetStreamCaps(type, codecInfo);
+		sink->SetStreamCaps(type, std::move(codecInfo));
 	}
 }
