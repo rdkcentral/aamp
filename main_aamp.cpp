@@ -35,6 +35,7 @@
 #include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
+#include "AampDRMLicManager.h"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -189,7 +190,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			aamp->Stop( true );
+			aamp->Stop(false); // Don't send state change events during destruction
 		}
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
@@ -241,7 +242,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
 	if (aamp)
 	{
@@ -363,7 +364,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			StopInternal(false);
+			StopInternal(true, false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -3102,7 +3103,7 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceCleanup)
 {
 	aamp->StopPausePositionMonitoring("Stop() called");
 	AAMPPlayerState state = aamp->GetState();
