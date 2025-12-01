@@ -237,16 +237,6 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		}
 		m_demux = true;
 	}
-
-	for (auto & comp : videoComponents)
-	{
-		comp = RecordingComponent();
-	}
-
-	for (auto & comp : audioComponents)
-	{
-		comp = RecordingComponent();
-	}
 }
 
 /**
@@ -412,15 +402,6 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
 
-	for (int i = 0; i < audioComponentCount; ++i)
-	{
-		if (audioComponents[i].associatedLanguage)
-		{
-			free(audioComponents[i].associatedLanguage);
-		}
-	}
-
-	// Use RAII: assignment operator invokes RecordingComponent constructor
 	for (auto & comp : videoComponents)
 	{
 		comp = RecordingComponent();
@@ -428,6 +409,10 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 
 	for (auto & comp : audioComponents)
 	{
+		if (comp.associatedLanguage)
+		{
+			free(comp.associatedLanguage);
+		}
 		comp = RecordingComponent();
 	}
 
