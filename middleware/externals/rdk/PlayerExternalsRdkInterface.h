@@ -36,7 +36,6 @@
 
 #include <memory>
 #ifdef USE_DS_EVENT_SUPPORTED
-#include "host.hpp"
 #endif
 #include "PlayerExternalsInterfaceBase.h"
 
