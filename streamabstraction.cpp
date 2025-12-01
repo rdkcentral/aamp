@@ -1620,14 +1620,14 @@ bool MediaTrack::SignalIfEOSReached()
 void MediaTrack::StartInjectLoop()
 {
 
-	std::lock_guard<std::mutex> guard(injectorStartMutex);
-	if (fragmentInjectorThreadID.joinable())
+	try
 	{
-		AAMPLOG_WARN("Fragment injector thread already started");
-	}
-	else
-	{
-		try
+		std::lock_guard<std::mutex> guard(injectorStartMutex);
+		if (fragmentInjectorThreadID.joinable())
+		{
+			AAMPLOG_WARN("Fragment injector thread already started");
+		}
+		else
 		{
 			abort = false;
 			abortInject = false;
@@ -1636,10 +1636,10 @@ void MediaTrack::StartInjectLoop()
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
 			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
 		}
-		catch(const std::exception& e)
-		{
-			AAMPLOG_WARN("Failed to create FragmentInjector thread ; %s", e.what());
-		}
+	}
+	catch(const std::exception& e)
+	{
+		AAMPLOG_WARN("Failed to create FragmentInjector thread ; %s", e.what());
 	}
 }
 
