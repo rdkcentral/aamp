@@ -3,6 +3,13 @@
 #include <vector>
 #include <cassert>
 #include <cstring>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+
+std::mutex g_needDataMutex;
+std::condition_variable g_needDataCv;
+std::queue<NeedDataRequestEvent> g_needDataQueue;
 
 using namespace firebolt::rialto;
 
@@ -106,9 +113,16 @@ void GstMediaPipeline::notifyNetworkState(NetworkState state) {}
 void GstMediaPipeline::notifyQos(int32_t sourceId, const QosInfo &qosInfo) {}
 void GstMediaPipeline::notifyBufferUnderflow(int32_t sourceId) {}
 void GstMediaPipeline::notifySourceFlushed(int32_t sourceId) {}
+
 void GstMediaPipeline::notifyNeedMediaData(int32_t sourceId, size_t frameCount, 
-                             uint32_t needDataRequestId, 
-                             const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo) {}
+                                           uint32_t needDataRequestId, 
+                                           const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
+{
+    std::lock_guard<std::mutex> lock(g_needDataMutex);
+    g_needDataQueue.push({sourceId, needDataRequestId});
+    g_needDataCv.notify_one();
+}
+
 void GstMediaPipeline::notifyDuration(int64_t duration) {}
 void GstMediaPipeline::notifyNativeSize(uint32_t width, uint32_t height, double aspect) {}
 void GstMediaPipeline::notifyVideoData(bool hasData) {}

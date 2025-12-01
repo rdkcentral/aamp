@@ -5,6 +5,9 @@
 #include <cstring>
 #include <memory>
 #include <vector>
+#include <mutex>
+#include <queue>
+#include <condition_variable>
 #include "mp4demux.hpp"
 #include "rialto-gst-pipeline.h"
 
@@ -19,6 +22,21 @@ static int32_t sourceIdAudio;
 static int32_t sourceIdVideo;
 
 using namespace firebolt::rialto; 
+
+uint32_t WaitForNeedDataRequest(int32_t sourceId, int timeoutMs = 5000)
+{
+    std::unique_lock<std::mutex> lock(g_needDataMutex);
+    if (!g_needDataCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [sourceId]{
+        return !g_needDataQueue.empty() && g_needDataQueue.front().sourceId == sourceId;
+    }))
+    {
+        return UINT32_MAX;
+    }
+
+    uint32_t requestId = g_needDataQueue.front().requestId;
+    g_needDataQueue.pop();
+    return requestId;
+}
 
 void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
 {
@@ -86,15 +104,13 @@ void ConfigureAudio()
     // const char *codec_ptr = trackAudio.codec_data.c_str();
     // codecData.data = std::vector<uint8_t>( codec_ptr, &codec_ptr[trackAudio.codec_data.size()] );
 
-    std::unique_ptr<IMediaPipeline::MediaSourceAudio> sourceAudio =
-    std::make_unique<IMediaPipeline::MediaSourceAudio>(
-                        mimeType,
-                        hasDrm,
-                        alignment,
-                        streamFormat,
-                        trackAudio.audio.rate, 
-                        trackAudio.audio.channels,
-                        std::make_shared<CodecData>(codecData) );
+   std::unique_ptr<IMediaPipeline::MediaSourceAudio> sourceAudio = std::make_unique<IMediaPipeline::MediaSourceAudio>(
+																					   mimeType,
+																					   hasDrm,
+																					   audioConfig,
+																					   SegmentAlignment::UNDEFINED,
+																					   streamFormat,
+																					   nullptr /* codecData*/ );
                         
     gstMediaPipeline->attachSource( std::move(sourceAudio), sourceIdAudio );
 }
@@ -146,12 +162,13 @@ void ConfigureComplete()
     gstMediaPipeline->allSourcesAttached();
 }
 
-void InjectAudio()
+void InjectAudio(int32_t needDataId)
 {
     LoadAndDemuxSegment(trackAudio, "audio/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/chunk-stream0-00001.m4s" << std::endl;
     
-    size_t segmentCount = trackAudio.getNbSegments(); // Corrected function name
+    // size_t segmentCount = trackAudio.getNbSegments();
+    size_t segmentCount = trackAudio.count();
     printf("adding %zu audio frames\n", segmentCount); 
 
     for (size_t i = 0; i < segmentCount; ++i)
@@ -170,17 +187,18 @@ void InjectAudio()
         std::memcpy(data, trackAudio.getPtr(i), len);
         audioSegment->setData((uint32_t)len, data);
 
-        AddSegmentStatus status = gstMediaPipeline->addSegment(0, audioSegment);
+        AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, audioSegment);
         assert(status == AddSegmentStatus::OK);
     }
 }
 
-void InjectVideo()
+void InjectVideo(int32_t needDataId)
 {
     LoadAndDemuxSegment(trackVideo, "video/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s" << std::endl;
     
-    size_t segmentCount = trackVideo.getNbSegments(); // Corrected function name
+    // size_t segmentCount = trackVideo.getNbSegments();
+    size_t segmentCount = trackVideo.count();
     printf("adding %zu video frames\n", segmentCount);
 
     for (size_t i = 0; i < segmentCount; ++i)
@@ -201,7 +219,7 @@ void InjectVideo()
         std::memcpy(data, trackVideo.getPtr(i), len);
         videoSegment->setData((uint32_t)len, data);
 
-        AddSegmentStatus status = gstMediaPipeline->addSegment(0, videoSegment);
+        AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, videoSegment);
         assert(status == AddSegmentStatus::OK);
     }
 }
@@ -227,18 +245,28 @@ int my_main(int argc, char **argv)
         fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
     }
 
-    gstMediaPipeline->play();
+    // MUST happen before any attachSource() to create a Rialto Gstreamer player
+    gstMediaPipeline->load(MediaType::MSE, "video/fmp4", "test://local"); // Dummy values
 
     ConfigureAudio();
     ConfigureVideo();
     ConfigureComplete();
 
-    InjectAudio();
-    InjectVideo();
+    gstMediaPipeline->play();
 
-    std::this_thread::sleep_for(std::chrono::seconds(5)); 
+    uint32_t audioReqId = WaitForNeedDataRequest(sourceIdAudio);
+    uint32_t videoReqId = WaitForNeedDataRequest(sourceIdVideo);
+
+    if (audioReqId != UINT32_MAX)
+        InjectAudio(audioReqId);
+
+    if (videoReqId != UINT32_MAX)
+        InjectVideo(videoReqId);
+
+
+    // std::this_thread::sleep_for(std::chrono::seconds(5)); 
     
-    gstMediaPipeline->stop();
+    // gstMediaPipeline->stop();
 
     return 0;
 }

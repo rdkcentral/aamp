@@ -6,6 +6,20 @@
 #include <iostream>
 #include <vector>
 
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+
+struct NeedDataRequestEvent
+{
+    int32_t sourceId;
+    uint32_t requestId;
+};
+
+extern std::mutex g_needDataMutex;
+extern std::condition_variable g_needDataCv;
+extern std::queue<NeedDataRequestEvent> g_needDataQueue;
+
 using namespace firebolt::rialto;
 
 class GstMediaPipeline : public IMediaPipeline, 
