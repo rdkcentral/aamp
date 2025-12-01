@@ -24,8 +24,10 @@ void PerfProfiler::PrintStats() {
     printf("\n=== Performance Stats ===\n");
     for (const auto& [func, s] : snapshot) {
         long long avg = s.callCount ? (s.totalTime / s.callCount) : 0;
-        printf("[PERF] %s called %zu times, avg %lld µs, total %lld µs\n",
-               func.c_str(), s.callCount, avg, s.totalTime);
+        
+	printf("[PERF] %s called %llu times, avg %lld µs, total %lld µs\n",
+       	func.c_str(),static_cast<unsigned long long>(s.callCount), static_cast<long long>(avg), static_cast<long long>(s.totalTime));
+
     }
     fflush(stdout);
 }
