@@ -134,11 +134,10 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mMaxTracks(0)
 	,mDeltaTime(0)
 	,mHasServerUtcTime(false)
-	,latencyMonitorThreadStarted(false),prevLatencyStatus(LATENCY_STATUS_UNKNOWN),latencyStatus(LATENCY_STATUS_UNKNOWN),latencyMonitorThreadID()
+	,prevLatencyStatus(LATENCY_STATUS_UNKNOWN),latencyStatus(LATENCY_STATUS_UNKNOWN),latencyMonitorThreadID()
 	,mStreamLock()
 	,mProfileCount(0)
 	,mIterPeriodIndex(0), mNumberOfPeriods(0)
-	,playlistDownloaderThreadStarted(false)
 	,mSubtitleParser()
 	,mMultiVideoAdaptationPresent(false)
 	,mLocalUtcTime(0)
@@ -9567,11 +9566,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			double lastPrdOffset = mBasePeriodOffset;
 			while (!exitFetchLoop)
 			{
-				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderThreadStarted)
+				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->isPlaylistDownloaderThreadStarted())
 				{
 					// CDVR moved from "dynamic" to "static"
 					playlistDownloaderContext->StopPlaylistDownloaderThread();
-					playlistDownloaderThreadStarted = false;
 				}
 				/* Calling the Refresh audio track, in order to switch to the newly selected Audio Track */
 				if(mPlayRate == AAMP_NORMAL_PLAY_RATE && mMediaStreamContext[eTRACK_AUDIO] && mMediaStreamContext[eTRACK_AUDIO]->refreshAudio )
@@ -10361,7 +10359,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 	}
 
-	if(latencyMonitorThreadStarted)
+	if(latencyMonitorThreadID.joinable())
 	{
 		aamp->SetLLDashAdjustSpeed(false);
 		aamp->SetLLDashCurrentPlayBackRate(GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate));
@@ -10372,7 +10370,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
 		latencyMonitorThreadID.join();
 		AAMPLOG_INFO("Joined StartLatencyMonitorThread");
-		latencyMonitorThreadStarted = false;
 	}
 	if (!aamp->DownloadsAreEnabled())
 	{
@@ -12668,11 +12665,10 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
  */
 void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
 {
-	assert(!latencyMonitorThreadStarted);
+	assert(!latencyMonitorThreadID.joinable());
 	try
 	{
 		latencyMonitorThreadID = std::thread(&StreamAbstractionAAMP_MPD::MonitorLatency, this);
-		latencyMonitorThreadStarted = true;
 		AAMPLOG_INFO("Thread created Latency monitor [%zx]", GetPrintableThreadID(latencyMonitorThreadID));
 	}
 	catch(const std::exception& e)
