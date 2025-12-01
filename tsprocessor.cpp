@@ -395,9 +395,9 @@ void TSProcessor::insertPCR(unsigned char *packet, int pid)
 void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	unsigned int dataDescTags[MAX_PIDS];
+	unsigned int dataDescTags[MAX_PIDS] = {};
 	int streamType = 0, pid = 0, len = 0;
-	char work[32];
+	char work[32] = {};
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
 	StreamOutputFormat audioFormat = FORMAT_INVALID;
 	bool cueiDescriptorFound = false;
@@ -414,12 +414,16 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 		}
 	}
 
-	memset(videoComponents, 0, sizeof(videoComponents));
-	memset(audioComponents, 0, sizeof(audioComponents));
+	// Use RAII: assignment operator invokes RecordingComponent constructor
+	for (auto & comp : videoComponents)
+	{
+		comp = RecordingComponent();
+	}
 
-	memset(dataDescTags, 0, sizeof(dataDescTags));
-
-	memset(work, 0, sizeof(work));
+	for (auto & comp : audioComponents)
+	{
+		comp = RecordingComponent();
+	}
 
 	videoComponentCount = audioComponentCount = 0;
 	m_dsmccComponentFound = false;

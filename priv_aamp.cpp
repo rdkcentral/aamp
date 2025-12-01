@@ -1374,7 +1374,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCustomHeaders["Connection:"] = std::vector<std::string> { "Keep-Alive" };
 	preferredLanguagesList.push_back("en");
 
-	memset(&aesCtrAttrDataList, 0, sizeof(aesCtrAttrDataList));
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
@@ -6165,9 +6164,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mIsFirstRequestToFOG = (mFogTSBEnabled == true);
 
 	{
-		char tuneStrPrefix[64];
+		char tuneStrPrefix[64] = {};
 		mTsbSessionRequestUrl.clear();
-		memset(tuneStrPrefix, '\0', sizeof(tuneStrPrefix));
 		if (!mAppName.empty())
 		{
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d] APP: %s",(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mAppName.c_str());
@@ -8983,8 +8981,7 @@ void PrivateInstanceAAMP::UpdateLiveOffset()
  */
 void PrivateInstanceAAMP::SendStalledErrorEvent()
 {
-	char description[MAX_ERROR_DESCRIPTION_LENGTH];
-	memset(description, '\0', MAX_ERROR_DESCRIPTION_LENGTH);
+	char description[MAX_ERROR_DESCRIPTION_LENGTH] = {};
 	int stalltimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS);
 	snprintf(description, (MAX_ERROR_DESCRIPTION_LENGTH - 1), "Playback has been stalled for more than %d ms due to lack of new fragments", stalltimeout);
 	SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, description);
@@ -9121,8 +9118,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
  */
 void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
-	char moneytracebuf[512];
-	memset(moneytracebuf, 0, sizeof(moneytracebuf));
+	char moneytracebuf[512] = {};
 
 	if (mCustomHeaders.size() > 0)
 	{

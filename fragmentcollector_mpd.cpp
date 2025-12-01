@@ -10984,7 +10984,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 												while( repeatCount-- >= 0 )
 												{
 													std::string tmedia = media;
-													TileInfo tileInfo;  // Constructor already initializes all members
+													TileInfo tileInfo;
 													tileInfo.startTime = startTime + ( adDuration / timeScale) ;
 													AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%" PRIu64 "] startTime:%f adDuration:%f repeatCount:%d",  timeLineIndex, timelines.size(), durationMs, startTime, adDuration, repeatCount);
 
@@ -11031,7 +11031,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 											while(totalTiles-- > 0)
 											{
 												std::string tmedia = media;
-												TileInfo tileInfo;  // Constructor already initializes all members
+												TileInfo tileInfo;
 												tileInfo.startTime = tStartTime;
 												tStartTime += tDuration; //increment the nextStartTime by TileDuration
 												replace(tmedia,"RepresentationID",RepresentationID);
@@ -12595,7 +12595,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 						{
 							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%s]", wallClockTime.c_str());
 
-							std::tm tmTime{};  // Zero-initialize all members
+							std::tm tmTime{};
 							const char* format = "%Y-%m-%dT%H:%M:%S.%f%Z";
 							char out_buffer[ 80 ];
 							strptime(wallClockTime.c_str(), format, &tmTime);
