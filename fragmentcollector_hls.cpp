@@ -7134,6 +7134,11 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 			}
 		}
 	}
+
+	if(currentTextTrackProfileIndex > -1 )
+	{
+		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
+	}
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 /**
