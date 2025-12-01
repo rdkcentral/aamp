@@ -162,9 +162,6 @@ set_target_properties(playerfbinterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFI
 
 string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
-target_include_directories(playerfbinterface PRIVATE ${DS_INCLUDE_DIRS})
-target_link_libraries(playerfbinterface PRIVATE ${DS_LIBRARIES})
-
 target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
