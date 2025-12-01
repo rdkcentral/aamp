@@ -19,7 +19,6 @@
 
 #include "AmlogicSocInterface.h"
 #ifdef USE_SVP
-#errr 123
 #include "gst_svp_meta.h"
 #endif
 
