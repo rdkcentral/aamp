@@ -182,19 +182,16 @@ DrmReturn AesDec::SetDecryptInfo(const struct DrmInfo *drmInfo, int acquireKeyWa
 		licenseAcquisitionThreadId.join();
 	}
 
-	if (!licenseAcquisitionThreadId.joinable())
+	try
 	{
-		try
-		{
-			licenseAcquisitionThreadId = std::thread(&AesDec::acquire_key, this);
-			err = eDRM_SUCCESS;
+		licenseAcquisitionThreadId = std::thread(&AesDec::acquire_key, this);
+		err = eDRM_SUCCESS;
 //TODO		MW_LOG_INFO("Thread created for acquire_key [%zx]", GetPrintableThreadID(licenseAcquisitionThreadId));
-		}
-		catch(const std::exception& e)
-		{
-			MW_LOG_ERR("AesDec:: thread create failed for acquire_key : %s", e.what());
-			mDrmState = eDRM_KEY_FAILED;
-		}
+	}
+	catch(const std::exception& e)
+	{
+		MW_LOG_ERR("AesDec:: thread create failed for acquire_key : %s", e.what());
+		mDrmState = eDRM_KEY_FAILED;
 	}
 	MW_LOG_INFO("AesDec: drmState:%d ", mDrmState);
 	return err;

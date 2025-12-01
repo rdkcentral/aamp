@@ -83,13 +83,13 @@ void MediaTrack::StartPlaylistDownloaderThread()
 		playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
 		AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
 	}
-	else if(!playlistDownloaderThread->joinable())
+	else if(playlistDownloaderThread->joinable())
 	{
-		AAMPLOG_ERR("Failed to start thread, already initialized for %s", name);
+		AAMPLOG_INFO("Thread already running for %s", name);
 	}
 	else
 	{
-		AAMPLOG_INFO("Thread already running for %s", name);
+		AAMPLOG_WARN("Failed to start thread. thread is not joinable, but the thread pointer is non NULL for %s", name);
 	}
 }
 
