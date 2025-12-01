@@ -196,6 +196,8 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	, m_auxiliaryAudio(false)
 	,m_audioGroupId()
 	,m_applyOffset(true)
+	,m_SPS{}
+	,m_PPS{}
 {
 	AAMPLOG_INFO(" constructor: %p", this);
 	bool optimizeMuxed = false;
@@ -205,8 +207,6 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
 	}
 
-	memset(m_SPS, 0, 32 * sizeof(H264SPS));
-	memset(m_PPS, 0, 256 * sizeof(H264PPS));
 	m_versionPMT = 0;
 
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO) || (m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX))
