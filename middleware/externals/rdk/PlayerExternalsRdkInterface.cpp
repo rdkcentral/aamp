@@ -34,9 +34,6 @@
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
 
-#define HDMI_HOT_PLUG_EVENT_CONNECTED 0
-
-
 std::shared_ptr<PlayerExternalsRdkInterface> s_pPlayerIarmRdkOP = nullptr;
 
 static bool isInterfaceWifi = false;
@@ -136,6 +133,7 @@ void PlayerExternalsRdkInterface::Initialize()
 }
 
 #ifdef USE_DS_EVENT_SUPPORTED
+#err 123
 void PlayerExternalsRdkInterface::RegisterDsClientEventHandler()
 {
 	try {
@@ -150,10 +148,10 @@ void PlayerExternalsRdkInterface::RegisterDsClientEventHandler()
 
 void PlayerExternalsRdkInterface::RemoveDsClientEventHandlers()
 {
-	device::Host::getInstance().UnRegister(baseInterface<device::Host::IVideoOutputPortEvents>());
-	device::Host::getInstance().UnRegister(baseInterface<device::Host::IDisplayDeviceEvents>());
 	try
 	{
+		device::Host::getInstance().UnRegister(baseInterface<device::Host::IVideoOutputPortEvents>());
+		device::Host::getInstance().UnRegister(baseInterface<device::Host::IDisplayDeviceEvents>());
 		device::Manager::DeInitialize();
 	}
 	catch(...)
@@ -164,7 +162,7 @@ void PlayerExternalsRdkInterface::RemoveDsClientEventHandlers()
 
 void PlayerExternalsRdkInterface::OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
 {
-	const char *hdmihotplug = (displayEvent == HDMI_HOT_PLUG_EVENT_CONNECTED) ? "connected" : "disconnected";
+	const char *hdmihotplug = (displayEvent == dsDISPLAY_EVENT_CONNECTED) ? "connected" : "disconnected";
 	MW_LOG_WARN(" Received Display HDMI HotPlug event data:%d status: %s\n",
 			   (int)displayEvent, hdmihotplug);
 
