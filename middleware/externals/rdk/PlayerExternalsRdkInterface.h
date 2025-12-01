@@ -168,7 +168,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         /* IVideoOutputPortEvents */
         void OnResolutionPreChange(const int width, const int height) override;
         void OnResolutionPostChange(const int width, const int height) override;
-        void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus);
+        void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus) override;
 
         /* IDisplayDeviceEvents */
         void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent) override;
