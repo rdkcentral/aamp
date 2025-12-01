@@ -978,7 +978,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				//Reset speedcache when Fragment download Starts
 				struct SpeedCache* speedcache = NULL;
 				speedcache = aamp->GetLLDashSpeedCache();
-				memset(speedcache, 0x00, sizeof(struct SpeedCache));
+				*speedcache = SpeedCache();
 			}
 
 			downloadbps = getCurrentContentDownloadSpeed(aamp, context->mediaType, context->dlStarted, (long)context->downloadStartTime, dlnow);
@@ -13062,14 +13062,6 @@ void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
 uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return subTimeScale;
-}
-
-/**
- * @brief Sets Speed Cache
- */
-void PrivateInstanceAAMP::SetLLDashSpeedCache(struct SpeedCache &speedCache)
-{
-	this->speedCache = speedCache;
 }
 
 /**

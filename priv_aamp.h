@@ -3527,14 +3527,6 @@ public:
 	uint32_t GetSubTimeScale(void);
 
 	/**
-	 *   @fn SetLLDashSpeedCache
-	 *
-	 *   @param[in] speedCache - Speed Cache
-	 *   @return void
-	 */
-	void SetLLDashSpeedCache(struct SpeedCache &speedCache);
-
-	/**
 	 *   @fn GetLLDashSpeedCache
 	 *
 	 *   @return struct SpeedCache speedCache*

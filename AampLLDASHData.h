@@ -61,19 +61,7 @@ struct AampLLDashServiceData {
 	/**< API to reset the Data*/
 	void clear(void)
 	{
-		lowLatencyMode =false;
-		strictSpecConformance = false;
-		availabilityTimeOffset = 0.0;
-		availabilityTimeComplete = false;
-		targetLatency = 0;
-		minLatency = 0;
-		maxLatency = 0;
-		latencyThreshold = 0;
-		minPlaybackRate = 0.0;
-		maxPlaybackRate = 0.0;
-		isSegTimeLineBased = false;
-		fragmentDuration = 0.0; 
-		utcTiming = eUTC_HTTP_INVALID;
+		*this = AampLLDashServiceData();
 	}
 };
 
