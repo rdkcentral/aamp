@@ -238,9 +238,15 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		m_demux = true;
 	}
 
-	int compBufLen = MAX_PIDS*sizeof(RecordingComponent);
-	memset(videoComponents, 0, compBufLen);
-	memset(audioComponents, 0, compBufLen);
+	for (auto & comp : videoComponents)
+	{
+		comp = RecordingComponent();
+	}
+
+	for (auto & comp : audioComponents)
+	{
+		comp = RecordingComponent();
+	}
 }
 
 /**

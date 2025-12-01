@@ -12757,8 +12757,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 				{
 					continue;
 				}
-				char buf[512];
-				memset(buf, '\0', 512);
+				char buf[512] = {};
 				if (it->second.size() >= 2)
 				{
 					snprintf(buf, 512, "trace-id=%s;parent-id=%s;span-id=%lld",
