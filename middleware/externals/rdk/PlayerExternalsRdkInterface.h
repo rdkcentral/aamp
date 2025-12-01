@@ -92,7 +92,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 		template <typename T>
 		T* baseInterface()
 		{
-			static_assert(std::is_base_of<T, PlayerExternalsRdkInterface>(), "base type mismatch");
+			static_assert(std::is_base_of<T, PlayerExternalsRdkInterface>::value, "base type mismatch");
 			return static_cast<T*>(this);
 		}
 #endif
