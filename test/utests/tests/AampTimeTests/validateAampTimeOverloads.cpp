@@ -359,3 +359,14 @@ TEST_F(validateAampTimeOverloads, AampTicksInMilli)
 	AampTicks ticks(5000, 1000); // 5000 ticks with a timescale of 1000
 	EXPECT_EQ(ticks.inMilli(), 5000); // 5000 milliseconds
 }
+
+TEST_F(validateAampTimeOverloads, testTimescaleConversion )
+{
+	int64_t rawTicks = 927996007213;
+	uint32_t scale   = 240000;
+	AampTicks ticks(rawTicks, scale);
+	
+	AampTime t(ticks);
+	double seconds = t.inSeconds();
+	EXPECT_EQ( round(seconds), 3866650);
+}
