@@ -1029,6 +1029,15 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void PopulateAudioAndTextTracks();
+
+		/***************************************************************************
+		 * @fn NotifyTextTrackChanges
+		 * @brief Check for text track changes and send notification events
+		 *
+		 * @return void
+		 ***************************************************************************/
+		void NotifyTextTrackChanges();
+
 		/***************************************************************************
 		 * @fn ConfigureAudioTrack
 		 *
