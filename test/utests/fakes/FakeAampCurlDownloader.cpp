@@ -98,7 +98,7 @@ void AampCurlDownloader::Release()
 {
 }
 
-void AampCurlDownloader::InitializeCurlHeaderResources()
+void AampCurlDownloader::CleanupCurlHeaderResources()
 {
 }
 
