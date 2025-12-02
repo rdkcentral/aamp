@@ -380,7 +380,8 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 	// Initialize the test case variables with parameterized values
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	status = InitializeMPD();
+	status = InitializeMPD(TuneType::eTUNETYPE_NEW_NORMAL, 0.0, params.currPlaybackRate);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
@@ -537,6 +538,30 @@ INSTANTIATE_TEST_SUITE_P(
 		{98, 100, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_NORMAL_RATE_CORRECTION_SPEED, 2, AdState::OUTSIDE_ADBREAK, 0},
 		/** Case 26: Latency - low (2), current rate is min, buffer is sufficient (6), ad state is OUTSIDE_ADBREAK,
 		 * Not expected to call setPlaybackRate */
-		{98, 100, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_NORMAL_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0}
+		{98, 100, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_NORMAL_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0},
+		/** FF Case 1: High latency (10) with enough buffer, Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{90, 100, 2.0, DEFAULT_MAX_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0},
+		/** FF Case 2: Low latency (2) with enough buffer, Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{98, 100, 2.0, DEFAULT_MIN_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0},
+		/** FF Case 3: High latency (10) with low buffer, Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{90, 100, 2.0, DEFAULT_MAX_RATE_CORRECTION_SPEED, 2, AdState::OUTSIDE_ADBREAK, 0},
+		/** FF Case 4: Normal latency (6), Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{94, 100, 2.0, DEFAULT_NORMAL_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0},
+		/** RW Case 1: High latency (10) with enough buffer, Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{90, 100, -2.0, DEFAULT_MAX_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0},
+		/** RW Case 2: Low latency (2) with enough buffer, Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{98, 100, -2.0, DEFAULT_MIN_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0},
+		/** RW Case 3: High latency (10) with low buffer, Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{90, 100, -2.0, DEFAULT_MAX_RATE_CORRECTION_SPEED, 2, AdState::OUTSIDE_ADBREAK, 0},
+		/** RW Case 4: Normal latency (6), Not expected to call setPlaybackRate
+		 * during any trickplay */
+		{94, 100, -2.0, DEFAULT_NORMAL_RATE_CORRECTION_SPEED, 6, AdState::OUTSIDE_ADBREAK, 0}
 	})
 );
