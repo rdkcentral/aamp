@@ -26,8 +26,6 @@
 #include "AampLogManager.h"
 #include "MockCurl.h"
 #include <thread>
-#include <atomic>
-#include <vector>
 #include <unistd.h>
 
 using ::testing::DoAll;
@@ -50,8 +48,6 @@ protected:
 	curl_progress_callback_t mCurlProgressCallback = nullptr;
 	curl_write_func_t mCurlWriteFunc = nullptr;
 	std::string mUrl = "https://some.server/manifest.mpd";
-
-	
 
 	void SetUp() override
 	{
@@ -473,10 +469,13 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 }
 
 /**
- * @brief Test case to verify correct order: Release() before CleanupCurlHeaderResources()
+ * @brief Test case to verify calling order: Release() before CleanupCurlHeaderResources()
  * 
- * This test ensures that Release() is called before CleanupCurlHeaderResources()
- * to prevent race conditions. Release() stops downloads, then cleanup can safely proceed.
+ * This test demonstrates the recommended sequence where Release() is called first to stop
+ * downloads (sets mDownloadActive=false), followed by CleanupCurlHeaderResources() to free
+ * curl header resources. This ordering prevents potential race conditions where header
+ * resources could be freed while curl callbacks are still executing.
+ * 
  */
 TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCondition) {
     DownloadConfigPtr config = std::make_shared<DownloadConfig>();
@@ -512,19 +511,19 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
     // Step 1: Call Release() first to stop downloads
-  	mAampCurlDownloader->Release();
-  	releaseCompleted.store(true);
+	mAampCurlDownloader->Release();
+	releaseCompleted.store(true);
     
     // Step 2: Call CleanupCurlHeaderResources() after downloads stopped
-    headerCleanupStarted.store(true);
-    mAampCurlDownloader->CleanupCurlHeaderResources();
+	headerCleanupStarted.store(true);
+	mAampCurlDownloader->CleanupCurlHeaderResources();
     
     downloadThread.join();
     
     // Verify no race condition detected
     EXPECT_FALSE(raceConditionDetected.load()) 
         << "Race condition detected: CleanupCurlHeaderResources() called before Release() completed";
-    
-    // Verify download is stopped
-    EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+		
+	// Verify download is stopped
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
 }
