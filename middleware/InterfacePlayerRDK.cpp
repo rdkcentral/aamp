@@ -369,11 +369,17 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
 		if(stream->format != newFormat[i])
 		{
-			if (newFormat[i] != GST_FORMAT_INVALID)
+			bool isInitialSetup = (stream->format == GST_FORMAT_INVALID || stream->format == GST_FORMAT_UNKNOWN);
+			bool isValidNewFormat = (newFormat[i] != GST_FORMAT_INVALID && newFormat[i] != GST_FORMAT_UNKNOWN);
+			if (isValidNewFormat || isInitialSetup)
 			{
 				MW_LOG_MIL("Closing stream %d old format = %d, new format = %d",i, stream->format, newFormat[i]);
 				configureStream[i] = true;
 				interfacePlayerPriv->gstPrivateContext->NumberOfTracks++;
+			}
+			else
+			{
+				MW_LOG_MIL("Skipping reconfiguration for stream %d - both format invalid/unknown",i);
 			}
 		}
 		if(interfacePlayerPriv->socInterface->ShouldTearDownForTrickplay())
