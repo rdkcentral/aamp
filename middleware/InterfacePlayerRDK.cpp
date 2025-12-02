@@ -89,6 +89,7 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	{
 		delete[] mDrmSystem;
 	}
+	MW_SAFE_DELETE(m_gstConfigParam);
 	mScheduler.StopScheduler();
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
