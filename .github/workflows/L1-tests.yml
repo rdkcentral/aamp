@@ -74,6 +74,7 @@ jobs:
       # Upload artifact (middleware/test/utests/build/ctest-results.xml)
       - name: Upload test result file (middleware/test/utests)
         uses: actions/upload-artifact@v4
+        if: always() 
         with:
           name: ctest-results-middleware-utests-${{ github.run_id }}
           path: middleware/test/utests/build/ctest-results.xml
