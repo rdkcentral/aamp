@@ -52,7 +52,7 @@ jobs:
         if: failure()
         run: tail -n 50 test/utests/build/ctest-results.xml || true
 
-        # Install Middleware
+      # Install Middleware
       - name: Install Middleware
         working-directory: ./middleware
         run: yes | ./install-middleware.sh -s subtec
@@ -64,6 +64,7 @@ jobs:
       
       # Publish Middleware test results
       - name: Publish Middleware L1 test results
+        if: always()
         uses: dorny/test-reporter@v1
         with:
           name: Middleware Unit Test Results
