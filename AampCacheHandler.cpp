@@ -66,16 +66,20 @@ bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGr
 	AampCachedData *cachedData = mPlaylistCache.Find(url);
 	if( cachedData )
 	{
+		// Create a local copy to prevent aliasing bug when url and effectiveUrl reference the same string
+		// This can happen when callers pass GetManifestUrl() for both parameters
+		std::string urlCopy = url;
+
 		effectiveUrl = cachedData->effectiveUrl;
-		if( effectiveUrl.empty() )
+		if (effectiveUrl.empty())
 		{
-			effectiveUrl = url;
+			effectiveUrl = urlCopy;
 		}
 		buffer->Clear();
-		buffer->AppendBytes( cachedData->buffer->GetPtr(), cachedData->buffer->GetLen() );
+		buffer->AppendBytes(cachedData->buffer->GetPtr(), cachedData->buffer->GetLen());
 		// below fails when playing an HLS playlist directly, then seeking or retuning
 		// assert( mediaType == cachedData->mediaType );
-		AAMPLOG_TRACE( "%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str() );
+		AAMPLOG_TRACE("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}
 	else
@@ -124,19 +128,23 @@ bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, Aam
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	AampCachedData *cachedData = mInitFragmentCache.Find(url);
-	if( cachedData )
+	if (cachedData)
 	{
 		std::shared_ptr<AampGrowableBuffer> buf = cachedData->buffer;
+
+		// Create a local copy to prevent aliasing bug when url and effectiveUrl reference the same string
+		std::string urlCopy = url;
+
 		if (cachedData->effectiveUrl.empty())
 		{
-			effectiveUrl = url;
+			effectiveUrl = urlCopy;
 		}
 		else
 		{
 			effectiveUrl = cachedData->effectiveUrl;
 		}
 		buffer->Clear();
-		buffer->AppendBytes( buf->GetPtr(), buf->GetLen() );
+		buffer->AppendBytes(buf->GetPtr(), buf->GetLen());
 		AAMPLOG_INFO("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}

@@ -1903,6 +1903,14 @@ public:
 	void SetCurrentAudioTrackIndex(std::string& index) { mAudioTrackIndex = index; }
 
 	/**
+	 *   @brief Set current text track index
+	 *
+	 *   @param[in] string index
+	 *   @return void
+	 */
+	void SetCurrentTextTrackIndex(std::string& index) { mTextTrackIndex = index; }
+
+	/**
 	 *   @brief Change muxed audio track index
 	 *
 	 *   @param[in] string index
