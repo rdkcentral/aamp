@@ -523,6 +523,9 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -597,7 +600,6 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -1560,7 +1562,6 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	InitializeAdMPDObject(adManifest);
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -1665,7 +1666,6 @@ TEST_F(AdSelectionTests, AdTransitionTest_PausedWithAampTSB)
 	InitializeAdMPDObject(adManifest);
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	mPrivateInstanceAAMP->pipeline_paused = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
@@ -1886,7 +1886,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	std::string videoInitFragmentUrl;
 	std::string audioInitFragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 	bool ret = false;
 
 	/* Initialize MPD. The video initialization segment is cached. */
