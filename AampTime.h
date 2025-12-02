@@ -42,6 +42,7 @@ struct AampTicks
 /// @brief time class to work around the use of doubles within Aamp
 //  While operators are overloaded for comparisons, the underlying data type is integer
 //  But the code is tolerant of being treated as a double
+#include <inttypes.h>
 
 class AampTime
 {
@@ -64,19 +65,17 @@ public:
 	/// @brief Constructor
 	/// @param time struct containing time in ticks and timescale
 	/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
-	/*constexpr*/ AampTime(AampTicks &time) : baseTime(time.ticks)
+	AampTime(AampTicks &time) : baseTime(time.ticks)
 	{
-		if( baseTime!=0 )
-		{
-			auto result = baseTime * baseTimescale;
-			if( baseTime == result / baseTimescale )
-			{ // no overflow - use integer math
-				baseTime = result / (int64_t)time.timescale;
-			}
-			else
-			{ // overflow - fallback to double precision math
-				baseTime *= (baseTimescale / (double)time.timescale);
-			}
+		int64_t threshold = INT64_MAX / baseTimescale;
+		if( baseTime < threshold && baseTime > -threshold )
+		{ // no overflow - use integer math
+			baseTime *= baseTimescale;
+			baseTime /= (int64_t)time.timescale;
+		}
+		else
+		{ // overflow - fallback to floating point math
+			baseTime *= (baseTimescale / (double)time.timescale);
 		}
 	}
 	

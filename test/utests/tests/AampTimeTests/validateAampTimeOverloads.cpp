@@ -360,13 +360,39 @@ TEST_F(validateAampTimeOverloads, AampTicksInMilli)
 	EXPECT_EQ(ticks.inMilli(), 5000); // 5000 milliseconds
 }
 
-TEST_F(validateAampTimeOverloads, testTimescaleConversion )
-{
-	int64_t rawTicks = 927996007213;
-	uint32_t scale   = 240000;
-	AampTicks ticks(rawTicks, scale);
+TEST_F(validateAampTimeOverloads, testTimescaleConversionNoOverflow)
+{ // Small values that won't overflow
+	{
+		int64_t rawTicks = 1000;
+		uint32_t scale = 1000;
+		AampTicks ticks(rawTicks, scale);
+		AampTime t(ticks);
+		EXPECT_NEAR(t.inSeconds(), 1.0, 0.000001);
+	}
+	{
+		int64_t rawTicks = -1000;
+		uint32_t scale = 1000;
+		AampTicks ticks(rawTicks, scale);
+		AampTime t(ticks);
+		EXPECT_NEAR(t.inSeconds(), -1.0, 0.000001);
+	}
+}
+
+TEST_F(validateAampTimeOverloads, testTimescaleConversionWithOverflow)
+{ // Large values that will overflow int64_t * 1000000000
+	{
+		int64_t rawTicks = 927996007213;
+		uint32_t scale = 240000;
+		AampTicks ticks(rawTicks, scale);
+		AampTime t(ticks);
+		EXPECT_NEAR(t.inSeconds(), 3866650.03005416, 0.001);
+	}
 	
-	AampTime t(ticks);
-	double seconds = t.inSeconds();
-	EXPECT_EQ( round(seconds), 3866650);
+	{
+		int64_t rawTicks = -927996007213;
+		uint32_t scale = 240000;
+		AampTicks ticks(rawTicks, scale);
+		AampTime t(ticks);
+		EXPECT_NEAR(t.inSeconds(), -3866650.03005416, 0.001);
+	}
 }
