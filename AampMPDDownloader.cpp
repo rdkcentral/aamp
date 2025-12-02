@@ -279,7 +279,7 @@ void AampMPDDownloader::Release()
 			mMPDNotifierCondVar.notify_all();
 
 		}
-		//Disabling the downloaders before joining the threads,which will exit the download loops gracefully 
+		//Disable downloads before joining the threads,which will exit the download loops gracefully 
 		mDownloader1.Release();
 		mDownloader2.Release();
 
@@ -289,8 +289,8 @@ void AampMPDDownloader::Release()
 		if(mDownloaderThread_t2.joinable())
 			mDownloaderThread_t2.join();
 		// Clear the headers only after the graceful exit of download threads.
-		mDownloader1.InitializeCurlHeaderResources();
-		mDownloader2.InitializeCurlHeaderResources();
+		mDownloader1.CleanupCurlHeaderResources();
+		mDownloader2.CleanupCurlHeaderResources();
 
 		if(mManifestUpdateCb != NULL)
 		{

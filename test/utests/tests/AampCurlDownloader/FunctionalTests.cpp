@@ -473,12 +473,12 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 }
 
 /**
- * @brief Test case to verify correct order: Release() before InitializeCurlHeaderResources()
+ * @brief Test case to verify correct order: Release() before CleanupCurlHeaderResources()
  * 
- * This test ensures that Release() is called before InitializeCurlHeaderResources()
+ * This test ensures that Release() is called before CleanupCurlHeaderResources()
  * to prevent race conditions. Release() stops downloads, then cleanup can safely proceed.
  */
-TEST_F(FunctionalTests, Release_BeforeInitializeCurlHeaderResources_PreventRaceCondition) {
+TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCondition) {
     DownloadConfigPtr config = std::make_shared<DownloadConfig>();
     
     EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
@@ -515,15 +515,15 @@ TEST_F(FunctionalTests, Release_BeforeInitializeCurlHeaderResources_PreventRaceC
   	mAampCurlDownloader->Release();
   	releaseCompleted.store(true);
     
-    // Step 2: Call InitializeCurlHeaderResources() after downloads stopped
+    // Step 2: Call CleanupCurlHeaderResources() after downloads stopped
     headerCleanupStarted.store(true);
-    mAampCurlDownloader->InitializeCurlHeaderResources();
+    mAampCurlDownloader->CleanupCurlHeaderResources();
     
     downloadThread.join();
     
     // Verify no race condition detected
     EXPECT_FALSE(raceConditionDetected.load()) 
-        << "Race condition detected: InitializeCurlHeaderResources() called before Release() completed";
+        << "Race condition detected: CleanupCurlHeaderResources() called before Release() completed";
     
     // Verify download is stopped
     EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());

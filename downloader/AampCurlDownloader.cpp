@@ -374,7 +374,7 @@ void AampCurlDownloader::Release()
 	mDownloadActive = false;
 }
 
-void AampCurlDownloader::InitializeCurlHeaderResources()
+void AampCurlDownloader::CleanupCurlHeaderResources()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadUpdatedTime = 0 ;
