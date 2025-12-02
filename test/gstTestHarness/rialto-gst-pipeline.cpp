@@ -32,8 +32,9 @@ bool GstMediaPipeline::init()
     std::shared_ptr<IMediaPipelineFactory> factory = IMediaPipelineFactory::createFactory(); 
     if (!factory) return false;
 
-    constexpr std::uint32_t kWidth{1920};
-    constexpr std::uint32_t kHeight{1080};
+    constexpr std::uint32_t kWidth{3840};  
+    constexpr std::uint32_t kHeight{2160}; 
+
     VideoRequirements kRequirements{kWidth, kHeight};
     
     m_pipeline = factory->createMediaPipeline(weak_from_this(), kRequirements);

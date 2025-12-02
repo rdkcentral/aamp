@@ -265,10 +265,10 @@ int my_main(int argc, char **argv)
         return -1;
     }
     
-    // if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
-    // {
-    //     fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
-    // }
+    if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
+    {
+        fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
+    }
 
     // MUST happen before any attachSource() to create a Rialto Gstreamer player
     gstMediaPipeline->load(MediaType::MSE, "video/x-h265", "test://local"); // Dummy values
@@ -289,9 +289,9 @@ int my_main(int argc, char **argv)
         InjectVideo(videoReqId);
 
 
-    // std::this_thread::sleep_for(std::chrono::seconds(3)); 
+    std::this_thread::sleep_for(std::chrono::seconds(7)); 
     
-    // gstMediaPipeline->stop();
+    gstMediaPipeline->stop();
 
     return 0;
 }
