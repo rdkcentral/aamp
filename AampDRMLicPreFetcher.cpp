@@ -39,7 +39,6 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mFetchQueue(),
 		mQMutex(),
 		mQCond(),
-		mPreFetchThreadStarted(false),
 		mExitLoop(false),
 		mCommonKeyDuration(0),
 		mTrackStatus(),
@@ -50,7 +49,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mVssFetchQueue(),
 		mQVssMutex(),
 		mQVssCond(),
-		mVssPreFetchThreadStarted(false)
+		mIsSecClientError(false)
 {
 	mTrackStatus.fill(false);
 	mIsSecClientError = isSecFeatureEnabled();
@@ -67,19 +66,17 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 		std::lock_guard<std::mutex>lock(mQMutex);
 		mExitLoop = true;
 	}
-	if (mPreFetchThreadStarted)
+	if (mPreFetchThread.joinable())
 	{
 		mQCond.notify_one();
 		AAMPLOG_WARN("Joining mPreFetchThread");
 		mPreFetchThread.join();
-		mPreFetchThreadStarted = false;
 	}
-	if (mVssPreFetchThreadStarted)
+	if (mVssPreFetchThread.joinable())
 	{
 		mQVssCond.notify_one();
 		AAMPLOG_WARN("Joining mVssFetchThread");
 		mVssPreFetchThread.join();
-		mVssPreFetchThreadStarted = false;
 	}
 }
 
@@ -92,7 +89,7 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 bool AampLicensePreFetcher::Init()
 {
 	bool ret = true;
-	if (mPreFetchThreadStarted || mVssPreFetchThreadStarted)
+	if (mPreFetchThread.joinable() || mVssPreFetchThread.joinable())
 	{
 		AAMPLOG_WARN("PreFetch thread is already started when calling Init!!");
 	}
@@ -149,11 +146,10 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 			{
 				std::lock_guard<std::mutex>lock(mQVssMutex);
 				mVssFetchQueue.push_back(std::move(fetchObject));
-				if (!mVssPreFetchThreadStarted)
+				if (!mVssPreFetchThread.joinable())
 				{
-					AAMPLOG_WARN("Starting mVssPreFetchThread");
+					AAMPLOG_MIL("Starting mVssPreFetchThread");
 					mVssPreFetchThread = std::thread(&AampLicensePreFetcher::VssPreFetchThread, this);
-					mVssPreFetchThreadStarted = true;
 				}
 				else
 				{
@@ -174,11 +170,10 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 				}
 
 				mFetchQueue.push_back(std::move(fetchObject));
-				if (!mPreFetchThreadStarted)
+				if (!mPreFetchThread.joinable())
 				{
 					AAMPLOG_MIL("Starting mPreFetchThread");
 					mPreFetchThread = std::thread(&AampLicensePreFetcher::PreFetchThread, this);
-					mPreFetchThreadStarted = true;
 				}
 				else
 				{
