@@ -44,6 +44,7 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
+#include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
 
 /**
@@ -59,33 +60,6 @@ typedef enum
 
 AampMediaType TrackTypeToMediaType( TrackType trackType );
 
-struct TileLayout
-{
-	int numRows; 		/**< Number of Rows from Tile Inf */
-	int numCols; 		/**< Number of Cols from Tile Inf */
-	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
-	double tileSetDuration; /**< Duration of whole tile set */
-};
-
-/**
-*	\struct	TileInfo
-* 	\brief	TileInfo structure for Thumbnail data
-*/
-class TileInfo
-{
-public:
-	TileInfo(): layout(), startTime(), url()
-	{
-	}
-
-	~TileInfo()
-	{
-	}
-
-	TileLayout layout;
-	double startTime;
-	std::string url;
-};
 
 /**
  * @brief Playlist Types
@@ -512,7 +486,8 @@ public:
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
-	bool isFragmentInjectorThreadStarted( ) {  return fragmentInjectorThreadStarted;}
+	bool isFragmentInjectorThreadStarted();
+	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();
 	/**
 	 * @brief Signal the clock to subtitle module
@@ -685,6 +660,15 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
+	/**
+	 * @fn GetTimeBasedBufferManager 
+	 *
+	 * @brief Get the time based buffer manager for this track
+	 *
+	 * @return AampTimeBasedBufferManager object
+	 */
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> GetTimeBasedBufferManager() { return mTimeBasedBufferManager; }
+
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -853,8 +837,13 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
+	int fragmentIdxToInject;            	/**< Write position */
+	int fragmentChunkIdxToInject;       	/**< Write position */
+	int fragmentIdxToFetch;             	/**< Read position */
+	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
 
 private:
 	enum class TrickmodeState
@@ -874,8 +863,6 @@ private:
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
-	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
-	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
@@ -883,10 +870,6 @@ private:
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	int fragmentIdxToInject;            	/**< Write position */
-	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
-	int fragmentChunkIdxToFetch;        	/**< Read position */
 	int bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
 	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
 	bool discontinuityProcessed;
@@ -895,7 +878,6 @@ private:
 	long long prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
-	bool playlistDownloaderThreadStarted;	/**< Playlist downloader thread started or not*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/

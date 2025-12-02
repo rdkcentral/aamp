@@ -86,11 +86,11 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |
 | customHeader | String | - | Custom header data to be appended to curl request. |
 | contentProtectionDataUpdateTimeout | Number | 5000ms | Timeout for Content Protection Data Update on Dynamic Key Rotation. Player waits for [setContentProtectionDataConfig]()#setcontentprotectiondataconfig_json-string)  API update within the timeout interval .On timeout use last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout)  |
-| disableLowLatencyABR | Boolean | False | Configuration to enable/disable Low Latency ABR. |
+| disableLowLatencyABR | Boolean | True | Enables Low Latency ABR handling. |
 | disablePlaylistIndexEvent | Boolean | True | Configuration to enable/disable generation of playlist indexed event by AAMP on tune/trickplay/seek. |
 | downloadBufferChunks | Number | 20 | Low Latency Fragment chunk cache length. |
-| enableLowLatencyCorrection | Boolean | False | Configuration to enable/disable Low Latency Correction. |
-| enableLowLatencyDash | Boolean | True | Configuration to enable/disable Low Latency Dash. |
+| enableLowLatencyCorrection | Boolean | True | If disabled, latency may gradually drift from the live edge, especially under poor network conditions. |
+| enableLowLatencyDash | Boolean | True | Enables Low Latency DASH playback mode, allowing media chunks to be injected earlier (even before full fragment download is complete), allowing player to start and stay closer to live edge. |
 | enableSubscribedTags | Boolean | True | Configuration to enable/disable subscribed tags. |
 | enableVideoEndEvent | Boolean | True | Configuration to enable/disable Video End event generation. |
 | enableVideoRectangle | Boolean | True | Configuration to enable/disable setting of rectangle property for sink element. |
@@ -100,15 +100,23 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets. |
 | iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets. |
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
-| latencyMonitorDelay | Number | 9 | Low Latency Monitor delay. |
-| latencyMonitorInterval | Number | 6 | Low Latency Monitor Interval. |
+| latencyMonitorDelay | Number | 9 | Delay in seconds before starting latency monitoring after tune completion. |
+| latencyMonitorInterval | Number | 1 | Time between latency checks in seconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
 | licenseAnonymousRequest | Boolean | False | Configuration to enable/disable acquiring of license without token. |
 | licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time in msecs. |
 | licenseRetryWaitTime | Number | 500 | License retry wait interval in msecs. |
 | licenseServerUrl | String | - | URL to be used for license requests for encrypted(PR/WV) assets. |
 | linearTrickPlayFps | Number | 8 | Specify the framerate for Linear trickplay. |
+| lowLatencyMinValue | Number | 3 | Minimum acceptable latency in seconds. Avoids getting too close to live edge, preventing buffering. If latency drops below this, playback slows down to increase delay and avoid buffer underrun. |
+| lowLatencyTargetValue | Number | 6 | Target latency for playback in seconds. If reduced, playback will be closer to live edge, but with increased chance of buffering. |
+| lowLatencyMaxValue | Number | 9 | Maximum acceptable latency in seconds. Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
+| lowLatencyMinBuffer | Float | 2 | It is used by low latency buffering logic to set the minimum buffer level(in seconds) the player should maintain. |
+| lowLatencyTargetBuffer | Float | 4 | Target buffer size in seconds for low latency mode. Balances latency and stability by keeping a healthy buffer. |
 | maxABRBufferRampup | Number | 15 | Maximum ABR Buffer for Rampup in secs. |
+| maxLatencyCorrectionPlaybackRate | Float | 1.03 | Maximum playback speed for latency correction. When the player detects that it’s too far from the live edge (or fall behind target latency), it can speeds up playback slightly to catch up with the live edge without noticeable fast-forward effect. |
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
+| minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed for latency correction. When the player detects that it’s too close to the live edge (or ahead of target latency), it can slow down playback slightly to increase latency without causing noticeable slow motion. |
+| normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. |
 | playreadyOutputProtection | Boolean | False | Configuration to enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 -No DRM  , 1 - Widevine, 2 - PlayReady ( Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
 | ceaFormat | Number | -1 | Preferred CEA option for CC. Default stream based. 0 - CEA 608, 1 - CEA 708  |
@@ -188,7 +196,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs (version 2.6) NO_LANGCODE_PREFERENCE = 0, 3_CHAR_BIBLIOGRAPHIC_LANGCODE = 1, 3_CHAR_TERMINOLOGY_LANGCODE = 2, 2_CHAR_LANGCODE = 3 |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions |
 | nativeCCRendering | Boolean | False | Use native ClosedCaption support in AAMP (version 2.6) |
-| enableLiveLatencyCorrection | Boolean | False | Optional field to enable live latency correction for non-Low Latency streams |
+| enableLiveLatencyCorrection | Boolean | False | Optional field to enable correction of playback delay during regular live streaming ( non LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
 | liveOffsetDriftCorrectionInterval | Number | 1 | Optional field to set the allowed delta from live offset configured |
 | sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
 | enableCMCD | Boolean | True | Optional field to enable/disable CMCD Metrics reporting from player |
@@ -399,15 +407,34 @@ Note: starting in RDK 6.9, we support ability to start video paused on first fra
 
 ---
 
-### stop()
+### stop( forceCleanup )
+### stop( sendStateChangeEvent, forceCleanup )
 - Supported UVE version 0.7 and above.
 - Stop playback and free resources associated with playback.
-Usage example:
+
+**Single Parameter Form:**
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| forceCleanup | Boolean | Optional parameter. If true, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. Prevents playback failures after device wake-up from Deep Sleep by clearing stale DRM sessions and failed key IDs. |
+
+**Two Parameter Form (Advanced Usage):**
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sendStateChangeEvent | Boolean | If true, sends state change events during stop operation. Default is true. |
+| forceCleanup | Boolean | If true, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. |
+
+Usage examples:
 ```js
     {
 	    .....
-	    // for immediate stop of playback
+	    // Standard stop - sends state change events
 	    player.stop();
+	    
+	    // Stop with DRM cleanup before Deep Sleep
+	    player.stop(true);
+	    
+	    // Advanced: Stop without state events, with DRM cleanup
+	    player.stop(false, true);
     }
 ```
 ---
@@ -2575,6 +2602,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### stop
 - Stop playback and free resources
+- Optional forceCleanup parameter for DRM cleanup in Deep Sleep scenarios
 
 ##### getAudioTrack
 - Get the index of the currently selected Audio track

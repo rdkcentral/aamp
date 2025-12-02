@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.09"
+#define AAMP_VERSION "7.10"
 #define AAMP_TUNETIME_VERSION 7
 
 //Stringification of Macro : use two levels of macros
@@ -141,6 +141,7 @@
 #define MIN_MONITOR_AV_JUMP_THRESHOLD_MS 1 	/**< minimum  jump threshold to trigger MonitorAV reporting */
 #define MAX_MONITOR_AV_JUMP_THRESHOLD_MS 10000 	/**< maximum jump threshold to trigger MonitorAV reporting */
 #define DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS 100 	/**< default jump threshold to MonitorAV reporting */
+#define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
