@@ -1987,6 +1987,17 @@ JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef func
 			{
 				overshootCorrection = (int) JSValueToNumber(ctx, arguments[1], exception);
 			}
+			// special magic playback rate triggers a forced DRM cleanup stop
+			// App can call: Stop(); SetRate(); SetRate(magic)
+			// When magic number is passed, invoke Stop without state events and force DRM cleanup
+			const float kForceCleanupMagicRate = 76234.0; // Magic number for triggering forced cleanup stop
+			if (rate == kForceCleanupMagicRate)
+			{
+				LOG_WARN(privObj,"Magic rate %.0f received - invoking Stop(sendStateChangeEvent=false, forceCleanup=true)", kForceCleanupMagicRate);
+				privObj->_aamp->Stop(false /*sendStateChangeEvent*/, true /*forceCleanup*/);
+				bRet = true;
+			}
+			else
 			{
 				LOG_WARN(privObj,"_aamp->SetRate(%f, %d)", rate, overshootCorrection);
 				privObj->_aamp->SetRate(rate, overshootCorrection);
