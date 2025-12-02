@@ -259,7 +259,15 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		{
 			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
-
+		// Enhanced DRM cleanup for Deep Sleep scenarios
+		// Must be done AFTER Stop() to ensure GStreamer pipeline is torn down
+		// and all encrypted buffers are flushed before destroying DRM sessions
+		if (forceCleanup && aamp->mDRMLicenseManager)
+		{
+			AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
+			aamp->mDRMLicenseManager->clearDrmSession(true);
+			aamp->mDRMLicenseManager->clearFailedKeyIds();
+		}
 		//Release lock
 		mScheduler.ResumeScheduler();
 	}
@@ -3068,17 +3076,7 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceClean
 	
 	// Negate sendStateChangeEvent since no need to send state change event on Destrcutor call
 	aamp->Stop(!sendStateChangeEvent);
-	
-	// Enhanced DRM cleanup for Deep Sleep scenarios
-	// Must be done AFTER Stop() to ensure GStreamer pipeline is torn down
-	// and all encrypted buffers are flushed before destroying DRM sessions
-	if (forceCleanup && aamp->mDRMLicenseManager)
-	{
-		AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
-		aamp->mDRMLicenseManager->clearDrmSession(true);
-		aamp->mDRMLicenseManager->clearFailedKeyIds();
-	}
-	
+
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
