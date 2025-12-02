@@ -32,9 +32,11 @@ bool GstMediaPipeline::init()
     std::shared_ptr<IMediaPipelineFactory> factory = IMediaPipelineFactory::createFactory(); 
     if (!factory) return false;
 
-    VideoRequirements requirements = {}; 
+    constexpr std::uint32_t kWidth{1920};
+    constexpr std::uint32_t kHeight{1080};
+    VideoRequirements kRequirements{kWidth, kHeight};
     
-    m_pipeline = factory->createMediaPipeline(weak_from_this(), requirements);
+    m_pipeline = factory->createMediaPipeline(weak_from_this(), kRequirements);
     
     return m_pipeline != nullptr;
 }
@@ -52,7 +54,7 @@ bool GstMediaPipeline::attachSource(std::unique_ptr<MediaSource> &&source, int32
         return false;
     }
     
-    bool ok = attachSource(source); 
+    bool ok = attachSource(std::move(source));  
 
     if (ok)
     {

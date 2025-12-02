@@ -26,17 +26,42 @@ using namespace firebolt::rialto;
 uint32_t WaitForNeedDataRequest(int32_t sourceId, int timeoutMs = 5000)
 {
     std::unique_lock<std::mutex> lock(g_needDataMutex);
-    if (!g_needDataCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [sourceId]{
-        return !g_needDataQueue.empty() && g_needDataQueue.front().sourceId == sourceId;
-    }))
+
+    // Wait until a matching event is in the queue
+    bool ok = g_needDataCv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [&]{
+        std::queue<NeedDataRequestEvent> tmp = g_needDataQueue;
+        while (!tmp.empty()) {
+            if (tmp.front().sourceId == sourceId)
+                return true;
+            tmp.pop();
+        }
+        return false;
+    });
+
+    if (!ok)
     {
+        fprintf(stderr, "ERROR: Timeout waiting for need-data for source %d\n", sourceId);
         return UINT32_MAX;
     }
 
-    uint32_t requestId = g_needDataQueue.front().requestId;
-    g_needDataQueue.pop();
+    uint32_t requestId = UINT32_MAX;
+    size_t qSize = g_needDataQueue.size();
+    for (size_t i = 0; i < qSize; ++i) {
+        NeedDataRequestEvent ev = g_needDataQueue.front();
+        g_needDataQueue.pop();
+
+        if (ev.sourceId == sourceId && requestId == UINT32_MAX) {
+            requestId = ev.requestId; 
+            
+        } else {
+            g_needDataQueue.push(ev); 
+        }
+    }
+
     return requestId;
 }
+
+
 
 void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
 {
@@ -142,7 +167,7 @@ void ConfigureVideo()
 	}
 	CodecData codecData;
 	const char *codec_ptr = trackVideo.codec_data.c_str();
-	codecData.data = std::vector<uint8_t>( codec_ptr, &codec_ptr[trackVideo.codec_data.size()] );
+    codecData.data = std::vector<uint8_t>( codec_ptr, codec_ptr + trackVideo.codec_data.size() );
     
 	std::unique_ptr<IMediaPipeline::MediaSourceVideo> sourceVideo =
 	std::make_unique<IMediaPipeline::MediaSourceVideo>(
@@ -240,13 +265,13 @@ int my_main(int argc, char **argv)
         return -1;
     }
     
-    if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
-    {
-        fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
-    }
+    // if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
+    // {
+    //     fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
+    // }
 
     // MUST happen before any attachSource() to create a Rialto Gstreamer player
-    gstMediaPipeline->load(MediaType::MSE, "video/fmp4", "test://local"); // Dummy values
+    gstMediaPipeline->load(MediaType::MSE, "video/x-h265", "test://local"); // Dummy values
 
     ConfigureAudio();
     ConfigureVideo();
@@ -264,7 +289,7 @@ int my_main(int argc, char **argv)
         InjectVideo(videoReqId);
 
 
-    // std::this_thread::sleep_for(std::chrono::seconds(5)); 
+    // std::this_thread::sleep_for(std::chrono::seconds(3)); 
     
     // gstMediaPipeline->stop();
 
