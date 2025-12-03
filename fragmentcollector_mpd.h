@@ -842,7 +842,7 @@ protected:
 	/**
 	 * @fn UpdateTrackInfo
 	 */
-	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false);
+	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
@@ -1129,10 +1129,8 @@ protected:
 	AudioType mAudioType;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
-	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	double mLivePeriodCulledSeconds;
 	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
-
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
 	// that Adaptation Set. Hence we need a mapping from a profile to
@@ -1236,7 +1234,6 @@ protected:
 
 	LatencyStatus latencyStatus; 		 /**< Latency status of the playback*/
 	LatencyStatus prevLatencyStatus;	 /**< Previous latency status of the playback*/
-	bool latencyMonitorThreadStarted;	 /**< Monitor latency thread  status*/
 	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
