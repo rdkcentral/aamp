@@ -73,6 +73,35 @@ typedef enum
 	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
 	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
 	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
+	
+	// Sequential AAMP/GStreamer level profiling buckets (tune start to first frame)
+	PROFILE_BUCKET_GST_PIPELINE_CREATE,      /**< GStreamer pipeline creation started bucket*/
+	PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE, /**< Video playbin element created bucket*/
+	PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE, /**< Audio playbin element created bucket*/
+	PROFILE_BUCKET_GST_PIPELINE_SETUP,       /**< GStreamer pipeline setup complete bucket*/
+	PROFILE_BUCKET_GST_PIPELINE_PAUSED,      /**< GStreamer pipeline set to PAUSED state bucket*/
+	PROFILE_BUCKET_GST_PIPELINE_PLAYING,     /**< GStreamer pipeline set to PLAYING state bucket*/
+	PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER,   /**< First video buffer pushed to GStreamer bucket*/
+	PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER,   /**< First audio buffer pushed to GStreamer bucket*/
+	PROFILE_BUCKET_GST_VIDEO_DECODER_FIRST,  /**< Video decoder received first buffer bucket*/
+	PROFILE_BUCKET_GST_AUDIO_DECODER_FIRST,  /**< Audio decoder received first buffer bucket*/
+	
+	// Rialto-specific profiling buckets
+	PROFILE_BUCKET_RIALTO_VIDEO_SINK_CREATED,  /**< Rialto video sink element created bucket*/
+	PROFILE_BUCKET_RIALTO_AUDIO_SINK_CREATED,  /**< Rialto audio sink element created bucket*/
+	
+	PROFILE_BUCKET_RIALTO_STATE_READY,         /**< Rialto sink transitioned to READY state bucket*/
+	PROFILE_BUCKET_RIALTO_STATE_PAUSED,        /**< Rialto sink transitioned to PAUSED state bucket*/
+	PROFILE_BUCKET_RIALTO_STATE_PLAYING,       /**< Rialto sink transitioned to PLAYING state bucket*/
+
+	// DRM License acquisition profiling buckets
+	PROFILE_BUCKET_LICENSE_ACQUISITION_START,  /**< License acquisition request initiated bucket*/
+	PROFILE_BUCKET_LICENSE_ACQUISITION_END,    /**< License acquisition response received bucket*/
+	
+	// DRM Decryption phase profiling buckets
+	PROFILE_BUCKET_DECRYPTION_START,           /**< First decryption operation started bucket*/
+	PROFILE_BUCKET_DECRYPTION_END,             /**< Last decryption operation completed bucket*/
+	
 	PROFILE_BUCKET_TYPE_COUNT,           /**< Bucket count*/
 
 	PROFILE_BUCKET_INVALID =255
