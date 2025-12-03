@@ -687,10 +687,11 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		{
 			bool ischunkMode = context->aamp->GetLLDashServiceData()->lowLatencyMode &&
 							   context->aamp->GetLLDashChunkMode() &&
-							   !mCtx->IsLocalTSBInjection() &&
-							   !(IsLocalAAMPTsb() && pipeline_paused);
+							   !mCtx->IsLocalTSBInjection();
+			// Prevent injection if the user paused the playback, but not if the playback was paused due to underflow
+			bool injectionPaused = (IsLocalAAMPTsb() && pipeline_paused && !context->aamp->GetBufUnderFlowStatus());
 
-			if (ischunkMode && ptr && (numBytesForBlock > 0) &&
+			if (ischunkMode && ptr && (numBytesForBlock > 0) && !injectionPaused &&
 				(context->mediaType == eMEDIATYPE_VIDEO ||
 				context->mediaType ==  eMEDIATYPE_AUDIO ||
 				context->mediaType ==  eMEDIATYPE_SUBTITLE))
@@ -1118,7 +1119,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	//mTimeToTopProfile(0),
 	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
-	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
+	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(),
 	mTuneType(eTUNETYPE_NEW_NORMAL)
 	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
@@ -1133,7 +1134,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mNetworkBandwidth(0)
 	,mTimeToTopProfile(0)
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
-	, drmSessionThreadStarted(false), createDRMSessionThreadID()
+	, createDRMSessionThreadID()
 	, mDRMLicenseManager(NULL)
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
@@ -1668,15 +1669,17 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
 
 		AAMPLOG_INFO("Start PausePositionMonitoring at position %lld", pausePositionMilliseconds);
 
-		try
+		if (!mPausePositionMonitoringThreadID.joinable())
 		{
-			mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
-			mPausePositionMonitoringThreadStarted = true;
-			AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zx]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
-		}
-		catch(const std::exception& e)
-		{
-			AAMPLOG_ERR("Failed to create PausePositionMonitor thread: %s", e.what());
+			try
+			{
+				mPausePositionMonitoringThreadID = std::thread(&PrivateInstanceAAMP ::RunPausePositionMonitoring, this);
+				AAMPLOG_INFO("Thread created for RunPausePositionMonitoring [%zx]", GetPrintableThreadID(mPausePositionMonitoringThreadID));
+			}
+			catch(const std::exception& e)
+			{
+				AAMPLOG_ERR("Failed to create PausePositionMonitor thread: %s", e.what());
+			}
 		}
 	}
 }
@@ -1686,7 +1689,7 @@ void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMi
  */
 void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
-	if (mPausePositionMonitoringThreadStarted)
+	if (mPausePositionMonitoringThreadID.joinable())
 	{
 		std::unique_lock<std::mutex> lock(mPausePositionMonitorMutex);
 
@@ -1701,7 +1704,6 @@ void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 		lock.unlock();
 		mPausePositionMonitoringThreadID.join();
 		AAMPLOG_TRACE("joined PositionMonitor");
-		mPausePositionMonitoringThreadStarted = false;
 	}
 }
 
@@ -2989,7 +2991,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 				if (HasSidecarData())
 				{ // has sidecar data
 					if (mpStreamAbstractionAAMP)
-						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted, mData.get());
+						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
 				}
 			}
 			SetState(eSTATE_PLAYING);
@@ -5602,13 +5604,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (sink)
 			{
 				sink->SetVideoZoom(zoom_mode);
-				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted, mApplyCachedVideoMute);
-				sink->SetVideoMute(video_muted);
+				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted.load(), mApplyCachedVideoMute);
 				if (mApplyCachedVideoMute)
 				{
+					SetVideoMuteInternal(video_muted.load());
 					mApplyCachedVideoMute = false;
-					SetCCStatusInternal();
 				}
+				else
+				{
+					sink->SetVideoMute(video_muted.load());
+				}
+				SetCCStatusInternal();
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -5664,7 +5670,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (HasSidecarData())
 			{
 				// has sidecar data
-				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted, mData.get());
+				mpStreamAbstractionAAMP->ResumeSubtitleAfterSeek(subtitles_muted.load(), mData.get());
 			}
 
 			if (!mTextStyle.empty())
@@ -6205,11 +6211,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if(mApplyCachedVideoMute)
 	{
 		mApplyCachedVideoMute = false;
-		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted);
+		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted.load());
 		if (mpStreamAbstractionAAMP)
 		{
 			//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
-			SetVideoMuteInternal(video_muted);
+			SetVideoMuteInternal(video_muted.load());
 			SetCCStatusInternal();
 		}
 		else
@@ -7182,7 +7188,7 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
-	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted?"true":"false");
+	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted.load()?"true":"false");
 	video_muted = muted;
 
 	//If lock could not be acquired, then cache it
@@ -7238,7 +7244,7 @@ void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 	AcquireStreamLock();
 	if (mpStreamAbstractionAAMP)
 	{
-		SetSubtitleMuteInternal(video_muted || muted);
+		SetSubtitleMuteInternal(video_muted.load() || muted);
 	}
 	else
 	{
@@ -9050,7 +9056,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
 		double streamPositionMs = GetStreamPositionMs();
-		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted, streamPositionMs);
+		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted.load(), streamPositionMs);
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, streamPositionMs, true);
 		int x = 0,y = 0,w = 0,h = 0;
 		if (!videoRectangle.empty())
@@ -11099,7 +11105,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 			}
 		}
 	}
-	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
+	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
@@ -11121,25 +11127,27 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
 	// StreamLock is recursive, so it is fine to call this method with it locked.
 	AcquireStreamLock();
-	// Mute subtitles if either video is muted or subtitles are muted
-	bool mute_subtitles_applied = video_muted || subtitles_muted;
-	AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-		mIsInbandCC, ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled), mute_subtitles_applied, video_muted, subtitles_muted);
-	if (mIsInbandCC || !ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled))
+	if (mpStreamAbstractionAAMP)
 	{
-		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-	}
-	else
-	{
-		if (mpStreamAbstractionAAMP)
+		// Mute subtitles if either video is muted or subtitles are muted
+		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
+		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+		AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+
+		if (mIsInbandCC || !isGstSubtecEnabled)
+		{
+			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+		}
+		else
 		{
 			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 			if (HasSidecarData())
 			{ // has sidecar data
 				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 			}
+			SetSubtitleMuteInternal(mute_subtitles_applied);
 		}
-		SetSubtitleMuteInternal(mute_subtitles_applied);
 	}
 	ReleaseStreamLock();
 }
@@ -11149,7 +11157,7 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
  */
 bool PrivateInstanceAAMP::GetCCStatus(void)
 {
-	return !(subtitles_muted);
+	return !(subtitles_muted.load());
 }
 
 /**
@@ -12141,7 +12149,14 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
 	std::transform( languages.begin(), languages.end(),
 					languages.begin(),
 					[this](std::string& lang)
-					{ return Getiso639map_NormalizeLanguageCode(lang, this->GetLangCodePreference()); } );
+					{
+						// Skip normalization for empty strings
+						if (lang.empty())
+						{
+							return lang;
+						}
+						return Getiso639map_NormalizeLanguageCode(lang, this->GetLangCodePreference());
+					} );
 
 	// To keep track of the languages that have already been encountered.
 	std::unordered_set<std::string> seen;
@@ -12329,6 +12344,26 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 	AAMPLOG_INFO("Preferred Text languages string: %s", preferredTextLanguagesString.c_str());
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
+}
+
+/**
+ * @brief Find the index of a text track in a vector
+ * @param[in] tracks Vector of text tracks to search
+ * @param[in] target Track to find
+ * @return Index of track (0-based), or -1 if not found
+ */
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+                                            const TextTrackInfo& target) const
+{
+	int index = -1;
+	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
+	
+	if (iter != tracks.cend())
+	{
+		index = static_cast<int>(std::distance(tracks.cbegin(), iter));
+	}
+	
+	return index;
 }
 
 /**
@@ -12521,7 +12556,16 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 						TextTrackInfo selectedTextTrack;
 						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
 						{
+							// Find the index of the selected track in the available tracks list
+							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
+
+							AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
+										 closedCaptionTrackId, selectedTextTrack.language.c_str());
 							SetPreferredTextTrack(std::move(selectedTextTrack));
+						}
+						else
+						{
+							AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
 						}
 					}
 					seek_pos_seconds = GetPositionSeconds();
