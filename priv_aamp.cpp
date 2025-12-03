@@ -7684,6 +7684,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
+			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentChunk(); // avoid mutex lock if waiting for cached fragments
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatency();

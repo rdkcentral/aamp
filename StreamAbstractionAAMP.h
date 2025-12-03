@@ -1761,6 +1761,13 @@ public:
 	}
 
 	/**
+	 *   @fn UnblockWaitForCachedFragmentChunk
+	 *
+	 *   @return void
+	 */
+	void UnblockWaitForCachedFragmentChunk();
+
+	/**
 	 *   @brief Get available thumbnail bitrates.
 	 *
 	 *   @return available thumbnail bitrates.
