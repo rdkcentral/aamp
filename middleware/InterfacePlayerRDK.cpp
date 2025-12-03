@@ -69,7 +69,7 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
-mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
+mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL), mProfilerCallback(nullptr)
 {
 	interfacePlayerPriv = new InterfacePlayerPriv();
 	m_gstConfigParam = new Configs();
@@ -258,6 +258,9 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
+
+	MW_LOG_INFO("[GSTPROFILING]ConfigurePpeline");
+    timestamps.pipelineCreateTime = NOW_STEADY_TS_MS;
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -344,11 +347,17 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL || interfacePlayerPriv->gstPrivateContext->bus == NULL)
 	{
 		MW_LOG_MIL("Create pipeline %s (pipeline %p bus %p)", pipelineName, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
+		MW_LOG_MIL("Pipeline setup starts");
+		ProfileBeginBucket(PROFILE_BUCKET_GST_PIPELINE_SETUP);
 		CreatePipeline(pipelineName, PipelinePriority); 		/*Create a new pipeline if pipeline or the message bus does not exist*/
+		MW_LOG_MIL("Pipeline setup ends");
+
+		ProfileEndBucket(PROFILE_BUCKET_GST_PIPELINE_SETUP);
 	}
 
 	if(setReadyAfterPipelineCreation)
 	{
+		AAMPLOG_INFO("Set state");
 		if(SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_READY failed on forceful set");
@@ -453,8 +462,13 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
+		MW_LOG_INFO("[GSTPROFILING] Pipeline set to PAUSED");
+		timestamps.setPipelineToPause = NOW_STEADY_TS_MS;
 		interfacePlayerPriv->gstPrivateContext->paused = true;
 		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+		// Profile pipeline state change to PAUSED - Begin
+		ProfileBeginBucket(PROFILE_BUCKET_GST_PIPELINE_PAUSED);
+		AAMPLOG_INFO("Set state");
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PAUSED failed");
@@ -468,6 +482,9 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = true;
 		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 
+		// Profile pipeline state change to PAUSED - Begin
+		ProfileBeginBucket(PROFILE_BUCKET_GST_PIPELINE_PAUSED);
+		AAMPLOG_INFO("Set state");
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_PAUSED failed");
@@ -478,6 +495,9 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	else
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PLAYING");
+		// Profile pipeline state change to PLAYING - Begin
+		ProfileBeginBucket(PROFILE_BUCKET_GST_PIPELINE_PLAYING);
+		AAMPLOG_INFO("Set state");
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
@@ -1322,6 +1342,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			/* set the playbin state to NULL before detach it */
 			if (stream->sinkbin)
 			{
+				AAMPLOG_INFO("Set state");
 				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
@@ -1444,6 +1465,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		}
 
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
+		AAMPLOG_INFO("Set state");
 		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
@@ -2033,6 +2055,22 @@ static void callback_element_added (GstElement * element, GstElement * source, g
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+	if (strstr(GST_ELEMENT_NAME(source), "rialtomsevideosink") != NULL)
+	{
+		MW_LOG_INFO("[GSTPROFILING] rialtomsevideosink element added to the pipeline");
+ 		pInterfacePlayerRDK->timestamps.rialtomsevideosink_time = NOW_STEADY_TS_MS;
+		MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+		// Profile Rialto video sink creation
+		pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_VIDEO_SINK_CREATED);
+	}
+	if (strstr(GST_ELEMENT_NAME(source), "rialtomseaudiosink") != NULL)
+	{
+		MW_LOG_INFO("[GSTPROFILING] rialtomseaudiosink element added to the pipeline");
+ 		pInterfacePlayerRDK->timestamps.rialtomseaudiosink_time = NOW_STEADY_TS_MS;
+		MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+		// Profile Rialto audio sink creation
+		pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_AUDIO_SINK_CREATED);
+	}
 	if (element == privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO].sinkbin)
 	{
 		privatePlayer->socInterface->SetAudioRoutingProperties(source);
@@ -2284,9 +2322,39 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	}
 	else
 	{
-		MW_LOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
+		MW_LOG_MIL("using playbin");						/* Media is not subtitle, use the generic playbin */
+		if(eGST_MEDIATYPE_VIDEO == streamId)
+		{
+			MW_LOG_MIL("[GSTPROFILING] video playbin element created");
+			timestamps.videoPlaybinCreateTime = NOW_STEADY_TS_MS;
+			// Profile video playbin creation
+			ProfileBeginBucket(PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE);
+		}
+		if(eGST_MEDIATYPE_AUDIO == streamId)
+		{
+			MW_LOG_MIL("[GSTPROFILING] audio playbin element created");
+			timestamps.audioPlaybinCreateTime = NOW_STEADY_TS_MS;
+			// Profile audio playbin creation
+			ProfileBeginBucket(PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE);
+		}	
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
+		
+		if(eGST_MEDIATYPE_VIDEO == streamId)
+		{
+			MW_LOG_MIL("[GSTPROFILING] video playbin element completed");
+			timestamps.videoPlaybinCreateTime = NOW_STEADY_TS_MS;
+			// Profile video playbin creation
+			ProfileEndBucket(PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE);
+		}
+		if(eGST_MEDIATYPE_AUDIO == streamId)
+		{
+			MW_LOG_MIL("[GSTPROFILING] audio playbin element completed");
+			timestamps.audioPlaybinCreateTime = NOW_STEADY_TS_MS;
+			// Profile audio playbin creation
+			ProfileEndBucket(PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE);
+		}	
 
+		privatePlayer->SignalConnect(stream->sinkbin, "element-setup", G_CALLBACK(callback_element_added), this);
 		if (m_gstConfigParam->tcpServerSink)
 		{
 			MW_LOG_INFO("using tcpserversink");
@@ -3054,7 +3122,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 			interfacePlayerPriv->SendNewSegmentEvent(mediaType, pts, 0);
 			segmentEventSent = true;
 		}
-		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
+		MW_LOG_MIL("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 	}
 
 	sendNewSegmentEvent = segmentEventSent;
@@ -3185,7 +3253,38 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 			}
 			else
 			{
+				AAMPLOG_INFO("Push buffer");
+				// Profile first buffer push to GStreamer - start
+				if (isFirstBuffer)
+				{
+					AAMPLOG_INFO("Push buffer");
+
+					if (mediaType == eGST_MEDIATYPE_VIDEO)
+					{
+						ProfileBeginBucket(PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER);
+					}
+					else if (mediaType == eGST_MEDIATYPE_AUDIO)
+					{
+						ProfileBeginBucket(PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER);
+					}
+				}
+				
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
+				
+				// Profile first buffer push to GStreamer - end
+				if (ret == GST_FLOW_OK && isFirstBuffer)
+				{
+					AAMPLOG_INFO("Push buffer");
+
+					if (mediaType == eGST_MEDIATYPE_VIDEO)
+					{
+						ProfileEndBucket(PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER);
+					}
+					else if (mediaType == eGST_MEDIATYPE_AUDIO)
+					{
+						ProfileEndBucket(PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER);
+					}
+				}
 				
 				if (ret != GST_FLOW_OK)
 				{
@@ -3422,7 +3521,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			 */
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
 		}
-
+		AAMPLOG_INFO("Set state");
 		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
@@ -3783,11 +3882,17 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	{
 		notifyFirstFrameCallback(mediaType, notifyFirstBuffer, (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified && PipelineSetToReady), requireFirstVideoFrameDisplay, audioOnly);
 	}
-
+    AAMPLOG_INFO("InterfacePlayerRDK::NotifyFirstFrame: mediaType=%d, notifyFirstBuffer=%d, PipelineSetToReady=%d, requireFirstVideoFrameDisplay=%d, audioOnly=%d",
+			  mediaType, notifyFirstBuffer, PipelineSetToReady, requireFirstVideoFrameDisplay, audioOnly);
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
 		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame");
-
+		timestamps.LogGstTimestamp();
+		
+		// Profile video decoder first frame
+		ProfileRialtoEvent(PROFILE_BUCKET_GST_VIDEO_DECODER_FIRST);
+		
+		
 		if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
 		{
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = true;
@@ -3814,6 +3919,10 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	else if (eGST_MEDIATYPE_AUDIO == mediaType)
 	{
 		MW_LOG_MIL("OnFirstAudioFrame. got First Audio Frame");
+		
+		// Profile audio decoder first frame
+		ProfileRialtoEvent(PROFILE_BUCKET_GST_AUDIO_DECODER_FIRST);
+				
 		if (audioOnly)
 		{
 			if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
@@ -3977,10 +4086,18 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 		DestroyPipeline();
 	}
 	MW_LOG_MIL("Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
+	
+	// Profile pipeline creation start
+	ProfileBeginBucket(PROFILE_BUCKET_GST_PIPELINE_CREATE);
+	
 	interfacePlayerPriv->gstPrivateContext->pipeline = gst_pipeline_new(pipelineName); //get it from app
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
 	{
+		MW_LOG_MIL("GStreamer Pipeline completed: %s", pipelineName);
+		// Profile pipeline creation end
+		ProfileEndBucket(PROFILE_BUCKET_GST_PIPELINE_CREATE);
+		
 		interfacePlayerPriv->gstPrivateContext->bus = gst_pipeline_get_bus(GST_PIPELINE(interfacePlayerPriv->gstPrivateContext->pipeline));
 		if(PipelinePriority >= 0)
 		{
@@ -4316,6 +4433,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
 				{
 					privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+					
+					// Profile pipeline state change to PLAYING
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_GST_PIPELINE_PLAYING);
 
 					busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
 					if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !privatePlayer->gstPrivateContext->firstAudioFrameReceived && privatePlayer->gstPrivateContext->NumberOfTracks==1)
@@ -4430,12 +4550,31 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			}
 			if((NULL != msg->src) &&
 			   ((gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomsevideosink") == true) ||
-				(gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomseaudiosink") == true)))
+				(gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomseaudiosink") == true) ||
+				(gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomsesubtitlesink") == true)))
 			{
+				/* Log Rialto sink state transitions for easier debugging */
+				MW_LOG_MIL("Rialto sink %s state %s -> %s",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state));
+
 				if(old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 				{
 					privatePlayer->SignalConnect(msg->src, "buffer-underflow-callback",
 													   G_CALLBACK(GstPlayer_OnGstBufferUnderflowCb), pInterfacePlayerRDK);
+					// Profile Rialto sink transitioning to READY state
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_STATE_READY);
+				}
+				if(old_state == GST_STATE_READY && new_state == GST_STATE_PAUSED)
+				{
+					// Profile Rialto sink transitioning to PAUSED state
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_STATE_PAUSED);
+				}
+				if(old_state == GST_STATE_PAUSED && new_state == GST_STATE_PLAYING)
+				{
+					// Profile Rialto sink transitioning to PLAYING state
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_STATE_PLAYING);
 				}
 			}
 			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
@@ -4474,6 +4613,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			MW_LOG_WARN("GST_MESSAGE_CLOCK_LOST");
 			if(eGST_MEDIAFORMAT_DASH != static_cast<GstMediaFormat>(pInterfacePlayerRDK->m_gstConfigParam->media))
 			{
+				AAMPLOG_INFO("Set state");
 				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
 				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
 			}
@@ -4807,9 +4947,57 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			GstState old_state, new_state;
 			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
 
+			if((NULL != msg->src) &&
+			   ((gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomsevideosink") == true) ||
+				(gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomseaudiosink") == true) ||
+				(gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomsesubtitlesink") == true)))
+			{
+				/* Log Rialto sink state transitions for easier debugging */
+				MW_LOG_MIL("Rialto sink %s state %s -> %s",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state));
+				
+				// Profile Rialto sink state transitions
+				if(old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
+				{
+					MW_LOG_MIL("Rialto state moving from NULL to READY");
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_STATE_READY);
+				}
+				else if(old_state == GST_STATE_READY && new_state == GST_STATE_PAUSED)
+				{
+					MW_LOG_MIL("Rialto state moving from READY to PAUSED");
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_STATE_PAUSED);
+				}
+				else if(old_state == GST_STATE_PAUSED && new_state == GST_STATE_PLAYING)
+				{
+					MW_LOG_MIL("Rialto state moving from PAUSED to PLAYING");
+					pInterfacePlayerRDK->ProfileRialtoEvent(PROFILE_BUCKET_RIALTO_STATE_PLAYING);
+				}
+			}
+
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))
 			{
 				privatePlayer->gstPrivateContext->pipelineState = new_state;
+				if(new_state == GST_STATE_PLAYING && old_state == GST_STATE_PAUSED)
+				{
+					MW_LOG_MIL("[GSTPROFILING] Pipeline moving from PAUSED to PLAYING");
+					pInterfacePlayerRDK->timestamps.pauseToPlayTime = NOW_STEADY_TS_MS;
+					// Profile pipeline state change to PLAYING - End
+					pInterfacePlayerRDK->ProfileEndBucket(PROFILE_BUCKET_GST_PIPELINE_PLAYING);
+				}
+				if (new_state == GST_STATE_PAUSED && old_state == GST_STATE_READY)
+				{
+					MW_LOG_MIL("[GSTPROFILING] Pipeline moving from READY to PAUSED");
+					pInterfacePlayerRDK->timestamps.readyToPauseTime = NOW_STEADY_TS_MS;
+					// Profile pipeline state change to PAUSED - End
+					pInterfacePlayerRDK->ProfileEndBucket(PROFILE_BUCKET_GST_PIPELINE_PAUSED);
+				}
+				if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
+				{
+					MW_LOG_MIL("[GSTPROFILING] Pipeline moving from NULL to READY");
+					pInterfacePlayerRDK->timestamps.nullToReadyTime = NOW_STEADY_TS_MS;
+				}
 			}
 			/* Moved the below code block from bus_message() async handler to bus_sync_handler()
 			 * to avoid a timing case crash when accessing wrong video_sink element after it got deleted during pipeline reconfigure on codec change in mid of playback.
@@ -5057,6 +5245,7 @@ void InterfacePlayerRDK::NotifyFragmentCachingComplete()
 	{
 		MW_LOG_MIL("InterfacePlayer: Setting pipeline to PLAYING state ");
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+		AAMPLOG_INFO("Set state");
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayer_Configure GST_STATE_PLAYING failed");
@@ -5347,4 +5536,89 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
+}
+
+/**
+ * @brief Set all profiler callback functions at once
+ * @param[in] callback The callback function to be called for profiling events (ProfilePerformed)
+ * @param[in] beginCallback The callback function for ProfileBegin
+ * @param[in] endCallback The callback function for ProfileEnd
+ */
+void InterfacePlayerRDK::SetProfilerCallback(const std::function<void(ProfilerBucketType)>& callback,
+                                             const std::function<void(ProfilerBucketType)>& beginCallback,
+                                             const std::function<void(ProfilerBucketType)>& endCallback)
+{
+	mProfilerCallback = callback;
+	mProfilerBeginCallback = beginCallback;
+	mProfilerEndCallback = endCallback;
+}
+
+/**
+ * @brief Set the ProfilePerformed callback separately
+ * @param[in] callback The callback function for instant profiling events
+ */
+void InterfacePlayerRDK::SetProfilePerformedCallback(const std::function<void(ProfilerBucketType)>& callback)
+{
+	mProfilerCallback = callback;
+}
+
+/**
+ * @brief Set the ProfileBegin callback separately
+ * @param[in] callback The callback function for starting duration profiling
+ */
+void InterfacePlayerRDK::SetProfileBeginCallback(const std::function<void(ProfilerBucketType)>& callback)
+{
+	mProfilerBeginCallback = callback;
+}
+
+/**
+ * @brief Set the ProfileEnd callback separately
+ * @param[in] callback The callback function for ending duration profiling
+ */
+void InterfacePlayerRDK::SetProfileEndCallback(const std::function<void(ProfilerBucketType)>& callback)
+{
+	mProfilerEndCallback = callback;
+}
+
+/**
+ * @brief Profile Rialto-specific events for tune time metrics (instant event - ProfilePerformed)
+ * @param[in] bucketType The profiler bucket type to record
+ */
+void InterfacePlayerRDK::ProfileRialtoEvent(ProfilerBucketType bucketType)
+{
+	if (mProfilerCallback)
+	{
+		MW_LOG_INFO("ProfileRialtoEvent: Recording bucket type %d", bucketType);
+		mProfilerCallback(bucketType);
+	}
+	else
+	{
+		MW_LOG_TRACE("ProfileRialtoEvent: No profiler callback registered for bucket type %d", bucketType);
+	}
+}
+
+/**
+ * @brief Begin profiling for a specific bucket (marks start time)
+ * @param[in] bucketType The profiler bucket type to start profiling
+ */
+void InterfacePlayerRDK::ProfileBeginBucket(ProfilerBucketType bucketType)
+{
+	if (mProfilerBeginCallback)
+	{
+		MW_LOG_MIL("ProfileBeginBucket: Starting bucket type %d", bucketType);
+		mProfilerBeginCallback(bucketType);
+	}
+}
+
+/**
+ * @brief End profiling for a specific bucket (marks end time)
+ * @param[in] bucketType The profiler bucket type to end profiling
+ */
+void InterfacePlayerRDK::ProfileEndBucket(ProfilerBucketType bucketType)
+{
+	if (mProfilerEndCallback)
+	{
+		MW_LOG_MIL("ProfileEndBucket: Ending bucket type %d", bucketType);
+		mProfilerEndCallback(bucketType);
+	}
 }

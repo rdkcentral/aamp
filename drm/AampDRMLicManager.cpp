@@ -340,6 +340,8 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 				if(!isLicenseRenewal)
 				{
 					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
+					// Profile license acquisition start
+					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LICENSE_ACQUISITION_START);
 				}
 				bool isContentMetadataAvailable = configureLicenseServerParameters(drmHelper, licenseRequest, licenseServerProxy, challengeInfo, aampInstance);
 				if (isContentMetadataAvailable)
@@ -393,6 +395,9 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 			if(!isLicenseRenewal)
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
+				// Profile license acquisition end (license received)
+				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LICENSE_ACQUISITION_START);
+				aampInstance->profiler.ProfilePerformed(PROFILE_BUCKET_LICENSE_ACQUISITION_END);
 			}
 			if (!isSecFeatureEnabled() && (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping)))
 			{
@@ -434,6 +439,9 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 			{
 				aampInstance->profiler.ProfileError(PROFILE_BUCKET_LA_NETWORK, httpResponseCode);
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
+				// Profile license acquisition error
+				aampInstance->profiler.ProfileError(PROFILE_BUCKET_LICENSE_ACQUISITION_START, httpResponseCode);
+				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LICENSE_ACQUISITION_START);
 			}
 			AAMPLOG_ERR("Error!! Invalid License Response was provided by the Server");
 			
@@ -1297,13 +1305,23 @@ void AampDRMLicenseManager::TriggerDecryptProfile(int streamType, int action, in
     switch ((ProfilerAction)action)
     {
         case PROFILE_ACTION_BEGIN:
+			AAMPLOG_INFO("Decrypt Profile Begin for streamType %d", streamType);
             aampInstance->profiler.ProfileBegin(bucket);
+            // Also profile the overall decryption phase start (first decryption)
+            aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_DECRYPTION_START);
             break;
         case PROFILE_ACTION_END:
+			AAMPLOG_INFO("Decrypt Profile End for streamType %d", streamType);
             aampInstance->profiler.ProfileEnd(bucket);
+            // Mark overall decryption phase end
+            aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_DECRYPTION_START);
+            aampInstance->profiler.ProfilePerformed(PROFILE_BUCKET_DECRYPTION_END);
             break;
         case PROFILE_ACTION_ERROR:
+			AAMPLOG_INFO("Decrypt Profile Error for streamType %d", streamType);
             aampInstance->profiler.ProfileError(bucket, result);
+            aampInstance->profiler.ProfileError(PROFILE_BUCKET_DECRYPTION_START, result);
+            aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_DECRYPTION_START);
             break;
     }
 }

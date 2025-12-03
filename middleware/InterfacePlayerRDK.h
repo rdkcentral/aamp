@@ -36,6 +36,7 @@
 #include <any>
 #include "SocUtils.h"
 #include "GstUtils.h"
+#include "AampProfiler.h"
 
 class InterfacePlayerPriv;
 
@@ -166,6 +167,30 @@ class InterfacePlayerRDK
 		PlayerScheduler mScheduler;
         	InterfacePlayerRDK();
         	~InterfacePlayerRDK();
+		
+		struct PipelineTimestamps
+		{
+		unsigned int  pipelineCreateTime,videoPlaybinCreateTime,audioPlaybinCreateTime,rialtomsevideosink_time,rialtomseaudiosink_time,setPipelineToPause,nullToReadyTime,readyToPauseTime,pauseToPlayTime;
+		PipelineTimestamps():pipelineCreateTime(0),videoPlaybinCreateTime(0),audioPlaybinCreateTime(0),rialtomsevideosink_time(0),rialtomseaudiosink_time(0),setPipelineToPause(0),nullToReadyTime(0),readyToPauseTime(0),pauseToPlayTime(0){}
+
+		// Print all timestamps in readable format
+		void LogGstTimestamp()
+		{
+			MW_LOG_MIL(
+				"[GSTPROFILING]Timestamps: PipelineStartTime=%d |videoPlaybinCreate=%d| audioPlaybinCreate=%d | setPipelineToPause=%d | RialtoMSEVideoSinkCreate=%d | RialtoMSEAudioSink=%d | Null->Ready=%d | Ready->Pause=%d | Pause->Play=%d",
+				pipelineCreateTime,
+				videoPlaybinCreateTime-pipelineCreateTime,
+				audioPlaybinCreateTime-pipelineCreateTime,
+				setPipelineToPause-pipelineCreateTime,
+				rialtomsevideosink_time-pipelineCreateTime,
+				rialtomseaudiosink_time-pipelineCreateTime,
+				nullToReadyTime-pipelineCreateTime,
+				readyToPauseTime-pipelineCreateTime,
+				pauseToPlayTime-pipelineCreateTime);
+		}
+				
+
+	};
 		InterfacePlayerPriv* GetPrivatePlayer();
 		/**
 		 * @brief Clears the flags for an idle task.
@@ -308,6 +333,7 @@ class InterfacePlayerRDK
         	std::mutex mSourceSetupMutex;			/**< Protects the source setup state>*/
         	std::condition_variable mSourceSetupCV; /**< Conditional Variable to notify changes in the source setup status>*/
         	bool mSchedulerStarted;
+			PipelineTimestamps timestamps; /**< various pipeline timestamps */
         	/**
         	 * @brief Creates a GStreamer pipeline.
         	* @param pipelineName Name of the pipeline.
@@ -767,9 +793,51 @@ class InterfacePlayerRDK
 		 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
 		 */
 		const MonitorAVState& GetMonitorAVState();
+		/**
+		 * @brief Profile Rialto-specific events for tune time metrics
+		 * @param[in] bucketType The profiler bucket type to record
+		 */
+		void ProfileRialtoEvent(ProfilerBucketType bucketType);
+		/**
+		 * @brief Begin profiling for a specific bucket (marks start time)
+		 * @param[in] bucketType The profiler bucket type to start profiling
+		 */
+		void ProfileBeginBucket(ProfilerBucketType bucketType);
+		/**
+		 * @brief End profiling for a specific bucket (marks end time)
+		 * @param[in] bucketType The profiler bucket type to end profiling
+		 */
+		void ProfileEndBucket(ProfilerBucketType bucketType);
+		/**
+		 * @brief Set all profiler callback functions at once
+		 * @param[in] callback The callback function to be called for profiling events (ProfilePerformed)
+		 * @param[in] beginCallback The callback function for ProfileBegin
+		 * @param[in] endCallback The callback function for ProfileEnd
+		 */
+		void SetProfilerCallback(const std::function<void(ProfilerBucketType)>& callback,
+		                         const std::function<void(ProfilerBucketType)>& beginCallback = nullptr,
+		                         const std::function<void(ProfilerBucketType)>& endCallback = nullptr);
+		/**
+		 * @brief Set the ProfilePerformed callback separately
+		 * @param[in] callback The callback function for instant profiling events
+		 */
+		void SetProfilePerformedCallback(const std::function<void(ProfilerBucketType)>& callback);
+		/**
+		 * @brief Set the ProfileBegin callback separately
+		 * @param[in] callback The callback function for starting duration profiling
+		 */
+		void SetProfileBeginCallback(const std::function<void(ProfilerBucketType)>& callback);
+		/**
+		 * @brief Set the ProfileEnd callback separately
+		 * @param[in] callback The callback function for ending duration profiling
+		 */
+		void SetProfileEndCallback(const std::function<void(ProfilerBucketType)>& callback);
 
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
+		std::function<void(ProfilerBucketType)> mProfilerCallback;
+		std::function<void(ProfilerBucketType)> mProfilerBeginCallback;
+		std::function<void(ProfilerBucketType)> mProfilerEndCallback;
 };
 struct data
 {

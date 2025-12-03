@@ -414,6 +414,34 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
 
+		// Register profiler callbacks for Rialto events - set each callback separately
+		// ProfilePerformed callback for instant events
+		playerInstance->SetProfilePerformedCallback(
+			[this](ProfilerBucketType bucketType) {
+				if (this->aamp) {
+					this->aamp->profiler.ProfilePerformed(bucketType);
+				}
+			}
+		);
+		
+		// ProfileBegin callback for duration tracking start
+		playerInstance->SetProfileBeginCallback(
+			[this](ProfilerBucketType bucketType) {
+				if (this->aamp) {
+					this->aamp->profiler.ProfileBegin(bucketType);
+				}
+			}
+		);
+		
+		// ProfileEnd callback for duration tracking end
+		playerInstance->SetProfileEndCallback(
+			[this](ProfilerBucketType bucketType) {
+				if (this->aamp) {
+					this->aamp->profiler.ProfileEnd(bucketType);
+				}
+			}
+		);
+
 		RegisterFirstFrameCallbacks();
 		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
 	}
