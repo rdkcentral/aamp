@@ -14211,9 +14211,9 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 }
 
 /**
+ * @fn ShouldCheckOnlyIframeAdaptation
  * @brief Helper function to determine if only iframe adaptations should be checked
- *
- * @return true if only iframe adaptations should be checked, false otherwise
+ * @retval Return true if only iframe adaptations should be checked, false otherwise
  */
 bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation()
 {
