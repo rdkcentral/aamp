@@ -2219,8 +2219,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
-			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true); //Forcing progress logging 
-			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
+			if (true)
 			{
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
