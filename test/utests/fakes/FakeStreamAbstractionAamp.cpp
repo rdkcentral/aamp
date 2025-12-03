@@ -73,6 +73,10 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 {
 }
 
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+{
+}
+
 long StreamAbstractionAAMP::GetVideoBitrate(void)
 {
 	return 0;
