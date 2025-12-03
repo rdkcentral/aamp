@@ -9015,7 +9015,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					* present after mpd update causing issues
 					*/
 					AAMPLOG_INFO("Period %s skipped. Adaptation size:%d, isEmpty:%d duration %f (ms)", newPeriod->GetId().c_str(), adaptationSetCount, IsEmptyPeriod(mIterPeriodIndex), (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB())));
-					mIterPeriodIndex += (mPlayRate < 0) ? -1 : 1;
+					mIterPeriodIndex += (mPlayRate < AAMP_RATE_PAUSE) ? -1 : 1;
 					// Skipping period completely, so exit from period selection
 					ret = false;
 					continue;
@@ -14231,17 +14231,10 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation()
 
 /**
  * @fn IsEmptyPeriod
- * @param[in] period period to check whether it is empty
+ * @param[in] iPeriodIndex Index of the period to check whether it is empty
  * @retval Return true on empty Period
  */
 bool StreamAbstractionAAMP_MPD::IsEmptyPeriod(int iPeriodIndex)
 {
-	bool isEmptyPeriod = false;
-	bool checkOnlyIframeAdaptation = ShouldCheckOnlyIframeAdaptation();
-	if(mMPDParseHelper->IsEmptyPeriod(iPeriodIndex, checkOnlyIframeAdaptation))
-	{
-		// Empty Period . Ignore processing, continue to next.
-		isEmptyPeriod = true;
-	}
-	return isEmptyPeriod;
+	return mMPDParseHelper->IsEmptyPeriod(iPeriodIndex, ShouldCheckOnlyIframeAdaptation());
 }

@@ -1237,7 +1237,7 @@ protected:
 
 	/**
 	 * @fn IsEmptyPeriod
-	 * @param[in] period period to check whether it is empty
+	 * @param[in] iPeriodIndex Index of the period to check whether it is empty
 	 * @retval Return true on empty Period
 	 */
 	bool IsEmptyPeriod(int iPeriodIndex);
