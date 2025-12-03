@@ -66,8 +66,9 @@ set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
 if(CMAKE_RDK_SVP)
        message("CMAKE_RDK_SVP Set")
        set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_SVP=1")
+else
+	message("CMAKE_RDK_SVP not set")
 endif()
-
 if(CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_PLATFORM_UBUNTU set")
     link_directories(${CMAKE_LIBRARY_PATH})
