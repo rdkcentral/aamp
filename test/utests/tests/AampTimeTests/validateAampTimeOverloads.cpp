@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <limits> // added for INT64_MAX/MIN
 
 using ::testing::_;
 using ::testing::Return;
@@ -358,4 +359,26 @@ TEST_F(validateAampTimeOverloads, AampTicksInMilli)
 {
 	AampTicks ticks(5000, 1000); // 5000 ticks with a timescale of 1000
 	EXPECT_EQ(ticks.inMilli(), 5000); // 5000 milliseconds
+}
+
+// New tests to validate overflow handling when converting AampTicks -> AampTime
+TEST_F(validateAampTimeOverloads, AampTicksConversion_PositiveOverflowClamps)
+{
+	// Use timescale 1 to force ticks * baseTimescale to be large and trigger clamping
+	AampTicks hugeTicks(std::numeric_limits<int64_t>::max(), 1u);
+	AampTime t(hugeTicks);
+
+	// The implementation clamps the internal baseTime to INT64_MAX, so inSeconds()
+	// should equal INT64_MAX / baseTimescale
+	const double expected = static_cast<double>(std::numeric_limits<int64_t>::max()) / 1e9;
+	EXPECT_DOUBLE_EQ(t.inSeconds(), expected);
+}
+
+TEST_F(validateAampTimeOverloads, AampTicksConversion_NegativeOverflowClamps)
+{
+	AampTicks hugeNegTicks(std::numeric_limits<int64_t>::min(), 1u);
+	AampTime t(hugeNegTicks);
+
+	const double expected = static_cast<double>(std::numeric_limits<int64_t>::min()) / 1e9;
+	EXPECT_DOUBLE_EQ(t.inSeconds(), expected);
 }

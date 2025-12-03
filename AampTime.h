@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <ostream>
 #include <cmath>
+#include <limits>
 
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
@@ -52,6 +53,52 @@ class AampTime
 		static const uint64_t baseTimescale = nano;
 		int64_t baseTime;
 
+		/// @brief Convert ticks to base time with overflow protection using 128-bit arithmetic
+		/// @param ticks The tick count (signed 64-bit)
+		/// @param timescale The timescale (unsigned 32-bit)
+		/// @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected
+		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale)
+		{
+			// Use 128-bit intermediate to avoid overflow during multiplication
+			// __int128 is supported by GCC and Clang on 64-bit platforms
+			#if defined(__SIZEOF_INT128__)
+				__int128 intermediate = static_cast<__int128>(ticks) * static_cast<__int128>(baseTimescale);
+				__int128 result = intermediate / static_cast<__int128>(timescale);
+				
+				// Check if result fits in int64_t range
+				if (result > std::numeric_limits<int64_t>::max())
+				{
+					return std::numeric_limits<int64_t>::max();
+				}
+				else if (result < std::numeric_limits<int64_t>::min())
+				{
+					return std::numeric_limits<int64_t>::min();
+				}
+				else
+				{
+					return static_cast<int64_t>(result);
+				}
+			#else
+				// Fallback for platforms without __int128 support
+				// Use double precision (loses some precision but avoids overflow)
+				double intermediate = static_cast<double>(ticks) * static_cast<double>(baseTimescale);
+				double result = intermediate / static_cast<double>(timescale);
+				
+				if (result > static_cast<double>(std::numeric_limits<int64_t>::max()))
+				{
+					return std::numeric_limits<int64_t>::max();
+				}
+				else if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
+				{
+					return std::numeric_limits<int64_t>::min();
+				}
+				else
+				{
+					return static_cast<int64_t>(result);
+				}
+			#endif
+		}
+
 	public:
 		/// @brief Constructor
 		/// @param seconds time in seconds, as a double
@@ -61,14 +108,15 @@ class AampTime
 		/// @param rhs AampTime object to copy
 		constexpr AampTime(const AampTime& rhs) : baseTime(rhs.baseTime){}
 
-		/// @brief Constructor
-		/// @param time struct containing time in ticks and timescale
-		/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
-		constexpr AampTime(AampTicks &time) : baseTime((time.ticks * (int64_t)baseTimescale) / (int64_t)time.timescale) {}
+	/// @brief Constructor
+	/// @param time struct containing time in ticks and timescale
+	/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
+	/// @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
+	inline AampTime(AampTicks &time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
 
-		/// @brief Get the stored time
-		/// @return Time in seconds (double)
-		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
+	/// @brief Get the stored time
+	/// @return Time in seconds (double)
+	inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
 
 		/// @brief Get the stored time in seconds
 		/// @return Time in seconds (integer)
