@@ -3729,7 +3729,11 @@ bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 }
 
 /**
- *  @brief Unblock WaitForCachedFragment()
+ * @brief Unblocks all waiting tracks by calling AbortWaitForCachedFragmentChunk() on each track.
+ *
+ * Iterates over all track types and invokes AbortWaitForCachedFragmentChunk()
+ * on each MediaTrack, ensuring that any threads waiting for cached fragments
+ * are unblocked.
  */
 void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
 {

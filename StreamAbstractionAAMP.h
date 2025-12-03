@@ -1765,7 +1765,7 @@ public:
 	}
 
 	/**
-	 *   @fn UnblockVideoWaitForCachedFragmentChunk
+	 *   @fn UnblockWaitForCachedFragmentChunk
 	 *
 	 *   @return void
 	 */
