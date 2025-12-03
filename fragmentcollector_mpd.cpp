@@ -3195,6 +3195,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
+	float currentRate = aamp->rate;
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
@@ -3235,7 +3236,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
-		mMaxTracks = (mPlayRate == AAMP_NORMAL_PLAY_RATE) ? AAMP_TRACK_COUNT : 1;
+		mMaxTracks = (currentRate == AAMP_NORMAL_PLAY_RATE) ? AAMP_TRACK_COUNT : 1;
 		double offsetFromStart = seekPosition;
 		uint64_t durationMs = 0;
 		mNumberOfTracks = 0;
@@ -3502,7 +3503,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				liveAdjust = true;
 				notifyEnteringLive = true;
 			}
-			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (mPlayRate > AAMP_RATE_PAUSE))
+			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (currentRate > AAMP_RATE_PAUSE))
 			{
 				double seekWindowEnd = duration - aamp->mLiveOffset;
 				// check if seek beyond live point
@@ -3515,7 +3516,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						notifyEnteringLive = true;
 					}
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (mPlayRate=%f) to live window!!", mPlayRate);
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (rate=%f) to live window!!", currentRate);
 					aamp->mDisableRateCorrection = false;
 				}
 				else
