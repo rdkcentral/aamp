@@ -2219,6 +2219,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
+			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true); //Forcing progress logging 
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
@@ -3496,7 +3497,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
 	}
-	AampLogManager::setLogLevel(eLOGLEVEL_WARN);
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO); //Reset log level to INFO after tune completes
 }
 
 /**
