@@ -147,8 +147,8 @@ void ConfigureVideo()
 	bool hasDrm = false;
 	std::string mimeType;
 	StreamFormat streamFormat;
-	int32_t width = trackVideo.video.width; 
-	int32_t height = trackVideo.video.height;
+	// int32_t width = trackVideo.video.width; 
+	// int32_t height = trackVideo.video.height;
 	SegmentAlignment alignment = SegmentAlignment::AU;
 
 	switch( trackVideo.codec_type )
@@ -168,6 +168,10 @@ void ConfigureVideo()
 	CodecData codecData;
 	const char *codec_ptr = trackVideo.codec_data.c_str();
     codecData.data = std::vector<uint8_t>( codec_ptr, codec_ptr + trackVideo.codec_data.size() );
+
+    //Temp hack
+    int32_t width = 1920;
+    int32_t height = 1080;
     
 	std::unique_ptr<IMediaPipeline::MediaSourceVideo> sourceVideo =
 	std::make_unique<IMediaPipeline::MediaSourceVideo>(
@@ -265,13 +269,14 @@ int my_main(int argc, char **argv)
         return -1;
     }
     
+
+    // MUST happen before any attachSource() to create a Rialto Gstreamer player
+    gstMediaPipeline->load(MediaType::MSE, "video/x-h265", "file:///tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s"); // Temp
+
     if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
     {
         fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
     }
-
-    // MUST happen before any attachSource() to create a Rialto Gstreamer player
-    gstMediaPipeline->load(MediaType::MSE, "video/x-h265", "test://local"); // Dummy values
 
     ConfigureAudio();
     ConfigureVideo();
