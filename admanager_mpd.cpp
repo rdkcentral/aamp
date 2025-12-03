@@ -60,7 +60,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
 	StartFulfillAdLoop();
@@ -1529,9 +1529,8 @@ void PrivateCDAIObjectMPD::FulfillAdLoop()
  */
 void PrivateCDAIObjectMPD::StartFulfillAdLoop()
 {
-	if(!mAdObjThreadStarted)
+	if(!mAdObjThreadID.joinable())
 	{
-		mAdObjThreadStarted = true;
 		mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulfillAdLoop, this);
 		AAMPLOG_INFO("Thread created mAdObjThreadID[%zx]", GetPrintableThreadID(mAdObjThreadID));
 	}
@@ -1542,15 +1541,12 @@ void PrivateCDAIObjectMPD::StartFulfillAdLoop()
  */
 void PrivateCDAIObjectMPD::StopFulfillAdLoop()
 {
-	if(mAdObjThreadStarted)
+	if(mAdObjThreadID.joinable())
 	{
 		mExitFulfillAdLoop = true;
 		NotifyAdLoopWait();
-		if (mAdObjThreadID.joinable())
-		{
-			mAdObjThreadID.join();
-		}
-		mAdObjThreadStarted = false;
+		mAdObjThreadID.join();
+		AAMPLOG_INFO("mAdObjThreadID joined.");
 	}
 }
 

@@ -580,13 +580,19 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 				{
 					mediaInfoStore.emplace_back(MediaInfo{});
 					ptr.ParseAttrList(ParseMediaAttributeCallback, this);
-					if( mediaInfoStore[mMediaCount].language.empty() )
-					{ // handle non-compliant manifest missing language attribute
-						mediaInfoStore[mMediaCount].language =  mediaInfoStore[mMediaCount].name;
-					}
-					if (mediaInfoStore[mMediaCount].type == eMEDIATYPE_AUDIO && !mediaInfoStore[mMediaCount].language.empty() )
+					if (mediaInfoStore[mMediaCount].type == eMEDIATYPE_AUDIO)
 					{
-						mLangList.insert(GetLanguageCode(mMediaCount));
+						auto& audioMedia = mediaInfoStore[mMediaCount];
+						if (audioMedia.language.empty())
+						{ // handle non-compliant manifest missing language attribute
+							AAMPLOG_WARN("Audio track %d missing language, using name '%s' as fallback",
+										 mMediaCount, audioMedia.name.c_str());
+							audioMedia.language = audioMedia.name;
+						}
+						if (!audioMedia.language.empty())
+						{
+							mLangList.insert(GetLanguageCode(mMediaCount));
+						}
 					}
 					mMediaCount++;
 				}
@@ -3422,7 +3428,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					//set default bitrate
 					else
 					{
-						AAMPLOG_WARN("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+						AAMPLOG_MIL("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 						aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 					}
@@ -3431,27 +3437,46 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 1: Configure the Audio for the playback .Get the audio index/group
+				// Configure the Audio for the playback .Get the audio index/group
 				ConfigureAudioTrack();
 			}
 
-			// Step 3: Based on the audio selection done , configure the profiles required
+			// Based on the audio selection done , configure the profiles required
 			ConfigureVideoProfiles();
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 2: Configure Subtitle track for the playback
-				ConfigureTextTrack();
+
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
+
+				// Select preferred text track based on user language preferences
+				TextTrackInfo selectedTextTrack;
+				if (SelectPreferredTextTrack(selectedTextTrack))
+				{
+					AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
+								 selectedTextTrack.language.c_str(),
+								 selectedTextTrack.name.c_str(),
+								 selectedTextTrack.rendition.c_str());
+					aamp->SetPreferredTextTrack(std::move(selectedTextTrack));
+				}
+				else
+				{
+					AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+				}
+
+				// Configure Subtitle track for the playback
+				ConfigureTextTrack();
+				
+				// Check for text track changes and notify
+				NotifyTextTrackChanges();
+				
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
 					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
 					SelectSubtitleTrack();
 				}
 			}
-
-
 
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
@@ -7109,6 +7134,11 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 			}
 		}
 	}
+
+	if(currentTextTrackProfileIndex > -1 )
+	{
+		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
+	}
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 /**
@@ -7286,21 +7316,12 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyAudioTracksChanged();
 		}
-
-		tracksChanged = false;
-		if (-1 != aamp->mCurrentTextTrackIndex && aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex)
-		{
-			tracksChanged = true;
-		}
-		aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
-		if (tracksChanged)
-		{
-			aamp->NotifyTextTracksChanged();
-		}
+		
+		// Update closed caption track info
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
-		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		aamp->UpdateCCTrackInfo(textTracksCopy, updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
@@ -7309,6 +7330,25 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 
+}
+
+/**
+ * @brief Check for text track changes and send notification events
+ */
+void StreamAbstractionAAMP_HLS::NotifyTextTrackChanges()
+{
+	// Check if text track has changed from a valid previous selection
+	bool tracksChanged = (aamp->mCurrentTextTrackIndex != -1 && 
+	                      aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex);
+	
+	// Update current track index
+	aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
+	
+	// Send notification if track changed
+	if (tracksChanged)
+	{
+		aamp->NotifyTextTracksChanged();
+	}
 }
 
 /**
@@ -7538,41 +7578,88 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 	AAMPLOG_INFO("using RialtoSink TextTrack Selected %d", currentTextTrackProfileIndex);
 }
 
-bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)
+/**
+ * @brief Select best text track based on user preferences
+ *
+ * Scoring algorithm:
+ * - Base: 1 point for any track
+ * - Language: (list_size - position) * AAMP_LANGUAGE_SCORE (prioritize order)
+ * - Rendition: AAMP_ROLE_SCORE
+ * - Name: AAMP_TYPE_SCORE
+ *
+ * @param[out] selectedTextTrack The best matching track
+ * @return true if a track was selected, false otherwise
+ */
+bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack)
 {
-	bool bestTrackFound = false;
-	unsigned long long bestScore = 0;
-
 	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
-
-	for (const auto& track : availableTracks)
+	if (availableTracks.empty())
 	{
-		unsigned long long score = 1; // Default score for each track
+		AAMPLOG_WARN("No text tracks available");
+		return false;
+	}
 
-		// Check for language match
-		if (!aamp->preferredTextLanguagesString.empty() && track.language == aamp->preferredTextLanguagesString)
+	unsigned long long bestScore = 0;
+	const auto& languageVectorToCheck = (aamp->preferredTextLanguagesList.empty()) ? aamp->preferredSubtitleLanguageVctr : aamp->preferredTextLanguagesList;
+
+	for (const auto &track : availableTracks)
+	{
+		unsigned long long score = 1; // Base score for any track
+
+		// Score language preference (higher priority = higher score)
+		if (!languageVectorToCheck.empty())
 		{
-			score += AAMP_LANGUAGE_SCORE; // Add score for language match
+			std::string normalizedTrackLanguage =
+				track.language.empty() ? "" : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
+			AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s')", track.name.c_str(), track.language.c_str(), normalizedTrackLanguage.c_str());
+
+			auto iter = std::find(languageVectorToCheck.cbegin(),
+								  languageVectorToCheck.cend(),
+								  normalizedTrackLanguage);
+			if (iter != languageVectorToCheck.cend())
+			{
+				size_t position = std::distance(languageVectorToCheck.cbegin(), iter);
+				size_t priorityMultiplier = languageVectorToCheck.size() - position;
+				score += priorityMultiplier * AAMP_LANGUAGE_SCORE;
+
+				AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s') matches position %zu (bonus: %llu)",
+							  track.name.c_str(), track.language.c_str(), normalizedTrackLanguage.c_str(),
+							  position, priorityMultiplier * AAMP_LANGUAGE_SCORE);
+			}
 		}
 
-		if( !aamp->preferredTextRenditionString.empty() && aamp->preferredTextRenditionString.compare(track.rendition) == 0)
+		// Score rendition preference
+		if (!aamp->preferredTextRenditionString.empty() &&
+			aamp->preferredTextRenditionString == track.rendition)
 		{
-			score += AAMP_ROLE_SCORE; // Add score for rendition match
+			score += AAMP_ROLE_SCORE;
 		}
 
-		// Check for name match
-		if( !aamp->preferredTextNameString.empty() && aamp->preferredTextNameString.compare(track.name) == 0)
+		// Score name preference
+		if (!aamp->preferredTextNameString.empty() &&
+			aamp->preferredTextNameString == track.name)
 		{
-			score += AAMP_TYPE_SCORE; // Add score for name match
+			score += AAMP_TYPE_SCORE;
 		}
-		if(score > bestScore)
+
+		// Update best if this score is higher
+		if (score > bestScore)
 		{
-			bestTrackFound = true;
 			bestScore = score;
 			selectedTextTrack = track;
+
+			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, score=%llu",
+						 track.language.c_str(), track.rendition.c_str(),
+						 track.name.c_str(), score);
 		}
 	}
-	return bestTrackFound;
+
+	if (bestScore == 0)
+	{
+		AAMPLOG_WARN("No suitable text track found");
+	}
+
+	return (bestScore > 0);
 }
 
 /*
