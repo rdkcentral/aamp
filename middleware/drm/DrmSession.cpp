@@ -65,3 +65,14 @@ int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *p
 	MW_LOG_ERR("Standard decrypt method not implemented");
 	return -1;
 }
+
+/**
+ * @brief Get the list of usable key IDs from the DRM session
+ * @retval Reference to vector of usable key IDs
+ * @note Default implementation returns the reference to an empty vector
+ */
+const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
+{
+	static const std::vector<std::vector<uint8_t>> emptyVector;
+	return emptyVector;;
+}
