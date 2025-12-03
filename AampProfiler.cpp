@@ -261,6 +261,7 @@ void ProfileEventAAMP::TuneBegin(void)
  * contentType                    //Content Type. Eg: LINEAR, VOD, etc
  * streamType                     //Stream Type. Eg: HLS, DASH, etc
  * firstTune                      //Is it a first tune after reboot/crash.
+ * gstDecodeTime                 // time taken in ms to decode first frame, post decryption. This will also includes any decoder init overheads<br>
  * <br>
  */
 void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData)
@@ -316,14 +317,15 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,"		// LAPreProcDuration, LANetworkDuration, LAPostProcDuration
 
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
-		"%d,%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
+		"%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
 		"%d,%d,%s,%s,"		// TuneAttempts ,Tunestatus -success(1) failure (0) ,Failure Reason, AppName
-		"%d,%d,%d,%d,%d",       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
+		"%d,%d,%d,%d,%d,"       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
 					//  TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported	
 		// TODO: settop type, flags, isFOGEnabled, isDDPlus, isDemuxed, assetDurationMs
+		"%d", // gstDecodeTime;
 
 		tuneTimeStrPrefix,
 		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
@@ -346,12 +348,12 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
-		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time
 		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
 		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
-		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime
+		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,
+		tDecode // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
