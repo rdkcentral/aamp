@@ -154,11 +154,11 @@ void ConfigureVideo()
 	switch( trackVideo.codec_type )
 	{
 		case MultiChar_Constant("hvcC"):
-			mimeType = "video/x-h265";
+			mimeType = "video/h265";
 			streamFormat = StreamFormat::HVC1;
 			break;
 		case MultiChar_Constant("avcC"):
-			mimeType = "video/x-h264";
+			mimeType = "video/h264";
 			streamFormat = StreamFormat::AVC;
 			break;
 		default:
@@ -271,27 +271,27 @@ int my_main(int argc, char **argv)
     
 
     // MUST happen before any attachSource() to create a Rialto Gstreamer player
-    gstMediaPipeline->load(MediaType::MSE, "video/x-h265", "file:///tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s"); // Temp
+    gstMediaPipeline->load(MediaType::MSE, "", "file:///tmp/data/bipbop-gen/main.mpd"); // Temp
 
     if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
     {
         fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
     }
 
-    ConfigureAudio();
-    ConfigureVideo();
-    ConfigureComplete();
+    // ConfigureAudio();
+    // ConfigureVideo();
+    // ConfigureComplete();
 
     gstMediaPipeline->play();
 
-    uint32_t audioReqId = WaitForNeedDataRequest(sourceIdAudio);
-    uint32_t videoReqId = WaitForNeedDataRequest(sourceIdVideo);
+    // uint32_t audioReqId = WaitForNeedDataRequest(sourceIdAudio);
+    // uint32_t videoReqId = WaitForNeedDataRequest(sourceIdVideo);
 
-    if (audioReqId != UINT32_MAX)
-        InjectAudio(audioReqId);
+    // if (audioReqId != UINT32_MAX)
+    //     InjectAudio(audioReqId);
 
-    if (videoReqId != UINT32_MAX)
-        InjectVideo(videoReqId);
+    // if (videoReqId != UINT32_MAX)
+    //     InjectVideo(videoReqId);
 
 
     std::this_thread::sleep_for(std::chrono::seconds(7)); 
