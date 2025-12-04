@@ -247,6 +247,9 @@ class AdFallbackTests : public ::testing::Test
 			// For the time being return the same manifest again
 			EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 				.WillRepeatedly(WithoutArgs(Invoke(this, &AdFallbackTests::GetManifestForMPDDownloader)));
+
+			// PrivateInstanceAAMP and the StreamAbstraction object should have the same rate.
+			mPrivateInstanceAAMP->rate = rate;
 			// Create MPD instance.
 			mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 			if(!mCdaiObj)
@@ -382,7 +385,6 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	std::string sourceVideoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	std::string sourceAudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
 
 	//For this test case we need ptsrestamp - false and cdai - true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
