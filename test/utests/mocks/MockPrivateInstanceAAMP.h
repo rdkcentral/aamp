@@ -28,7 +28,7 @@ class MockPrivateInstanceAAMP
 public:
     MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len));
     
-	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent));
+	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent, bool forceCleanup));
 
 	MOCK_METHOD(void, StartPausePositionMonitoring, (long long pausePositionMilliseconds));
 

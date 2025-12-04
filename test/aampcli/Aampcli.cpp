@@ -21,7 +21,7 @@
  * @file Aampcli.cpp
  * @brief Stand alone AAMP player with command line interface.
  */
-
+#include <unistd.h>
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
 
@@ -371,7 +371,7 @@ static int main_func(int argc, char **argv)
 	AAMPCLI_PRINTF("**************************************************************************\n");
 	AAMPCLI_PRINTF("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
 	AAMPCLI_PRINTF("**************************************************************************\n");
-
+	AAMPCLI_PRINTF("process: %d\n", getpid()); //Used by L2 tests
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();
 

@@ -73,6 +73,10 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 {
 }
 
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+{
+}
+
 long StreamAbstractionAAMP::GetVideoBitrate(void)
 {
 	return 0;
@@ -222,6 +226,16 @@ void MediaTrack::StartInjectLoop()
 
 void MediaTrack::StartPlaylistDownloaderThread()
 {
+}
+
+bool MediaTrack::isFragmentInjectorThreadStarted()
+{
+	return true;
+}
+
+bool MediaTrack::isPlaylistDownloaderThreadStarted()
+{
+	return true;
 }
 
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
