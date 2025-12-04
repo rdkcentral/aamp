@@ -53,6 +53,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 {
 	mTrackStatus.fill(false);
 	mIsSecClientError = isSecFeatureEnabled();
+	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::AampLicensePreFetcher constructor");
 }
 
 /**
@@ -61,7 +62,9 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
  */
 AampLicensePreFetcher::~AampLicensePreFetcher()
 {
+	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::~AampLicensePreFetcher destructor. Calling Term()====");
 	Term();
+	AAMPLOG_WARN("ANJ: destructor. after Calling Term()====");
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
 		mExitLoop = true;
@@ -78,6 +81,7 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 		AAMPLOG_WARN("Joining mVssFetchThread");
 		mVssPreFetchThread.join();
 	}
+	AAMPLOG_WARN("ANJ: OUT:destructor.");
 }
 
 /**
@@ -200,6 +204,10 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 bool AampLicensePreFetcher::Term()
 {
 	bool ret = true;
+	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
 	/** Clear the queue **/
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
@@ -215,7 +223,15 @@ bool AampLicensePreFetcher::Term()
 	}
 	
 	mTrackStatus.fill(false);
+	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
+	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
+	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
+	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
 	mFetchInstance = nullptr;
+	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
 	return ret;
 }
 
@@ -252,6 +268,7 @@ void AampLicensePreFetcher::PreFetchThread()
 					if(!keyStatus)
 					{
 						AAMPLOG_INFO("Notifying DRM failure for type:%d adaptationSetIdx:%u", obj->mType, obj->mAdaptationIdx);
+						AAMPLOG_WARN("ANJ:Notifying DRM failure for type:%d adaptationSetIdx:%u", obj->mType, obj->mAdaptationIdx);
 						bool isSecClientError = isSecFeatureEnabled();
 						DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
 						NotifyDrmFailure(obj, std::move(e));
@@ -266,10 +283,13 @@ void AampLicensePreFetcher::PreFetchThread()
 						std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyIdArray);
 						AAMPLOG_INFO("Creating DRM session for type:%d period ID:%s and Key ID:%s", obj->mType, obj->mPeriodId.c_str(), keyIdDebugStr.c_str());
 					}
+					AAMPLOG_WARN("ANJ: calling CreateDRMSession" );
 					if (CreateDRMSession(obj))
 					{
 						keyStatus = true;
+						AAMPLOG_WARN("ANJ: CreateDRMSession success." );
 					}
+					AAMPLOG_WARN("ANJ: After calling CreateDRMSession." );
 				}
 				if (keyStatus)
 				{
@@ -379,6 +399,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
 	bool skipErrorEvent = false;
+	AAMPLOG_WARN("ANJ: IN: NotifyDrmFailure: mSendErrorOnFailure = %d", mSendErrorOnFailure);
 	// Skip these additional checks and send error event if mSendErrorOnFailure is set
 	// For a non-intra asset playback with KR, if a future license fails, we should send the error
 	// and skip below check. Maybe introduce a better data structure for mTrackStatus based on periodId
@@ -398,6 +419,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 			AAMPLOG_ERR("Unable to check the mTrackStatus for type:%d, caught exception: %s", fetchObj->mType, exc.what());
 		}
 
+		AAMPLOG_WARN("ANJ: skipErrorEvent = %d", skipErrorEvent);
 		if (!skipErrorEvent)
 		{
 			// Check if the mFetchQueue has a request for this track type queued
@@ -423,12 +445,16 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
+	AAMPLOG_WARN("ANJ: skipErrorEvent = %d, mSendErrorOnFailure = %d", skipErrorEvent, mSendErrorOnFailure);
 	if (skipErrorEvent && mFetchInstance)
 	{
+		AAMPLOG_WARN("ANJ: calling mFetchInstance->UpdateFailedDRMStatus: mFetchInstance = %p", mFetchInstance);
 		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		AAMPLOG_WARN("ANJ: After calling mFetchInstance->UpdateFailedDRMStatus");
 	}
 	else
 	{
+		AAMPLOG_WARN("ANJ: selfAbort = %d", selfAbort);
 		if (!selfAbort)
 		{
 			//Set the isRetryEnabled flag to true if the failure is due to
@@ -450,6 +476,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
 		}
 	}
+	AAMPLOG_WARN("ANJ: OUT: NotifyDrmFailure" );
 }
 
 /**
@@ -464,6 +491,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	bool ret = false;
 	bool isSecClientError = isSecFeatureEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+	AAMPLOG_WARN("ANJ: IN: CreateDRMSession");
 
 	if (mPrivAAMP == nullptr)
 	{
@@ -486,7 +514,9 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
+	AAMPLOG_WARN("ANJ: calling licenseManger->createDrmSession" );
 	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+	AAMPLOG_WARN("ANJ: after calling licenseManger->createDrmSession" );
 
 
 	//set failures here 
@@ -497,6 +527,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	}
 	else
 	{
+		AAMPLOG_WARN("ANJ: drmSession not NULL");
 		ret = true;
 		if(e->getAccessStatusValue() != 3)
 		{
@@ -507,8 +538,10 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
 	if(mPrivAAMP->mIsFakeTune)
 	{
+		AAMPLOG_WARN("ANJ: mIsFakeTune. Send event AAMP_EVENT_EOS");
 		mPrivAAMP->SetState(eSTATE_COMPLETE);
 		mPrivAAMP->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, mPrivAAMP->GetSessionId()));
 	}
+	AAMPLOG_WARN("ANJ: OUT: CreateDRMSession");
 	return ret;
 }
