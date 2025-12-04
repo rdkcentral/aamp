@@ -135,7 +135,7 @@ firstTuneWithWesterosSinkOff(false),
 decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
-filterAudioDemuxBuffers(false),
+filterAudioDemuxBuffers(false), mp4DemuxPlayback(false),
 aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
@@ -1477,6 +1477,9 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
+
+	// Reset mp4demux playback semantic shim on pipeline event reset
+	interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback = false;
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -1489,7 +1492,6 @@ void InterfacePlayerRDK::ResetGstEvents()
 		interfacePlayerPriv->gstPrivateContext->stream[i].eosReached = false;
 		interfacePlayerPriv->gstPrivateContext->stream[i].firstBufferProcessed = false;
 	}
-
 }
 
 void InterfacePlayerRDK::SetPendingSeek(bool state)
@@ -1650,7 +1652,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		playRate = rate;
 	}
 
-	if ((stream->format == GST_FORMAT_ISO_BMFF) && (eGST_MEDIAFORMAT_PROGRESSIVE != static_cast<GstMediaFormat>(m_gstConfigParam->media)))
+	if ((stream->format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback) && (eGST_MEDIAFORMAT_PROGRESSIVE != static_cast<GstMediaFormat>(m_gstConfigParam->media)))
 	{
 		if ((interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
@@ -2438,8 +2440,10 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		}
 		stream->pendingSeek = false;
 	}
-
-	enableOverride = SendQtDemuxOverrideEvent(mediaType, pts, enablePTSReStamp, vodTrickModeFPS); //need to change to priv
+	if (!gstPrivateContext->mp4DemuxPlayback)
+	{
+		enableOverride = SendQtDemuxOverrideEvent(mediaType, pts, enablePTSReStamp, vodTrickModeFPS); //need to change to priv
+	}
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
 	if (type == eGST_MEDIATYPE_VIDEO)
@@ -2462,7 +2466,7 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		}
 	}
 
-	if (stream->format == GST_FORMAT_ISO_BMFF)
+	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->mp4DemuxPlayback)
 	{
 		// There is a possibility that only single protection event is queued for multiple type
 		// since they are encrypted using same id. Hence check if protection event is queued for
@@ -3156,7 +3160,7 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	if (stream->format == GST_FORMAT_ISO_BMFF)
+	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->mp4DemuxPlayback)
 	{
 		GstSegment segment;
 		gst_segment_init(&segment, GST_FORMAT_TIME);
@@ -3533,7 +3537,7 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 	else
 	{
 		MW_LOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d", stream->format , stream->firstBufferProcessed);
-		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF) && ( !codecChange ))
+		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback) && ( !codecChange ))
 		{
 			unblockDiscProcess = true;
 			ret = true;
@@ -5253,9 +5257,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codec
 {
 	GstCaps *caps = GetCaps(codecInfo.codecFormat);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
-	// Hack to workaround different checks in InterfacePlayerRDK for format validity
-	// Especially in SendGstEvents() where its checked before sending protection events
-	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->format = codecInfo.codecFormat;
+	interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback = true;
+	MW_LOG_MIL("SetStreamCaps: mp4DemuxPlayback enabled for type=%d codec format=%d stream format=%d", (int)type, codecInfo.codecFormat, stream->format);
 	if (caps)
 	{
 		// Append some additional info to caps

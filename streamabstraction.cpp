@@ -4130,7 +4130,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				}
 				else
 				{
-					track->playContext = std::make_shared<ElementaryProcessor>(aamp);
+					track->playContext = nullptr;
 				}
 			}
 		}

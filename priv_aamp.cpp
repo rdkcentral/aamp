@@ -14063,6 +14063,22 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	switch (type)
+	{
+	case eMEDIATYPE_VIDEO:
+		mVideoFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+		break;
+	case eMEDIATYPE_AUDIO:
+		mAudioFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+		break;
+	case eMEDIATYPE_AUX_AUDIO:
+		// Explicitly mark aux path invalid unless actively configured
+		mAuxFormat = FORMAT_INVALID;
+		break;
+	default:
+		break;
+	}
+	AAMPLOG_INFO("SetStreamCaps: updated formats mVideoFormat=%d mAudioFormat=%d mAuxFormat=%d", mVideoFormat, mAudioFormat, mAuxFormat);
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
