@@ -2900,3 +2900,37 @@ TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 	EXPECT_EQ("rend0",trackInfo.rendition);
 	EXPECT_EQ("trackName0",trackInfo.name);
 }
+
+TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrackSubType)
+{
+	std::vector<TextTrackInfo> tracks;
+	TextTrackInfo trackInfo;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "","","","",0));
+	tracks.push_back(TextTrackInfo("idx1", "lang0", true, "","","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+}
