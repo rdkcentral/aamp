@@ -59,22 +59,14 @@ void AampCacheHandler::StopPlaylistCache( void )
 	mCondVar.notify_one();
 }
 
-bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType  )
+bool AampCacheHandler::RetrieveFromPlaylistCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	AampCachedData *cachedData = mPlaylistCache.Find(url);
-	if( cachedData )
+	if (cachedData)
 	{
-		// Create a local copy to prevent aliasing bug when url and effectiveUrl reference the same string
-		// This can happen when callers pass GetManifestUrl() for both parameters
-		std::string urlCopy = url;
-
-		effectiveUrl = cachedData->effectiveUrl;
-		if (effectiveUrl.empty())
-		{
-			effectiveUrl = urlCopy;
-		}
+		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
 		buffer->Clear();
 		buffer->AppendBytes(cachedData->buffer->GetPtr(), cachedData->buffer->GetLen());
 		// below fails when playing an HLS playlist directly, then seeking or retuning
@@ -123,7 +115,7 @@ void AampCacheHandler::InsertToInitFragCache( const std::string &url, const Aamp
 	mInitFragmentCache.Insert( url, buffer, effectiveUrl, mediaType );
 }
 
-bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl)
+bool AampCacheHandler::RetrieveFromInitFragmentCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
@@ -131,18 +123,7 @@ bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, Aam
 	if (cachedData)
 	{
 		std::shared_ptr<AampGrowableBuffer> buf = cachedData->buffer;
-
-		// Create a local copy to prevent aliasing bug when url and effectiveUrl reference the same string
-		std::string urlCopy = url;
-
-		if (cachedData->effectiveUrl.empty())
-		{
-			effectiveUrl = urlCopy;
-		}
-		else
-		{
-			effectiveUrl = cachedData->effectiveUrl;
-		}
+		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
 		buffer->Clear();
 		buffer->AppendBytes(buf->GetPtr(), buf->GetLen());
 		AAMPLOG_INFO("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
