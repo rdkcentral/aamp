@@ -363,14 +363,13 @@ TEST_F(validateAampTimeOverloads, AampTicksInMilli)
 }
 
 // New tests to validate overflow handling when converting AampTicks -> AampTime
-TEST_F(validateAampTimeOverloads, AampTicksConversion_PositiveOverflowClamps)
+TEST_F(validateAampTimeOverloads, AampTicksConversion_MaxValueNoOverflow)
 {
-	// Use timescale 1 to force ticks * baseTimescale to be large and trigger clamping
+	// Use timescale 1 and INT64_MAX ticks to test the maximum representable value (no overflow/clamping expected)
 	AampTicks hugeTicks(std::numeric_limits<int64_t>::max(), 1u);
 	AampTime t(hugeTicks);
 
-	// The implementation clamps the internal baseTime to INT64_MAX, so inSeconds()
-	// should equal INT64_MAX / baseTimescale
+	// The implementation should handle this value without clamping; inSeconds() should equal INT64_MAX / baseTimescale
 	const double expected = static_cast<double>(std::numeric_limits<int64_t>::max()) / 1e9;
 	EXPECT_NEAR(t.inSeconds(), expected, MICROSECOND_TOLERANCE);
 }
