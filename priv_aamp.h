@@ -608,6 +608,15 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	 */
 	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
+	/**
+	 * @brief Find the index of a text track in a vector
+	 * @param[in] tracks - Vector of text tracks to search
+	 * @param[in] target - Track to find
+	 * @return Index of track (0-based), or -1 if not found
+	 */
+	int FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+	                       const TextTrackInfo& target) const;
+
 public:
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
@@ -1062,8 +1071,8 @@ public:
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
 	AudioTrackTuple mAudioTuple;				/**< Deprecated **/
 	VideoZoomMode zoom_mode;
-	bool video_muted; /**< true iff video plane is logically muted */
-	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
+	std::atomic<bool> video_muted; /**< true if video plane is logically muted */
+	std::atomic<bool> subtitles_muted; /**< true if subtitle plane is logically muted */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -1121,7 +1130,6 @@ public:
 	std::thread mPreCachePlaylistThreadId;
 	bool mbPlayEnabled;					/**< Send buffer to pipeline or just cache them */
 	std::thread createDRMSessionThreadID; 			/**< thread ID for DRM session creation */
-	bool drmSessionThreadStarted; 				/**< flag to indicate the thread is running on not */
 	AampDRMLicenseManager *mDRMLicenseManager;
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
 	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
@@ -2569,12 +2577,12 @@ public:
 	std::string GetPreferredTextProperties();
 
 	/**
-	 *   @brief Set DRM type
+	 * @brief Set current DRM helper
 	 *
-	 *   @param[in] drm - New DRM type
-	 *   @return void
+	 * @param[in] drm - DRM helper instance
+	 * @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
+	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -4140,7 +4148,6 @@ protected:
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
-	bool mPausePositionMonitoringThreadStarted;			// Flag to indicate PausePositionMonitoring thread started
 	TuneType mTuneType;
 	int m_fd;
 	bool mIsLive;				// Flag to indicate manifest type.

@@ -486,7 +486,8 @@ public:
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
-	bool isFragmentInjectorThreadStarted( ) {  return fragmentInjectorThreadStarted;}
+	bool isFragmentInjectorThreadStarted();
+	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();
 	/**
 	 * @brief Signal the clock to subtitle module
@@ -862,8 +863,6 @@ private:
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
-	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
-	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
@@ -879,7 +878,6 @@ private:
 	long long prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
-	bool playlistDownloaderThreadStarted;	/**< Playlist downloader thread started or not*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
@@ -1765,6 +1763,13 @@ public:
 	{ // STUB
 		return std::vector<StreamInfo*>();
 	}
+
+	/**
+	 *   @fn UnblockWaitForCachedFragmentChunk
+	 *
+	 *   @return void
+	 */
+	void UnblockWaitForCachedFragmentChunk();
 
 	/**
 	 *   @brief Get available thumbnail bitrates.

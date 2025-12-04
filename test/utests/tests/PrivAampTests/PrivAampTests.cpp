@@ -49,6 +49,7 @@
 #include "fragmentcollector_mpd.h"
 #include "MockAdManager.h"
 #include "MockPlayerCCManager.h"
+#include "MockMediaStreamContext.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -97,6 +98,7 @@ protected:
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
 		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
+		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
 	}
 
 	void TearDown() override
@@ -111,6 +113,8 @@ protected:
 
 		delete g_mockCurl;
 		g_mockCurl = nullptr;
+		delete g_mockMediaStreamContext;
+		g_mockMediaStreamContext = nullptr;
 
 		delete g_mockStreamAbstractionAAMP;
 		g_mockStreamAbstractionAAMP = nullptr;
@@ -816,6 +820,128 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
 
 	size_t val1 = p_aamp->HandleSSLWriteCallback(NULL,1000,2000,NULL);
 	EXPECT_EQ(val,0);
+}
+
+TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
+{
+	// Test HandleSSLWriteCallback when pipeline is paused and no underflow
+	// CacheFragmentChunk() should NOT be called
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setting up");
+
+	// Enable AAMP TSB for this test
+	p_aamp->SetLocalAAMPTsb(true);
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+
+	p_aamp->pipeline_paused = true;
+	p_aamp->mBufUnderFlowStatus = false;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
+		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
+
+	// Simulate paused from live, not AAMP TSB
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	// Check that AAMP is NOT injecting segments if playback is paused by the user
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.Times(0);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Calling HandleSSLWriteCallback");
+
+	// Call with valid context - ptr is not NULL, so data processing happens
+	char testData[] = "test data";
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Result: %zu", result);
+	// Result should be size*nmemb = strlen(testData)*1
+	EXPECT_EQ(result, strlen(testData));
+}
+
+TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
+{
+	// Test HandleSSLWriteCallback when pipeline is paused and there is underflow
+	// injection should not be paused and CacheFragmentChunk() should be called
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setting up");
+
+	// Enable AAMP TSB for this test
+	p_aamp->SetLocalAAMPTsb(true);
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+
+	p_aamp->pipeline_paused = true;
+	p_aamp->mBufUnderFlowStatus = true;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
+		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
+
+	// Simulate paused from live, not AAMP TSB
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	// Check that AAMP is injecting segments if playback is paused due to underflow
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.WillOnce(Return(true));
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Calling HandleSSLWriteCallback");
+
+	// Call with valid context - ptr is not NULL, so data processing happens
+	char testData[] = "test data with underflow";
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Result: %zu", result);
+	// Result should be size*nmemb = strlen(testData)*1
+	EXPECT_EQ(result, strlen(testData));
 }
 
 TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
@@ -3342,177 +3468,162 @@ TEST_F(PrivAampTests,SetTextTrackTest_1)
 	EXPECT_EQ(-1,val);
 }
 
-TEST_F(PrivAampTests,SetCCStatusTest)
+TEST_F(PrivAampTests,SetCCStatusPreTune)
 {
 	// Test basic CC status functionality
+	p_aamp->mIsInbandCC = true;
 
+	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
+	// Enable CC and check that status is stored, 
+	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 	p_aamp->SetCCStatus(true);
-	EXPECT_TRUE(p_aamp->GetCCStatus()); // Preference is stored
+	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
+	// Now call TuneHelper to create the StreamAbstraction object
+	// SetStatus(true) should be called to apply the stored CC status
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// Disable CC and check that status is stored,
+	// and SetStatus(false) is called since we are now tuned
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
 }
 
-TEST_F(PrivAampTests,SetCCStatusWithOOBTest)
+TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 {
-	// Out-of-band subtitles case
-	p_aamp->mIsInbandCC = false;
-	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled))
-		.WillByDefault(Return(true));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled)).WillByDefault(Return(true));
 
+	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
+	// Enable CCStatus and check that status is stored, 
+	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
-	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
-
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	p_aamp->SetCCStatus(true);
-	EXPECT_TRUE(p_aamp->GetCCStatus()); // Preference is stored
+	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	// Now call TuneHelper to create the StreamAbstraction object
+	// SetSubtitleMute(false) should be called to apply the stored CC status
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Set mIsInbandCC to false to simulate it being done during Tune for OOB subtitles
+	p_aamp->mIsInbandCC = false;
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// Disable CCStatus and check that status is stored,
+	// and SetSubtitleMute(true) is called since we are now tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
 }
 
-TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
+TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 {
-	// Test behaviour when video is muted BEFORE CC is enabled
-	// This tests the interaction when SetVideoMute(true) is called before SetCCStatus()
+	// Test basic CC status functionality
+	p_aamp->mIsInbandCC = true;
 
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Mute video first - in idle state, this will set video_muted=true but be cached
-	p_aamp->SetVideoMute(true);
-
-	// Now try to enable CC while video is muted
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
-	p_aamp->SetCCStatus(true);
-	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is true
-
-	// Unmute video - in idle state, this will set video_muted=false but be cached
-	p_aamp->SetVideoMute(false);
-	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is still true
-
-	// Enable CC preference again after unmuting video
-	// This should now enable CC since video is unmuted
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
-	p_aamp->SetCCStatus(true);
-	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is still true
-
-	// Disable CC preference
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
-	p_aamp->SetCCStatus(false);
-	EXPECT_FALSE(p_aamp->GetCCStatus()); // CC preference is now false
-}
-
-TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
-{
-	// Test that when SetCCStatus(true) is called before creating the StreamAbstraction object,
-	// CC has the expected value once the StreamAbstraction object is created
-
-	// Initially CC is disabled by default (subtitles_muted=true)
-	EXPECT_FALSE(p_aamp->GetCCStatus());
-
-	// Step 1: Enable CC first
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
-	p_aamp->SetCCStatus(true);
-	EXPECT_TRUE(p_aamp->GetCCStatus());
-
-	// Step 2: SetStatus(true) will not be called when stream abstraction is created
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-		.WillRepeatedly(Return(g_mockAampGstPlayer));
+	// Enable CC and check that status is stored, 
+	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
-
-	// Step 3: Call TuneHelper which will create the stream abstraction
-	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
-	p_aamp->TuneHelper(tuneType, false);
-
-	// Verify that CC status preference is still true
-	EXPECT_TRUE(p_aamp->GetCCStatus());
-
-	// Cleanup: delete the StreamAbstraction object created by TuneHelper()
-	p_aamp->TeardownStream(false);
-}
-
-TEST_F(PrivAampTests,SetCCStatusAndSetVideoMuteWithStreamAbstractionCreationTest)
-{
-	// Test that PlayerCCManager::SetStatus() is called only when stream abstraction exists
-
-	// Initially CC is disabled by default (subtitles_muted=true)
-	EXPECT_FALSE(p_aamp->GetCCStatus());
-
-	// Enable CC first
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Set video to muted state - this will be cached since player is in idle state
+	// Set video mute - should not call SetStatus() since we are not yet tuned
 	p_aamp->SetVideoMute(true);
-
-	// Now call TuneHelper which will create the stream abstraction
-	// After stream abstraction is created, SetStatus(false) will be called because video is muted
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-		.WillRepeatedly(Return(g_mockAampGstPlayer));
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
-	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
-	p_aamp->TuneHelper(tuneType, false);
-
-	// Verify that CC status preference is still true
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now that stream abstraction exists, SetCCStatus should trigger SetStatus() calls
-	// Since video is muted and CC is enabled, SetStatus(false) will be called
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
-	p_aamp->SetCCStatus(true);
+	// Now call TuneHelper to create the StreamAbstraction object
+	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Cleanup: delete the StreamAbstraction object created by TuneHelper()
-	p_aamp->TeardownStream(false);
-}
-
-TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionTest)
-{
-	// Test CC status behavior with a mocked stream abstraction to verify SetStatus() calls
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
-
-	// Test enabling CC with stream abstraction available
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
-	p_aamp->SetCCStatus(true);
-	EXPECT_TRUE(p_aamp->GetCCStatus());
-
-	// Test video mute affecting CC - SetVideoMute will trigger SetCCStatusInternal
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
-	p_aamp->SetVideoMute(true);
-
-	// Test unmuting video - SetVideoMute will trigger SetCCStatusInternal again
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
+	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
+	// and SetStatus(true) is called since we are now tuned and stored CC status is true
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+}
 
-	// Test disabling CC
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
-		.WillOnce(Return(0));
+// Same as previous test but video mute is set before CC enable
+TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
+{
+	// Test basic CC status functionality
+	p_aamp->mIsInbandCC = true;
 
-	p_aamp->SetCCStatus(false);
+	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Set video mute - should not call SetStatus() since we are not yet tuned
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	p_aamp->SetVideoMute(true);
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Enable CC and check that status is stored, 
+	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Now call TuneHelper to create the StreamAbstraction object
+	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
+	// and SetStatus(true) is called since we are now tuned and stored CC status is true
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetVideoMute(false);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+}
+
+TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
+{
+	// Test basic CC status functionality
+	p_aamp->mIsInbandCC = true;
+
+	// Initial state - CC should be disabled by default (subtitles_muted=true)
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Set video mute - should not call SetStatus() since we are not yet tuned
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	p_aamp->SetVideoMute(true);
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Now call TuneHelper to create the StreamAbstraction object
+	// SetStatus(false) should be called due to video being muted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Enable CC and check that status is stored, however SetStatus(false) is called since video is still muted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
+	// and SetStatus(true) is called since we are now tuned and stored CC status is true
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetVideoMute(false);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
 }
 
 TEST_F(PrivAampTests,NotifyAudioTracksChangedTest)
