@@ -97,6 +97,9 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	}
 	pthread_mutex_destroy(&mProtectionLock);
 	delete interfacePlayerPriv;
+	
+	PerfProfiler::PrintStats();
+	
 }
 
 InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
@@ -1377,7 +1380,6 @@ void InterfacePlayerRDK::TearDownStream(int type)
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
 	MW_PROFILE_FUNCTION();
-	PerfProfiler::PrintStats();
 	std::lock_guard<std::mutex> lock(mMutex);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
