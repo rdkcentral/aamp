@@ -57,7 +57,7 @@ class AampTime
 		/// @param ticks The tick count (signed 64-bit)
 		/// @param timescale The timescale (unsigned 32-bit)
 		/// @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected
-		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale)
+		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale) noexcept
 		{
 			// Use 128-bit intermediate to avoid overflow during multiplication
 			// __int128 is supported by GCC and Clang on 64-bit platforms
