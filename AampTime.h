@@ -37,7 +37,7 @@ struct AampTicks
 	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
 
 	/// @brief Get time in milliseconds
-	int64_t inMilli() { return (ticks * 1000) / (int64_t)timescale; }
+	int64_t inMilli() { return (timescale > 0) ? ((ticks * 1000) / (int64_t)timescale) : 0; }
 };
 
 /// @brief time class to work around the use of doubles within Aamp
@@ -59,6 +59,11 @@ class AampTime
 		/// @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected
 		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale) noexcept
 		{
+			if (timescale == 0)
+			{
+				return 0;
+			}
+
 			// Use 128-bit intermediate to avoid overflow during multiplication
 			// __int128 is supported by GCC and Clang on 64-bit platforms
 			#if defined(__SIZEOF_INT128__)
@@ -247,7 +252,14 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.baseTime = (int64_t)((double)baseTime/t);
+			if (t != 0.0)
+			{
+				temp.baseTime = (int64_t)((double)baseTime/t);
+			}
+			else
+			{
+				temp.baseTime = 0;
+			}
 			return std::move(temp);
 		}
 

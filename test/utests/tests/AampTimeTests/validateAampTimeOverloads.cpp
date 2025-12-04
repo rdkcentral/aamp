@@ -29,6 +29,7 @@ using ::testing::Return;
 // Suite of microtests to validate operation of AampTime
 
 const double oneNano = std::pow(10.0, -9);
+constexpr double MICROSECOND_TOLERANCE = 1e-6;
 
 class validateAampTimeOverloads : public ::testing::Test
 {
@@ -371,7 +372,7 @@ TEST_F(validateAampTimeOverloads, AampTicksConversion_PositiveOverflowClamps)
 	// The implementation clamps the internal baseTime to INT64_MAX, so inSeconds()
 	// should equal INT64_MAX / baseTimescale
 	const double expected = static_cast<double>(std::numeric_limits<int64_t>::max()) / 1e9;
-	EXPECT_DOUBLE_EQ(t.inSeconds(), expected);
+	EXPECT_NEAR(t.inSeconds(), expected, MICROSECOND_TOLERANCE);
 }
 
 TEST_F(validateAampTimeOverloads, AampTicksConversion_NegativeOverflowClamps)
@@ -380,14 +381,14 @@ TEST_F(validateAampTimeOverloads, AampTicksConversion_NegativeOverflowClamps)
 	AampTime t(hugeNegTicks);
 
 	const double expected = static_cast<double>(std::numeric_limits<int64_t>::min()) / 1e9;
-	EXPECT_DOUBLE_EQ(t.inSeconds(), expected);
+	EXPECT_NEAR(t.inSeconds(), expected, MICROSECOND_TOLERANCE);
 }
 
 // Validate AampTicks -> AampTime conversion when values do not overflow
 TEST_F(validateAampTimeOverloads, AampTicksConversion_NoOverflow)
 {
 	// Use 33-bit max PTS example and a 90kHz timebase (common PTS timebase)
-	const int64_t ticks = (int64_t)((1ULL << 33) - 1ULL); // max 33-bit PTS
+	const int64_t ticks = static_cast<int64_t>((1ULL << 33) - 1ULL); // max 33-bit PTS
 	const uint32_t timebase = 90000u; // 90 kHz
 
 	AampTicks smallTicks(ticks, timebase);
@@ -397,5 +398,28 @@ TEST_F(validateAampTimeOverloads, AampTicksConversion_NoOverflow)
 	// Note: Due to the internal conversion (ticks * 1e9 / timebase) then / 1e9,
 	// there may be minor floating-point precision differences, so use NEAR comparison
 	const double expected = static_cast<double>(ticks) / static_cast<double>(timebase);
-	EXPECT_NEAR(t.inSeconds(), expected, 1e-6); // 1 microsecond tolerance
+	EXPECT_NEAR(t.inSeconds(), expected, MICROSECOND_TOLERANCE);
+}
+
+// Test divide-by-zero protection in AampTicks conversion
+TEST_F(validateAampTimeOverloads, AampTicksConversion_ZeroTimescaleProtection)
+{
+	// Test 1: Positive ticks with zero timescale
+	AampTicks positiveTicks(1000, 0u);
+	AampTime t1(positiveTicks);
+	EXPECT_DOUBLE_EQ(t1.inSeconds(), 0.0);
+
+	// Test 2: Negative ticks with zero timescale
+	AampTicks negativeTicks(-1000, 0u);
+	AampTime t2(negativeTicks);
+	EXPECT_DOUBLE_EQ(t2.inSeconds(), 0.0);
+
+	// Test 3: Zero ticks with zero timescale (edge case)
+	AampTicks zeroTicks(0, 0u);
+	AampTime t3(zeroTicks);
+	EXPECT_DOUBLE_EQ(t3.inSeconds(), 0.0);
+
+	// Test 4: inMilli() with zero timescale
+	AampTicks ticksForMilli(5000, 0u);
+	EXPECT_EQ(ticksForMilli.inMilli(), 0);
 }
