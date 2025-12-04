@@ -75,16 +75,16 @@ class AampTime
 				{
 					return std::numeric_limits<int64_t>::max();
 				}
-				else if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
+				
+				if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
 				{
 					return std::numeric_limits<int64_t>::min();
 				}
-				else
-				{
-					return static_cast<int64_t>(result);
-				}
+
+				return static_cast<int64_t>(result);
+				
 			#else
-				// Fallback for platforms without __int128 support
+				// Fallback for platforms without __int128 support e.g. 32-bit systems
 				// Use double precision (loses some precision but avoids overflow)
 				double intermediate = static_cast<double>(ticks) * static_cast<double>(baseTimescale);
 				double result = intermediate / static_cast<double>(timescale);
@@ -93,14 +93,14 @@ class AampTime
 				{
 					return std::numeric_limits<int64_t>::max();
 				}
-				else if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
+				
+				if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
 				{
 					return std::numeric_limits<int64_t>::min();
 				}
-				else
-				{
-					return static_cast<int64_t>(result);
-				}
+				
+				return static_cast<int64_t>(result);
+				
 			#endif
 		}
 
@@ -250,16 +250,13 @@ class AampTime
 
 		inline AampTime operator/(const double &t) const
 		{
-			AampTime temp(*this);
+			AampTime temp;
 
 			if (t != 0.0)
 			{
 				temp.baseTime = (int64_t)((double)baseTime/t);
 			}
-			else
-			{
-				temp.baseTime = 0;
-			}
+			// Otherwise leave as zero
 			return std::move(temp);
 		}
 
