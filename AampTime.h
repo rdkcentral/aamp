@@ -112,7 +112,7 @@ class AampTime
 		/// @param time struct containing time in ticks and timescale
 		/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
 		/// @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
-		inline AampTime(AampTicks &time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
+		inline AampTime(const AampTicks& time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
 
 		/// @brief Get the stored time
 		/// @return Time in seconds (double)
