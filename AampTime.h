@@ -66,11 +66,11 @@ class AampTime
 				__int128 result = intermediate / static_cast<__int128>(timescale);
 				
 				// Check if result fits in int64_t range
-				if (result > std::numeric_limits<int64_t>::max())
+				if (result > static_cast<__int128>(std::numeric_limits<int64_t>::max()))
 				{
 					return std::numeric_limits<int64_t>::max();
 				}
-				else if (result < std::numeric_limits<int64_t>::min())
+				else if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
 				{
 					return std::numeric_limits<int64_t>::min();
 				}
