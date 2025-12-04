@@ -37,7 +37,21 @@ struct AampTicks
 	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
 
 	/// @brief Get time in milliseconds
-	int64_t inMilli() { return (timescale > 0) ? ((ticks * 1000) / (int64_t)timescale) : 0; }
+	/**
+	 * @brief Get time in milliseconds, with overflow protection.
+	 *
+	 * This implementation avoids overflow in (ticks * 1000) by splitting the calculation,
+	 * consistent with the fix applied to the AampTime constructor.
+	 */
+	int64_t inMilli()
+	{
+		if (timescale == 0)
+			return 0;
+		// Avoid overflow: (a * b) / c = (a / c) * b + ((a % c) * b) / c
+		int64_t quotient = ticks / timescale;
+		int64_t remainder = ticks % timescale;
+		return quotient * 1000 + (remainder * 1000) / timescale;
+	}
 };
 
 /// @brief time class to work around the use of doubles within Aamp
