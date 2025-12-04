@@ -160,6 +160,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
 	,mIsFinalFirstPTS(false)
+	,mMediaStreamContext{}
 {
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
@@ -167,7 +168,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		licenseManager->SetLicenseFetcher(this);
 	}
-	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 	GetABRManager().clearProfiles();
 	mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
 
@@ -10676,7 +10676,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	}
 
 	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
-	memset(aamp->GetLLDashServiceData(),0x00,sizeof(AampLLDashServiceData));
+	aamp->GetLLDashServiceData()->clear();
 	aamp->SetLowLatencyServiceConfigured(false);
 	aamp->SyncEnd();
 	mManifestDnldRespPtr = nullptr;
@@ -11449,7 +11449,6 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 												{
 													std::string tmedia = media;
 													TileInfo tileInfo;
-													memset( &tileInfo,0,sizeof(tileInfo) );
 													tileInfo.startTime = startTime + ( adDuration / timeScale) ;
 													AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%" PRIu64 "] startTime:%f adDuration:%f repeatCount:%d",  timeLineIndex, timelines.size(), durationMs, startTime, adDuration, repeatCount);
 
@@ -11497,7 +11496,6 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 											{
 												std::string tmedia = media;
 												TileInfo tileInfo;
-												memset( &tileInfo,0,sizeof(tileInfo));
 												tileInfo.startTime = tStartTime;
 												tStartTime += tDuration; //increment the nextStartTime by TileDuration
 												replace(tmedia,"RepresentationID",RepresentationID);
@@ -13061,10 +13059,9 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 						{
 							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%s]", wallClockTime.c_str());
 
-							std::tm tmTime;
+							std::tm tmTime{};
 							const char* format = "%Y-%m-%dT%H:%M:%S.%f%Z";
 							char out_buffer[ 80 ];
-							memset(&tmTime, 0, sizeof(tmTime));
 							strptime(wallClockTime.c_str(), format, &tmTime);
 							wTime = mktime(&tmTime);
 

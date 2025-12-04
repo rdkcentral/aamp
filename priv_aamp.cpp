@@ -979,7 +979,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				//Reset speedcache when Fragment download Starts
 				struct SpeedCache* speedcache = NULL;
 				speedcache = aamp->GetLLDashSpeedCache();
-				memset(speedcache, 0x00, sizeof(struct SpeedCache));
+				*speedcache = SpeedCache();
 			}
 
 			downloadbps = getCurrentContentDownloadSpeed(aamp, context->mediaType, context->dlStarted, (long)context->downloadStartTime, dlnow);
@@ -1374,7 +1374,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCustomHeaders["Connection:"] = std::vector<std::string> { "Keep-Alive" };
 	preferredLanguagesList.push_back("en");
 
-	memset(&aesCtrAttrDataList, 0, sizeof(aesCtrAttrDataList));
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
@@ -6168,9 +6167,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mIsFirstRequestToFOG = (mFogTSBEnabled == true);
 
 	{
-		char tuneStrPrefix[64];
+		char tuneStrPrefix[64] = {};
 		mTsbSessionRequestUrl.clear();
-		memset(tuneStrPrefix, '\0', sizeof(tuneStrPrefix));
 		if (!mAppName.empty())
 		{
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d] APP: %s",(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mAppName.c_str());
@@ -8975,8 +8973,7 @@ void PrivateInstanceAAMP::UpdateLiveOffset()
  */
 void PrivateInstanceAAMP::SendStalledErrorEvent()
 {
-	char description[MAX_ERROR_DESCRIPTION_LENGTH];
-	memset(description, '\0', MAX_ERROR_DESCRIPTION_LENGTH);
+	char description[MAX_ERROR_DESCRIPTION_LENGTH] = {};
 	int stalltimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS);
 	snprintf(description, (MAX_ERROR_DESCRIPTION_LENGTH - 1), "Playback has been stalled for more than %d ms due to lack of new fragments", stalltimeout);
 	SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, description);
@@ -9105,8 +9102,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
  */
 void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
-	char moneytracebuf[512];
-	memset(moneytracebuf, 0, sizeof(moneytracebuf));
+	char moneytracebuf[512] = {};
 
 	if (mCustomHeaders.size() > 0)
 	{
@@ -12793,8 +12789,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 				{
 					continue;
 				}
-				char buf[512];
-				memset(buf, '\0', 512);
+				char buf[512] = {};
 				if (it->second.size() >= 2)
 				{
 					snprintf(buf, 512, "trace-id=%s;parent-id=%s;span-id=%lld",
@@ -13094,14 +13089,6 @@ void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
 uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return subTimeScale;
-}
-
-/**
- * @brief Sets Speed Cache
- */
-void PrivateInstanceAAMP::SetLLDashSpeedCache(struct SpeedCache &speedCache)
-{
-	this->speedCache = speedCache;
 }
 
 /**
