@@ -21,7 +21,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <limits> // added for INT64_MAX/MIN
+#include <limits>
 
 using ::testing::_;
 using ::testing::Return;
