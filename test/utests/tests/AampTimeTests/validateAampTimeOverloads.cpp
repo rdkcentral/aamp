@@ -376,7 +376,7 @@ TEST_F(validateAampTimeOverloads, AampTicksConversion_PositiveOverflowClamps)
 
 TEST_F(validateAampTimeOverloads, AampTicksConversion_NegativeOverflowClamps)
 {
-	AampTicks hugeNegTicks(std::numeric_limits<int64_t>::min(), 1u);
+	AampTicks hugeNegTicks(std::numeric_limits<int64_t>::min(), uint32_t{1});
 	AampTime t(hugeNegTicks);
 
 	const double expected = static_cast<double>(std::numeric_limits<int64_t>::min()) / 1e9;
