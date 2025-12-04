@@ -1377,6 +1377,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
 	MW_PROFILE_FUNCTION();
+	PerfProfiler::PrintStats();
 	std::lock_guard<std::mutex> lock(mMutex);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
@@ -1475,7 +1476,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
-	PerfProfiler::PrintStats();
+	
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
