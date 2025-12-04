@@ -382,3 +382,20 @@ TEST_F(validateAampTimeOverloads, AampTicksConversion_NegativeOverflowClamps)
 	const double expected = static_cast<double>(std::numeric_limits<int64_t>::min()) / 1e9;
 	EXPECT_DOUBLE_EQ(t.inSeconds(), expected);
 }
+
+// Validate AampTicks -> AampTime conversion when values do not overflow
+TEST_F(validateAampTimeOverloads, AampTicksConversion_NoOverflow)
+{
+	// Use 33-bit max PTS example and a 90kHz timebase (common PTS timebase)
+	const int64_t ticks = (int64_t)((1ULL << 33) - 1ULL); // max 33-bit PTS
+	const uint32_t timebase = 90000u; // 90 kHz
+
+	AampTicks smallTicks(ticks, timebase);
+	AampTime t(smallTicks);
+
+	// Expected seconds: ticks / timebase
+	// Note: Due to the internal conversion (ticks * 1e9 / timebase) then / 1e9,
+	// there may be minor floating-point precision differences, so use NEAR comparison
+	const double expected = static_cast<double>(ticks) / static_cast<double>(timebase);
+	EXPECT_NEAR(t.inSeconds(), expected, 1e-6); // 1 microsecond tolerance
+}

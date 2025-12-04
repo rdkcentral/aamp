@@ -108,15 +108,15 @@ class AampTime
 		/// @param rhs AampTime object to copy
 		constexpr AampTime(const AampTime& rhs) : baseTime(rhs.baseTime){}
 
-	/// @brief Constructor
-	/// @param time struct containing time in ticks and timescale
-	/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
-	/// @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
-	inline AampTime(AampTicks &time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
+		/// @brief Constructor
+		/// @param time struct containing time in ticks and timescale
+		/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
+		/// @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
+		inline AampTime(AampTicks &time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
 
-	/// @brief Get the stored time
-	/// @return Time in seconds (double)
-	inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
+		/// @brief Get the stored time
+		/// @return Time in seconds (double)
+		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
 
 		/// @brief Get the stored time in seconds
 		/// @return Time in seconds (integer)
