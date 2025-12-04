@@ -465,26 +465,10 @@ set(GSTTESTHARNESS_SOURCES
 
 find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto)
 
-# find_path(RIALTO_GSTREAMER_INCLUDE_DIR
-#     NAMES client/GStreamerMSEMediaPlayerClient.h
-#     PATH_SUFFIXES rialto-gstreamer
-# )
-
 
 find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
 
-# find_library(RIALTO_SERVER_MANAGER
-#     NAMES RialtoServerManager libRialtoServerManager.so
-# )
-
-# find_library(RIALTO_OCDM
-#     NAMES ocdmRialto libocdmRialto.so
-# )
-
 include( FindPackageHandleStandardArgs )
-
-# find_package_handle_standard_args( RIALTO DEFAULT_MSG
-#         RIALTO_LIBRARY RIALTO_INCLUDE_DIR RIALTO_SERVER_MANAGER RIALTO_OCDM )
 
 find_package_handle_standard_args( RIALTO DEFAULT_MSG
         RIALTO_LIBRARY RIALTO_INCLUDE_DIR )

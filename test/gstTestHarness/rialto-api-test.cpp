@@ -61,8 +61,6 @@ uint32_t WaitForNeedDataRequest(int32_t sourceId, int timeoutMs = 5000)
     return requestId;
 }
 
-
-
 void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
 {
     char fullpath[512];
@@ -147,8 +145,8 @@ void ConfigureVideo()
 	bool hasDrm = false;
 	std::string mimeType;
 	StreamFormat streamFormat;
-	// int32_t width = trackVideo.video.width; 
-	// int32_t height = trackVideo.video.height;
+	int32_t width = trackVideo.video.width; 
+	int32_t height = trackVideo.video.height;
 	SegmentAlignment alignment = SegmentAlignment::AU;
 
 	switch( trackVideo.codec_type )
@@ -168,10 +166,6 @@ void ConfigureVideo()
 	CodecData codecData;
 	const char *codec_ptr = trackVideo.codec_data.c_str();
     codecData.data = std::vector<uint8_t>( codec_ptr, codec_ptr + trackVideo.codec_data.size() );
-
-    //Temp hack
-    int32_t width = 1920;
-    int32_t height = 1080;
     
 	std::unique_ptr<IMediaPipeline::MediaSourceVideo> sourceVideo =
 	std::make_unique<IMediaPipeline::MediaSourceVideo>(
@@ -196,7 +190,6 @@ void InjectAudio(int32_t needDataId)
     LoadAndDemuxSegment(trackAudio, "audio/chunk-stream0-00001.m4s");
     std::cout << "loading rialtotest /tmp/data/bipbop-gen/audio/chunk-stream0-00001.m4s" << std::endl;
     
-    // size_t segmentCount = trackAudio.getNbSegments();
     size_t segmentCount = trackAudio.count();
     printf("adding %zu audio frames\n", segmentCount); 
 
@@ -271,27 +264,27 @@ int my_main(int argc, char **argv)
     
 
     // MUST happen before any attachSource() to create a Rialto Gstreamer player
-    gstMediaPipeline->load(MediaType::MSE, "", "file:///tmp/data/bipbop-gen/main.mpd"); // Temp
+    gstMediaPipeline->load(MediaType::MSE, "video/mp4", "file:///tmp/data/bipbop-gen/video/chunk-stream0-00001.m4s"); // Temp
 
     if (!gstMediaPipeline->setVideoWindow(0, 0, 1920, 1080))
     {
         fprintf(stderr, "Warning: Failed to set video window. Video may not appear.\n");
     }
 
-    // ConfigureAudio();
-    // ConfigureVideo();
-    // ConfigureComplete();
+    ConfigureAudio();
+    ConfigureVideo();
+    ConfigureComplete();
 
     gstMediaPipeline->play();
 
-    // uint32_t audioReqId = WaitForNeedDataRequest(sourceIdAudio);
-    // uint32_t videoReqId = WaitForNeedDataRequest(sourceIdVideo);
+    uint32_t audioReqId = WaitForNeedDataRequest(sourceIdAudio);
+    uint32_t videoReqId = WaitForNeedDataRequest(sourceIdVideo);
 
-    // if (audioReqId != UINT32_MAX)
-    //     InjectAudio(audioReqId);
+    if (audioReqId != UINT32_MAX)
+        InjectAudio(audioReqId);
 
-    // if (videoReqId != UINT32_MAX)
-    //     InjectVideo(videoReqId);
+    if (videoReqId != UINT32_MAX)
+        InjectVideo(videoReqId);
 
 
     std::this_thread::sleep_for(std::chrono::seconds(7)); 
