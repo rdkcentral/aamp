@@ -196,6 +196,8 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	, m_auxiliaryAudio(false)
 	,m_audioGroupId()
 	,m_applyOffset(true)
+	,m_SPS{}
+	,m_PPS{}
 {
 	AAMPLOG_INFO(" constructor: %p", this);
 	bool optimizeMuxed = false;
@@ -205,8 +207,6 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
 	}
 
-	memset(m_SPS, 0, 32 * sizeof(H264SPS));
-	memset(m_PPS, 0, 256 * sizeof(H264PPS));
 	m_versionPMT = 0;
 
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO) || (m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX))
@@ -237,10 +237,6 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		}
 		m_demux = true;
 	}
-
-	int compBufLen = MAX_PIDS*sizeof(RecordingComponent);
-	memset(videoComponents, 0, compBufLen);
-	memset(audioComponents, 0, compBufLen);
 }
 
 /**
@@ -395,9 +391,9 @@ void TSProcessor::insertPCR(unsigned char *packet, int pid)
 void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	unsigned int dataDescTags[MAX_PIDS];
+	unsigned int dataDescTags[MAX_PIDS] = {};
 	int streamType = 0, pid = 0, len = 0;
-	char work[32];
+	char work[32] = {};
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
 	StreamOutputFormat audioFormat = FORMAT_INVALID;
 	bool cueiDescriptorFound = false;
@@ -406,20 +402,19 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
 
-	for (int i = 0; i < audioComponentCount; ++i)
+	for (auto & comp : videoComponents)
 	{
-		if (audioComponents[i].associatedLanguage)
-		{
-			free(audioComponents[i].associatedLanguage);
-		}
+		comp = RecordingComponent();
 	}
 
-	memset(videoComponents, 0, sizeof(videoComponents));
-	memset(audioComponents, 0, sizeof(audioComponents));
-
-	memset(dataDescTags, 0, sizeof(dataDescTags));
-
-	memset(work, 0, sizeof(work));
+	for (auto & comp : audioComponents)
+	{
+		if (comp.associatedLanguage)
+		{
+			free(comp.associatedLanguage);
+		}
+		comp = RecordingComponent();
+	}
 
 	videoComponentCount = audioComponentCount = 0;
 	m_dsmccComponentFound = false;

@@ -2577,12 +2577,12 @@ public:
 	std::string GetPreferredTextProperties();
 
 	/**
-	 *   @brief Set DRM type
+	 * @brief Set current DRM helper
 	 *
-	 *   @param[in] drm - New DRM type
-	 *   @return void
+	 * @param[in] drm - DRM helper instance
+	 * @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
+	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -3533,14 +3533,6 @@ public:
 	 * @return uint32_t - Subtitle TimeScale
 	 */
 	uint32_t GetSubTimeScale(void);
-
-	/**
-	 *   @fn SetLLDashSpeedCache
-	 *
-	 *   @param[in] speedCache - Speed Cache
-	 *   @return void
-	 */
-	void SetLLDashSpeedCache(struct SpeedCache &speedCache);
 
 	/**
 	 *   @fn GetLLDashSpeedCache

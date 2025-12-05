@@ -623,13 +623,11 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	char work[32];
+	char work[32] = {};
 
 	int version = ((section[2] >> 1) & 0x1F);
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
-
-	memset(work, 0, sizeof(work));
 
 	// Reset of old values
 	ResetAudioComponents();
@@ -817,15 +815,13 @@ void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLen
 
 void TSFragmentProcessor::ResetAudioComponents()
 {
-	// Reset of old values
 	for (auto & comp : m_audioComponents)
 	{
 		if (comp.associatedLanguage)
 		{
 			free(comp.associatedLanguage);
 		}
-		comp.associatedLanguage = nullptr;
-		memset(&comp, 0, sizeof(RecordingComponent));
+		comp = RecordingComponent();
 	}
 
 	m_audioComponentCount = 0;	
@@ -835,7 +831,7 @@ void TSFragmentProcessor::ResetVideoComponents()
 {
 	for (auto & comp : m_videoComponents)
 	{
-		memset(&comp, 0, sizeof(RecordingComponent));
+		comp = RecordingComponent();
 	}
 	m_videoComponentCount = 0;
 }
