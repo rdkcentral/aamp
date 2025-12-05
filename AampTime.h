@@ -38,7 +38,24 @@ struct AampTicks
 
 	/// @brief Get time in milliseconds
 	/**
-	 * @brief Get time in milliseconds, with overflow protection.
+	 * @brief Get time in milliseconds with overflow protection.
+	 *
+	 * Prevents overflow when ticks * 1000 would exceed INT64_MAX or INT64_MIN.
+	 * If overflow would occur, clamps the result to INT64_MAX or INT64_MIN.
+	 */
+	int64_t inMilli() {
+		if (timescale == 0) {
+			return 0;
+		}
+		// Check for overflow before multiplying
+		if (ticks > std::numeric_limits<int64_t>::max() / 1000) {
+			return std::numeric_limits<int64_t>::max();
+		}
+		if (ticks < std::numeric_limits<int64_t>::min() / 1000) {
+			return std::numeric_limits<int64_t>::min();
+		}
+		return (ticks * 1000) / (int64_t)timescale;
+	}
 	 *
 	 * This implementation avoids overflow in (ticks * 1000) by splitting the calculation,
 	 * consistent with the fix applied to the AampTime constructor.
