@@ -1233,14 +1233,14 @@ protected:
 	 * @brief Helper function to determine if only iframe adaptations should be checked
 	 * @retval Return true if only iframe adaptations should be checked, false otherwise
 	 */
-	bool ShouldCheckOnlyIframeAdaptation();
+	bool ShouldCheckOnlyIframeAdaptation() const;
 
 	/**
 	 * @fn IsEmptyPeriod
 	 * @param[in] iPeriodIndex Index of the period to check whether it is empty
 	 * @retval Return true on empty Period
 	 */
-	bool IsEmptyPeriod(int iPeriodIndex);
+	bool IsEmptyPeriod(int iPeriodIndex) const;
 
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;

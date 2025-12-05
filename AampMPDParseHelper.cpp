@@ -207,7 +207,7 @@ void AampMPDParseHelper::parseMPD()
 /**
  * @fn UpdateBoundaryPeriod
  * @brief Update the upper and lower boundary periods by discarding empty periods at the start and end
- * @param checkOnlyIframeAdaptation A flag indicating whether to check only iframe adaptations when determining if a period is empty
+ * @param checkOnlyIframeAdaptation If true, check only iframe adaptations when determining if a period is empty; if false, check all adaptations.
  */
 void AampMPDParseHelper::UpdateBoundaryPeriod(bool checkOnlyIframeAdaptation)
 {

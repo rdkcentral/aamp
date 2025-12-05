@@ -338,7 +338,7 @@ public :
 	 * @brief Get duration of current period
 	 * @param[in] periodIndex Index of the period
 	 * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
-	 * @param[in] checkIFrame Flag indicating whether to check only iframe adaptations when determining if a period is empty
+	 * @param[in] checkIFrame If true, check only iframe adaptations; if false, check all adaptations when determining if a period is empty
 	 * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
 	 * @retval current period's duration in milliseconds
 	 */
@@ -378,7 +378,7 @@ public :
 	 * @brief Get end time of current period
 	 * @param[in] periodIndex Index of the period
 	 * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
-	 * @param[in] checkIFrame Flag indicating whether to check only iframe adaptations when determining if a period is empty
+	 * @param[in] checkIFrame If true, check only iframe adaptations; if false, check all adaptations when determining if a period is empty
 	 * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
 	 * @retval current period's end time in seconds
 	 */
