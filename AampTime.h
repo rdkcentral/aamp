@@ -33,7 +33,6 @@ struct AampTicks
 	/// @param ticks
 	/// @param timescale
 	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
-	
 	/// @brief Get time in milliseconds
 	int64_t inMilli() { return (ticks * 1000) / (int64_t)timescale; }
 };
