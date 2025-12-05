@@ -268,10 +268,10 @@ class AampTime
 
 			if (t != 0.0)
 			{
-				temp.baseTime = (int64_t)((double)baseTime/t);
+				temp.baseTime = static_cast<int64_t>((double)baseTime/t);
 			}
 			// Otherwise leave as zero
-			return std::move(temp);
+			return temp;
 		}
 
 		inline AampTime operator*(const double &t) const
