@@ -62,7 +62,7 @@ public:
 	/// @brief Constructor
 	/// @param time struct containing time in ticks and timescale
 	/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
-	AampTime(AampTicks &time) : baseTime(time.ticks)
+	AampTime(const AampTicks& time) : baseTime(time.ticks)
 	{
 		int64_t threshold = INT64_MAX / baseTimescale;
 		if( baseTime < threshold && baseTime > -threshold )
