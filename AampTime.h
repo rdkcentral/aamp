@@ -46,7 +46,6 @@ class AampTime
 {
 public:
 	typedef enum { milli = 1000, micro = 1000000, nano = 1000000000 } TimeScale;
-	
 private:
 	static const uint64_t baseTimescale = nano;
 	int64_t baseTime;
