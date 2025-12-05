@@ -14215,8 +14215,10 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
  * @brief Helper function to determine if only iframe adaptations should be checked
  * @retval Return true if only iframe adaptations should be checked, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation()
+bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
 {
+	// If playing at normal rate, check all adaptations.
+	// For trick modes, check only iframe adaptations (unless using AAMP TSB)
 	bool checkOnlyIframeAdaptation = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
 
 	// When using local AAMP TSB, i/frame track is not used,
@@ -14234,7 +14236,7 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation()
  * @param[in] iPeriodIndex Index of the period to check whether it is empty
  * @retval Return true on empty Period
  */
-bool StreamAbstractionAAMP_MPD::IsEmptyPeriod(int iPeriodIndex)
+bool StreamAbstractionAAMP_MPD::IsEmptyPeriod(int iPeriodIndex) const
 {
 	return mMPDParseHelper->IsEmptyPeriod(iPeriodIndex, ShouldCheckOnlyIframeAdaptation());
 }
