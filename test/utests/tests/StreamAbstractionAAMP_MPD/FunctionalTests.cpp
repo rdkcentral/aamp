@@ -1083,9 +1083,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	*/
 	StreamOutputFormat primaryOutputFormat = FORMAT_ISO_BMFF;
 	StreamOutputFormat audioOutputFormat = FORMAT_ISO_BMFF;
-	StreamOutputFormat auxAudioOutputFormat = FORMAT_ISO_BMFF;
 	StreamOutputFormat subtitleOutputFormat = FORMAT_INVALID;
-	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
 	mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
@@ -1951,13 +1950,11 @@ TEST_F(FunctionalTests_1, GetStreamFormatTest)
 	// Create variables to store the output formats
 	StreamOutputFormat primaryFormat;
 	StreamOutputFormat audioFormat;
-	StreamOutputFormat auxFormat;
 	StreamOutputFormat subtitleFormat;
 	// Call the GetStreamFormat function
-	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, auxFormat, subtitleFormat);
+	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
 	EXPECT_EQ(FORMAT_INVALID, primaryFormat);
 	EXPECT_EQ(FORMAT_INVALID, audioFormat);
-	EXPECT_EQ(FORMAT_INVALID, auxFormat);
 	EXPECT_EQ(FORMAT_INVALID, subtitleFormat);
 }
 
