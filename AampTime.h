@@ -29,7 +29,6 @@ struct AampTicks
 {
 	int64_t ticks;
 	uint32_t timescale;
-	
 	/// @brief Constructor
 	/// @param ticks
 	/// @param timescale
