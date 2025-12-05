@@ -1,0 +1,272 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2025 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file Mp4DemuxTestData.h
+ * @brief Test data for MP4 demux box parsing tests
+ * 
+ * Contains raw MP4 box data in hex format for testing various box types
+ */
+
+#ifndef MP4DEMUX_TEST_DATA_H
+#define MP4DEMUX_TEST_DATA_H
+
+#include <cstdint>
+
+// ftyp box: major_brand='isom', minor_version=0x200, compatible='isom','iso2'
+static const uint8_t ftypBoxData[] = {
+	0x00, 0x00, 0x00, 0x18,  // size = 24
+	'f',  't',  'y',  'p',   // type = ftyp
+	'i',  's',  'o',  'm',   // major_brand
+	0x00, 0x00, 0x02, 0x00,  // minor_version
+	'i',  's',  'o',  'm',   // compatible_brand[0]
+	'i',  's',  'o',  '2'    // compatible_brand[1]
+};
+
+// mfhd (Movie Fragment Header) box: sequence_number = 1
+static const uint8_t mfhdBoxData[] = {
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	'm',  'f',  'h',  'd',   // type = mfhd
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00, 0x00, 0x00, 0x01   // sequence_number = 1
+};
+
+// tfhd (Track Fragment Header) box with default-sample-duration-present flag
+// flags = 0x020000, track_ID = 1, default_sample_duration = 1000
+static const uint8_t tfhdBoxWithDuration[] = {
+	0x00, 0x00, 0x00, 0x14,  // size = 20
+	't',  'f',  'h',  'd',   // type = tfhd
+	0x00,                    // version = 0
+	0x02, 0x00, 0x00,        // flags = 0x020000 (default-sample-duration-present)
+	0x00, 0x00, 0x00, 0x01,  // track_ID = 1
+	0x00, 0x00, 0x03, 0xE8   // default_sample_duration = 1000
+};
+
+// tfhd box without optional fields
+static const uint8_t tfhdBoxMinimal[] = {
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	't',  'f',  'h',  'd',   // type = tfhd
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00, 0x00, 0x00, 0x01   // track_ID = 1
+};
+
+// trun (Track Run) box with data-offset and first-sample-flags
+// flags = 0x000101, sample_count = 2, data_offset = 100
+static const uint8_t trunBoxData[] = {
+	0x00, 0x00, 0x00, 0x18,  // size = 24
+	't',  'r',  'u',  'n',   // type = trun
+	0x00,                    // version = 0
+	0x00, 0x01, 0x01,        // flags = 0x000101
+	0x00, 0x00, 0x00, 0x02,  // sample_count = 2
+	0x00, 0x00, 0x00, 0x64,  // data_offset = 100
+	0x01, 0x01, 0x00, 0x00   // first_sample_flags
+};
+
+// pssh (Protection System Specific Header) box - version 0
+// SystemID: Widevine (EDEF8BA979D64ACEA3C827DCD51D21ED)
+static const uint8_t psshBoxWidevine[] = {
+	0x00, 0x00, 0x00, 0x34,  // size = 52
+	'p',  's',  's',  'h',   // type = pssh
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	// SystemID (16 bytes) - Widevine UUID
+	0xED, 0xEF, 0x8B, 0xA9, 0x79, 0xD6, 0x4A, 0xCE,
+	0xA3, 0xC8, 0x27, 0xDC, 0xD5, 0x1D, 0x21, 0xED,
+	// DataSize = 8
+	0x00, 0x00, 0x00, 0x08,
+	// Data (8 bytes)
+	0x08, 0x01, 0x12, 0x04, 0x0A, 0x02, 0x48, 0x44
+};
+
+// pssh box - version 1 with KID
+static const uint8_t psshBoxV1WithKID[] = {
+	0x00, 0x00, 0x00, 0x44,  // size = 68
+	'p',  's',  's',  'h',   // type = pssh
+	0x01,                    // version = 1
+	0x00, 0x00, 0x00,        // flags = 0
+	// SystemID (16 bytes) - Widevine
+	0xED, 0xEF, 0x8B, 0xA9, 0x79, 0xD6, 0x4A, 0xCE,
+	0xA3, 0xC8, 0x27, 0xDC, 0xD5, 0x1D, 0x21, 0xED,
+	// KID_count = 1
+	0x00, 0x00, 0x00, 0x01,
+	// KID (16 bytes)
+	0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF,
+	0xFE, 0xDC, 0xBA, 0x09, 0x87, 0x65, 0x43, 0x21,
+	// DataSize = 8
+	0x00, 0x00, 0x00, 0x08,
+	// Data (8 bytes)
+	0x08, 0x01, 0x12, 0x04, 0x0A, 0x02, 0x48, 0x44
+};
+
+// saiz (Sample Auxiliary Information Sizes) box - single sample
+static const uint8_t saizBoxSingleSample[] = {
+	0x00, 0x00, 0x00, 0x12,  // size = 18
+	's',  'a',  'i',  'z',   // type = saiz
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00,                    // default_sample_info_size = 0 (variable)
+	0x00, 0x00, 0x00, 0x01,  // sample_count = 1
+	0x10                     // sample_info_size[0] = 16
+};
+
+// saiz box - multiple samples with variable sizes
+static const uint8_t saizBoxMultipleSamples[] = {
+	0x00, 0x00, 0x00, 0x15,  // size = 21
+	's',  'a',  'i',  'z',   // type = saiz
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00,                    // default_sample_info_size = 0
+	0x00, 0x00, 0x00, 0x04,  // sample_count = 4
+	0x08, 0x10, 0x0C, 0x14   // sample_info_size[] = {8, 16, 12, 20}
+};
+
+// senc (Sample Encryption) box - single sample, no subsamples
+static const uint8_t sencBoxSingleSample[] = {
+	0x00, 0x00, 0x00, 0x20,  // size = 32
+	's',  'e',  'n',  'c',   // type = senc
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0 (no subsample encryption)
+	0x00, 0x00, 0x00, 0x01,  // sample_count = 1
+	// IV (16 bytes) for sample 0
+	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+	0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
+};
+
+// senc box - multiple samples with subsamples
+static const uint8_t sencBoxWithSubsamples[] = {
+	0x00, 0x00, 0x00, 0x46,  // size = 70
+	's',  'e',  'n',  'c',   // type = senc
+	0x00,                    // version = 0
+	0x00, 0x00, 0x02,        // flags = 0x02 (subsample encryption)
+	0x00, 0x00, 0x00, 0x02,  // sample_count = 2
+	// Sample 0
+	0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,  // IV
+	0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+	0x00, 0x02,              // subsample_count = 2
+	0x00, 0x10,              // bytes_of_clear_data = 16
+	0x00, 0x00, 0x01, 0x00,  // bytes_of_encrypted_data = 256
+	0x00, 0x20,              // bytes_of_clear_data = 32
+	0x00, 0x00, 0x02, 0x00,  // bytes_of_encrypted_data = 512
+	// Sample 1
+	0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,  // IV
+	0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+	0x00, 0x01,              // subsample_count = 1
+	0x00, 0x18,              // bytes_of_clear_data = 24
+	0x00, 0x00, 0x03, 0x00   // bytes_of_encrypted_data = 768
+};
+
+// mvhd (Movie Header) box - version 0
+static const uint8_t mvhdBoxV0[] = {
+	0x00, 0x00, 0x00, 0x6C,  // size = 108
+	'm',  'v',  'h',  'd',   // type = mvhd
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00, 0x00, 0x00, 0x00,  // creation_time
+	0x00, 0x00, 0x00, 0x00,  // modification_time
+	0x00, 0x00, 0x03, 0xE8,  // timescale = 1000
+	0x00, 0x00, 0x27, 0x10,  // duration = 10000
+	0x00, 0x01, 0x00, 0x00,  // rate = 1.0
+	0x01, 0x00,              // volume = 1.0
+	0x00, 0x00,              // reserved
+	0x00, 0x00, 0x00, 0x00,  // reserved[0]
+	0x00, 0x00, 0x00, 0x00,  // reserved[1]
+	// Matrix (36 bytes) - identity matrix
+	0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x40, 0x00, 0x00, 0x00,
+	// Pre-defined (24 bytes)
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x02   // next_track_ID = 2
+};
+
+// mdhd (Media Header) box - version 0
+static const uint8_t mdhdBoxV0[] = {
+	0x00, 0x00, 0x00, 0x20,  // size = 32
+	'm',  'd',  'h',  'd',   // type = mdhd
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00, 0x00, 0x00, 0x00,  // creation_time
+	0x00, 0x00, 0x00, 0x00,  // modification_time
+	0x00, 0x00, 0xBB, 0x80,  // timescale = 48000 (audio)
+	0x00, 0x00, 0x27, 0x10,  // duration = 10000
+	0x55, 0xC4,              // language = 'und' (0x55C4)
+	0x00, 0x00               // pre_defined
+};
+
+// tfdt (Track Fragment Decode Time) box - version 0 (32-bit)
+static const uint8_t tfdtBoxV0[] = {
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	't',  'f',  'd',  't',   // type = tfdt
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00, 0x01, 0x00, 0x00   // baseMediaDecodeTime = 65536
+};
+
+// tfdt box - version 1 (64-bit)
+static const uint8_t tfdtBoxV1[] = {
+	0x00, 0x00, 0x00, 0x14,  // size = 20
+	't',  'f',  'd',  't',   // type = tfdt
+	0x01,                    // version = 1
+	0x00, 0x00, 0x00,        // flags = 0
+	0x00, 0x00, 0x00, 0x00,  // baseMediaDecodeTime (high 32 bits)
+	0x00, 0x01, 0x00, 0x00   // baseMediaDecodeTime (low 32 bits) = 65536
+};
+
+// mdat (Media Data) box - minimal
+static const uint8_t mdatBoxMinimal[] = {
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	'm',  'd',  'a',  't',   // type = mdat
+	// 8 bytes of sample data
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+};
+
+// Complete moof (Movie Fragment) with mfhd and traf
+static const uint8_t moofBoxComplete[] = {
+	0x00, 0x00, 0x00, 0x38,  // size = 56 (moof)
+	'm',  'o',  'o',  'f',   // type = moof
+	// mfhd box
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	'm',  'f',  'h',  'd',   // type = mfhd
+	0x00,                    // version
+	0x00, 0x00, 0x00,        // flags
+	0x00, 0x00, 0x00, 0x01,  // sequence_number = 1
+	// traf box
+	0x00, 0x00, 0x00, 0x20,  // size = 32
+	't',  'r',  'a',  'f',   // type = traf
+	// tfhd box (inside traf)
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	't',  'f',  'h',  'd',   // type = tfhd
+	0x00,                    // version
+	0x00, 0x00, 0x00,        // flags
+	0x00, 0x00, 0x00, 0x01,  // track_ID = 1
+	// tfdt box (inside traf)
+	0x00, 0x00, 0x00, 0x10,  // size = 16
+	't',  'f',  'd',  't',   // type = tfdt
+	0x00,                    // version = 0
+	0x00, 0x00, 0x00,        // flags
+	0x00, 0x00, 0x00, 0x00   // baseMediaDecodeTime = 0
+};
+
+#endif // MP4DEMUX_TEST_DATA_H
