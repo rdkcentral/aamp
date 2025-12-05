@@ -54,6 +54,9 @@ public:
 			mMediaStreamContext[trackIdx] = context;
 		}
 	}
+
+	// Expose public method for testing
+	using StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation;
 };
 
 /**
@@ -162,4 +165,132 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest_DisabledTrack_NoPushF
 
 	// Call the protected method through testable wrapper
 	mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with normal playback rate
+ * @details Verify that the method returns false when playing at normal rate (1.0)
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_NormalRate_ReturnsFalse)
+{
+	// Set normal playback rate
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Ensure TSB is disabled
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	// Should return false for normal playback rate
+	EXPECT_FALSE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with fast forward rate
+ * @details Verify that the method returns true when playing at fast forward rate
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_FastForward_ReturnsTrue)
+{
+	// Set fast forward rate (e.g., 4x)
+	mPrivateInstanceAAMP->rate = 4.0f;
+
+	// Ensure TSB is disabled
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	// Should return true for trick play mode
+	EXPECT_TRUE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with rewind rate
+ * @details Verify that the method returns true when playing at rewind rate
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_Rewind_ReturnsTrue)
+{
+	// Set rewind rate (e.g., -4x)
+	mPrivateInstanceAAMP->rate = -4.0f;
+
+	// Ensure TSB is disabled
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	// Should return true for trick play mode
+	EXPECT_TRUE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with slow motion rate
+ * @details Verify that the method returns true when playing at slow motion rate
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_SlowMotion_ReturnsTrue)
+{
+	// Set slow motion rate (e.g., 0.5x)
+	mPrivateInstanceAAMP->rate = 0.5f;
+
+	// Ensure TSB is disabled
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	// Should return true for non-normal playback rate
+	EXPECT_TRUE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with paused state
+ * @details Verify that the method returns true when paused (rate = 0)
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_Paused_ReturnsTrue)
+{
+	// Set paused rate
+	mPrivateInstanceAAMP->rate = AAMP_RATE_PAUSE;
+
+	// Ensure TSB is disabled
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	// Should return true for paused state (not normal rate)
+	EXPECT_TRUE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with TSB enabled at normal rate
+ * @details Verify that the method returns false when using local AAMP TSB, regardless of rate
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_TsbEnabledNormalRate_ReturnsFalse)
+{
+	// Set normal playback rate
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Enable AAMP TSB
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	// Should return false when TSB is enabled
+	EXPECT_FALSE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with TSB enabled at trick play rate
+ * @details Verify that TSB overrides trick play rate and returns false
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_TsbEnabledFastForward_ReturnsFalse)
+{
+	// Set fast forward rate
+	mPrivateInstanceAAMP->rate = 4.0f;
+
+	// Enable AAMP TSB - should override the trick play rate
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	// Should return false when TSB is enabled, even in trick play mode
+	EXPECT_FALSE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @brief Test ShouldCheckOnlyIframeAdaptation() with TSB enabled at rewind rate
+ * @details Verify that TSB overrides rewind rate and returns false
+ */
+TEST_F(StreamAbstractionAAMP_MPD_Test, ShouldCheckOnlyIframeAdaptation_TsbEnabledRewind_ReturnsFalse)
+{
+	// Set rewind rate
+	mPrivateInstanceAAMP->rate = -4.0f;
+
+	// Enable AAMP TSB - should override the trick play rate
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	// Should return false when TSB is enabled, even in trick play mode
+	EXPECT_FALSE(mMpdStream->ShouldCheckOnlyIframeAdaptation());
 }
