@@ -714,7 +714,6 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 
 	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).WillRepeatedly(Return());
-	
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
 		.Times(1);
 
