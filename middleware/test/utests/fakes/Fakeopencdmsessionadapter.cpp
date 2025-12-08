@@ -68,3 +68,18 @@ bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
 {
     return true;
 }
+const std::vector<std::vector<uint8_t>>& OCDMSessionAdapter::getUsableKeys() const
+{
+    if (g_mockOpenCdmSessionAdapter) {
+        return g_mockOpenCdmSessionAdapter->getUsableKeys();
+    }
+    return g_emptyUsableKeys;
+}
+#if defined(USE_OPENCDM_ADAPTER)
+void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
+{
+    if (g_mockOpenCdmSessionAdapter) {
+        g_mockOpenCdmSessionAdapter->setKeyId(keyId);
+    }
+}
+#endif
