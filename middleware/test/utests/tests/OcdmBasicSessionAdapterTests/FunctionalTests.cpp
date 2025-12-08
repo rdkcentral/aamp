@@ -250,8 +250,8 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptFail)
 										_,
 										f_pbIV,
 										f_cbIV,
-										_,   // Accept any keyId pointer
-										_,   // Accept any keyId size
+										MemBufEq(nullptr, 0),   // Expect nullptr keyId pointer
+										0,                      // Expect keyId size 0
 										initWithLast15)).WillOnce(Return(ERROR_UNKNOWN));
 	EXPECT_CALL(*g_mockMemorySystem, terminateEarly());
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData, payloadDataSize, nullptr);
