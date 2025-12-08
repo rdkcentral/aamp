@@ -1915,7 +1915,7 @@ public:
 	 *   @param[in] string index
 	 *   @return void
 	 */
-	void SetCurrentTextTrackIndex(std::string& index);
+	void SetCurrentTextTrackIndex(const std::string& index);
 
 	/**
 	 *   @brief Change muxed audio track index
