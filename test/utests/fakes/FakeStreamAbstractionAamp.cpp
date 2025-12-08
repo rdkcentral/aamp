@@ -105,6 +105,14 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	return 0;
 }
 
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->SetCurrentTextTrackIndex(index);
+	}
+}
+
 bool StreamAbstractionAAMP::isInBandCcAvailable()
 {
 	return 0;
