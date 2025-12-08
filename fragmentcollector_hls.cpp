@@ -3450,19 +3450,26 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
 
-				// Select preferred text track based on user language preferences
-				TextTrackInfo selectedTextTrack;
-				if (SelectPreferredTextTrack(selectedTextTrack))
+				if (aamp->GetPreferredTextTrack().index.empty())
 				{
-					AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
-								 selectedTextTrack.language.c_str(),
-								 selectedTextTrack.name.c_str(),
-								 selectedTextTrack.rendition.c_str());
-					aamp->SetPreferredTextTrack(std::move(selectedTextTrack));
+					// Select preferred text track based on user language preferences
+					TextTrackInfo selectedTextTrack;
+					if (SelectPreferredTextTrack(selectedTextTrack))
+					{
+						AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
+									 selectedTextTrack.language.c_str(),
+									 selectedTextTrack.name.c_str(),
+									 selectedTextTrack.rendition.c_str());
+						aamp->SetPreferredTextTrack(std::move(selectedTextTrack));
+					}
+					else
+					{
+						AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+					}
 				}
 				else
 				{
-					AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+					AAMPLOG_INFO("Preferred text track set, so not looking at the list of preferred languages");
 				}
 
 				// Configure Subtitle track for the playback
@@ -7593,6 +7600,7 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack)
 {
 	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
+
 	if (availableTracks.empty())
 	{
 		AAMPLOG_WARN("No text tracks available");

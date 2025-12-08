@@ -1994,8 +1994,7 @@ void MediaTrack::FlushFragments()
 	{
 		for (int i = 0; i < maxCachedFragmentsPerTrack; i++)
 		{
-			mCachedFragment[i].fragment.Free();
-			memset(&mCachedFragment[i], 0, sizeof(CachedFragment));
+			mCachedFragment[i].Clear();
 		}
 		fragmentIdxToInject = 0;
 		fragmentIdxToFetch = 0;
@@ -3825,6 +3824,15 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	}
 	return bFound;
 }
+
+/**
+ *   @brief Set current text track index
+ */
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	mTextTrackIndex = index;
+}
+
 /**
 *   @brief verify in-band CC availability for a stream.
 */
