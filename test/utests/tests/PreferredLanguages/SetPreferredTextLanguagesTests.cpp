@@ -772,7 +772,6 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	// SetCurrentTextTrackIndex is called in TSB scenarios
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
 		.Times(1);
-
 	testp_aamp->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
 
 	/* Verify the preferred languages list. */
