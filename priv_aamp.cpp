@@ -12607,7 +12607,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 			if (closedCaptionTrackId >= 0)
 			{
 				TextTrackInfo track = trackInfo[closedCaptionTrackId];
-				SetPreferredTextTrack(std::move(track)); // If we found the track via CheckPreferredTextLanguages() it may not be the current preferred text track
+				SetPreferredTextTrack(track); // If we found the track via CheckPreferredTextLanguages() it may not be the current preferred text track
 				mpStreamAbstractionAAMP->SetCurrentTextTrackIndex(track.index); // Normally set as part of parsing the manifest during tune, but if we don't tune we should keep it consistent
 				SetClosedCaptionsFromTextTrack(track);
 			}
