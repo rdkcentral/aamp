@@ -99,7 +99,7 @@ public:
 
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
 
-	MOCK_METHOD(void, SetCurrentTextTrackIndex, (std::string& index));
+	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;
