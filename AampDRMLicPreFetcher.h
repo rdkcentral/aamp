@@ -175,7 +175,7 @@ public:
 	 * 
 	 * @return none
 	 */
-	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance) { mFetchInstance = fetcherInstance; }
+	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance) { mFetchInstance = fetcherInstance; AAMPLOG_WARN("ANJ: assigned  mFetchInstance = fetcherInstance. mFetchInstance = %p", mFetchInstance);}
 
 	/**
 	 * @brief Set the Common Key Duration object

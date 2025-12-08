@@ -831,7 +831,9 @@ void AampDRMLicenseManager::SetCommonKeyDuration(int keyDuration)
  */
 void AampDRMLicenseManager::Stop()
 {
+	AAMPLOG_WARN("ANJ: IN: AampDRMLicenseManager::Stop. calling mLicensePrefetcher->Term()");
 	mLicensePrefetcher->Term();
+	AAMPLOG_WARN("ANJ: OUT: AampDRMLicenseManager::Stop.");
 }
 /**
  * @brief set license fetcher object

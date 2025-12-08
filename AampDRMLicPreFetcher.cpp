@@ -146,10 +146,13 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 		LicensePreFetchObjectPtr fetchObject = std::make_shared<LicensePreFetchObject>(drmHelper, periodId, adapIdx, type, isVssPeriod);
 		if (fetchObject)
 		{
+			AAMPLOG_WARN("ANJ: licenceObj created");
 			if(isVssPeriod)
 			{
 				std::lock_guard<std::mutex>lock(mQVssMutex);
+				AAMPLOG_WARN("ANJ: vss: adding licenceObj to mVssFetchQueue.");
 				mVssFetchQueue.push_back(std::move(fetchObject));
+				AAMPLOG_WARN("ANJ: vss: After adding licenceObj to mVssFetchQueue");
 				if (!mVssPreFetchThread.joinable())
 				{
 					AAMPLOG_MIL("Starting mVssPreFetchThread");
@@ -173,7 +176,9 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 					return true;
 				}
 
+				AAMPLOG_WARN("ANJ: adding licenceObj to mFetchQueue.");
 				mFetchQueue.push_back(std::move(fetchObject));
+				AAMPLOG_WARN("ANJ: After adding licenceObj to mFetchQueue");
 				if (!mPreFetchThread.joinable())
 				{
 					AAMPLOG_MIL("Starting mPreFetchThread");
@@ -192,6 +197,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 	{
 		AAMPLOG_WARN("Skipping creation of prefetcher threads as the license prefetcher object has already been de-initialized/freed");	
 	}
+	AAMPLOG_WARN("ANJ: Exit.");
 	return ret;
 }
 
@@ -204,8 +210,6 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 bool AampLicensePreFetcher::Term()
 {
 	bool ret = true;
-	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
-	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
 	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
 	AAMPLOG_WARN("ANJ: IN: AampLicensePreFetcher::Term()");
 	/** Clear the queue **/
@@ -225,12 +229,8 @@ bool AampLicensePreFetcher::Term()
 	mTrackStatus.fill(false);
 	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
 	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
-	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
-	AAMPLOG_WARN("ANJ: going to set mFetchInstance = nullptr =====");
 	mFetchInstance = nullptr;
-	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
-	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
-	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
+	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term(): --------mFetchInstance = %p", mFetchInstance);
 	AAMPLOG_WARN("ANJ: OUT: AampLicensePreFetcher::Term()");
 	return ret;
 }
@@ -289,7 +289,7 @@ void AampLicensePreFetcher::PreFetchThread()
 						keyStatus = true;
 						AAMPLOG_WARN("ANJ: CreateDRMSession success." );
 					}
-					AAMPLOG_WARN("ANJ: After calling CreateDRMSession." );
+					AAMPLOG_WARN("ANJ: After calling CreateDRMSession");
 				}
 				if (keyStatus)
 				{
@@ -450,7 +450,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	{
 		AAMPLOG_WARN("ANJ: calling mFetchInstance->UpdateFailedDRMStatus: mFetchInstance = %p", mFetchInstance);
 		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
-		AAMPLOG_WARN("ANJ: After calling mFetchInstance->UpdateFailedDRMStatus");
+		AAMPLOG_WARN("ANJ: After calling mFetchInstance->UpdateFailedDRMStatus, mFetchInstance = %p", mFetchInstance);
 	}
 	else
 	{

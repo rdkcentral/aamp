@@ -1303,6 +1303,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
 {
+	AAMPLOG_WARN("ANJ: IN priv aamp constructor");
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
@@ -1382,6 +1383,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
     AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
+	AAMPLOG_WARN("ANJ: OUT: priv aamp constructor");
 }
 
 /**
@@ -1389,6 +1391,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	AAMPLOG_WARN("ANJ: IN priv aamp destructor");
 	mAampTrackWorkerManager.reset();
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
@@ -1442,6 +1445,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 			mpStreamAbstractionAAMP->ResetSubtitle();
 	}
 
+	AAMPLOG_WARN("ANJ: OUT: priv aamp destructor");
 }
 
 /**
@@ -4873,7 +4877,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		{
 			if(!IsLocalAAMPTsb())
 			{
+				AAMPLOG_WARN("ANJ: Calling SAFE_DELETE mpStreamAbstractionAAMP");
 				SAFE_DELETE(mpStreamAbstractionAAMP);
+				AAMPLOG_WARN("ANJ: After calling SAFE_DELETE mpStreamAbstractionAAMP");
 			}
 		}
 		ReleaseStreamLock();
@@ -7641,6 +7647,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
+	AAMPLOG_WARN("ANJ: IN: PrivateInstanceAAMP::Stop");
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
 	{
@@ -7719,6 +7726,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			//anj:TODO: reset the fetchInstance here.
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -7726,7 +7734,9 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		}
 		ReleaseStreamLock();
 	}
+	AAMPLOG_WARN("ANJ: Calling TeardownStream");
 	TeardownStream(true,true); //disable download as well
+	AAMPLOG_WARN("ANJ: After Calling TeardownStream");
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
@@ -7819,7 +7829,9 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	if (mDRMLicenseManager)
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
+		AAMPLOG_WARN("ANJ: Calling AampDRMLicenseManager::Stop.");
 		mDRMLicenseManager->Stop();
+		AAMPLOG_WARN("ANJ: After Calling AampDRMLicenseManager::Stop.");
 	}
 
 	SAFE_DELETE(mCdaiObject);
@@ -7850,6 +7862,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
 	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
 	profiler.mStopDurationMs = mLastStopDurationMs;
+	AAMPLOG_WARN("ANJ: OUT: PrivateInstanceAAMP::Stop");
 
 }
 

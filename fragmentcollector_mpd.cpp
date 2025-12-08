@@ -161,10 +161,13 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mIsFinalFirstPTS(false)
 {
 	this->aamp = aamp;
+	AAMPLOG_WARN("ANJ: IN: StreamAbstractionAAMP_MPD constructor.");
 	if (aamp->mDRMLicenseManager)
 	{
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		AAMPLOG_WARN("ANJ: calling licenseManager->SetLicenseFetcher: this = %p", this);
 		licenseManager->SetLicenseFetcher(this);
+		AAMPLOG_WARN("ANJ: After licenseManager->SetLicenseFetcher: this = %p", this);
 	}
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 	GetABRManager().clearProfiles();
@@ -229,6 +232,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	}
 
 	trickplayMode = (mPlayRate != AAMP_NORMAL_PLAY_RATE);
+	AAMPLOG_WARN("ANJ: OUT: StreamAbstractionAAMP_MPD constructor.");
 }
 
 /**
@@ -10175,6 +10179,8 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	AAMPLOG_WARN("ANJ: IN: StreamAbstractionAAMP_MPD destructor.: this = %p", this);
+	AAMPLOG_WARN("ANJ: IN: StreamAbstractionAAMP_MPD destructor.: this = %p", this);
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
@@ -10203,6 +10209,8 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	aamp->SetLowLatencyServiceConfigured(false);
 	aamp->SyncEnd();
 	mManifestDnldRespPtr = nullptr;
+	AAMPLOG_WARN("ANJ: OUT: StreamAbstractionAAMP_MPD destructor.");
+	AAMPLOG_WARN("ANJ: OUT: StreamAbstractionAAMP_MPD destructor.");
 }
 
 void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
