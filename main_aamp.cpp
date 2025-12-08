@@ -262,7 +262,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
 		// Enhanced DRM cleanup for Deep Sleep scenarios
-		// Must be done AFTER Stop() to ensure GStreamer pipeline is torn down
+		// Must be done AFTER StopInternal() to ensure GStreamer pipeline is torn down
 		// and all encrypted buffers are flushed before destroying DRM sessions
 		if (forceCleanup && aamp->mDRMLicenseManager)
 		{
