@@ -769,7 +769,6 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2).WillRepeatedly(Return());
-	
 	// SetCurrentTextTrackIndex is called in TSB scenarios
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
 		.Times(1);
