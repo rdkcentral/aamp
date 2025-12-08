@@ -24,6 +24,7 @@
 
 MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter = nullptr;
 std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
+const std::vector<std::vector<uint8_t>> g_emptyUsableKeys;
 
 OCDMSessionAdapter::OCDMSessionAdapter(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks *callbacks) :
     DrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}

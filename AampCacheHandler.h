@@ -447,7 +447,7 @@ public:
 	 *   @param[out] effectiveUrl - Final URL
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType );
+	bool RetrieveFromPlaylistCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType);
 
 	/**
 	 * @brief Remove playlist from cache
@@ -493,7 +493,7 @@ public:
 	 *
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromInitFragmentCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
+	bool RetrieveFromInitFragmentCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
 
 	/**
 	*   @brief set max initialization fragments allowed in cache (per track)
