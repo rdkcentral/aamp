@@ -128,8 +128,8 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithNullMemorySystem)
 										_,
 										f_pbIV,
 										f_cbIV,
-										_,   // Accept any keyId pointer
-										_,   // Accept any keyId size
+										Eq(nullptr),   // Expect keyId pointer to be nullptr
+										Eq(0),         // Expect keyId size to be 0
 										initWithLast15)).WillOnce(Return(ERROR_NONE));
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData,
 										 payloadDataSize, nullptr);
