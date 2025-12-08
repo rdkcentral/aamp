@@ -150,9 +150,10 @@ public:
 	/**
 	 *   @brief Stop playback and release resources.
 	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
+	 *   @param[in]  forceCleanup - true to force DRM handle cleanup for Deep Sleep scenarios (default false)
 	 *   @return void
 	 */
-	void Stop(bool sendStateChangeEvent = true);
+	void Stop(bool sendStateChangeEvent = true, bool forceCleanup = false);
 
 	/**
 	 *   @fn ResetConfiguration
@@ -352,6 +353,15 @@ public:
 	 *   @param[in]  eventListener - listener for the eventType.
 	 *   @return void
 	 */
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+
+	/**
+	 *   @fn AddEventListener
+	 *
+	 *   @param[in]  eventType - type of event.
+	 *   @param[in]  eventListener - listener for the eventType - raw pointer.
+	 *   @return void
+	 */
 	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
 
 	/**
@@ -361,8 +371,16 @@ public:
 	 *   @param[in]  eventListener - listener to be removed for the eventType.
 	 *   @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener> eventListener);
 
+	/**
+	 *   @fn RemoveEventListener
+	 *
+	 *   @param[in]  eventType - type of event.
+	 *   @param[in]  eventListener - listener to be removed for the eventType - raw pointer.
+	 *   @return void
+	 */
+	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
 	/**
 	 *   @fn IsLive
 	 *
@@ -1467,9 +1485,10 @@ private:
 	 *   @fn StopInternal
 	 *
 	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
+	 *   @param[in]  forceCleanup - true to force DRM handle cleanup for Deep Sleep scenarios
 	 *   @return void
 	 */
-	void StopInternal(bool sendStateChangeEvent);
+	void StopInternal(bool sendStateChangeEvent, bool forceCleanup);
 
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */

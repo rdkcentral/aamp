@@ -74,25 +74,22 @@ AampMediaType TrackTypeToMediaType( TrackType trackType )
 void MediaTrack::StartPlaylistDownloaderThread()
 {
 	AAMPLOG_DEBUG("Starting playlist downloader for %s", name);
-	if(!playlistDownloaderThreadStarted)
+
+	if(!playlistDownloaderThread)
 	{
 		// Start a new thread for this track
-		if(NULL == playlistDownloaderThread)
-		{
-			// Set thread abort flag to false and start the thread.
-			abortPlaylistDownloader = false;
-			playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
-			playlistDownloaderThreadStarted = true;
-			AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
-		}
-		else
-		{
-			AAMPLOG_ERR("Failed to start thread, already initialized for %s", name);
-		}
+		// Set thread abort flag to false and start the thread.
+		abortPlaylistDownloader = false;
+		playlistDownloaderThread = new std::thread(&MediaTrack::PlaylistDownloader, this);
+		AAMPLOG_INFO("Thread created for PlaylistDownloader [%zx]", GetPrintableThreadID(*playlistDownloaderThread));
+	}
+	else if(playlistDownloaderThread->joinable())
+	{
+		AAMPLOG_INFO("Thread already running for %s", name);
 	}
 	else
 	{
-		AAMPLOG_INFO("Thread already running for %s", name);
+		AAMPLOG_WARN("Failed to start thread. thread is not joinable, but the thread pointer is non NULL for %s", name);
 	}
 }
 
@@ -101,14 +98,13 @@ void MediaTrack::StartPlaylistDownloaderThread()
  */
 void MediaTrack::StopPlaylistDownloaderThread()
 {
-	if ((playlistDownloaderThreadStarted) && (playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
+	if ((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
 	{
 		abortPlaylistDownloader = true;
 		AbortWaitForPlaylistDownload();
 		AbortFragmentDownloaderWait();
 		playlistDownloaderThread->join();
 		SAFE_DELETE(playlistDownloaderThread);
-		playlistDownloaderThreadStarted = false;
 		AAMPLOG_WARN("[%s] Aborted", name);
 	}
 }
@@ -159,7 +155,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
 	{
-		AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
+		AAMPLOG_MIL("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
 					 name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
 		if (bufferedTime <= 0)
 		{
@@ -1352,6 +1348,8 @@ void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
+	// This will change for trickplay if restamping is enabled (cachedFragment->duration is changed according to abs rate)
+	double inFragmentDuration = cachedFragment->duration;
 	if (aamp->GetLLDashChunkMode())
 	{
 		bool bIgnore = true;
@@ -1482,6 +1480,11 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		else
 		{
 			UpdateTSAfterInject();
+			auto timeBasedBufferManager = GetTimeBasedBufferManager();
+			if (timeBasedBufferManager)
+			{
+				timeBasedBufferManager->ConsumeBuffer(inFragmentDuration);
+			}
 		}
 	}
 }
@@ -1620,7 +1623,7 @@ void MediaTrack::StartInjectLoop()
 	try
 	{
 		std::lock_guard<std::mutex> guard(injectorStartMutex);
-		if (fragmentInjectorThreadStarted)
+		if (fragmentInjectorThreadID.joinable())
 		{
 			AAMPLOG_WARN("Fragment injector thread already started");
 		}
@@ -1631,7 +1634,6 @@ void MediaTrack::StartInjectLoop()
 			discontinuityProcessed = false;
 
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
-			fragmentInjectorThreadStarted = true;
 			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
 		}
 	}
@@ -1683,7 +1685,7 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
 void MediaTrack::RunInjectLoop()
 {
 	UsingPlayerId playerId( aamp->mPlayerId );
-	AAMPLOG_WARN("fragment injector started. track %s", name);
+	AAMPLOG_MIL("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -1691,12 +1693,11 @@ void MediaTrack::RunInjectLoop()
 	StreamAbstractionAAMP* pContext = GetContext();
 	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) )
 	{
-		if (!bufferMonitorThreadDisabled && !bufferMonitorThreadStarted)
+		if (!bufferMonitorThreadDisabled && !bufferMonitorThreadID.joinable())
 		{
 			try
 			{
 				bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
-				bufferMonitorThreadStarted = true;
 				AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
 			}
 			catch(const std::exception& e)
@@ -1798,12 +1799,11 @@ void MediaTrack::StopInjectLoop()
 	NotifyCachedAudioFragmentAvailable();
 	NotifyCachedSubtitleFragmentAvailable();
 	std::lock_guard<std::mutex> guard(injectorStartMutex);
-	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
+	if(fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
 		AAMPLOG_INFO("Fragment injector thread joined");
 	}
-	fragmentInjectorThreadStarted = false;
 }
 
 /**
@@ -1812,6 +1812,25 @@ void MediaTrack::StopInjectLoop()
 bool MediaTrack::Enabled()
 {
 	return enabled;
+}
+
+/**
+ * @brief Check if fragment injector thread is started
+ * @return true if thread is joinable, false otherwise
+ */
+bool MediaTrack::isFragmentInjectorThreadStarted()
+{
+	std::lock_guard<std::mutex> guard(injectorStartMutex);
+	return fragmentInjectorThreadID.joinable();
+}
+
+/**
+ * @brief Check if playlist downloader thread is started
+ * @return true if thread is joinable, false otherwise
+ */
+bool MediaTrack::isPlaylistDownloaderThreadStarted()
+{
+	return (playlistDownloaderThread && playlistDownloaderThread->joinable());
 }
 
 /**
@@ -1975,8 +1994,7 @@ void MediaTrack::FlushFragments()
 	{
 		for (int i = 0; i < maxCachedFragmentsPerTrack; i++)
 		{
-			mCachedFragment[i].fragment.Free();
-			memset(&mCachedFragment[i], 0, sizeof(CachedFragment));
+			mCachedFragment[i].Clear();
 		}
 		fragmentIdxToInject = 0;
 		fragmentIdxToFetch = 0;
@@ -2016,7 +2034,7 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
 		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
-		fragmentInjectorThreadStarted(false), bufferMonitorThreadStarted(false), UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
@@ -2025,14 +2043,14 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
 		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
-		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
+		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
-		,mTrackParamsMutex(), mCheckForRampdown(false)
+		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
 		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
@@ -2048,7 +2066,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
  */
 MediaTrack::~MediaTrack()
 {
-	if (bufferMonitorThreadStarted)
+	if (bufferMonitorThreadID.joinable())
 	{
 		bufferMonitorThreadID.join();
 		{
@@ -2269,7 +2287,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
 				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-				AAMPLOG_WARN("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
+				AAMPLOG_MIL("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
 				aamp->IsTuneTypeNew = false;
 				lGetBWIndex = true;
 			}
@@ -2284,7 +2302,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 		}
 		else
 		{
-			AAMPLOG_WARN("StreamInfo  is null");  //CID:82200 - Null Returns
+			AAMPLOG_WARN("StreamInfo is null");  //CID:82200 - Null Returns
 		}
 	}
 }
@@ -2617,7 +2635,6 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	}
 	return desiredProfileIndex;
 }
-
 
 /**
  *  @brief Rampdown profile
@@ -2981,7 +2998,6 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 
 	return retVal;
 }
-
 /**
  *  @brief Check if playback has stalled and update related flags.
  */
@@ -3712,6 +3728,25 @@ bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 }
 
 /**
+ * @brief Unblocks all waiting tracks by calling AbortWaitForCachedFragmentChunk() on each track.
+ *
+ * Iterates over all track types and invokes AbortWaitForCachedFragmentChunk()
+ * on each MediaTrack, ensuring that any threads waiting for cached fragments
+ * are unblocked.
+ */
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+{
+	for ( int type = eTRACK_VIDEO; type <= eTRACK_AUX_AUDIO; type++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType)type);
+		if(track)
+		{
+			track->AbortWaitForCachedFragmentChunk();
+		}
+	}
+}
+
+/**
  *  @brief Get buffered video duration in seconds
  */
 double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
@@ -4074,7 +4109,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
 		if(track && track->enabled && track->playContext == nullptr)
 		{
-			AAMPLOG_WARN("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
+			AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
 
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
@@ -4173,7 +4208,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
 	std::unique_lock<std::mutex> lock(dwnldMutex);
-	if(playlistDownloaderThreadStarted)
+	if((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
 	{
 		plDownloadWait.notify_one();
 	}

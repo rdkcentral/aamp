@@ -138,7 +138,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mAudioFormat(),
 	mPreviousAudioType(),
 	mAuxFormat(),
-	mCurlShared()
+	mCurlShared(),
+	mIsChunkMode(false)
 {
 }
 
@@ -253,6 +254,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 {
 	// Set the Fog TSB flag based on the URL.
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
+}
+
+void PrivateInstanceAAMP::enableEventProcessing()
+{
+}
+
+void PrivateInstanceAAMP::disableEventProcessing()
+{
 }
 
 void PrivateInstanceAAMP::detach()
@@ -384,11 +393,11 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 

@@ -1244,51 +1244,29 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
 																							  std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
 {
-	// Merge both lists in chronological order
+	// Merge both lists
 	std::vector<std::shared_ptr<AampTsbAdMetaData>> merged;
-	for (const auto& meta : reservationList)
-	{
-		merged.push_back(meta);
-	}
-	for (const auto& meta : placementList)
-	{
-		merged.push_back(meta);
-	}
-	// Sort merged list
+	merged.reserve(reservationList.size() + placementList.size());
+	merged.insert(merged.end(), reservationList.begin(), reservationList.end());
+	merged.insert(merged.end(), placementList.begin(), placementList.end());
+	// Sort with strict weak ordering: first by position, then by order added
 	std::sort(merged.begin(), merged.end(), [](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
 	{
-		bool maintainOrder = true;
-		auto apos = a->GetPosition().milliseconds();
-		auto bpos = b->GetPosition().milliseconds();
-
-		// Different positions, sort by position
-		if (apos != bpos)
+		bool aLessThanB;
+		uint64_t aPos = a->GetPosition().milliseconds();
+		uint64_t bPos = b->GetPosition().milliseconds();
+		if (aPos != bPos)
 		{
-			maintainOrder = apos < bpos;
+			aLessThanB = aPos < bPos;
 		}
 		else
 		{
-			// Same position, apply rules:
-			// Matching ad types, END should be before START
-			// Reservation events should be after Placement END
-			// Reservation events should be before Placement START
-			//
-			// This logic assumes that an advert exceeds a fragment duration, 
-			// i.e. an advert cannot start and end in the same fragment
-			auto aType = a->GetEventType();
-			auto bType = b->GetEventType();
-			auto aAdType = a->GetAdType();
-			auto bAdType = b->GetAdType();
-
-			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
-				 ((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
-				 ((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
-			{
-				maintainOrder = false;
-			} 
+			// Same position - sort by order added
+			aLessThanB = a->GetOrderAdded() < b->GetOrderAdded();
 		}
-		return maintainOrder;
+		return aLessThanB;
 	});
+
 	return merged;
 }
 

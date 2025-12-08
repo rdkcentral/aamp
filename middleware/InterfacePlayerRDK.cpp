@@ -89,6 +89,8 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	{
 		delete[] mDrmSystem;
 	}
+	/* safe delete configuration parameter */
+	MW_SAFE_DELETE(m_gstConfigParam);
 	mScheduler.StopScheduler();
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
@@ -1801,7 +1803,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
 		
 		if( privatePlayer->gstPrivateContext->usingRialtoSink &&
-		   privatePlayer->socInterface->IsVideoMaster(privatePlayer->gstPrivateContext->video_sink) )
+		   !privatePlayer->socInterface->IsVideoMaster(privatePlayer->gstPrivateContext->video_sink) )
 		{
 			// This property is required so that the segment event sent via gst_app_src_push_sample
 			MW_LOG_INFO("Setting handle-segment-change to 1");
@@ -4160,6 +4162,7 @@ static void GstPlayer_OnGstPtsErrorCb(GstElement *object, guint arg0, gpointer a
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
+	MW_LOG_ERR("Got PTS error message from %s", GST_ELEMENT_NAME(object));
 	bool isVideo = false;
 	bool isAudioSink = false;
 	if (privatePlayer->socInterface->IsVideoSinkHandleErrors())

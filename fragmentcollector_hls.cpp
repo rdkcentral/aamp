@@ -580,13 +580,19 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 				{
 					mediaInfoStore.emplace_back(MediaInfo{});
 					ptr.ParseAttrList(ParseMediaAttributeCallback, this);
-					if( mediaInfoStore[mMediaCount].language.empty() )
-					{ // handle non-compliant manifest missing language attribute
-						mediaInfoStore[mMediaCount].language =  mediaInfoStore[mMediaCount].name;
-					}
-					if (mediaInfoStore[mMediaCount].type == eMEDIATYPE_AUDIO && !mediaInfoStore[mMediaCount].language.empty() )
+					if (mediaInfoStore[mMediaCount].type == eMEDIATYPE_AUDIO)
 					{
-						mLangList.insert(GetLanguageCode(mMediaCount));
+						auto& audioMedia = mediaInfoStore[mMediaCount];
+						if (audioMedia.language.empty())
+						{ // handle non-compliant manifest missing language attribute
+							AAMPLOG_WARN("Audio track %d missing language, using name '%s' as fallback",
+										 mMediaCount, audioMedia.name.c_str());
+							audioMedia.language = audioMedia.name;
+						}
+						if (!audioMedia.language.empty())
+						{
+							mLangList.insert(GetLanguageCode(mMediaCount));
+						}
 					}
 					mMediaCount++;
 				}
@@ -1311,7 +1317,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
 			double downloadTime = 0;
-			
+
 			cachedFragment->discontinuityIndex = 0;
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{ // TODO: optimize me
@@ -1340,7 +1346,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					}
 				}
 			}
-			
+
 			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
@@ -1757,7 +1763,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			}
 		};
-		
+
 		if( demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 		{
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
@@ -1770,7 +1776,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
-		
+
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
 			position.inSeconds(),
 			cachedFragment->duration,
@@ -2329,10 +2335,10 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
-		
+
 		AampTime culled{};
 		IndexPlaylist(true, culled);
-        
+
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
 		// culledSeconds and FindTimedMetadata have been moved up here, because FindMediaForSequenceNumber
@@ -2523,9 +2529,12 @@ int StreamAbstractionAAMP_HLS::GetBestAudioTrackByLanguage( void )
 }
 
 /**
- *  @brief Function to get playlist URI based on media selection
+ * @brief Function to get playlist URI based on media selection
+ *
+ * TrackType is used to specify the type of stream track for which the playlist URI is requested.
+ * Typical values may include audio, video, subtitle, or other media types supported by the stream abstraction.
  */
-std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, StreamOutputFormat* format)
+std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, StreamOutputFormat &format)
 {
 	std::string playlistURI;
 
@@ -2538,44 +2547,42 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			{
 				playlistURI = streamInfo->uri;
 			}
-			if (format)
-			{
-				*format = FORMAT_MPEGTS;
-			}
+			format = FORMAT_MPEGTS;
 		}
 		break;
 	case eTRACK_AUDIO:
 		{
-			if (currentAudioProfileIndex >= 0)
+			if (currentAudioProfileIndex >= 0 && currentAudioProfileIndex < (int)mediaInfoStore.size())
 			{
 				//aamp->UpdateAudioLanguageSelection( GetLanguageCode(currentAudioProfileIndex).c_str() );
-				AAMPLOG_WARN("GetPlaylistURI : AudioTrack: language selected is %s", GetLanguageCode(currentAudioProfileIndex).c_str());
+				AAMPLOG_INFO("GetPlaylistURI : AudioTrack: language selected is %s", GetLanguageCode(currentAudioProfileIndex).c_str());
 				playlistURI = mediaInfoStore[currentAudioProfileIndex].uri;
 				mAudioTrackIndex = std::to_string(currentAudioProfileIndex);
-				if (format)
-				{
-					*format = GetStreamOutputFormatForTrack(trackType);
-				}
+				format = GetStreamOutputFormatForTrack(trackType);
 			}
 		}
 		break;
 	case eTRACK_SUBTITLE:
 		{
-			if (currentTextTrackProfileIndex != -1)
+			if (currentTextTrackProfileIndex != -1 && currentTextTrackProfileIndex < (int)mediaInfoStore.size()	)
 			{
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
-				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
-				if (format) *format = (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE) ? FORMAT_SUBTITLE_WEBVTT : FORMAT_UNKNOWN;
-//				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language, playlistURI);
+				SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_SubTitleLanguage, (std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
+
+				if (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
+				{
+					/* For closedCaption subtitles then we need a subtitle track setup in Rialto for control. The actual subtitle
+					* data is included in the video track. In this case we are using FORMAT_INVALID. Otherwise we use FORMAT_SUBTITLE_WEBVTT
+					*/
+					format = mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID : FORMAT_SUBTITLE_WEBVTT;
+				}
+
+				AAMPLOG_INFO("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str());
 			}
 			else
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Couldn't find subtitle URI for preferred language: %s", aamp->mSubLanguage.c_str());
-				if (format != NULL)
-				{
-					*format = FORMAT_INVALID;
-				}
 			}
 		}
 		break;
@@ -2587,17 +2594,23 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			if (index != -1)
 			{
 				playlistURI = mediaInfoStore[index].uri;
-				AAMPLOG_WARN("GetPlaylistURI : Auxiliary Track: Audio selected name is %s", GetLanguageCode(index).c_str());
+				AAMPLOG_INFO("GetPlaylistURI : Auxiliary Track: Audio selected name is %s", GetLanguageCode(index).c_str());
 				//No need to update back, matching track is either there or not
-				if (format)
-				{
-					*format = GetStreamOutputFormatForTrack(trackType);
-				}
+				format = GetStreamOutputFormatForTrack(trackType);
 			}
 		}
 		break;
 	}
 	return playlistURI;
+}
+
+/**
+ *  @brief Function to get playlist URI based on media selection. Format parameter not needed.
+ */
+std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType )
+{
+	StreamOutputFormat unused_format;
+	return GetPlaylistURI(trackType, unused_format);
 }
 
 /***************************************************************************
@@ -3415,7 +3428,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					//set default bitrate
 					else
 					{
-						AAMPLOG_WARN("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+						AAMPLOG_MIL("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 						aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 					}
@@ -3424,27 +3437,46 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 1: Configure the Audio for the playback .Get the audio index/group
+				// Configure the Audio for the playback .Get the audio index/group
 				ConfigureAudioTrack();
 			}
 
-			// Step 3: Based on the audio selection done , configure the profiles required
+			// Based on the audio selection done , configure the profiles required
 			ConfigureVideoProfiles();
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 2: Configure Subtitle track for the playback
-				ConfigureTextTrack();
+
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
+
+				// Select preferred text track based on user language preferences
+				TextTrackInfo selectedTextTrack;
+				if (SelectPreferredTextTrack(selectedTextTrack))
+				{
+					AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
+								 selectedTextTrack.language.c_str(),
+								 selectedTextTrack.name.c_str(),
+								 selectedTextTrack.rendition.c_str());
+					aamp->SetPreferredTextTrack(std::move(selectedTextTrack));
+				}
+				else
+				{
+					AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+				}
+
+				// Configure Subtitle track for the playback
+				ConfigureTextTrack();
+				
+				// Check for text track changes and notify
+				NotifyTextTrackChanges();
+				
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
 					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
 					SelectSubtitleTrack();
 				}
 			}
-
-
 
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
@@ -3526,7 +3558,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						lastSelectedProfileIndex = currentProfileIndex;
 						AAMPLOG_INFO("Trying BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond,
 						GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
-						std::string uri = GetPlaylistURI(eTRACK_VIDEO, &video->streamOutputFormat);
+						std::string uri = GetPlaylistURI(eTRACK_VIDEO, video->streamOutputFormat);
 						if( !uri.empty() ){
 							aamp_ResolveURL(video->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 
@@ -4534,7 +4566,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 				continue;
 			}
 		}
-		std::string uri = GetPlaylistURI((TrackType)iTrack, &ts->streamOutputFormat);
+		std::string uri = GetPlaylistURI((TrackType)iTrack, ts->streamOutputFormat);
 		if( !uri.empty() )
 		{
 			aamp_ResolveURL(ts->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
@@ -4561,7 +4593,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 void StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction(void)
 {
 	// required to work around Adobe SSAI session lifecycle problem
-	// Temporary workaround code 
+	// Temporary workaround code
 	aamp->PreCachePlaylistDownloadTask();
 	return;
 }
@@ -4892,7 +4924,8 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{std::move(ptsUpdate)},
 	mDrmInterface(aamp),
-	mMetadataProcessor{nullptr}
+	mMetadataProcessor{nullptr},
+	indexedTileEndTime(0.0)
 {
 	if (aamp->mDRMLicenseManager)
 	{
@@ -5236,16 +5269,92 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 }
 
 /***************************************************************************
+* @fn IndexSleThumbnails
+* @brief Function to index SLE thumbnail manifest.
+*
+* @param iter Pointer to thumbnail manifest
+* @param tStartTime Start time of the requested thumbnails
+* @param lastProgramDateTime Program date time from which thumbnail to be requested
+* @return Updated vector of available thumbnail tracks.
+***************************************************************************/
+std::vector<TileInfo> IndexSleThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime)
+{
+	std::vector<TileInfo> rc;
+	AampTime startTime = tStartTime;
+	TileLayout layout;
+	memset( &layout, 0, sizeof(layout) );
+	long long localProgramDateTime=0;
+	layout.numRows = DEFAULT_THUMBNAIL_TILE_ROWS;
+	layout.numCols = DEFAULT_THUMBNAIL_TILE_COLUMNS;
+
+	while(!iter.empty())
+	{
+		lstring ptr = iter.mystrpbrk();
+		if(!ptr.empty())
+		{
+			if (ptr.removePrefix("#EXT"))
+			{
+				if (ptr.removePrefix("-X-PROGRAM-DATE-TIME:"))
+				{
+					localProgramDateTime = (long long) ( ISO8601DateTimeToUTCSeconds(ptr.getPtr())*1000);
+					if(localProgramDateTime > lastProgramDateTime )
+						layout.progStartDateTime = localProgramDateTime;
+				}
+				if (ptr.removePrefix("INF:"))
+				{
+					if(localProgramDateTime > lastProgramDateTime )
+						layout.tileSetDuration = ptr.atof();
+				}
+				else if (ptr.removePrefix("-X-TILES:"))
+				{
+					if(localProgramDateTime > lastProgramDateTime )
+							ptr.ParseAttrList(ParseTileInfCallback, &layout);
+				}
+			}
+			else if( !ptr.startswith('#') )
+			{
+				TileInfo tileInfo;
+				if(localProgramDateTime > lastProgramDateTime && ptr.length()>4 )
+				{
+					if( 0.0f == layout.posterDuration )
+					{
+						if( layout.tileSetDuration )
+						{
+							layout.posterDuration = layout.tileSetDuration;
+						}
+						else
+						{
+							layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+						}
+					}
+					tileInfo.layout = layout;
+					tileInfo.url = ptr.tostring();
+					tileInfo.startTime = startTime.inSeconds();
+					startTime += layout.tileSetDuration;
+					rc.push_back( tileInfo );
+				}
+			}
+		}
+	}
+	if(rc.empty() )
+	{
+		AAMPLOG_WARN("(not an error) IndexThumbnails failed. Last PDT in manifest(ms): %lld requested PDT from app(ms): %lld",
+							localProgramDateTime,lastProgramDateTime);
+	}
+	return rc;
+}
+
+/***************************************************************************
 * @fn IndexThumbnails
 * @brief Function to index thumbnail manifest.
 *
 * @param *ptr pointer to thumbnail manifest
 * @return Updated vector of available thumbnail tracks.
 ***************************************************************************/
-std::vector<TileInfo> IndexThumbnails( lstring iter , double stTime=0 )
+std::vector<TileInfo> IndexThumbnails( lstring iter )
 {
 	std::vector<TileInfo> rc;
-	AampTime startTime = stTime;
+	AampTime startTime = 0;
 	TileLayout layout;
 	memset( &layout, 0, sizeof(layout) );
 
@@ -5271,22 +5380,25 @@ std::vector<TileInfo> IndexThumbnails( lstring iter , double stTime=0 )
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
-				if( 0.0f == layout.posterDuration )
+				if( ptr.tostring().length() > 4 )
 				{
-					if( layout.tileSetDuration )
+					if( 0.0f == layout.posterDuration )
 					{
-						layout.posterDuration = layout.tileSetDuration;
+						if( layout.tileSetDuration )
+						{
+							layout.posterDuration = layout.tileSetDuration;
+						}
+						else
+						{
+							layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+						}
 					}
-					else
-					{
-						layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
-					}
+					tileInfo.layout = layout;
+					tileInfo.url = ptr.tostring();
+					tileInfo.startTime = startTime.inSeconds();
+					startTime += layout.tileSetDuration;
+					rc.push_back( tileInfo );
 				}
-				tileInfo.layout = layout;
-				tileInfo.url = ptr.tostring();
-				tileInfo.startTime = startTime.inSeconds();
-				startTime += layout.tileSetDuration;
-				rc.push_back( tileInfo );
 			}
 		}
 	}
@@ -5363,7 +5475,70 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 	return rc;
 }
 
+/**
+ * @brief handle the SLE thumbnail data
+ */
+void StreamAbstractionAAMP_HLS::HandleSleThumbnailData(double tStart, double tEnd)
+{
+	std::vector<TileInfo> newIndexedTileInfo;
+	lstring thumbNailIter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
+	if(!aamp->mThumbnailLastProgramDateTime )
+	{
+		//First Time;
+		indexedTileInfo.clear();
+		indexedTileInfo = IndexSleThumbnails( thumbNailIter, tStart,aamp->mThumbnailLastProgramDateTime);
+	}
+	else
+	{
+		if(!aamp->mLastSleThumbnailInfo.empty())
+		{
+			indexedTileInfo.clear();
+			indexedTileInfo.assign(aamp->mLastSleThumbnailInfo.begin(),aamp->mLastSleThumbnailInfo.end());
+			auto findIter = std::find_if(aamp->mLastSleThumbnailInfo.begin(), aamp->mLastSleThumbnailInfo.end(),
+							[tStart](const TileInfo& s)
+			{
+				/*
+				If prevStartTime is greater then input starttime OR
+				previous StartTime-tStart within the range OR
+				previous starttime is same as input start time
+				*/
+				return ( ( s.startTime == tStart)  ||
+						 ( fabs(s.startTime - tStart) < 1 ) ||
+						 ( s.startTime > tStart ) );
+   			});
 
+			if ( findIter != aamp->mLastSleThumbnailInfo.end())
+			{
+				if( ( findIter->startTime == tStart ) &&  ( tEnd <= indexedTileEndTime ))
+				{
+					//send saved data, no need to index again
+				}
+				else
+				{
+					double startTime = 0.0f;
+					if(!indexedTileInfo.empty())
+					{
+						aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
+						startTime  =  indexedTileInfo.back().startTime+indexedTileInfo.back().layout.tileSetDuration;
+					}
+
+					newIndexedTileInfo = IndexSleThumbnails( thumbNailIter, startTime, aamp->mThumbnailLastProgramDateTime );
+					if(!newIndexedTileInfo.empty() )
+					{
+						indexedTileInfo.insert(indexedTileInfo.end(), newIndexedTileInfo.begin(), newIndexedTileInfo.end());
+					}
+					newIndexedTileInfo.clear();
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("not found matching starttime:%lf",tStart);
+			}
+
+		}
+	}
+	indexedTileEndTime = tEnd; // Copy the end time. If the end time has changed, update indexedTileEndTime to the new value. 
+}
 /**
  * @brief Function to fetch the thumbnail data.
  */
@@ -5378,8 +5553,17 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 		std::string tmpurl;
 		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
-			lstring iter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
-			indexedTileInfo = IndexThumbnails( iter, tStart );
+			HandleSleThumbnailData( tStart, tEnd );
+			aamp->mLastSleThumbnailInfo.clear();
+			if(!indexedTileInfo.empty())
+			{
+				aamp->mLastSleThumbnailInfo.assign(indexedTileInfo.begin(), indexedTileInfo.end());
+				aamp->mThumbnailLastProgramDateTime = indexedTileInfo.back().layout.progStartDateTime;
+			}
+			else
+			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: indexedTileInfo is empty, cannot set mThumbnailLastProgramDateTime.");
+			}
 		}
 		else
 		{
@@ -5433,6 +5617,10 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	}
 	*width = streamInfo.resolution.width;
 	*height = streamInfo.resolution.height;
+	if( data.empty() )
+	{
+		AAMPLOG_WARN("thumbnail Data is empty");
+	}
 	return data;
 }
 
@@ -6946,6 +7134,11 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 			}
 		}
 	}
+
+	if(currentTextTrackProfileIndex > -1 )
+	{
+		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
+	}
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 /**
@@ -7108,7 +7301,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
-//				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
+				AAMPLOG_INFO("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
 				mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;
@@ -7123,21 +7316,12 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyAudioTracksChanged();
 		}
-
-		tracksChanged = false;
-		if (-1 != aamp->mCurrentTextTrackIndex && aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex)
-		{
-			tracksChanged = true;
-		}
-		aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
-		if (tracksChanged)
-		{
-			aamp->NotifyTextTracksChanged();
-		}
+		
+		// Update closed caption track info
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
-		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		aamp->UpdateCCTrackInfo(textTracksCopy, updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
@@ -7146,6 +7330,25 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 
+}
+
+/**
+ * @brief Check for text track changes and send notification events
+ */
+void StreamAbstractionAAMP_HLS::NotifyTextTrackChanges()
+{
+	// Check if text track has changed from a valid previous selection
+	bool tracksChanged = (aamp->mCurrentTextTrackIndex != -1 && 
+	                      aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex);
+	
+	// Update current track index
+	aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
+	
+	// Send notification if track changed
+	if (tracksChanged)
+	{
+		aamp->NotifyTextTracksChanged();
+	}
 }
 
 /**
@@ -7357,66 +7560,106 @@ bool TrackState::IsExtXByteRange( lstring ptr, size_t *byteRangeLength, size_t *
     return false;
 }
 
-//Enable default text track for Rialto
+/**
+ * @brief For rialto select any valid subtitle track
+ */
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {
 	if( currentTextTrackProfileIndex  == -1)
 	{
-		TextTrackInfo *firstAvailTextTrack = nullptr;
-		for (int j = 0; j < mTextTracks.size(); j++)
+		if( mTextTracks.size())
 		{
-			if (!mTextTracks[j].isCC)
-			{
-		firstAvailTextTrack = &mTextTracks[j];
-				break;
-			}
-		}
-		if(firstAvailTextTrack != nullptr)
-		{
-			currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
-			aamp->mIsInbandCC = false;
+			currentTextTrackProfileIndex = std::stoi(mTextTracks[0].index);
+			aamp->mIsInbandCC = mTextTracks[0].isCC;
 			aamp->SetCCStatus(false); //mute the subtitle track
-			aamp->SetPreferredTextTrack(*firstAvailTextTrack);
+			aamp->SetPreferredTextTrack(mTextTracks[0]);
 		}
 	}
-	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
+	AAMPLOG_INFO("using RialtoSink TextTrack Selected %d", currentTextTrackProfileIndex);
 }
 
-bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)
+/**
+ * @brief Select best text track based on user preferences
+ *
+ * Scoring algorithm:
+ * - Base: 1 point for any track
+ * - Language: (list_size - position) * AAMP_LANGUAGE_SCORE (prioritize order)
+ * - Rendition: AAMP_ROLE_SCORE
+ * - Name: AAMP_TYPE_SCORE
+ *
+ * @param[out] selectedTextTrack The best matching track
+ * @return true if a track was selected, false otherwise
+ */
+bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack)
 {
-	bool bestTrackFound = false;
-	unsigned long long bestScore = 0;
-
 	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
-
-	for (const auto& track : availableTracks)
+	if (availableTracks.empty())
 	{
-		unsigned long long score = 1; // Default score for each track
+		AAMPLOG_WARN("No text tracks available");
+		return false;
+	}
 
-		// Check for language match
-		if (!aamp->preferredTextLanguagesString.empty() && track.language == aamp->preferredTextLanguagesString)
+	unsigned long long bestScore = 0;
+	const auto& languageVectorToCheck = (aamp->preferredTextLanguagesList.empty()) ? aamp->preferredSubtitleLanguageVctr : aamp->preferredTextLanguagesList;
+
+	for (const auto &track : availableTracks)
+	{
+		unsigned long long score = 1; // Base score for any track
+
+		// Score language preference (higher priority = higher score)
+		if (!languageVectorToCheck.empty())
 		{
-			score += AAMP_LANGUAGE_SCORE; // Add score for language match
+			std::string normalizedTrackLanguage =
+				track.language.empty() ? "" : Getiso639map_NormalizeLanguageCode(track.language, aamp->GetLangCodePreference());
+			AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s')", track.name.c_str(), track.language.c_str(), normalizedTrackLanguage.c_str());
+
+			auto iter = std::find(languageVectorToCheck.cbegin(),
+								  languageVectorToCheck.cend(),
+								  normalizedTrackLanguage);
+			if (iter != languageVectorToCheck.cend())
+			{
+				size_t position = std::distance(languageVectorToCheck.cbegin(), iter);
+				size_t priorityMultiplier = languageVectorToCheck.size() - position;
+				score += priorityMultiplier * AAMP_LANGUAGE_SCORE;
+
+				AAMPLOG_TRACE("Track '%s' lang='%s' (normalized='%s') matches position %zu (bonus: %llu)",
+							  track.name.c_str(), track.language.c_str(), normalizedTrackLanguage.c_str(),
+							  position, priorityMultiplier * AAMP_LANGUAGE_SCORE);
+			}
 		}
 
-		if( !aamp->preferredTextRenditionString.empty() && aamp->preferredTextRenditionString.compare(track.rendition) == 0)
+		// Score rendition preference
+		if (!aamp->preferredTextRenditionString.empty() &&
+			aamp->preferredTextRenditionString == track.rendition)
 		{
-			score += AAMP_ROLE_SCORE; // Add score for rendition match
+			score += AAMP_ROLE_SCORE;
 		}
 
-		// Check for name match
-		if( !aamp->preferredTextNameString.empty() && aamp->preferredTextNameString.compare(track.name) == 0)
+		// Score name preference
+		if (!aamp->preferredTextNameString.empty() &&
+			aamp->preferredTextNameString == track.name)
 		{
-			score += AAMP_TYPE_SCORE; // Add score for name match
+			score += AAMP_TYPE_SCORE;
 		}
-		if(score > bestScore)
+
+		// Update best if this score is higher
+		if (score > bestScore)
 		{
-			bestTrackFound = true;
 			bestScore = score;
 			selectedTextTrack = track;
+
+			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, score=%llu",
+						 track.language.c_str(), track.rendition.c_str(),
+						 track.name.c_str(), score);
 		}
 	}
-	return bestTrackFound;
+
+	if (bestScore == 0)
+	{
+		AAMPLOG_WARN("No suitable text track found");
+	}
+
+	return (bestScore > 0);
 }
 
 /*
