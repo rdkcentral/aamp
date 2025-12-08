@@ -111,7 +111,7 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	return 0;
 }
 
-void StreamAbstractionAAMP::SetCurrentTextTrackIndex(std::string& index)
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
 {
 	if (g_mockStreamAbstractionAAMP != nullptr)
 	{
