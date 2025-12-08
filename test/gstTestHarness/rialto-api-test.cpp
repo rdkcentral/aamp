@@ -212,6 +212,8 @@ void InjectAudio(int32_t needDataId)
         AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, audioSegment);
         assert(status == AddSegmentStatus::OK);
     }
+
+    gstMediaPipeline->haveData(MediaSourceStatus::OK, needDataId);
 }
 
 void InjectVideo(int32_t needDataId)
@@ -244,6 +246,8 @@ void InjectVideo(int32_t needDataId)
         AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, videoSegment);
         assert(status == AddSegmentStatus::OK);
     }
+
+    gstMediaPipeline->haveData(MediaSourceStatus::OK, needDataId);
 }
 
 int my_main(int argc, char **argv)
