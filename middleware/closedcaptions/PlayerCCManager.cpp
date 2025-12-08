@@ -548,6 +548,7 @@ void PlayerCCManagerBase::Stop()
 {
 	EnsureRendererCommsInitialized();
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled=%d",mEnabled);
+	MW_LOG_WARN(" supriya added log: mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, mCCHandle, mTrickplayStarted);
 	StopRendering();
 }
 
@@ -558,6 +559,7 @@ void PlayerCCManagerBase::Start()
 {
 	EnsureInitialized();
 	MW_LOG_WARN("PlayerCCManagerBase:: mEnabled=%d",  mEnabled);
+	MW_LOG_WARN(" supriya added log: mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, mCCHandle, mTrickplayStarted);
 	StartRendering();
 }
 
@@ -566,6 +568,7 @@ void PlayerCCManagerBase::Start()
  */
 int PlayerCCManagerBase::Init(void *handle)
 {
+	MW_LOG_WARN("supriya:PlayerCCManagerBase::Init() called with handle=%p", handle);
 	if (handle == NULL)
 	{
 		MW_LOG_WARN("PlayerCCManagerBase:: NULL handle");
@@ -577,15 +580,18 @@ int PlayerCCManagerBase::Init(void *handle)
 		MW_LOG_WARN("PlayerCCManagerBase::Initialize failure");
 		return -1;
 	}
-
-	MW_LOG_WARN("PlayerCCManagerBase:: Start CC with video dec handle: %p and mEnabled: %d", handle, mEnabled);
+	
+    MW_LOG_WARN("supriya :PlayerCCManagerBase::Init successful, mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, handle, mTrickplayStarted);
+	MW_LOG_WARN("supriya :PlayerCCManagerBase:: Start CC with video dec handle: %p and mEnabled: %d", handle, mEnabled);
 
 	if (mEnabled)
 	{
+		MW_LOG_WARN("supriya: PlayerCCManagerBase::start is called");
 		Start();
 	}
 	else
 	{
+		MW_LOG_WARN("supriya: PlayerCCManagerBase::stop is called");
 		Stop();
 	}
 
@@ -598,17 +604,21 @@ int PlayerCCManagerBase::Init(void *handle)
 void PlayerCCManagerBase::SetTrickplayStatus(bool on)
 {
 	MW_LOG_WARN("PlayerCCManagerBase::trickplay status(%d)", on);
+	MW_LOG_WARN("supriya: Current state -> mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, mCCHandle, mTrickplayStarted);
 	if (on)
 	{
 		// When trickplay starts, stop CC rendering
+		MW_LOG_WARN(" supriya Trickplay starting, stopping CC rendering");
 		Stop();
 	}
 	else if (mEnabled)
 	{
 		// When trickplay ends and CC rendering enabled by app
+		MW_LOG_WARN("supriya: CC is enabled, starting CC rendering");
 		Start();
 	}
 	mTrickplayStarted = on;
+	MW_LOG_WARN(" supriya:Updated mTrickplayStarted=%d", mTrickplayStarted);
 }
 
 /**
@@ -648,12 +658,14 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	// Could be from 1 -> 63
 	if (!track.empty() && track[0] >= CHAR_CODE_1 && track[0] <= CHAR_CODE_6)
 	{
+		MW_LOG_WARN(" supriya:-> Detected numeric track");
 		trackNum = (unsigned int) std::stoul(track);
 		// This is slightly confusing as we don't know if its 608/708
 		// more info might be available in format argument
 	}
 	else if (track.size() > 2 && player_StartsWith(track.c_str(), "CC"))
 	{
+		MW_LOG_WARN("supriya: -> Detected CCx track (608)");
 		// Value between 1 - 4
 		// Set as analog channel
 		finalFormat = eCLOSEDCAPTION_FORMAT_608;
@@ -661,6 +673,7 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	}
 	else if (track.size() > 3 && player_StartsWith(track.c_str(), "TXT"))
 	{
+		MW_LOG_WARN("supriya -> Detected TXTx track (608 extended)");
 		// Value between 5 - 8
 		// Set as analog channel
 		finalFormat = eCLOSEDCAPTION_FORMAT_608;
@@ -668,6 +681,7 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	}
 	else if (track.size() > 4 && player_StartsWith(track.c_str(), "TEXT"))
 	{
+		MW_LOG_WARN("supriya: -> Detected TEXTx track (608 extended)");
 		// Value between 5 - 8
 		// Set as analog channel
 		finalFormat = eCLOSEDCAPTION_FORMAT_608;
@@ -675,6 +689,7 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	}
 	else if (track.size() > 7 && player_StartsWith(track.c_str(), "SERVICE"))
 	{
+		MW_LOG_WARN("supriya: -> Detected SERVICEx track (708)");
 		// Value between 1 - 63
 		// Set as digital channel
 		finalFormat = eCLOSEDCAPTION_FORMAT_708;
@@ -774,7 +789,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 {
 	int ret = 0;
 	mEnabled = enable;
-	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
+	MW_LOG_WARN("supriya: PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 	if (mEnabled)
 		IsCCOnFlag = 1;
@@ -783,6 +798,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 
 	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle())
 	{
+		MW_LOG_WARN("supriya :PlayerCCManagerBase::Conditions met for Start/Stop => Calling %s", (mEnabled ? "Start()" : "Stop()"));
 		// Setting CC rendering to true before media_closeCaptionStart is not honoured
 		// by CC module. CC rendering status is saved in mEnabled and Start/Stop is
 		// called when the required operations are completed
@@ -794,6 +810,11 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 		{
 			Stop();
 		}
+	}
+	else
+	{
+		MW_LOG_WARN("supriya :PlayerCCManagerBase::Conditions NOT met for Start/Stop => CC rendering deferred"); 
+		MW_LOG_WARN("supriya :PlayerCCManagerBase::mTrickplayStarted: %d, mParentalCtrlLocked: %d, CCHandle: %s", mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 	}
 	return ret;
 }
