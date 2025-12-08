@@ -3828,7 +3828,7 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 /**
  *   @brief Set current text track index
  */
-void StreamAbstractionAAMP::SetCurrentTextTrackIndex(std::string& index)
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
 {
 	mTextTrackIndex = index;
 }
