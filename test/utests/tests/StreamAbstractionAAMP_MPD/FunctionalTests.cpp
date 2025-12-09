@@ -3610,6 +3610,454 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_ConnectTimeout_WithManif
 	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
 }
 
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with first period having content.
+ * 
+ * Scenario: Initial manifest refresh where first period is not empty.
+ * Expected: First period should be returned as valid period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod)
+{
+	// Create period info with first period having content
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo period1;
+	period1.periodId = "period1";
+	period1.duration = 60000; // 60 seconds in milliseconds
+	period1.startTime = 0;
+	period1.timeScale = 1000;
+	period1.periodIndex = 0;
+	period1.periodStartTime = 0.0;
+	period1.periodEndTime = 60.0;
+	period1.isEmptyPeriod = false;
+	
+	PeriodInfo period2;
+	period2.periodId = "period2";
+	period2.duration = 60000;
+	period2.startTime = 60000;
+	period2.timeScale = 1000;
+	period2.periodIndex = 1;
+	period2.periodStartTime = 60.0;
+	period2.periodEndTime = 120.0;
+	period2.isEmptyPeriod = false;
+	
+	periodDetails.push_back(period1);
+	periodDetails.push_back(period2);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the first period is returned
+	EXPECT_EQ(validPeriod.periodId, "period1");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with empty first period.
+ * 
+ * Scenario: Manifest refresh where first period becomes empty (SCTE35 ad period).
+ * Expected: Second non-empty period should be returned as valid period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
+{
+	// Create period info with first period being empty
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo emptyPeriod;
+	emptyPeriod.periodId = "ad-period";
+	emptyPeriod.duration = 30000; // 30 seconds
+	emptyPeriod.startTime = 0;
+	emptyPeriod.timeScale = 1000;
+	emptyPeriod.periodIndex = 0;
+	emptyPeriod.periodStartTime = 0.0;
+	emptyPeriod.periodEndTime = 30.0;
+	emptyPeriod.isEmptyPeriod = true; // Empty period (SCTE35)
+	
+	PeriodInfo contentPeriod;
+	contentPeriod.periodId = "content-period";
+	contentPeriod.duration = 60000;
+	contentPeriod.startTime = 30000;
+	contentPeriod.timeScale = 1000;
+	contentPeriod.periodIndex = 1;
+	contentPeriod.periodStartTime = 30.0;
+	contentPeriod.periodEndTime = 90.0;
+	contentPeriod.isEmptyPeriod = false; // Valid content period
+	
+	periodDetails.push_back(emptyPeriod);
+	periodDetails.push_back(contentPeriod);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the second period (first non-empty) is returned
+	EXPECT_EQ(validPeriod.periodId, "content-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test with multiple empty periods at the start.
+ * 
+ * Scenario: Multiple empty periods (ads) followed by content.
+ * Expected: First content period should be returned.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriods)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	// Add multiple empty periods
+	for (int i = 0; i < 3; i++)
+	{
+		PeriodInfo emptyPeriod;
+		emptyPeriod.periodId = "ad-period-" + std::to_string(i);
+		emptyPeriod.duration = 15000; // 15 seconds each
+		emptyPeriod.startTime = i * 15000;
+		emptyPeriod.timeScale = 1000;
+		emptyPeriod.periodIndex = i;
+		emptyPeriod.periodStartTime = i * 15.0;
+		emptyPeriod.periodEndTime = (i + 1) * 15.0;
+		emptyPeriod.isEmptyPeriod = true;
+		periodDetails.push_back(emptyPeriod);
+	}
+	
+	// Add content period
+	PeriodInfo contentPeriod;
+	contentPeriod.periodId = "content-period";
+	contentPeriod.duration = 60000;
+	contentPeriod.startTime = 45000;
+	contentPeriod.timeScale = 1000;
+	contentPeriod.periodIndex = 3;
+	contentPeriod.periodStartTime = 45.0;
+	contentPeriod.periodEndTime = 105.0;
+	contentPeriod.isEmptyPeriod = false;
+	
+	periodDetails.push_back(contentPeriod);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the content period is returned, skipping all empty periods
+	EXPECT_EQ(validPeriod.periodId, "content-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test with zero duration period.
+ * 
+ * Scenario: Period with zero duration should be skipped even if not marked as empty.
+ * Expected: Period with non-zero duration should be returned.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo zeroDurationPeriod;
+	zeroDurationPeriod.periodId = "zero-duration";
+	zeroDurationPeriod.duration = 0; // Zero duration
+	zeroDurationPeriod.startTime = 0;
+	zeroDurationPeriod.timeScale = 1000;
+	zeroDurationPeriod.periodIndex = 0;
+	zeroDurationPeriod.periodStartTime = 0.0;
+	zeroDurationPeriod.periodEndTime = 0.0;
+	zeroDurationPeriod.isEmptyPeriod = false;
+	
+	PeriodInfo validPeriod1;
+	validPeriod1.periodId = "valid-period";
+	validPeriod1.duration = 60000;
+	validPeriod1.startTime = 0;
+	validPeriod1.timeScale = 1000;
+	validPeriod1.periodIndex = 1;
+	validPeriod1.periodStartTime = 0.0;
+	validPeriod1.periodEndTime = 60.0;
+	validPeriod1.isEmptyPeriod = false;
+	
+	periodDetails.push_back(zeroDurationPeriod);
+	periodDetails.push_back(validPeriod1);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the period with valid duration is returned
+	EXPECT_EQ(validPeriod.periodId, "valid-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with all empty periods.
+ * 
+ * Scenario: Edge case where all periods are empty.
+ * Expected: Should return the first period even if empty (fallback behavior).
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	// Add multiple empty periods
+	for (int i = 0; i < 3; i++)
+	{
+		PeriodInfo emptyPeriod;
+		emptyPeriod.periodId = "empty-period-" + std::to_string(i);
+		emptyPeriod.duration = 15000;
+		emptyPeriod.startTime = i * 15000;
+		emptyPeriod.timeScale = 1000;
+		emptyPeriod.periodIndex = i;
+		emptyPeriod.periodStartTime = i * 15.0;
+		emptyPeriod.periodEndTime = (i + 1) * 15.0;
+		emptyPeriod.isEmptyPeriod = true;
+		periodDetails.push_back(emptyPeriod);
+	}
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// With all periods empty, it should return the first one as fallback
+	EXPECT_EQ(validPeriod.periodId, "empty-period-0");
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with empty vector.
+ * 
+ * Scenario: Edge case with no periods.
+ * Expected: Should return default initialized period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyVector)
+{
+	std::vector<PeriodInfo> periodDetails; // Empty vector
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// With empty vector, should return default initialized period
+	EXPECT_EQ(validPeriod.periodId, "");
+	EXPECT_EQ(validPeriod.periodIndex, -1);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with first period having content.
+ * 
+ * Scenario: Initial manifest refresh where first period is not empty.
+ * Expected: First period should be returned as valid period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod)
+{
+	// Create period info with first period having content
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo period1;
+	period1.periodId = "period1";
+	period1.duration = 60000; // 60 seconds in milliseconds
+	period1.startTime = 0;
+	period1.timeScale = 1000;
+	period1.periodIndex = 0;
+	period1.periodStartTime = 0.0;
+	period1.periodEndTime = 60.0;
+	period1.isEmptyPeriod = false;
+	
+	PeriodInfo period2;
+	period2.periodId = "period2";
+	period2.duration = 60000;
+	period2.startTime = 60000;
+	period2.timeScale = 1000;
+	period2.periodIndex = 1;
+	period2.periodStartTime = 60.0;
+	period2.periodEndTime = 120.0;
+	period2.isEmptyPeriod = false;
+	
+	periodDetails.push_back(period1);
+	periodDetails.push_back(period2);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the first period is returned
+	EXPECT_EQ(validPeriod.periodId, "period1");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with empty first period.
+ * 
+ * Scenario: Manifest refresh where first period becomes empty (SCTE35 ad period).
+ * Expected: Second non-empty period should be returned as valid period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
+{
+	// Create period info with first period being empty
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo emptyPeriod;
+	emptyPeriod.periodId = "ad-period";
+	emptyPeriod.duration = 30000; // 30 seconds
+	emptyPeriod.startTime = 0;
+	emptyPeriod.timeScale = 1000;
+	emptyPeriod.periodIndex = 0;
+	emptyPeriod.periodStartTime = 0.0;
+	emptyPeriod.periodEndTime = 30.0;
+	emptyPeriod.isEmptyPeriod = true; // Empty period (SCTE35)
+	
+	PeriodInfo contentPeriod;
+	contentPeriod.periodId = "content-period";
+	contentPeriod.duration = 60000;
+	contentPeriod.startTime = 30000;
+	contentPeriod.timeScale = 1000;
+	contentPeriod.periodIndex = 1;
+	contentPeriod.periodStartTime = 30.0;
+	contentPeriod.periodEndTime = 90.0;
+	contentPeriod.isEmptyPeriod = false; // Valid content period
+	
+	periodDetails.push_back(emptyPeriod);
+	periodDetails.push_back(contentPeriod);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the second period (first non-empty) is returned
+	EXPECT_EQ(validPeriod.periodId, "content-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test with multiple empty periods at the start.
+ * 
+ * Scenario: Multiple empty periods (ads) followed by content.
+ * Expected: First content period should be returned.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriods)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	// Add multiple empty periods
+	for (int i = 0; i < 3; i++)
+	{
+		PeriodInfo emptyPeriod;
+		emptyPeriod.periodId = "ad-period-" + std::to_string(i);
+		emptyPeriod.duration = 15000; // 15 seconds each
+		emptyPeriod.startTime = i * 15000;
+		emptyPeriod.timeScale = 1000;
+		emptyPeriod.periodIndex = i;
+		emptyPeriod.periodStartTime = i * 15.0;
+		emptyPeriod.periodEndTime = (i + 1) * 15.0;
+		emptyPeriod.isEmptyPeriod = true;
+		periodDetails.push_back(emptyPeriod);
+	}
+	
+	// Add content period
+	PeriodInfo contentPeriod;
+	contentPeriod.periodId = "content-period";
+	contentPeriod.duration = 60000;
+	contentPeriod.startTime = 45000;
+	contentPeriod.timeScale = 1000;
+	contentPeriod.periodIndex = 3;
+	contentPeriod.periodStartTime = 45.0;
+	contentPeriod.periodEndTime = 105.0;
+	contentPeriod.isEmptyPeriod = false;
+	
+	periodDetails.push_back(contentPeriod);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the content period is returned, skipping all empty periods
+	EXPECT_EQ(validPeriod.periodId, "content-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test with zero duration period.
+ * 
+ * Scenario: Period with zero duration should be skipped even if not marked as empty.
+ * Expected: Period with non-zero duration should be returned.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo zeroDurationPeriod;
+	zeroDurationPeriod.periodId = "zero-duration";
+	zeroDurationPeriod.duration = 0; // Zero duration
+	zeroDurationPeriod.startTime = 0;
+	zeroDurationPeriod.timeScale = 1000;
+	zeroDurationPeriod.periodIndex = 0;
+	zeroDurationPeriod.periodStartTime = 0.0;
+	zeroDurationPeriod.periodEndTime = 0.0;
+	zeroDurationPeriod.isEmptyPeriod = false;
+	
+	PeriodInfo validPeriod1;
+	validPeriod1.periodId = "valid-period";
+	validPeriod1.duration = 60000;
+	validPeriod1.startTime = 0;
+	validPeriod1.timeScale = 1000;
+	validPeriod1.periodIndex = 1;
+	validPeriod1.periodStartTime = 0.0;
+	validPeriod1.periodEndTime = 60.0;
+	validPeriod1.isEmptyPeriod = false;
+	
+	periodDetails.push_back(zeroDurationPeriod);
+	periodDetails.push_back(validPeriod1);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the period with valid duration is returned
+	EXPECT_EQ(validPeriod.periodId, "valid-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with all empty periods.
+ * 
+ * Scenario: Edge case where all periods are empty.
+ * Expected: Should return the first period even if empty (fallback behavior).
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	// Add multiple empty periods
+	for (int i = 0; i < 3; i++)
+	{
+		PeriodInfo emptyPeriod;
+		emptyPeriod.periodId = "empty-period-" + std::to_string(i);
+		emptyPeriod.duration = 15000;
+		emptyPeriod.startTime = i * 15000;
+		emptyPeriod.timeScale = 1000;
+		emptyPeriod.periodIndex = i;
+		emptyPeriod.periodStartTime = i * 15.0;
+		emptyPeriod.periodEndTime = (i + 1) * 15.0;
+		emptyPeriod.isEmptyPeriod = true;
+		periodDetails.push_back(emptyPeriod);
+	}
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// With all periods empty, it should return the first one as fallback
+	EXPECT_EQ(validPeriod.periodId, "empty-period-0");
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with empty vector.
+ * 
+ * Scenario: Edge case with no periods.
+ * Expected: Should return default initialized period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyVector)
+{
+	std::vector<PeriodInfo> periodDetails; // Empty vector
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// With empty vector, should return default initialized period
+	EXPECT_EQ(validPeriod.periodId, "");
+	EXPECT_EQ(validPeriod.periodIndex, -1);
+}
+
 // Test case to verify seeking behavior with VOD content, with start time, without duration and PTO greater than timeline
 TEST_F(FunctionalTests, L1_VOD_WithStartTime_NoDuration_PTOGreaterThanTimeline)
 {
