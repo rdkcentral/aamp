@@ -2476,7 +2476,7 @@ std::string InterfacePlayerRDK::GetVideoRectangle()
 
 void InterfacePlayerRDK::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
-	PerfTimer::perf_Start("SetSubtitlePtsOffset");
+	PerfTimer::perf_Start("SetSubtitlePtsOffset")
 	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
 		if(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source)
@@ -2671,7 +2671,7 @@ long InterfacePlayerRDK::GetDurationMilliseconds(void)
 	{
 		MW_LOG_WARN("Pipeline is null");
 	}
-	PerfTimer::perf_Stop("GetDurationMilliseconds");
+	Timer::perf_Stop("GetDurationMilliseconds");
 	return rc;
 }
 /**

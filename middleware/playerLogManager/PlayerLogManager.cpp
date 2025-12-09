@@ -42,7 +42,6 @@ static void vethanlog(int level, const char *filename, const char *function, int
 #define ETHAN_LOG_ERROR 3
 #define ETHAN_LOG_FATAL 4
 #define ETHAN_LOG_MILESTONE 5
-#define ETHAN_LOG_TIME 6
 #endif
 
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
@@ -66,7 +65,7 @@ static void sd_journal_printv(int priority, const char *format, va_list arg ){
 
 using namespace std;
 
-static const char *mLogLevelStr[mLOGLEVEL_ERROR+2] =
+static const char *mLogLevelStr[mLOGLEVEL_ERROR+1] =
 {
         "TRACE", // mLOGLEVEL_TRACE
         "DEBUG", // mLOGLEVEL_DEBUG
@@ -74,7 +73,6 @@ static const char *mLogLevelStr[mLOGLEVEL_ERROR+2] =
         "WARN",  // mLOGLEVEL_WARN
         "MIL",   // mLOGLEVEL_MIL
         "ERROR", // mLOGLEVEL_ERROR
-		"TIME",  //mLOGLEVEL_TIME
 };
 
 MW_LogLevel PlayerLogManager::mwLoglevel = mLOGLEVEL_WARN;

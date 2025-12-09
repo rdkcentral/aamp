@@ -42,7 +42,6 @@ enum MW_LogLevel
         mLOGLEVEL_WARN,     /**< Warn level */
         mLOGLEVEL_MIL,      /**< Milestone level */
         mLOGLEVEL_ERROR,    /**< Error level */
-		mLOGLEVEL_TIME,     /**< For Time analysis */
 };
 
 /**
@@ -164,6 +163,5 @@ if( (LEVEL) >= PlayerLogManager::mwLoglevel ) \
 #define MW_LOG_WARN(FORMAT, ...)  MW_LOG(mLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
 #define MW_LOG_MIL(FORMAT, ...)   MW_LOG(mLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
 #define MW_LOG_ERR(FORMAT, ...)   MW_LOG(mLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
-#define MW_LOG_TIME(FORMAT, ...)   MW_LOG(mLOGLEVEL_TIME, FORMAT, ##__VA_ARGS__)
 
 #endif /* PLAYER_LOG_MANAGER_H */
