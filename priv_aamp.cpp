@@ -10892,7 +10892,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 			}
 		}
 	}
-	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
+	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
@@ -11378,7 +11378,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("languages", inputLanguagesList))
 			{
-				for (const auto& preferredLanguage : inputLanguagesList)
+				for (auto preferredLanguage : inputLanguagesList)
 				{
 					if (!inputLanguagesString.empty())
 					{
@@ -11434,7 +11434,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("codec", inputCodecList))
 			{
-				for (const auto& preferredCodec : inputCodecList)
+				for (auto preferredCodec : inputCodecList)
 				{
 					if (!inputCodecString.empty())
 					{
