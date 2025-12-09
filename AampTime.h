@@ -36,38 +36,56 @@ struct AampTicks
 	/// @param timescale
 	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
 
-	/// @brief Get time in milliseconds
+	/// @brief Get time in milliseconds with overflow protection
 	/**
-	 * @brief Get time in milliseconds with overflow protection.
+	 * @brief Get time in milliseconds with overflow protection using 128-bit arithmetic.
 	 *
-	 * Prevents overflow when ticks * 1000 would exceed INT64_MAX or INT64_MIN.
+	 * Prevents overflow when (ticks * 1000) would exceed INT64_MAX or INT64_MIN.
+	 * Uses 128-bit intermediate values on supported platforms, falls back to double on others.
 	 * If overflow would occur, clamps the result to INT64_MAX or INT64_MIN.
 	 */
-	int64_t inMilli() {
-		if (timescale == 0) {
-			return 0;
-		}
-		// Check for overflow before multiplying
-		if (ticks > std::numeric_limits<int64_t>::max() / 1000) {
-			return std::numeric_limits<int64_t>::max();
-		}
-		if (ticks < std::numeric_limits<int64_t>::min() / 1000) {
-			return std::numeric_limits<int64_t>::min();
-		}
-		return (ticks * 1000) / (int64_t)timescale;
-	}
-	 *
-	 * This implementation avoids overflow in (ticks * 1000) by splitting the calculation,
-	 * consistent with the fix applied to the AampTime constructor.
-	 */
-	int64_t inMilli()
+	int64_t inMilli() const
 	{
 		if (timescale == 0)
+		{
 			return 0;
-		// Avoid overflow: (a * b) / c = (a / c) * b + ((a % c) * b) / c
-		int64_t quotient = ticks / timescale;
-		int64_t remainder = ticks % timescale;
-		return quotient * 1000 + (remainder * 1000) / timescale;
+		}
+
+		#if defined(__SIZEOF_INT128__)
+			// Use 128-bit intermediate to avoid overflow during multiplication
+			__int128 intermediate = static_cast<__int128>(ticks) * static_cast<__int128>(1000);
+			__int128 result = intermediate / static_cast<__int128>(timescale);
+			
+			// Check if result fits in int64_t range
+			if (result > static_cast<__int128>(std::numeric_limits<int64_t>::max()))
+			{
+				return std::numeric_limits<int64_t>::max();
+			}
+			
+			if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
+			{
+				return std::numeric_limits<int64_t>::min();
+			}
+			
+			return static_cast<int64_t>(result);
+			
+		#else
+			// Fallback for platforms without __int128 support
+			double intermediate = static_cast<double>(ticks) * 1000.0;
+			double result = intermediate / static_cast<double>(timescale);
+			
+			if (result > static_cast<double>(std::numeric_limits<int64_t>::max()))
+			{
+				return std::numeric_limits<int64_t>::max();
+			}
+			
+			if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
+			{
+				return std::numeric_limits<int64_t>::min();
+			}
+			
+			return static_cast<int64_t>(result);
+		#endif
 	}
 };
 
@@ -154,15 +172,11 @@ class AampTime
 		/// @return Time in seconds (double)
 		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
 
-		/// @brief Get the stored time in seconds
-		/// @return Time in seconds (integer)
-		inline int64_t seconds() const { return (baseTime / baseTimescale); }
-
-		/// @brief Get the stored time in milliseconds
-		/// @return Time in milliseconds (integer)
-		inline int64_t milliseconds() const { return (baseTime / (baseTimescale / milli)); }
-
-		// Equivalent to round() but in integer domain
+	/// @brief Get the stored time in seconds
+	/// @return Time in seconds (integer)
+	inline int64_t seconds() const { return (baseTime / static_cast<int64_t>(baseTimescale)); }	/// @brief Get the stored time in milliseconds
+	/// @return Time in milliseconds (integer)
+	inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }		// Equivalent to round() but in integer domain
 		inline int64_t nearestSecond() const
 		{
 			int64_t retval = this->seconds();
