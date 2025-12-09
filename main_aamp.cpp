@@ -41,11 +41,34 @@
 #include <termios.h>
 #include <errno.h>
 #include <regex>
+#include <cmath>
+#include <cstdlib>   // getenv
+#include <mutex>     // std::once_flag, std::call_once
+#include <string>    // std::stod
+#include <utility>
 
 AampConfig *gpGlobalConfig=NULL;
 
 #include "ContentSecurityManager.h"
 
+// supriya added: runtime-configurable minimum seek adjust (ms).
+static double GetMinSeekAdjustMs()
+{
+    static std::once_flag once;
+    static double value = 250.0; // default
+    std::call_once(once, []() {
+        const char *env = getenv("AAMP_MIN_SEEK_ADJUST_MS");
+        if (env)
+        {
+            try {
+                double v = std::stod(env);
+                if (v >= 0.0) value = v;
+            } catch(...) { /* keep default */ }
+        }
+    });
+    return value;
+}
+ 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
 const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
@@ -751,6 +774,22 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 						if (newSeekPosInSec >= 0)
 						{
+							/* supriya added this patch
+							 * Avoid expensive full seek/tune for tiny adjustments (prevents 1-2s freeze)
+							 * Threshold is in milliseconds. Tune as needed (100..500).
+							 */
+							const double kMinSeekAdjustMs = GetMinSeekAdjustMs(); // configurable threshold
+							double currentPosMs = aamp->GetPositionMilliseconds();
+							double newPosMs = newSeekPosInSec * 1000.0;
+							double deltaMs = std::fabs(newPosMs - currentPosMs);
+							AAMPLOG_DEBUG("OVERSHOOT_CORRECTION newSeek_s=%f current_ms=%f delta_ms=%f",
+										 newSeekPosInSec, currentPosMs, deltaMs);
+							if (deltaMs < kMinSeekAdjustMs)
+							{
+								AAMPLOG_INFO("Skipping tiny seek adjust (%0.0f ms) - using fast-unpause path", deltaMs);
+								/* keep existing seek_pos_seconds (GStreamer will report correct POS) */
+								newSeekPosInSec = aamp->GetPositionSeconds();
+							}
 							/* Note circular calculation:
 							 * newSeekPosInSec is based on aamp->mNewSeekInfo
 							 * aamp->mNewSeekInfo's position value is based on PrivateInstanceAAMP::GetPositionMilliseconds()
@@ -1267,6 +1306,28 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			/**Set the flag true to indicate seeked **/
 			aamp->mbSeeked = true;
 
+	        /* supriya added this patch to Avoid expensive full retune for very small seeks to prevent visible 1-2s freeze.
+			 * If requested seek is within kMinSeekAdjustMs of current position, skip TuneHelper.
+			 */
+			const double kMinSeekAdjustMs = GetMinSeekAdjustMs(); // threshold, tuneable
+			double currPosMs = aamp->GetPositionMilliseconds();
+			double targetPosMs = (tuneType == eTUNETYPE_SEEK) ? (secondsRelativeToTuneTime * 1000.0) : currPosMs;
+			double deltaMs = std::fabs(targetPosMs - currPosMs);
+			if (aamp->mpStreamAbstractionAAMP && tuneType == eTUNETYPE_SEEK && deltaMs < kMinSeekAdjustMs)
+			{
+				AAMPLOG_INFO("Skipping TuneHelper for tiny seek delta: %0.0f ms", deltaMs);
+				/* cleanup PositionMillisecondLock if held and notify speed if needed */
+				if (PositionMillisecondLocked)
+				{
+					aamp->UnlockGetPositionMilliseconds();
+				}
+				if (sentSpeedChangedEv)
+				{
+					aamp->NotifySpeedChanged(aamp->rate, false);
+				}
+				// leave mbSeeked state as-is so subsequent resume uses updated seek_pos_seconds
+				return;
+			}
 			if (aamp->mpStreamAbstractionAAMP)
 			{ // for seek while streaming
 				aamp->SetState(eSTATE_SEEKING);
