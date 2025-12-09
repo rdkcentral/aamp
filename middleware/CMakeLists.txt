@@ -25,7 +25,7 @@ if(DISABLE_SECURITY_TOKEN)
   add_definitions(-DDISABLE_SECURITY_TOKEN)
 endif()
 
-option(ENABLE_MW_PROFILING "Enable middleware profiling" OFF)
+option(ENABLE_MW_PROFILING "Enable middleware profiling" ON)
 
 if(ENABLE_MW_PROFILING)
   add_definitions(-DENABLE_MW_PROFILING)
