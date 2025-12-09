@@ -1765,6 +1765,13 @@ public:
 	}
 
 	/**
+	 *   @fn UnblockWaitForCachedFragmentChunk
+	 *
+	 *   @return void
+	 */
+	void UnblockWaitForCachedFragmentChunk();
+
+	/**
 	 *   @brief Get available thumbnail bitrates.
 	 *
 	 *   @return available thumbnail bitrates.
@@ -1901,6 +1908,14 @@ public:
 	 *   @return void
 	 */
 	void SetCurrentAudioTrackIndex(std::string& index) { mAudioTrackIndex = index; }
+
+	/**
+	 *   @brief Set current text track index
+	 *
+	 *   @param[in] string index
+	 *   @return void
+	 */
+	void SetCurrentTextTrackIndex(const std::string& index);
 
 	/**
 	 *   @brief Change muxed audio track index

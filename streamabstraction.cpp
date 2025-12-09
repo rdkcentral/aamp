@@ -1994,8 +1994,7 @@ void MediaTrack::FlushFragments()
 	{
 		for (int i = 0; i < maxCachedFragmentsPerTrack; i++)
 		{
-			mCachedFragment[i].fragment.Free();
-			memset(&mCachedFragment[i], 0, sizeof(CachedFragment));
+			mCachedFragment[i].Clear();
 		}
 		fragmentIdxToInject = 0;
 		fragmentIdxToFetch = 0;
@@ -3729,6 +3728,25 @@ bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 }
 
 /**
+ * @brief Unblocks all waiting tracks by calling AbortWaitForCachedFragmentChunk() on each track.
+ *
+ * Iterates over all track types and invokes AbortWaitForCachedFragmentChunk()
+ * on each MediaTrack, ensuring that any threads waiting for cached fragments
+ * are unblocked.
+ */
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+{
+	for ( int type = eTRACK_VIDEO; type <= eTRACK_AUX_AUDIO; type++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType)type);
+		if(track)
+		{
+			track->AbortWaitForCachedFragmentChunk();
+		}
+	}
+}
+
+/**
  *  @brief Get buffered video duration in seconds
  */
 double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
@@ -3806,6 +3824,15 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	}
 	return bFound;
 }
+
+/**
+ *   @brief Set current text track index
+ */
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	mTextTrackIndex = index;
+}
+
 /**
 *   @brief verify in-band CC availability for a stream.
 */
