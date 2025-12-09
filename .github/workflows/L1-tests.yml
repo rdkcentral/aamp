@@ -61,7 +61,15 @@ jobs:
       # Run Middleware L1 unit tests
       - name: Run Middleware L1 unit tests
         working-directory: ./middleware/test/utests
-        run: ./run.sh
+        run: |
+          ./run.sh 2>&1 | tee utest_run.log
+      
+      # Generate pretty test run output (Middleware)
+      - name: Pretty test run output (Middleware)
+        if: always()
+        working-directory: ./middleware/test/utests
+        run: |
+          python3 parse_gtest_log.py utest_run.log
       
       # Publish Middleware test results
       - name: Publish Middleware L1 test results
