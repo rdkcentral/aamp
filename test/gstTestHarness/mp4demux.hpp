@@ -126,6 +126,8 @@ private:
 	uint32_t width_fixed;
 	uint32_t height_fixed;
 	uint16_t language;
+	size_t sampleOffset;
+	bool sencPresent;
 	bool verbose;
 	
 	GstBuffer * _gst_buffer_new_memdup(gconstpointer data, gsize size)
@@ -247,29 +249,59 @@ private:
 		//gst_event_unref(event);
 		gst_buffer_unref(pssh);
 	}
-	
+
 	void process_auxiliary_information( void )
-	{ // redundant with parseSampleEncryptionBox?
+	{
+		//Backup the ptr value
+		const uint8_t* bptr = ptr;
 		size_t sample_count = cenc_aux_info_sizes.size();
-		if( sample_count && got_auxiliary_information_offset )
+		if (sample_count && got_auxiliary_information_offset)
 		{
-			PRINTF( "%sauxiliary_information\n", INDENT() );
-			const uint8_t *src = moof_ptr + auxiliary_information_offset;
-			for( int i=0; i<cenc_aux_info_sizes.size(); i++ )
+			ptr = moof_ptr + auxiliary_information_offset;
+			size_t maxSampleCount = sampleOffset + sample_count;
+			assert(samples.size() == maxSampleCount);
+			for( auto i = sampleOffset; i < maxSampleCount; i++ )
 			{
-				int sz = cenc_aux_info_sizes[i];
-				if( verbose )
+				// Skip IV data if present (comes before subsample data in auxiliary info)
+				if( iv_size )
 				{
-					PRINTF( "%s", INDENT() );
-					for( int j=0; j<sz; j++ )
+					// Read IV if not already present from senc box
+					if( samples[i].iv.empty() )
 					{
-						PRINTF( "%02x", src[j] );
+						samples[i].iv = std::string((char *)ptr, iv_size);
+						if( verbose )
+						{
+							PRINTF( "%sIV from aux info: ", INDENT() );
+							for( int j=0; j<iv_size; j++ )
+							{
+								PRINTF( " %02x", ptr[j] );
+							}
+							PRINTF("\n");
+						}
 					}
-					PRINTF( "\n" );
+					ptr += iv_size;
 				}
-				src += sz;
+				if (cenc_aux_info_sizes[i-sampleOffset] > iv_size)
+				{
+					// Read subsample data
+					uint16_t n_subsamples = ReadU16();
+					PRINTF( "%sSample %zu: %d subsamples\n", INDENT(), i, n_subsamples );
+					size_t subsamples_size = n_subsamples * 6;
+					samples[i].subsamples = std::string((char *)ptr, subsamples_size);
+					if( verbose )
+					{
+						PRINTF( "%sSubsamples from aux info: ", INDENT() );
+						for( int j=0; j<subsamples_size; j++ )
+						{
+							PRINTF( " %02x", ptr[j] );
+						}
+						PRINTF("\n");
+					}
+					ptr += subsamples_size;
+				}
 			}
 		}
+		ptr = bptr;
 	}
 	
 	void parseSampleAuxiliaryInformationSizes( void )
@@ -355,8 +387,10 @@ private:
 	{
 		ReadHeader();
 		uint32_t sampleCount = ReadU32();
-		assert( samples.size() == sampleCount );
-		for( auto iSample=0; iSample<sampleCount; iSample++ )
+		size_t maxSampleCount = sampleOffset + sampleCount;
+		assert( samples.size() == maxSampleCount );
+		// Start from sampleOffset to map samples from mdat
+		for( auto iSample=sampleOffset; iSample<maxSampleCount; iSample++ )
 		{
 			if( iv_size )
 			{

@@ -24,6 +24,7 @@
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
+#include "PlayerCCManager.h"
 
 #include "MockTSBSessionManager.h"
 #include "MockAampConfig.h"
@@ -31,6 +32,8 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAampUtils.h"
+#include "MockPlayerCCManager.h"
+#include "MockStreamAbstractionAAMP_MPD.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -59,7 +62,8 @@ protected:
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-
+		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
+		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
 
@@ -90,6 +94,11 @@ protected:
 
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
+
+		g_mockPlayerCCManager.reset();
+
+		delete g_mockStreamAbstractionAAMP_MPD;
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
 	}
 
 public:
@@ -146,7 +155,7 @@ public:
     	if (mTSBSessionManager)
     	{
         	delete mTSBSessionManager;
-        	mTSBSessionManager = nullptr;    
+        	mTSBSessionManager = nullptr;
     	}
 	}
 };
@@ -437,6 +446,9 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 
         tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
@@ -667,6 +679,8 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
 }
 
+
+
 TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 {
 	std::vector<TextTrackInfo> tracks;
@@ -690,7 +704,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	EXPECT_EQ(g_mockTSBSessionManager, nullptr);
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
-		.Times(2).WillRepeatedly(ReturnRef(tracks));
+		.Times(1).WillRepeatedly(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 
@@ -765,4 +779,93 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 	delete mockToDelete;
 	delete (g_mockTSBSessionManager);
+}
+
+/**
+ * @brief Change between closed caption tracks
+ * Check that a new closed caption track is selected in PlayerCCManagerBase
+ * Check that there is no tune (Stop) called on StreamAbstractionAAMP
+ */
+TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	//TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
+	tracks.push_back(TextTrackInfo("idx0", "lang0", true, "rend0", "trackName0", "CC0", "cha0", 0));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "rend1", "trackName1", "CC1", "cha1", 1));
+
+	/* Set initial preferred language to lang0 */
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+
+}
+
+/**
+ * @brief Test changing of accessibility preference
+ * Expecting tune when accessibility changes compared with value in preferredTextAccessibilityNode
+ * which is set to ""
+ */
+TEST_F(SetPreferredTextLanguagesTests, Accessibility1)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), false));
+
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	mPrivateInstanceAAMP->subtitles_muted = false;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, getAccessibilityNode(_))
+		.WillOnce(Return(Accessibility("something","dummy")));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"accessibility\":{\"scheme\":\"return_from_mock\",\"string_value\":\"return_from_mock\"}}");
+
+
+}
+
+/**
+ * @brief Test changing of accessibility preference
+ * No tune when accessibility does not change
+ */
+TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), false));
+
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	mPrivateInstanceAAMP->preferredTextAccessibilityNode = Accessibility("something","dummy");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	/*
+	* No tune when no accessibility change between value in preferredTextAccessibilityNode
+	* and getAccessibilityNode() mock return value
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);    // Does not get called
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, getAccessibilityNode(_))
+		.WillOnce(Return(Accessibility("something","dummy")));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"accessibility\":{\"scheme\":\"return_from_mock\",\"string_value\":\"return_from_mock\"}}");
+
 }

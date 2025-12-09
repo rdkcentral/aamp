@@ -199,7 +199,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						//Dummy implimentation
 						std::vector<std::string> subscribedTags;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command SubscribedTags - %s\n", cmd);
-						playerInstanceAamp->SetSubscribedTags(subscribedTags);
+						playerInstanceAamp->SetSubscribedTags(std::move(subscribedTags));
 						break;
 					}
 
@@ -212,7 +212,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						do {
 							std::string token;
 							iss >> token;
-							tokens.push_back(token);
+							tokens.push_back(std::move(token));
 						} while( iss );
 						if( tokens.size() == 5 )
 						{
@@ -854,7 +854,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							bitrateList.push_back(bitrate1);
 							bitrateList.push_back(bitrate2);
 							bitrateList.push_back(bitrate3);
-							playerInstanceAamp->SetVideoTracks(bitrateList);
+							playerInstanceAamp->SetVideoTracks(std::move(bitrateList));
 						}
 						else
 						{
@@ -915,11 +915,11 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &id3MetadataEventsEnabled) == 2){
 							if (id3MetadataEventsEnabled)
 							{
-								playerInstanceAamp->AddEventListener(AAMP_EVENT_ID3_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->AddEventListener(AAMP_EVENT_ID3_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 							else
 							{
-								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_ID3_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_ID3_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 
 						}
@@ -938,11 +938,11 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &mediaMetadataEventsEnabled) == 2){
 							if (mediaMetadataEventsEnabled)
 							{
-								playerInstanceAamp->AddEventListener(AAMP_EVENT_MEDIA_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->AddEventListener(AAMP_EVENT_MEDIA_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 							else
 							{
-								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_MEDIA_METADATA, lAampcli.mEventListener);
+								playerInstanceAamp->RemoveEventListener(AAMP_EVENT_MEDIA_METADATA, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							}
 						}
 						else
@@ -1020,7 +1020,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 							AAMPCLI_PRINTF("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n",
 									language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
-							playerInstanceAamp->SetAudioTrack(language, rendition, type, codec, channel,label);
+							playerInstanceAamp->SetAudioTrack(std::move(language), std::move(rendition), std::move(type), std::move(codec), channel, std::move(label));
 
 						}
 						break;
@@ -1228,7 +1228,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						if (sscanf(cmd, "set %s %d", command, &timeout) == 2)
 						{
 							AAMPCLI_PRINTF("[AAMPCLI] Enabling AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE event registration");
-							playerInstanceAamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, lAampcli.mEventListener);
+							playerInstanceAamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, std::shared_ptr<EventListener>(lAampcli.mEventListener));
 							playerInstanceAamp->SetContentProtectionDataUpdateTimeout(timeout);
 						}
 						else
@@ -1379,11 +1379,11 @@ void Set::addCommand(int value,std::string command,std::string param,std::string
 {
 	setCommandInfo lCmdInfo;
 	lCmdInfo.value = value;
-	lCmdInfo.param = param;
-	lCmdInfo.description = description;
+	lCmdInfo.param = std::move(param);
+	lCmdInfo.description = std::move(description);
 
 	setCommands.insert(std::make_pair(command,lCmdInfo));
-	commands.push_back(command);
+	commands.push_back(std::move(command));
 }
 
 /**

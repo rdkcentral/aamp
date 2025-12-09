@@ -936,7 +936,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest)
 {
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_VIDEO;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, format);
     ASSERT_EQ(format, FORMAT_MPEGTS);
     ASSERT_EQ(type, eTRACK_VIDEO);
 }
@@ -946,16 +946,48 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioPlaylistURITest)
 {
     // mStreamAbstractionAAMP_HLS->currentAudioProfileIndex = 3;
     StreamOutputFormat format;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, format);
     ASSERT_NE(FORMAT_AUDIO_ES_AAC, format);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest2)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE1)
 {
-    // mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 3;
+    /* test when no subtitle track selected*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = -1;
     StreamOutputFormat format = FORMAT_MPEGTS;
-    TrackType type = eTRACK_SUBTITLE;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_MPEGTS, format); //value not changed
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
+{
+    /*
+    * For test purposes we create 2 subtitle options inband and outband but
+    * in reality AAMP will not handle different subtitle formats in the same manifest
+    */
+    MediaInfo MediaInfoObj0 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx0", .isCC = false};
+    MediaInfo MediaInfoObj1 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx1", .isCC = true};
+    StreamOutputFormat format = FORMAT_MPEGTS;
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(MediaInfoObj0);
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(MediaInfoObj1);
+
+    /* test when .isCC = false*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 0;
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_SUBTITLE_WEBVTT, format);
+    ASSERT_EQ("idx0", playlistURI);
+
+    /* test when .isCC = true*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 1;
+    playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_INVALID, format);
+    ASSERT_EQ("idx1", playlistURI);
+
+    /* test vector index out of bounds */
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 2;
+    format = FORMAT_AUDIO_ES_ATMOS; //Some unlikely value
+    playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_AUDIO_ES_ATMOS, format); //not changed
 
 }
 
@@ -2752,7 +2784,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
     EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
 }
 
-extern std::vector<TileInfo> IndexThumbnails( lstring iter, double stTime=0 );
+extern std::vector<TileInfo> IndexThumbnails( lstring iter );
 
 TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 {
@@ -2775,25 +2807,73 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 	"#EXT-X-ENDLIST\r\n";
 	lstring ii = lstring( raw, strlen(raw) );
 	auto x = IndexThumbnails( ii );
-	
+
 	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
 	EXPECT_EQ(x[0].layout.numCols,5);
 	EXPECT_EQ(x[0].layout.numRows,6);
 	EXPECT_EQ(x[0].layout.posterDuration,10);
 	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
-	
+
 	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
 	EXPECT_EQ(x[1].layout.numCols,9);
 	EXPECT_EQ(x[1].layout.numRows,17);
 	EXPECT_EQ(x[1].layout.posterDuration,20);
 	EXPECT_EQ(x[1].layout.tileSetDuration,200);
-	
+
 	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
 	EXPECT_EQ(x[2].layout.numCols,4);
 	EXPECT_EQ(x[2].layout.numRows,3);
 	EXPECT_EQ(x[2].layout.posterDuration,30);
 	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
 }
+
+extern std::vector<TileInfo> IndexSleThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime );
+
+TEST_F(StreamAbstractionAAMP_HLSTest, LiveThumbnailIndexing)
+{
+	const char *raw =
+	"#EXTM3U\r\n"
+	"#EXT-X-TARGETDURATION:10\r\n"
+	"#EXT-X-VERSION:7\r\n"
+	"#EXT-X-MEDIA-SEQUENCE:0\r\n"
+	"#EXT-X-IMAGES-ONLY\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:34.412Z\n"
+	"#EXTINF:136.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=5x6,DURATION=10\r\n"
+	"pckimage-0.jpg\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:37.412Z\n"
+	"#EXTINF:200,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=9x17,DURATION=20\r\n"
+	"pckimage-1.jpg\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:41.412Z\r\n"
+	"#EXTINF:100.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=4x3,DURATION=30\r\n"
+	"pckimage-2.jpg\r\n";
+
+    long long lpt=0;
+    double start=0.0f;
+    lstring ii = lstring( raw, strlen(raw) );
+	auto x = IndexSleThumbnails( ii, start, lpt );
+
+	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
+	EXPECT_EQ(x[0].layout.numCols,5);
+	EXPECT_EQ(x[0].layout.numRows,6);
+	EXPECT_EQ(x[0].layout.posterDuration,10);
+	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
+
+	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
+	EXPECT_EQ(x[1].layout.numCols,9);
+	EXPECT_EQ(x[1].layout.numRows,17);
+	EXPECT_EQ(x[1].layout.posterDuration,20);
+	EXPECT_EQ(x[1].layout.tileSetDuration,200);
+
+	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
+	EXPECT_EQ(x[2].layout.numCols,4);
+	EXPECT_EQ(x[2].layout.numRows,3);
+	EXPECT_EQ(x[2].layout.posterDuration,30);
+	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
+}
+
 TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 {
 	std::vector<TextTrackInfo> tracks;

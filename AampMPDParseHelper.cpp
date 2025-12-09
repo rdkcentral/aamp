@@ -585,7 +585,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart > 0))
+					if(mIsLiveManifest && (periodStart >= 0))
 					{
 						periodStart += mAvailabilityStartTime;
 					}
@@ -839,7 +839,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 					if(mMediaPresentationDuration != 0 )
 					{
 						periodDurationMs = mMediaPresentationDuration;
-						AAMPLOG_WARN("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
+						AAMPLOG_MIL("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
 						return mMediaPresentationDuration;
 					}
 					//Next priority for duration tag

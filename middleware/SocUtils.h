@@ -37,16 +37,6 @@ namespace SocUtils
 	bool UseAppSrcForProgressivePlayback( void );
 
 	/**
-	 * @brief Determines if AC-4 audio format is supported.
-	 *
-	 * This function checks the SOC interface for AC-4 support and also verifies
-	 * if the codec is supported at the InterfacePlayerRDK level.
-	 *
-	 * @return true if AC-4 is supported, false otherwise.
-	 */
-	bool IsSupportedAC4( void );
-
-	/**
 	 * @brief Checks if Westeros sink is used.
 	 *
 	 * This function queries the SOC interface to determine whether the Westeros sink
@@ -74,15 +64,6 @@ namespace SocUtils
 	 * @return true if live latency correction is enabled, false otherwise.
 	 */
 	bool EnableLiveLatencyCorrection( void );
-
-	/**
-	 * @brief Determines if AC-3 audio format is supported.
-	 *
-	 * This function checks whether the AC-3 codec is supported by InterfacePlayerRDK.
-	 *
-	 * @return true if AC-3 is supported, false otherwise.
-	 */
-	bool IsSupportedAC3( void );
 
 	/**
 	 * @brief Retrieves the number of required queued frames.

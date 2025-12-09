@@ -17,12 +17,13 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_GSTREAMER_H
-#define AAMP_MOCK_GSTREAMER_H
+#ifndef PLAYER_MOCK_GSTREAMER_H
+#define PLAYER_MOCK_GSTREAMER_H
 
 #include <gmock/gmock.h>
 #include <gst/gstcaps.h>
 #include <gst/app/gstappsink.h>
+#include <gst/app/app.h>
 
 class MockGStreamer
 {
@@ -54,6 +55,36 @@ public:
 	MOCK_METHOD(GstEvent *, gst_event_new_step, (GstFormat format, guint64 amount, gdouble rate, gboolean flush, gboolean intermediate));
 	MOCK_METHOD(gboolean, gst_element_query_position, (GstElement *element, GstFormat format, gint64 *cur));
 
+	MOCK_METHOD(void, gst_pad_remove_probe, (GstPad * pad, gulong id));
+	MOCK_METHOD(gboolean, gst_bus_remove_watch, (GstBus* bus));
+	MOCK_METHOD(gboolean, gst_element_seek, (GstElement *element, gdouble rate, GstFormat format, GstSeekFlags flags,
+						  GstSeekType start_type, gint64 start, GstSeekType stop_type, gint64 stop));
+	MOCK_METHOD(gboolean, gst_base_sink_is_async_enabled, (GstBaseSink * sink));
+	MOCK_METHOD(void, gst_base_sink_set_async_enabled, (GstBaseSink * sink, gboolean enabled));
+	MOCK_METHOD(void, gst_app_src_set_caps, (GstAppSrc *appsrc, const GstCaps *caps));
+	MOCK_METHOD(void, gst_app_src_set_stream_type, (GstAppSrc *appsrc, GstAppStreamType type));
+	MOCK_METHOD(gboolean, gst_element_seek_simple, (GstElement *element, GstFormat format, GstSeekFlags seek_flags,gint64 seek_pos));
+	MOCK_METHOD(const GValue *, gst_structure_get_value, (const GstStructure *structure, const gchar *fieldname));
+	MOCK_METHOD(guint64 ,g_value_get_uint64, (const GValue *value));
+	MOCK_METHOD(gboolean,gst_element_query, (GstElement *element, GstQuery *query));
+	MOCK_METHOD(void,gst_query_parse_segment, (GstQuery *query, gdouble *rate, GstFormat *format, gint64 *start_value, gint64 *stop_value));
+	MOCK_METHOD(void,gst_query_parse_position, (GstQuery *query, GstFormat *format, gint64 *cur));
+	MOCK_METHOD(GstQuery *, gst_query_new_duration, (GstFormat format));
+	MOCK_METHOD(void,gst_query_parse_duration, (GstQuery *query, GstFormat *format, gint64 *duration));
+	MOCK_METHOD(GstBuffer *, gst_buffer_new, ());
+	MOCK_METHOD(gboolean, gst_buffer_copy_into, (GstBuffer *dest, GstBuffer *src, GstBufferCopyFlags flags, gsize offset, gsize size));
+	MOCK_METHOD(GstFlowReturn, gst_app_src_push_buffer, (GstAppSrc *appsrc, GstBuffer *buffer));
+	MOCK_METHOD(GstBuffer *, gst_buffer_new_wrapped, (gpointer data, gsize size));
+	MOCK_METHOD(GstEvent *, gst_event_new_protection, (const gchar *system_id, GstBuffer *data, const gchar *origin));
+	MOCK_METHOD(guint64, gst_app_src_get_current_level_bytes, (GstAppSrc *appsrc));
+	MOCK_METHOD(GstStructure *, gst_structure_new, ());
+	MOCK_METHOD(GstPluginFeature *, gst_registry_lookup_feature, (GstRegistry *registry, const char *name));
+	MOCK_METHOD(GstPad*, gst_element_get_static_pad, (GstElement *element, const gchar *name));
+	MOCK_METHOD(gboolean, gst_pad_push_event, (GstPad* pad, GstEvent* event), ());
+	MOCK_METHOD(void, gst_segment_init, (GstSegment *segment, GstFormat format));
+	MOCK_METHOD(GstEvent *, gst_event_new_segment, (GstSegment *segment));
+	MOCK_METHOD(GstEvent*, gst_event_new_custom, (GstEventType type, GstStructure* structure), ());
+
 	/*
 gst_app_sink_get_type
 gst_app_sink_pull_sample
@@ -67,4 +98,4 @@ gst_structure_get_int
 
 extern MockGStreamer *g_mockGStreamer;
 
-#endif /* AAMP_MOCK_GSTREAMER_H */
+#endif /* PLAYER_MOCK_GSTREAMER_H */

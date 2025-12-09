@@ -51,9 +51,7 @@ public:
 	~AampDRMLicenseManager();
 	DrmSessionManager *mDrmSessionManager;
 	AampCurlDownloader* mLicenseDownloader;
-
-	char* accessToken;
-	int accessTokenLen;
+	std::string accessToken;
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
 	bool licenseRequestAbort;
@@ -71,12 +69,10 @@ public:
 	/**
 	 *  @fn getAccessToken
 	 *
-	 *  @param[out] tokenLength - Gets updated with accessToken length.
-	 *  @return             Pointer to accessToken.
-	 *  @note               AccessToken memory is dynamically allocated, deallocation
-	 *                              should be handled at the caller side.
+	 *  @param[out] error_code error code if any associated with retrieving access token.
+	 *  @return Returns the access token as a string.
 	 */
-	const char* getAccessToken(int &tokenLength, int &error_code ,bool bSslPeerVerify);
+	const std::string &getAccessToken(int &error_code);
 	/**
 	 * @fn acquireLicense
 	 */

@@ -629,7 +629,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			std::string characteristics = "muxed-audio";
 			StreamOutputFormat streamtype = getStreamFormatForCodecType(audioComponents[i].elemStreamType);
 			std::string codec = GetAudioFormatStringForCodec(streamtype);
-			audioTracks.push_back(AudioTrackInfo(index, language, group_id, name, codec, characteristics, 0));
+			audioTracks.push_back(AudioTrackInfo(std::move(index), language, group_id, std::move(name), codec, std::move(characteristics), 0));
 			AAMPLOG_INFO( "[%p] found audio#%d in program %d with pcr pid %d audio pid %d lan:%s codec:%s group:%s",
 				this, i, m_program, pcrPid, audioComponents[i].pid, language.c_str(), codec.c_str(), group_id.c_str());
 		}
@@ -1598,7 +1598,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			/* Audio is not playing in particular hls file.
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
-			 * But in one particular hls file, we dont have PES data in the first audio pid.
+			 * But in one particular hls file, we don't have PES data in the first audio pid.
 			 * So, we have now modified to choose the next available audio pid index,
 			 * when there is no PES data available in the current audio pid.
 			 */
@@ -1768,7 +1768,7 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositi
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			};
 
-			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, processor))
+			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, std::move(processor)))
 			{
 				AAMPLOG_WARN("demuxAndSend");  //CID:90622- checked return
 			}

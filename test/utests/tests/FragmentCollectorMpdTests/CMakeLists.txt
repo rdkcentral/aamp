@@ -52,7 +52,7 @@ set(TEST_SOURCES FragmentCollectorMpdTests.cpp
         FragmentCollectorMpdTestCases.cpp)
 
 # Only include the core files under test - the rest will be mocked
-set(AAMP_SOURCES ${AAMP_ROOT}/fragmentcollector_mpd.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_definitions(-DUSE_SYSTEMD_JOURNAL_PRINT)
 

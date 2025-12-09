@@ -242,15 +242,6 @@ bool AAMPGstPlayer::SignalSubtitleClock( void )
 	return false;
 }
 
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	if (g_mockAampGstPlayer != nullptr)
-	{
-		return g_mockAampGstPlayer->IsCodecSupported(codecName);
-	}
-	return false;
-}
-
 void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const
 {
 }
