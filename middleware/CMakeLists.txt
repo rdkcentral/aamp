@@ -25,6 +25,12 @@ if(DISABLE_SECURITY_TOKEN)
   add_definitions(-DDISABLE_SECURITY_TOKEN)
 endif()
 
+option(ENABLE_MW_PROFILING "Enable middleware profiling" OFF)
+
+if(ENABLE_MW_PROFILING)
+  add_definitions(-DENABLE_MW_PROFILING)
+endif()
+
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
@@ -123,7 +129,6 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	gstplayertaskpool.h
 	GstHandlerControl.h
 	InterfacePlayerRDK.h
-	PerfProfiler.h
 	drm/DrmUtils.h
 	drm/aes/Aes.h
 	drm/HlsDrmBase.h
@@ -140,13 +145,16 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	ProcessHandler.h
 	)
 
+if(ENABLE_MW_PROFILING)
+    list(APPEND LIBPLAYERGSTINTERFACE_HEADERS PerfProfiler.h)
+endif()
+
 install(FILES closedcaptions/CCTrackInfo.h
 	PlayerScheduler.h
 	gstplayertaskpool.h
 	GstHandlerControl.h
 	InterfacePlayerRDK.h
 	SocUtils.h
-	PerfProfiler.h
 	drm/DrmUtils.h
 	GstUtils.h
 	PlayerMetadata.hpp
@@ -176,8 +184,11 @@ install(FILES closedcaptions/CCTrackInfo.h
 	playerisobmff/playerisobmffbox.h
 	DESTINATION include)
 
+if(ENABLE_MW_PROFILING)
+    install(FILES PerfProfiler.h DESTINATION include)
+endif()
+
 set(SOURCES
-	PerfProfiler.cpp
 	InterfacePlayerRDK.cpp
 	SocUtils.cpp
 	GstUtils.cpp
@@ -188,6 +199,11 @@ set(SOURCES
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
+
+if(ENABLE_MW_PROFILING)
+    list(APPEND SOURCES PerfProfiler.cpp)
+endif()
+
 if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
 						vendor/realtek/RealtekSocInterface.cpp
