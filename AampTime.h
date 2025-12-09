@@ -180,7 +180,7 @@ class AampTime
 		  * @brief Get the stored time
 		  * @return Time in seconds (double)
 		  */
-		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
+		inline double inSeconds() const { return (baseTime / static_cast<double>(baseTimescale)); }
 
 		/** 
 		  * @brief Get the stored time in seconds
@@ -320,7 +320,7 @@ class AampTime
 
 			if (t != 0.0)
 			{
-				temp.baseTime = static_cast<int64_t>((double)baseTime/t);
+				temp.baseTime = static_cast<int64_t>(static_cast<double>(baseTime)/t);
 			}
 			// Otherwise leave as zero
 			return temp;
@@ -330,7 +330,7 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.baseTime = (int64_t)((double)baseTime * t);
+			temp.baseTime = (int64_t)(static_cast<double>(baseTime) * t);
 			return temp;	
 		}
 
