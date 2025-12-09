@@ -79,7 +79,7 @@ jobs:
           name: ctest-results-middleware-utests-${{ github.run_id }}
           path: middleware/test/utests/build/ctest-results.xml
       
-      # Show failure
+      # Show middleware failure details (if any)
       - name: Show failure details (if any)
         if: failure()
         run: tail -n 50 middleware/test/utests/build/ctest-results.xml || true
