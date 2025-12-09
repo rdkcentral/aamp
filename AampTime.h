@@ -25,18 +25,18 @@
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
 
-/// @brief struct to hold time in ticks and timescale
+/** @brief struct to hold time in ticks and timescale */
 struct AampTicks
 {
 	int64_t ticks;
 	uint32_t timescale;
 
-	/// @brief Constructor
-	/// @param ticks
-	/// @param timescale
+	/** @brief Constructor
+	  * @param ticks
+	  * @param timescale
+	  */
 	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
 
-	/// @brief Get time in milliseconds with overflow protection
 	/**
 	 * @brief Get time in milliseconds with overflow protection using 128-bit arithmetic.
 	 *
@@ -89,10 +89,10 @@ struct AampTicks
 	}
 };
 
-/// @brief time class to work around the use of doubles within Aamp
-//  While operators are overloaded for comparisons, the underlying data type is integer
-//  But the code is tolerant of being treated as a double
-
+/** @brief time class to work around the use of doubles within Aamp
+  * While operators are overloaded for comparisons, the underlying data type is integer
+  * But the code is tolerant of being treated as a double
+  */
 class AampTime
 {
 	public:
@@ -102,10 +102,12 @@ class AampTime
 		static const uint64_t baseTimescale = nano;
 		int64_t baseTime;
 
-		/// @brief Convert ticks to base time with overflow protection using 128-bit arithmetic
-		/// @param ticks The tick count (signed 64-bit)
-		/// @param timescale The timescale (unsigned 32-bit)
-		/// @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected
+		/** 
+		 * @brief Convert ticks to base time with overflow protection using 128-bit arithmetic
+		 * @param ticks The tick count (signed 64-bit)
+		 * @param timescale The timescale (unsigned 32-bit)
+		 * @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected
+		 */
 		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale) noexcept
 		{
 			if (timescale == 0)
@@ -154,29 +156,48 @@ class AampTime
 		}
 
 	public:
-		/// @brief Constructor
-		/// @param seconds time in seconds, as a double
+		/** 
+		  * @brief Constructor
+		  * @param seconds time in seconds, as a double
+		  */
 		constexpr AampTime(double seconds = 0.0) : baseTime(int64_t(seconds * baseTimescale)){}
 
-		/// @brief Copy constructor
-		/// @param rhs AampTime object to copy
+		/** 
+		  * @brief Copy constructor
+		  * @param rhs AampTime object to copy
+		  */
 		constexpr AampTime(const AampTime& rhs) : baseTime(rhs.baseTime){}
 
-		/// @brief Constructor
-		/// @param time struct containing time in ticks and timescale
-		/// @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
-		/// @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
+		/**
+		  * @brief Constructor
+		  * @param time struct containing time in ticks and timescale
+		  * @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
+		  * @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
+		  */
 		AampTime(const AampTicks& time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
 
-		/// @brief Get the stored time
-		/// @return Time in seconds (double)
+		/** 
+		  * @brief Get the stored time
+		  * @return Time in seconds (double)
+		  */
 		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
 
-		/// @brief Get the stored time in seconds
-		/// @return Time in seconds (integer)
+		/** 
+		  * @brief Get the stored time in seconds
+		  * @return Time in seconds (integer)
+		  */
 		inline int64_t seconds() const { return (baseTime / static_cast<int64_t>(baseTimescale)); }
-		/// @brief Get the stored time in milliseconds
-		inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }
+		
+		/** 
+		  * @brief Get the stored time in milliseconds
+		  * @return Time in milliseconds (integer)
+		  */
+		inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }		// Equivalent to round() but in integer domain
+		
+		/** 
+		  * @brief Return the nearest second to the stored time
+		  * @return Nearest second (integer)
+		  */
 		inline int64_t nearestSecond() const
 		{
 			int64_t retval = this->seconds();
@@ -253,7 +274,7 @@ class AampTime
 			AampTime temp(*this);
 
 			temp.baseTime = baseTime + int64_t(t * baseTimescale);
-			return std::move(temp);
+			return temp;
 		}
 
 		inline const AampTime &operator+=(const AampTime &t)
@@ -272,14 +293,14 @@ class AampTime
 			AampTime temp(*this);
 
 			temp.baseTime = baseTime - t.baseTime;
-			return std::move(temp);
+			return temp;
 		}
 
 		inline AampTime operator-(const double &t) const
 		{
 			AampTime temp(*this);
 			temp.baseTime = baseTime - int64_t(t * baseTimescale);
-			return std::move(temp);
+			return temp;
 		}
 
 		inline const AampTime &operator-=(const AampTime &t)
@@ -310,7 +331,7 @@ class AampTime
 			AampTime temp(*this);
 
 			temp.baseTime = (int64_t)((double)baseTime * t);
-			return std::move(temp);
+			return temp;	
 		}
 
 		explicit operator double() const { return this->inSeconds(); }
