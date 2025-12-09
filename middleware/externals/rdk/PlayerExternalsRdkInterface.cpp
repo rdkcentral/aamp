@@ -133,7 +133,6 @@ void PlayerExternalsRdkInterface::Initialize()
 }
 
 #ifdef USE_DS_EVENT_SUPPORTED
-#err 123
 void PlayerExternalsRdkInterface::RegisterDsClientEventHandler()
 {
 	try {
