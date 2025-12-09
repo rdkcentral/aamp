@@ -14216,6 +14216,8 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
 {
 	// If playing at normal rate, check all adaptations.
 	// For trick modes, check only iframe adaptations (unless using AAMP TSB)
+	// The pipeline will be flushed if the rate changes. The rate will not
+	// change while Init() or other methods are executing.
 	bool checkOnlyIframeAdaptation = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
 
 	// When using local AAMP TSB, i/frame track is not used,
