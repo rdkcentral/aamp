@@ -172,11 +172,11 @@ class AampTime
 		/// @return Time in seconds (double)
 		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
 
-	/// @brief Get the stored time in seconds
-	/// @return Time in seconds (integer)
-	inline int64_t seconds() const { return (baseTime / static_cast<int64_t>(baseTimescale)); }	/// @brief Get the stored time in milliseconds
-	/// @return Time in milliseconds (integer)
-	inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }		// Equivalent to round() but in integer domain
+		/// @brief Get the stored time in seconds
+		/// @return Time in seconds (integer)
+		inline int64_t seconds() const { return (baseTime / static_cast<int64_t>(baseTimescale)); }
+		/// @brief Get the stored time in milliseconds
+		inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }
 		inline int64_t nearestSecond() const
 		{
 			int64_t retval = this->seconds();
