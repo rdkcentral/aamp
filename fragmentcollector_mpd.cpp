@@ -7842,7 +7842,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 		validPeriod = currMPDPeriodDetails[0];
 		for(const auto& iter : currMPDPeriodDetails)
 		{
-			if(iter.duration > 0)
+			if(iter.duration > 0 && !iter.isEmptyPeriod)
 			{
 				validPeriod = iter;
 				break;
@@ -13771,9 +13771,10 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		periodInfo.periodIndex = iter;
 		periodInfo.periodStartTime = mMPDParseHelper->GetPeriodStartTime(iter,mLastPlaylistDownloadTimeMs);
 		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+		periodInfo.isEmptyPeriod = mMPDParseHelper->IsEmptyPeriod(iter, (mPlayRate != AAMP_NORMAL_PLAY_RATE));
 		currMPDPeriodDetails.push_back(periodInfo);
 		mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
-		if(!mMPDParseHelper->IsEmptyPeriod(iter, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+		if(!periodInfo.isEmptyPeriod)
 		{
 			durMs += periodInfo.duration;
 		}
