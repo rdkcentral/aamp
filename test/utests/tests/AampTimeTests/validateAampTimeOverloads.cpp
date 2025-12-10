@@ -799,7 +799,7 @@ TEST_F(validateAampTimeOverloads, CopyConstructor_ExtremeValues)
 	AampTime copyMin(originalMin);
 	
 	EXPECT_DOUBLE_EQ(originalMin.inSeconds(), copyMin.inSeconds());
-	EXPECT_EQ(originalMin == copyMin, true);
+	EXPECT_TRUE(originalMin == copyMin);
 }
 
 // Test assignment operator with large values
