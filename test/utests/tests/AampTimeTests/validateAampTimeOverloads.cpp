@@ -791,7 +791,7 @@ TEST_F(validateAampTimeOverloads, CopyConstructor_ExtremeValues)
 	AampTime copy(original);
 	
 	EXPECT_DOUBLE_EQ(original.inSeconds(), copy.inSeconds());
-	EXPECT_EQ(original == copy, true);
+	EXPECT_TRUE(original == copy);
 	
 	// Test with minimum safe value
 	const double minSafeTime = static_cast<double>(std::numeric_limits<int64_t>::min()) / 1e9;
