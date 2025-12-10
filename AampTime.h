@@ -140,7 +140,7 @@ class AampTime
 		  * @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
 		  * @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
 		  */
-		AampTime(const AampTicks& time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
+		explicit AampTime(const AampTicks& time) : baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}
 
 		/** 
 		  * @brief Get the stored time
