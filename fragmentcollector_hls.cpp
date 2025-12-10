@@ -7610,7 +7610,7 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 	unsigned long long bestScore = 0;
 	const auto& languageVectorToCheck = (aamp->preferredTextLanguagesList.empty()) ? aamp->preferredSubtitleLanguageVctr : aamp->preferredTextLanguagesList;
 
-	AAMPLOG_INFO("Preferences: rendition='%s' name='%s' sub-type='%s'",
+	AAMPLOG_INFO("rendition='%s' name='%s' sub-type='%s'",
 		aamp->preferredTextRenditionString.c_str(),
 		aamp->preferredTextNameString.c_str(),
 		aamp->preferredTextSubTypeString.c_str());
