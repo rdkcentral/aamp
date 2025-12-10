@@ -7672,9 +7672,9 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 			bestScore = score;
 			selectedTextTrack = track;
 
-			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, CC=%s, sub-type=%s, score=%llu",
+			AAMPLOG_INFO("New best text track: lang=%s, rendition=%s, name=%s, CC=%s, score=%llu",
 						 track.language.c_str(), track.rendition.c_str(),
-						 track.name.c_str(), track.isCC ? "True" : "False", track.isCC ? "CLOSED-CAPTIONS" : "SUBTITLES", score);
+						 track.name.c_str(), track.isCC ? "True" : "False", score);
 		}
 	}
 
