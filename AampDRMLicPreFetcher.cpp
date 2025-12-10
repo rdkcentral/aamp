@@ -228,7 +228,7 @@ bool AampLicensePreFetcher::Term()
  *
  * @return none
  */
-void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
 {
 	std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
 	mFetchInstance = fetcherInstance;
@@ -438,7 +438,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	std::lock_guard<std::mutex>fetchInstanceLock(mFetchInstanceMutex);
+	std::unique_lock<std::mutex>fetchInstanceLock(mFetchInstanceMutex);
 	if (skipErrorEvent && mFetchInstance)
 	{
 		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
