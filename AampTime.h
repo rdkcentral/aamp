@@ -297,7 +297,7 @@ class AampTime
 		{
 			AampTime temp(*this);
 
-			temp.baseTime = (int64_t)(static_cast<double>(baseTime) * t);
+			temp.baseTime = static_cast<int64_t>(static_cast<double>(baseTime) * t);
 			return temp;
 		}
 
