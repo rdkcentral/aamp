@@ -95,6 +95,8 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	AAMPLOG_INFO("IsoBmffProcessor %s sending segment at pos:%f dur:%f fragmentPTSoffset: %.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
+	AAMPLOG_WARN("supriya:DBG-SENDSEG: type=%s pos=%.3f dur=%.3f fragmentPTSoffset=%.3f discontinuous=%d isInit=%d", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset, discontinuous, isInit);
+
 	bool ret = true;
 	ptsError = false;
 	if (!initSegmentProcessComplete)
@@ -112,15 +114,19 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 	}
 	if (ret)
 	{
+		AAMPLOG_WARN("supriya:DBG-SENDSEG: After PTS init: position=%.3f duration=%.3f fragmentPTSoffset=%.3f", position, duration, fragmentPTSoffset);
 		if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 		{
+			AAMPLOG_WARN("supriya:DBG-RESTAMP: type=%s BEFORE restamp: pos=%.3f dur=%.3f fragmentPTSoffset=%.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
 			AAMPLOG_INFO("IsoBmffProcessor %s Restamping PTS", IsoBmffProcessorTypeName[type]);
 			restampPTSAndSendSegment(pBuffer,position,duration,discontinuous,isInit);
+			AAMPLOG_WARN("supriya:DBG-RESTAMP: type=%s AFTER restamp: pos=%.3f dur=%.3f fragmentPTSoffset=%.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
 		}
 		else
 		{
 			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
 			sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
+			AAMPLOG_WARN("supriya:DBG-SENDSTREAM: type=%s final pos=%.3f dur=%.3f fragmentPTSoffset=%.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
 		}
 	}
 	return true;
