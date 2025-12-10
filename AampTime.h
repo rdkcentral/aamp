@@ -296,7 +296,7 @@ class AampTime
 			AampTime temp(*this);
 
 			temp.baseTime = (int64_t)(static_cast<double>(baseTime) * t);
-			return temp;	
+			return temp;
 		}
 
 		explicit operator double() const { return this->inSeconds(); }
