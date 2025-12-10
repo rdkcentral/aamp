@@ -118,11 +118,10 @@ TEST_F(StreamAbstractionAAMP_VIDEOINTest,  GetStreamFormatTest){
     // Initialize output format variables with some non-default values
     StreamOutputFormat primaryFormat = FORMAT_UNKNOWN;
     StreamOutputFormat audioFormat = FORMAT_UNKNOWN;
-    StreamOutputFormat auxAudioFormat = FORMAT_UNKNOWN;
     StreamOutputFormat subtitleFormat = FORMAT_UNKNOWN;
 
     // Call the GetStreamFormat function
-    videoinShim->GetStreamFormat(primaryFormat, audioFormat, auxAudioFormat, subtitleFormat);
+    videoinShim->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
 
     // Assert that the output formats are set to FORMAT_INVALID
     ASSERT_EQ(primaryFormat, FORMAT_INVALID);

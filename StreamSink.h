@@ -46,14 +46,11 @@ public:
      *
      *   @param[in]  format - Video output format.
      *   @param[in]  audioFormat - Audio output format.
-     *   @param[in]  auxFormat - Aux audio output format.
      *   @param[in]  bESChangeStatus - Flag to keep force configure the pipeline value
-     *   @param[in]  forwardAudioToAux - Flag denotes if audio buffers have to be forwarded to aux pipeline
      *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
      *   @return void
      */
-    virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false){}
-
+    virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
     /**
      *   @brief  API to send audio/video buffer into the sink.
      *
