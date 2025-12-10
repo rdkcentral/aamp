@@ -158,11 +158,12 @@ class AampTime
 		  * @brief Get the stored time in milliseconds
 		  * @return Time in milliseconds (integer)
 		  */
-		inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }		// Equivalent to round() but in integer domain
+		inline int64_t milliseconds() const { return (baseTime / static_cast<int64_t>(baseTimescale / milli)); }
 		
 		/** 
 		  * @brief Return the nearest second to the stored time
 		  * @return Nearest second (integer)
+		  * @note Equivalent to round() but in integer domain
 		  */
 		inline int64_t nearestSecond() const
 		{
