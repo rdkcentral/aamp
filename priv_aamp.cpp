@@ -2075,6 +2075,7 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
 void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 	AAMPPlayerState state = GetState();
+	AAMPLOG_WARN("supriya: Initial eAAMPConfig_ProgressLogging=%s (before any checks)", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false");
 	if (state == eSTATE_SEEKING)
 	{
 		AAMPLOG_WARN("Progress reporting skipped whilst seeking.");
@@ -2261,17 +2262,21 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 			bool progressLoggingEnabled = ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging);
             int progressDivisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
-            AAMPLOG_WARN("supriya: Before LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d", progressLoggingEnabled ? "true" : "false", progressDivisor);
-
+			//AAMPLOG_WARN("supriya:MonitorProgress entry: eAAMPConfig_ProgressLogging = %s (owner=%d)", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false", mConfig->GetConfigOwner(eAAMPConfig_ProgressLogging));
+            AAMPLOG_WARN("supriya: MonitorProgress - Initial ProgressLogging=%s (owner=%d), Divisor=%d", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false", mConfig->GetConfigOwner(eAAMPConfig_ProgressLogging), GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor));
+			//AAMPLOG_WARN("supriya: Before LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d", progressLoggingEnabled ? "true" : "false", progressDivisor);
+			AAMPLOG_WARN("supriya:before Checking LLD condition: lowLatencyMode=%d, infoLoggingOwner=%d (AAMP_DEFAULT_SETTING=%d)", mAampLLDashServiceData.lowLatencyMode, mConfig->GetConfigOwner(eAAMPConfig_InfoLogging), AAMP_DEFAULT_SETTING);
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
 				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
 				bool bufferBelowMin = videoBufferedDuration < (abrMinBuffer * 1000);
 				AAMPLOG_WARN("supriya: LLD Mode=%d, bufferBelowMin=%d, mIsLoggingNeeded=%d, videoBufferedDuration=%.2f", mAampLLDashServiceData.lowLatencyMode, bufferBelowMin, mIsLoggingNeeded, (double)videoBufferedDuration);
+				AAMPLOG_WARN("supriya: Pre-LLD toggle: mIsLoggingNeeded=%d, eAAMPConfig_ProgressLogging=%s", mIsLoggingNeeded, ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false");
 				if (bufferBelowMin && !mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = true;
 					AampLogManager::setLogLevel(eLOGLEVEL_INFO);
+					AAMPLOG_WARN("supriya: Setting eAAMPConfig_ProgressLogging=true with owner=AAMP_STREAM_SETTING (%d)", AAMP_STREAM_SETTING);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true);
 					AAMPLOG_WARN("supriya: Enabled INFO logs + ProgressLogging=true (Buffer low in LLD)");
 				}
@@ -2279,6 +2284,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				{
 					mIsLoggingNeeded = false;
 					AampLogManager::setLogLevel(eLOGLEVEL_WARN);
+					AAMPLOG_WARN("supriya: Setting eAAMPConfig_ProgressLogging=false with owner=AAMP_STREAM_SETTING (%d)", AAMP_STREAM_SETTING);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 					AAMPLOG_WARN("supriya: Disabled INFO logs + ProgressLogging=false (Buffer healthy in LLD)");
 				}
@@ -2290,6 +2296,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				AAMPLOG_WARN("supriya: Entered progress logging block, Divisor=%d", progressDivisorAfter);
+				AAMPLOG_WARN("supriya: Current tick before check: %d (will log if divisor==0 or tick %% divisor == 0)", tick);
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
