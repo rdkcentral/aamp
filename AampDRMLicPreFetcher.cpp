@@ -45,6 +45,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
 		mFetchInstance(nullptr),
+		mFetchInstanceMutex(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
@@ -215,8 +216,22 @@ bool AampLicensePreFetcher::Term()
 	}
 	
 	mTrackStatus.fill(false);
-	mFetchInstance = nullptr;
+	{
+		std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
+		mFetchInstance = nullptr;
+	}
 	return ret;
+}
+
+/**
+ * @brief set license prefetcher
+ *
+ * @return none
+ */
+void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+	std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
+	mFetchInstance = fetcherInstance;
 }
 
 /**
@@ -423,12 +438,15 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
+	std::lock_guard<std::mutex>fetchInstanceLock(mFetchInstanceMutex);
 	if (skipErrorEvent && mFetchInstance)
 	{
 		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		fetchInstanceLock.unlock();
 	}
 	else
 	{
+		fetchInstanceLock.unlock();
 		if (!selfAbort)
 		{
 			//Set the isRetryEnabled flag to true if the failure is due to
