@@ -394,7 +394,6 @@ TEST_F(CachedFragmentTest, AampMediaType_CommonEnumValues_SetAndRetrievedCorrect
         eMEDIATYPE_VIDEO,
         eMEDIATYPE_AUDIO,
         eMEDIATYPE_SUBTITLE,
-        eMEDIATYPE_AUX_AUDIO,
         eMEDIATYPE_MANIFEST,
         eMEDIATYPE_LICENCE,
         eMEDIATYPE_IFRAME

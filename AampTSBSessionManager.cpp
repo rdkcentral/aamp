@@ -662,10 +662,6 @@ AampMediaType AampTSBSessionManager::ConvertMediaType(AampMediaType actualMediat
 	{
 		mediaType = eMEDIATYPE_SUBTITLE;
 	}
-	else if (mediaType == eMEDIATYPE_INIT_AUX_AUDIO)
-	{
-		mediaType = eMEDIATYPE_AUX_AUDIO;
-	}
 	else if (mediaType == eMEDIATYPE_INIT_IFRAME)
 	{
 		mediaType = eMEDIATYPE_IFRAME;
