@@ -5472,10 +5472,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else
 	{
-		AampCodecInfo videoCodec;
-		AampCodecInfo audioCodec;
-		AampCodecInfo subtitleCodec;
-
 		//explicitly invalidate previous position for consistency with previous code
 		mPrevPositionMilliseconds.Invalidate();
 
@@ -5512,23 +5508,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mSubtitleFormat);
 
-		if(mFirstFragmentTimeOffset < 0)
-		{
-			long long  duration = 0;
-			// Update first fragment time, ie time of the tune for new tune, and time of retune for seektolive
-			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
-			if(mSeekOperationInProgress && mProgressReportOffset < 0 )
-			{
-					duration = DurationFromStartOfPlaybackMs();
-			}
-			else
-			{
-					duration = GetDurationMs();
-			}
-			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - duration)/1000.0;
-			AAMPLOG_INFO("Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duration);
-			StartRateCorrectionWorkerThread();
-		}
+		StartRateCorrectionWorkerThread();
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -14060,25 +14040,21 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
  * @param[in] type - Media type
  * @param[in] codecInfo - Codec information
  */
-void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo)
+void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	switch (type)
 	{
-	case eMEDIATYPE_VIDEO:
-		mVideoFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
-		break;
-	case eMEDIATYPE_AUDIO:
-		mAudioFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
-		break;
-	case eMEDIATYPE_AUX_AUDIO:
-		// Explicitly mark aux path invalid unless actively configured
-		mAuxFormat = FORMAT_INVALID;
-		break;
-	default:
-		break;
+		case eMEDIATYPE_VIDEO:
+			mVideoFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+			break;
+		case eMEDIATYPE_AUDIO:
+			mAudioFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+			break;
+		default:
+			break;
 	}
-	AAMPLOG_INFO("SetStreamCaps: updated formats mVideoFormat=%d mAudioFormat=%d mAuxFormat=%d", mVideoFormat, mAudioFormat, mAuxFormat);
+	AAMPLOG_INFO("Updated format mVideoFormat=%d mAudioFormat=%d", mVideoFormat, mAudioFormat);
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));

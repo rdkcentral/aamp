@@ -1153,17 +1153,18 @@ void PlaybackCommand::parse( const char *path )
 								snprintf(hexByte, sizeof(hexByte), "%02x", static_cast<uint8_t>(b));
 								codecDataHex += hexByte;
 							}
-							AAMPCLI_PRINTF("Codec Info: Format=%d, CodecData=%s CodecDataSize:%zu Encrypted:%d\n",
+							AAMPCLI_PRINTF("Codec Info: Format=%d, Encrypted:%d, CodecDataSize:%zu, CodecData=%s\n",
 								codecInfo.mCodecFormat,
-								codecDataHex.c_str(),
+								codecInfo.mIsEncrypted ? 1 : 0,
 								codecInfo.mCodecData.size(),
-								codecInfo.mIsEncrypted ? 1 : 0);
+								codecDataHex.c_str()
+								);
 						}
 						else
 						{
 							for (auto &sample : samples)
 							{
-								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf DRM:%d\n",
+								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf, DRM:%d\n",
 										sample.mData.GetPtr(),
 										sample.mData.GetLen(),
 										(double)sample.mPts,
@@ -1190,11 +1191,11 @@ void PlaybackCommand::parse( const char *path )
 										keyIdHex += hexByte;
 									}
 
-									AAMPCLI_PRINTF("  DRM Info: Cipher:%s KID=%s, IV=0x%s, SubSamples=%zu, CryptByteBlock: %d, SkipBytes: %d\n", 
+									AAMPCLI_PRINTF("  DRM Info: Cipher:%s KID=%s, IV=0x%s, SubSamples=%" PRIu16 ", CryptByteBlock: %d, SkipBytes: %d\n",
 										sample.mDrmMetadata.mCipher.c_str(),
 										keyIdHex.c_str(),
 										ivHex.c_str(),
-										sample.mDrmMetadata.mSubSamples.size() / MP4_SUBSAMPLE_ENTRY_SIZE,
+										sample.mDrmMetadata.mNumSubSamples,
 										sample.mDrmMetadata.mCryptByteBlock,
 										sample.mDrmMetadata.mSkipByteBlock);
 								}

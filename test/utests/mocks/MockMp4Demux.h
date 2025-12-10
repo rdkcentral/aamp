@@ -27,11 +27,12 @@
 class MockMp4Demux
 {
 public:
-    MOCK_METHOD(void, Parse, (const void *ptr, size_t len));
+    MOCK_METHOD(bool, Parse, (const void *ptr, size_t len));
     MOCK_METHOD(uint32_t, GetTimeScale, (), (const));
-    MOCK_METHOD(AampCodecInfo, GetCodecInfo, ());
-    MOCK_METHOD(std::vector<AampPsshData>, GetProtectionEvents, ());
+    MOCK_METHOD(MediaCodecInfo, GetCodecInfo, ());
+    MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
     MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, ());
+    MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
 };
 
 extern MockMp4Demux *g_mockMp4Demux;

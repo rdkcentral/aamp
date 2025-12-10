@@ -237,9 +237,6 @@
 
 #define PLAYER_NAME "aamp"
 
-// Each subsample entry is 6 bytes (2 bytes for clear + 4 bytes for encrypted)
-#define MP4_SUBSAMPLE_ENTRY_SIZE 6
-
 /**
  * @brief Enumeration for TUNED Event Configuration
  */

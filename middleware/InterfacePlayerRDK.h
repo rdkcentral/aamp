@@ -36,6 +36,7 @@
 #include <any>
 #include "SocUtils.h"
 #include "GstUtils.h"
+#include "DemuxDataTypes.h"
 
 class InterfacePlayerPriv;
 
@@ -144,74 +145,6 @@ enum class InterfaceCB
 	firstVideoFrameReceived,
 	notifyEOS,
 	startNewSubtitleStream // Add more events here if needed
-};
-
-// Codec information structure
-struct CodecInfo
-{
-	GstStreamOutputFormat codecFormat; // 'avc1', 'mp4a', etc
-	std::vector<uint8_t> codecData; // codec private data, e.g. avcC box
-	bool isEncrypted;
-	union
-	{
-		struct
-		{
-			uint16_t channelCount;
-			uint16_t sampleRate;
-		} audio;
-		
-		struct
-		{
-			uint16_t width;
-			uint16_t height;
-		} video;
-	} info;
-
-	CodecInfo() : codecFormat(GST_FORMAT_INVALID), codecData(), isEncrypted(false)
-	{
-		memset(&info, 0, sizeof(info));
-	}
-};
-
-// DRM metadata structure
-struct MediaDrmMetadata
-{
-	bool isEncrypted;
-	std::string keyId; // 16 bytes UUID
-	std::vector<uint8_t> iv; // 8 or 16 bytes
-	std::string cipher; // e.g. 'cenc', 'cbcs'
-	std::vector<uint8_t> subSamples; // optional subsample encryption data
-	uint8_t cryptByteBlock;
-	uint8_t skipByteBlock;
-
-	MediaDrmMetadata() : isEncrypted(false),
-		keyId(),
-		iv(), cipher(),
-		subSamples(),
-		cryptByteBlock(0), skipByteBlock(0)
-	{
-	}
-};
-
-// Media sample structure
-struct MediaSample
-{
-	const void *data;
-	size_t dataSize;
-	double pts;
-	double dts;
-	double duration;
-	double ptsOffset;
-	MediaDrmMetadata drmMetadata;
-
-	MediaSample() : data(nullptr),
-		dataSize(0),
-		pts(0.0), dts(0.0),
-		duration(0.0),
-		ptsOffset(0.0),
-		drmMetadata()
-	{
-	}
 };
 
 // Class to encapsulate GStreamer-related functionality
@@ -832,7 +765,7 @@ class InterfacePlayerRDK
 		 * @param[in] type The media type.
 		 * @param[in] codecInfo The codec information.
 		 */
-		void SetStreamCaps(GstMediaType type, const CodecInfo &codecInfo);
+		void SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo);
 
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;

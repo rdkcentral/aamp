@@ -1787,6 +1787,13 @@ public:
 	 */
 	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
 
+	/**
+	 *   @fn SendStreamTransfer
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  sample - Media sample
+	 *   @return void
+	 */
 	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
 
 	/**
@@ -3999,7 +4006,7 @@ public:
 	 * @param[in] type - Media type
 	 * @param[in] codecInfo - Codec information
 	 */
-	void SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo);
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 protected:
 

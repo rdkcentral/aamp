@@ -24,8 +24,6 @@
 
 #include "MP4Demux.h"
 #include "MockMp4Demux.h"
-#include "AampLogManager.h"
-#include <vector>
 
 // Global mock instance used by the testable AampMp4Demuxer
 MockMp4Demux *g_mockMp4Demux = nullptr;
@@ -35,7 +33,6 @@ MockMp4Demux *g_mockMp4Demux = nullptr;
  */
 Mp4Demux::Mp4Demux()
 {
-    AAMPLOG_INFO("FakeMP4Demux Constructor");
 }
 
 /**
@@ -43,7 +40,6 @@ Mp4Demux::Mp4Demux()
  */
 Mp4Demux::~Mp4Demux()
 {
-    AAMPLOG_INFO("FakeMP4Demux Destructor");
 }
 
 /**
@@ -54,11 +50,9 @@ Mp4Demux::~Mp4Demux()
  */
 bool Mp4Demux::Parse(const void *ptr, size_t len)
 {
-    AAMPLOG_INFO("FakeMP4Demux::Parse called with %zu bytes", len);
-    
     // Delegate to mock if available
     if (g_mockMp4Demux) {
-        g_mockMp4Demux->Parse(ptr, len);
+        return g_mockMp4Demux->Parse(ptr, len);
     }
     // Otherwise, do nothing (fake behavior)
     return true;
@@ -70,33 +64,29 @@ bool Mp4Demux::Parse(const void *ptr, size_t len)
  */
 uint32_t Mp4Demux::GetTimeScale() const
 {
-    AAMPLOG_INFO("FakeMP4Demux::GetTimeScale called");
-    
     // Delegate to mock if available
     if (g_mockMp4Demux) {
         return g_mockMp4Demux->GetTimeScale();
     }
     
     // Default fake value
-    return 90000; // Common timescale for video
+    return 1; // Common timescale for video
 }
 
 /**
  * @brief Fake GetCodecInfo implementation
  * @return Default codec info
  */
-AampCodecInfo Mp4Demux::GetCodecInfo()
+MediaCodecInfo Mp4Demux::GetCodecInfo()
 {
-    AAMPLOG_INFO("FakeMP4Demux::GetCodecInfo called");
-    
     // Delegate to mock if available
     if (g_mockMp4Demux) {
         return g_mockMp4Demux->GetCodecInfo();
     }
     
     // Default fake codec info
-    AampCodecInfo codecInfo;
-    codecInfo.mCodecFormat = FORMAT_INVALID;
+    MediaCodecInfo codecInfo;
+    codecInfo.mCodecFormat = GST_FORMAT_INVALID;
     codecInfo.mIsEncrypted = false;
     return codecInfo;
 }
@@ -105,17 +95,15 @@ AampCodecInfo Mp4Demux::GetCodecInfo()
  * @brief Fake GetProtectionEvents implementation
  * @return Empty protection events vector
  */
-std::vector<AampPsshData> Mp4Demux::GetProtectionEvents()
+std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 {
-    AAMPLOG_INFO("FakeMP4Demux::GetProtectionEvents called");
-    
     // Delegate to mock if available
     if (g_mockMp4Demux) {
         return g_mockMp4Demux->GetProtectionEvents();
     }
     
     // Default fake - no protection events
-    return std::vector<AampPsshData>();
+    return std::vector<MediaProtectionInfo>();
 }
 
 /**
@@ -124,8 +112,6 @@ std::vector<AampPsshData> Mp4Demux::GetProtectionEvents()
  */
 std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
-    AAMPLOG_INFO("FakeMP4Demux::GetSamples called");
-    
     // Delegate to mock if available
     if (g_mockMp4Demux) {
         return g_mockMp4Demux->GetSamples();
@@ -133,4 +119,16 @@ std::vector<AampMediaSample> Mp4Demux::GetSamples()
     
     // Default fake - no samples
     return std::vector<AampMediaSample>();
+}
+
+/**
+ * @brief Fake GetLastError implementation
+ * @return Default parse error code
+ */
+Mp4ParseError Mp4Demux::GetLastError() const
+{
+    if (g_mockMp4Demux) {
+        return g_mockMp4Demux->GetLastError();
+    }
+	return MP4_PARSE_OK;
 }

@@ -10450,12 +10450,13 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  * @brief Get output format of stream.
  *
  */
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
 	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 	{
 		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
 		format = FORMAT_UNKNOWN;
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )

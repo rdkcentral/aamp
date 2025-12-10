@@ -66,8 +66,6 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
 
-#define SUBSAMPLE_ENTRY_SIZE 6 /**< Each subsample entry is 6 bytes (2 bytes for clear + 4 bytes for encrypted) */
-
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
@@ -135,7 +133,7 @@ firstTuneWithWesterosSinkOff(false),
 decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
-filterAudioDemuxBuffers(false), mp4DemuxPlayback(false),
+filterAudioDemuxBuffers(false), isMp4DemuxPlayback(false),
 aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
@@ -243,14 +241,6 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
-
-/**
- * @brief Create GstBuffer with data copied from input data pointer
- * @param[in] data The data to copy
- * @param[in] size The size of data in bytes
- * @return GstBuffer pointer or NULL on failure
- */
-static GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size);
 
 /**
  * @brief Decorate a GstBuffer with DRM metadata
@@ -1479,7 +1469,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
 
 	// Reset mp4demux playback semantic shim on pipeline event reset
-	interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback = false;
+	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = false;
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -1652,7 +1642,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		playRate = rate;
 	}
 
-	if ((stream->format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback) && (eGST_MEDIAFORMAT_PROGRESSIVE != static_cast<GstMediaFormat>(m_gstConfigParam->media)))
+	if ((stream->format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback) && (eGST_MEDIAFORMAT_PROGRESSIVE != static_cast<GstMediaFormat>(m_gstConfigParam->media)))
 	{
 		if ((interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
@@ -1844,6 +1834,9 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 
 	if (caps != NULL)
 	{
+		gchar *capsStr = gst_caps_to_string(caps);
+		MW_LOG_MIL("Setting caps for source[type:%d]: %s", mediaType, capsStr);
+		g_free(capsStr);
 		gst_app_src_set_caps(GST_APP_SRC(source), caps);
 		gst_caps_unref(caps);
 	}
@@ -1852,7 +1845,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		/* If capabilities can not be established, set typefind TRUE. typefind determines the media-type of a stream and once type has been
 		 * detected it sets its src pad caps to the found media type
 		 */
-		MW_LOG_WARN("Caps could not be established for source, enabling typefind");
+		MW_LOG_WARN("Caps could not be established for source[type:%d], enabling typefind", mediaType);
 		g_object_set(source, "typefind", TRUE, NULL);
 	}
 	stream->sourceConfigured = true;
@@ -2440,7 +2433,8 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		}
 		stream->pendingSeek = false;
 	}
-	if (!gstPrivateContext->mp4DemuxPlayback)
+	// For mp4 demux playback, there is no qtdemux element in the pipeline, so no need to send override event
+	if (!gstPrivateContext->isMp4DemuxPlayback)
 	{
 		enableOverride = SendQtDemuxOverrideEvent(mediaType, pts, enablePTSReStamp, vodTrickModeFPS); //need to change to priv
 	}
@@ -2466,7 +2460,8 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		}
 	}
 
-	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->mp4DemuxPlayback)
+	// isMp4DemuxPlayback might have protection events as it was originally ISO BMFF format
+	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->isMp4DemuxPlayback)
 	{
 		// There is a possibility that only single protection event is queued for multiple type
 		// since they are encrypted using same id. Hence check if protection event is queued for
@@ -2932,42 +2927,14 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 }
 
 /**
- *  @brief Create GstBuffer with data copied from input data pointer
- */
-static GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
-{
-	GstBuffer *buffer = gst_buffer_new_and_alloc(size);
-	if (buffer)
-	{
-		GstMapInfo map;
-		if (gst_buffer_map(buffer, &map, GST_MAP_WRITE))
-		{
-			memcpy(map.data, data, size);
-			gst_buffer_unmap(buffer, &map);
-		}
-		else
-		{
-			MW_LOG_ERR("Failed to map GstBuffer for writing");
-			gst_buffer_unref(buffer);
-			buffer = NULL;
-		}
-	}
-	else
-	{
-		MW_LOG_ERR("Failed to allocate GstBuffer of size %zu", size);
-	}
-	return buffer;
-}
-
-/**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
 bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
-	GstClockTime pts = (GstClockTime)(sample.pts * GST_SECOND);
-	GstClockTime dts = (GstClockTime)(sample.dts * GST_SECOND);
-	GstClockTime duration = (GstClockTime)(sample.duration * 1000000000LL);
+	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
+	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
+	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
 	{
@@ -3026,7 +2993,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, boo
 
 		if (m_gstConfigParam->enablePTSReStamp)
 		{
-			pts_offset = -(gint64)(sample.ptsOffset * 1000L);
+			pts_offset = -(gint64)(sample.mPtsOffset * 1000L);
 		}
 		else
 		{
@@ -3035,7 +3002,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, boo
 
 		if(copy)
 		{
-			buffer = CreateGstBufferWithData(sample.data, sample.dataSize);
+			buffer = CreateGstBufferWithData(sample.mData, sample.mDataSize);
 
 			if (buffer)
 			{
@@ -3055,25 +3022,25 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, boo
 		}
 		else
 		{ // transfer
-			buffer = gst_buffer_new_wrapped((gpointer)sample.data,(gsize)sample.dataSize);
+			buffer = gst_buffer_new_wrapped((gpointer)sample.mData,(gsize)sample.mDataSize);
 
 			if (buffer)
 			{
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
-				if (sample.drmMetadata.isEncrypted)
+				if (sample.mDrmMetadata.mIsEncrypted)
 				{
 					// Set DRM metadata to buffer
 					// Skipped for copy as that path is not used for demuxed content
 					// TODO: Handle copy path also if required in future
-					DecorateGstBufferWithDrmMetadata(buffer, sample.drmMetadata);
+					DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
 				}
 				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 					GST_BUFFER_OFFSET(buffer) = pts_offset;
 
 				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
-							mediaType, pts, dts, sample.dataSize, initFragment, discontinuity,duration);
+							mediaType, pts, dts, sample.mDataSize, initFragment, discontinuity, duration);
 
 			}
 			else
@@ -3160,7 +3127,8 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->mp4DemuxPlayback)
+	// isMp4DemuxPlayback is originally ISO BMFF format, but demuxed
+	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->isMp4DemuxPlayback)
 	{
 		GstSegment segment;
 		gst_segment_init(&segment, GST_FORMAT_TIME);
@@ -3537,7 +3505,7 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 	else
 	{
 		MW_LOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d", stream->format , stream->firstBufferProcessed);
-		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback) && ( !codecChange ))
+		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback) && ( !codecChange ))
 		{
 			unblockDiscProcess = true;
 			ret = true;
@@ -5253,87 +5221,96 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
  * @param[in] type The media type.
  * @param[in] codecInfo The codec information.
  */
-void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codecInfo)
+void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo)
 {
-	GstCaps *caps = GetCaps(codecInfo.codecFormat);
+	GstCaps *caps = GetCaps(codecInfo.mCodecFormat);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
-	stream->format = codecInfo.codecFormat;
-	interfacePlayerPriv->gstPrivateContext->mp4DemuxPlayback = true;
-	MW_LOG_MIL("SetStreamCaps: mp4DemuxPlayback enabled for type=%d codec format=%d stream format=%d", (int)type, codecInfo.codecFormat, stream->format);
+	stream->format = codecInfo.mCodecFormat;
+	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = true;
 	if (caps)
 	{
 		// Append some additional info to caps
-		if (codecInfo.codecData.size() > 0)
+		if (codecInfo.mCodecData.size() > 0)
 		{
-			GstBuffer *codecBuf = gst_buffer_new_and_alloc((guint)codecInfo.codecData.size());
+			GstBuffer *codecBuf = CreateGstBufferWithData((gpointer)codecInfo.mCodecData.data(), (gsize)codecInfo.mCodecData.size());
 			if (codecBuf)
 			{
-				gst_buffer_fill(codecBuf, 0, codecInfo.codecData.data(), codecInfo.codecData.size());
 				gst_caps_set_simple(caps, "codec_data", GST_TYPE_BUFFER, codecBuf, NULL);
 				gst_buffer_unref(codecBuf);
+			}
+			else
+			{
+				MW_LOG_ERR("Failed to allocate codec_data buffer for caps");
 			}
 		}
 		if (type == eGST_MEDIATYPE_VIDEO)
 		{
-			if (codecInfo.codecFormat == GST_FORMAT_VIDEO_ES_H264)
+			if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_H264)
 			{
 				gst_caps_set_simple(caps,
 									"stream-format", G_TYPE_STRING, "avc",
 									"alignment", G_TYPE_STRING, "au",
-									"width", G_TYPE_INT, codecInfo.info.video.width,
-									"height", G_TYPE_INT, codecInfo.info.video.height,
+									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
 									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
 									NULL);
 			}
-			else if (codecInfo.codecFormat == GST_FORMAT_VIDEO_ES_HEVC)
+			else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
 			{
 				gst_caps_set_simple(caps,
 									"stream-format", G_TYPE_STRING, "hvc1",
 									"alignment", G_TYPE_STRING, "au",
-									"width", G_TYPE_INT, codecInfo.info.video.width,
-									"height", G_TYPE_INT, codecInfo.info.video.height,
+									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
 									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
 									NULL);
 			}
 		}
 		else if (type == eGST_MEDIATYPE_AUDIO)
 		{
-			if (codecInfo.codecFormat == GST_FORMAT_AUDIO_ES_AAC)
+			if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_AAC_RAW)
 			{
 				gst_caps_set_simple(caps,
-									"channels", G_TYPE_INT, codecInfo.info.audio.channelCount,
-									"rate", G_TYPE_INT, codecInfo.info.audio.sampleRate,
+									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
 									NULL);
 			}
-			else if (codecInfo.codecFormat == GST_FORMAT_AUDIO_ES_EC3)
+			else if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_EC3)
 			{
 				gst_caps_set_simple(caps,
 									"framed", G_TYPE_BOOLEAN, TRUE,
-									"rate", G_TYPE_INT, codecInfo.info.audio.sampleRate,
-									"channels", G_TYPE_INT, codecInfo.info.audio.channelCount,
+									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
 									NULL);
 			}
 		}
-		if (codecInfo.isEncrypted)
+		if (codecInfo.mIsEncrypted)
 		{
 			GstStructure *s = gst_caps_get_structure (caps, 0);
-			gst_structure_set (s,
-				"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
-				NULL);
-			if (mDrmSystem != NULL)
+			if (s)
 			{
 				gst_structure_set (s,
-					GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
+					"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
 					NULL);
+				if (mDrmSystem != NULL)
+				{
+					gst_structure_set (s,
+						GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
+						NULL);
+				}
+				// Same for both cenc and cbcs
+				gst_structure_set_name (s, "application/x-cenc");
 			}
-			// Same for both cenc and cbcs
-			gst_structure_set_name (s, "application/x-cenc");
 		}
 		gchar* capsStr = gst_caps_to_string(caps);
-		MW_LOG_MIL("Setting stream caps for type[%d] format[%d]: %s", type, codecInfo.codecFormat, capsStr);
+		MW_LOG_MIL("Setting stream caps for type[%d] format[%d]: %s", type, codecInfo.mCodecFormat, capsStr);
 		g_free(capsStr);
 		gst_app_src_set_caps(GST_APP_SRC(stream->source), caps);
 		gst_caps_unref(caps);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to get caps for type[%d] format[%d]", type, codecInfo.mCodecFormat);
 	}
 }
 
@@ -5345,14 +5322,14 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, const CodecInfo &codec
 static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
 {
 	GstStructure *metadata = NULL;
-	if (drmMetadata.isEncrypted)
+	if (drmMetadata.mIsEncrypted)
 	{
 		metadata = gst_structure_new(
-										"application/x-cenc",
-										"encrypted", G_TYPE_BOOLEAN, TRUE,
-										// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
-										"cipher-mode", G_TYPE_STRING, drmMetadata.cipher.c_str(),
-										NULL);
+									"application/x-cenc",
+									"encrypted", G_TYPE_BOOLEAN, TRUE,
+									// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
+									"cipher-mode", G_TYPE_STRING, drmMetadata.mCipher.c_str(),
+									NULL);
 
 		if (!metadata)
 		{
@@ -5360,9 +5337,9 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 			return;
 		}
 
-		if (!drmMetadata.keyId.empty())
+		if (!drmMetadata.mKeyId.empty())
 		{
-			GstBuffer *kidBuffer = CreateGstBufferWithData((gpointer)drmMetadata.keyId.data(), (gsize)drmMetadata.keyId.size());
+			GstBuffer *kidBuffer = CreateGstBufferWithData((gpointer)drmMetadata.mKeyId.data(), (gsize)drmMetadata.mKeyId.size());
 			if (kidBuffer)
 			{
 				gst_structure_set(metadata,
@@ -5372,41 +5349,41 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 			}
 			else
 			{
-				MW_LOG_ERR("Failed to allocate keyID buffer for DRM metadata");
+				MW_LOG_ERR("Failed to allocate kid buffer for DRM metadata");
 			}
 		}
 
-		if (!drmMetadata.iv.empty())
+		if (!drmMetadata.mIV.empty())
 		{
-			GstBuffer *ivBuffer = CreateGstBufferWithData((gpointer)drmMetadata.iv.data(), (gsize)drmMetadata.iv.size());
+			GstBuffer *ivBuffer = CreateGstBufferWithData((gpointer)drmMetadata.mIV.data(), (gsize)drmMetadata.mIV.size());
 			if (ivBuffer)
 			{
 				gst_structure_set(metadata,
-									"iv_size", G_TYPE_UINT, drmMetadata.iv.size(),
+									"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
 									"iv", GST_TYPE_BUFFER, ivBuffer,
 									NULL);
 				gst_buffer_unref(ivBuffer);
 			}
 			else
 			{
-				MW_LOG_ERR("Failed to allocate IV buffer for DRM metadata");
+				MW_LOG_ERR("Failed to allocate iv buffer for DRM metadata");
 			}
 		}
 
-		if (!drmMetadata.subSamples.empty())
+		if (!drmMetadata.mSubSamples.empty())
 		{
-			GstBuffer *ssBuffer = CreateGstBufferWithData( (gpointer)drmMetadata.subSamples.data(), (gsize)drmMetadata.subSamples.size());
+			GstBuffer *ssBuffer = CreateGstBufferWithData( (gpointer)drmMetadata.mSubSamples.data(), (gsize)drmMetadata.mSubSamples.size());
 			if (ssBuffer)
 			{
 				gst_structure_set(metadata,
-									"subsample_count", G_TYPE_UINT, drmMetadata.subSamples.size() / SUBSAMPLE_ENTRY_SIZE,
+									"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
 									"subsamples", GST_TYPE_BUFFER, ssBuffer,
 									NULL);
 				gst_buffer_unref(ssBuffer);
 			}
 			else
 			{
-				MW_LOG_ERR("Failed to allocate subsample buffer for DRM metadata");
+				MW_LOG_ERR("Failed to allocate subsamples buffer for DRM metadata");
 			}
 		}
 		else
@@ -5416,11 +5393,11 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 								NULL);
 		}
 
-		if (drmMetadata.cipher == "cbcs")
+		if (drmMetadata.mCipher == "cbcs")
 		{
 			gst_structure_set(metadata,
-								"crypt_byte_block", G_TYPE_UINT, drmMetadata.cryptByteBlock,
-								"skip_byte_block", G_TYPE_UINT, drmMetadata.skipByteBlock,
+								"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
+								"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
 								NULL );
 		}
 	}

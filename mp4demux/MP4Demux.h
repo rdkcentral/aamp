@@ -33,7 +33,8 @@
 #include <vector>
 #include <string>
 #include "AampLogManager.h"
-#include "AampDemuxDataTypes.h" // for AampCodecInfo, AampPsshData, AampMediaSample
+#include "AampDemuxDataTypes.h" // for AampMediaSample
+#include "DemuxDataTypes.h" // for MediaCodecInfo, MediaProtectionInfo
 
 /**
  * @brief Convert multi-character constants like 'cenc' to equivalent 32 bit integer
@@ -57,20 +58,21 @@
  */
 enum mp4LogLevel
 {
-	MP4_LOG_NONE = 0,      /**< No logging */
-	MP4_LOG_ERROR = 1,     /**< Error level */
-	MP4_LOG_WARNING = 2,   /**< Warning level */
-	MP4_LOG_INFO = 3,      /**< Info level */
-	MP4_LOG_DEBUG = 4,     /**< Debug level */
-	MP4_LOG_VERBOSE = 5    /**< Verbose level */
+	MP4_LOG_LEVEL_NONE = 0,      /**< No logging */
+	MP4_LOG_LEVEL_ERROR = 1,     /**< Error level */
+	MP4_LOG_LEVEL_WARNING = 2,   /**< Warning level */
+	MP4_LOG_LEVEL_INFO = 3,      /**< Info level */
+	MP4_LOG_LEVEL_DEBUG = 4,     /**< Debug level */
+	MP4_LOG_LEVEL_VERBOSE = 5    /**< Verbose level */
 };
 
 /**
  * @brief MP4 logger macro
  */
-#define MP4_LOG(level, ...) AAMPLOG_WARN(__VA_ARGS__)
+#define MP4_LOG_WARN(...) AAMPLOG_WARN(__VA_ARGS__)
 #define MP4_LOG_ERR(...) AAMPLOG_ERR(__VA_ARGS__)
 #define MP4_LOG_INFO(...) AAMPLOG_INFO(__VA_ARGS__)
+#define MP4_LOG_DEBUG(...) AAMPLOG_DEBUG(__VA_ARGS__)
 
 /**
  * Enum for MP4 parsing errors
@@ -87,7 +89,8 @@ enum Mp4ParseError
 	MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT,/**< Unsupported sample entry count */
 	MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT,     /**< Unsupported stream format */
 	MP4_PARSE_ERROR_INVALID_ESDS_TAG,              /**< Invalid ESDS tag */
-	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH         /**< Data boundary mismatch */
+	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH,        /**< Data boundary mismatch */
+	MP4_PARSE_ERROR_INVALID_INPUT                 /**< Invalid input to parse function */
 };
 
 /**
@@ -123,7 +126,7 @@ private:
 	uint32_t schemeVersion;                       /**< Encryption scheme version */
 	uint32_t originalMediaType;                   /**< Original media type before encryption */
 	std::vector<uint8_t> cencAuxInfoSizes;        /**< CENC auxiliary info sizes */
-	std::vector<AampPsshData> protectionData;     /**< DRM protection system data */
+	std::vector<MediaProtectionInfo> protectionData;     /**< DRM protection system data */
 
 	// Parser state
 	const uint8_t *moofPtr;                       /**< Base address for sample data */
@@ -146,7 +149,7 @@ private:
 	// Track header fields
 	uint64_t creationTime;                        /**< Track creation time */
 	uint64_t modificationTime;                    /**< Track modification time */
-	uint32_t duration;                            /**< Track duration */
+	uint64_t duration;                            /**< Track duration */
 	uint32_t rate;                                /**< Playback rate */
 	uint32_t volume;                              /**< Audio volume */
 	int32_t matrix[9];                            /**< Transformation matrix */
@@ -160,7 +163,7 @@ private:
 	uint64_t sampleOffset;                        /**< Current sample offset */
 	bool sencPresent;                             /**< SENC box present flag */
 	bool handledEncryptedSamples;                 /**< Flag indicating encrypted samples have been handled */
-	AampCodecInfo codecInfo;                      /**< Codec information */
+	MediaCodecInfo codecInfo;                     /**< Codec information */
 	Mp4ParseError parseError;                     /**< Current parse error state */
 
 	/**
@@ -168,14 +171,7 @@ private:
 	 * @param fourCC Four character code identifier
 	 * @return StreamOutputFormat corresponding to the FourCC
 	 */
-	StreamOutputFormat GetStreamOutputFormatFromFourCC(const uint32_t fourCC);
-
-	/**
-	 * @brief Get media type for stream output format
-	 * @param format Stream output format
-	 * @return AampMediaType corresponding to the format
-	 */
-	AampMediaType GetMediaTypeForStreamOutputFormat(const StreamOutputFormat format);
+	GstStreamOutputFormat GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC);
 
 	/**
 	 * @brief Read n bytes from current position in big-endian format
@@ -337,7 +333,7 @@ private:
 	 * @brief Parse codec configuration helper
 	 * @param next Pointer to end of data
 	 */
-	void ParseCodecConfigHelper(const uint8_t *next);
+	void ParseEsdsCodecConfigHelper(const uint8_t *next);
 	
 	/**
 	 * @brief Parse codec configuration box
@@ -422,7 +418,7 @@ public:
 	 * 
 	 * @return Codec information with ownership transferred to caller
 	 */
-	AampCodecInfo GetCodecInfo();
+	MediaCodecInfo GetCodecInfo();
 
 	/**
 	 * @brief Get protection system data
@@ -431,7 +427,7 @@ public:
 	 * 
 	 * @return Protection data vector with ownership transferred to caller
 	 */
-	std::vector<AampPsshData> GetProtectionEvents();
+	std::vector<MediaProtectionInfo> GetProtectionEvents();
 
 	/**
 	 * @brief Get parsed media samples

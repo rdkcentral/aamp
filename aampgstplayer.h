@@ -44,9 +44,6 @@ struct AAMPGstPlayerPriv;
 */
 class SegmentInfo_t;
 
-// Forward declaration of MediaSample
-struct MediaSample;
-
 /**
  * @struct TaskControlData
  * @brief data for scheduling and handling asynchronous tasks
@@ -105,7 +102,7 @@ private:
 	 * @param[in] copy to map or transfer the buffer
 	 * @param[in] initFragment flag for buffer type (init, data)
 	 */
-	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment = false, bool discontinuity = false);
+	bool SendHelper(AampMediaType mediaType, MediaSample sample, bool copy, bool initFragment = false, bool discontinuity = false);
 
 public:
 	class PrivateInstanceAAMP *aamp;
@@ -440,7 +437,7 @@ public:
      * @param[in] type - Media type
      * @param[in] codecInfo - Codec information
      */
-	void SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo) override;
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) override;
 
 private:
 	std::mutex mBufferingLock;

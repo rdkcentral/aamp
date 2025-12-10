@@ -22,7 +22,8 @@
 
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
-#include "AampDemuxDataTypes.h"
+#include "AampDemuxDataTypes.h" // for AampMediaSample
+#include "DemuxDataTypes.h" // for MediaCodecInfo
 
 /**
  * @struct PlaybackQualityData
@@ -79,6 +80,13 @@ public:
      */
     virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
 
+    /**
+     *   @brief  API to send audio/video sample into the sink.
+     *
+     *   @param[in]  mediaType - Type of the media.
+     *   @param[in]  sample - Media sample
+     *   @return void
+     */
     virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
 
     /**
@@ -396,7 +404,7 @@ public:
      * @param[in] type - Media type
      * @param[in] codecInfo - Codec information
      */
-    virtual void SetStreamCaps(AampMediaType type, AampCodecInfo &&codecInfo) {};
+    virtual void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) {};
 
 };
 
