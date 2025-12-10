@@ -2075,7 +2075,7 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
 void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 	AAMPPlayerState state = GetState();
-	AAMPLOG_WARN("supriya: Initial eAAMPConfig_ProgressLogging=%s (before any checks)", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false");
+	AAMPLOG_WARN("supriya:Initial eAAMPConfig_ProgressLogging=%s (before any checks)", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false");
 	if (state == eSTATE_SEEKING)
 	{
 		AAMPLOG_WARN("Progress reporting skipped whilst seeking.");
