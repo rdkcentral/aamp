@@ -37,7 +37,7 @@ void StreamAbstractionAAMP_HLS::Start() {  }
 
 void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_HLS::GetFirstPTS() { return 0; }
 
