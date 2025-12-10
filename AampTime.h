@@ -32,7 +32,7 @@
  * @param divisor The divisor
  * @return Result of (multiplicand * multiplier) / divisor, clamped to INT64_MIN/MAX if overflow detected
  */
-static inline int64_t multiplyDivideWithOverflowProtection(int64_t multiplicand, int64_t multiplier, uint32_t divisor) noexcept
+inline int64_t multiplyDivideWithOverflowProtection(int64_t multiplicand, int64_t multiplier, uint32_t divisor) noexcept
 {
 	if (divisor == 0)
 	{
