@@ -223,6 +223,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 			std::lock_guard<std::mutex> lock(m_usableKeysMutex);
 			// Check if this key already exists to avoid duplicates
 			if (std::find(m_usableKeys.begin(), m_usableKeys.end(), keyData) == m_usableKeys.end()) {
+				MW_LOG_DEBUG("Adding new usable key: %s", PlayerLogManager::getHexDebugStr(keyData).c_str());
 				m_usableKeys.push_back(keyData);
 			}
 		}
