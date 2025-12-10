@@ -102,7 +102,7 @@ public:
 	/* Table with different parameter sets to be passed into mAAMPGstPlayer->Configure(...) */
 	typedef struct
 	{
-		bool bESChangeStatus;s
+		bool bESChangeStatus;
 		bool setReadyAfterPipelineCreation;
 		bool enableRectangleProperty;
 		bool usingWesteros; 
