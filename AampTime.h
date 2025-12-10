@@ -25,6 +25,52 @@
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
 
+/* @brief Helper function for overflow-protected multiplication and division
+  * @param multiplicand The value to multiply
+  * @param multiplier The multiplier
+  * @param divisor The divisor
+  * @return Result of (multiplicand * multiplier) / divisor, clamped to INT64_MIN/MAX if overflow detected
+  */
+static inline int64_t multiplyDivideWithOverflowProtection(int64_t multiplicand, int64_t multiplier, uint32_t divisor) noexcept
+{
+	if (divisor == 0)
+	{
+		return 0;
+	}
+
+#if defined(__SIZEOF_INT128__)
+	__int128 intermediate = static_cast<__int128>(multiplicand) * static_cast<__int128>(multiplier);
+	__int128 result = intermediate / static_cast<__int128>(divisor);
+	
+	if (result > static_cast<__int128>(std::numeric_limits<int64_t>::max()))
+	{
+		return std::numeric_limits<int64_t>::max();
+	}
+	
+	if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
+	{
+		return std::numeric_limits<int64_t>::min();
+	}
+	
+	return static_cast<int64_t>(result);
+#else
+	double intermediate = static_cast<double>(multiplicand) * static_cast<double>(multiplier);
+	double result = intermediate / static_cast<double>(divisor);
+	
+	if (result > static_cast<double>(std::numeric_limits<int64_t>::max()))
+	{
+		return std::numeric_limits<int64_t>::max();
+	}
+	
+	if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
+	{
+		return std::numeric_limits<int64_t>::min();
+	}
+	
+	return static_cast<int64_t>(result);
+#endif
+}
+
 /** @brief struct to hold time in ticks and timescale */
 struct AampTicks
 {
@@ -46,46 +92,7 @@ struct AampTicks
 	 */
 	int64_t inMilli() const
 	{
-		if (timescale == 0)
-		{
-			return 0;
-		}
-
-		#if defined(__SIZEOF_INT128__)
-			// Use 128-bit intermediate to avoid overflow during multiplication
-			__int128 intermediate = static_cast<__int128>(ticks) * static_cast<__int128>(1000);
-			__int128 result = intermediate / static_cast<__int128>(timescale);
-			
-			// Check if result fits in int64_t range
-			if (result > static_cast<__int128>(std::numeric_limits<int64_t>::max()))
-			{
-				return std::numeric_limits<int64_t>::max();
-			}
-			
-			if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
-			{
-				return std::numeric_limits<int64_t>::min();
-			}
-			
-			return static_cast<int64_t>(result);
-			
-		#else
-			// Fallback for platforms without __int128 support
-			double intermediate = static_cast<double>(ticks) * 1000.0;
-			double result = intermediate / static_cast<double>(timescale);
-			
-			if (result > static_cast<double>(std::numeric_limits<int64_t>::max()))
-			{
-				return std::numeric_limits<int64_t>::max();
-			}
-			
-			if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
-			{
-				return std::numeric_limits<int64_t>::min();
-			}
-			
-			return static_cast<int64_t>(result);
-		#endif
+		return multiplyDivideWithOverflowProtection(ticks, 1000, timescale);
 	}
 };
 
@@ -110,49 +117,7 @@ class AampTime
 		 */
 		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale) noexcept
 		{
-			if (timescale == 0)
-			{
-				return 0;
-			}
-
-			// Use 128-bit intermediate to avoid overflow during multiplication
-			// __int128 is supported by GCC and Clang on 64-bit platforms
-			#if defined(__SIZEOF_INT128__)
-				__int128 intermediate = static_cast<__int128>(ticks) * static_cast<__int128>(baseTimescale);
-				__int128 result = intermediate / static_cast<__int128>(timescale);
-				
-				// Check if result fits in int64_t range
-				if (result > static_cast<__int128>(std::numeric_limits<int64_t>::max()))
-				{
-					return std::numeric_limits<int64_t>::max();
-				}
-				
-				if (result < static_cast<__int128>(std::numeric_limits<int64_t>::min()))
-				{
-					return std::numeric_limits<int64_t>::min();
-				}
-
-				return static_cast<int64_t>(result);
-				
-			#else
-				// Fallback for platforms without __int128 support e.g. 32-bit systems
-				// Use double precision (loses some precision but avoids overflow)
-				double intermediate = static_cast<double>(ticks) * static_cast<double>(baseTimescale);
-				double result = intermediate / static_cast<double>(timescale);
-				
-				if (result > static_cast<double>(std::numeric_limits<int64_t>::max()))
-				{
-					return std::numeric_limits<int64_t>::max();
-				}
-				
-				if (result < static_cast<double>(std::numeric_limits<int64_t>::min()))
-				{
-					return std::numeric_limits<int64_t>::min();
-				}
-				
-				return static_cast<int64_t>(result);
-				
-			#endif
+			return multiplyDivideWithOverflowProtection(ticks, baseTimescale, timescale);
 		}
 
 	public:
