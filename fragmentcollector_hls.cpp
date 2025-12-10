@@ -7652,7 +7652,7 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 		if (!aamp->preferredTextNameString.empty() &&
 			aamp->preferredTextNameString == track.name)
 		{
-			score += AAMP_TYPE_SCORE;
+			score += AAMP_LABEL_SCORE;
 		}
 
 		// Only if it IS specified AND matches, score sub-type match.
