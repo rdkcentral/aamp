@@ -2093,6 +2093,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		float speed = pipeline_paused ? 0 : rate;
 		double start = -1;
 		double end = -1;
+		AAMPLOG_WARN("supriya:DEBUG_MONITOR: position=%f start=%f end=%f rate=%f pipeline_paused=%d", position, start, end, rate, pipeline_paused);
 		long long videoPTS = -1;
 		double videoBufferedDuration = 0.0;
 		double audioBufferedDuration = 0.0;
@@ -2102,7 +2103,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+		AAMPLOG_WARN("supriya:DEBUG_MONITOR: start=%f culledSeconds=%d duration=%f", start, culledSeconds, duration);
+		AAMPLOG_TRACE("supriya:position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
@@ -2112,6 +2114,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			end = start + duration;
 		}
+		AAMPLOG_WARN("supriya:DEBUG_MONITOR: end=%f mAbsoluteEndPosition=%f", end, mAbsoluteEndPosition*1000.0);
+
 
 		if (position > end)
 		{ // clamp end
@@ -2131,6 +2135,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				PlayFromTsbStart();
 			}
 		}
+		AAMPLOG_WARN("supriya:DEBUG_MONITOR: position=%f after clamping/BoS check, start=%f, end=%f, beginningOfStream=%d", position, start, end, beginningOfStream);
+
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
 
@@ -2145,6 +2151,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			if (sink)
 			{
 				videoPTS = sink->GetVideoPTS() + mVideoBasePTS;
+				//AAMPLOG_WARN("supriya:DEBUG_MONITOR: videoPTS=%lld", videoPTS);
+				AAMPLOG_WARN("supriya:Debug_MONITOR: rawGSTPTS=%lld basePTS=%lld finalVideoPTS=%lld", rawGSTPTS, mVideoBasePTS, videoPTS);
 			}
 		}
 		{
@@ -2153,9 +2161,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			{
 				videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
 				audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
+				AAMPLOG_WARN(" supriya:DEBUG_MONITOR: videoBuffered=%f audioBuffered=%f", videoBufferedDuration, audioBufferedDuration);
 			}
 
 		}
+		AAMPLOG_WARN("supriya:DEBUG_MONITOR: bProcessEvent decision: mReportProgressPosn=%f position=%f pipeline_paused=%d beginningOfStream=%d", mReportProgressPosn, position, pipeline_paused, beginningOfStream);
 		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
@@ -2239,6 +2249,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 	   		currentRate  = rate;
 		}
+		AAMPLOG_WARN("supriya :DEBUG_MONITOR: currentRate=%f pipeline_paused=%d", currentRate, pipeline_paused);
 		// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
 		// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
 		// Another approach would be to save the bitrate in a local variable as bitrateChangedEvents are fired
@@ -2312,6 +2323,10 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				profiler.SetLatencyParam(latency, (double)(videoBufferedDuration/1000.0), currentRate, mNetworkBandwidth);
 				profiler.GetTelemetryParam();
 			}
+			// AAMPLOG_WARN("supriya:DEBUG_MONITOR: Sending ProgressEvent: position=%f start=%f end=%f videoPTS=%lld rate=%f bProcessEvent=%d mFirstProgress=%d", reportFormattedCurrPos, start, end, videoPTS, currentRate, bProcessEvent, mFirstProgress);
+			AAMPLOG_WARN("supriya:DEBUG_MONITOR: Sending ProgressEvent: position=%f seek_pos_seconds=%f start=%f end=%f videoPTS=%lld rate=%f bProcessEvent=%d mFirstProgress=%d prevPos=%lld videoBuffered=%f audioBuffered=%f",
+              reportFormattedCurrPos, seek_pos_seconds, start, end, videoPTS, currentRate, bProcessEvent, mFirstProgress,
+              mPrevPositionMilliseconds.GetInfo().getPosition(), videoBufferedDuration, audioBufferedDuration);
 
 			if (sync)
 			{
@@ -2326,7 +2341,10 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		else
 		{
-			AAMPLOG_WARN("supriya: SKIPPED progress event, trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d, state=%d", trickStartUTCMS, bProcessEvent, mFirstProgress, state);
+			// AAMPLOG_WARN("supriya: SKIPPED progress event, trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d, state=%d", trickStartUTCMS, bProcessEvent, mFirstProgress, state);
+		    AAMPLOG_WARN("supriya:DEBUG_MONITOR: SKIPPED progress event: position=%f seek_pos_seconds=%f trickStartUTCMS=%lld bProcessEvent=%d mFirstProgress=%d state=%d prevPos=%lld videoBuffered=%f audioBuffered=%f",
+              position, seek_pos_seconds, trickStartUTCMS, bProcessEvent, mFirstProgress, state,
+              mPrevPositionMilliseconds.GetInfo().getPosition(), videoBufferedDuration, audioBufferedDuration);
 		}
 	}
 }
@@ -7512,7 +7530,17 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 			if(prevPositionInfo.isPositionValid(seek_pos_seconds_copy))
 			{
 				long long diff = positionMilliseconds - prevPositionInfo.getPosition();
-
+				AAMPLOG_WARN("supriya:DEBUG_NEGDIFF: prev-pos-ms=%lld curr-pos-ms=%lld diff=%lld", prevPositionInfo.getPosition(), positionMilliseconds, diff);
+				AAMPLOG_WARN("supriya:DEBUG_NEGDIFF: seek_pos_seconds_copy=%f rate_copy=%f trickStartUTCMS_copy=%lld",seek_pos_seconds_copy, rate_copy, trickStartUTCMS_copy);
+				AAMPLOG_WARN("supriya:DEBUG_NEGDIFF: culledSeconds=%d durationMs=%lld",culledSeconds, GetDurationMs());
+				if (mpStreamAbstractionAAMP)
+				{
+					AAMPLOG_WARN("supriya: DEBUG_NEGDIFF: fragmentStartMS=%lld fragmentDurationMS=%lld bufferDurationMS=%lld", 
+                         (long long)mpStreamAbstractionAAMP->GetFirstPTS(),
+                         (long long)(mpStreamAbstractionAAMP->GetFragmentDurationMS()),
+                         (long long)(mpStreamAbstractionAAMP->GetBufferedVideoDurationSec()*1000.0));
+                }
+				
 				if ((diff > MAX_DIFF_BETWEEN_PTS_POS_MS) || (diff < 0))
 				{
 					AAMPLOG_WARN("diff %lld prev-pos-ms %lld current-pos-ms %lld, restore prev-pos as current-pos!!", diff, prevPositionInfo.getPosition(), positionMilliseconds);
