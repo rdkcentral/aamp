@@ -113,8 +113,8 @@ class AampTime
 		/** 
 		 * @brief Convert ticks to base time with overflow protection using 128-bit arithmetic
 		 * @param ticks The tick count (signed 64-bit)
-		 * @param timescale The timescale (unsigned 32-bit)
-		 * @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected
+		 * @param timescale The timescale (unsigned 32-bit); if zero, returns 0
+		 * @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected, or 0 if timescale is zero
 		 */
 		static inline int64_t convertTicksWithOverflowProtection(int64_t ticks, uint32_t timescale) noexcept
 		{
