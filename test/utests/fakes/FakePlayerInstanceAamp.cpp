@@ -164,7 +164,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
-	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }
 	void PlayerInstanceAAMP::SetLicenseCustomData(const char *customData) {  }
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }

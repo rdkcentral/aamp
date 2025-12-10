@@ -95,7 +95,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mSubLanguage(),
 	mPlayerId(PLAYERID_CNTR++),
 	mIsWVKIDWorkaround(false),
-	mAuxAudioLanguage(),
 	mAbsoluteEndPosition(0),
 	mIsLive(false),
 	mIsLiveStream(false),
@@ -137,7 +136,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mVideoFormat(),
 	mAudioFormat(),
 	mPreviousAudioType(),
-	mAuxFormat(),
 	mCurlShared(),
 	mIsChunkMode(false)
 {
@@ -847,11 +845,6 @@ long long PrivateInstanceAAMP::GetPositionMs()
 	return positionMs;
 }
 
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-    return true;
-}
-
 bool PrivateInstanceAAMP::IsPlayEnabled()
 {
     return true;
@@ -1308,11 +1301,11 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
 	return true;
 }
 
-void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat, auxFormat);
+		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat);
 	}
 }
 
