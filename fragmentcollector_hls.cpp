@@ -80,10 +80,10 @@ extern DrmHelperPtr ProcessContentProtection(std::string attrName, bool propagat
 
 /// Variable initialization for media profiler buckets
 static const ProfilerBucketType mediaTrackBucketTypes[AAMP_TRACK_COUNT] =
-	{ PROFILE_BUCKET_FRAGMENT_VIDEO, PROFILE_BUCKET_FRAGMENT_AUDIO, PROFILE_BUCKET_FRAGMENT_SUBTITLE, PROFILE_BUCKET_FRAGMENT_AUXILIARY };
+	{ PROFILE_BUCKET_FRAGMENT_VIDEO, PROFILE_BUCKET_FRAGMENT_AUDIO, PROFILE_BUCKET_FRAGMENT_SUBTITLE };
 /// Variable initialization for media decrypt buckets
 static const ProfilerBucketType mediaTrackDecryptBucketTypes[AAMP_DRM_CURL_COUNT] =
-	{ PROFILE_BUCKET_DECRYPT_VIDEO, PROFILE_BUCKET_DECRYPT_AUDIO, PROFILE_BUCKET_DECRYPT_SUBTITLE, PROFILE_BUCKET_DECRYPT_AUXILIARY};
+	{ PROFILE_BUCKET_DECRYPT_VIDEO, PROFILE_BUCKET_DECRYPT_AUDIO, PROFILE_BUCKET_DECRYPT_SUBTITLE };
 
 /***************************************************************************
 * @fn ParseKeyAttributeCallback
@@ -2586,20 +2586,6 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			}
 		}
 		break;
-	case eTRACK_AUX_AUDIO:
-		{
-			int index = -1;
-			// Plain comparison to get the audio track with matching language
-			index = GetMediaIndexForLanguage(aamp->GetAuxiliaryAudioLanguage(), trackType);
-			if (index != -1)
-			{
-				playlistURI = mediaInfoStore[index].uri;
-				AAMPLOG_INFO("GetPlaylistURI : Auxiliary Track: Audio selected name is %s", GetLanguageCode(index).c_str());
-				//No need to update back, matching track is either there or not
-				format = GetStreamOutputFormatForTrack(trackType);
-			}
-		}
-		break;
 	}
 	return playlistURI;
 }
@@ -2750,16 +2736,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 	TrackState *audio = trackState[eMEDIATYPE_AUDIO];
 	TrackState *video = trackState[eMEDIATYPE_VIDEO];
 	TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
-	TrackState *aux = NULL;
-	if (!audio->enabled)
-	{
-		AAMPLOG_WARN("Attempting to sync between muxed track and auxiliary audio track");
-		audio = trackState[eMEDIATYPE_AUX_AUDIO];
-	}
-	else
-	{
-		aux = trackState[eMEDIATYPE_AUX_AUDIO];
-	}
+
 	AAMPStatusType retVal = eAAMPSTATUS_OK;
 
 	AampTime roundedPlayTarget{(double)video->playTarget.nearestSecond()};
@@ -2889,15 +2866,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 			}
 		}
 
-		//lets go with a simple sync operation for the moment for subtitle and aux
-		for (int index = eMEDIATYPE_SUBTITLE; index <= eMEDIATYPE_AUX_AUDIO; index++)
+		//lets go with a simple sync operation for the moment for subtitle
 		{
-			TrackState *track = trackState[index];
-			if (index == eMEDIATYPE_AUX_AUDIO && !trackState[eMEDIATYPE_AUDIO]->enabled)
-			{
-				// Case of muxed track and separate aux track - its already sync'ed
-				break;
-			}
+			TrackState *track = trackState[eMEDIATYPE_SUBTITLE];
 			if (track->enabled)
 			{
 				if (audio->GetNumberOfPeriods() == track->GetNumberOfPeriods())
@@ -2931,13 +2902,13 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 
 		if (!trackState[eMEDIATYPE_AUDIO]->enabled)
 		{
-			AAMPLOG_WARN("Exit : aux track start %f, muxed track start %f sub track start %f",
-					audio->playTarget.inSeconds(), video->playTarget.inSeconds(), subtitle->playTarget.inSeconds());
+			AAMPLOG_WARN("Exit : muxed track start %f sub track start %f",
+					video->playTarget.inSeconds(), subtitle->playTarget.inSeconds());
 		}
-		else if (aux)
+		else
 		{
-			AAMPLOG_WARN("Exit : audio track start %f, vid track start %f sub track start %f aux track start %f",
-					audio->playTarget.inSeconds(), video->playTarget.inSeconds(), subtitle->playTarget.inSeconds(), aux->playTarget.inSeconds());
+			AAMPLOG_WARN("Exit : audio track start %f, vid track start %f sub track start %f",
+					audio->playTarget.inSeconds(), video->playTarget.inSeconds(), subtitle->playTarget.inSeconds());
 		}
 	}
 
@@ -2957,7 +2928,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 	TrackState *audio = trackState[eMEDIATYPE_AUDIO];
 	TrackState *video = trackState[eMEDIATYPE_VIDEO];
 	TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
-	TrackState *aux = NULL;
 	AampTime diffBetweenStartTimes{};
 
 	for(int i = 0; i<AAMP_TRACK_COUNT; i++)
@@ -2981,16 +2951,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 			mediaSequenceNumber[i] = ts->nextMediaSequenceNumber - 1;
 		}
 		ts->ReleasePlaylistLock();
-	}
-
-	if (audio->enabled)
-	{
-		aux = trackState[eMEDIATYPE_AUX_AUDIO];
-	}
-	else
-	{
-		mediaSequenceNumber[eMEDIATYPE_AUDIO] = mediaSequenceNumber[eMEDIATYPE_AUX_AUDIO];
-		audio = trackState[eMEDIATYPE_AUX_AUDIO];
 	}
 
 	if (startTimeAvailable)
@@ -3085,23 +3045,18 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 			syncedUsingSeqNum = true;
 		}
 
-		//lets go with a simple sync operation for the moment for subtitle and aux
-		for (int index = eMEDIATYPE_SUBTITLE; (syncedUsingSeqNum && index <= eMEDIATYPE_AUX_AUDIO); index++)
+		//lets go with a simple sync operation for the moment for subtitle
+		if (syncedUsingSeqNum)
 		{
-			TrackState *track = trackState[index];
-			if (index == eMEDIATYPE_AUX_AUDIO && !trackState[eMEDIATYPE_AUDIO]->enabled)
-			{
-				// Case of muxed track and separate aux track and its already sync'ed
-				break;
-			}
+			TrackState *track = trackState[eMEDIATYPE_SUBTITLE];
 			if (track->enabled)
 			{
-				long long diff = mediaSequenceNumber[eMEDIATYPE_AUDIO] - mediaSequenceNumber[index];
+				long long diff = mediaSequenceNumber[eMEDIATYPE_AUDIO] - mediaSequenceNumber[eMEDIATYPE_SUBTITLE];
 				//We can only support track to catch-up to audio. The opposite will cause a/v sync issues
 				if (diff > 0 && diff <= MAX_SEQ_NUMBER_LAG_COUNT)
 				{
 					AAMPLOG_WARN("sync %s using sequence number. diff [%lld] A [%lld] T [%lld] a-f-uri [%.*s] t-f-uri [%.*s]",
-							track->name, diff, mediaSequenceNumber[eMEDIATYPE_AUDIO], mediaSequenceNumber[index],
+							track->name, diff, mediaSequenceNumber[eMEDIATYPE_AUDIO], mediaSequenceNumber[eMEDIATYPE_SUBTITLE],
 								 audio->fragmentURI.getLen(), audio->fragmentURI.getPtr(),
 								 track->fragmentURI.getLen(), track->fragmentURI.getPtr() );
 					//Track catch up to audio
@@ -3125,7 +3080,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				{
 					//Audio can't catch up with track, since its already sync-ed with video.
 					AAMPLOG_WARN("sync using sequence number failed, %s will be starting late. diff [%lld] A [%lld] T [%lld] a-f-uri [%.*s] t-f-uri [%.*s]",
-							track->name, diff, mediaSequenceNumber[eMEDIATYPE_AUDIO], mediaSequenceNumber[index],
+							track->name, diff, mediaSequenceNumber[eMEDIATYPE_AUDIO], mediaSequenceNumber[eMEDIATYPE_SUBTITLE],
 								 audio->fragmentURI.getLen(), audio->fragmentURI.getPtr(),
 								 track->fragmentURI.getLen(), track->fragmentURI.getPtr() );
 				}
@@ -3190,15 +3145,10 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				}
 			}
 
-			//lets go with a simple sync operation for the moment for subtitle and aux
-			for (int index = eMEDIATYPE_SUBTITLE; (syncedUsingSeqNum && index <= eMEDIATYPE_AUX_AUDIO); index++)
+			//lets go with a simple sync operation for the moment for subtitle
+			if (syncedUsingSeqNum)
 			{
-				TrackState *track =  trackState[index];
-				if (index == eMEDIATYPE_AUX_AUDIO && !trackState[eMEDIATYPE_AUDIO]->enabled)
-				{
-					// Case of muxed track and separate aux track and its already sync'ed
-					break;
-				}
+				TrackState *track =  trackState[eMEDIATYPE_SUBTITLE];
 				if (track->enabled)
 				{
 					//Compare track and audio start time
@@ -3247,13 +3197,13 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 	video->playTargetBufferCalc = video->playTarget;
 	if (!trackState[eMEDIATYPE_AUDIO]->enabled)
 	{
-		AAMPLOG_WARN("Exit : aux track start %f, muxed track start %f sub track start %f",
-				audio->playTarget.inSeconds(), video->playTarget.inSeconds(), subtitle->playTarget.inSeconds());
+		AAMPLOG_WARN("Exit : muxed track start %f sub track start %f",
+				video->playTarget.inSeconds(), subtitle->playTarget.inSeconds());
 	}
-	else if (aux)
+	else
 	{
-		AAMPLOG_WARN("Exit : audio track start %f, vid track start %f sub track start %f aux track start %f",
-				audio->playTarget.inSeconds(), video->playTarget.inSeconds(), subtitle->playTarget.inSeconds(), aux->playTarget.inSeconds());
+		AAMPLOG_WARN("Exit : audio track start %f, vid track start %f sub track start %f",
+				audio->playTarget.inSeconds(), video->playTarget.inSeconds(), subtitle->playTarget.inSeconds());
 	}
 
 	return retval;
@@ -3496,7 +3446,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		TrackState *audio = trackState[eMEDIATYPE_AUDIO];
 		TrackState *video = trackState[eMEDIATYPE_VIDEO];
 		TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
-		TrackState *aux = trackState[eMEDIATYPE_AUX_AUDIO];
 
 		//Store Bitrate info to Video Track
 		if(video)
@@ -3520,10 +3469,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			subtitle->enabled = false;
 			subtitle->streamOutputFormat = FORMAT_INVALID;
-
-			//No need to enable auxiliary audio feature for audio only playback scenarios
-			aux->enabled = false;
-			aux->streamOutputFormat = FORMAT_INVALID;
 		}
 		aamp->profiler.SetBandwidthBitsPerSecondAudio(audio->GetCurrentBandWidth());
 		if (audio->enabled)
@@ -3612,24 +3557,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				subtitle->enabled = false;
 			}
 		}
-		if (aux->enabled)
-		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aux->mPlaylistUrl, &aux->playlist, aux->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUX_AUDIO))
-			{
-				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio playlist retrieved from cache");
-			}
-			if (!aux->playlist.GetLen() )
-			{
-				aux->FetchPlaylist();
-			}
-			if (!aux->playlist.GetLen() )
-			{
-				//TODO: This is logged as a warning. Decide if its critical for playback
-				AAMPLOG_ERR("StreamAbstractionAAMP_HLS::Auxiliary audio playlist download failed");
-				aux->enabled = false;
-				aux->streamOutputFormat = FORMAT_INVALID;
-			}
-		}
 		if (video && video->enabled && !video->playlist.GetLen() )
 		{
 			AAMPLOG_ERR("StreamAbstractionAAMP_HLS::Video Playlist download failed");
@@ -3696,8 +3623,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				}
 				if (ts->mDuration == 0.0f)
 				{
-					//TODO: Confirm if aux audio playlist has issues, it should be deemed as a playback failure
-					if (iTrack == eTRACK_SUBTITLE || iTrack == eTRACK_AUX_AUDIO)
+					if (iTrack == eTRACK_SUBTITLE)
 					{
 						//Subtitle is optional and not critical to playback
 						ts->enabled = false;
@@ -3741,14 +3667,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					if (eMEDIATYPE_SUBTITLE == iTrack)
 					{
 						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Unsupported subtitle format from fragment extension:%d",  format);
-						ts->streamOutputFormat = FORMAT_INVALID;
-						ts->fragmentURI.clear();
-						ts->enabled = false;
-					}
-					//TODO: Extend auxiliary audio support for fragmented mp4 asset in future
-					else if (eMEDIATYPE_AUX_AUDIO == iTrack)
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Auxiliary audio not supported for FORMAT_ISO_BMFF, disabling!");
 						ts->streamOutputFormat = FORMAT_INVALID;
 						ts->fragmentURI.clear();
 						ts->enabled = false;
@@ -3855,44 +3773,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					}
 					continue; //no playcontext config for subtitle
 				}
-				else if (eMEDIATYPE_AUX_AUDIO == iTrack)
-				{
-					if (this->rate == AAMP_NORMAL_PLAY_RATE)
-					{
-						if (format == FORMAT_MPEGTS)
-						{
-							AAMPLOG_WARN("Configure auxiliary audio TS track demuxing");
-							ts->playContext = std::make_shared<TSProcessor>(aamp, eStreamOp_DEMUX_AUX, mID3Handler);
-							ts->SourceFormat(FORMAT_MPEGTS);
-							if (ts->playContext)
-							{
-								ts->playContext->setRate(this->rate, PlayMode_normal);
-								ts->playContext->setThrottleEnable(false);
-								playContextConfigured = true;
-							}
-							else
-							{
-								ts->streamOutputFormat = format;
-							}
-						}
-						else if (FORMAT_INVALID != format)
-						{
-							AAMPLOG_WARN("Configure auxiliary audio format based on extension");
-							ts->streamOutputFormat = format;
-						}
-						else
-						{
-							AAMPLOG_WARN("Keeping auxiliary audio format from playlist");
-						}
-					}
-					else
-					{
-						AAMPLOG_WARN("Disable auxiliary audio format - trick play");
-						ts->streamOutputFormat = FORMAT_INVALID;
-						ts->fragmentURI.clear();
-						ts->enabled = false;
-					}
-				}
 				else if (eMEDIATYPE_AUDIO == iTrack)
 				{
 					if (this->rate == AAMP_NORMAL_PLAY_RATE)
@@ -3949,12 +3829,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					if (FORMAT_INVALID != format)
 					{
 						ts->streamOutputFormat = format;
-						// Check if auxiliary audio is muxed here, by confirming streamOutputFormat != FORMAT_INVALID
-						if (!aux->enabled && (aux->streamOutputFormat != FORMAT_INVALID) && (AAMP_NORMAL_PLAY_RATE == rate))
-						{
-							ts->demuxOp = eStreamOp_DEMUX_VIDEO_AND_AUX;
-						}
-						else if ((trackState[eTRACK_AUDIO]->enabled) || (AAMP_NORMAL_PLAY_RATE != rate))
+						if ((trackState[eTRACK_AUDIO]->enabled) || (AAMP_NORMAL_PLAY_RATE != rate))
 						{
 							ts->demuxOp = eStreamOp_DEMUX_VIDEO;
 						}
@@ -3984,8 +3859,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						}
 						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track demuxing demuxOp %d", ts->demuxOp);
 						ts->playContext = std::make_shared<TSProcessor>(aamp, ts->demuxOp, mID3Handler, eMEDIATYPE_VIDEO,
-							std::static_pointer_cast<TSProcessor> (trackState[eMEDIATYPE_AUDIO]->playContext).get(),
-							std::static_pointer_cast<TSProcessor>(trackState[eMEDIATYPE_AUX_AUDIO]->playContext).get());
+							std::static_pointer_cast<TSProcessor> (trackState[eMEDIATYPE_AUDIO]->playContext).get());
 						ts->SourceFormat(FORMAT_MPEGTS);
 
 						if(ts->playContext)
@@ -4136,7 +4010,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			audio->playTarget = 0;
 			video->playTarget = 0;
 			subtitle->playTarget = 0;
-			aux->playTarget = 0;
 			aamp->NotifyOnEnteringLive();
 			aamp->mDisableRateCorrection = false;
 		}
@@ -4159,7 +4032,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					audio->playTarget = 0;
 					video->playTarget = 0;
 					subtitle->playTarget = 0;
-					aux->playTarget = 0;
 					if (eTUNETYPE_SEEK == tuneType)
 					{
 						aamp->NotifyOnEnteringLive();
@@ -4175,8 +4047,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					audio->fragmentURI.clear();
 					subtitle->eosReached = true;
 					subtitle->fragmentURI.clear();
-					aux->eosReached = true;
-					aux->fragmentURI.clear();
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS: seek target out of range, mark EOS. playTarget:%f End:%f. ",
 							video->playTarget.inSeconds(), seekWindowEnd.inSeconds());
 
@@ -4185,11 +4055,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 		}
 
-		// in case of muxed a/v and auxiliary track scenario
 		// For demuxed a/v, we will handle it in SyncTracks...() function
-		if (audio->enabled || aux->enabled)
+		if (audio->enabled)
 		{
-			TrackState *other = audio->enabled ? audio : aux;
 			if (!aamp->IsLive())
 			{
 				retval = SyncTracksForDiscontinuity();
@@ -4203,7 +4071,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 				{
 					auto count = video->mDiscontinuityIndex.size();
-					if (!liveAdjust && count>0 && count == other->mDiscontinuityIndex.size() )
+					if (!liveAdjust && count>0 && count == audio->mDiscontinuityIndex.size() )
 					{ // FIXME
 						SyncTracksForDiscontinuity();
 					}
@@ -4239,7 +4107,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				// b) Set to minimum value among video /audio instead of setting to 0 position
 				AampTime offsetToLiveVideo{}, offsetToLiveAudio{}, offsetToLive{};
 				offsetToLiveVideo = offsetToLiveAudio = video->mDuration - offsetFromLive.inSeconds() - video->playTargetOffset;
-				//TODO: Handle case for muxed a/v and aux track
+				//TODO: Handle case for muxed a/v track
 				if (audio->enabled)
 				{
 					offsetToLiveAudio = 0;
@@ -4263,16 +4131,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					subtitle->playTarget += offsetToLive;
 					subtitle->playTargetBufferCalc = subtitle->playTarget;
 				}
-				if (aux->enabled)
-				{
-					aux->playTarget += offsetToLive;
-					aux->playTargetBufferCalc = aux->playTarget;
-				}
 				// Entering live will happen if offset is adjusted , if its 0 playback is starting from beginning
 				if(offsetToLive != 0.0)
 					mIsAtLivePoint = true;
-				AAMPLOG_WARN("aamp: after live adjust - V-target %f A-target %f S-target %f Aux-target %f offsetFromLive %f offsetToLive %f offsetVideo[%f] offsetAudio[%f] AtLivePoint[%d]",
-						video->playTarget.inSeconds(), audio->playTarget.inSeconds(), subtitle->playTarget.inSeconds(), aux->playTarget.inSeconds(), offsetFromLive.inSeconds(), offsetToLive.inSeconds(),offsetToLiveVideo.inSeconds(),offsetToLiveAudio.inSeconds(),mIsAtLivePoint);
+				AAMPLOG_WARN("aamp: after live adjust - V-target %f A-target %f S-target %f offsetFromLive %f offsetToLive %f offsetVideo[%f] offsetAudio[%f] AtLivePoint[%d]",
+						video->playTarget.inSeconds(), audio->playTarget.inSeconds(), subtitle->playTarget.inSeconds(), offsetFromLive.inSeconds(), offsetToLive.inSeconds(),offsetToLiveVideo.inSeconds(),offsetToLiveAudio.inSeconds(),mIsAtLivePoint);
 			}
 			else
 			{
@@ -4284,13 +4147,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 		}
 		/*Adjust for discontinuity*/
-		if ((audio->enabled || aux->enabled) && (aamp->IsLive()) && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
-		{
-			TrackState *otherTrack = audio->enabled ? audio : aux;
+		if ((audio->enabled) && (aamp->IsLive()) && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+		{ 
 			auto discontinuityIndexCount = video->mDiscontinuityIndex.size();
 			if (discontinuityIndexCount > 0)
 			{
-				if (discontinuityIndexCount == otherTrack->mDiscontinuityIndex.size())
+				if (discontinuityIndexCount == audio->mDiscontinuityIndex.size())
 				{
 					if (liveAdjust)
 					{
@@ -4315,12 +4177,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							audioNextDiscontinuity = videoNextDiscontinuity;
 						}
 						if ((videoNextDiscontinuity > (video->playTarget + 5))
-							&& (audioNextDiscontinuity > (otherTrack->playTarget + 5)))
+							&& (audioNextDiscontinuity > (audio->playTarget + 5)))
 						{
 							AAMPLOG_WARN( "StreamAbstractionAAMP_HLS: video->playTarget %f videoPrevDiscontinuity %f videoNextDiscontinuity %f",
 									video->playTarget.inSeconds(), videoPrevDiscontinuity.inSeconds(), videoNextDiscontinuity.inSeconds());
 							AAMPLOG_WARN( "StreamAbstractionAAMP_HLS: %s->playTarget %f audioPrevDiscontinuity %f audioNextDiscontinuity %f",
-									otherTrack->name, otherTrack->playTarget.inSeconds(), audioPrevDiscontinuity.inSeconds(), audioNextDiscontinuity.inSeconds());
+									audio->name, audio->playTarget.inSeconds(), audioPrevDiscontinuity.inSeconds(), audioNextDiscontinuity.inSeconds());
 							if (video->playTarget < videoPrevDiscontinuity)
 							{
 								AAMPLOG_WARN( "StreamAbstractionAAMP_HLS: [video] playTarget(%f) advance to discontinuity(%f)",
@@ -4328,12 +4190,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 								video->playTarget = videoPrevDiscontinuity;
 								video->playTargetBufferCalc = video->playTarget;
 							}
-							if (otherTrack->playTarget < audioPrevDiscontinuity)
+							if (audio->playTarget < audioPrevDiscontinuity)
 							{
 								AAMPLOG_WARN( "StreamAbstractionAAMP_HLS: [%s] playTarget(%f) advance to discontinuity(%f)",
-										otherTrack->name, otherTrack->playTarget.inSeconds(), audioPrevDiscontinuity.inSeconds());
-								otherTrack->playTarget = audioPrevDiscontinuity;
-								otherTrack->playTargetBufferCalc = otherTrack->playTarget;
+										audio->name, audio->playTarget.inSeconds(), audioPrevDiscontinuity.inSeconds());
+								audio->playTarget = audioPrevDiscontinuity;
+								audio->playTargetBufferCalc = audio->playTarget;
 							}
 							break;
 						}
@@ -4344,7 +4206,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				else
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS: videoPeriodPositionIndex.size %zu audioPeriodPositionIndex.size %zu",
-							video->mDiscontinuityIndex.size(), otherTrack->mDiscontinuityIndex.size());
+							video->mDiscontinuityIndex.size(), audio->mDiscontinuityIndex.size());
 				}
 			}
 			else
@@ -4356,7 +4218,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		audio->lastPlaylistDownloadTimeMS = aamp_GetCurrentTimeMS();
 		video->lastPlaylistDownloadTimeMS = audio->lastPlaylistDownloadTimeMS;
 		subtitle->lastPlaylistDownloadTimeMS = audio->lastPlaylistDownloadTimeMS;
-		aux->lastPlaylistDownloadTimeMS = audio->lastPlaylistDownloadTimeMS;
 		/*Use start timestamp as zero when audio is not elementary stream*/
 		mStartTimestampZero = ((video->streamOutputFormat == FORMAT_ISO_BMFF || audio->streamOutputFormat == FORMAT_ISO_BMFF) || (rate == AAMP_NORMAL_PLAY_RATE && (!audio->enabled || audio->playContext)));
 
@@ -4539,10 +4400,6 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 		{
 			trackName = "audio";
 		}
-		else if (eTRACK_AUX_AUDIO == iTrack)
-		{
-			trackName = "aux-audio";
-		}
 		trackState[iTrack] = new TrackState((TrackType)iTrack, this, aamp, trackName, mID3Handler, mPtsOffsetUpdate);
 		TrackState *ts = trackState[iTrack];
 		ts->playlistPosition = -1;
@@ -4554,24 +4411,6 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 			ts->enabled = false;
 			ts->streamOutputFormat = FORMAT_INVALID;
 			continue;
-		}
-		if (iTrack == eTRACK_AUX_AUDIO)
-		{
-			if (!aamp->IsAuxiliaryAudioEnabled())
-			{
-				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio disabled");
-				ts->enabled = false;
-				ts->streamOutputFormat = FORMAT_INVALID;
-				continue;
-			}
-			else if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
-			{
-				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio same as primary audio, set forward audio flag");
-				ts->enabled = false;
-				ts->streamOutputFormat = FORMAT_INVALID;
-				SetAudioFwdToAuxStatus(true);
-				continue;
-			}
 		}
 		std::string uri = GetPlaylistURI((TrackType)iTrack, ts->streamOutputFormat);
 		if( !uri.empty() )
@@ -5216,11 +5055,10 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 /***************************************************************************
 * @brief Function to get stream format
 ***************************************************************************/
-void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subOutputFormat)
+void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat)
 {
 	primaryOutputFormat = trackState[eMEDIATYPE_VIDEO]->streamOutputFormat;
 	audioOutputFormat = trackState[eMEDIATYPE_AUDIO]->streamOutputFormat;
-	auxOutputFormat = trackState[eMEDIATYPE_AUX_AUDIO]->streamOutputFormat;
 	subOutputFormat = trackState[eMEDIATYPE_SUBTITLE]->streamOutputFormat;
 }
 /***************************************************************************
@@ -5902,11 +5740,6 @@ void TrackState::FetchPlaylist()
 		bucketId = PROFILE_BUCKET_PLAYLIST_SUBTITLE;
 		mType = eMEDIATYPE_PLAYLIST_SUBTITLE;
 	}
-	else if (type == eTRACK_AUX_AUDIO)
-	{
-		bucketId = PROFILE_BUCKET_PLAYLIST_AUXILIARY;
-		mType = eMEDIATYPE_PLAYLIST_AUX_AUDIO;
-	}
 
 	int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
 	AampCurlInstance dnldCurlInstance = aamp->GetPlaylistCurlInstance(mType , true);
@@ -6412,10 +6245,6 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			else if (eTRACK_SUBTITLE == type)
 			{
 				actualType = eMEDIATYPE_INIT_SUBTITLE;
-			}
-			else if (eTRACK_AUX_AUDIO == type)
-			{
-				actualType = eMEDIATYPE_INIT_AUX_AUDIO;
 			}
 
 #ifdef CHECK_PERFORMANCE
@@ -7384,11 +7213,7 @@ int StreamAbstractionAAMP_HLS::GetMediaIndexForLanguage(std::string lang, TrackT
 
 	if(streamInfo != nullptr)
 	{
-		if (type == eTRACK_AUX_AUDIO)
-		{
-			group = streamInfo->audio.c_str();
-		}
-		else if (type == eTRACK_SUBTITLE)
+		if (type == eTRACK_SUBTITLE)
 		{
 			group = streamInfo->subtitles.c_str();
 		}
@@ -7431,7 +7256,7 @@ StreamOutputFormat StreamAbstractionAAMP_HLS::GetStreamOutputFormatForTrack(Trac
 		{
 			map = GetVideoFormatForCodec(streamInfo->codecs.c_str());
 		}
-		else if ((type == eTRACK_AUDIO) || (type ==  eTRACK_AUX_AUDIO))
+		else if (type == eTRACK_AUDIO)
 		{
 			map = GetAudioFormatForCodec(streamInfo->codecs.c_str());
 		}
@@ -7441,7 +7266,7 @@ StreamOutputFormat StreamAbstractionAAMP_HLS::GetStreamOutputFormatForTrack(Trac
 		format = map->format;
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Track[%d] format is %d [%s]", type, map->format, map->codec);
 	}
-	else if ((type == eTRACK_AUDIO) || (type ==  eTRACK_AUX_AUDIO))
+	else if (type == eTRACK_AUDIO)
 	{ // HACK
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS::assuming stereo");
 		format = FORMAT_AUDIO_ES_AAC;
