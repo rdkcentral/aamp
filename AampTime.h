@@ -25,12 +25,13 @@
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
 
-/* @brief Helper function for overflow-protected multiplication and division
-  * @param multiplicand The value to multiply
-  * @param multiplier The multiplier
-  * @param divisor The divisor
-  * @return Result of (multiplicand * multiplier) / divisor, clamped to INT64_MIN/MAX if overflow detected
-  */
+/**
+ * @brief Helper function for overflow-protected multiplication and division
+ * @param multiplicand The value to multiply
+ * @param multiplier The multiplier
+ * @param divisor The divisor
+ * @return Result of (multiplicand * multiplier) / divisor, clamped to INT64_MIN/MAX if overflow detected
+ */
 static inline int64_t multiplyDivideWithOverflowProtection(int64_t multiplicand, int64_t multiplier, uint32_t divisor) noexcept
 {
 	if (divisor == 0)
