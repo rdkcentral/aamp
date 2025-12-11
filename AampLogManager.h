@@ -126,7 +126,7 @@ struct AAMPAbrInfo
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(AAMP_LogLevel level, const char* func, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
 
 extern thread_local int gPlayerId;
 
@@ -169,7 +169,7 @@ public:
 		/* loggerData is the playerId ... set it in case we are in a helper thread that the
 		** caller has spawned. */
 		UsingPlayerId playerId(loggerData);
-		logprintf(eLOGLEVEL_MIL , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+		logprintf(eLOGLEVEL_MIL, __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 	}
 	
 	/**
