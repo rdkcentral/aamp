@@ -893,7 +893,6 @@ public:
 	StreamOutputFormat mVideoFormat;
 	StreamOutputFormat mAudioFormat;
 	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
-	StreamOutputFormat mAuxFormat;
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
@@ -1064,7 +1063,8 @@ public:
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
-	std::string preferredTextLabelString; 			/**< String value for text type */
+	std::string preferredTextLabelString; 			/**< String value for label */
+	std::string preferredTextSubTypeString; 		/**< String value for sub-type  (i.e. "SUBTITLES" or "CLOSED-CAPTIONS") */
 	std::string preferredInstreamIdString;			/**< String value for instreamId */
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
@@ -3349,20 +3349,18 @@ public:
 	 *
 	 *   @param[in] videoFormat - video stream format
 	 *   @param[in] audioFormat - audio stream format
-	 *   @param[in] auxFormat - aux stream format
 	 *   @return void
 	 */
-	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat,  StreamOutputFormat auxFormat);
+	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat);
 
 	/**
 	 *   @fn IsAudioOrVideoOnly
 	 *
 	 *   @param[in] videoFormat - video stream format
 	 *   @param[in] audioFormat - audio stream format
-	 *   @param[in] auxFormat - aux stream format
 	 *   @return bool
 	 */
-	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat);
+	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat);
 
 	/**
 	 *   @fn DisableContentRestrictions
@@ -3451,28 +3449,6 @@ public:
 	void UpdateLiveOffset();
 
 	/**
-	 *   @fn IsAuxiliaryAudioEnabled
-	 *
-	 *   @return bool - true if aux audio is enabled
-	 */
-	bool IsAuxiliaryAudioEnabled(void);
-
-	/**
-	 *   @brief Set auxiliary language
-	 *
-	 *   @param[in] language - auxiliary language
-	 *   @return void
-	 */
-	void SetAuxiliaryLanguage(const std::string &language) { mAuxAudioLanguage = language; }
-
-	/**
-	 *   @brief Get auxiliary language
-	 *
-	 *   @return std::string auxiliary audio language
-	 */
-	std::string GetAuxiliaryAudioLanguage() { return mAuxAudioLanguage; }
-
-	/**
 	 *   @fn GetPauseOnFirstVideoFrameDisp
 	 *   @return bool
 	 */
@@ -3533,14 +3509,6 @@ public:
 	 * @return uint32_t - Subtitle TimeScale
 	 */
 	uint32_t GetSubTimeScale(void);
-
-	/**
-	 *   @fn SetLLDashSpeedCache
-	 *
-	 *   @param[in] speedCache - Speed Cache
-	 *   @return void
-	 */
-	void SetLLDashSpeedCache(struct SpeedCache &speedCache);
 
 	/**
 	 *   @fn GetLLDashSpeedCache
@@ -4147,12 +4115,10 @@ protected:
 	 *
 	 *   @param[out]  primaryOutputFormat - format of primary track
 	 *   @param[out]  audioOutputFormat - format of audio track
-	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
 	 *   @param[out]  subtitleOutputFormat - format of subtitle  track
 	 *   @return void
 	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
-
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4219,7 +4185,6 @@ protected:
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
-	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */
 	int mCCId;
 	AampLLDashServiceData mAampLLDashServiceData; /**< Low Latency Service Configuration Data */
 	bool bLowLatencyServiceConfigured;

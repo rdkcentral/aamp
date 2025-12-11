@@ -371,7 +371,7 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
 	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
-	// Valid media types are only VIDEO, AUDIO, SUBTITLE, AUX_AUDIO and INIT fragments
+	// Valid media types are only VIDEO, AUDIO, SUBTITLE and INIT fragments
 	cachedFragment->type = eMEDIATYPE_DEFAULT;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).Times(0);
