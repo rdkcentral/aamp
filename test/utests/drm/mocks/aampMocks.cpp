@@ -60,10 +60,18 @@ void PrivateInstanceAAMP::GetCustomLicenseHeaders(
 
 void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRetryEnabled)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDrmErrorEvent(event, isRetryEnabled);
+	}
 }
 
 void PrivateInstanceAAMP::SendDRMMetaData(DrmMetaDataEventPtr e)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDRMMetaData(e);
+	}
 }
 
 void PrivateInstanceAAMP::Individualization(const std::string &payload)
