@@ -66,7 +66,7 @@ void StreamAbstractionAAMP_MPD::Start() {  }
 
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 

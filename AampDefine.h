@@ -113,9 +113,9 @@
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
 
-#define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
+#define AAMP_TRACK_COUNT 3		/**< internal use - audio+video+sub track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
-#define AAMP_DRM_CURL_COUNT 4		/**< audio+video+sub+aux track DRMs */
+#define AAMP_DRM_CURL_COUNT 3		/**< audio+video+sub track DRMs */
 //#define CURL_FRAGMENT_DL_TIMEOUT 10L	/**< Curl timeout for fragment download */
 #define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */

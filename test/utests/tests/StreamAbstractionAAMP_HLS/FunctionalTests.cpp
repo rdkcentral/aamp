@@ -867,15 +867,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAudio)
     EXPECT_EQ(outputFormat, expectedAudioOutputFormat);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAuxAudio)
-{
-
-    TrackType auxAudioTrackType = eTRACK_AUX_AUDIO;
-    StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(auxAudioTrackType);
-    StreamOutputFormat expectedAuxAudioOutputFormat = FORMAT_AUDIO_ES_AAC; // Example value, replace with your logic
-    EXPECT_EQ(outputFormat, expectedAuxAudioOutputFormat);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage)
 {
 
@@ -1178,13 +1169,6 @@ TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_SUBTITLE)
 {
     //To Cover MediaTrack::type as eTRACK_SUBTITLE
     TrackStateobj->type = TrackType::eTRACK_SUBTITLE;
-    TrackStateobj->FetchPlaylist();
-}
-
-TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUX_AUDIO)
-{
-    //To Cover MediaTrack::type as eTRACK_AUX_AUDIO
-    TrackStateobj->type = TrackType::eTRACK_AUX_AUDIO;
     TrackStateobj->FetchPlaylist();
 }
 
@@ -2021,12 +2005,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshSubtitlestest)
     mStreamAbstractionAAMP_HLS->RefreshSubtitles();
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, WaitForVideoTrackCatchupForAuxtest)
-{
-    // Set up necessary data and conditions for testing
-    mStreamAbstractionAAMP_HLS->WaitForVideoTrackCatchupForAux();
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetPreferredLiveOffsetFromConfigtest_1)
 {
     // Set up necessary data and conditions for testing
@@ -2498,11 +2476,6 @@ TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_3)
     AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
 }
 
-TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_4)
-{
-    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest_1)
 {
     double seekPosition = 470.0;
@@ -2558,11 +2531,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest_1)
     mStreamAbstractionAAMP_HLS->aamp->rate = 0;
     double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
     ASSERT_EQ(result, -1);
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, ProcessDiscontinuity)
-{
-    mStreamAbstractionAAMP_HLS->ProcessDiscontinuity(eTRACK_AUX_AUDIO);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, SetAudioTrackInfoFromMuxedStreamTest)
