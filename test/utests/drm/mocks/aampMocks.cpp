@@ -732,11 +732,6 @@ BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 	return 0;
 }
 
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-	return true;
-}
-
 bool PrivateInstanceAAMP::IsPlayEnabled()
 {
 	return true;

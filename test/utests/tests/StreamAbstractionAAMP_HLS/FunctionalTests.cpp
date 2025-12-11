@@ -867,15 +867,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAudio)
     EXPECT_EQ(outputFormat, expectedAudioOutputFormat);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAuxAudio)
-{
-
-    TrackType auxAudioTrackType = eTRACK_AUX_AUDIO;
-    StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(auxAudioTrackType);
-    StreamOutputFormat expectedAuxAudioOutputFormat = FORMAT_AUDIO_ES_AAC; // Example value, replace with your logic
-    EXPECT_EQ(outputFormat, expectedAuxAudioOutputFormat);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage)
 {
 
@@ -1178,13 +1169,6 @@ TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_SUBTITLE)
 {
     //To Cover MediaTrack::type as eTRACK_SUBTITLE
     TrackStateobj->type = TrackType::eTRACK_SUBTITLE;
-    TrackStateobj->FetchPlaylist();
-}
-
-TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUX_AUDIO)
-{
-    //To Cover MediaTrack::type as eTRACK_AUX_AUDIO
-    TrackStateobj->type = TrackType::eTRACK_AUX_AUDIO;
     TrackStateobj->FetchPlaylist();
 }
 
@@ -2021,12 +2005,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshSubtitlestest)
     mStreamAbstractionAAMP_HLS->RefreshSubtitles();
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, WaitForVideoTrackCatchupForAuxtest)
-{
-    // Set up necessary data and conditions for testing
-    mStreamAbstractionAAMP_HLS->WaitForVideoTrackCatchupForAux();
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetPreferredLiveOffsetFromConfigtest_1)
 {
     // Set up necessary data and conditions for testing
@@ -2498,11 +2476,6 @@ TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_3)
     AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
 }
 
-TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_4)
-{
-    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest_1)
 {
     double seekPosition = 470.0;
@@ -2558,11 +2531,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest_1)
     mStreamAbstractionAAMP_HLS->aamp->rate = 0;
     double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
     ASSERT_EQ(result, -1);
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, ProcessDiscontinuity)
-{
-    mStreamAbstractionAAMP_HLS->ProcessDiscontinuity(eTRACK_AUX_AUDIO);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, SetAudioTrackInfoFromMuxedStreamTest)
@@ -2899,4 +2867,86 @@ TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 	EXPECT_EQ("lang0",trackInfo.language);
 	EXPECT_EQ("rend0",trackInfo.rendition);
 	EXPECT_EQ("trackName0",trackInfo.name);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrackSubType)
+{
+	std::vector<TextTrackInfo> tracks;
+	TextTrackInfo trackInfo;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "","","","",0));
+	tracks.push_back(TextTrackInfo("idx1", "lang0", true, "","","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	// Verify CLOSED-CAPTIONS preference selects CC track (isCC=true)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
+
+	// Verify SUBTITLES preference selects subtitle track (isCC=false)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
+
+	// Verify SUBTITLES preference still selects subtitle track (repeated)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
+
+	// Verify CLOSED-CAPTIONS preference still selects CC track (repeated)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
+
+	// Verify empty sub-type preference doesn't award bonus
+	// With no sub-type preference, both tracks have equal language score,
+	// so the first track (idx0) should be selected
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Empty sub-type preference should not award bonus";
+
+	// Verify unrecognized sub-type preference doesn't award bonus
+	// With unrecognized preference, both tracks have equal language score,
+	// so the first track (idx0) should be selected
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "UNKNOWN";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Unrecognized sub-type preference should not award bonus";
+
+	// Verify sub-type bonus overrides track order
+	// Create tracks with different languages but matching sub-type
+	tracks.clear();
+	tracks.push_back(TextTrackInfo("idx0", "lang1", false, "","","","",0)); // First, but wrong sub-type
+	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "","","","",0));  // Second, but matches sub-type
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang1",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index) << "Sub-type bonus should select CC track even if not first";
+	EXPECT_TRUE(trackInfo.isCC);
+
+	// Verify SUBTITLES sub-type bonus overrides track order
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang1",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Sub-type bonus should select subtitle track";
+	EXPECT_FALSE(trackInfo.isCC);
 }
