@@ -84,7 +84,7 @@ bool PlayerLogManager::enableEthanLogRedirection = false;
 static std::hash<std::thread::id> std_thread_hasher;
 
 // Sequential log counter for tracking missing log lines
-static std::atomic<uint32_t> gMWLogCounter(0);
+static std::atomic<uint32_t> gMwLogCounter(0);
 std::size_t GetPlayerPrintableThreadID( void )
 {
 	return std_thread_hasher( std::this_thread::get_id() );
@@ -92,10 +92,10 @@ std::size_t GetPlayerPrintableThreadID( void )
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(MW_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
+void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char *format, ...)
 {
 	// Increment log counter for each log line, wrap at 1000 for consistent 3-digit formatting
-	uint32_t logSeqNum = gMWLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
+	uint32_t logSeqNum = gMwLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
 	
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;

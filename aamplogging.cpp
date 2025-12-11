@@ -87,7 +87,7 @@ static std::atomic<uint32_t> gLogCounter(0);
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, int line, const char *format, ...)
+void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const char *format, ...)
 {
 	// Increment log counter for each log line
 	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;

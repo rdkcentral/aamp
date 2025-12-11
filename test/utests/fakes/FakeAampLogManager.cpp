@@ -52,7 +52,7 @@ bool AampLogManager::locked = true;
 
 thread_local int gPlayerId = -1;
 
-void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...)
+void logprintf(AAMP_LogLevel level, const char* func, int line, const char *format, ...)
 {
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
