@@ -131,7 +131,7 @@ void DumpBinaryBlob(const unsigned char *ptr, size_t len);
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...) __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char *format, ...) __attribute__ ((format (printf, 4, 5)));
 
 #define MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS 20
 #define MW_CLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
