@@ -15,11 +15,11 @@
  */
 
 /***************************************************
- * @file ABRManager.h
+ * @file abr.h
  * @brief Handles operations on Hybrid ABR functionalities
  ***************************************************/
-#ifndef ABR_MANAGER_H
-#define ABR_MANAGER_H
+#ifndef ABR_ABR_H
+#define ABR_ABR_H
 
 #include <iostream>
 #include <vector>
@@ -422,7 +422,7 @@ public:
 	void UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector< long> &tmpData);
 	
 	/**
-	 * @@brief Update Bitrate Data based on ABRCacheOutlier
+	 * @brief Update Bitrate Data based on ABRCacheOutlier
 	 * @params tmpData vector
 	 * @return none
 	 */
@@ -430,11 +430,11 @@ public:
 	long UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData);
 	
 	/**
-	 * @brief fcurrent network bandwidth using most recently recorded 3 sample function to check profilechange is needed or not
+	 * @brief Checks if a profile change is needed based on the most recently recorded network bandwidth samples and total fetched fragment duration.
 	 * @params totalFetchedDuration - Total fragment fetched duration
-	 * @params currProfileIndex -current profileIndex
-	 * @params availBW -current network bandwidth using most recently recorded 3 samples
-	 * @return bool -true if profilechange needed else false
+	 * @params currProfileIndex - Current profile index
+	 * @params availBW - Current network bandwidth using most recently recorded 3 samples
+	 * @return bool - true if profile change is needed, else false
 	 */
 	
 	bool CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW);
@@ -443,7 +443,7 @@ public:
 	 * @brief function to check whether the profileidx is the lowest profile or not
 	 * @params currentProfileIndex -current profile index to be checked.
 	 * @params bool IsTrickmode - true if it is a trickplay,else false
-	 * @retune - true if it is lowest profile ,else false
+	 * @return - true if it is lowest profile ,else false
 	 */
 	bool IsLowestProfile(int currentProfileIndex , bool IsTrickmode);
 	
