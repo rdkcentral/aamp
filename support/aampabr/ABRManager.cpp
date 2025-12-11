@@ -701,6 +701,13 @@ void ABRManager::clearProfiles() {
 }
 
 /**
+ *  @brief Set the simulator log file directory index.
+ */
+void ABRManager::setLogDirectory(char driveName) {
+  gsLogDirectory[0] = driveName;
+}
+
+/**
  *  @brief Set the default iframe bitrate
  */
 void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {

@@ -26,10 +26,7 @@
 #include <map>
 #include <string>
 #include <cstdio>
-//#include "ABRManager.h"
-
-typedef long BitsPerSecond;
-#define BITSPERSECOND_FORMAT "ld"
+#include "ABRManager.h"
 
 class HybridABRManager:public ABRManager
 {
