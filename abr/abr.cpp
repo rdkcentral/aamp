@@ -15,7 +15,7 @@
  */
 // #define DEBUG_ENABLED 1
 /***************************************************
- * @file ABRManager.cpp
+ * @file abr.cpp
  * @brief Handles operations on Hybrid ABR functionalities
  ***************************************************/
 
@@ -26,7 +26,6 @@
 #include <cstdio>
 #include <cmath>
 #include <chrono>
-#include <cstdio>
 #include <stdarg.h>
 #include <sys/time.h>
 #include <algorithm>
@@ -76,11 +75,9 @@ int ABRManager::getInitialProfileIndex(bool chooseMediumProfile, const std::stri
 	}
 	if (INVALID_PROFILE == desiredProfileIndex) {
 		desiredProfileIndex = mSortedBWProfileList[periodId].begin()->second;
-		AAMPLOG_WARN("Got invalid profile index, choose the first index = %d and profileCount = %d and defaultBitrate = %ld\n",
-					 desiredProfileIndex, profileCount, mDefaultInitBitrate);
+		AAMPLOG_WARN("Got invalid profile index, choose the first index = %d and profileCount = %d and defaultBitrate = %ld", desiredProfileIndex, profileCount, mDefaultInitBitrate);
 	} else {
-		AAMPLOG_MIL("Get initial profile index = %d, bitrate = %ld and defaultBitrate = %ld\n",
-					desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond, mDefaultInitBitrate);
+		AAMPLOG_MIL("Get initial profile index = %d, bitrate = %ld and defaultBitrate = %ld", desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond, mDefaultInitBitrate);
 	}
 	return desiredProfileIndex;
 }
@@ -236,7 +233,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 	}
 	
 	int desiredProfileIndex = currentProfileIndex;
-	if (profileCount == 0) { \
+	if (profileCount == 0) {
 		AAMPLOG_WARN("No profiles found" );
 		return desiredProfileIndex;
 	}
@@ -256,7 +253,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 	}
 	
 #if defined(DEBUG_ENABLED)
-	AAMPLOG_MIL("Ramped down profile index = %d bitrate = %ld\n", desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond);
+	AAMPLOG_MIL("Ramped down profile index = %d bitrate = %ld", desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond);
 #endif
 	return desiredProfileIndex;
 }
@@ -305,7 +302,7 @@ int ABRManager::getUserDataOfProfile(int currentProfileIndex) {
 	int userData = -1;
 	int profileCount = getProfileCountUnlocked();
 	if (profileCount == 0 || currentProfileIndex >= profileCount) {
-		AAMPLOG_WARN("No profiles/input profile %d more than profileCount %d", currentProfileIndex, profileCount); \
+		AAMPLOG_WARN("No profiles/input profile %d more than profileCount %d", currentProfileIndex, profileCount);
 		return userData;
 	}
 	userData = mProfiles[currentProfileIndex].userData;
@@ -330,7 +327,7 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
 	
 	// If there is no profiles list, then it means `currentProfileIndex` always reaches to
 	// the lowest.
-	if (profileCount == 0) { \
+	if (profileCount == 0) {
 		AAMPLOG_WARN( "No profiles found" );
 		return true;
 	}
@@ -418,7 +415,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 		// we didn't find a profile which can be supported in this bandwidth
 		if (revIter == mSortedBWProfileList[periodId].rend()) {
 			desiredProfileIndex = mSortedBWProfileList[periodId].begin()->second;
-			AAMPLOG_WARN("Didn't find a profile which supports bandwidth[%ld], min bandwidth available [%ld]. Set profile to lowest!\n", networkBandwidth, mSortedBWProfileList[periodId].begin()->first);
+			AAMPLOG_WARN("Didn't find a profile which supports bandwidth[%ld], min bandwidth available [%ld]. Set profile to lowest!", networkBandwidth, mSortedBWProfileList[periodId].begin()->first);
 		}
 		
 		// No need to jump one profile for small  network change
@@ -435,14 +432,14 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 		}
 		mAbrProfileChangeUpCount = 0;
 #if defined(DEBUG_ENABLED)
-		AAMPLOG_MIL("Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
+		AAMPLOG_MIL("Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld",
 					desiredProfileIndex,
 					(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
 	}
 	
 	if (currentProfileIndex != desiredProfileIndex) {
-		AAMPLOG_MIL("currBW:%ld NwBW=%ld currProf:%d desiredProf:%d Period ID:%s\n",
+		AAMPLOG_MIL("currBW:%ld NwBW=%ld currProf:%d desiredProf:%d Period ID:%s",
 					currentBandwidth, networkBandwidth,
 					currentProfileIndex, desiredProfileIndex, periodId.c_str());
 	}
@@ -549,8 +546,8 @@ void ABRManager::addSortedBWProfileListUnlocked(const ABRManager::ProfileInfo &p
 	if (!profileInfo.isIframeTrack) {
 		mSortedBWProfileList[profileInfo.periodId][profileInfo.bandwidthBitsPerSecond] = idx;
 #if defined(DEBUG_ENABLED)
-		AAMPLOG_MIL("Period ID: %s\n", profileInfo.periodId.c_str());
-		AAMPLOG_MIL("bw:%ld idx:%d\n", profileInfo.bandwidthBitsPerSecond, idx);
+		AAMPLOG_MIL("Period ID: %s", profileInfo.periodId.c_str());
+		AAMPLOG_MIL("bw:%ld idx:%d", profileInfo.bandwidthBitsPerSecond, idx);
 #endif
 	}
 	
@@ -748,7 +745,7 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 
 long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
 {
-	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000);
+	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000); // FIXME!
 	// extra coding to avoid picking lower profile
 	// Avoid this reset for Low bandwidth timeout cases
 	if(downloadbps < currentProfilebps && fragmentDurationMs && downloadTimeMs < fragmentDurationMs/2 && (abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT))
