@@ -22,10 +22,6 @@
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 
-ABRManager::ABRManager()
-{
-}
-
 int ABRManager::getProfileCount()
 {
 	return 0;
