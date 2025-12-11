@@ -40,7 +40,7 @@ public:
     /**
     *   @brief get StreamAbstractionAAMP_COMPOSITEIN instance
     */
-    static StreamAbstractionAAMP_COMPOSITEIN * GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    static std::shared_ptr<StreamAbstractionAAMP> GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
     /**
     *  @brief Clear aamp of CompositeInInstance
@@ -76,7 +76,6 @@ public:
      */
     void Stop(bool clearChannelData) override;
 
-    private:
     /**
      * @fn StreamAbstractionAAMP_COMPOSITEIN
      * @param aamp pointer to PrivateInstanceAAMP object associated with player
@@ -84,7 +83,9 @@ public:
      * @param rate playback rate
      */
      StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
-     static StreamAbstractionAAMP_COMPOSITEIN* mCompositeinInstance;
+
+    private:
+     static std::shared_ptr<StreamAbstractionAAMP_COMPOSITEIN> mCompositeinInstance;
 };
 
 #endif // COMPOSITEIN_SHIM_H_

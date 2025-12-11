@@ -4850,18 +4850,18 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		if(mContentType == ContentType_HDMIIN)
 		{
 			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
+			mpStreamAbstractionAAMP.reset();
 		}
 		else if(mContentType == ContentType_COMPOSITEIN)
 		{
 			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
+			mpStreamAbstractionAAMP.reset();
 		}
 		else
 		{
 			if(!IsLocalAAMPTsb())
 			{
-				SAFE_DELETE(mpStreamAbstractionAAMP);
+				mpStreamAbstractionAAMP.reset();
 			}
 		}
 		ReleaseStreamLock();
@@ -5289,7 +5289,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		another reason, like changing the rate, the flag is already set and the object is not re-created. */
 		if(!mpStreamAbstractionAAMP)
 		{
-			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, rate,
+			mpStreamAbstractionAAMP = std::make_shared<StreamAbstractionAAMP_MPD>(this, playlistSeekPos, rate,
 					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
 					);
@@ -5306,7 +5306,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
 	{ // m3u8
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_HLS(this, playlistSeekPos, rate,
+		mpStreamAbstractionAAMP = std::make_shared<StreamAbstractionAAMP_HLS>(this, playlistSeekPos, rate,
 			std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 				std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
 			std::bind(&PrivateInstanceAAMP::UpdatePTSOffsetFromTune, this,
@@ -5319,7 +5319,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_PROGRESSIVE(this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = std::make_shared<StreamAbstractionAAMP_PROGRESSIVE>(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
@@ -5337,7 +5337,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_OTA)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_OTA(this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = std::make_shared<StreamAbstractionAAMP_OTA>(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
@@ -5345,7 +5345,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_RMF)
 	{
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_RMF(this, playlistSeekPos, rate);
+		mpStreamAbstractionAAMP = std::make_shared<StreamAbstractionAAMP_RMF>(this, playlistSeekPos, rate);
 		if (NULL == mCdaiObject)
 		{
 			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()

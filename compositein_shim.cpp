@@ -27,7 +27,7 @@
 #include <signal.h>
 #include <assert.h>
 
-StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::mCompositeinInstance = NULL;
+std::shared_ptr<StreamAbstractionAAMP_COMPOSITEIN> StreamAbstractionAAMP_COMPOSITEIN::mCompositeinInstance;
 
 /**
  * @brief StreamAbstractionAAMP_COMPOSITEIN Constructor
@@ -44,7 +44,7 @@ StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class Priva
 StreamAbstractionAAMP_COMPOSITEIN::~StreamAbstractionAAMP_COMPOSITEIN()
 {
 	AAMPLOG_WARN("destructor ");
-	mCompositeinInstance = NULL;
+	mCompositeinInstance.reset();
 }
 
 /**
@@ -84,11 +84,11 @@ void StreamAbstractionAAMP_COMPOSITEIN::Stop(bool clearChannelData)
 /**
  * @brief get StreamAbstractionAAMP_COMPOSITEIN instance
  */
-StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+std::shared_ptr<StreamAbstractionAAMP> StreamAbstractionAAMP_COMPOSITEIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
 {
-	if(mCompositeinInstance == NULL)
+	if( !mCompositeinInstance )
 	{
-		mCompositeinInstance = new StreamAbstractionAAMP_COMPOSITEIN(aamp,seekpos,rate);
+		mCompositeinInstance = std::make_shared<StreamAbstractionAAMP_COMPOSITEIN>(aamp,seekpos,rate);
 	}
 	else
 	{
@@ -106,7 +106,7 @@ StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstan
 void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
 {
 	std::lock_guard<std::mutex>lock(mEvtMutex);
-	if(mCompositeinInstance != NULL)
+	if(mCompositeinInstance)
 	{
 		if(mCompositeinInstance->aamp != NULL)
 		{

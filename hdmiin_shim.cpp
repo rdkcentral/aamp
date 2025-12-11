@@ -33,7 +33,7 @@
 * AVInput thunder plugin reference: https://rdkcentral.github.io/rdkservices/#/api/AVInputPlugin
 */
 
-StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::mHdmiinInstance = NULL;
+std::shared_ptr<StreamAbstractionAAMP_HDMIIN> StreamAbstractionAAMP_HDMIIN::mHdmiinInstance;
 
 /**
  * @brief StreamAbstractionAAMP_HDMIIN Constructor
@@ -50,7 +50,7 @@ StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstance
 StreamAbstractionAAMP_HDMIIN::~StreamAbstractionAAMP_HDMIIN()
 {
 	AAMPLOG_WARN("destructor ");
-	mHdmiinInstance = NULL;
+	mHdmiinInstance.reset();
 }
 
 /**
@@ -97,11 +97,11 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
  *   @brief get StreamAbstractionAAMP_HDMIIN instance
  */
 
-StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+std::shared_ptr<StreamAbstractionAAMP> StreamAbstractionAAMP_HDMIIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
 {
-	if( mHdmiinInstance == NULL)
+	if( !mHdmiinInstance )
 	{
-		mHdmiinInstance = new StreamAbstractionAAMP_HDMIIN(aamp,seekpos,rate);
+		mHdmiinInstance = std::make_shared<StreamAbstractionAAMP_HDMIIN>(aamp,seekpos,rate);
 	}
 	else
 	{
@@ -118,7 +118,7 @@ StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(class P
 void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 {
 	std::lock_guard<std::mutex>lock(mEvtMutex);
-	if(mHdmiinInstance != NULL)
+	if(mHdmiinInstance)
 	{
 		if(mHdmiinInstance->aamp != NULL)
 		{

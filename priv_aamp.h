@@ -93,6 +93,7 @@ typedef struct PreCacheUrlData
 typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
+class StreamAbstractionAAMP;
 
 namespace aamp
 {
@@ -885,7 +886,7 @@ public:
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
 	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
-	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
+	std::shared_ptr<StreamAbstractionAAMP> mpStreamAbstractionAAMP; /**< HLS or MPD collector with shared ownership for thread safety */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */

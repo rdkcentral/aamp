@@ -41,7 +41,7 @@ public:
     /**
      *   @brief get StreamAbstractionAAMP_HDMIIN instance
      */
-    static StreamAbstractionAAMP_HDMIIN* GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    static std::shared_ptr<StreamAbstractionAAMP> GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
     /**
      *@brief Clear aamp of HdmiinInstance
@@ -77,7 +77,6 @@ public:
      */
     void Stop(bool clearChannelData) override;
 
-private:
     /**
      * @fn StreamAbstractionAAMP_HDMIIN
      * @param aamp pointer to PrivateInstanceAAMP object associated with player
@@ -86,7 +85,8 @@ private:
      */
     StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
-    static StreamAbstractionAAMP_HDMIIN* mHdmiinInstance;
+private:
+    static std::shared_ptr<StreamAbstractionAAMP_HDMIIN> mHdmiinInstance;
     /*Event Handler*/
     /**
      *   @fn OnVideoStreamInfoUpdate
