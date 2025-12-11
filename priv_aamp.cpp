@@ -5725,6 +5725,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 	if(mFogTSBEnabled && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampConfigToFog))
 	{
 		configPassCode = LoadFogConfig();
+//		LoadFogAbrConfig();
 	}
 	if(mMediaFormat == eMEDIAFORMAT_DASH)
 	{
@@ -5918,6 +5919,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		if(mFogTSBEnabled && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampConfigToFog))
 		{
 			LoadFogConfig();
+		//	LoadFogAbrConfig();
 		}
 		else
 		{
@@ -13251,6 +13253,9 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	//info
 	jsondata.add("info", ISCONFIGSET_PRIV(eAAMPConfig_InfoLogging));
 
+	//warn
+	jsondata.add("warn", ISCONFIGSET_PRIV(eAAMPConfig_WarnLogging));
+
 	//tsbInterruptHandling
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
 
@@ -13383,6 +13388,19 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 }
 
 
+void PrivateInstanceAAMP::LoadFogAbrConfig()
+{
+	HybridABRManager::AampAbrConfig mhAampAbrConfig;
+	// ABR config values
+	// Logging level support on aampabr
+
+	mhAampAbrConfig.infologging  = (ISCONFIGSET_PRIV(eAAMPConfig_InfoLogging)  ? 1 :0);
+	mhAampAbrConfig.debuglogging = (ISCONFIGSET_PRIV(eAAMPConfig_DebugLogging) ? 1 :0);
+	mhAampAbrConfig.tracelogging = (ISCONFIGSET_PRIV(eAAMPConfig_TraceLogging) ? 1:0);
+	mhAampAbrConfig.warnlogging  = (ISCONFIGSET_PRIV(eAAMPConfig_WarnLogging) ? 1:0);
+
+	mhAbrManager.ReadPlayerConfig(&mhAampAbrConfig);
+}
 /**
  * @brief -To Load needed config from player to TSB Handler
  */

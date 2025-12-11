@@ -3716,6 +3716,8 @@ public:
 	*/
 	void LoadAampAbrConfig(void);
 
+	void LoadFogAbrConfig(void);
+
 	/**
 	* @brief To pass player config to TSB Handler
 	* @fn LoadLocalTSBConfig

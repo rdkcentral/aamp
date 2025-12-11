@@ -106,7 +106,7 @@ void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	eAAMPAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
 	eAAMPAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
 	eAAMPAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
-	logprintf("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
+	logprintf("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d warnlogging %d",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter, eAAMPAbrConfig.warnlogging);
 }
 
 
