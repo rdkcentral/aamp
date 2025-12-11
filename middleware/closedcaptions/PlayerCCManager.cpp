@@ -724,6 +724,16 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	return ret;
 }
 
+void PlayerCCManagerBase::updateLastTextTracks(const std::vector<CCTrackInfo>& newTextTracks) 
+{  
+	
+	mLastTextTracks = newTextTracks; 
+	for (const auto& trackCC : mLastTextTracks)
+	{
+	 	MW_LOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
+	}
+}
+
 /**
  *  @brief To restore cc state after new tune
  */

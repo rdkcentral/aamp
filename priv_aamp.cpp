@@ -444,6 +444,10 @@ void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& te
         ccTrack.instreamId = track.instreamId;
         updatedTextTracks.push_back(ccTrack);
     }
+	for (const auto& trackCC : updatedTextTracks)
+	{
+		AAMPLOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
+	}
 }
 
 /**
@@ -10126,11 +10130,15 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 	{
 		std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks(allTrack);
 
-		std::vector<TextTrackInfo> textTracksCopy;
-		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
+		//std::vector<TextTrackInfo> textTracksCopy;
+		//std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
         std::vector<CCTrackInfo> updatedTextTracks;
-		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		UpdateCCTrackInfo(trackInfo,updatedTextTracks);
         PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
+		for (const auto& trackCC : updatedTextTracks)
+		{
+			AAMPLOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
+		}
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format

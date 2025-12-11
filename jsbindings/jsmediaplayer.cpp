@@ -3944,7 +3944,11 @@ public:
 	{
 
 		const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
-		LOG_WARN_EX("[XREReceiver]:found %d text tracks", (int)textTracks.size());
+		for (const auto& trackCC : textTracks)
+		{
+			AAMPLOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
+		}
+		LOG_WARN_EX("[XREReceiver]:found %d text tracks slang:%s", (int)textTracks.size(),selectedLang);
 
 		if(!selectedLang.empty() && isdigit(selectedLang[0]))
 		{
@@ -4010,10 +4014,15 @@ private:
 			if(enable_value)
 			{
 				const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
+				for (const auto& trackCC : textTracks)
+				{
+					AAMPLOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
+				}
 				std::string defaultTrack;
 				if(!textTracks.empty())
 				{
 					defaultTrack = textTracks.front().instreamId;
+					AAMPLOG_WARN("Gnanesha defaultTrack:%s ", defaultTrack.c_str() );
 				}
 
 				if(defaultTrack.empty())

@@ -7132,7 +7132,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
-//				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
 				mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;
@@ -7161,8 +7161,13 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		//std::vector<TextTrackInfo> textTracksCopy;
 		//std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
+		AAMPLOG_WARN("Gnanesha: mTextTracks size:%zu", mTextTracks.size());
 		aamp->UpdateCCTrackInfo(mTextTracks,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
+		for (const auto& trackCC : updatedTextTracks)
+		{
+			AAMPLOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
+		}
 	}
 	else
 	{

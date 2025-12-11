@@ -149,7 +149,7 @@ public:
 	 * @param[in] newTextTracks - list of text track to store
 	 * @return void
 	 */
-	virtual void updateLastTextTracks(const std::vector<CCTrackInfo>& newTextTracks) {  mLastTextTracks = newTextTracks; }
+	virtual void updateLastTextTracks(const std::vector<CCTrackInfo>& newTextTracks);
 	/**
 	 * @brief Get list of text track Ids
 	 *
