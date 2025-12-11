@@ -532,8 +532,6 @@ static AampMediaType MediaTypeToPlaylist( AampMediaType mediaType )
 			return eMEDIATYPE_PLAYLIST_AUDIO;
 		case eMEDIATYPE_SUBTITLE:
 			return eMEDIATYPE_PLAYLIST_SUBTITLE;
-		case eMEDIATYPE_AUX_AUDIO:
-			return eMEDIATYPE_PLAYLIST_AUX_AUDIO;
 		case eMEDIATYPE_IFRAME:
 			return eMEDIATYPE_PLAYLIST_IFRAME;
 		default:
@@ -565,7 +563,6 @@ static AampCurlInstance getCurlInstanceByMediaType(AampMediaType type)
 	default:
 		instance = eCURLINSTANCE_VIDEO;
 		break;
-	// what about eMEDIATYPE_AUX_AUDIO?
 	}
 
 	return instance;
@@ -6827,20 +6824,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 									//if isFrstAvailableTxtTrackSelected is true, we should look for the best option (aamp->mSubLanguage) among all the tracks
 					if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 					{
-						if (eMEDIATYPE_AUX_AUDIO == i && aamp->IsAuxiliaryAudioEnabled())
-						{
-							if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
-							{
-								AAMPLOG_WARN("PrivateStreamAbstractionMPD: auxiliary audio same as primary audio, set forward audio flag");
-								SetAudioFwdToAuxStatus(true);
-								break;
-							}
-							else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->GetAuxiliaryAudioLanguage(), adaptationSet, selRepresentationIndex) == true)
-							{
-								selAdaptationSetIndex = iAdaptationSet;
-							}
-						}
-						else if (eMEDIATYPE_AUDIO == i)
+						if (eMEDIATYPE_AUDIO == i)
 						{
 							selAdaptationSetIndex = audioAdaptationSetIndex;
 							selRepresentationIndex = audioRepresentationIndex;
@@ -6950,18 +6934,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] %s",
 				GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
-			//This is for cases where subtitle is not enabled, but auxiliary audio track is enabled
-			if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
-			{
-				AAMPLOG_WARN("PrivateStreamAbstractionMPD: Auxiliary enabled, but subtitle disabled, swap MediaStreamContext of both");
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->adaptationSetIdx;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->representationIndex;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->mediaType = eMEDIATYPE_AUX_AUDIO;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type = eTRACK_AUX_AUDIO;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->profileChanged = true;
-				mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled = false;
-			}
 
 			if( aamp->IsLocalAAMPTsbFromConfig() && aamp->IsIframeExtractionEnabled())
 			{
@@ -7842,7 +7814,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 		validPeriod = currMPDPeriodDetails[0];
 		for(const auto& iter : currMPDPeriodDetails)
 		{
-			if(iter.duration > 0)
+			if(iter.duration > 0 && !iter.isEmptyPeriod)
 			{
 				validPeriod = iter;
 				break;
@@ -10478,7 +10450,7 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  * @brief Get output format of stream.
  *
  */
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
@@ -10496,22 +10468,11 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	{
 		audioOutputFormat = FORMAT_INVALID;
 	}
-	//if subtitle is disabled, but aux is enabled, then its status is saved in place of eMEDIATYPE_SUBTITLE
-	if ((mMediaStreamContext[eMEDIATYPE_AUX_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled) ||
-		(mMediaStreamContext[eMEDIATYPE_SUBTITLE] && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type == eTRACK_AUX_AUDIO))
-	{
-		auxOutputFormat = FORMAT_ISO_BMFF;
-	}
-	else
-	{
-		auxOutputFormat = FORMAT_INVALID;
-	}
 
-	//TODO - check whether the ugly hack above is in operation
-	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
+	// The check for PTS restamp enabled is a hack.
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
-	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] &&
-		mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
+	// TODO: We need to remove this in future
+	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE])
 	{
 		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
@@ -13771,9 +13732,10 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		periodInfo.periodIndex = iter;
 		periodInfo.periodStartTime = mMPDParseHelper->GetPeriodStartTime(iter,mLastPlaylistDownloadTimeMs);
 		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+		periodInfo.isEmptyPeriod = mMPDParseHelper->IsEmptyPeriod(iter, (mPlayRate != AAMP_NORMAL_PLAY_RATE));
 		currMPDPeriodDetails.push_back(periodInfo);
 		mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
-		if(!mMPDParseHelper->IsEmptyPeriod(iter, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+		if(!periodInfo.isEmptyPeriod)
 		{
 			durMs += periodInfo.duration;
 		}

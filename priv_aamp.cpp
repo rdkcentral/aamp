@@ -418,7 +418,6 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 			case eMEDIATYPE_VIDEO:
 			case eMEDIATYPE_AUDIO:
 			case eMEDIATYPE_SUBTITLE:
-			case eMEDIATYPE_AUX_AUDIO:
 			case eMEDIATYPE_IFRAME:
 						ret = eMEDIATYPE_TELEMETRY_AVS;
 						break;
@@ -426,14 +425,12 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 			case eMEDIATYPE_PLAYLIST_VIDEO:
 			case eMEDIATYPE_PLAYLIST_AUDIO:
 			case eMEDIATYPE_PLAYLIST_SUBTITLE:
-			case eMEDIATYPE_PLAYLIST_AUX_AUDIO:
 			case eMEDIATYPE_PLAYLIST_IFRAME:
 						ret = eMEDIATYPE_TELEMETRY_MANIFEST;
 						break;
 			case eMEDIATYPE_INIT_VIDEO:
 			case eMEDIATYPE_INIT_AUDIO:
 			case eMEDIATYPE_INIT_SUBTITLE:
-			case eMEDIATYPE_INIT_AUX_AUDIO:
 			case eMEDIATYPE_INIT_IFRAME:
 						ret = eMEDIATYPE_TELEMETRY_INIT;
 						break;
@@ -457,7 +454,6 @@ double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *
         timeScale = GetVidTimeScale();
         break;
     case eMEDIATYPE_AUDIO:
-    case eMEDIATYPE_AUX_AUDIO:
         timeScale = GetAudTimeScale();
         break;
     case eMEDIATYPE_SUBTITLE:
@@ -1200,7 +1196,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mHarvestCountLimit(0)
 	, mHarvestConfig(0)
 	, mIsWVKIDWorkaround(false)
-	, mAuxFormat(FORMAT_INVALID), mAuxAudioLanguage()
 	, mAbsoluteEndPosition(0), mIsLiveStream(false)
 	, mbUsingExternalPlayer (false)
 	, mCCId(0)
@@ -3079,7 +3074,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 	if (!(DiscontinuitySeenInAllTracks()))
 	{
-		AAMPLOG_ERR("PrivateInstanceAAMP: Discontinuity status of video - (%d), audio - (%d) and aux - (%d)", mProcessingDiscontinuity[eMEDIATYPE_VIDEO], mProcessingDiscontinuity[eMEDIATYPE_AUDIO], mProcessingDiscontinuity[eMEDIATYPE_AUX_AUDIO]);
+		AAMPLOG_ERR("PrivateInstanceAAMP: Discontinuity status of video - (%d), audio - (%d)", mProcessingDiscontinuity[eMEDIATYPE_VIDEO], mProcessingDiscontinuity[eMEDIATYPE_AUDIO]);
 		UnblockWaitForDiscontinuityProcessToComplete();
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
@@ -3098,7 +3093,6 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		ResetTrackDiscontinuityIgnoredStatus();
 		lastUnderFlowTimeMs[eMEDIATYPE_VIDEO] = 0;
 		lastUnderFlowTimeMs[eMEDIATYPE_AUDIO] = 0;
-		lastUnderFlowTimeMs[eMEDIATYPE_AUX_AUDIO] = 0;
 
 		{
 			double newPosition = GetPositionSeconds();
@@ -3153,7 +3147,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 
-			GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
+			GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
 
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
@@ -3161,10 +3155,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				sink->Configure(
 					mVideoFormat,
 					mAudioFormat,
-					mAuxFormat,
 					mSubtitleFormat,
 					mpStreamAbstractionAAMP->GetESChangeStatus(),
-					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
 					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 
 				/*
@@ -3581,11 +3573,9 @@ void PrivateInstanceAAMP::ResetProfileCache(void)
 	profiler.ProfileReset(PROFILE_BUCKET_INIT_VIDEO);
 	profiler.ProfileReset(PROFILE_BUCKET_INIT_AUDIO);
 	profiler.ProfileReset(PROFILE_BUCKET_INIT_SUBTITLE);
-	profiler.ProfileReset(PROFILE_BUCKET_INIT_AUXILIARY);
 	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_VIDEO);
 	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_AUDIO);
 	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_SUBTITLE);
-	profiler.ProfileReset(PROFILE_BUCKET_FRAGMENT_AUXILIARY);
 }
 void PrivateInstanceAAMP::ActivatePlayer(void)
 {
@@ -3803,7 +3793,7 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 	assert (instanceEnd <= eCURLINSTANCE_MAX);
 
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && \
-		( startIdx == eCURLINSTANCE_VIDEO ) && (eCURLINSTANCE_AUX_AUDIO < instanceEnd) )
+		( startIdx == eCURLINSTANCE_VIDEO ) && (eCURLINSTANCE_SUBTITLE < instanceEnd) )
 	{
 		for(int i=0; i<eCURLINSTANCE_MAX;++i)
 		{
@@ -3844,9 +3834,6 @@ AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type
 				break;
 			case eMEDIATYPE_PLAYLIST_SUBTITLE:
 				retType = eCURLINSTANCE_MANIFEST_PLAYLIST_SUBTITLE;
-				break;
-			case eMEDIATYPE_PLAYLIST_AUX_AUDIO:
-				retType = eCURLINSTANCE_MANIFEST_PLAYLIST_AUX_AUDIO;
 				break;
 			default:
 				break;
@@ -3973,7 +3960,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		case eMEDIATYPE_INIT_VIDEO:
 		case eMEDIATYPE_INIT_AUDIO:
 		case eMEDIATYPE_INIT_SUBTITLE:
-		case eMEDIATYPE_INIT_AUX_AUDIO:
 		case eMEDIATYPE_INIT_IFRAME:
 			maxDownloadAttempt += GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount);
 			break;
@@ -4054,7 +4040,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			//Disable download stall detection checks for FOG playback done by JS PP
 			if(mediaType == eMEDIATYPE_MANIFEST || mediaType == eMEDIATYPE_PLAYLIST_VIDEO ||
 			   mediaType == eMEDIATYPE_PLAYLIST_AUDIO || mediaType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
-			   mediaType == eMEDIATYPE_PLAYLIST_IFRAME || mediaType == eMEDIATYPE_PLAYLIST_AUX_AUDIO)
+			   mediaType == eMEDIATYPE_PLAYLIST_IFRAME)
 			{
 				// For Manifest file : Set starttimeout to 0 ( no wait for first byte). Playlist/Manifest with DAI
 				// contents take more time , hence to avoid frequent timeout, its set as 0
@@ -4321,7 +4307,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							case eMEDIATYPE_AUDIO:
 							case eMEDIATYPE_PLAYLIST_VIDEO:
 							case eMEDIATYPE_PLAYLIST_AUDIO:
-							case eMEDIATYPE_AUX_AUDIO:
 								// always retry small, critical fragments on timeout
 								loopAgain = true;
 								break;
@@ -4329,7 +4314,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							case eMEDIATYPE_INIT_VIDEO:
 							case eMEDIATYPE_INIT_AUDIO:
 							case eMEDIATYPE_INIT_SUBTITLE:
-							case eMEDIATYPE_INIT_AUX_AUDIO:
 							case eMEDIATYPE_INIT_IFRAME:
 								loopAgain = true;
 								if (downloadAttempt == maxDownloadAttempt)
@@ -5534,8 +5518,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
-		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
+		GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d", mVideoFormat, mAudioFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
@@ -5617,7 +5601,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
-					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
 				}
 			}
 			else
@@ -8661,14 +8645,6 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPer
 			}
 				break;
 
-			case eMEDIATYPE_PLAYLIST_AUX_AUDIO:
-			{
-				dataType = VideoStatDataType::VE_DATA_MANIFEST;
-				trackType = VideoStatTrackType::STAT_AUDIO;
-				audioIndex += mCurrentLanguageIndex;
-			}
-				break;
-
 			case eMEDIATYPE_PLAYLIST_IFRAME:
 			{
 				dataType = VideoStatDataType::VE_DATA_MANIFEST;
@@ -8713,13 +8689,6 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPer
 				audioIndex += mCurrentLanguageIndex;
 			}
 				break;
-			case eMEDIATYPE_AUX_AUDIO:
-			{
-				dataType = VideoStatDataType::VE_DATA_FRAGMENT;
-				trackType = VideoStatTrackType::STAT_AUDIO;
-				audioIndex += mCurrentLanguageIndex;
-			}
-				break;
 			case eMEDIATYPE_IFRAME:
 			{
 				dataType = VideoStatDataType::VE_DATA_FRAGMENT;
@@ -8742,14 +8711,6 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPer
 				break;
 
 			case eMEDIATYPE_INIT_AUDIO:
-			{
-				dataType = VideoStatDataType::VE_DATA_INIT_FRAGMENT;
-				trackType = VideoStatTrackType::STAT_AUDIO;
-				audioIndex += mCurrentLanguageIndex;
-			}
-				break;
-
-			case eMEDIATYPE_INIT_AUX_AUDIO:
 			{
 				dataType = VideoStatDataType::VE_DATA_INIT_FRAGMENT;
 				trackType = VideoStatTrackType::STAT_AUDIO;
@@ -9615,9 +9576,6 @@ ProfilerBucketType PrivateInstanceAAMP::mediaType2Bucket(AampMediaType mediaType
 		case eMEDIATYPE_SUBTITLE:
 			pbt = PROFILE_BUCKET_FRAGMENT_SUBTITLE;
 			break;
-		case eMEDIATYPE_AUX_AUDIO:
-			pbt = PROFILE_BUCKET_FRAGMENT_AUXILIARY;
-			break;
 		case eMEDIATYPE_MANIFEST:
 			pbt = PROFILE_BUCKET_MANIFEST;
 			break;
@@ -9630,9 +9588,6 @@ ProfilerBucketType PrivateInstanceAAMP::mediaType2Bucket(AampMediaType mediaType
 		case eMEDIATYPE_INIT_SUBTITLE:
 			pbt = PROFILE_BUCKET_INIT_SUBTITLE;
 			break;
-		case eMEDIATYPE_INIT_AUX_AUDIO:
-			pbt = PROFILE_BUCKET_INIT_AUXILIARY;
-			break;
 		case eMEDIATYPE_PLAYLIST_VIDEO:
 			pbt = PROFILE_BUCKET_PLAYLIST_VIDEO;
 			break;
@@ -9641,9 +9596,6 @@ ProfilerBucketType PrivateInstanceAAMP::mediaType2Bucket(AampMediaType mediaType
 			break;
 		case eMEDIATYPE_PLAYLIST_SUBTITLE:
 			pbt = PROFILE_BUCKET_PLAYLIST_SUBTITLE;
-			break;
-		case eMEDIATYPE_PLAYLIST_AUX_AUDIO:
-			pbt = PROFILE_BUCKET_PLAYLIST_AUXILIARY;
 			break;
 		default:
 			pbt = (ProfilerBucketType)mediaType;
@@ -9725,7 +9677,7 @@ bool PrivateInstanceAAMP::IsMuxedStream()
  */
 void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
-	if (!mTrackInjectionBlocked[type])
+	if( type<AAMP_TRACK_COUNT && !mTrackInjectionBlocked[type] )
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -9740,7 +9692,7 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
  */
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
-	if (mTrackInjectionBlocked[type])
+	if( type<AAMP_TRACK_COUNT && mTrackInjectionBlocked[type] )
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -11274,7 +11226,6 @@ void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
 	mIsDiscontinuityIgnored[eTRACK_VIDEO] = false;
 	mIsDiscontinuityIgnored[eTRACK_AUDIO] = false;
 	mIsDiscontinuityIgnored[eTRACK_SUBTITLE] = false;
-	mIsDiscontinuityIgnored[eTRACK_AUX_AUDIO] = false;
 }
 
 /**
@@ -11302,7 +11253,7 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
 /**
  * @brief Set stream format for audio/video tracks
  */
-void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
 	bool reconfigure = false;
 	//AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
@@ -11334,15 +11285,10 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		reconfigure = true;
 		mAudioFormat = audioFormat;
 	}
-	if (auxFormat != mAuxFormat && (mAuxFormat == FORMAT_INVALID || (mAuxFormat != FORMAT_UNKNOWN && auxFormat != FORMAT_UNKNOWN)) && auxFormat != FORMAT_INVALID)
-	{
-		reconfigure = true;
-		mAuxFormat = auxFormat;
-	}
 	if (IsMuxedStream() && (mVideoComponentCount == 0 || mAudioComponentCount == 0)) //Can be a Muxed stream/Demuxed with either of audio or video-only stream
 	{
 		AAMPLOG_INFO(" TS Processing Done. Number of Audio Components : %d and Video Components : %d",mAudioComponentCount,mVideoComponentCount);
-		if (IsAudioOrVideoOnly(videoFormat, audioFormat, auxFormat))
+		if (IsAudioOrVideoOnly(videoFormat, audioFormat))
 		{
 			bool newTune = IsNewTune();
 			lock.unlock();
@@ -11362,7 +11308,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
-			sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, false, mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+			sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
 		}
 	}
 }
@@ -11371,7 +11317,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
  * @brief To check for audio/video only Playback
  */
 
-bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
 	AAMPLOG_WARN("Old Stream format - videoFormat %d and audioFormat %d",mVideoFormat,mAudioFormat);
 	bool ret = false;
@@ -11388,10 +11334,6 @@ bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, Str
 		if (mAudioFormat != audioFormat && audioFormat == FORMAT_INVALID)
 		{
 			mAudioFormat = audioFormat;
-		}
-		else if (mAuxFormat != auxFormat && auxFormat == FORMAT_INVALID)
-		{
-			mAuxFormat = auxFormat;
 		}
 		mVideoOnlyPb = true;
 		AAMPLOG_INFO("Video-Only PlayBack");
@@ -11509,14 +11451,6 @@ void PrivateInstanceAAMP::ReleaseStreamLock()
 }
 
 /**
- * @brief To check if auxiliary audio is enabled
- */
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-	return !mAuxAudioLanguage.empty();
-}
-
-/**
  * @brief Check if discontinuity processed in all tracks
  *
  */
@@ -11526,9 +11460,8 @@ bool PrivateInstanceAAMP::DiscontinuitySeenInAllTracks()
 	// Split off the logical expression for better clarity
 	bool vidDiscontinuity = (mVideoFormat == FORMAT_INVALID || mProcessingDiscontinuity[eMEDIATYPE_VIDEO]);
 	bool audDiscontinuity = (mAudioFormat == FORMAT_INVALID || mProcessingDiscontinuity[eMEDIATYPE_AUDIO]);
-	bool auxDiscontinuity = (mAuxFormat == FORMAT_INVALID || mProcessingDiscontinuity[eMEDIATYPE_AUX_AUDIO]);
 
-	return (vidDiscontinuity && audDiscontinuity && auxDiscontinuity);
+	return (vidDiscontinuity && audDiscontinuity);
 }
 
 /**
@@ -11540,9 +11473,8 @@ bool PrivateInstanceAAMP::DiscontinuitySeenInAnyTracks()
 	// Split off the logical expression for better clarity
 	bool vidDiscontinuity = (mVideoFormat != FORMAT_INVALID && mProcessingDiscontinuity[eMEDIATYPE_VIDEO]);
 	bool audDiscontinuity = (mAudioFormat != FORMAT_INVALID && mProcessingDiscontinuity[eMEDIATYPE_AUDIO]);
-	bool auxDiscontinuity = (mAuxFormat != FORMAT_INVALID && mProcessingDiscontinuity[eMEDIATYPE_AUX_AUDIO]);
 
-	return (vidDiscontinuity || audDiscontinuity || auxDiscontinuity);
+	return (vidDiscontinuity || audDiscontinuity);
 }
 
 /**
@@ -11552,7 +11484,6 @@ void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
 {
 	mProcessingDiscontinuity[eMEDIATYPE_VIDEO] = false;
 	mProcessingDiscontinuity[eMEDIATYPE_AUDIO] = false;
-	mProcessingDiscontinuity[eMEDIATYPE_AUX_AUDIO] = false;
 }
 
 /**
@@ -12277,6 +12208,15 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			}
 		}
 
+		std::string inputTextSubTypeString;
+		if (jsObject->isString("sub-type"))
+		{
+			if (jsObject->get("sub-type", inputTextSubTypeString))
+			{
+				AAMPLOG_INFO("Preferred sub-type string: %s", inputTextSubTypeString.c_str());
+			}
+		}
+
 		Accessibility  inputTextAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -12306,6 +12246,7 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		preferredTextTypeString = std::move(inputTextTypeString);
 		preferredInstreamIdString = std::move(inputInstreamIdString);
 		preferredTextNameString = std::move(inputTextNameString);
+		preferredTextSubTypeString = std::move(inputTextSubTypeString);
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
@@ -13171,8 +13112,7 @@ MediaStreamContext* PrivateInstanceAAMP::GetMediaStreamContext(AampMediaType typ
 	if(mpStreamAbstractionAAMP &&
 		(type == eMEDIATYPE_VIDEO ||
 		 type == eMEDIATYPE_AUDIO ||
-		 type == eMEDIATYPE_SUBTITLE ||
-		 type == eMEDIATYPE_AUX_AUDIO))
+		 type == eMEDIATYPE_SUBTITLE))
 	{
 		MediaStreamContext* context = (MediaStreamContext*)mpStreamAbstractionAAMP->GetMediaTrack((TrackType)type);
 		return context;
@@ -14102,13 +14042,12 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
  *
  *   @param[out]  primaryOutputFormat - format of primary track
  *   @param[out]  audioOutputFormat - format of audio track
- *   @param[out]  auxAudioOutputFormat - format of aux audio track
  *   @param[out]  subtitleOutputFormat - format of subtitle  track
  *   @return void
  */
-void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
 	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
@@ -14116,8 +14055,7 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 		(rate != AAMP_NORMAL_PLAY_RATE))
 	{
 		audioOutputFormat = FORMAT_INVALID;
-		auxAudioOutputFormat = FORMAT_INVALID;
 		subtitleOutputFormat = FORMAT_INVALID;
-		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 	}
 }
