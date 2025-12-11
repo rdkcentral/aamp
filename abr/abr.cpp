@@ -232,7 +232,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 	}
 #if defined(DEBUG_ENABLED)
 	AAMPLOG_MIL("%s:%d Get best matched profile index = %d bitrate = %ld", desiredProfileIndex,
-			  (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
+				(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
 #endif
 	return desiredProfileIndex;
 }
@@ -413,7 +413,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 		mAbrProfileChangeDownCount = 0;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("Ramp up profile index = %d, bitrate = %ld networkBandwidth = %ld", desiredProfileIndex,
-				  (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
+					(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
 	} else {
 		// if networkBandwidth < than current bandwidth
@@ -452,15 +452,15 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 		mAbrProfileChangeUpCount = 0;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("%s:%d Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
-				  desiredProfileIndex,
-				  (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
+					desiredProfileIndex,
+					(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
 	}
 	
 	if (currentProfileIndex != desiredProfileIndex) {
 		AAMPLOG_MIL("currBW:%ld NwBW=%ld currProf:%d desiredProf:%d Period ID:%s\n",
-				  currentBandwidth, networkBandwidth,
-				  currentProfileIndex, desiredProfileIndex, periodId.c_str());
+					currentBandwidth, networkBandwidth,
+					currentProfileIndex, desiredProfileIndex, periodId.c_str());
 	}
 	
 	return desiredProfileIndex;
@@ -951,7 +951,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 	{
 		static int loop = 1;
 		AAMPLOG_WARN("Attempted rampup from steady state ->currProf:%d newProf:%d bufferValue:%lf threshold:%d(30)",
-						currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
+					 currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
 		loop = (++loop >4)?1:loop;
 		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,loop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
