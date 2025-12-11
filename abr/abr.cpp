@@ -13,7 +13,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-
+// #define DEBUG_ENABLED 1
 /***************************************************
  * @file ABRManager.cpp
  * @brief Handles operations on Hybrid ABR functionalities
@@ -40,22 +40,6 @@ ABRManager::AampAbrConfig eAAMPAbrConfig;
 
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
-
-#if 0
-/**
- * @brief Constructor of ABRManager
- */
-ABRManager::ABRManager() :
-mDefaultInitBitrate(DEFAULT_BITRATE),
-mDesiredIframeProfile(0),
-mAbrProfileChangeUpCount(0),
-mAbrProfileChangeDownCount(0),
-mLowestIframeProfile(INVALID_PROFILE),
-mDefaultIframeBitrate(0),
-mProfileLock() {
-	
-}
-#endif
 
 /**
  * @brief Get initial profile index, choose the medium profile or
@@ -231,7 +215,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 		}
 	}
 #if defined(DEBUG_ENABLED)
-	AAMPLOG_MIL("%s:%d Get best matched profile index = %d bitrate = %ld", desiredProfileIndex,
+	AAMPLOG_MIL("Get best matched profile index = %d bitrate = %ld", desiredProfileIndex,
 				(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
 #endif
 	return desiredProfileIndex;
@@ -272,7 +256,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 	}
 	
 #if defined(DEBUG_ENABLED)
-	AAMPLOG_MIL("%s:%d Ramped down profile index = %d bitrate = %ld\n", desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond);
+	AAMPLOG_MIL("Ramped down profile index = %d bitrate = %ld\n", desiredProfileIndex, mProfiles[desiredProfileIndex].bandwidthBitsPerSecond);
 #endif
 	return desiredProfileIndex;
 }
@@ -451,7 +435,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 		}
 		mAbrProfileChangeUpCount = 0;
 #if defined(DEBUG_ENABLED)
-		AAMPLOG_MIL("%s:%d Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
+		AAMPLOG_MIL("Ramp down profile index = %d, bitrate = %ld networkBandwidth = %ld\n",
 					desiredProfileIndex,
 					(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif

@@ -187,12 +187,9 @@ add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
-#	include_directories(support/aampabr)
 	include_directories(support/aampmetrics)
 
-#	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
-#	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
 endif()
 
