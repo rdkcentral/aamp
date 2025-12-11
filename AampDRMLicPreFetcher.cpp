@@ -44,7 +44,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mTrackStatus(),
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
-		mFetchInstance(nullptr),
+		mFetchInstanceWeak(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
@@ -215,7 +215,7 @@ bool AampLicensePreFetcher::Term()
 	}
 	
 	mTrackStatus.fill(false);
-	mFetchInstance = nullptr;
+	mFetchInstanceWeak.reset();
 	return ret;
 }
 
@@ -423,9 +423,13 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	if (skipErrorEvent && mFetchInstance)
+	// Use lock-free weak_ptr pattern for thread-safe access to mFetchInstance
+	if (skipErrorEvent)
 	{
-		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		if (auto fetchInstance = mFetchInstanceWeak.lock())
+		{
+			fetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		}
 	}
 	else
 	{

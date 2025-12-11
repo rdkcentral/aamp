@@ -831,16 +831,29 @@ void AampDRMLicenseManager::SetCommonKeyDuration(int keyDuration)
  */
 void AampDRMLicenseManager::Stop()
 {
+	// Clear the fetcher weak pointer before terminating to prevent use-after-free
+	mLicensePrefetcher->ClearLicenseFetcher();
 	mLicensePrefetcher->Term();
 }
 /**
- * @brief set license fetcher object
+ * @brief set license fetcher object using shared_ptr for thread-safe lifetime management
+ * 
+ * @param fetcherInstance shared_ptr to AampLicenseFetcher instance
+ * @return none
+ */
+void AampDRMLicenseManager::SetLicenseFetcher(std::shared_ptr<AampLicenseFetcher> fetcherInstance)
+{
+	mLicensePrefetcher->SetLicenseFetcher(fetcherInstance);
+}
+
+/**
+ * @brief Clear license fetcher weak pointer to prevent use-after-free
  * 
  * @return none
  */
-void AampDRMLicenseManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+void AampDRMLicenseManager::ClearLicenseFetcher()
 {
-	mLicensePrefetcher->SetLicenseFetcher(fetcherInstance);
+	mLicensePrefetcher->ClearLicenseFetcher();
 }
 
 /**

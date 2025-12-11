@@ -4840,6 +4840,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		// Clear license fetcher weak pointer before stopping/destroying stream abstraction to prevent use-after-free
+		if (mDRMLicenseManager)
+		{
+			mDRMLicenseManager->ClearLicenseFetcher();
+		}
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)

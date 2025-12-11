@@ -171,11 +171,19 @@ public:
 	bool Term();
 
 	/**
-	 * @brief set license prefetcher
+	 * @brief set license prefetcher using shared_ptr for thread-safe lifetime management
+	 * 
+	 * @param fetcherInstance shared_ptr to AampLicenseFetcher instance
+	 * @return none
+	 */
+	void SetLicenseFetcher(std::shared_ptr<AampLicenseFetcher> fetcherInstance) { mFetchInstanceWeak = fetcherInstance; }
+
+	/**
+	 * @brief clear license fetcher weak pointer to prevent use-after-free
 	 * 
 	 * @return none
 	 */
-	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance) { mFetchInstance = fetcherInstance; }
+	void ClearLicenseFetcher() { mFetchInstanceWeak.reset(); }
 
 	/**
 	 * @brief Set the Common Key Duration object
@@ -235,7 +243,7 @@ private:
 	bool mSendErrorOnFailure;                           /** To send error event when session creation fails without additional checks*/
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
-	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
+	std::weak_ptr<AampLicenseFetcher> mFetchInstanceWeak; /** weak_ptr to AampLicenseFetcher for thread-safe lifetime observation*/
 	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
 	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/
 	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
