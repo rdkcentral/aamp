@@ -703,7 +703,7 @@ TEST_F(PlayerInstanceAAMPTests, SubscribeResponseHeadersTest) {
 
 TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
     AAMPEventType eventType = AAMP_EVENT_TUNED;
-    EventListener* eventListener = nullptr ;
+    std::shared_ptr<EventListener> eventListener = nullptr;
 
     // Call the method to be tested
    mPlayerInstance->AddEventListener(eventType,eventListener);
@@ -712,7 +712,7 @@ TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
 
 TEST_F(PlayerInstanceAAMPTests, RemoveEventListenerTest) {
     AAMPEventType eventType = AAMP_EVENT_TUNED;
-    EventListener* eventListener = nullptr;
+    std::shared_ptr<EventListener> eventListener = nullptr;
 
     // Call the method to be tested
    mPlayerInstance->RemoveEventListener(eventType,eventListener);
@@ -2195,32 +2195,6 @@ TEST_F(PlayerInstanceAAMPTests,InitAAMPConfigTest)
     const char* jsonStr = "{\"key\": \"value\"}";
     mPlayerInstance->AsyncStartStop();
     mPlayerInstance->InitAAMPConfig(jsonStr);
-}
-
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest1)
-{
-    //checking minimum string
-    std::string language = "a";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
-
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest2)
-{
-    //checking maximum string
-    std::string language(1000000,'A');
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest3)
-{
-    //checking random string
-    std::string language = "English";
-    mPlayerInstance->SetAuxiliaryLanguage(language);
 }
 
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest1)

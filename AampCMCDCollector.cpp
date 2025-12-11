@@ -74,7 +74,7 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 			traceId = sid;
 		}
 		mTraceId = traceId;
-		AAMPLOG_WARN("CMCD Enabled. TraceId:%s", mTraceId.c_str());
+		AAMPLOG_MIL("CMCD Enabled. TraceId:%s", mTraceId.c_str());
 		// Create metric handlers for each stream type
 		// Add it to table
 		CMCDHeaders *pCMCDMetrics = NULL;
@@ -114,18 +114,6 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 		pCMCDMetrics->SetMediaType("INIT_AUDIO");
 		delete mCMCDStreamData[eMEDIATYPE_INIT_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_INIT_AUDIO] = pCMCDMetrics;
-		// for Aux Audio
-		pCMCDMetrics = new AudioCMCDHeaders();
-		pCMCDMetrics->SetSessionId(mTraceId);
-		pCMCDMetrics->SetMediaType("AUXAUDIO");
-		delete mCMCDStreamData[eMEDIATYPE_AUX_AUDIO];
-		mCMCDStreamData[eMEDIATYPE_AUX_AUDIO] = pCMCDMetrics;
-		// for Aux Audio Init
-		pCMCDMetrics = new AudioCMCDHeaders();
-		pCMCDMetrics->SetSessionId(mTraceId);
-		pCMCDMetrics->SetMediaType("INIT_AUDIO");
-		delete mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO];
-		mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO] = pCMCDMetrics;
 		// for Subtitle
 		pCMCDMetrics = new SubtitleCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
@@ -326,7 +314,6 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
 			pCMCDMetrics->SetBufferStarvation(bufferRedStatus);
 			pCMCDMetrics->SetBufferLength(bufferedDuration);
 		}
-		// No data for Aux Audio now //////////////
 	}
 }
 

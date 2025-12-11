@@ -18,7 +18,9 @@
  */
 
 #include "AmlogicSocInterface.h"
+#ifdef USE_SVP
 #include "gst_svp_meta.h"
+#endif
 
 /**
  * @brief AmlogicSocInterface constructor.
@@ -157,7 +159,9 @@ bool AmlogicSocInterface::IsVideoSink(const char* name)
  */
 void AmlogicSocInterface::SvpGetContext(void **svpCtx, int flags)
 {
+#ifdef USE_SVP
 	gst_svp_ext_get_context(svpCtx, Server, flags);
+#endif
 }
 
 /**
@@ -166,7 +170,9 @@ void AmlogicSocInterface::SvpGetContext(void **svpCtx, int flags)
  */
 void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
 {
+#ifdef USE_SVP
 	gst_svp_ext_free_context(svpCtx);
+#endif
 }
 
 /**

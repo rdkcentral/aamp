@@ -30,8 +30,8 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.09"
-#define AAMP_TUNETIME_VERSION 7
+#define AAMP_VERSION "7.10"
+#define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
 #define MACRO_TO_STRING(s) X_STR(s)
@@ -113,9 +113,9 @@
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
 
-#define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
+#define AAMP_TRACK_COUNT 3		/**< internal use - audio+video+sub track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
-#define AAMP_DRM_CURL_COUNT 4		/**< audio+video+sub+aux track DRMs */
+#define AAMP_DRM_CURL_COUNT 3		/**< audio+video+sub track DRMs */
 //#define CURL_FRAGMENT_DL_TIMEOUT 10L	/**< Curl timeout for fragment download */
 #define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
@@ -141,6 +141,7 @@
 #define MIN_MONITOR_AV_JUMP_THRESHOLD_MS 1 	/**< minimum  jump threshold to trigger MonitorAV reporting */
 #define MAX_MONITOR_AV_JUMP_THRESHOLD_MS 10000 	/**< maximum jump threshold to trigger MonitorAV reporting */
 #define DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS 100 	/**< default jump threshold to MonitorAV reporting */
+#define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
@@ -213,10 +214,10 @@
 // weights used for audio/subtitle track-selection heuristic
 #define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
 #define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/
-#define AAMP_LABEL_SCORE 10000000ULL       /**< 3rd priority to  label matching **/
-#define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
-#define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
-#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matching codec **/
+#define AAMP_LABEL_SCORE      10000000ULL  /**< 3rd priority to label matching **/
+#define AAMP_ROLE_SCORE        1000000ULL  /**< 4th priority to role/rendition matching **/
+#define AAMP_TYPE_SCORE         100000ULL  /**< 5th priority to type matching **/
+#define AAMP_CODEC_SCORE          1000ULL  /**< Lowest priority: matching codec **/
 #define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 
 

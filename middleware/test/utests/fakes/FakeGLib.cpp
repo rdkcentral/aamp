@@ -33,6 +33,9 @@ using namespace std;
 
 MockGLib *g_mockGLib = nullptr;
 
+#if defined(__GNUC__)
+#pragma GCC visibility push(hidden)
+#endif
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {
 	TRACE_FUNC();
@@ -312,3 +315,6 @@ gpointer g_realloc (gpointer mem, gsize n_bytes)
 	return ptr;
 
 }
+#if defined(__GNUC__)
+#pragma GCC visibility pop
+#endif

@@ -170,7 +170,7 @@ set(LIBAAMP_DEPENDS
 	-ldl
 )
 
-# TDB needs to bring back for UT. 
+# TDB needs to bring back for UT.
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
 # Adding subdirectories for internal libraries
@@ -352,6 +352,9 @@ set(LIBAAMP_SOURCES
 	AampTrackWorker.cpp AampTrackWorker.h
 	LangCodePreference.h
 	test/gstTestHarness/mp4demux.hpp
+	AampTrackWorkerManager.cpp
+	AampFragmentDescriptor.cpp
+	AampTimeBasedBufferManager.cpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -361,11 +364,15 @@ endif()
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT -DAAMP_BUILD_INFO='${buildinfo}' -DSUPPORTS_MP4DEMUX")
 
+if (SANITIZER_ENABLED AND CMAKE_PLATFORM_UBUNTU)
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -fsanitize=address")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -fsanitize=address -static-libasan")
+endif()
+
 if(CMAKE_USE_RDK_PLUGINS)
 	message("CMAKE_USE_RDK_PLUGINS set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
-
 
 # AAMP Telemetry 2.0 support
 if (CMAKE_TELEMETRY_2_0_REQUIRED)
@@ -387,12 +394,6 @@ endif()
 if (COVERAGE_ENABLED)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
-endif()
-
-
-if(CMAKE_AUXILIARY_AUDIO_ENABLED)
-	message("CMAKE_AUXILIARY_AUDIO_ENABLED set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_AUXILIARY_AUDIO_ENABLED")
 endif()
 
 if(CMAKE_ENABLE_PTS_RESTAMP)
@@ -484,7 +485,7 @@ install(TARGETS gstTestHarness
 xcode_define_schema(gstTestHarness)
 
 #TODO: Decide which are the actual public headers
-install(FILES 
+install(FILES
 	Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h
 	AampDefine.h AampEventListener.h AampMediaType.h AampLogManager.h
 	subtitle/vttCue.h AampUtils.h
@@ -503,6 +504,12 @@ install(FILES
 	AampLLDASHData.h
 	AampTSBSessionManager.h
 	AampTsbReader.h
+	AampTrackWorker.hpp
+	AampTrackWorkerManager.hpp
+	AampDownloadInfo.hpp
+	AampFragmentDescriptor.hpp
+	AampTimeBasedBufferManager.hpp
+	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	DESTINATION include

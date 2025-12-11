@@ -398,15 +398,6 @@ public:
 	virtual bool RequiredElementSetup(){return false;}
 	
 	/**
-	 * @brief Set audio routing properties on source.
-	 *
-	 * Sets audio routing properties on the given source element.
-	 *
-	 * @param source The source element.
-	 */
-	virtual void SetAudioRoutingProperties(GstElement *source){}
-	
-	/**
 	 * @brief Check if first audio frame callback is set.
 	 *
 	 * Determines if a callback function has been set for the first audio frame.

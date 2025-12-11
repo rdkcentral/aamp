@@ -21,9 +21,9 @@
  * @file Aampcli.cpp
  * @brief Stand alone AAMP player with command line interface.
  */
-
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
+#include <unistd.h>
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -371,7 +371,7 @@ static int main_func(int argc, char **argv)
 	AAMPCLI_PRINTF("**************************************************************************\n");
 	AAMPCLI_PRINTF("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
 	AAMPCLI_PRINTF("**************************************************************************\n");
-
+	AAMPCLI_PRINTF("PID: %d\n", static_cast<int>(getpid()));
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();
 
@@ -671,7 +671,8 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_TUNE_TIME_METRICS:
 		{
 			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
+			// below is redundant with IP_AAMP_TUNETIME logging done in core aamp
+			//AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
 			break;
 		}
 
@@ -735,6 +736,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
 			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\tdroppedFrames= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS(),ev->getDroppedFrames());
+			break;
 		}
 		case AAMP_EVENT_REPORT_ANOMALY:
 		{
