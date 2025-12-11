@@ -187,12 +187,13 @@ add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
-	include_directories(support/aampabr)
+#	include_directories(support/aampabr)
 	include_directories(support/aampmetrics)
 
-	add_subdirectory(support/aampabr)
+#	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics)
+#	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics)
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
 endif()
 
 message("Adding tsb folder")
@@ -320,6 +321,7 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
+	abr/abr.cpp abr/abr.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp

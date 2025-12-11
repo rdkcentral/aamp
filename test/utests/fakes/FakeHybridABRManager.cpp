@@ -17,87 +17,87 @@
 * limitations under the License.
 */
 
-#include "HybridABRManager.h"
+#include "abr/abr.h"
 
 
-void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
+void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 {
 }
 
-long HybridABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
-{
-	return 0;
-}
-
-void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData,long downloadbps,bool LowLatencyMode)
-{
-}
-
-void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector<BitsPerSecond> &tmpData)
-{
-}
-
-long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
+long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
 {
 	return 0;
 }
 
-bool HybridABRManager::CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW)
-{
-	return false;
-}
-
-bool HybridABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
-{
-	return false;
-}
-
-void HybridABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileIndex,double bufferValue,double minBufferNeeded,const std::string& periodId)
+void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData,long downloadbps,bool LowLatencyMode)
 {
 }
 
-
-void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
+void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector<BitsPerSecond> &tmpData)
 {
 }
 
-void HybridABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
-{
-}
-
-long long HybridABRManager::ABRGetCurrentTimeMS(void)
+long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
 {
 	return 0;
 }
 
-bool HybridABRManager::GetLowLatencyStartABR()
+bool ABRManager::CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW)
 {
 	return false;
 }
 
-void HybridABRManager::SetLowLatencyStartABR(bool bStart)
-{
-}
-
-bool HybridABRManager::GetLowLatencyServiceConfigured()
+bool ABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
 {
 	return false;
 }
 
-void HybridABRManager::SetLowLatencyServiceConfigured(bool bConfig)
+void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileIndex,double bufferValue,double minBufferNeeded,const std::string& periodId)
 {
 }
 
-bool HybridABRManager::IsABRDataGoodToEstimate(long time_diff) 
+
+void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
+{
+}
+
+void ABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
+{
+}
+
+long long ABRManager::ABRGetCurrentTimeMS(void)
+{
+	return 0;
+}
+
+bool ABRManager::GetLowLatencyStartABR()
 {
 	return false;
 }
 
-void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded)
+void ABRManager::SetLowLatencyStartABR(bool bStart)
 {
 }
 
-long HybridABRManager::FragmentfailureRampdown(int buffer,int currentprofileindex)
+bool ABRManager::GetLowLatencyServiceConfigured()
+{
+	return false;
+}
+
+void ABRManager::SetLowLatencyServiceConfigured(bool bConfig)
+{
+}
+
+bool ABRManager::IsABRDataGoodToEstimate(long time_diff) 
+{
+	return false;
+}
+
+void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded)
+{
+}
+
+long ABRManager::FragmentfailureRampdown(int buffer,int currentprofileindex)
 {
 	return 0;
 }

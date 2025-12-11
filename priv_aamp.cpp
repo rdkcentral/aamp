@@ -4490,8 +4490,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
-				//HybridABRManager mhABRManager;
-				HybridABRManager::CurlAbortReason hybridabortReason = (HybridABRManager::CurlAbortReason) abortReason;
+				//ABRManager mhABRManager;
+				ABRManager::CurlAbortReason hybridabortReason = (ABRManager::CurlAbortReason) abortReason;
 				if((buffer->GetLen() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
@@ -13360,7 +13360,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
  */
 void PrivateInstanceAAMP::LoadAampAbrConfig()
 {
-	HybridABRManager::AampAbrConfig mhAampAbrConfig;
+	ABRManager::AampAbrConfig mhAampAbrConfig;
 	// ABR config values
 	mhAampAbrConfig.abrCacheLife = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLife);
 	mhAampAbrConfig.abrCacheLength = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLength);
