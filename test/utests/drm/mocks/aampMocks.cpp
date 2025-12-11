@@ -176,7 +176,7 @@ bool AampLogManager::enableEthanLogRedirection = false;
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 bool AampLogManager::locked = false;
 
-void logprintf(AAMP_LogLevel level, const char *file, int line, const char *format,
+void logprintf(AAMP_LogLevel level, const char *func, int line, const char *format,
 			   ...)
 {
 	int playerId = -1;
@@ -188,7 +188,7 @@ void logprintf(AAMP_LogLevel level, const char *file, int line, const char *form
 			 "[AAMP-PLAYER][%d][%s][%s][%d]%s\n",
 			 playerId,
 			 mLogLevelStr[level],
-			 file,
+			 func,
 			 line,
 			 format );
 	vprintf(fmt, args);
@@ -730,11 +730,6 @@ int PrivateInstanceAAMP::GetInitialBufferDuration()
 BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 {
 	return 0;
-}
-
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-	return true;
 }
 
 bool PrivateInstanceAAMP::IsPlayEnabled()

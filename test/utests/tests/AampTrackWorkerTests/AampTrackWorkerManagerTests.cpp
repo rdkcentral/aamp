@@ -75,7 +75,7 @@ TEST_F(AampTrackWorkerManagerTest, CreateWorkerReturnsSameInstance)
  */
 TEST_F(AampTrackWorkerManagerTest, GetWorkerReturnsNullIfNotExists)
 {
-	EXPECT_EQ(mTrackWorkerManager->GetWorker(AampMediaType::eMEDIATYPE_AUX_AUDIO), nullptr);
+	EXPECT_EQ(mTrackWorkerManager->GetWorker(AampMediaType::eMEDIATYPE_AUDIO), nullptr);
 }
 
 /**

@@ -2197,32 +2197,6 @@ TEST_F(PlayerInstanceAAMPTests,InitAAMPConfigTest)
     mPlayerInstance->InitAAMPConfig(jsonStr);
 }
 
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest1)
-{
-    //checking minimum string
-    std::string language = "a";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
-
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest2)
-{
-    //checking maximum string
-    std::string language(1000000,'A');
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest3)
-{
-    //checking random string
-    std::string language = "English";
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest1)
 {
     //checking null speed

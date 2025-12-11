@@ -162,7 +162,7 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 /**
  * @brief TSProcessor Constructor
  */
-TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
+TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor)
 	: m_needDiscontinuity(true),
 	m_PatPmtLen(0), m_PatPmt(0), m_PatPmtTrickLen(0), m_PatPmtTrick(0), m_PatPmtPcrLen(0), m_PatPmtPcr(0),
 	m_nullPFrame(0), m_nullPFrameLength(0), m_nullPFrameNextCount(0), m_nullPFrameOffset(0),
@@ -192,10 +192,10 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	m_queuedSegmentPos(0), m_queuedSegmentDuration(0), m_queuedSegmentLen(0), m_queuedSegmentDiscontinuous(false), m_startPosition(-1.0),
 	m_track(track), m_last_frame_time(0), m_demuxInitialized(false), m_basePTSFromPeer(-1), m_dsmccComponentFound(false), m_dsmccComponent()
 	, m_AudioTrackIndexToPlay(0)
-	, m_auxTSProcessor(auxTSProcessor)
-	, m_auxiliaryAudio(false)
 	,m_audioGroupId()
 	,m_applyOffset(true)
+	,m_SPS{}
+	,m_PPS{}
 {
 	AAMPLOG_INFO(" constructor: %p", this);
 	bool optimizeMuxed = false;
@@ -205,11 +205,9 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
 	}
 
-	memset(m_SPS, 0, 32 * sizeof(H264SPS));
-	memset(m_PPS, 0, 256 * sizeof(H264PPS));
 	m_versionPMT = 0;
 
-	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO) || (m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX))
+	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO))
 	{
 		m_vidDemuxer = new Demuxer(aamp, eMEDIATYPE_VIDEO, optimizeMuxed );
 		//demux DSM CC stream only together with video stream
@@ -222,25 +220,6 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUDIO, optimizeMuxed);
 		m_demux = true;
 	}
-	else if ((m_streamOperation == eStreamOp_DEMUX_AUX) || m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX)
-	{
-		m_auxiliaryAudio = true;
-		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUX_AUDIO, optimizeMuxed);
-		// Map auxiliary specific streamOperation back to generic streamOperation used by TSProcessor
-		if (m_streamOperation == eStreamOp_DEMUX_AUX)
-		{
-			m_streamOperation = eStreamOp_DEMUX_AUDIO; // this is an audio only streamOperation
-		}
-		else
-		{
-			m_streamOperation = eStreamOp_DEMUX_ALL; // this is a muxed streamOperation
-		}
-		m_demux = true;
-	}
-
-	int compBufLen = MAX_PIDS*sizeof(RecordingComponent);
-	memset(videoComponents, 0, compBufLen);
-	memset(audioComponents, 0, compBufLen);
 }
 
 /**
@@ -395,9 +374,9 @@ void TSProcessor::insertPCR(unsigned char *packet, int pid)
 void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	unsigned int dataDescTags[MAX_PIDS];
+	unsigned int dataDescTags[MAX_PIDS] = {};
 	int streamType = 0, pid = 0, len = 0;
-	char work[32];
+	char work[32] = {};
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
 	StreamOutputFormat audioFormat = FORMAT_INVALID;
 	bool cueiDescriptorFound = false;
@@ -406,20 +385,19 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
 
-	for (int i = 0; i < audioComponentCount; ++i)
+	for (auto & comp : videoComponents)
 	{
-		if (audioComponents[i].associatedLanguage)
-		{
-			free(audioComponents[i].associatedLanguage);
-		}
+		comp = RecordingComponent();
 	}
 
-	memset(videoComponents, 0, sizeof(videoComponents));
-	memset(audioComponents, 0, sizeof(audioComponents));
-
-	memset(dataDescTags, 0, sizeof(dataDescTags));
-
-	memset(work, 0, sizeof(work));
+	for (auto & comp : audioComponents)
+	{
+		if (comp.associatedLanguage)
+		{
+			free(comp.associatedLanguage);
+		}
+		comp = RecordingComponent();
+	}
 
 	videoComponentCount = audioComponentCount = 0;
 	m_dsmccComponentFound = false;
@@ -666,14 +644,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 		audioFormat = getStreamFormatForCodecType(audioComponents[0].elemStreamType);
 	}
 	// Notify the format to StreamSink
-	if (!m_auxiliaryAudio)
-	{
-		aamp->SetStreamFormat(videoFormat, audioFormat, FORMAT_INVALID);
-	}
-	else
-	{
-		aamp->SetStreamFormat(videoFormat, FORMAT_INVALID, audioFormat);
-	}
+	aamp->SetStreamFormat(videoFormat, audioFormat);
 
 	if (m_dsmccComponentFound)
 	{
@@ -1641,10 +1612,6 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 				if(m_peerTSProcessor)
 				{
 					m_peerTSProcessor->setBasePTS( position, demuxer->getBasePTS());
-				}
-				if(m_auxTSProcessor)
-				{
-					m_auxTSProcessor->setBasePTS(position, demuxer->getBasePTS());
 				}
 				notifyPeerBasePTS = false;
 			}
