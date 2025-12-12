@@ -259,7 +259,7 @@ public:
 	 *
 	 * @param network bitrate
 	 */
-	static void setPersistBandwidth(long bitrate){mPersistBandwidth = bitrate;}
+	static void setPersistBandwidth(long bitrate){mPersistBandwidth = bitrate;} // FIXME
 	/**
 	 * @brief Get Persisted Network Bandwidth
 	 *
@@ -388,98 +388,97 @@ public:
 	double mLLDashCurrentPlayRate;        /**<Low Latency Current play Rate */
 public:
 	
-	/** @brief Read Config values
-	 *   @params AampAbrConfig struct
-	 *  @return none
+	/**
+	 * @brief Read Config values
+	 * @param AampAbrConfig struct
+	 * @return none
 	 */
 	void ReadPlayerConfig(AampAbrConfig *mAampAbrConfig);
 	
-	
 	/**
 	 * @brief function to update downloadbps based on abrthreshold size
-	 * @params bufferlen-Growable Buffer length
-	 * @params downloadTimeMS -download time in ms
-	 * @params currentProfilebps - CurrentProfile Bandwidth
-	 * @params fragmentDurationMs - Total downloaded fragments duration in ms
-	 * @params HTTP Header Type
+	 * @param bufferlen-Growable Buffer length
+	 * @param downloadTimeMS -download time in ms
+	 * @param currentProfilebps - CurrentProfile Bandwidth
+	 * @param fragmentDurationMs - Total downloaded fragments duration in ms
+	 * @param HTTP Header Type
 	 * @return downloadbps
 	 */
-	long CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason);
+	long CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason);
 	
 	/**
 	 * @brief to update Bitrate Data
-	 * @params BitrateData vector
-	 * @params download Bitrate
+	 * @param BitrateData vector
+	 * @param download Bitrate
 	 * @return none
 	 */
-	void UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData ,long downloadbps,bool LowLatencyMode );
+	void UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData, long downloadbps,bool LowLatencyMode );
 	
 	/**
 	 * @brief Update Bitrate Data based on ABR CacheLife
-	 * @params BitrateData vector
-	 * @params tmpData vector
+	 * @param BitrateData vector
+	 * @param tmpData vector
 	 * @return none
 	 */
-	void UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector< long> &tmpData);
+	void UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData, std::vector< long> &tmpData);
 	
 	/**
 	 * @brief Update Bitrate Data based on ABRCacheOutlier
-	 * @params tmpData vector
+	 * @param tmpData vector
 	 * @return none
 	 */
-	
 	long UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData);
 	
 	/**
 	 * @brief Checks if a profile change is needed based on the most recently recorded network bandwidth samples and total fetched fragment duration.
-	 * @params totalFetchedDuration - Total fragment fetched duration
-	 * @params currProfileIndex - Current profile index
-	 * @params availBW - Current network bandwidth using most recently recorded 3 samples
+	 * @param totalFetchedDuration - Total fragment fetched duration
+	 * @param currProfileIndex - Current profile index
+	 * @param availBW - Current network bandwidth using most recently recorded 3 samples
 	 * @return bool - true if profile change is needed, else false
 	 */
-	
-	bool CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW);
+	bool CheckProfileChange(double totalFetchedDuration, int currProfileIndex, long availBW);
 	
 	/*
-	 * @brief function to check whether the profileidx is the lowest profile or not
-	 * @params currentProfileIndex -current profile index to be checked.
-	 * @params bool IsTrickmode - true if it is a trickplay,else false
-	 * @return - true if it is lowest profile ,else false
+	 * @brief function to check whether the profile index is the lowest profile or not
+	 * @param currentProfileIndex -current profile index to be checked.
+	 * @param bool IsTrickmode - true if it is a trickplay,else false
+	 * @return - true if it is lowest profile else false
 	 */
-	bool IsLowestProfile(int currentProfileIndex , bool IsTrickmode);
+	bool IsLowestProfile(int currentProfileIndex, bool IsTrickmode);
 	
 	/*
 	 * @brief Get Desired Profile based on Buffer availability
-	 * @params currentProfileIndex , newProfileIndex -current and new profile
-	 * @params currentBandwidth current profileIdx bitrate
-	 * @params newBandwidth - bitrate of new profileIdx
-	 * @params  bufferValue -Buffer availability
-	 * @params minBufferNeeded - Minimum Buffer Needed
+	 * @param currentProfileIndex, newProfileIndex -current and new profile
+	 * @param currentBandwidth current profile index bitrate
+	 * @param newBandwidth - bitrate of new profile index
+	 * @param  bufferValue -Buffer availability
+	 * @param minBufferNeeded - Minimum Buffer Needed
 	 * @return none
 	 */
-	
 	void GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileIndex,double bufferValue,double minBufferNeeded,const std::string& periodId= std::string());
 	
 	/*
-	 * @brief function to update newprofileindex ,if rampup happen from steady state
-	 * @params currentProfileIndex , newProfileIndex -current and new profile Idx
-	 * @params nwBandwidth - current network bandwidth using most recently recorded 3 samples
-	 * @params bufferValue -Buffer availability
-	 * @params newBandwidth - bitrate of new profileIdx
-	 * @params BitrateChangeReason is getting updated only if rampup occur
+	 * @brief function to update newprofileindex, if rampup happen from steady state
+	 * @param currentProfileIndex - current profile index
+	 * @param newProfileIndex - new profile index
+	 * @param nwBandwidth - current network bandwidth using most recently recorded 3 samples
+	 * @param bufferValue - buffer availability
+	 * @param newBandwidth - bitrate of new profile index
+	 * @param BitrateChangeReason is getting updated only if rampup occur
 	 * @return none
 	 */
-	
-	void CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId= std::string());
+	void CheckRampupFromSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth, double bufferValue, long newBandwidth, BitrateChangeReason &mhBitrateReason, int &mMaxBufferCountCheck, const std::string& periodId= std::string());
 	
 	/*
-	 * @brief function to update newprofileindex ,if rampdown happen from steady state
-	 * @params currentProfileIndex , newProfileIndex -current and new profile Idx
-	 * @params BitrateChangeReason is getting updated only if rampdown occurred
-	 * @params ABR Low Buffer counter
+	 * @brief function to update newprofileindex if rampdown happen from steady state
+	 *
+	 * @param currentProfileIndex - current profile index
+	 * @param newProfileIndex - new profile index
+	 * @param BitrateChangeReason is getting updated only if rampdown occurred
+	 * @param mABRLowBuffer counter
 	 * @return none
 	 */
-	void CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId= std::string());
+	void CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex, BitrateChangeReason &mBitrateReason, int mABRLowBufferCounter, const std::string& periodId=std::string());
 	
 	/**
 	 * @brief aampabr_GetCurrentTimeMS
@@ -516,9 +515,9 @@ public:
 	
 	/**
 	 * @brief to Update the ChunkSpeedData based on low latency ABR speedstoreSize
-	 * @params speedcache struct
-	 * @params  estimated-bps
-	 * @params current time,time difference ,
+	 * @param speedcache struct
+	 * @param  estimated-bps
+	 * @param current time,time difference
 	 * @return None
 	 */
 	void CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded);
