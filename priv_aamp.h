@@ -2577,12 +2577,12 @@ public:
 	std::string GetPreferredTextProperties();
 
 	/**
-	 * @brief Set current DRM helper
+	 *   @brief Set DRM type
 	 *
-	 * @param[in] drm - DRM helper instance
-	 * @return void
+	 *   @param[in] drm - New DRM type
+	 *   @return void
 	 */
-	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
 
 	/**
 	 * @fn GetMoneyTraceString
