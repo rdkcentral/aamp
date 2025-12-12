@@ -58,7 +58,7 @@ public:
 		/**
 		 * @brief Bandwidth / second (Bitrate)
 		 */
-		long bandwidthBitsPerSecond;
+		BitsPerSecond bandwidthBitsPerSecond;
 		
 		/**
 		 * @brief Width of resolution (optional)
@@ -84,7 +84,7 @@ public:
 	/**
 	 * @brief Persist Network Bandwidth
 	 */
-	static long mPersistBandwidth;
+	static BitsPerSecond mPersistBandwidth;
 	
 	/**
 	 * @brief Persist Network Bandwidth Updated Time
@@ -165,15 +165,15 @@ public:
 	 * @param periodId empty string by default, Period-Id of profiles
 	 * @return int Profile index
 	 */
-	int getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth, int nwConsistencyCnt = DEFAULT_ABR_NW_CONSISTENCY_COUNT, const std::string& periodId= std::string());
+	int getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, BitsPerSecond currentBandwidth, BitsPerSecond networkBandwidth, int nwConsistencyCnt = DEFAULT_ABR_NW_CONSISTENCY_COUNT, const std::string& periodId= std::string());
 	
 	/**
 	 * @fn getBandwidthOfProfile
 	 *
 	 * @param profileIndex The profile index
-	 * @return long bandwidth of the profile
+	 * @return bandwidth of the profile
 	 */
-	long getBandwidthOfProfile(int profileIndex);
+	BitsPerSecond getBandwidthOfProfile(int profileIndex);
 	
 	/**
 	 * @brief Get profile of bandwidth
@@ -181,7 +181,7 @@ public:
 	 * @param bandwidth The bandwidth
 	 * @return int index of the bandwidth
 	 */
-	int getProfileOfBandwidth(long bandwidth);
+	int getProfileOfBandwidth(BitsPerSecond bandwidth);
 	
 	/**
 	 * @fn getMaxBandwidthProfile
@@ -203,7 +203,7 @@ public:
 	 *
 	 * @return int index for best matched bitrate
 	 */
-	int getClosestProfileIndexByBandwidth( long inputBandwidth );
+	int getClosestProfileIndexByBandwidth( BitsPerSecond inputBandwidth );
 	
 	// Getters/Setters
 	/**
@@ -218,7 +218,7 @@ public:
 	 *
 	 * @param defaultInitBitrate Default init bitrate
 	 */
-	void setDefaultInitBitrate(long defaultInitBitrate);
+	void setDefaultInitBitrate(BitsPerSecond defaultInitBitrate);
 	
 	/**
 	 * @fn getLowestIframeProfile
@@ -253,14 +253,14 @@ public:
 	 * @param[in] period Id empty string by default, Period-Id of profiles
 	 * @return modified ProfileIndex
 	 */
-	int removeProfiles(std::vector<long> profileBPS, int currentProfileIndex, const std::string& periodId = std::string());
+	int removeProfiles(std::vector<BitsPerSecond> profileBPS, int currentProfileIndex, const std::string& periodId = std::string());
 	
 	/**
 	 * @fn setDefaultIframeBitrate
 	 *
 	 * @param defaultIframeBitrate Default iframe bitrate
 	 */
-	void setDefaultIframeBitrate(long defaultIframeBitrate);
+	void setDefaultIframeBitrate(BitsPerSecond defaultIframeBitrate);
 	/**
 	 * @fn getUserDataOfProfile
 	 *
@@ -273,13 +273,13 @@ public:
 	 *
 	 * @param network bitrate
 	 */
-	static void setPersistBandwidth(long bitrate){mPersistBandwidth = bitrate;} // FIXME
+	static void setPersistBandwidth(BitsPerSecond bitrate){mPersistBandwidth = bitrate;} // FIXME
 	/**
 	 * @brief Get Persisted Network Bandwidth
 	 *
 	 * @return  bandwidth
 	 */
-	static long getPersistBandwidth() { return mPersistBandwidth;}
+	static BitsPerSecond getPersistBandwidth() { return mPersistBandwidth;}
 	
 	/**
 	 * @brief Get the available profiles
@@ -417,7 +417,7 @@ public:
 	 * @param HTTP Header Type
 	 * @return downloadbps
 	 */
-	long CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason);
+	BitsPerSecond CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, BitsPerSecond currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason);
 	
 	/**
 	 * @brief to update Bitrate Data
@@ -425,7 +425,7 @@ public:
 	 * @param download Bitrate
 	 * @return none
 	 */
-	void UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData, long downloadbps,bool LowLatencyMode );
+	void UpdateABRBitrateDataBasedOnCacheLength(std::vector <std::pair<long long,BitsPerSecond> > &mAbrBitrateData, BitsPerSecond downloadbps,bool LowLatencyMode );
 	
 	/**
 	 * @brief Update Bitrate Data based on ABR CacheLife
@@ -433,14 +433,14 @@ public:
 	 * @param tmpData vector
 	 * @return none
 	 */
-	void UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData, std::vector< long> &tmpData);
+	void UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,BitsPerSecond> > &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData);
 	
 	/**
 	 * @brief Update Bitrate Data based on ABRCacheOutlier
 	 * @param tmpData vector
 	 * @return none
 	 */
-	long UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData);
+	BitsPerSecond UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData);
 	
 	/**
 	 * @brief Checks if a profile change is needed based on the most recently recorded network bandwidth samples and total fetched fragment duration.
@@ -449,7 +449,7 @@ public:
 	 * @param availBW - Current network bandwidth using most recently recorded 3 samples
 	 * @return bool - true if profile change is needed, else false
 	 */
-	bool CheckProfileChange(double totalFetchedDuration, int currProfileIndex, long availBW);
+	bool CheckProfileChange(double totalFetchedDuration, int currProfileIndex, BitsPerSecond availBW);
 	
 	/*
 	 * @brief function to check whether the profile index is the lowest profile or not
@@ -480,7 +480,7 @@ public:
 	 * @param BitrateChangeReason is getting updated only if rampup occur
 	 * @return none
 	 */
-	void CheckRampupFromSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth, double bufferValue, long newBandwidth, BitrateChangeReason &mhBitrateReason, int &mMaxBufferCountCheck, const std::string& periodId= std::string());
+	void CheckRampupFromSteadyState(int currProfileIndex, int &newProfileIndex, BitsPerSecond nwBandwidth, double bufferValue, BitsPerSecond newBandwidth, BitrateChangeReason &mhBitrateReason, int &mMaxBufferCountCheck, const std::string& periodId= std::string());
 	
 	/*
 	 * @brief function to update newprofileindex if rampdown happen from steady state
@@ -529,11 +529,11 @@ public:
 	/**
 	 * @brief to Update the ChunkSpeedData based on low latency ABR speedstoreSize
 	 * @param speedcache struct
-	 * @param  estimated-bps
+	 * @param estimated-bps
 	 * @param current time,time difference
 	 * @return None
 	 */
-	void CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded);
+	void CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache, BitsPerSecond &bitsPerSecond, long time_now, long total_dl_diff, long time_diff, long currentTotalDownloaded);
 	
 	/**
 	 * @brief to Check if it is Good to capture speed sample
@@ -547,22 +547,22 @@ public:
 	 * @param - current available buffer
 	 * @return - desired profile based on buffer
 	 */
-	long FragmentfailureRampdown(int currentBuffer,int currentProfileIndex);
+	BitsPerSecond FragmentfailureRampdown(int currentBuffer,int currentProfileIndex);
 	
 private:
 	/**
-	 * @fn getProfileCountUnlocked
+	 * @fn getProfileCount
 	 *
 	 * @return The number of profiles
 	 */
-	int getProfileCountUnlocked() const;
+	int getProfileCount() const;
 	
 	/**
 	 * @brief Add new profile info to sorted BW list
 	 * @param[in] profileInfo profile info
 	 * @param[in] idx profile index in list
 	 */
-	void addSortedBWProfileListUnlocked(const ABRManager::ProfileInfo &profileInfo, int idx);
+	void addSortedBWProfileList(const ABRManager::ProfileInfo &profileInfo, int idx);
 	
 	/**
 	 * @brief A list of available profiles.
@@ -573,17 +573,17 @@ private:
 	 * @brief A sorted list of profiles with periodId.
 	 * Populate the container with sorted order of BW (Bandwidth) vs its index under each periodId
 	 */
-	std::map<std::string, std::map<long,int>> mSortedBWProfileList;
+	std::map<std::string, std::map<BitsPerSecond,int>> mSortedBWProfileList;
 	
 	/**
 	 * @brief Define type: iterator of SortedBWProfileListIter
 	 */
-	typedef std::map<long, int>::iterator SortedBWProfileListIter;
+	typedef std::map<BitsPerSecond, int>::iterator SortedBWProfileListIter;
 	
 	/**
 	 * @brief Define type: reverse iterator of SortedBWProfileListIter
 	 */
-	typedef std::map<long, int>::reverse_iterator SortedBWProfileListRevIter;
+	typedef std::map<BitsPerSecond, int>::reverse_iterator SortedBWProfileListRevIter;
 	
 	/**
 	 * @brief Lowest iframe Profile index
@@ -598,7 +598,7 @@ private:
 	/**
 	 * @brief Default initialization bitrate
 	 */
-	long mDefaultInitBitrate;
+	BitsPerSecond mDefaultInitBitrate;
 	
 	/**
 	 * @brief The number of ABR profiles that ramping up
@@ -613,7 +613,7 @@ private:
 	/**
 	 * @brief Default iframe bitrate
 	 */
-	long mDefaultIframeBitrate;
+	BitsPerSecond mDefaultIframeBitrate;
 	/**
 	 * @brief Default init bitrate value.
 	 */

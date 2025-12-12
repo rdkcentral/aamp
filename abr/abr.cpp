@@ -47,7 +47,7 @@ long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 int ABRManager::getInitialProfileIndex(bool chooseMediumProfile, const std::string& periodId) {
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	int desiredProfileIndex = INVALID_PROFILE;
 	
 	
@@ -96,7 +96,7 @@ void ABRManager::updateProfile() {
 	};
 	
 	std::unique_lock<std::mutex> lock(mProfileLock);
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	
 	// todo: replace with Use std::vector<IframeTrackInfo>
 	struct IframeTrackInfo *iframeTrackInfo = new struct IframeTrackInfo[profileCount];
@@ -194,7 +194,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 	// b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
 	// find the profile for the newbandwidth
 	int desiredProfileIndex = 0;
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	for (int i = 0; i < profileCount; i++) {
 		const ProfileInfo& profile = mProfiles[i];
 		if (!profile.isIframeTrack) {
@@ -227,7 +227,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	
 	if (currentProfileIndex >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %d", currentProfileIndex, profileCount);
@@ -267,7 +267,7 @@ int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::stri
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	int desiredProfileIndex = currentProfileIndex;
 	
 	if (profileCount == 0 || currentProfileIndex >= profileCount) {
@@ -302,7 +302,7 @@ int ABRManager::getUserDataOfProfile(int currentProfileIndex) {
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	int userData = -1;
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	if (profileCount == 0 || currentProfileIndex >= profileCount) {
 		AAMPLOG_WARN("No profiles/input profile %d more than profileCount %d", currentProfileIndex, profileCount);
 		return userData;
@@ -319,7 +319,7 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	
 	if (currentProfileIndex >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %d", currentProfileIndex, profileCount);
@@ -348,7 +348,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	
 	if (currentProfileIndex >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %d", currentProfileIndex, profileCount);
@@ -456,7 +456,7 @@ long ABRManager::getBandwidthOfProfile(int profileIndex) {
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	
 	if( profileCount == 0 )
 	{
@@ -478,7 +478,7 @@ long ABRManager::getBandwidthOfProfile(int profileIndex) {
 int ABRManager::getMaxBandwidthProfile(const std::string& periodId) {
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	if( profileCount==0 )
 	{
 		AAMPLOG_WARN( "No profiles found" );
@@ -489,11 +489,11 @@ int ABRManager::getMaxBandwidthProfile(const std::string& periodId) {
 
 // Getters/Setters
 /**
- * @fn getProfileCountUnlocked
+ * @fn getProfileCount
  *
  * @return The number of profiles
  */
-int ABRManager::getProfileCountUnlocked() const {
+int ABRManager::getProfileCount() const {
 	return static_cast<int>(mProfiles.size());
 }
 /**
@@ -501,7 +501,7 @@ int ABRManager::getProfileCountUnlocked() const {
  */
 int ABRManager::getProfileCount() {
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	return getProfileCountUnlocked();
+	return getProfileCount();
 }
 
 /**
@@ -533,9 +533,9 @@ void ABRManager::addProfile(ABRManager::ProfileInfo profile) {
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	mProfiles.push_back(profile);
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	int idx = profileCount - 1;
-	addSortedBWProfileListUnlocked(mProfiles[idx], idx);
+	addSortedBWProfileList(mProfiles[idx], idx);
 }
 
 /**
@@ -543,7 +543,7 @@ void ABRManager::addProfile(ABRManager::ProfileInfo profile) {
  * @param[in] profileInfo profile info
  * @param[in] idx profile index in list
  */
-void ABRManager::addSortedBWProfileListUnlocked(const ABRManager::ProfileInfo &profileInfo, int idx)
+void ABRManager::addSortedBWProfileList(const ABRManager::ProfileInfo &profileInfo, int idx)
 {
 	if (!profileInfo.isIframeTrack) {
 		mSortedBWProfileList[profileInfo.periodId][profileInfo.bandwidthBitsPerSecond] = idx;
@@ -566,7 +566,7 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
 	
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	int modifiedProfileIndex = INVALID_PROFILE;
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	
 	if( profileCount == 0 )
 	{
@@ -593,14 +593,14 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
 		}
 	}
 #if defined(DEBUG_ENABLED)
-	AAMPLOG_MIL("profileCount after removing profiles orig:%d and new:%d", profileCount, getProfileCountUnlocked());
+	AAMPLOG_MIL("profileCount after removing profiles orig:%d and new:%d", profileCount, getProfileCount());
 #endif
 	
 	mSortedBWProfileList.clear();
 	// Get new profile count
-	profileCount = getProfileCountUnlocked();
+	profileCount = getProfileCount();
 	for(int idx = 0; idx < profileCount; idx++) {
-		addSortedBWProfileListUnlocked(mProfiles[idx], idx);
+		addSortedBWProfileList(mProfiles[idx], idx);
 		if(currentBandwidth == mProfiles[idx].bandwidthBitsPerSecond) {
 			modifiedProfileIndex = idx;
 		}
@@ -638,7 +638,7 @@ void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {
 int  ABRManager::getProfileIndexForLowestBandwidth()
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	int profileCount = getProfileCountUnlocked();
+	int profileCount = getProfileCount();
 	if( profileCount==0 )
 	{
 		AAMPLOG_WARN( "No profiles found" );
