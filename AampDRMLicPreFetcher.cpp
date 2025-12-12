@@ -425,7 +425,6 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	}
 
 	// Use lock-free weak_ptr pattern for thread-safe access to mFetchInstance
-	// Maintain original logic: only call UpdateFailedDRMStatus if both skipErrorEvent AND valid instance
 	auto fetchInstance = mFetchInstanceWeak.lock();
 	if (skipErrorEvent && fetchInstance)
 	{
