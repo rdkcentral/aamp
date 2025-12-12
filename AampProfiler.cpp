@@ -296,9 +296,14 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	{
 		mTotalTime = static_cast<int> (mTuneEndMetrics.mTotalTime - tuneStartMonotonicBase);
 	}
+	AAMPLOG_WARN("HariPRiya appName after Firebolt check: %s", appName.c_str());
+	AAMPLOG_WARN("HariPriya IsConfigSet(eAAMPConfig_UseFireboltSDK): %d", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 	if (!appName.empty())
 	{
-		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] APP: %s IP_AAMP_TUNETIME", playerActiveMode.c_str(),playerId,appName.c_str());
+		if (gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) {
+			appName += "_VIPA";
+		}
+		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] APP: %s IP_AAMP_TUNETIME", playerActiveMode.c_str(), playerId, appName.c_str());
 	}
 	else
 	{
