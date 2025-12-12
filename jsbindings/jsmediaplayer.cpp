@@ -3948,7 +3948,7 @@ public:
 		{
 			AAMPLOG_WARN("Gnanesha trackCC lan:%s insid: %s", trackCC.language.c_str(), trackCC.instreamId.c_str());
 		}
-		LOG_WARN_EX("[XREReceiver]:found %d text tracks slang:%s", (int)textTracks.size(),selectedLang);
+		LOG_WARN_EX("[XREReceiver]:found %d text tracks slang:%s", (int)textTracks.size(),selectedLang.c_str());
 
 		if(!selectedLang.empty() && isdigit(selectedLang[0]))
 		{
