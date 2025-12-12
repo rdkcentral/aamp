@@ -32,7 +32,7 @@
 #include "AampLogManager.h"
 
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH	10					/**< Default ABR chunk cache length */
-#define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE	100			        /**< Duration(ms) to check Chunk Speed */
+#define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE	100			/**< Duration(ms) to check Chunk Speed */
 #define MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE 10
 
 ABRManager::AampAbrConfig eAAMPAbrConfig;
@@ -145,18 +145,18 @@ void ABRManager::updateProfile() {
 			}
 		} else {
 			if(is4K) {
-				// Get the default profile of 4k video , apply same bandwidth of video to iframe also
+				// Get the default profile of 4k video, apply same bandwidth of video to iframe also
 				int desiredProfileIndexNonIframe = profileCount / 2;
 				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
 				mDesiredIframeProfile = mLowestIframeProfile = 0;
 				for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
-					// if bandwidth matches , apply to both desired and lower ( for all speed of trick)
+					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
 					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
 						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
 						break;
 					}
 				}
-				// if matching bandwidth not found with video , then pick the middle profile for iframe
+				// if matching bandwidth not found with video, then pick the middle profile for iframe
 				if((!mDesiredIframeProfile) && (iframeTrackIdx >= 1)) {
 					int desiredTrackIdx = (int) (iframeTrackIdx / 2) + (iframeTrackIdx % 2);
 					mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[desiredTrackIdx].idx;
@@ -169,7 +169,7 @@ void ABRManager::updateProfile() {
 						mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[cnt].idx;
 						continue;
 					}
-					// if more profiles available , stored second best to desired profile
+					// if more profiles available, stored second best to desired profile
 					mDesiredIframeProfile = iframeTrackInfo[cnt].idx;
 					break; // select first-advertised
 				}
@@ -199,7 +199,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 		const ProfileInfo& profile = mProfiles[i];
 		if (!profile.isIframeTrack) {
 			if (profile.bandwidthBitsPerSecond == bandwidth) {
-				// Good case ,most manifest url will have same bandwidth in fragment file with configured profile bandwidth
+				// Good case, most manifest url will have same bandwidth in fragment file with configured profile bandwidth
 				desiredProfileIndex = i;
 				break;
 			} else if (profile.bandwidthBitsPerSecond < bandwidth) {
@@ -249,7 +249,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 	if (iter == mSortedBWProfileList[periodId].begin()) {
 		desiredProfileIndex = iter->second;
 	} else {
-		// get the prev profile . This is sorted list , so no worry of getting wrong profile
+		// get the prev profile . This is sorted list, so no worry of getting wrong profile
 		std::advance(iter, -1);
 		desiredProfileIndex = iter->second;
 	}
@@ -360,7 +360,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 	if (networkBandwidth == -1) {
 		// If the network bandwidth is not available, just reset the profile change up/down count.
 #if defined(DEBUG_ENABLED)
-		AAMPLOG_MIL("No network bandwidth info available , not changing profile[%d]", currentProfileIndex);
+		AAMPLOG_MIL("No network bandwidth info available, not changing profile[%d]", currentProfileIndex);
 #endif
 		mAbrProfileChangeUpCount = 0;
 		mAbrProfileChangeDownCount = 0;
@@ -710,7 +710,7 @@ struct SpeedCache
 	double weightedBitsPerSecond;
 	std::vector< std::pair<double,long> > mChunkSpeedData;
 	
-	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
+	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false), totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
 	{
 	}
 };
@@ -736,7 +736,7 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	eAAMPAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
 	eAAMPAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
 	eAAMPAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
-	AAMPLOG_MIL("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
+	AAMPLOG_MIL("[%s][%d]PlayerConfig : ABRCacheLife %d, ABRCacheLength %d, ABRSkipDuration %d, ABRNwConsistency %d, ABRThresholdSize %d, ABRMaxBuffer %d, ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
 }
 
 
@@ -745,7 +745,7 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
  * @return downloadbps
  */
 
-long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
+long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason)
 {
 	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000); // FIXME!
 	// extra coding to avoid picking lower profile
@@ -763,7 +763,7 @@ long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long c
  */
 void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData,long downloadbps,bool LowLatencyMode)
 {
-	mAbrBitrateData.push_back(std::make_pair(ABRGetCurrentTimeMS() ,downloadbps));
+	mAbrBitrateData.push_back(std::make_pair(ABRGetCurrentTimeMS(), downloadbps));
 	//AAMPLOG_WARN("CacheSz[%d]ConfigSz[%d] Storing Size [%d] bps[%ld]",mAbrBitrateData.size(),abrCacheLength, buffer->len, ((long)(buffer->len / downloadTimeMS)*8000));
 	if(LowLatencyMode)
 	{
@@ -781,7 +781,7 @@ void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<
  * @brief Function to Update Persisted Recent Download Statistics Based on abrCacheLife
  * @return none
  */
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector< long> &tmpData)
+void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData, std::vector< long> &tmpData)
 {
 	std::vector< std::pair<long long,long> >::iterator bitrateIter;
 	long long presentTime = ABRGetCurrentTimeMS();
@@ -850,7 +850,7 @@ long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmp
 	}
 	else
 	{
-		//AAMPLOG_WARN("No prior data available for abr , return -1 ");
+		//AAMPLOG_WARN("No prior data available for abr, return -1 ");
 		ret = -1;
 	}
 	return ret;
@@ -861,7 +861,7 @@ long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmp
  * @return bool true if profilechange needed else false
  */
 
-bool ABRManager::CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW)
+bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfileIndex, long availBW)
 {
 	bool checkProfileChange = true;
 	long currBW = getBandwidthOfProfile(currProfileIndex);
@@ -894,7 +894,7 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 {
 	long currentBandwidth = getBandwidthOfProfile(currProfileIndex);
 	long newBandwidth     = getBandwidthOfProfile(newProfileIndex);
-	AAMPLOG_INFO("[%s][%d] CurrProfileIndex %d ,newProfileIndex %d,CurrentBandwidth %ld,newBandwidth %ld,BufferValue %lf ,minBufferNeeded %lf",__FUNCTION__, __LINE__, currProfileIndex,newProfileIndex,currentBandwidth,newBandwidth,bufferValue,minBufferNeeded);
+	AAMPLOG_INFO("[%s][%d] CurrProfileIndex %d, newProfileIndex %d,CurrentBandwidth %ld,newBandwidth %ld,BufferValue %lf, minBufferNeeded %lf",__FUNCTION__, __LINE__, currProfileIndex,newProfileIndex,currentBandwidth,newBandwidth,bufferValue,minBufferNeeded);
 	if(bufferValue > 0 )
 	{
 		if(newBandwidth > currentBandwidth)
@@ -907,8 +907,8 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 		else if (! GetLowLatencyServiceConfigured())
 		{
 			// Rampdown attempt. check if buffer availability is good before profile change
-			// Also if delta of current profile to new profile is 1 , then ignore the change
-			// if bigger rampdown , then adjust to new profile
+			// Also if delta of current profile to new profile is 1, then ignore the change
+			// if bigger rampdown, then adjust to new profile
 			// else retain current profile
 			if(bufferValue > minBufferNeeded && getRampedDownProfileIndex(currProfileIndex,periodId) == newProfileIndex)
 				newProfileIndex = currProfileIndex;
@@ -923,7 +923,7 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
 {
 	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
-	AAMPLOG_INFO("[%s][%d]  currProfileIndex %d, newProfileIndex %d ,nwBandwidth %ld ,bufferValue %lf ,newBandwidth %ld threshold %d(30)",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth, abrThreshold);
+	AAMPLOG_INFO("[%s][%d]  currProfileIndex %d, newProfileIndex %d, nwBandwidth %ld, bufferValue %lf, newBandwidth %ld threshold %d(30)",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
 	if(abrThreshold >= 0 && abrThreshold <= 30)
@@ -945,7 +945,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 
 void ABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
 {
-	AAMPLOG_INFO("[%s][%d] currProfileIndex %d ,newProfileIndex %d, mABRLowBufferCounter %d",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,mABRLowBufferCounter);
+	AAMPLOG_INFO("[%s][%d] currProfileIndex %d, newProfileIndex %d, mABRLowBufferCounter %d",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,mABRLowBufferCounter);
 	if(mABRLowBufferCounter >= eAAMPAbrConfig.abrBufferCounter)
 	{
 		newProfileIndex = getRampedDownProfileIndex(currProfileIndex,periodId);
@@ -1029,7 +1029,7 @@ void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long
 	double weight = std::sqrt((double)total_dl_diff);
 	speedcache->weightedBitsPerSecond += weight * speedcache->speed_now;
 	speedcache->totalWeight += weight;
-	speedcache->mChunkSpeedData.push_back(std::make_pair(weight ,speedcache->speed_now));
+	speedcache->mChunkSpeedData.push_back(std::make_pair(weight, speedcache->speed_now));
 	
 	if(speedcache->mChunkSpeedData.size() > MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE)
 	{
@@ -1062,8 +1062,8 @@ long ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIn
 	for (int i = (int)availableProfiles.size() -1  ;i >= 0 ; i--)
 	{
 		double profilePercentage = ((double)(availableProfiles[i].bandwidthBitsPerSecond) / availableProfiles[len].bandwidthBitsPerSecond) * 100.0;
-		AAMPLOG_WARN("Index: %d, bandwidth %d , profile percentage %lf, buffer percentage %lf",i,(int)availableProfiles[i].bandwidthBitsPerSecond,profilePercentage,bufferPercentage);
-		// Check if profile bandwidth percentage is less than buffer percentage ,and it should be a rampdown
+		AAMPLOG_WARN("Index: %d, bandwidth %d, profile percentage %lf, buffer percentage %lf",i,(int)availableProfiles[i].bandwidthBitsPerSecond,profilePercentage,bufferPercentage);
+		// Check if profile bandwidth percentage is less than buffer percentage, and it should be a rampdown
 		if (profilePercentage < bufferPercentage && (availableProfiles[i].bandwidthBitsPerSecond < currentbw))
 		{
 			desiredProfilebw  = availableProfiles[i].bandwidthBitsPerSecond;

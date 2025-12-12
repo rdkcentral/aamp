@@ -34,6 +34,21 @@ typedef long BitsPerSecond;
 class ABRManager
 {
 public:
+	ABRManager():
+	mDefaultInitBitrate(DEFAULT_BITRATE),
+	mDesiredIframeProfile(0),
+	mAbrProfileChangeUpCount(0),
+	mAbrProfileChangeDownCount(0),
+	mLowestIframeProfile(INVALID_PROFILE),
+	mDefaultIframeBitrate(0),
+	mProfileLock()
+	{
+	}
+	
+	~ABRManager()
+	{
+	}
+	
 	struct ProfileInfo {
 		/**
 		 * @brief Is iframe track
@@ -190,7 +205,6 @@ public:
 	 */
 	int getClosestProfileIndexByBandwidth( long inputBandwidth );
 	
-public:
 	// Getters/Setters
 	/**
 	 * @fn getProfileCount
@@ -386,7 +400,6 @@ public:
 	bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
 	bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
 	double mLLDashCurrentPlayRate;        /**<Low Latency Current play Rate */
-public:
 	
 	/**
 	 * @brief Read Config values
@@ -586,7 +599,6 @@ private:
 	 * @brief Default initialization bitrate
 	 */
 	long mDefaultInitBitrate;
-	
 	
 	/**
 	 * @brief The number of ABR profiles that ramping up
