@@ -436,7 +436,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	}
 
 	{
-		std::unique_lock<std::mutex>fetchInstanceLock(mFetchInstanceMutex);
+		std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
 		if (skipErrorEvent && mFetchInstance)
 		{
 			mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
