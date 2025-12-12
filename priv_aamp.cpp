@@ -8110,7 +8110,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
  */
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle)
 {
-	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
+	AAMPLOG_INFO("NotifyFirstFrameReceived()");
 
 	// In the middle of stop processing we can receive state changing callback
 	AAMPPlayerState state = GetState();

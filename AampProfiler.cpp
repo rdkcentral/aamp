@@ -127,6 +127,52 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddNumberToObject(item, "tot", tuneMetricsData.mTotalTime);
 
 	cJSON_AddNumberToObject(item, "pst", mStopDurationMs);
+	
+	cJSON_AddNumberToObject(item, "gpcs", buckets[PROFILE_BUCKET_GST_PIPELINE_CREATE].tStart);
+	cJSON_AddNumberToObject(item, "gpct", bucketDuration(PROFILE_BUCKET_GST_PIPELINE_CREATE));
+	cJSON_AddNumberToObject(item, "gvps", buckets[PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE].tStart);
+	cJSON_AddNumberToObject(item, "gvpt", bucketDuration(PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE));
+	cJSON_AddNumberToObject(item, "gaps", buckets[PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE].tStart);
+	cJSON_AddNumberToObject(item, "gapt", bucketDuration(PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE));
+	cJSON_AddNumberToObject(item, "gpss", buckets[PROFILE_BUCKET_GST_PIPELINE_SETUP].tStart);
+	cJSON_AddNumberToObject(item, "gpst", bucketDuration(PROFILE_BUCKET_GST_PIPELINE_SETUP));
+	cJSON_AddNumberToObject(item, "gpas", buckets[PROFILE_BUCKET_GST_PIPELINE_PAUSED].tStart);
+	cJSON_AddNumberToObject(item, "gpat", bucketDuration(PROFILE_BUCKET_GST_PIPELINE_PAUSED));
+	cJSON_AddNumberToObject(item, "gpls", buckets[PROFILE_BUCKET_GST_PIPELINE_PLAYING].tStart);
+	cJSON_AddNumberToObject(item, "gplt", bucketDuration(PROFILE_BUCKET_GST_PIPELINE_PLAYING));
+	cJSON_AddNumberToObject(item, "gvbs", buckets[PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER].tStart);
+	cJSON_AddNumberToObject(item, "gvbt", bucketDuration(PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER));
+	cJSON_AddNumberToObject(item, "gabs", buckets[PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER].tStart);
+	cJSON_AddNumberToObject(item, "gabt", bucketDuration(PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER));
+	cJSON_AddNumberToObject(item, "gvds", buckets[PROFILE_BUCKET_GST_VIDEO_DECODER_FIRST].tStart);
+	cJSON_AddNumberToObject(item, "gvdt", bucketDuration(PROFILE_BUCKET_GST_VIDEO_DECODER_FIRST));
+	cJSON_AddNumberToObject(item, "gads", buckets[PROFILE_BUCKET_GST_AUDIO_DECODER_FIRST].tStart);
+	cJSON_AddNumberToObject(item, "gadt", bucketDuration(PROFILE_BUCKET_GST_AUDIO_DECODER_FIRST));
+	
+	// Rialto-specific profiling metrics
+	cJSON_AddNumberToObject(item, "rvsc", buckets[PROFILE_BUCKET_RIALTO_VIDEO_SINK_CREATED].tStart);
+	cJSON_AddNumberToObject(item, "rvst", bucketDuration(PROFILE_BUCKET_RIALTO_VIDEO_SINK_CREATED));
+	cJSON_AddNumberToObject(item, "rasc", buckets[PROFILE_BUCKET_RIALTO_AUDIO_SINK_CREATED].tStart);
+	cJSON_AddNumberToObject(item, "rast", bucketDuration(PROFILE_BUCKET_RIALTO_AUDIO_SINK_CREATED));
+	
+	cJSON_AddNumberToObject(item, "rsrs", buckets[PROFILE_BUCKET_RIALTO_STATE_READY].tStart);
+	cJSON_AddNumberToObject(item, "rsrt", bucketDuration(PROFILE_BUCKET_RIALTO_STATE_READY));
+	cJSON_AddNumberToObject(item, "rsps", buckets[PROFILE_BUCKET_RIALTO_STATE_PAUSED].tStart);
+	cJSON_AddNumberToObject(item, "rspt", bucketDuration(PROFILE_BUCKET_RIALTO_STATE_PAUSED));
+	cJSON_AddNumberToObject(item, "rspls", buckets[PROFILE_BUCKET_RIALTO_STATE_PLAYING].tStart);
+	cJSON_AddNumberToObject(item, "rsplt", bucketDuration(PROFILE_BUCKET_RIALTO_STATE_PLAYING));
+
+	// DRM License acquisition profiling metrics
+	cJSON_AddNumberToObject(item, "lacs", buckets[PROFILE_BUCKET_LICENSE_ACQUISITION_START].tStart);
+	cJSON_AddNumberToObject(item, "lact", bucketDuration(PROFILE_BUCKET_LICENSE_ACQUISITION_START));
+	cJSON_AddNumberToObject(item, "lace", buckets[PROFILE_BUCKET_LICENSE_ACQUISITION_END].tStart);
+	cJSON_AddNumberToObject(item, "lacet", bucketDuration(PROFILE_BUCKET_LICENSE_ACQUISITION_END));
+	
+	// DRM Decryption phase profiling metrics
+	cJSON_AddNumberToObject(item, "dcs", buckets[PROFILE_BUCKET_DECRYPTION_START].tStart);
+	cJSON_AddNumberToObject(item, "dct", bucketDuration(PROFILE_BUCKET_DECRYPTION_START));
+	cJSON_AddNumberToObject(item, "dce", buckets[PROFILE_BUCKET_DECRYPTION_END].tStart);
+	cJSON_AddNumberToObject(item, "dcet", bucketDuration(PROFILE_BUCKET_DECRYPTION_END));
 	//lets use cJSON_PrintUnformatted , cJSON_Print is formated adds whitespace n hence takes more memory also eats up more logs if logged.
 	char *jsonStr = cJSON_PrintUnformatted(item);
 	if (jsonStr)
@@ -328,7 +374,8 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,%d,%d,"       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
 					//  TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported	
 		// TODO: settop type, flags, isFOGEnabled, isDDPlus, isDemuxed, assetDurationMs
-		"%u,%d", // Stop Duration, gstDecodeTime;
+		"%u,%d,", // Stop Duration, gstDecodeTime;
+		
 
 		tuneTimeStrPrefix,
 		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
@@ -357,7 +404,72 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
 		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs,
 		tDecode // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
-		);
+	);
+
+		AAMPLOG_MIL( "%s, %d,%d,"		// GST_PIPELINE_CREATE (start,total)
+		"%d,%d,"		// GST_VIDEO_PLAYBIN_CREATE (start,total)
+		"%d,%d,"		// GST_AUDIO_PLAYBIN_CREATE (start,total)
+		"%d,%d,"        // GST_VIDEO_SINK_ADD (start,total)
+		"%d,%d,"        // GST_AUDIO_SINK_ADD (start,total)
+		"%d,%d,"        // SINKBIN_ADD_TO_PIPELINE (start,total)
+		"%d,%d,"        // ELEMENT_SETUP_CB_ADD (start,total)
+		"%d,%d,"		// GST_PIPELINE_SETUP (start,total)
+		"%d,%d,"		// GST_PIPELINE_PAUSED (start,total)
+		"%d,%d,"		// GST_PIPELINE_PLAYING (start,total)
+		"%d,%d,"		// GST_FIRST_VIDEO_BUFFER (start,total)
+		"%d,%d,"		// GST_FIRST_AUDIO_BUFFER (start,total)
+		"%d,%d,"		// GST_VIDEO_DECODER_FIRST (start,total)
+		"%d,%d,"		// GST_AUDIO_DECODER_FIRST (start,total)
+		// Rialto profiling metrics
+		"%d,%d,"		// RIALTO_VIDEO_SINK_CREATED (start,total)
+		"%d,%d,"		// RIALTO_AUDIO_SINK_CREATED (start,total)
+
+		"%d,%d,"		// RIALTO_STATE_READY (start,total)
+		"%d,%d,"		// RIALTO_STATE_PAUSED (start,total)
+		"%d,%d,"		// RIALTO_STATE_PLAYING (start,total)
+
+		// DRM License acquisition profiling metrics
+		"%d,%d,"		// LICENSE_ACQUISITION_START (start,total)
+		"%d,%d,"		// LICENSE_ACQUISITION_END (start,total)
+		// DRM Decryption phase profiling metrics
+		"%d,%d,"		// DECRYPTION_START (start,total)
+		"%d,%d,",		// DECRYPTION_END (start,total)
+		// Sequential GStreamer profiling metrics
+
+		"GstRialtoMetrics",buckets[PROFILE_BUCKET_GST_PIPELINE_CREATE].tStart, bucketDuration(PROFILE_BUCKET_GST_PIPELINE_CREATE),
+		buckets[PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE].tStart, bucketDuration(PROFILE_BUCKET_GST_VIDEO_PLAYBIN_CREATE),
+		buckets[PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE].tStart, bucketDuration(PROFILE_BUCKET_GST_AUDIO_PLAYBIN_CREATE),
+		
+		buckets[PROFILE_BUCKET_GST_VIDEO_SINK_ADD].tStart, bucketDuration(PROFILE_BUCKET_GST_VIDEO_SINK_ADD),
+		buckets[PROFILE_BUCKET_GST_AUDIO_SINK_ADD].tStart, bucketDuration(PROFILE_BUCKET_GST_AUDIO_SINK_ADD),
+		buckets[PROFILE_BUCKET_SINKBIN_ADD_TO_PIPELINE].tStart, bucketDuration(PROFILE_BUCKET_SINKBIN_ADD_TO_PIPELINE),
+		buckets[PROFILE_BUCKET_ELEMENT_SETUP_CB_ADD].tStart, bucketDuration(PROFILE_BUCKET_ELEMENT_SETUP_CB_ADD),
+	
+		
+		buckets[PROFILE_BUCKET_GST_PIPELINE_SETUP].tStart, bucketDuration(PROFILE_BUCKET_GST_PIPELINE_SETUP),
+		buckets[PROFILE_BUCKET_GST_PIPELINE_PAUSED].tStart, bucketDuration(PROFILE_BUCKET_GST_PIPELINE_PAUSED),
+		buckets[PROFILE_BUCKET_GST_PIPELINE_PLAYING].tStart, bucketDuration(PROFILE_BUCKET_GST_PIPELINE_PLAYING),
+		buckets[PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER].tStart, bucketDuration(PROFILE_BUCKET_GST_FIRST_VIDEO_BUFFER),
+		buckets[PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER].tStart, bucketDuration(PROFILE_BUCKET_GST_FIRST_AUDIO_BUFFER),
+		buckets[PROFILE_BUCKET_GST_VIDEO_DECODER_FIRST].tStart, bucketDuration(PROFILE_BUCKET_GST_VIDEO_DECODER_FIRST),
+		buckets[PROFILE_BUCKET_GST_AUDIO_DECODER_FIRST].tStart, bucketDuration(PROFILE_BUCKET_GST_AUDIO_DECODER_FIRST),
+
+		// Rialto profiling metrics
+		buckets[PROFILE_BUCKET_RIALTO_VIDEO_SINK_CREATED].tStart, bucketDuration(PROFILE_BUCKET_RIALTO_VIDEO_SINK_CREATED),
+		buckets[PROFILE_BUCKET_RIALTO_AUDIO_SINK_CREATED].tStart, bucketDuration(PROFILE_BUCKET_RIALTO_AUDIO_SINK_CREATED),
+		
+		buckets[PROFILE_BUCKET_RIALTO_STATE_READY].tStart, bucketDuration(PROFILE_BUCKET_RIALTO_STATE_READY),
+		buckets[PROFILE_BUCKET_RIALTO_STATE_PAUSED].tStart, bucketDuration(PROFILE_BUCKET_RIALTO_STATE_PAUSED),
+		buckets[PROFILE_BUCKET_RIALTO_STATE_PLAYING].tStart, bucketDuration(PROFILE_BUCKET_RIALTO_STATE_PLAYING),
+
+		// DRM License acquisition profiling metrics
+		buckets[PROFILE_BUCKET_LICENSE_ACQUISITION_START].tStart, bucketDuration(PROFILE_BUCKET_LICENSE_ACQUISITION_START),
+		buckets[PROFILE_BUCKET_LICENSE_ACQUISITION_END].tStart, bucketDuration(PROFILE_BUCKET_LICENSE_ACQUISITION_END),
+
+		// DRM Decryption phase profiling metrics
+		buckets[PROFILE_BUCKET_DECRYPTION_START].tStart, bucketDuration(PROFILE_BUCKET_DECRYPTION_START),
+		buckets[PROFILE_BUCKET_DECRYPTION_END].tStart, bucketDuration(PROFILE_BUCKET_DECRYPTION_END)
+	);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
 		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, std::move(failureReason), std::move(appName));

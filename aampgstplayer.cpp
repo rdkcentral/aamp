@@ -281,6 +281,8 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_INFO("RegisterFirstFrameCallbacks: firstVideoFrameReceived callback invoked");
+
 		aamp->NotifyFirstFrameReceived(this->playerInstance->GetCCDecoderHandle());
 	};
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = [this]()
@@ -414,6 +416,34 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
 
+		// Register profiler callbacks for Rialto events - set each callback separately
+		// ProfilePerformed callback for instant events
+		playerInstance->SetProfilePerformedCallback(
+			[this](ProfilerBucketType bucketType) {
+				if (this->aamp) {
+					this->aamp->profiler.ProfilePerformed(bucketType);
+				}
+			}
+		);
+		
+		// ProfileBegin callback for duration tracking start
+		playerInstance->SetProfileBeginCallback(
+			[this](ProfilerBucketType bucketType) {
+				if (this->aamp) {
+					this->aamp->profiler.ProfileBegin(bucketType);
+				}
+			}
+		);
+		
+		// ProfileEnd callback for duration tracking end
+		playerInstance->SetProfileEndCallback(
+			[this](ProfilerBucketType bucketType) {
+				if (this->aamp) {
+					this->aamp->profiler.ProfileEnd(bucketType);
+				}
+			}
+		);
+		
 		RegisterFirstFrameCallbacks();
 		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
 	}
@@ -689,6 +719,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			if(isFirstVideoBuffer)
 			{ // required in order for subtitle harvesting/processing to work
 				aamp->UpdateSubtitleTimestamp();
+				AAMPLOG_INFO("SendHelper: firstVideoFrameReceived callback invoked due to SuppressDecode enabled");
 				// required in order to fetch more than eAAMPConfig_PrePlayBufferCount video segments see WaitForFreeFragmentAvailable()
 				aamp->NotifyFirstFrameReceived(playerInstance->GetCCDecoderHandle());
 			}

@@ -498,6 +498,15 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 
 	GST_DEBUG_OBJECT(cdmidecryptor, "Processing buffer");
 
+	// Log first buffer received in decryptor
+	if (!cdmidecryptor->firstsegprocessed)
+	{
+		GST_DEBUG_OBJECT(cdmidecryptor, 
+		                "First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu", 
+		                cdmidecryptor->mediaType, buffer, 
+		                buffer ? gst_buffer_get_size(buffer) : 0);
+	}
+
 	if (!buffer)
 	{
 		GST_ERROR_OBJECT(cdmidecryptor,"Failed to get writable buffer");
@@ -565,7 +574,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		goto free_resources;
 	}
 
-	GST_TRACE_OBJECT(cdmidecryptor, "Got key event ; Proceeding with decryption");
+	GST_DEBUG_OBJECT(cdmidecryptor, "Got key event ; Proceeding with decryption");
 
 	if (!gst_structure_get_uint(protectionMeta->info, "iv_size", &ivSize))
 	{
@@ -587,7 +596,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!ivSize || !encrypted)
 		goto free_resources;
 
-	GST_TRACE_OBJECT(trans, "protection meta: %" GST_PTR_FORMAT, protectionMeta->info);
+	GST_DEBUG_OBJECT(trans, "protection meta: %" GST_PTR_FORMAT, protectionMeta->info);
 	if (!gst_structure_get_uint(protectionMeta->info, "subsample_count",
 			&subSampleCount))
 	{
@@ -636,6 +645,14 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		}
 	}
 
+	// Log decryption start for first encrypted buffer
+	if (!cdmidecryptor->firstsegprocessed)
+	{
+		GST_DEBUG_OBJECT(cdmidecryptor, 
+		                "First buffer ready for decryption - mediaType: %d, ivSize: %u, subSampleCount: %u, encrypted: %d", 
+		                cdmidecryptor->mediaType, ivSize, subSampleCount, encrypted);
+	}
+
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 
 	cdmidecryptor->streamEncrypted = true;
@@ -681,6 +698,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		cdmidecryptor->decryptFailCount = 0;
 	cdmidecryptor->hdcpOpProtectionFailCount = 0;
+
+		// Log successful decryption completion
+		GST_INFO_OBJECT(cdmidecryptor, 
+		                "Decryption completed successfully - mediaType: %d, buffer: %p", 
+		                cdmidecryptor->mediaType, buffer);
+
 		if (cdmidecryptor->mediaType == eGST_MEDIATYPE_AUDIO)
 		{
 			GST_DEBUG_OBJECT(cdmidecryptor, "Decryption successful for Audio packets");
@@ -694,6 +717,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
+
+		// Log first segment decryption profiling begin
+		GST_DEBUG_OBJECT(cdmidecryptor, 
+		                "First buffer decryption starting - mediaType: %d, beginning profiling", 
+		                cdmidecryptor->mediaType);
 
 		if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 		{
@@ -709,6 +737,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		if(!cdmidecryptor->streamEncrypted)
 		{
+			// Log first decryption completed (clear stream)
+			GST_DEBUG_OBJECT(cdmidecryptor, 
+			                "First decryption completed (clear stream) - mediaType: %d", 
+			                cdmidecryptor->mediaType);
+
 			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 			{
 				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
@@ -716,6 +749,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		}
 		else
 		{
+			// Log first decryption failed
+			GST_ERROR_OBJECT(cdmidecryptor, 
+			                 "First decryption failed - mediaType: %d, result: %d", 
+			                 cdmidecryptor->mediaType, result);
+
 			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 			{
 				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
@@ -733,6 +771,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 
 	if (mutexLocked)
 		g_mutex_unlock(&cdmidecryptor->mutex);
+
+	// Log final completion status
+	GST_DEBUG_OBJECT(cdmidecryptor, 
+	                 "transform_ip completed - mediaType: %d, result: %d, firstsegprocessed: %d", 
+	                 cdmidecryptor->mediaType, result, cdmidecryptor->firstsegprocessed);
+
 	return result;
 }
 #endif // USE_OPENCDM_ADAPTER
@@ -760,6 +804,10 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		unsigned char *outData = NULL;
 		size_t outDataLen = 0;
 		GstBuffer* initdatabuffer;
+
+		// Log GST_EVENT_PROTECTION received
+		GST_DEBUG_OBJECT(cdmidecryptor, 
+		                "GST_EVENT_PROTECTION received - Starting DRM session creation");
 
 	if(NULL == cdmidecryptor)
 	{
@@ -881,6 +929,12 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		cdmidecryptor->sessionManager->laprofileBeginCb(cdmidecryptor->mediaType);
 		g_mutex_lock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
+
+		// Log before creating DRM session
+		GST_DEBUG_OBJECT(cdmidecryptor, 
+		                "Creating DRM session - mediaType: %d, systemId: %s", 
+		                cdmidecryptor->mediaType, systemId);
+
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
 		int responseCode =-1;
@@ -895,6 +949,21 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
 						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}
+
+		// Log DRM session creation result
+		if (NULL == cdmidecryptor->drmSession)
+		{
+			GST_ERROR_OBJECT(cdmidecryptor, 
+			                 "DRM session creation FAILED - mediaType: %d, responseCode: %d, err: %d", 
+			                 cdmidecryptor->mediaType, responseCode, err);
+		}
+		else
+		{
+			GST_DEBUG_OBJECT(cdmidecryptor, 
+			                "DRM session created successfully - mediaType: %d, drmSession: %p", 
+			                cdmidecryptor->mediaType, cdmidecryptor->drmSession);
+		}
+
 		if(err != -1)
                 {
                        cdmidecryptor->sessionManager->setfailureCb(e.get(),err);
@@ -926,6 +995,12 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		{
 			cdmidecryptor->streamReceived = TRUE;
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
+
+			// Log DRM session ready - stream can now be decrypted
+			GST_DEBUG_OBJECT(cdmidecryptor, 
+			                "DRM session ready - mediaType: %d, streamReceived set to TRUE", 
+			                cdmidecryptor->mediaType);
+
 			if (!cdmidecryptor->firstsegprocessed)
 			{
 
