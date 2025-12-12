@@ -221,13 +221,18 @@ bool AampLicensePreFetcher::Term()
 }
 
 /**
- * @brief set license prefetcher
+ * @brief Set license fetcher instance in a thread-safe manner.
  *
- * @return none
+ * Sets the license fetcher instance used by the prefetcher.
+ * This method is thread-safe and uses a mutex (mFetchInstanceMutex)
+ * to protect mFetchInstance from concurrent access.
+ *
+ * @param fetcherInstance Pointer to the AampLicenseFetcher instance to set.
+ * @note Thread-safe: uses mutual exclusion to protect mFetchInstance.
  */
 void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
 {
-	std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
+	std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
 	mFetchInstance = fetcherInstance;
 }
 
@@ -429,7 +434,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	}
 
 	{
-		std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
+		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
 		if (skipErrorEvent && mFetchInstance)
 		{
 			mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
