@@ -26,6 +26,7 @@
 #include <map>
 #include <string>
 #include <cstdio>
+#include <mutex>
 
 typedef long BitsPerSecond;
 #define BITSPERSECOND_FORMAT "ld"

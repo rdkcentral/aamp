@@ -98,6 +98,7 @@ void ABRManager::updateProfile() {
 	std::unique_lock<std::mutex> lock(mProfileLock);
 	int profileCount = getProfileCountUnlocked();
 	
+	// todo: replace with Use std::vector<IframeTrackInfo>
 	struct IframeTrackInfo *iframeTrackInfo = new struct IframeTrackInfo[profileCount];
 	bool is4K = false;
 	
@@ -115,6 +116,7 @@ void ABRManager::updateProfile() {
 	// Exists iframe track
 	if(iframeTrackIdx >= 0) {
 		// Sort the iframe track array by bandwidth ascendingly
+		// TODO: use std::sort
 		for (int i = 0; i < iframeTrackIdx; i++) {
 			for (int j = 0; j < iframeTrackIdx - i; j++) {
 				if (iframeTrackInfo[j].bandwidth > iframeTrackInfo[j+1].bandwidth) {
@@ -753,7 +755,6 @@ long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long c
 		downloadbps = currentProfilebps;
 	}
 	return downloadbps;
-	
 }
 
 /**
@@ -798,7 +799,6 @@ void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<lo
 		}
 	}
 }
-
 
 /**
  * @brief Function to Update Persisted Recent Download Statistics Based on ABRCacheOutlier and calculate bw
@@ -933,7 +933,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 		static int loop = 1;
 		AAMPLOG_WARN("Attempted rampup from steady state ->currProf:%d newProf:%d bufferValue:%lf threshold:%d(30)",
 					 currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
-		loop = (++loop >4)?1:loop;
+		loop = (++loop >4)?1:loop; // FIXME
 		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,loop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
 	}
