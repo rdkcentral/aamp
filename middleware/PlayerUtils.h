@@ -33,7 +33,6 @@
 #include <inttypes.h>
 #include <iostream>
 #include <cstring>
-#include <vector>
 
 //Delete non-array object
 #define MW_SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
@@ -99,16 +98,6 @@ long long GetCurrentTimeMS(void);
  * @param[in][out] src Buffer containing string
  */
 void trim(std::string& src);
-
-/**
- * @fn RawKeyToKeyId
- * @brief Convert raw key bytes to key ID format (ASCII hex)
- *
- * @param[in] key Pointer to raw key bytes
- * @param[in] keySize Size of the raw key in bytes
- * @return Vector containing the key ID in ASCII hex format
- */
-std::vector<uint8_t> RawKeyToKeyId(const uint8_t* key, size_t keySize);
 
 #endif  /* __PLAYER_UTILS_H__ */
 
