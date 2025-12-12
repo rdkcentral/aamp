@@ -105,8 +105,6 @@ protected:
 	KeyStatus m_keyStatus;
 	bool m_keyStateIndeterminate;
 	std::vector<uint8_t> m_keyStored;
-	std::vector<std::vector<uint8_t>> m_usableKeys; // Store usable key IDs from ocdm_update_callback
-	mutable std::mutex m_usableKeysMutex; // Protects m_usableKeys from concurrent access
 
 	Event m_challengeReady;
 	Event m_keyStatusReady;
@@ -123,7 +121,6 @@ public:
 	void processOCDMChallenge(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize);
 	void keysUpdatedOCDM();
 	void keyUpdateOCDM(const uint8_t key[], const uint8_t keySize);
-	const std::vector<std::vector<uint8_t>>& getUsableKeys() const;
 	long long timeBeforeCallback;
 
 private:

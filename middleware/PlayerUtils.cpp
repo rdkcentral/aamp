@@ -265,29 +265,3 @@ void trim(std::string& src)
 		src = dst;
 	}
 }
-
-/**
- * @brief Convert raw key bytes to key ID format (ASCII hex)
- *
- * @param[in] key Pointer to raw key bytes (may be nullptr if keySize == 0)
- * @param[in] keySize Size of the raw key in bytes
- * @return Vector containing the key ID in ASCII hex format (two ASCII chars per input byte)
- */
-std::vector<uint8_t> RawKeyToKeyId(const uint8_t* key, std::size_t keySize)
-{
-    static constexpr char hexDigits[] = "0123456789abcdef";
-
-    if (!key || keySize == 0)
-        return {};
-
-    std::vector<uint8_t> out(keySize * 2);
-
-    for (std::size_t i = 0; i < keySize; ++i)
-    {
-        const uint8_t v = key[i];
-        out[(i << 1)]     = static_cast<uint8_t>(hexDigits[v >> 4]);
-        out[(i << 1) + 1] = static_cast<uint8_t>(hexDigits[v & 0x0F]);
-    }
-
-    return out;
-}

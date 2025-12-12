@@ -123,12 +123,11 @@ void StreamAbstractionAAMP_VIDEOIN::SetVideoRectangle(int x, int y, int w, int h
  * @brief Get output format of stream.
  *
  */
-void StreamAbstractionAAMP_VIDEOIN::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_VIDEOIN::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 { // STUB
 	AAMPLOG_WARN("%s ",mName.c_str());
     primaryOutputFormat = FORMAT_INVALID;
     audioOutputFormat = FORMAT_INVALID;
-    //auxAudioOutputFormat = FORMAT_INVALID;
 }
 
 /**
