@@ -44,8 +44,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mTrackStatus(),
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
-		mFetchInstance(nullptr),
-		mFetchInstanceMutex(),
+		mFetchInstanceWeak(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
@@ -216,22 +215,9 @@ bool AampLicensePreFetcher::Term()
 	}
 	
 	mTrackStatus.fill(false);
-	{
-		std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
-		mFetchInstance = nullptr;
-	}
+	// Clear the fetcher weak pointer to prevent use-after-free
+	mFetchInstanceWeak.reset();
 	return ret;
-}
-
-/**
- * @brief set license prefetcher
- *
- * @return none
- */
-void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
-{
-	std::lock_guard<std::mutex>lock(mFetchInstanceMutex);
-	mFetchInstance = fetcherInstance;
 }
 
 /**
@@ -438,15 +424,15 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	std::unique_lock<std::mutex>fetchInstanceLock(mFetchInstanceMutex);
-	if (skipErrorEvent && mFetchInstance)
+	// Use lock-free weak_ptr pattern for thread-safe access to mFetchInstance
+	// Maintain original logic: only call UpdateFailedDRMStatus if both skipErrorEvent AND valid instance
+	auto fetchInstance = mFetchInstanceWeak.lock();
+	if (skipErrorEvent && fetchInstance)
 	{
-		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
-		fetchInstanceLock.unlock();
+		fetchInstance->UpdateFailedDRMStatus(fetchObj.get());
 	}
 	else
 	{
-		fetchInstanceLock.unlock();
 		if (!selfAbort)
 		{
 			//Set the isRetryEnabled flag to true if the failure is due to

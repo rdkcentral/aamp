@@ -4840,6 +4840,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		// Clear license fetcher weak pointer before stopping/destroying stream abstraction to prevent use-after-free
+		if (mDRMLicenseManager)
+		{
+			mDRMLicenseManager->ClearLicenseFetcher();
+		}
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
@@ -7701,11 +7706,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
-			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
-			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
-			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
-			// of StreamAbstractionAamp.
-			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 		}
 		if (HasSidecarData())
 		{ // has sidecar data

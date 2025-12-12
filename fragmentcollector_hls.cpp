@@ -4776,7 +4776,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	if (aamp->mDRMLicenseManager)
 	{
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
-		licenseManager->SetLicenseFetcher(this);
+		licenseManager->SetLicenseFetcher(shared_from_this());
 	}
 	trickplayMode = false;
 	enableThrottle = ISCONFIGSET(eAAMPConfig_Throttle);

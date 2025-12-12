@@ -898,7 +898,8 @@ private:
 /**
  * @brief StreamAbstraction class of AAMP
  */
-class StreamAbstractionAAMP : public AampLicenseFetcher
+class StreamAbstractionAAMP : public AampLicenseFetcher,
+                               public std::enable_shared_from_this<AampLicenseFetcher>
 {
 public:
 	std::map<long long, double> mPtsOffsetMap; /** @brief map from period index to pts offset, used for hls/ts pts restamping */
