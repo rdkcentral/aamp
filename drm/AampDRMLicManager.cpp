@@ -834,24 +834,13 @@ void AampDRMLicenseManager::Stop()
 	mLicensePrefetcher->Term();
 }
 /**
- * @brief set license fetcher object using shared_ptr for thread-safe lifetime management
+ * @brief set license fetcher object
  * 
- * @param fetcherInstance shared_ptr to AampLicenseFetcher instance
  * @return none
  */
-void AampDRMLicenseManager::SetLicenseFetcher(std::shared_ptr<AampLicenseFetcher> fetcherInstance)
+void AampDRMLicenseManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
 {
 	mLicensePrefetcher->SetLicenseFetcher(fetcherInstance);
-}
-
-/**
- * @brief Clear license fetcher weak pointer to prevent use-after-free
- *
- * @return none
- */
-void AampDRMLicenseManager::ClearLicenseFetcher()
-{
-	mLicensePrefetcher->ClearLicenseFetcher();
 }
 
 /**

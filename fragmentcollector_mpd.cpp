@@ -165,7 +165,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	if (aamp->mDRMLicenseManager)
 	{
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
-		licenseManager->SetLicenseFetcher(shared_from_this());
+		licenseManager->SetLicenseFetcher(this);
 	}
 	GetABRManager().clearProfiles();
 	mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();

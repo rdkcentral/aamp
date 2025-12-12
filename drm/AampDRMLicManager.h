@@ -211,9 +211,8 @@ public:
 	 */
 	void Stop();
 
-	void SetLicenseFetcher(std::shared_ptr<AampLicenseFetcher> fetcherInstance);
-	void ClearLicenseFetcher();
-	void SetSendErrorOnFailure(bool sendErrorOnFailure);
+	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance);
+        void SetSendErrorOnFailure(bool sendErrorOnFailure);
 	/**
 	 * @brief Queue a content protection info to be processed later
 	 * 
