@@ -275,7 +275,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	}
 	enabled = false;
 	unsigned int licenseAcqNWTime = bucketDuration(PROFILE_BUCKET_LA_NETWORK);
-	char tuneTimeStrPrefix[64];
+	char tuneTimeStrPrefix[128]; // Increased buffer size to 128 bytes
 	memset(tuneTimeStrPrefix, '\0', sizeof(tuneTimeStrPrefix));
 	int mTotalTime;
  	int mTimedMetadataStartTime = static_cast<int> (mTuneEndMetrics.mTimedMetadataStartTime - tuneStartMonotonicBase);
@@ -296,17 +296,23 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	{
 		mTotalTime = static_cast<int> (mTuneEndMetrics.mTotalTime - tuneStartMonotonicBase);
 	}
+	AAMPLOG_WARN("HariPriya appName after Firebolt check: %s", appName.c_str());
+	AAMPLOG_WARN("HariPriya IsConfigSet(eAAMPConfig_UseFireboltSDK): %d", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 	if (!appName.empty())
 	{
 		if (gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) {
 			appName += "_VIPA";
+		} else {
+			appName += "_NONVIPA"; // Append _NONVIPA for Non-VIPA playback
 		}
 		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] APP: %s IP_AAMP_TUNETIME", playerActiveMode.c_str(), playerId, appName.c_str());
 	}
 	else
 	{
-		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] IP_AAMP_TUNETIME", playerActiveMode.c_str(),playerId);
+		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] IP_AAMP_TUNETIME", playerActiveMode.c_str(), playerId);
 	}
+
+	AAMPLOG_MIL("HariPriya Debug: tuneTimeStrPrefix content: %s", tuneTimeStrPrefix); // Debug log to verify content
 
 	AAMPLOG_MIL("%s:%d,%s,%lld," // prefix, version, build, tuneStartBaseUTCMS
 		"%d,%d,%d,"		// main manifest (start,total,err)
