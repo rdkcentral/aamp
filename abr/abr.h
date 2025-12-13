@@ -453,14 +453,6 @@ public:
 	bool CheckProfileChange(double totalFetchedDuration, int currProfileIndex, BitsPerSecond availBW);
 	
 	/*
-	 * @brief function to check whether the profile index is the lowest profile or not
-	 * @param currentProfileIndex -current profile index to be checked.
-	 * @param bool IsTrickmode - true if it is a trickplay,else false
-	 * @return - true if it is lowest profile else false
-	 */
-	bool IsLowestProfile(int currentProfileIndex, bool IsTrickmode);
-	
-	/*
 	 * @brief Get Desired Profile based on Buffer availability
 	 * @param currentProfileIndex, newProfileIndex -current and new profile
 	 * @param currentBandwidth current profile index bitrate

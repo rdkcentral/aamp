@@ -145,11 +145,6 @@ bool ABRManager::CheckProfileChange(double totalFetchedDuration ,int currProfile
 	return false;
 }
 
-bool ABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
-{
-	return false;
-}
-
 void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileIndex,double bufferValue,double minBufferNeeded,const std::string& periodId)
 {
 }

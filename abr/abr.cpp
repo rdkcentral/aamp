@@ -13,7 +13,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-// #define DEBUG_ENABLED 1
+
 /***************************************************
  * @file abr.cpp
  * @brief Handles operations on Hybrid ABR functionalities
@@ -585,7 +585,7 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
 	}
 	profileCount = mProfiles.size();
 #if defined(DEBUG_ENABLED)
-	AAMPLOG_MIL("profileCount after removing profiles orig:%d and new:%zu", profileCount, profileCount );
+	AAMPLOG_MIL("profileCount after removing profiles orig:%zu and new:%zu", profileCount, profileCount );
 #endif
 	
 	mSortedBWProfileList.clear();
