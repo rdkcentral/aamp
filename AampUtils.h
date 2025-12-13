@@ -36,6 +36,7 @@
 #include <curl/curl.h>
 #include <chrono>
 #include "TsbApi.h"
+#include "AampCurlDefine.h"
 #include "AampCurlDownloader.h"
 
 
@@ -423,6 +424,8 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
  */
 bool aamp_isTuneScheme( const char *cmdBuf );
 
+/* Forward declaration – required for UT builds supriya added */
+//enum CurlTimeoutFailureReason;
 /**
  * @brief disambiguate CURLE_OPERATION_TIMEDOUT, using state from CURL connection
  *
