@@ -548,7 +548,7 @@ void PlayerCCManagerBase::Stop()
 {
 	EnsureRendererCommsInitialized();
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled=%d",mEnabled);
-	MW_LOG_WARN(" supriya added log: mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, mCCHandle, mTrickplayStarted);
+	MW_LOG_WARN(" supriya added log: mEnabled=%d, mTrickplayStarted=%d", mEnabled, mTrickplayStarted);
 	StopRendering();
 }
 
@@ -559,7 +559,7 @@ void PlayerCCManagerBase::Start()
 {
 	EnsureInitialized();
 	MW_LOG_WARN("PlayerCCManagerBase:: mEnabled=%d",  mEnabled);
-	MW_LOG_WARN(" supriya added log: mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, mCCHandle, mTrickplayStarted);
+	MW_LOG_WARN(" supriya added log: mEnabled=%d, mTrickplayStarted=%d", mEnabled, mTrickplayStarted);
 	StartRendering();
 }
 
@@ -594,7 +594,7 @@ int PlayerCCManagerBase::Init(void *handle)
 		MW_LOG_WARN("supriya: PlayerCCManagerBase::stop is called");
 		Stop();
 	}
-
+	MW_LOG_WARN("supriya: EXIT");
 	return 0;
 }
 
@@ -604,11 +604,11 @@ int PlayerCCManagerBase::Init(void *handle)
 void PlayerCCManagerBase::SetTrickplayStatus(bool on)
 {
 	MW_LOG_WARN("PlayerCCManagerBase::trickplay status(%d)", on);
-	MW_LOG_WARN("supriya: Current state -> mEnabled=%d, mCCHandle=%p, mTrickplayStarted=%d", mEnabled, mCCHandle, mTrickplayStarted);
+	MW_LOG_WARN("supriya: Current state -> mEnabled=%d, mTrickplayStarted=%d", mEnabled, mTrickplayStarted);
 	if (on)
 	{
 		// When trickplay starts, stop CC rendering
-		MW_LOG_WARN(" supriya Trickplay starting, stopping CC rendering");
+		MW_LOG_WARN(" supriya: Trickplay starting, stopping CC rendering");
 		Stop();
 	}
 	else if (mEnabled)
@@ -617,6 +617,11 @@ void PlayerCCManagerBase::SetTrickplayStatus(bool on)
 		MW_LOG_WARN("supriya: CC is enabled, starting CC rendering");
 		Start();
 	}
+	else
+    {
+        MW_LOG_WARN("supriya: CC_TRICKPLAY: Trickplay END but CC disabled → No action");
+    }
+
 	mTrickplayStarted = on;
 	MW_LOG_WARN(" supriya:Updated mTrickplayStarted=%d", mTrickplayStarted);
 }
@@ -627,9 +632,11 @@ void PlayerCCManagerBase::SetTrickplayStatus(bool on)
 void PlayerCCManagerBase::SetParentalControlStatus(bool locked)
 {
 	MW_LOG_WARN("PlayerCCManagerBase:: lock status(%s)", (locked)?"true":"false");
+	MW_LOG_WARN("CC_PARENTAL: Enter | locked=%d, mEnabled=%d, mTrickplayStarted=%d, mParentalCtrlLocked=%d", locked, mEnabled, mTrickplayStarted, mParentalCtrlLocked);
 	if (locked)
 	{
 		// When parental control locked, stop CC rendering
+		MW_LOG_WARN("CC_PARENTAL: Parental LOCK → Stop()");
 		Stop();
 	}
 	else
@@ -637,10 +644,12 @@ void PlayerCCManagerBase::SetParentalControlStatus(bool locked)
 		if (mEnabled)
 		{
 			// When parental control unlocked, start  CC rendering if already enabled by app
+			MW_LOG_WARN("CC_PARENTAL: Parental UNLOCK & CC enabled → Start()");
 			Start();
 		}
 	}
 	mParentalCtrlLocked = locked;
+	MW_LOG_WARN("supriya: CC_TRICKPLAY: Exit | mTrickplayStarted=%d", mTrickplayStarted);
 }
 
 /**
@@ -787,14 +796,19 @@ void PlayerCCManagerBase::RestoreCC()
  */
 int PlayerCCManagerBase::SetStatus(bool enable)
 {
+	MW_LOG_WARN("supriya:before PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s", mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
+	
 	int ret = 0;
 	mEnabled = enable;
-	MW_LOG_WARN("supriya: PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
-			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
+	
+	MW_LOG_WARN("supriya:after PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s", mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
+	
 	if (mEnabled)
 		IsCCOnFlag = 1;
 	else
 		IsCCOnFlag = 0;
+	
+	MW_LOG_WARN("CC_SETSTATUS: Updated mEnabled=%d, IsCCOnFlag=%d", mEnabled, IsCCOnFlag);
 
 	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle())
 	{
@@ -804,10 +818,12 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 		// called when the required operations are completed
 		if (mEnabled)
 		{
+			MW_LOG_WARN("supriya:CC_SETSTATUS: Calling Start() now");
 			Start();
 		}
 		else
 		{
+			MW_LOG_WARN("supriya:CC_SETSTATUS: Calling Stop() now");
 			Stop();
 		}
 	}
@@ -870,7 +886,10 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 void PlayerCCManagerBase::ResetState()
 {
 	MW_LOG_INFO("PlayerCCManagerBase::Resetting");
+	MW_LOG_WARN("supriyaResetState: BEFORE -> mEnabled=%d, mTrickplayStarted=%d, mParentalCtrlLocked=%d", mEnabled, mTrickplayStarted, mParentalCtrlLocked);
 	Stop();
+	MW_LOG_WARN("supriyaResetState: AFTER -> mEnabled=%d, mTrickplayStarted=%d, mParentalCtrlLocked=%d", mEnabled, mTrickplayStarted, mParentalCtrlLocked);
+
 
 	mOptions = "";
 	mTrack = "";
@@ -903,6 +922,7 @@ void PlayerCCManager::DestroyInstance()
 {
 	if (mInstance)
 	{
+		MW_LOG_WARN("DestroyInstance: Deleting singleton instance %p", mInstance);
 		delete mInstance;
 		mInstance = NULL;
 	}
