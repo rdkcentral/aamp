@@ -736,7 +736,7 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	eAAMPAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
 	eAAMPAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
 	eAAMPAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
-	AAMPLOG_MIL("[%s][%d]PlayerConfig : ABRCacheLife %d, ABRCacheLength %d, ABRSkipDuration %d, ABRNwConsistency %d, ABRThresholdSize %d, ABRMaxBuffer %d, ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
+	AAMPLOG_MIL("ABRCacheLife %d, ABRCacheLength %d, ABRSkipDuration %d, ABRNwConsistency %d, ABRThresholdSize %d, ABRMaxBuffer %d, ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
 }
 
 
@@ -868,7 +868,7 @@ bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfile
 	//Avoid doing ABR during initial buffering which will affect tune times adversely
 	if ( totalFetchedDuration > 0 && totalFetchedDuration < eAAMPAbrConfig.abrSkipDuration)
 	{
-		AAMPLOG_TRACE("[%s][%d] TotalFetchedDuration %lf ",__FUNCTION__,__LINE__,totalFetchedDuration);
+		AAMPLOG_TRACE("TotalFetchedDuration %lf ", totalFetchedDuration);
 		//For initial fragment downloads, check available bw is less than default bw
 		//If available BW is less than current selected one, we need ABR
 		if (availBW > 0 && availBW < currBW)
@@ -894,7 +894,7 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 {
 	long currentBandwidth = getBandwidthOfProfile(currProfileIndex);
 	long newBandwidth     = getBandwidthOfProfile(newProfileIndex);
-	AAMPLOG_INFO("[%s][%d] CurrProfileIndex %d, newProfileIndex %d,CurrentBandwidth %ld,newBandwidth %ld,BufferValue %lf, minBufferNeeded %lf",__FUNCTION__, __LINE__, currProfileIndex,newProfileIndex,currentBandwidth,newBandwidth,bufferValue,minBufferNeeded);
+	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d currentBandwidth %ld newBandwidth %ld bufferValue %lf, minBufferNeeded %lf", currProfileIndex, newProfileIndex, currentBandwidth, newBandwidth, bufferValue, minBufferNeeded);
 	if(bufferValue > 0 )
 	{
 		if(newBandwidth > currentBandwidth)
@@ -923,7 +923,7 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
 {
 	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
-	AAMPLOG_INFO("[%s][%d]  currProfileIndex %d, newProfileIndex %d, nwBandwidth %ld, bufferValue %lf, newBandwidth %ld threshold %d(30)",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth, abrThreshold);
+	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d nwBandwidth %ld bufferValue %lf newBandwidth %ld threshold %d", currProfileIndex, newProfileIndex, nwBandwidth, bufferValue, newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
 	if(abrThreshold >= 0 && abrThreshold <= 30)
@@ -931,8 +931,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 	if(newProfileIndex  != currProfileIndex)
 	{
 		static int loop = 1;
-		AAMPLOG_WARN("Attempted rampup from steady state ->currProf:%d newProf:%d bufferValue:%lf threshold:%d(30)",
-					 currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
+		AAMPLOG_WARN("attempted rampup from steady state currProfileIndex %d newProfileIndex %d bufferValue %lf threshold %d", currProfileIndex, newProfileIndex, bufferValue, abrThreshold);
 		loop = (++loop >4)?1:loop; // FIXME
 		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,loop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
@@ -945,14 +944,14 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 
 void ABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
 {
-	AAMPLOG_INFO("[%s][%d] currProfileIndex %d, newProfileIndex %d, mABRLowBufferCounter %d",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,mABRLowBufferCounter);
+	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d mABRLowBufferCounter %d", currProfileIndex, newProfileIndex, mABRLowBufferCounter);
 	if(mABRLowBufferCounter >= eAAMPAbrConfig.abrBufferCounter)
 	{
 		newProfileIndex = getRampedDownProfileIndex(currProfileIndex,periodId);
 		if(newProfileIndex  != currProfileIndex)
 		{
 			mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
-			AAMPLOG_WARN("Attempted rampdown from steady state ->currProf:%d newProf:%d",currProfileIndex,newProfileIndex);
+			AAMPLOG_WARN("Attempted rampdown from steady state ->currProf:%d newProf:%d", currProfileIndex,newProfileIndex);
 		}
 	}
 }

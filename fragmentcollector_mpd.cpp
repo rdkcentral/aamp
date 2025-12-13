@@ -8769,7 +8769,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 
 			if (PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(trackIdx))))
 			{
-				AAMPLOG_TRACE("StreamAbstractionAAMP_MPD::%s[%d] Advancing track downloads", __FUNCTION__, __LINE__);
+				AAMPLOG_TRACE("StreamAbstractionAAMP_MPD::Advancing track downloads" );
 			}
 			else if (pMediaStreamContext->eos == true && mIsLiveManifest && trackIdx == eMEDIATYPE_VIDEO && !(ISCONFIGSET(eAAMPConfig_InterruptHandling) && mIsFogTSB))
 			{
