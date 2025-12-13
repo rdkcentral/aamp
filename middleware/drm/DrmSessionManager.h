@@ -71,37 +71,19 @@ struct DrmSessionContext
 };
 
 /**
- *  @struct	KeyIdEntry
- *  @brief	Structure to hold, keyId and its failed status
+ *  @struct	KeyID
+ *  @brief	Structure to hold, keyId and session creation time for
+ *  		keyId
  */
-struct KeyIdEntry
+struct KeyID
 {
-	std::vector<uint8_t> keyId; 	/**<  Key ID */
-	bool isFailedKeyId;				/**< Flag to mark the failed key ID status */
+	std::vector<std::vector<uint8_t>> data;
+	long long creationTime;
+	bool isFailedKeyId;
+	bool isPrimaryKeyId;
 
-	/**
-	 *  @fn KeyIdEntry - constructor
-	 */
-	KeyIdEntry() : keyId(), isFailedKeyId(false)
-	{
-	}
+	KeyID();
 };
-
-/**
- *  @struct	KeyIdEntries
- *  @brief	Structure to hold, keyIds and session creation time for Entries
- */
-struct KeyIdEntries
-{
-	std::vector<KeyIdEntry> data;	// List of KeyIdEntry
-	long long creationTime;			// Session creation time
-	bool isPrimaryKeyId;			// Flag to mark the primary key ID status
-	bool isFailedKeyEntries;		// Flag to mark the complete entry invalid
-
-	KeyIdEntries();
-};
-
-
 
 /**
  *  @brief	Enum to represent session manager state.
@@ -151,7 +133,7 @@ public:
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 private:
-	KeyIdEntries *cachedKeyIDs;
+	KeyID *cachedKeyIDs;
 	char* accessToken;
 	int accessTokenLen;
 	SessionMgrState sessionMgrState;
@@ -301,15 +283,6 @@ public:
 	 * 				false if key is not cached
 	 */
 	bool IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status);
-	/**
-	 * @fn Validate multiple key IDs for a given DRM session slot using the provided DrmHelper
-	 *
-	 * @param[in] keyId The key ID to validate
-	 * @param[in] selectedSlot The DRM session slot to validate
-	 *
-	 * @return true if validation is successful, false otherwise
-	 */
-	bool ValidateMultiKeySlot(const std::vector<uint8_t>& keyId, int selectedSlot);
 	/**
 	 *  @fn         clearSessionData
 	 *
@@ -487,7 +460,7 @@ public:
 	/*
 	 * @brief Register Content Protection Update callback to application 
 	 */
-	using ContentUpdateCallback = std::function<std::string(DrmHelperPtr drmHelper, int streamType, const std::vector<uint8_t>& keyId, int contentProtectionUpd)>;
+	using ContentUpdateCallback = std::function<std::string(DrmHelperPtr drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)>;
 	ContentUpdateCallback ContentUpdateCb;
 	void RegisterHandleContentProtectionCb(const ContentUpdateCallback callback)
 	{

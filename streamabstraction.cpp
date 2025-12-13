@@ -59,8 +59,6 @@ AampMediaType TrackTypeToMediaType( TrackType trackType )
 			return eMEDIATYPE_PLAYLIST_AUDIO;
 		case eTRACK_SUBTITLE:
 			return eMEDIATYPE_PLAYLIST_SUBTITLE;
-		case eTRACK_AUX_AUDIO:
-			return eMEDIATYPE_PLAYLIST_AUX_AUDIO;
 			//case eTRACK_IFRAME:
 			//	return eMEDIATYPE_PLAYLIST_IFRAME;
 		default:
@@ -1775,10 +1773,6 @@ void MediaTrack::RunInjectLoop()
 				{
 					pContext->WaitForAudioTrackCatchup();
 				}
-				else if (eTRACK_AUX_AUDIO == type)
-				{
-					pContext->WaitForVideoTrackCatchupForAux();
-				}
 			}
 			else
 			{
@@ -2097,7 +2091,6 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 {
 	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	MediaTrack *aux = GetMediaTrack(eTRACK_AUX_AUDIO);
 	if( audio && video )
 	{
 		std::lock_guard<std::mutex> guard(mLock);
@@ -2107,20 +2100,12 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 		{
 			mCond.notify_one();
 		}
-		if (aux && aux->enabled)
-		{
-			double auxDuration = aux->GetTotalInjectedDuration();
-			if (auxDuration < (videoDuration + (2 * video->fragmentDurationSeconds)) || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
-			{
-				mAuxCond.notify_one();
-			}
-		}
 	}
 }
 
 
 /**
- * @brief Blocks aux track injection until caught up with video track.
+ * @brief Blocks audio track injection until caught up with video track.
  *        Used internally by injection logic
  */
 void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
@@ -2168,7 +2153,6 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mRampDownLimit(-1), mRampDownCount(0),mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
 		mBitrateReason(eAAMP_BITRATE_CHANGE_BY_TUNE),
 		mAudioTrackIndex(), mTextTrackIndex(),
-		mAuxCond(), mFwdAudioToAux(false),
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mPTSOffset(0.0),
@@ -2427,8 +2411,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 			{
 				int nProfileIdx =  aamp->mhAbrManager.getRampedUpProfileIndex(currProfileIndex);
 				long newBandwidth = GetStreamInfo(nProfileIdx)->bandwidthBitsPerSecond;
-				HybridABRManager::BitrateChangeReason mhBitrateReason;
-				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampupFromSteadyState(currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth,mhBitrateReason,mMaxBufferCountCheck);
 				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
 				mABRHighBufferCounter = 0;
@@ -2443,8 +2427,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 			{
 				mABRLowBufferCounter++;
 				mABRHighBufferCounter = 0;
-				HybridABRManager::BitrateChangeReason mhBitrateReason;
-				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampdownFromSteadyState(currProfileIndex,newProfileIndex,mhBitrateReason,mABRLowBufferCounter);
 				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
 				mABRLowBufferCounter = (mABRLowBufferCounter >= mABRBufferCounter)? 0 : mABRLowBufferCounter ;
@@ -3506,11 +3490,6 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 	{
 		state = eDISCONTINUITY_IN_AUDIO;
 	}
-	// bypass discontinuity check for auxiliary audio for now
-	else if (type == eTRACK_AUX_AUDIO)
-	{
-		aamp->Discontinuity(eMEDIATYPE_AUX_AUDIO, false);
-	}
 	else if (type == eTRACK_SUBTITLE)
 	{
 		ret=true;
@@ -3736,7 +3715,7 @@ bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
  */
 void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
 {
-	for ( int type = eTRACK_VIDEO; type <= eTRACK_AUX_AUDIO; type++)
+	for ( int type = eTRACK_VIDEO; type <= eTRACK_SUBTITLE; type++)
 	{
 		MediaTrack *track = GetMediaTrack((TrackType)type);
 		if(track)
@@ -3824,6 +3803,15 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	}
 	return bFound;
 }
+
+/**
+ *   @brief Set current text track index
+ */
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	mTextTrackIndex = index;
+}
+
 /**
 *   @brief verify in-band CC availability for a stream.
 */
@@ -3893,35 +3881,6 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 		AAMPLOG_WARN("Setting refreshSubtitles");
 		subtitle->refreshSubtitles = true;
 		subtitle->AbortWaitForCachedAndFreeFragment(true);
-	}
-}
-
-
-void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
-{
-	MediaTrack *aux = GetMediaTrack(eTRACK_AUX_AUDIO);
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if( aux && video )
-	{
-		std::unique_lock<std::mutex> lock(mLock);
-		double auxDuration = aux->GetTotalInjectedDuration();
-		double videoDuration = video->GetTotalInjectedDuration();
-
-		while ((auxDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !aux->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
-		{
-			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
-			{
-				AAMPLOG_WARN("Skipping WaitForVideoTrackCatchupForAux as video is processing a discontinuity");
-				break;
-			}
-
-			if (std::cv_status::no_timeout == mAuxCond.wait_for(lock, std::chrono::milliseconds(100)))
-			{
-				break;
-			}
-			auxDuration = aux->GetTotalInjectedDuration();
-			videoDuration = video->GetTotalInjectedDuration();
-		}
 	}
 }
 
@@ -4101,8 +4060,8 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
 	std::shared_ptr<MediaProcessor> subtitleESProcessor = nullptr;
-	StreamOutputFormat videoFormat, audioFormat, auxAudioFormat, subtitleFormat;
-	GetStreamFormat(videoFormat, audioFormat, auxAudioFormat, subtitleFormat);
+	StreamOutputFormat videoFormat, audioFormat, subtitleFormat;
+	GetStreamFormat(videoFormat, audioFormat, subtitleFormat);
 	for (int i = eMEDIATYPE_SUBTITLE; i >= eMEDIATYPE_VIDEO; i--)
 	{
 		MediaTrack *track = GetMediaTrack((TrackType) i);
@@ -4172,10 +4131,6 @@ AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isI
 		else if (type == eTRACK_SUBTITLE)
 		{
 			playlistType = eMEDIATYPE_PLAYLIST_SUBTITLE;
-		}
-		else if (type == eTRACK_AUX_AUDIO)
-		{
-			playlistType = eMEDIATYPE_PLAYLIST_AUX_AUDIO;
 		}
 		else if (type == eTRACK_VIDEO)
 		{

@@ -40,7 +40,6 @@ typedef enum
 	DRM_PROFILE_BUCKET_DECRYPT_VIDEO,       /**< Video decryption bucket*/
 	DRM_PROFILE_BUCKET_DECRYPT_AUDIO,       /**< Audio decryption bucket*/
 	DRM_PROFILE_BUCKET_DECRYPT_SUBTITLE,    /**< Subtitle decryption bucket*/
-	DRM_PROFILE_BUCKET_DECRYPT_AUXILIARY,   /**< Auxiliary decryption bucket*/
 
 	DRM_PROFILE_BUCKET_LA_TOTAL,            /**< License acquisition total bucket*/
 	DRM_PROFILE_BUCKET_LA_PREPROC,          /**< License acquisition pre-processing bucket*/
