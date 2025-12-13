@@ -206,6 +206,7 @@ public:
 	int getClosestProfileIndexByBandwidth( BitsPerSecond inputBandwidth );
 	
 	// Getters/Setters
+	
 	/**
 	 * @fn getProfileCount
 	 *
@@ -550,13 +551,6 @@ public:
 	BitsPerSecond FragmentfailureRampdown(int currentBuffer,int currentProfileIndex);
 	
 private:
-	/**
-	 * @fn getProfileCount
-	 *
-	 * @return The number of profiles
-	 */
-	int getProfileCount() const;
-	
 	/**
 	 * @brief Add new profile info to sorted BW list
 	 * @param[in] profileInfo profile info
