@@ -524,7 +524,7 @@ void ABRManager::addProfile(ABRManager::ProfileInfo profile)
 void ABRManager::addSortedBWProfileList(const ABRManager::ProfileInfo &profileInfo, int idx)
 {
 	if (!profileInfo.isIframeTrack) {
-		std::lock_guard<std::mutex> lock(mProfileLock);
+		//std::lock_guard<std::mutex> lock(mProfileLock);
 		mSortedBWProfileList[profileInfo.periodId][profileInfo.bandwidthBitsPerSecond] = idx;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("Period ID: %s", profileInfo.periodId.c_str());
