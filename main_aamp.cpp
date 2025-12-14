@@ -60,6 +60,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
+	AAMPLOG_WARN("supriya: PlayerInstanceAAMP CONSTRUCTOR START this=%p playerId=%d", this, (aamp ? aamp->mPlayerId : -1));
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
@@ -76,14 +77,28 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		SetPlayerName(PLAYER_NAME);
 
 		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
-		if(!gpGlobalConfig->ReadAampCfgTxtFile())
+		//if(!gpGlobalConfig->ReadAampCfgTxtFile())
+		AAMPLOG_WARN("supriya: GlobalConfig created, about to read config sources...");
+		bool fileRead = gpGlobalConfig->ReadAampCfgTxtFile();
+		AAMPLOG_WARN("supriya: ReadAampCfgTxtFile() returned %s", fileRead ? "true" : "false");
+		if(!fileRead)
 		{
-			if(!gpGlobalConfig->ReadAampCfgJsonFile())
+			//if(!gpGlobalConfig->ReadAampCfgJsonFile())
+			bool jsonRead = gpGlobalConfig->ReadAampCfgJsonFile();
+			AAMPLOG_WARN("supriya: ReadAampCfgJsonFile() returned %s", jsonRead ? "true" : "false");
+
+			if(!jsonRead)
 			{
+				AAMPLOG_WARN("supriya: No config file found, falling back to environment variable config");
 				gpGlobalConfig->ReadAampCfgFromEnv();
 			}			
 			
 		}
+		// added this part to debug the issue of eAAMPConfig_ProgressLogging not being copied properly
+		bool progressEnabled = gpGlobalConfig->IsConfigSet(eAAMPConfig_ProgressLogging);
+        int divisor = gpGlobalConfig->GetConfigValue(eAAMPConfig_ProgressLoggingDivisor);
+        AAMPLOG_WARN("supriya: GLOBAL CONFIG AFTER LOAD: eAAMPConfig_ProgressLogging=%s Divisor=%d",
+                     progressEnabled ? "true" : "false", divisor);
 
 		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
 
@@ -96,6 +111,30 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
+	else
+	{
+		AAMPLOG_WARN("supriya: gpGlobalConfig ALREADY EXISTS (%p), reusing for new PlayerInstanceAAMP %p", gpGlobalConfig, this);
+	}
+	// added this part to debug the issue of eAAMPConfig_ProgressLogging not being copied properly
+	// Step 5: Log BEFORE copy to session config 
+	bool globalProgress = gpGlobalConfig->IsConfigSet(eAAMPConfig_ProgressLogging);
+    AAMPLOG_WARN("supriya: Before copy - gpGlobalConfig ProgressLogging=%s", globalProgress ? "true" : "false");
+
+    // Copy the default configuration to session configuration
+    mConfig = *gpGlobalConfig;
+
+    // Step 6: Log AFTER copy to session config
+    bool sessionProgress = mConfig.IsConfigSet(eAAMPConfig_ProgressLogging);
+    AAMPLOG_WARN("supriya: AFTER copy to mConfig - eAAMPConfig_ProgressLogging=%s for instance %p", 
+                 sessionProgress ? "true" : "false", this);
+
+    sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
+    aamp = sp_aamp.get();
+
+    // Step 7: Log the PrivateInstanceAAMP creation and its config state
+    AAMPLOG_WARN("supriya: Created PrivateInstanceAAMP %p with config from mConfig (ProgressLogging=%s) playerId=%d",
+                 aamp, sessionProgress ? "true" : "false", aamp->mPlayerId);
+	// till here 
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));

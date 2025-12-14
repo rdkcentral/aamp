@@ -2156,11 +2156,20 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 		}
+		AAMPLOG_WARN("supriya:evaluating progress event: mReportProgressPosn=%f position=%f pipeline_paused=%d beginningOfStream=%d rate=%f",
+              mReportProgressPosn, position, pipeline_paused, beginningOfStream, rate);
+
 		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
+			AAMPLOG_WARN("supriya: SUPPRESSING ProgressEvent (same position during play) - prev=%f curr=%f rate=%f", mReportProgressPosn, position, rate);
 			bProcessEvent = false;
+		}
+		// added this else to log when progress event will be processed
+		else
+		{
+			AAMPLOG_INFO("supriya: ProgressEvent will be processed (bProcessEvent remains true)");
 		}
 
 		/**mNewSeekInfo is:
@@ -2251,14 +2260,20 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
 
+		AAMPLOG_WARN("supriya: ReportProgress: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d", trickStartUTCMS, bProcessEvent, mFirstProgress);
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
+
+			AAMPLOG_WARN("supriya: ReportProgress: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d", trickStartUTCMS, bProcessEvent, mFirstProgress);
 			if (mFirstProgress)
 			{
 				mFirstProgress = false;
 				AAMPLOG_MIL("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
 			}
 
+			bool progressLoggingEnabled = ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging);
+			int progressDivisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+ 			AAMPLOG_WARN("supriya: Before LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d", progressLoggingEnabled ? "true" : "false", progressDivisor);
 
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
@@ -2270,16 +2285,22 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 					mIsLoggingNeeded = true;
 					AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true);
+					AAMPLOG_WARN("supriya: Enabled INFO logs + ProgressLogging=true (Buffer low in LLD)");
 				}
 				else if (!bufferBelowMin && mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = false;
 					AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
+					AAMPLOG_WARN("supriya: Disabled INFO logs + ProgressLogging=false (Buffer healthy in LLD)");
 				}
 			}
+			bool progressLoggingAfter = ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging);
+			int progressDivisorAfter = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+			AAMPLOG_WARN("supriya: After LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d", progressLoggingAfter ? "true" : "false", progressDivisorAfter);
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
+
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
@@ -2298,6 +2319,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						currentRate);
 				}
 			}
+
+			AAMPLOG_WARN("supriya: FORCED progress log - config flag was %s, divisor=%d", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging) ? "true" : "false", GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor));	
 
 			long long currTimeMS = aamp_GetCurrentTimeMS();
 			long long diff = currTimeMS - mLastTelemetryTimeMS;
@@ -2318,6 +2341,10 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+		}
+		else
+		{
+		AAMPLOG_WARN("supriya: SKIPPED progress event, trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d, state=%d", trickStartUTCMS, bProcessEvent, mFirstProgress, state);
 		}
 	}
 }
@@ -7487,38 +7514,86 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
 	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
+
+	AAMPLOG_WARN("supriya: Entering GetPositionMilliseconds - seek_pos_seconds=%f (ms=%lld) trickStartUTCMS=%lld rate=%f", seek_pos_seconds_copy, positionMilliseconds, trickStartUTCMS_copy, rate);
+
 	if (trickStartUTCMS_copy >= 0)
 	{
 		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 		auto rate_copy = rate;
 		AAMPLOG_TRACE("rate=%f", rate_copy);
 
+		AAMPLOG_WARN("supriya: GetPosMs - base from seek_pos_seconds: %lld ms (seek_pos_seconds=%f)", positionMilliseconds, seek_pos_seconds_copy);
+
+        AAMPLOG_WARN("supriya: GetPosMs - trick mode active: trickStartUTCMS=%lld rate=%f", trickStartUTCMS_copy, rate_copy);
+
 		positionMilliseconds+=GetPositionRelativeToSeekMilliseconds(rate_copy, trickStartUTCMS_copy);
 
+		AAMPLOG_WARN("supriya: GetPosMs - AFTER adding relative time: new position=%lld ms "
+             "(called GetPositionRelativeToSeekMilliseconds(rate=%f, trickStartUTCMS=%lld))",
+             positionMilliseconds, rate_copy, trickStartUTCMS_copy);
+			
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
 			/*standardized & tightened validity checking of previous position to
 			  avoid spurious 'restore prev-pos as current-pos!!' around seeks*/
 			const auto prevPositionInfo = mPrevPositionMilliseconds.GetInfo();
+
+			AAMPLOG_WARN("supriya: Prev pos check - prevPosMs=%lld prevSeekSec=%f isValid=%d currentSeekSec=%f",
+                 prevPositionInfo.getPosition(), prevPositionInfo.getSeekPositionSec(),
+                 prevPositionInfo.isPositionValid(seek_pos_seconds_copy), seek_pos_seconds_copy);
+
 			if(prevPositionInfo.isPositionValid(seek_pos_seconds_copy))
 			{
 				long long diff = positionMilliseconds - prevPositionInfo.getPosition();
+				AAMPLOG_WARN("supriya: DIFF ANALYSIS - currentPos=%lld prevPos=%lld diff=%lld "
+                     "rate=%f trickStartUTCMS=%lld seek_pos_seconds=%f",
+                     positionMilliseconds, prevPositionInfo.getPosition(), diff,
+                     rate_copy, trickStartUTCMS_copy, seek_pos_seconds_copy);
+				
+				if (diff < 0)
+        		{
+					AAMPLOG_WARN("supriya: *** NEGATIVE DIFF DETECTED *** diff=%lld - WILL RESTORE prev position "
+                         "(current=%lld -> restoring to %lld)",
+                         diff, positionMilliseconds, prevPositionInfo.getPosition());
+				}
+				else if (diff > MAX_DIFF_BETWEEN_PTS_POS_MS)
+				{
+					AAMPLOG_WARN("supriya: *** LARGE POSITIVE JUMP *** diff=%lld > MAX(%d) - WILL RESTORE prev position",
+                         diff, MAX_DIFF_BETWEEN_PTS_POS_MS);
+				}
 
 				if ((diff > MAX_DIFF_BETWEEN_PTS_POS_MS) || (diff < 0))
 				{
 					AAMPLOG_WARN("diff %lld prev-pos-ms %lld current-pos-ms %lld, restore prev-pos as current-pos!!", diff, prevPositionInfo.getPosition(), positionMilliseconds);
+					// Add log to confirm restoration is happening
+            		AAMPLOG_WARN("supriya: RESTORING position from %lld back to prev %lld due to invalid diff",
+                         positionMilliseconds, prevPositionInfo.getPosition());
+
 					positionMilliseconds = prevPositionInfo.getPosition();
 				}
+				else
+        		{
+            		// Helpful: confirm normal progression
+            		AAMPLOG_INFO("supriya: Normal position progression - diff=%lldms (acceptable)", diff);
+        		}
 			}
 			else if(prevPositionInfo.isPopulated())
 			{
 				//Previous position values calculated using different values of seek_pos_seconds are considered invalid.
 				AAMPLOG_WARN("prev-pos-ms (%lld) is invalid. seek_pos_seconds = %f, seek_pos_seconds when prev-pos-ms was stored = %f.",prevPositionInfo.getPosition(), seek_pos_seconds_copy, prevPositionInfo.getSeekPositionSec());
+				AAMPLOG_WARN("supriya: Prev position invalidated likely due to seek - ignoring diff check");
 			}
+			else
+    		{
+       		 // Add this: case when no previous position exists yet
+        		AAMPLOG_INFO("supriya: No previous position stored yet - skipping diff validation");
+    		}
 		}
 
 		if (positionMilliseconds < 0)
 		{
+			AAMPLOG_WARN("supriya: *** NEGATIVE POSITION CORRECTION *** correcting %lld to 0", positionMilliseconds);
 			AAMPLOG_WARN("Correcting positionMilliseconds %lld to zero", positionMilliseconds);
 			positionMilliseconds = 0;
 		}
@@ -7534,15 +7609,22 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 			{
 				contentEndMs = (GetDurationMs() + (culledSeconds * 1000));
 			}
+			AAMPLOG_WARN("supriya: Content end clamp check - currentPos=%lld contentEndMs=%lld durationMs=%lld culledSec=%f IsLocalTsb=%d",
+                 positionMilliseconds, contentEndMs, GetDurationMs(), culledSeconds, IsLocalAAMPTsb());
+			
 			if(positionMilliseconds > contentEndMs && GetDurationMs() > 0)
 			{
+				AAMPLOG_WARN("supriya: Clamping position to end of content: %lld -> %lld", positionMilliseconds, contentEndMs);
 				AAMPLOG_WARN("Correcting positionMilliseconds %lld to contentEndMs %lld", positionMilliseconds, contentEndMs);
 				positionMilliseconds = contentEndMs;
 			}
 		}
 	}
-
+	AAMPLOG_WARN("supriya: FINAL GetPositionMilliseconds returning %lld ms "
+             "(seek_pos_seconds=%f, rate=%f, trickStartUTCMS=%lld)",
+             positionMilliseconds, seek_pos_seconds_copy, rate, trickStartUTCMS_copy);
 	AAMPLOG_DEBUG("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
+	
 	mPrevPositionMilliseconds.Update(positionMilliseconds ,seek_pos_seconds_copy);
 
 	if(locked)

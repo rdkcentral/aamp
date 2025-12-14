@@ -1508,24 +1508,32 @@ bool AampConfig::ReadAampCfgTxtFile()
 {
 	bool retVal = false;
 	std::string cfgPath = aamp_GetConfigPath(AAMP_CFG_PATH);
+	AAMPLOG_WARN("supriya: Attempting to read aamp.cfg from path: '%s'", cfgPath.c_str());
 
 	if (!cfgPath.empty())
 	{
 		std::ifstream f(cfgPath, std::ifstream::in | std::ifstream::binary);
 		if (f.good())
 		{
+			AAMPLOG_WARN("supriya: SUCCESS: opened aamp.cfg - will use FILE config (env var will be SKIPPED)");
 			AAMPLOG_MIL("opened aamp.cfg");
 			std::string buf;
 			while (f.good())
 			{
 				std::getline(f, buf);
+				AAMPLOG_TRACE("supriya: Processing line: '%s'", buf.c_str());
 				ProcessConfigText(buf, AAMP_DEV_CFG_SETTING);
 			}
 			f.close();
 			DoCustomSetting(AAMP_DEV_CFG_SETTING);
 			retVal = true;
 		}
+		else
+        {
+            AAMPLOG_WARN("supriya: FAILED to open aamp.cfg at '%s'", cfgPath.c_str());
+        }
 	}
+	AAMPLOG_WARN("supriya: ReadAampCfgTxtFile() returning %s", retVal ? "true" : "false");
 	return retVal;
 }
 
@@ -1602,27 +1610,48 @@ void AampConfig::ReadBase64TR181Param()
 */
 void AampConfig::ReadAampCfgFromEnv()
 {
-	const char *envConf = getenv("AAMP_CFG_TEXT");
+	AAMPLOG_WARN("supriya: ENTER ReadAampCfgFromEnv() - checking for AAMP_CFG_TEXT1");
+	const char *envConf = getenv("AAMP_CFG_TEXT1");
 	// First check for Comma separated config text, this is done to make config  human readable
 	// e.g info=true,progress=true
 	if(NULL != envConf)
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 		AAMPLOG_MIL("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
+		AAMPLOG_WARN("supriya: FOUND AAMP_CFG_TEXT1 env var: '%s' (length=%zu)", 
+                     strEnvConfig.c_str(), strEnvConfig.length());
+		if (strEnvConfig.empty())
+        {
+            AAMPLOG_WARN("supriya: WARNING: AAMP_CFG_TEXT1 is empty string!");
+        }
 		std::stringstream ss (strEnvConfig);
 		std::string item;
+		int processedCount = 0; // Trim whitespace if needed (optional, but helpful)
 
 		while (getline (ss, item, ',')) { // split on comma and get as line
+			item.erase(0, item.find_first_not_of(" \t"));
+            item.erase(item.find_last_not_of(" \t") + 1);
 			if (item.length() > 0)
 			{
+				AAMPLOG_WARN("supriya: Processing env item #%d: '%s'", ++processedCount, item.c_str());
 				ProcessConfigText(item,AAMP_DEV_CFG_SETTING);
 			}
 			else
 			{
+				AAMPLOG_WARN("supriya: Skipping empty item after comma split");
 			}
 		}
+		AAMPLOG_WARN("supriya: Finished processing %d items from AAMP_CFG_TEXT1", processedCount);
 	}
-
+	else
+	{
+        AAMPLOG_WARN("supriya: NO AAMP_CFG_TEXT1 environment variable found - nothing to process");
+	}
+	// Final check: did progress logging get enabled?
+    bool progressEnabled = IsConfigSet(eAAMPConfig_ProgressLogging);
+    AAMPLOG_WARN("supriya: EXIT ReadAampCfgFromEnv() - eAAMPConfig_ProgressLogging now = %s",
+                 progressEnabled ? "true" : "false");
+				 
 	// Now check for base64 based env, this is back up in case above string becomes big and becomes error prone, also  base64 covers json format as well.
 	envConf = getenv("AAMP_CFG_BASE64");
 	if (NULL != envConf)

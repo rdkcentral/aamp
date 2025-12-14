@@ -36,6 +36,7 @@
 #include <curl/curl.h>
 #include <chrono>
 #include "TsbApi.h"
+#include "AampCurlDefine.h"
 #include "AampCurlDownloader.h"
 
 
