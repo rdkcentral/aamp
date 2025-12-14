@@ -25,11 +25,19 @@
 #ifndef __AAMP_EVENTS_H__
 #define __AAMP_EVENTS_H__
 
-#include "abr/abr.h"
+//#include "abr/abr.h"
 
+
+
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <string>
+
+
+// ABR-independent bitrate type
+using BitsPerSecond = uint64_t;
+
 
 // Macros required for backward compatible AAMPEventListener implementation
 #define MAX_LANGUAGE_COUNT 16
