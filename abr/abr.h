@@ -27,9 +27,7 @@
 #include <string>
 #include <cstdio>
 #include <mutex>
-
-typedef long BitsPerSecond;
-#define BITSPERSECOND_FORMAT "ld"
+#include "AampMediaType.h"
 
 class ABRManager
 {

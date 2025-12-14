@@ -33,7 +33,6 @@
 #include <iomanip> // std::setfill
 #include <sstream> // std::ostringstream
 #include <algorithm> // std::foreach
-#include "abr/abr.h"
 
 extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtils.h; including that directly brings too many other dependencies
 
