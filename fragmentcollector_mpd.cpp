@@ -10726,7 +10726,7 @@ int StreamAbstractionAAMP_MPD::GetBWIndex(BitsPerSecond bitrate)
 	int profileCount = GetProfileCount();
 	if (profileCount)
 	{
-		for (int i = 0; i < profileCount; i++)
+		for (int i = 0; i < (int)profileCount; i++)
 		{
 			StreamInfo *streamInfo = &mStreamInfo[i];
 			if (!streamInfo->isIframeTrack && streamInfo->enabled && streamInfo->bandwidthBitsPerSecond > bitrate)

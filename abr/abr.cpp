@@ -328,7 +328,7 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
  *         network status. Returns the profile index with the bitrate matched with
  *         the current bitrate.
  */
-int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth, int nwConsistencyCnt, const std::string& periodId)
+int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, BitsPerSecond currentBandwidth, BitsPerSecond networkBandwidth, int nwConsistencyCnt, const std::string& periodId)
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
@@ -435,7 +435,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 /**
  *  @brief Get bandwidth of profile
  */
-long ABRManager::getBandwidthOfProfile(int profileIndex)
+BitsPerSecond ABRManager::getBandwidthOfProfile(int profileIndex)
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	// Clamp the param to avoid overflow
@@ -536,7 +536,7 @@ void ABRManager::addSortedBWProfileList(const ABRManager::ProfileInfo &profileIn
  * @param[in] period Id empty string by default, Period-Id of profiles
  * @return modified profileIndex
  */
-int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileIndex, const std::string& periodId)
+int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int currentProfileIndex, const std::string& periodId)
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	int modifiedProfileIndex = INVALID_PROFILE;
@@ -566,11 +566,11 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
 			}
 		}
 	}
-	profileCount = mProfiles.size();
 #if defined(DEBUG_ENABLED)
-	AAMPLOG_MIL("profileCount after removing profiles orig:%zu and new:%zu", profileCount, profileCount );
+	AAMPLOG_MIL("profileCount after removing profiles orig:%zu and new:%zu", profileCount, mProfiles.size() );
 #endif
-	
+	profileCount = mProfiles.size();
+
 	mSortedBWProfileList.clear();
 	// Get new profile count
 	for(int idx = 0; idx < (int)profileCount; idx++) {

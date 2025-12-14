@@ -37,7 +37,7 @@ int ABRManager::getMaxBandwidthProfile(const std::string& periodId)
 	return 0;
 }
 
-long ABRManager::getBandwidthOfProfile(int profileIndex)
+BitsPerSecond ABRManager::getBandwidthOfProfile(int profileIndex)
 {
 	return 0;
 }
