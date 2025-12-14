@@ -628,6 +628,7 @@ int ABRManager::getProfileIndexForLowestBandwidth()
 	}
 	return index;
 }
+
 /**
  *  @brief Get the best matched profile index by bandwidth using sorted list
  */
@@ -1030,7 +1031,7 @@ BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int current
 			return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;
 		});
 		// Iterate over profiles in descending order of bandwidth
-		double k = 100.0/availableProfiles[i].bandwidthBitsPerSecond;
+		double k = 100.0/availableProfiles[i-1].bandwidthBitsPerSecond;
 		while( i-- )
 		{
 			double profilePercentage = availableProfiles[i].bandwidthBitsPerSecond*k;
