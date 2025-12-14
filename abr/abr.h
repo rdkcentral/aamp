@@ -391,11 +391,6 @@ public:
 		eAAMP_BITRATE_CHANGE_MAX = 10
 	} BitrateChangeReason;
 	
-private:
-	bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
-	bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
-	
-public:
 	/**
 	 * @brief Read Config values
 	 * @param AampAbrConfig struct
@@ -537,6 +532,9 @@ public:
 	BitsPerSecond FragmentfailureRampdown(int currentBuffer,int currentProfileIndex);
 	
 private:
+	bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
+	bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
+	
 	/**
 	 * @brief Add new profile info to sorted BW list
 	 * @param[in] profileInfo profile info
