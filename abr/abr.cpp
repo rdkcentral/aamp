@@ -140,7 +140,7 @@ void ABRManager::updateProfile()
 				int desiredProfileIndexNonIframe = (int)profileCount / 2;
 				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
 				mDesiredIframeProfile = mLowestIframeProfile = 0;
-				for (int cnt = 0; cnt <= iframeTrackInfo.size(); cnt++) {
+				for (int cnt = 0; cnt < iframeTrackInfo.size(); cnt++) {
 					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
 					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
 						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
@@ -154,7 +154,7 @@ void ABRManager::updateProfile()
 				}
 			} else {
 				//Keeping old logic for non 4K streams
-				for (int cnt = 0; cnt <= iframeTrackCount; cnt++) {
+				for (int cnt = 0; cnt < iframeTrackCount; cnt++) {
 					if (mLowestIframeProfile == INVALID_PROFILE) {
 						// first pick the lowest profile available
 						mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[cnt].idx;
