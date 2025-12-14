@@ -97,45 +97,35 @@ void ABRManager::updateProfile()
 	std::unique_lock<std::mutex> lock(mProfileLock);
 	size_t profileCount = mProfiles.size();
 	
-	// todo: replace with Use std::vector<IframeTrackInfo>
-	struct IframeTrackInfo *iframeTrackInfo = new struct IframeTrackInfo[profileCount];
+	std::vector<IframeTrackInfo> iframeTrackInfo;
 	bool is4K = false;
 	
-	int iframeTrackIdx = -1;
 	// Construct iframe track info
 	for (int i = 0; i < profileCount; i++) {
 		if (mProfiles[i].isIframeTrack) {
-			iframeTrackIdx++;
-			iframeTrackInfo[iframeTrackIdx].bandwidth = mProfiles[i].bandwidthBitsPerSecond;
-			iframeTrackInfo[iframeTrackIdx].idx = i;
+			IframeTrackInfo info { mProfiles[i].bandwidthBitsPerSecond, i };
+			iframeTrackInfo.push_back(info);
 		}
 	}
 	lock.unlock();
 	
 	// Exists iframe track
-	if(iframeTrackIdx >= 0) {
-		// Sort the iframe track array by bandwidth ascendingly
-		// TODO: use std::sort
-		for (int i = 0; i < iframeTrackIdx; i++) {
-			for (int j = 0; j < iframeTrackIdx - i; j++) {
-				if (iframeTrackInfo[j].bandwidth > iframeTrackInfo[j+1].bandwidth) {
-					struct IframeTrackInfo temp = iframeTrackInfo[j];
-					iframeTrackInfo[j] = iframeTrackInfo[j+1];
-					iframeTrackInfo[j+1] = temp;
-				}
-			}
-		}
+	size_t iframeTrackCount = iframeTrackInfo.size();
+	if( iframeTrackCount )
+	{
+		std::sort(iframeTrackInfo.begin(), iframeTrackInfo.end(), [](const IframeTrackInfo& a, const IframeTrackInfo& b) {
+			return a.bandwidth < b.bandwidth; // ascending order by bandwidth
+		});
 		
-		// Exist 4K video?
-		int highestProfileIdx = iframeTrackInfo[iframeTrackIdx].idx;
-		if(mProfiles[highestProfileIdx].height > HEIGHT_4K
-		   || mProfiles[highestProfileIdx].width > WIDTH_4K) {
+		const IframeTrackInfo &back = iframeTrackInfo.back();
+		if(mProfiles[back.idx].height > MAX_HEIGHT_HD || mProfiles[back.idx].width > MAX_WIDTH_HD)
+		{
 			is4K = true;
 		}
 		
 		if (mDefaultIframeBitrate > 0) {
 			mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[0].idx;
-			for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
+			for (int cnt = 0; cnt <= iframeTrackCount; cnt++) {
 				// find the track less than default bw set, apply to both desired and lower ( for all speed of trick)
 				if(iframeTrackInfo[cnt].bandwidth >= mDefaultIframeBitrate) {
 					break;
@@ -148,7 +138,7 @@ void ABRManager::updateProfile()
 				int desiredProfileIndexNonIframe = (int)profileCount / 2;
 				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
 				mDesiredIframeProfile = mLowestIframeProfile = 0;
-				for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
+				for (int cnt = 0; cnt <= iframeTrackInfo.size(); cnt++) {
 					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
 					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
 						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
@@ -156,13 +146,13 @@ void ABRManager::updateProfile()
 					}
 				}
 				// if matching bandwidth not found with video, then pick the middle profile for iframe
-				if((!mDesiredIframeProfile) && (iframeTrackIdx >= 1)) {
-					int desiredTrackIdx = (int) (iframeTrackIdx / 2) + (iframeTrackIdx % 2);
+				if((!mDesiredIframeProfile) && (iframeTrackCount >= 1)) {
+					int desiredTrackIdx = (int) (iframeTrackCount / 2) + (iframeTrackCount % 2);
 					mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[desiredTrackIdx].idx;
 				}
 			} else {
 				//Keeping old logic for non 4K streams
-				for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
+				for (int cnt = 0; cnt <= iframeTrackCount; cnt++) {
 					if (mLowestIframeProfile == INVALID_PROFILE) {
 						// first pick the lowest profile available
 						mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[cnt].idx;
@@ -175,7 +165,6 @@ void ABRManager::updateProfile()
 			}
 		}
 	}
-	delete[] iframeTrackInfo;
 	
 #if defined(DEBUG_ENABLED)
 	AAMPLOG_MIL("Update profile info, mDesiredIframeProfile = %d, mLowestIframeProfile = %d", mDesiredIframeProfile, mLowestIframeProfile);

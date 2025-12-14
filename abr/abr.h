@@ -45,9 +45,7 @@ public:
 	{
 	}
 	
-	~ABRManager()
-	{
-	}
+	~ABRManager() = default;
 	
 	struct ProfileInfo {
 		/**
@@ -274,7 +272,7 @@ public:
 	 *
 	 * @param network bitrate
 	 */
-	static void setPersistBandwidth(BitsPerSecond bitrate){mPersistBandwidth = bitrate;} // FIXME
+	static void setPersistBandwidth(BitsPerSecond bitrate){mPersistBandwidth = bitrate;}
 	/**
 	 * @brief Get Persisted Network Bandwidth
 	 *
@@ -376,10 +374,6 @@ public:
 		eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT
 	};
 	
-	
-	int mABRHighBufferCounter;	    /**< ABR High buffer counter */
-	int mABRLowBufferCounter;	    /**< ABR Low Buffer counter */
-	
 	/**
 	 * @brief Different reasons for bitrate change
 	 */
@@ -398,10 +392,11 @@ public:
 		eAAMP_BITRATE_CHANGE_MAX = 10
 	} BitrateChangeReason;
 	
+private:
 	bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
 	bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
-	double mLLDashCurrentPlayRate;        /**<Low Latency Current play Rate */
 	
+public:
 	/**
 	 * @brief Read Config values
 	 * @param AampAbrConfig struct
@@ -608,12 +603,12 @@ private:
 	/**
 	 * @brief The width of 4K video
 	 */
-	static const int WIDTH_4K = 1920;
+	static const int MAX_WIDTH_HD = 1920;
 	
 	/**
 	 * @brief The height of 4K video
 	 */
-	static const int HEIGHT_4K = 1080;
+	static const int MAX_HEIGHT_HD = 1080;
 	
 	/**
 	 * @brief The default value of the network consistency count.
