@@ -1072,7 +1072,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 						{
 							if((downloadbps + DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD) < currentProfilebps)
 							{
-								AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
+								AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %" BITSPERSECOND_FORMAT " bps, min required:%" BITSPERSECOND_FORMAT " bps", downloadbps, currentProfilebps);
 								context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
 								rc = 1; // CURLE_ABORTED_BY_CALLBACK
 							}
@@ -2284,7 +2284,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%ld..%ld..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
@@ -3248,7 +3248,7 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 	/** Only select track Id for setting gstplayer in case of muxed ac4 stream */
 	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack) && (currentAudioTrack.codec.find("ac4") == std::string::npos) && currentAudioTrack.isMuxed )
 	{
-		AAMPLOG_INFO("Found AC4 track as current Audio track  index = %s language - %s role - %s codec %s type %s bandwidth = %ld",
+		AAMPLOG_INFO("Found AC4 track as current Audio track  index = %s language - %s role - %s codec %s type %s bandwidth = %" BITSPERSECOND_FORMAT,
 		currentAudioTrack.index.c_str(), currentAudioTrack.language.c_str(), currentAudioTrack.rendition.c_str(),
 		currentAudioTrack.codec.c_str(), currentAudioTrack.contentType.c_str(), currentAudioTrack.bandwidth);
 		trackId = std::stoi( currentAudioTrack.index );
@@ -4440,8 +4440,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
 
-					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%s%s",
-							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
+					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
+							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
 					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
 					if (context.processDelay > 0)
@@ -10180,7 +10180,7 @@ void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 	for (int i = 0; i < bitrateSize; i++)
 	{
 		this->bitrateList.push_back(bitrateList.at(i));
-		AAMPLOG_WARN("User Profile Index : %d(%d) Bw : %ld", i, bitrateSize, bitrateList.at(i));
+		AAMPLOG_WARN("User Profile Index : %d(%d) Bw : %" BITSPERSECOND_FORMAT, i, bitrateSize, bitrateList.at(i));
 	}
 	AAMPPlayerState state = GetState();
 	if (state > eSTATE_PREPARING)
@@ -13769,7 +13769,7 @@ void PrivateInstanceAAMP::IncreaseGSTBufferSize()
 	}
 	if(calcVideoBufValue > 0 && GETCONFIGVALUE_PRIV(eAAMPConfig_GstVideoBufBytes) != calcVideoBufValue)	// Update only if different
 	{
-		AAMPLOG_WARN("Max BW (%ld), calculated Buffer Size (%f) changing Buffer size from %d -->> %d",maxBitrate,maxBitrate * bufferFactor,GETCONFIGVALUE_PRIV(eAAMPConfig_GstVideoBufBytes),calcVideoBufValue);
+		AAMPLOG_WARN("Max BW (%" BITSPERSECOND_FORMAT "), calculated Buffer Size (%f) changing Buffer size from %d -->> %d",maxBitrate,maxBitrate * bufferFactor,GETCONFIGVALUE_PRIV(eAAMPConfig_GstVideoBufBytes),calcVideoBufValue);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_GstVideoBufBytes, calcVideoBufValue);
 	}
 }

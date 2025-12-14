@@ -353,9 +353,15 @@ public:
 				symptom += " (or) freeze/buffering";
 			}
 			
-			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__, "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%ld]->desiredBandwidth[%ld] nwBandwidth[%ld] reason='%s' symptom='%s'",
-					  profile.c_str(), pstAbrInfo->currentProfileIndex, pstAbrInfo->desiredProfileIndex, pstAbrInfo->currentBandwidth,
-					  pstAbrInfo->desiredBandwidth, pstAbrInfo->networkBandwidth, reason.c_str(), symptom.c_str());
+			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__,
+					  "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%" BITSPERSECOND_FORMAT "]->desiredBandwidth[%" BITSPERSECOND_FORMAT "] nwBandwidth[%" BITSPERSECOND_FORMAT "] reason='%s' symptom='%s'",
+					  profile.c_str(),
+					  pstAbrInfo->currentProfileIndex,
+					  pstAbrInfo->desiredProfileIndex,
+					  pstAbrInfo->currentBandwidth,
+					  pstAbrInfo->desiredBandwidth,
+					  pstAbrInfo->networkBandwidth,
+					  reason.c_str(), symptom.c_str());
 		}
 	}
 	

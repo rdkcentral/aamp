@@ -270,7 +270,7 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
 			BitsPerSecond maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
-			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",mediaType,maxBitrate);
+			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %" BITSPERSECOND_FORMAT, mediaType,maxBitrate);
 			if(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
 			{
 				pCMCDMetrics->SetTopBitrate( (int)(maxBitrate/1000) );

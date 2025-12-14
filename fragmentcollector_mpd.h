@@ -831,7 +831,7 @@ protected:
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIdxForBandwidthNotification(uint32_t bandwidth);
+	int GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth);
 	/**
 	 * @fn GetCurrentMimeType
 	 * @param AampMediaType type of media

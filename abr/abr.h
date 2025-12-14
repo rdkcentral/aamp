@@ -279,12 +279,6 @@ public:
 	 */
 	static BitsPerSecond getPersistBandwidth() { return mPersistBandwidth;}
 	
-	/**
-	 * @brief Get the available profiles
-	 */
-	std::vector<ProfileInfo> getProfileInfo() { return mProfiles;}
-	
-	
 	/*
 	 * @brief Configuration related to AampABR
 	 */
