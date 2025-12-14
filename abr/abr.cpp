@@ -725,12 +725,21 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 
 long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason)
 {
-	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000); // FIXME!
-	// extra coding to avoid picking lower profile
-	// Avoid this reset for Low bandwidth timeout cases
-	if(downloadbps < currentProfilebps && fragmentDurationMs && downloadTimeMs < fragmentDurationMs/2 && (abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT))
+	long downloadbps = currentProfilebps;
+	if( downloadTimeMs )
 	{
-		downloadbps = currentProfilebps;
+		downloadbps = (bufferlen*8000L)/downloadTimeMs;
+		
+		// extra coding to avoid picking lower profile
+		// Avoid this reset for Low bandwidth timeout cases
+		if(
+		   downloadbps < currentProfilebps &&
+		   fragmentDurationMs &&
+		   downloadTimeMs < fragmentDurationMs/2 &&
+		   (abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT))
+		{
+			downloadbps = currentProfilebps;
+		}
 	}
 	return downloadbps;
 }
@@ -742,7 +751,6 @@ long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, long c
 void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData,long downloadbps,bool LowLatencyMode)
 {
 	mAbrBitrateData.push_back(std::make_pair(ABRGetCurrentTimeMS(), downloadbps));
-	//AAMPLOG_WARN("CacheSz[%d]ConfigSz[%d] Storing Size [%d] bps[%ld]",mAbrBitrateData.size(),abrCacheLength, buffer->len, ((long)(buffer->len / downloadTimeMS)*8000));
 	if(LowLatencyMode)
 	{
 		if(mAbrBitrateData.size() > DEFAULT_ABR_CHUNK_CACHE_LENGTH)
@@ -1001,7 +1009,7 @@ void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long
 {
 	speedcache->last_sample_time_val = time_now;
 	//speed @ bits per second
-	speedcache->speed_now = ((long)(total_dl_diff / time_diff)* 8000);
+	speedcache->speed_now = (total_dl_diff*8000L)/time_diff;
 	
 	double weight = std::sqrt((double)total_dl_diff);
 	speedcache->weightedBitsPerSecond += weight * speedcache->speed_now;
