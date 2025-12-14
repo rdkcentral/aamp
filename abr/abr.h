@@ -32,18 +32,6 @@
 class ABRManager
 {
 public:
-	ABRManager():
-	mRampupFromSteadyStateLoop(1),
-	mDefaultInitBitrate(DEFAULT_BITRATE),
-	mDesiredIframeProfile(0),
-	mAbrProfileChangeUpCount(0),
-	mAbrProfileChangeDownCount(0),
-	mLowestIframeProfile(INVALID_PROFILE),
-	mDefaultIframeBitrate(0),
-	mProfileLock()
-	{
-	}
-	
 	~ABRManager() = default;
 	
 	struct ProfileInfo {
@@ -560,37 +548,37 @@ private:
 	/**
 	  * @brief state for CheckRampupFromSteadyState
 	 */
-	int mRampupFromSteadyStateLoop;
+	int mRampupFromSteadyStateLoop = 1;
 	
 	/**
 	 * @brief Lowest iframe Profile index
 	 */
-	int mLowestIframeProfile;
+	int mLowestIframeProfile = INVALID_PROFILE;
 	
 	/**
 	 * @brief Desired iframe Profile index
 	 */
-	int mDesiredIframeProfile;
+	int mDesiredIframeProfile = 0;
 	
 	/**
 	 * @brief Default initialization bitrate
 	 */
-	BitsPerSecond mDefaultInitBitrate;
+	BitsPerSecond mDefaultInitBitrate = DEFAULT_BITRATE;
 	
 	/**
 	 * @brief The number of ABR profiles that ramping up
 	 */
-	int mAbrProfileChangeUpCount;
+	int mAbrProfileChangeUpCount = 0;
 	
 	/**
 	 * @brief The number of ABR profiles that ramping down
 	 */
-	int mAbrProfileChangeDownCount;
+	int mAbrProfileChangeDownCount = 0;
 	
 	/**
 	 * @brief Default iframe bitrate
 	 */
-	BitsPerSecond mDefaultIframeBitrate;
+	BitsPerSecond mDefaultIframeBitrate = 0;
 	/**
 	 * @brief Default init bitrate value.
 	 */
