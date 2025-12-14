@@ -35,6 +35,7 @@ class ABRManager
 {
 public:
 	ABRManager():
+	mRampupFromSteadyStateLoop(1),
 	mDefaultInitBitrate(DEFAULT_BITRATE),
 	mDesiredIframeProfile(0),
 	mAbrProfileChangeUpCount(0),
@@ -567,6 +568,11 @@ private:
 	typedef std::map<BitsPerSecond, int>::reverse_iterator SortedBWProfileListRevIter;
 	
 	/**
+	  * @brief state for CheckRampupFromSteadyState
+	 */
+	int mRampupFromSteadyStateLoop;
+	
+	/**
 	 * @brief Lowest iframe Profile index
 	 */
 	int mLowestIframeProfile;
@@ -603,12 +609,12 @@ private:
 	/**
 	 * @brief The width of 4K video
 	 */
-	static const int MAX_WIDTH_HD = 1920;
+	static const int WIDTH_FULL_HD = 1920;
 	
 	/**
 	 * @brief The height of 4K video
 	 */
-	static const int MAX_HEIGHT_HD = 1080;
+	static const int HEIGHT_FULL_HD = 1080;
 	
 	/**
 	 * @brief The default value of the network consistency count.

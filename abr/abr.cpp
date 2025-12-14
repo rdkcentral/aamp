@@ -101,7 +101,7 @@ void ABRManager::updateProfile()
 	bool is4K = false;
 	
 	// Construct iframe track info
-	for (int i = 0; i < profileCount; i++) {
+	for (int i = 0; i < (int)profileCount; i++) {
 		if (mProfiles[i].isIframeTrack) {
 			IframeTrackInfo info { mProfiles[i].bandwidthBitsPerSecond, i };
 			iframeTrackInfo.push_back(info);
@@ -118,7 +118,7 @@ void ABRManager::updateProfile()
 		});
 		
 		const IframeTrackInfo &back = iframeTrackInfo.back();
-		if(mProfiles[back.idx].height > MAX_HEIGHT_HD || mProfiles[back.idx].width > MAX_WIDTH_HD)
+		if(mProfiles[back.idx].height > HEIGHT_FULL_HD || mProfiles[back.idx].width > WIDTH_FULL_HD)
 		{
 			is4K = true;
 		}
@@ -183,7 +183,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 	int desiredProfileIndex = 0;
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	size_t profileCount = mProfiles.size();
-	for (int i = 0; i < profileCount; i++) {
+	for (int i = 0; i < (int)profileCount; i++) {
 		const ProfileInfo& profile = mProfiles[i];
 		if (!profile.isIframeTrack) {
 			if (profile.bandwidthBitsPerSecond == bandwidth) {
@@ -282,7 +282,6 @@ int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::stri
 	return desiredProfileIndex;
 }
 
-
 /**
  *  @brief Get UserData of profile
  */
@@ -299,21 +298,18 @@ int ABRManager::getUserDataOfProfile(int currentProfileIndex)
 	return userData;
 }
 
-
 /**
  *  @brief Check if the bitrate of currentProfileIndex reaches to the lowest.
  */
 bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std::string& periodId)
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	// Clamp the param to avoid overflow
 	size_t profileCount = mProfiles.size();
 	
 	if (currentProfileIndex >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}
-	
 	
 	// If there is no profiles list, then it means `currentProfileIndex` always reaches to
 	// the lowest.
@@ -342,7 +338,6 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}
-	
 	
 	int desiredProfileIndex = currentProfileIndex;
 	if (networkBandwidth == -1) {
@@ -456,7 +451,6 @@ long ABRManager::getBandwidthOfProfile(int profileIndex)
 		profileIndex--;
 	}
 	
-	
 	return mProfiles[profileIndex].bandwidthBitsPerSecond;
 }
 
@@ -526,13 +520,13 @@ void ABRManager::addProfile(ABRManager::ProfileInfo profile)
 void ABRManager::addSortedBWProfileList(const ABRManager::ProfileInfo &profileInfo, int idx)
 {
 	if (!profileInfo.isIframeTrack) {
+		std::lock_guard<std::mutex> lock(mProfileLock);
 		mSortedBWProfileList[profileInfo.periodId][profileInfo.bandwidthBitsPerSecond] = idx;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("Period ID: %s", profileInfo.periodId.c_str());
 		AAMPLOG_MIL("bw:%ld idx:%d", profileInfo.bandwidthBitsPerSecond, idx);
 #endif
 	}
-	
 }
 
 /**
@@ -579,7 +573,7 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
 	
 	mSortedBWProfileList.clear();
 	// Get new profile count
-	for(int idx = 0; idx < profileCount; idx++) {
+	for(int idx = 0; idx < (int)profileCount; idx++) {
 		addSortedBWProfileList(mProfiles[idx], idx);
 		if(currentBandwidth == mProfiles[idx].bandwidthBitsPerSecond) {
 			modifiedProfileIndex = idx;
@@ -717,7 +711,6 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	AAMPLOG_MIL("ABRCacheLife %d, ABRCacheLength %d, ABRSkipDuration %d, ABRNwConsistency %d, ABRThresholdSize %d, ABRMaxBuffer %d, ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
 }
 
-
 /**
  * @brief function to update downloadbps value when video segment size is greater than abrthreshold size
  * @return downloadbps
@@ -792,27 +785,25 @@ void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<lo
  */
 long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData)
 {
-	long avg = 0;
 	long ret = -1;
 	std::vector< long>::iterator tmpDataIter;
 	long medianbps=0;
-	int abrOutlierDiffBytes;
 	
 	std::sort(tmpData.begin(),tmpData.end());
-	if (tmpData.size() %2)
-	{
+	if (tmpData.size()%2)
+	{ // odd - pick piddle
 		medianbps = tmpData.at(tmpData.size()/2);
 	}
 	else
 	{
-		long m1 = tmpData.at(tmpData.size()/2);
-		long m2 = tmpData.at(tmpData.size()/2)+1;
+		long m1 = tmpData.at(tmpData.size()/2 - 1);
+		long m2 = tmpData.at(tmpData.size()/2);
 		medianbps = (m1+m2)/2;
 	}
 	
 	long diffOutlier = 0;
-	avg = 0;
-	abrOutlierDiffBytes = eAAMPAbrConfig.abrCacheOutlier ;
+	long avg = 0;
+	int abrOutlierDiffBytes = eAAMPAbrConfig.abrCacheOutlier ;
 	for (tmpDataIter = tmpData.begin();tmpDataIter != tmpData.end();)
 	{
 		diffOutlier = (*tmpDataIter) > medianbps ? (*tmpDataIter) - medianbps : medianbps - (*tmpDataIter);
@@ -840,13 +831,12 @@ long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmp
 		ret = -1;
 	}
 	return ret;
-	
 }
+
 /*
  * @brief Function for ABR check for each segment download
  * @return bool true if profilechange needed else false
  */
-
 bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfileIndex, long availBW)
 {
 	bool checkProfileChange = true;
@@ -868,7 +858,6 @@ bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfile
 		}
 	}
 	return checkProfileChange;
-	
 }
 
 /**
@@ -916,10 +905,9 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 		newProfileIndex = nProfileIdx;
 	if(newProfileIndex  != currProfileIndex)
 	{
-		static int loop = 1;
 		AAMPLOG_WARN("attempted rampup from steady state currProfileIndex %d newProfileIndex %d bufferValue %lf threshold %d", currProfileIndex, newProfileIndex, bufferValue, abrThreshold);
-		loop = (++loop >4)?1:loop; // FIXME
-		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,loop);
+		mRampupFromSteadyStateLoop = (++mRampupFromSteadyStateLoop >4)?1:mRampupFromSteadyStateLoop;
+		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,mRampupFromSteadyStateLoop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
 	}
 }
@@ -927,7 +915,6 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 /**
  * @brief Get Desired Profile on steady state while rampdown
  */
-
 void ABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
 {
 	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d mABRLowBufferCounter %d", currProfileIndex, newProfileIndex, mABRLowBufferCounter);
@@ -944,16 +931,13 @@ void ABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProf
 
 /**
  * @brief function to get currenttime in ms
- *
- **/
-
+ */
 long long ABRManager::ABRGetCurrentTimeMS(void)
 {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return (long long)(t.tv_sec*1e3 + t.tv_usec*1e-3);
 }
-
 
 /**
  *  @brief Get Low Latency ABR Start Status
@@ -970,7 +954,6 @@ void ABRManager::SetLowLatencyStartABR(bool bStart)
 {
 	this->bLowLatencyStartABR = bStart;
 }
-
 
 /**
  *  @brief Get Low Latency Service Configuration Status
@@ -997,7 +980,6 @@ bool ABRManager::IsABRDataGoodToEstimate(long time_diff)
 {
 	return time_diff >= DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE;
 }
-
 
 /**
  * @brief to Update the ChunkSpeedData based on low latency ABR speedstoreSize
