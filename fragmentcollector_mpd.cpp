@@ -5865,7 +5865,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 				std::string index = std::to_string(iAdaptationIndex) + "-" + std::to_string(representationIndex);
 				const dash::mpd::IRepresentation *rep = representation.at(representationIndex);
 				std::string name = rep->GetId();
-				long bandwidth = rep->GetBandwidth();
+				BitsPerSecond bandwidth = rep->GetBandwidth();
 				const std::vector<std::string> repCodecs = rep->GetCodecs();
 				bool isAvailable = !mMPDParseHelper->IsEmptyAdaptation(adaptationSet);
 				// check if Representation includes codec
@@ -7080,11 +7080,11 @@ static bool IsWebmVideoCodec(const std::string &codec )
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
-	long defaultBitrate = aamp->GetDefaultBitrate();
-	long iframeBitrate = aamp->GetIframeBitrate();
+	BitsPerSecond defaultBitrate = aamp->GetDefaultBitrate();
+	BitsPerSecond iframeBitrate = aamp->GetIframeBitrate();
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;	/*Conveys whether the current playback from FOG or not.*/
-	long minBitrate = aamp->GetMinimumBitrate();
-	long maxBitrate = aamp->GetMaximumBitrate();
+	BitsPerSecond minBitrate = aamp->GetMinimumBitrate();
+	BitsPerSecond maxBitrate = aamp->GetMaximumBitrate();
 	bool periodChanged = false;
 	std::set<uint32_t> chosenAdaptationIdxs;
 
@@ -7504,7 +7504,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						// Set Default init bitrate according to last PersistBandwidth
 						if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 						{
-							long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
+							BitsPerSecond persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 							long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
 							//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 							if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
@@ -10767,7 +10767,7 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 
 /*
 * @brief Gets Max Bitrate available for current playback.
-* @ret long MAX video bitrates
+* @ret max video bitrate
 */
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
@@ -12187,7 +12187,7 @@ void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period,
 		std::string codec;
 		std::string lang;
 		std::string tag ;
-		long bandwidth = 0;
+		BitsPerSecond bandwidth = 0;
 		std::string role;
 		int channel = 0;
 		std::string label;
@@ -13616,7 +13616,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest(std::move(media) ,(fragmentDescriptor)->Bandwidth, mediaType);
 }
 
-void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType)
+void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType)
 {
 	aamp->mCMCDCollector->CMCDSetNextRangeRequest(std::move(nextrange), bandwidth, mediaType);
 }

@@ -890,13 +890,13 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
  * @param dlnow current downloaded bytes
  * @retval bps bits per second
  */
-long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
+BitsPerSecond getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 									AampMediaType mediaType, //File Type Download
 									bool bDownloadStart,
 									long start,
 									double dlnow) // downloaded bytes so far)
 {
-	long bitsPerSecond = 0;
+	BitsPerSecond bitsPerSecond = 0;
 	long time_now = 0;
 	long time_diff = 0;
 	long dl_diff = 0;
@@ -965,7 +965,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	{
 		if( context->downloadNow != dlnow )
 		{
-			long downloadbps = 0;
+			BitsPerSecond downloadbps = 0;
 
 			context->downloadNow = dlnow;
 			context->downloadNowUpdatedTime = NOW_STEADY_TS_MS;
@@ -1065,8 +1065,8 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				{
 					if(context->aamp->GetLLDashServiceData()->lowLatencyMode && !IsLocalAAMPTsb())
 					{
-						long downloadbps = getCurrentContentDownloadSpeed(aamp, context->mediaType, context->dlStarted, (long)context->downloadStartTime, dlnow);
-						long currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
+						BitsPerSecond downloadbps = getCurrentContentDownloadSpeed(aamp, context->mediaType, context->dlStarted, (long)context->downloadStartTime, dlnow);
+						BitsPerSecond currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
 						MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
 						if(downloadbps > 0 && mCtx && !mCtx->IsLocalTSBInjection())
 						{
@@ -3846,7 +3846,7 @@ AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type
  * @brief Reset bandwidth value
  * Artificially resetting the bandwidth. Low for quicker tune times
  */
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(long bitsPerSecond , bool trickPlay,int profile)
+void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
 {
 	std::lock_guard<std::recursive_mutex> guard(mLock);
 	if (mAbrBitrateData.size())
@@ -6785,7 +6785,7 @@ AampCacheHandler * PrivateInstanceAAMP::getAampCacheHandler()
 /**
  * @brief Get maximum bitrate value.
  */
-long PrivateInstanceAAMP::GetMaximumBitrate()
+BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
 {
 	return GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate);
 }

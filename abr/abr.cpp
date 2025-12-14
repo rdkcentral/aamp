@@ -37,7 +37,7 @@
 
 ABRManager::AampAbrConfig eAAMPAbrConfig;
 
-long ABRManager::mPersistBandwidth = 0;
+BitsPerSecond ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 
 /**
@@ -90,7 +90,7 @@ void ABRManager::updateProfile()
 	 * @brief A temporary structure of iframe track info
 	 */
 	struct IframeTrackInfo {
-		long bandwidth;
+		BitsPerSecond bandwidth;
 		int idx;
 	};
 	
@@ -228,7 +228,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 		return desiredProfileIndex;
 	}
 	
-	long currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
+	BitsPerSecond currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
 	SortedBWProfileListIter iter = mSortedBWProfileList[periodId].find(currentBandwidth);
 	if (iter == mSortedBWProfileList[periodId].end()) {
 		AAMPLOG_WARN("The current bitrate %ld is not in the profile list", currentBandwidth);
@@ -263,7 +263,7 @@ int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::stri
 		return desiredProfileIndex;
 	}
 	
-	long currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
+	BitsPerSecond currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
 	SortedBWProfileListIter iter = mSortedBWProfileList[periodId].find(currentBandwidth);
 	if (iter == mSortedBWProfileList[periodId].end()) {
 		AAMPLOG_WARN("The current bitrate %ld is not in the profile list", currentBandwidth);
@@ -318,7 +318,7 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
 		return true;
 	}
 	
-	long currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
+	BitsPerSecond currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
 	SortedBWProfileListIter iter = mSortedBWProfileList[periodId].find(currentBandwidth);
 	return iter == mSortedBWProfileList[periodId].begin();
 }
@@ -480,7 +480,7 @@ int ABRManager::getProfileCount( void )
 /**
  *  @brief Set the default init bitrate
  */
-void ABRManager::setDefaultInitBitrate(long defaultInitBitrate)
+void ABRManager::setDefaultInitBitrate(BitsPerSecond defaultInitBitrate)
 {
 	mDefaultInitBitrate = defaultInitBitrate;
 }
@@ -552,7 +552,7 @@ int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int curren
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}
-	long currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
+	BitsPerSecond currentBandwidth = mProfiles[currentProfileIndex].bandwidthBitsPerSecond;
 	for (auto &profileBWToRemove : profileBPS)
 	{
 		for(auto profile = mProfiles.begin(); profile != mProfiles.end();)
@@ -599,7 +599,7 @@ void ABRManager::clearProfiles()
 /**
  *  @brief Set the default iframe bitrate
  */
-void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate)
+void ABRManager::setDefaultIframeBitrate(BitsPerSecond defaultIframeBitrate)
 {
 	mDefaultIframeBitrate = defaultIframeBitrate;
 }
@@ -716,9 +716,9 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
  * @return downloadbps
  */
 
-long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason)
+BitsPerSecond ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, BitsPerSecond currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason)
 {
-	long downloadbps = currentProfilebps;
+	BitsPerSecond downloadbps = currentProfilebps;
 	if( downloadTimeMs )
 	{
 		downloadbps = (bufferlen*8000L)/downloadTimeMs;
@@ -760,13 +760,12 @@ void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<
  * @brief Function to Update Persisted Recent Download Statistics Based on abrCacheLife
  * @return none
  */
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData, std::vector< long> &tmpData)
+void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,BitsPerSecond> > &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData)
 {
-	std::vector< std::pair<long long,long> >::iterator bitrateIter;
+	std::vector< std::pair<long long,BitsPerSecond> >::iterator bitrateIter;
 	long long presentTime = ABRGetCurrentTimeMS();
 	for (bitrateIter = mAbrBitrateData.begin(); bitrateIter != mAbrBitrateData.end();)
 	{
-		//AAMPLOG_WARN("Sz[%d] TimeCheck Pre[%lld] Sto[%lld] diff[%lld] bw[%ld] ",mAbrBitrateData.size(),presentTime,(*bitrateIter).first,(presentTime - (*bitrateIter).first),(long)(*bitrateIter).second);
 		if ((bitrateIter->first <= 0) || (presentTime - bitrateIter->first > eAAMPAbrConfig.abrCacheLife))
 		{
 			bitrateIter = mAbrBitrateData.erase(bitrateIter);
@@ -783,26 +782,26 @@ void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<lo
  * @brief Function to Update Persisted Recent Download Statistics Based on ABRCacheOutlier and calculate bw
  * @return Available bandwidth in bps
  */
-long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData)
+BitsPerSecond ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
 {
-	long ret = -1;
-	std::vector< long>::iterator tmpDataIter;
-	long medianbps=0;
+	BitsPerSecond ret = -1;
+	std::vector<BitsPerSecond>::iterator tmpDataIter;
+	BitsPerSecond medianbps=0;
 	
 	std::sort(tmpData.begin(),tmpData.end());
 	if (tmpData.size()%2)
-	{ // odd - pick piddle
+	{ // odd - pick middle
 		medianbps = tmpData.at(tmpData.size()/2);
 	}
 	else
 	{
-		long m1 = tmpData.at(tmpData.size()/2 - 1);
-		long m2 = tmpData.at(tmpData.size()/2);
+		BitsPerSecond m1 = tmpData.at(tmpData.size()/2 - 1);
+		BitsPerSecond m2 = tmpData.at(tmpData.size()/2);
 		medianbps = (m1+m2)/2;
 	}
 	
 	long diffOutlier = 0;
-	long avg = 0;
+	BitsPerSecond avg = 0;
 	int abrOutlierDiffBytes = eAAMPAbrConfig.abrCacheOutlier ;
 	for (tmpDataIter = tmpData.begin();tmpDataIter != tmpData.end();)
 	{
@@ -837,10 +836,10 @@ long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmp
  * @brief Function for ABR check for each segment download
  * @return bool true if profilechange needed else false
  */
-bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfileIndex, long availBW)
+bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfileIndex, BitsPerSecond availBW)
 {
 	bool checkProfileChange = true;
-	long currBW = getBandwidthOfProfile(currProfileIndex);
+	BitsPerSecond currBW = getBandwidthOfProfile(currProfileIndex);
 	//Avoid doing ABR during initial buffering which will affect tune times adversely
 	if ( totalFetchedDuration > 0 && totalFetchedDuration < eAAMPAbrConfig.abrSkipDuration)
 	{
@@ -867,8 +866,8 @@ bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfile
 
 void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileIndex,double bufferValue,double minBufferNeeded,const std::string& periodId)
 {
-	long currentBandwidth = getBandwidthOfProfile(currProfileIndex);
-	long newBandwidth     = getBandwidthOfProfile(newProfileIndex);
+	BitsPerSecond currentBandwidth = getBandwidthOfProfile(currProfileIndex);
+	BitsPerSecond newBandwidth     = getBandwidthOfProfile(newProfileIndex);
 	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d currentBandwidth %ld newBandwidth %ld bufferValue %lf, minBufferNeeded %lf", currProfileIndex, newProfileIndex, currentBandwidth, newBandwidth, bufferValue, minBufferNeeded);
 	if(bufferValue > 0 )
 	{
@@ -987,7 +986,7 @@ bool ABRManager::IsABRDataGoodToEstimate(long time_diff)
  * @params estimated-bps
  * @return None
  */
-void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded)
+void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,BitsPerSecond &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded)
 {
 	speedcache->last_sample_time_val = time_now;
 	//speed @ bits per second
@@ -1014,11 +1013,11 @@ void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long
  * @param - current available buffer
  * @return - desired profile based on buffer
  */
-long ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
+BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
 	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
-	long desiredProfilebw = 0;
-	long currentbw = getBandwidthOfProfile(currentProfileIndex);
+	BitsPerSecond desiredProfilebw = 0;
+	BitsPerSecond currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = getProfileInfo();
 	int len = (int)availableProfiles.size() - 1;
 	std::sort(availableProfiles.begin(), availableProfiles.end(), [](const ProfileInfo& a, const ProfileInfo& b) {

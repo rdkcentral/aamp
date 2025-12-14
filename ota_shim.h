@@ -108,7 +108,7 @@ public:
     bool IsInitialCachingSupported() override;
     /**
      * @fn GetMaxBitrate
-     * @return long MAX video bitrates
+     * @return max video bitrate
      */
     BitsPerSecond GetMaxBitrate(void) override;
     /**
@@ -181,7 +181,7 @@ protected:
 	std::string mPCRating; 		/**< Parental control rating json string object  */
 	int mSsi;  			/**<  Signal strength indicator 0-100 where 100 is a perfect signal. -1 indicates data not available  */
 	/* Video info   */
-	long mVideoBitrate;
+	BitsPerSecond mVideoBitrate;
 	float mFrameRate;		/**< FrameRate */
 	VideoScanType mVideoScanType;   /**< Video Scan Type progressive/interlaced */
 	int mAspectRatioWidth;		/**< Aspect Ratio Width*/
@@ -195,7 +195,7 @@ protected:
 	int miPrevmiVideoHeight;
 
 	/* Audio Info   */
-	long mAudioBitrate; 		/**<  int - Rate of the Audio stream in bps. Calculated based on transport stream rate. So will have some fluctuation. */
+	BitsPerSecond mAudioBitrate; 		/**<  int - Rate of the Audio stream in bps. Calculated based on transport stream rate. So will have some fluctuation. */
 	std::string mAudioCodec; 	/**< AudioCodec E.g AC3.*/
 	std::string mAudioMixType; 	/**<  AudioMixType(- E.g STEREO. */
 	bool  mIsAtmos;  	 	/**<  Is Atmos : 1 - True if audio playing is Dolby Atmos, 0 false ,  -1 indicates data not available */

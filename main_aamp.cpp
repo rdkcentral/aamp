@@ -1971,7 +1971,7 @@ AAMPPlayerState PlayerInstanceAAMP::GetState(void)
 /**
  *  @brief To get the bitrate of current video profile.
  */
-long PlayerInstanceAAMP::GetVideoBitrate(void)
+BitsPerSecond PlayerInstanceAAMP::GetVideoBitrate(void)
 {
 	BitsPerSecond bitrate = 0;
 	if(aamp)

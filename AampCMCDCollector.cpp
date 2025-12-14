@@ -157,7 +157,7 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT)
+void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,BitsPerSecond CMCDBandwidth,AampMediaType mediaT)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled)
@@ -269,7 +269,7 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
 		if(it != mCMCDStreamData.end())
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
-			long maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
+			BitsPerSecond maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
 			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",mediaType,maxBitrate);
 			if(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
 			{
@@ -322,7 +322,7 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType)
+void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled && (!nextrange.empty()))
