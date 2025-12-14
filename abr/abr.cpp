@@ -599,10 +599,7 @@ void ABRManager::clearProfiles()
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	mProfiles.clear();
-	if (mSortedBWProfileList.size()) {
-		mSortedBWProfileList.erase(mSortedBWProfileList.begin(),mSortedBWProfileList.end());
-		mSortedBWProfileList.clear();
-	}
+	mSortedBWProfileList.clear();
 }
 
 /**

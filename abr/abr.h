@@ -18,8 +18,8 @@
  * @file abr.h
  * @brief Handles operations on Hybrid ABR functionalities
  ***************************************************/
-#ifndef ABR_ABR_H
-#define ABR_ABR_H
+#ifndef ABR_H
+#define ABR_H
 
 #include <iostream>
 #include <vector>
@@ -622,4 +622,4 @@ private:
 	 */
 	std::mutex mProfileLock;
 };
-#endif
+#endif // !ABR_H
