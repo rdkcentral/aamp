@@ -4490,8 +4490,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
-				//HybridABRManager mhABRManager;
-				HybridABRManager::CurlAbortReason hybridabortReason = (HybridABRManager::CurlAbortReason) abortReason;
+				ABRManager::CurlAbortReason hybridabortReason = (ABRManager::CurlAbortReason) abortReason;
 				if((buffer->GetLen() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
@@ -7701,6 +7700,11 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
+			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
+			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
+			// of StreamAbstractionAamp.
+			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -13360,7 +13364,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
  */
 void PrivateInstanceAAMP::LoadAampAbrConfig()
 {
-	HybridABRManager::AampAbrConfig mhAampAbrConfig;
+	ABRManager::AampAbrConfig mhAampAbrConfig;
 	// ABR config values
 	mhAampAbrConfig.abrCacheLife = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLife);
 	mhAampAbrConfig.abrCacheLength = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLength);
