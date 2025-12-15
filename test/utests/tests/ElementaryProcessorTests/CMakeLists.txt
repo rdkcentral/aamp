@@ -21,20 +21,8 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME ElementaryProcessorTests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
-include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
-
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LibXml2_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES ElementaryProcessorTests.cpp
                 ElementaryProcessorAampTests.cpp)
