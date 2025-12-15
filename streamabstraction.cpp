@@ -2411,8 +2411,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 			{
 				int nProfileIdx =  aamp->mhAbrManager.getRampedUpProfileIndex(currProfileIndex);
 				long newBandwidth = GetStreamInfo(nProfileIdx)->bandwidthBitsPerSecond;
-				HybridABRManager::BitrateChangeReason mhBitrateReason;
-				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampupFromSteadyState(currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth,mhBitrateReason,mMaxBufferCountCheck);
 				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
 				mABRHighBufferCounter = 0;
@@ -2427,8 +2427,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 			{
 				mABRLowBufferCounter++;
 				mABRHighBufferCounter = 0;
-				HybridABRManager::BitrateChangeReason mhBitrateReason;
-				mhBitrateReason = (HybridABRManager::BitrateChangeReason) mBitrateReason;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
 				aamp->mhAbrManager.CheckRampdownFromSteadyState(currProfileIndex,newProfileIndex,mhBitrateReason,mABRLowBufferCounter);
 				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
 				mABRLowBufferCounter = (mABRLowBufferCounter >= mABRBufferCounter)? 0 : mABRLowBufferCounter ;
