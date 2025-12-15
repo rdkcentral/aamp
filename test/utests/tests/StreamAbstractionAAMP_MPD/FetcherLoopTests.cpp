@@ -997,6 +997,617 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 1);
 }
 
+/**
+ * @brief GenerateFragmentURLList tests.
+ *
+ * The tests verify the GenerateFragmentURLList method of StreamAbstractionAAMP_MPD for
+ * video-only manifest scenarios. The function should generate URLs for all representations
+ * in the adaptation set at a specific Number/Time specified in the MediaStreamContext.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListVideoOnly)
+{
+	static const char *videoOnlyManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="9" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	std::string fragmentUrl;
+	AAMPStatusType status;
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(videoOnlyManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Index the MPD document
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	EXPECT_NE(videoTrack, nullptr);
+
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	EXPECT_NE(pVideoContext, nullptr);
+
+	// Test GenerateFragmentURLList for video track
+	// Set fragment descriptor for segment 5 (Number=5, Time=20000 which is 5th segment at 5000 duration each)
+	pVideoContext->fragmentDescriptor.Number = 5;
+	pVideoContext->fragmentDescriptor.Time = 20000;  // 5th segment (4*5000 offset)
+	pVideoContext->fragmentDescriptor.TimeScale = 2500;
+	pVideoContext->fragmentDescriptor.Bandwidth = 800000;
+
+	URLBitrateMap uriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	// Should generate URL for the single representation at the specified Number/Time
+	EXPECT_EQ(uriList.size(), 1);
+	EXPECT_NE(uriList.find(800000), uriList.end());
+
+	// Verify URL format contains correct segment number
+	const auto& url = uriList[800000].url;
+	EXPECT_TRUE(url.find("video_p0_5.m4s") != std::string::npos);
+
+	// Test with initialization segment
+	URLBitrateMap initUriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(initUriList, pVideoContext, true);
+
+	EXPECT_EQ(initUriList.size(), 1);
+	EXPECT_NE(initUriList.find(800000), initUriList.end());
+	const auto& initUrl = initUriList[800000].url;
+	EXPECT_TRUE(initUrl.find("video_p0_init.mp4") != std::string::npos);
+}
+
+/**
+ * @brief GenerateFragmentURLList tests.
+ *
+ * The tests verify the GenerateFragmentURLList method of StreamAbstractionAAMP_MPD for
+ * intra-asset content with representations split in multiple adaptations. Tests that
+ * given a specific Number/Time in the MediaStreamContext, the function generates URLs
+ * for ALL representations in the current adaptation set at that same Number/Time.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListIntraAssetMultipleAdaptations)
+{
+	static const char *multiAdaptationManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video" intraAssetType="main">
+					<Representation id="video_main_low" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_main_low_init.mp4" media="video_main_low_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+					<Representation id="video_main_high" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000" width="1280" height="720" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_main_high_init.mp4" media="video_main_high_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="video" intraAssetType="commentary">
+					<Representation id="video_commentary" mimeType="video/mp4" codecs="avc1.640028" bandwidth="400000" width="320" height="240" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_commentary_init.mp4" media="video_commentary_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="2" contentType="video" intraAssetType="alternate">
+					<Representation id="video_alternate_1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1200000" width="960" height="540" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_alt1_init.mp4" media="video_alt1_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+					<Representation id="video_alternate_2" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1600000" width="1024" height="576" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_alt2_init.mp4" media="video_alt2_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="3" contentType="audio" lang="eng">
+					<Representation id="audio_eng" mimeType="audio/mp4" codecs="ec-3" bandwidth="128000">
+						<SegmentTemplate timescale="2500" initialization="audio_eng_init.mp4" media="audio_eng_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	std::string fragmentUrl;
+	AAMPStatusType status;
+
+	/* Initialize MPD. The video and audio initialization segments are cached. */
+	//fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_main_low_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_eng_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(multiAdaptationManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Index the MPD document
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	EXPECT_NE(videoTrack, nullptr);
+
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	EXPECT_NE(pVideoContext, nullptr);
+
+	// Test GenerateFragmentURLList for video adaptation with multiple representations
+	// Set fragment descriptor for segment 3 at time 10000
+	pVideoContext->fragmentDescriptor.Number = 3;
+	pVideoContext->fragmentDescriptor.Time = 10000;
+	pVideoContext->fragmentDescriptor.TimeScale = 2500;
+	pVideoContext->fragmentDescriptor.Bandwidth = 800000;  // Current bitrate
+
+	// Test media segments - should generate URLs for BOTH representations in the adaptation set
+	URLBitrateMap uriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	// Should generate URLs for all unique representations (5) in the adaptation set
+	EXPECT_EQ(uriList.size(), 5);
+
+	// Verify low bitrate representation
+	EXPECT_NE(uriList.find(800000), uriList.end());
+	const auto& lowUrl = uriList[800000].url;
+	EXPECT_TRUE(lowUrl.find("video_main_low_3.m4s") != std::string::npos);
+
+	// Verify high bitrate representation
+	EXPECT_NE(uriList.find(2000000), uriList.end());
+	const auto& highUrl = uriList[2000000].url;
+	EXPECT_TRUE(highUrl.find("video_main_high_3.m4s") != std::string::npos);
+
+	// Test initialization segments - should also generate for both representations
+	URLBitrateMap initUriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(initUriList, pVideoContext, true);
+
+	// Should generate init URLs for all unique representations (5) in the adaptation set
+	EXPECT_EQ(initUriList.size(), 5);
+
+	// Verify init segments
+	EXPECT_NE(initUriList.find(800000), initUriList.end());
+	EXPECT_TRUE(initUriList[800000].url.find("video_main_low_init.mp4") != std::string::npos);
+
+	EXPECT_NE(initUriList.find(2000000), initUriList.end());
+	EXPECT_TRUE(initUriList[2000000].url.find("video_main_high_init.mp4") != std::string::npos);
+}
+
+/**
+ * @brief GenerateFragmentURLList tests.
+ *
+ * The tests verify the GenerateFragmentURLList method behavior with edge cases
+ * such as null context. Tests that the function handles null input gracefully and
+ * generates proper URLs when given valid MediaStreamContext with Number/Time set.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListEdgeCases)
+{
+	static const char *simpleManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="4" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	std::string fragmentUrl;
+	AAMPStatusType status;
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(simpleManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	EXPECT_NE(videoTrack, nullptr);
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+
+	URLBitrateMap uriList;
+
+	// Test with null context - should handle gracefully
+	uriList.clear();
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, nullptr, false);
+	EXPECT_TRUE(uriList.empty());
+
+	// Test with valid context and proper fragment descriptor
+	pVideoContext->fragmentDescriptor.Number = 2;
+	pVideoContext->fragmentDescriptor.Time = 5000;
+	pVideoContext->fragmentDescriptor.TimeScale = 2500;
+	pVideoContext->fragmentDescriptor.Bandwidth = 800000;
+
+	uriList.clear();
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	// Should generate URL for the representation
+	EXPECT_FALSE(uriList.empty());
+	EXPECT_NE(uriList.find(800000), uriList.end());
+	EXPECT_TRUE(uriList[800000].url.find("video_2.m4s") != std::string::npos);
+
+	// Test init segment
+	uriList.clear();
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, true);
+	EXPECT_FALSE(uriList.empty());
+	EXPECT_TRUE(uriList[800000].url.find("video_init.mp4") != std::string::npos);
+}
+
+/**
+ * @brief GenerateFragmentURLList tests.
+ *
+ * The tests verify the GenerateFragmentURLList method with SegmentList format
+ * instead of SegmentTemplate. Tests that given a fragment index in MediaStreamContext,
+ * the function generates URLs for all representations at that same fragment index.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListSegmentList)
+{
+	static const char *segmentListManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+						<SegmentList timescale="2500" duration="5000">
+							<Initialization sourceURL="video_init.mp4"/>
+							<SegmentURL media="video_seg1.m4s"/>
+							<SegmentURL media="video_seg2.m4s"/>
+							<SegmentURL media="video_seg3.m4s"/>
+							<SegmentURL media="video_seg4.m4s"/>
+							<SegmentURL media="video_seg5.m4s"/>
+						</SegmentList>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="video" intraAssetType="alternate">
+					<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1200000" width="960" height="540" frameRate="25">
+						<SegmentList timescale="2500" duration="5000">
+							<Initialization sourceURL="video_alt_init.mp4"/>
+							<SegmentURL media="video_alt_seg1.m4s"/>
+							<SegmentURL media="video_alt_seg2.m4s"/>
+							<SegmentURL media="video_alt_seg3.m4s"/>
+							<SegmentURL media="video_alt_seg4.m4s"/>
+							<SegmentURL media="video_alt_seg5.m4s"/>
+						</SegmentList>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	std::string fragmentUrl;
+	AAMPStatusType status;
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(segmentListManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	EXPECT_NE(videoTrack, nullptr);
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+
+	URLBitrateMap uriList;
+
+	// Set fragment index to 2 (3rd segment - 0-indexed)
+	pVideoContext->fragmentIndex = 2;
+	pVideoContext->fragmentDescriptor.Bandwidth = 800000;
+
+	// Test media segment from SegmentList - should generate URLs for all representations
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	// Should generate URLs for both representations (main and alternate) at the same fragment index
+	EXPECT_EQ(uriList.size(), 2);
+
+	// Verify main representation (800kbps)
+	EXPECT_NE(uriList.find(800000), uriList.end());
+	const auto& mainUrl = uriList[800000].url;
+	EXPECT_TRUE(mainUrl.find("video_seg3.m4s") != std::string::npos);
+
+	// Verify alternate representation (1200kbps)
+	EXPECT_NE(uriList.find(1200000), uriList.end());
+	const auto& altUrl = uriList[1200000].url;
+	EXPECT_TRUE(altUrl.find("video_alt_seg3.m4s") != std::string::npos);
+
+	// Test initialization segments
+	uriList.clear();
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, true);
+
+	EXPECT_EQ(uriList.size(), 2);
+
+	// Verify init URLs for both representations
+	EXPECT_NE(uriList.find(800000), uriList.end());
+	EXPECT_TRUE(uriList[800000].url.find("video_init.mp4") != std::string::npos);
+
+	EXPECT_NE(uriList.find(1200000), uriList.end());
+	EXPECT_TRUE(uriList[1200000].url.find("video_alt_init.mp4") != std::string::npos);
+
+	// Test with different fragment index
+	pVideoContext->fragmentIndex = 0;
+	uriList.clear();
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	EXPECT_EQ(uriList.size(), 2);
+	EXPECT_TRUE(uriList[800000].url.find("video_seg1.m4s") != std::string::npos);
+	EXPECT_TRUE(uriList[1200000].url.find("video_alt_seg1.m4s") != std::string::npos);
+}
+
+/**
+ * @brief GenerateFragmentURLList tests with blacklisted adaptations.
+ *
+ * The tests verify that GenerateFragmentURLList correctly filters out blacklisted
+ * adaptation sets and only generates URLs for non-blacklisted adaptations.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListWithBlacklistedAdaptations)
+{
+	static const char *multiAdaptationManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="video_low" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_low_init.mp4" media="video_low_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+					<Representation id="video_high" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000" width="1280" height="720" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_high_init.mp4" media="video_high_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="video" intraAssetType="alternate">
+					<Representation id="video_alt1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1200000" width="960" height="540" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_alt1_init.mp4" media="video_alt1_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+					<Representation id="video_alt2" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1600000" width="1024" height="576" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="video_alt2_init.mp4" media="video_alt2_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="2" contentType="video" intraAssetType="alternate2">
+					<Representation id="video_alt3" mimeType="video/mp4" codecs="avc1.640028" bandwidth="3000000" width="1920" height="1080" frameRate="30">
+						<SegmentTemplate timescale="2500" initialization="video_alt3_init.mp4" media="video_alt3_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="3" contentType="audio" lang="eng">
+					<Representation id="audio_eng" mimeType="audio/mp4" codecs="ec-3" bandwidth="128000">
+						<SegmentTemplate timescale="2500" initialization="audio_eng_init.mp4" media="audio_eng_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="14" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	std::string fragmentUrl;
+	AAMPStatusType status;
+
+	// Setup blacklist: Adaptation set 1 is blacklisted
+	StreamBlacklistProfileInfo blInfo;
+	blInfo.mPeriodId = "p0";
+	blInfo.mAdaptationSetIdx = 1; // Blacklist adaptation set 1
+	blInfo.mReason = PROFILE_BLACKLIST_DRM_FAILURE;
+	mPrivateInstanceAAMP->AddToBlacklistedProfiles(blInfo);
+
+	/* Initialize MPD */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_eng_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(multiAdaptationManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Index the MPD document
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	EXPECT_NE(videoTrack, nullptr);
+
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	EXPECT_NE(pVideoContext, nullptr);
+
+	// Set fragment descriptor
+	pVideoContext->fragmentDescriptor.Number = 5;
+	pVideoContext->fragmentDescriptor.Time = 20000;
+	pVideoContext->fragmentDescriptor.TimeScale = 2500;
+	pVideoContext->fragmentDescriptor.Bandwidth = 800000;
+
+	// Test GenerateFragmentURLList - should only include non-blacklisted adaptations
+	URLBitrateMap uriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	// Should generate URLs for 4 representations (2 from adaptation 0 + 1 from adaptation 2)
+	// Adaptation 1 is blacklisted, so its 2 representations should be excluded
+	EXPECT_EQ(uriList.size(), 3);
+
+	// Verify adaptation 0 representations are included
+	EXPECT_NE(uriList.find(800000), uriList.end());
+	EXPECT_TRUE(uriList[800000].url.find("video_low_5.m4s") != std::string::npos);
+
+	EXPECT_NE(uriList.find(2000000), uriList.end());
+	EXPECT_TRUE(uriList[2000000].url.find("video_high_5.m4s") != std::string::npos);
+
+	// Verify adaptation 1 representations are NOT included (blacklisted)
+	EXPECT_EQ(uriList.find(1200000), uriList.end());
+	EXPECT_EQ(uriList.find(1600000), uriList.end());
+
+	// Verify adaptation 2 representation is included
+	EXPECT_NE(uriList.find(3000000), uriList.end());
+	EXPECT_TRUE(uriList[3000000].url.find("video_alt3_5.m4s") != std::string::npos);
+
+	// Test with init segments
+	URLBitrateMap initUriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(initUriList, pVideoContext, true);
+
+	EXPECT_EQ(initUriList.size(), 3);
+	EXPECT_NE(initUriList.find(800000), initUriList.end());
+	EXPECT_NE(initUriList.find(2000000), initUriList.end());
+	EXPECT_NE(initUriList.find(3000000), initUriList.end());
+
+	// Blacklisted adaptations should not be in init list
+	EXPECT_EQ(initUriList.find(1200000), initUriList.end());
+	EXPECT_EQ(initUriList.find(1600000), initUriList.end());
+}
+
+/**
+ * @brief GenerateFragmentURLList tests with multiple blacklisted adaptations.
+ *
+ * Verifies that when multiple adaptation sets are blacklisted, only
+ * non-blacklisted adaptations generate URLs.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListWithMultipleBlacklistedAdaptations)
+{
+	static const char *manifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video">
+					<Representation id="v0" bandwidth="500000">
+						<SegmentTemplate timescale="1000" initialization="v0_init.mp4" media="v0_$Number$.m4s" startNumber="1">
+							<SegmentTimeline><S t="0" d="2000" r="9" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="1" contentType="video">
+					<Representation id="v1" bandwidth="1000000">
+						<SegmentTemplate timescale="1000" initialization="v1_init.mp4" media="v1_$Number$.m4s" startNumber="1">
+							<SegmentTimeline><S t="0" d="2000" r="9" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="2" contentType="video">
+					<Representation id="v2" bandwidth="1500000">
+						<SegmentTemplate timescale="1000" initialization="v2_init.mp4" media="v2_$Number$.m4s" startNumber="1">
+							<SegmentTimeline><S t="0" d="2000" r="9" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+				<AdaptationSet id="3" contentType="audio">
+					<Representation id="a0" bandwidth="128000">
+						<SegmentTemplate timescale="1000" initialization="a0_init.mp4" media="a0_$Number$.m4s" startNumber="1">
+							<SegmentTimeline><S t="0" d="2000" r="9" /></SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	// Blacklist adaptation sets 0 and 2
+	StreamBlacklistProfileInfo blInfo1;
+	blInfo1.mPeriodId = "p0";
+	blInfo1.mAdaptationSetIdx = 0;
+	blInfo1.mReason = PROFILE_BLACKLIST_DRM_FAILURE;
+	mPrivateInstanceAAMP->AddToBlacklistedProfiles(blInfo1);
+
+	StreamBlacklistProfileInfo blInfo2;
+	blInfo2.mPeriodId = "p0";
+	blInfo2.mAdaptationSetIdx = 2;
+	blInfo2.mReason = PROFILE_BLACKLIST_DRM_FAILURE;
+	mPrivateInstanceAAMP->AddToBlacklistedProfiles(blInfo2);
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(videoTrack, nullptr);
+
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	pVideoContext->fragmentDescriptor.Number = 3;
+	pVideoContext->fragmentDescriptor.Time = 4000;
+	pVideoContext->fragmentDescriptor.TimeScale = 1000;
+	pVideoContext->fragmentDescriptor.Bandwidth = 1000000;
+
+	URLBitrateMap uriList;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(uriList, pVideoContext, false);
+
+	// Only adaptation 1 should be included (adaptations 0 and 2 are blacklisted)
+	EXPECT_EQ(uriList.size(), 1);
+	EXPECT_NE(uriList.find(1000000), uriList.end());
+	EXPECT_TRUE(uriList[1000000].url.find("v1_3.m4s") != std::string::npos);
+
+	// Blacklisted adaptations should not appear
+	EXPECT_EQ(uriList.find(500000), uriList.end());
+	EXPECT_EQ(uriList.find(1500000), uriList.end());
+}
+
 TEST_F(FetcherLoopTests, SkipFetchAudioTests)
 {
 	static const char *manifest =
