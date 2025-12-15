@@ -5856,6 +5856,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
 		}
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
+		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
+		AAMPLOG_WARN("app name:%s disableWebVTT(%d)", mAppName.c_str(), GETCONFIGVALUE_PRIV(eAAMPConfig_DisableWebVTT));
 	}
 
 	/* Reset counter in new tune */
@@ -10131,6 +10133,13 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
         std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
         PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
+		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
+		{
+			trackInfo.clear();
+			std::copy(textTracksCopy.begin(), textTracksCopy.end(), std::back_inserter(trackInfo));
+			AAMPLOG_WARN("updated only Instream CC tracks");
+		}
+
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
