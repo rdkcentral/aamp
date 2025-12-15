@@ -18,7 +18,7 @@
 */
 
 #include "IPVideoStat.h"
-#include "abr/abr.h"
+#include "abr.h"
 
 size_t CSessionSummary::totalErrorCount = 0;
 size_t ManifestGenericStats::totalGaps = 0;
