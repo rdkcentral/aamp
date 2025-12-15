@@ -20,6 +20,7 @@
 #include <iostream>
 #include "InterfacePlayerRDK.h"
 #include "InterfacePlayerPriv.h"
+#include "AampGrowableBuffer.h"
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -2947,7 +2948,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 }
 
 /**
- *  @brief Inject stream buffer to gstreamer pipeline
+ *  @brief Inject stream buffer to gstreamer pipeline with transfer ownership (zero-copy)
  */
 bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
@@ -2956,6 +2957,11 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
 	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
+	
+	// Extract ptr and len from MediaSample for use with GStreamer APIs
+	size_t len = sample.size();
+	const void* ptr = sample.data();
+	
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
 	{
 		MW_LOG_WARN( "[%d] Discontinuity detected - setting subtitle clock to %" GST_TIME_FORMAT " dAR %d rP %d init %d sC %d",
@@ -3020,53 +3026,43 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 			pts_offset = 0;
 		}
 
-		if(copy)
+		buffer = gst_buffer_new_wrapped_full(
+			GST_MEMORY_FLAG_READONLY,
+			(gpointer)heapVector->data(), heapVector->size(),
+			0, heapVector->size(),
+			heapVector,
+			[](gpointer user_data) {
+				delete static_cast<std::vector<uint8_t>*>(user_data);
+			}
+		);
+
+		if (buffer)
 		{
-			buffer = CreateGstBufferWithData(sample.mData, sample.mDataSize);
-
-			if (buffer)
+			GST_BUFFER_PTS(buffer) = pts;
+			GST_BUFFER_DTS(buffer) = dts;
+			GST_BUFFER_DURATION(buffer) = duration;
+			if (sample.mDrmMetadata.mIsEncrypted)
 			{
-				GST_BUFFER_PTS(buffer) = pts;
-				GST_BUFFER_DTS(buffer) = dts;
-				GST_BUFFER_DURATION(buffer) = duration;
-				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-					GST_BUFFER_OFFSET(buffer) = pts_offset;
+				// Set DRM metadata to buffer
+				DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
+			}
+			if (mediaType == eGST_MEDIATYPE_SUBTITLE)
+				GST_BUFFER_OFFSET(buffer) = pts_offset;
 
+			if (copy)
+			{
 				MW_LOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT, mediaType, pts, dts);
 				MW_LOG_DEBUG(" fragmentPTSoffset %" G_GINT64_FORMAT, pts_offset);
 			}
 			else
 			{
-				bPushBuffer = false;
+				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
+							mediaType, pts, dts, len, initFragment, discontinuity, duration);
 			}
 		}
 		else
-		{ // transfer
-			buffer = gst_buffer_new_wrapped((gpointer)sample.mData,(gsize)sample.mDataSize);
-
-			if (buffer)
-			{
-				GST_BUFFER_PTS(buffer) = pts;
-				GST_BUFFER_DTS(buffer) = dts;
-				GST_BUFFER_DURATION(buffer) = duration;
-				if (sample.mDrmMetadata.mIsEncrypted)
-				{
-					// Set DRM metadata to buffer
-					// Skipped for copy as that path is not used for demuxed content
-					// TODO: Handle copy path also if required in future
-					DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
-				}
-				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-					GST_BUFFER_OFFSET(buffer) = pts_offset;
-
-				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
-							mediaType, pts, dts, sample.mDataSize, initFragment, discontinuity, duration);
-
-			}
-			else
-			{
-				bPushBuffer = false;
-			}
+		{
+			bPushBuffer = false;
 		}
 
 		if (bPushBuffer)

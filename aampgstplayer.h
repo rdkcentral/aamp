@@ -96,6 +96,7 @@ private:
 	 * @param[in] sample media sample. Ownership is transferred
 	 * @param[in] copy to map or transfer the buffer
 	 * @param[in] initFragment flag for buffer type (init, data)
+	 * @param[in] discontinuity flag for discontinuity
 	 */
 	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment = false, bool discontinuity = false);
 
@@ -115,17 +116,16 @@ public:
 	/**
 		 * @fn SendCopy
 		 * @param[in] mediaType stream type
-		 * @param[in] ptr buffer pointer
-		 * @param[in] len length of buffer
+		 * @param[in] buffer buffer as std::vector pointer (ownership transferred)
 		 * @param[in] fpts PTS of buffer (in sec)
 		 * @param[in] fdts DTS of buffer (in sec)
 		 * @param[in] fDuration duration of buffer (in sec)
 		 */
-	bool SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration) override;
+	bool SendCopy(AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration) override;
 	/**
 		 * @fn SendTransfer
 		 * @param[in] mediaType stream type
-		 * @param[in] buffer buffer as AampGrowableBuffer pointer
+		 * @param[in] buffer buffer as std::vector pointer (ownership transferred)
 		 * @param[in] fpts PTS of buffer (in sec)
 		 * @param[in] fdts DTS of buffer (in sec)
 		 * @param[in] fDuration duration of buffer (in sec)
@@ -133,7 +133,7 @@ public:
 		 * @param[in] initFragment flag for buffer type (init, data)
 		 * @param[in] discontinuity flag for discontinuity
 		 */
-	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
+	bool SendTransfer(AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
 
 	/**
 	 * @fn SendSample

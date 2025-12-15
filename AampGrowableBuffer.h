@@ -31,50 +31,37 @@
 #include <assert.h>
 #include <stdio.h>
 #include <mutex>
+#include <vector>
 
 class AampGrowableBuffer
 {
 public:
-	AampGrowableBuffer( const char *name="?" ):ptr(NULL),len(0),avail(0),name(name){}
+	AampGrowableBuffer( const char *name="?" ):buffer(),name(name){}
 	~AampGrowableBuffer();
 
 	// Copy constructor
 	AampGrowableBuffer(const AampGrowableBuffer & other)
-	 : ptr(nullptr),
-	len{other.len},
-	avail(0),name{other.name}
+	 : buffer(other.buffer),
+	name{other.name}
 	{ // never reached/used?
-		ReserveBytes(len); // allocate the pointer and set avail
-		std::memcpy(ptr, other.ptr, len); // populate
 	}
 	// Copy assignment
 	AampGrowableBuffer& operator=(const AampGrowableBuffer & other)
 	{ // never reached/used?
-		Free();
-		len = other.len;
-		ReserveBytes(len);
-		std::memcpy(ptr, other.ptr, len);
+		buffer = other.buffer;
 		return *this;
 	}
 
 	// Move constructor
 	AampGrowableBuffer(AampGrowableBuffer && other) noexcept
-		: ptr {other.ptr},
-		len {other.len},
-		avail{other.avail},
+		: buffer(std::move(other.buffer)),
 		name{other.name}
 	{ // never reached/used
-		other.ptr = nullptr;
-		other.len = 0;
-		other.avail = 0;
 	}
 	// Move assignment
 	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
 	{ // never reached/used
-		Free();
-		std::swap(ptr, other.ptr);
-		std::swap(len, other.len);
-		std::swap(avail, other.avail);
+		buffer = std::move(other.buffer);
 		return *this;
 	}
 
@@ -86,19 +73,24 @@ public:
 	void Replace( AampGrowableBuffer *src );
 	void Transfer( void );
 	
-	char *GetPtr( void ) { return (char *)ptr; } // accessor function for current growable buffer binary payload
-	const char *GetPtr( void ) const { return static_cast<const char *>(ptr); } // accessor function for current growable buffer binary payload
-	size_t GetLen( void ) const { return len; } // accessor function for current logical growable buffer size
-	size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
-	void SetLen( size_t l ) { assert(l<=avail); len = l; }
+	/**
+	 * @brief Extract the internal vector for ownership transfer
+	 * @return pointer to new vector that caller must delete
+	 * @note The internal buffer is cleared after extraction
+	 */
+	std::vector<uint8_t>* ExtractVector( void );
+	
+	char *GetPtr( void ) { return reinterpret_cast<char*>(buffer.data()); } // accessor function for current growable buffer binary payload
+	const char *GetPtr( void ) const { return reinterpret_cast<const char*>(buffer.data()); } // accessor function for current growable buffer binary payload
+	size_t GetLen( void ) const { return buffer.size(); } // accessor function for current logical growable buffer size
+	size_t GetAvail( void ) const { return buffer.capacity(); } // should be opaque, but used in logging
+	void SetLen( size_t l ) { assert(l<=buffer.capacity()); buffer.resize(l); }
 
     static void EnableLogging( bool enable );
     
 private:
     const char *name;
-	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
-	size_t len;     /**< Subset of allocated buffer that is populated and in use */
-	size_t avail;   /**< Available buffer size */
+	std::vector<uint8_t> buffer;  /**< Vector holding buffer data */
 	
     static bool gbEnableLogging;
 	static int gNetMemoryCount;

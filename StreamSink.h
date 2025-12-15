@@ -20,6 +20,8 @@
 #ifndef STREAM_SINK_H
 #define STREAM_SINK_H
 
+#include <vector>
+#include <cstdint>
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
 #include "AampDemuxDataTypes.h" // for AampMediaSample
@@ -54,23 +56,22 @@ public:
      */
     virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
     /**
-     *   @brief  API to send audio/video buffer into the sink.
+     *   @brief  API to send audio/video buffer into the sink (copy mode).
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  ptr - Pointer to the buffer; caller responsible of freeing memory
-     *   @param[in]  len - Buffer length.
+     *   @param[in]  buffer - Pointer to std::vector; buffer ownership is transferred to sink
      *   @param[in]  fpts - Presentation Time Stamp.
      *   @param[in]  fdts - Decode Time Stamp
      *   @param[in]  fDuration - Buffer duration.
-     *   @return void
+     *   @return true if successful
      */
-    virtual bool SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)= 0;
+    virtual bool SendCopy( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration)= 0;
 
     /**
      *   @brief  API to send audio/video buffer into the sink.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  buffer - Pointer to the AampGrowableBuffer; ownership is taken by the sink
+     *   @param[in]  buffer - Pointer to std::vector; ownership is taken by the sink
      *   @param[in]  fpts - Presentation Time Stamp.
      *   @param[in]  fdts - Decode Time Stamp
      *   @param[in]  fDuration - Buffer duration.
@@ -78,7 +79,7 @@ public:
      *   @param[in]  initFragment - flag for buffer type (init, data)
      *   @return void
      */
-    virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
+    virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
 
     /**
      *   @brief  API to send audio/video sample into the sink.

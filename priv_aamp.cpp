@@ -7916,7 +7916,17 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
  	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
  	if (sink)
  	{
-		rc = sink->SendCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+		// Create a temporary vector and copy the data into it
+		auto* tempBuffer = new std::vector<uint8_t>(static_cast<const uint8_t*>(ptr), static_cast<const uint8_t*>(ptr) + len);
+		
+		// Pass vector to sink which will take ownership
+		rc = sink->SendCopy(mediaType, tempBuffer, fpts, fdts, fDuration);
+		
+		if (!rc)
+		{
+			// Sink didn't take ownership - clean up
+			delete tempBuffer;
+		}
  	}
 	return rc;
 }
@@ -7929,15 +7939,14 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowab
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if( sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity) )
+		// Extract the vector from the growable buffer (ownership transferred)
+		auto* tempBuffer = buffer->ExtractVector();
+		
+		if( !sink->SendTransfer(mediaType, tempBuffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity) )
 		{
-			buffer->Transfer();
+			// unable to transfer - free up the vector
+			delete tempBuffer;
 		}
-		else
-		{ // unable to transfer - free up the buffer we were passed.
-			buffer->Free();
-		}
-		//memset(buffer, 0x00, sizeof(AampGrowableBuffer));
 	}
 	else
 	{

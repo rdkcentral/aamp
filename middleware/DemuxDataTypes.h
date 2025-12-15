@@ -222,44 +222,84 @@ struct MediaDrmMetadata
  */
 struct MediaSample
 {
-	const void* mData;
-	size_t mDataSize;
+	std::vector<uint8_t> mData; // Media data buffer (replaces raw pointer + size)
 	double mPts;
 	double mDts;
 	double mDuration;
 	double mPtsOffset;
+	MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
 
-    MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
 	/**
-	 * @brief Constructor for MediaSample
+	 * @brief Default constructor for MediaSample
 	 */
 	MediaSample()
-		: mData(nullptr)
-		, mDataSize(0)
-		, mPts(0)
-		, mDts(0)
-		, mDuration(0)
-		, mPtsOffset(0)
+		: mData()
+		, mPts(0.0)
+		, mDts(0.0)
+		, mDuration(0.0)
+		, mPtsOffset(0.0)
 		, mDrmMetadata()
 	{
 	}
 
-	/* @brief Move constructor for MediaSample
+	/**
+	 * @brief Constructor with data from vector (move semantics)
+	 * @param data Vector of data (moved into sample)
+	 * @param pts Presentation timestamp
+	 * @param dts Decode timestamp
+	 * @param duration Sample duration
+	 * @param ptsOffset PTS offset
+	 */
+	MediaSample(std::vector<uint8_t>&& data, double pts, double dts, double duration, double ptsOffset = 0.0)
+		: mData(std::move(data))
+		, mPts(pts)
+		, mDts(dts)
+		, mDuration(duration)
+		, mPtsOffset(ptsOffset)
+		, mDrmMetadata()
+	{
+	}
+
+	/**
+	 * @brief Constructor from raw pointer (takes ownership via copy)
+	 * @param ptr Pointer to data to copy
+	 * @param size Size of data
+	 * @param pts Presentation timestamp
+	 * @param dts Decode timestamp
+	 * @param duration Sample duration
+	 * @param ptsOffset PTS offset
+	 */
+	MediaSample(const void* ptr, size_t size, double pts, double dts, double duration, double ptsOffset = 0.0)
+		: mData(static_cast<const uint8_t*>(ptr), static_cast<const uint8_t*>(ptr) + size)
+		, mPts(pts)
+		, mDts(dts)
+		, mDuration(duration)
+		, mPtsOffset(ptsOffset)
+		, mDrmMetadata()
+	{
+	}
+
+	/**
+	 * @brief Move constructor for MediaSample
 	 * @param other Source MediaSample to move from
 	 */
 	MediaSample(MediaSample&& other) noexcept
-		: mData(other.mData)
-		, mDataSize(other.mDataSize)
+		: mData(std::move(other.mData))
 		, mPts(other.mPts)
 		, mDts(other.mDts)
 		, mDuration(other.mDuration)
+		, mPtsOffset(other.mPtsOffset)
 		, mDrmMetadata(std::move(other.mDrmMetadata))
 	{
-		// Reset source object to default state after move
-		other.mData = nullptr;
-		other.mDataSize = 0;
+		// Vector is already moved, just reset scalars
+		other.mPts = 0.0;
+		other.mDts = 0.0;
+		other.mDuration = 0.0;
+		other.mPtsOffset = 0.0;
 	}
-	/* @brief Move assignment operator for MediaSample
+
+	/**
+	 * @brief Move assignment operator for MediaSample
 	 * @param other Source MediaSample to move from
 	 * @return Reference to this object
 	 */
@@ -267,16 +307,18 @@ struct MediaSample
 	{
 		if (this != &other)
 		{
-			mData = other.mData;
-			mDataSize = other.mDataSize;
+			mData = std::move(other.mData);
 			mPts = other.mPts;
 			mDts = other.mDts;
 			mDuration = other.mDuration;
+			mPtsOffset = other.mPtsOffset;
 			mDrmMetadata = std::move(other.mDrmMetadata);
 
-			// Reset source object to default state after move
-			other.mData = nullptr;
-			other.mDataSize = 0;
+			// Reset source scalars
+			other.mPts = 0.0;
+			other.mDts = 0.0;
+			other.mDuration = 0.0;
+			other.mPtsOffset = 0.0;
 		}
 		return *this;
 	}
@@ -284,6 +326,25 @@ struct MediaSample
 	// Delete copy constructor and copy assignment to prevent accidental copies
 	MediaSample(const MediaSample&) = delete;
 	MediaSample& operator=(const MediaSample&) = delete;
+
+	/**
+	 * @brief Get pointer to data (for compatibility with legacy APIs)
+	 * @return Pointer to data or nullptr if empty
+	 */
+	const uint8_t* data() const { return mData.empty() ? nullptr : mData.data(); }
+	uint8_t* data() { return mData.empty() ? nullptr : mData.data(); }
+
+	/**
+	 * @brief Get size of data
+	 * @return Size in bytes
+	 */
+	size_t size() const { return mData.size(); }
+
+	/**
+	 * @brief Check if sample is empty
+	 * @return true if no data
+	 */
+	bool empty() const { return mData.empty(); }
 };
 
 #endif /* __DEMUX_DATA_TYPES_H__ */

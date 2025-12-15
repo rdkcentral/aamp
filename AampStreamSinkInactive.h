@@ -55,18 +55,20 @@ public:
      *   @fn SendCopy
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
+	virtual bool SendCopy( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double duration)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
+		delete buffer; // Clean up the buffer since we're not using it
 		return false;
 	}
 	/**
      *   @fn SendTransfer
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)
+	virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
+		delete buffer; // Clean up the buffer since we're not using it
 		return false;
 	}
 	/**
