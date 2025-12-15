@@ -3064,7 +3064,10 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 		{
 			bPushBuffer = false;
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> ae470900 (VPLAY-xxxx GrowableBuffer as a vector discussion)
 		if (bPushBuffer)
 		{
 
