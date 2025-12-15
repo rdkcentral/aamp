@@ -127,7 +127,7 @@ void ABRManager::updateProfile()
 		
 		if (mDefaultIframeBitrate > 0) {
 			mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[0].idx;
-			for (int cnt = 0; cnt <= iframeTrackCount; cnt++) {
+			for (int cnt = 0; cnt < iframeTrackCount; cnt++) {
 				// find the track less than default bw set, apply to both desired and lower ( for all speed of trick)
 				if(iframeTrackInfo[cnt].bandwidth >= mDefaultIframeBitrate) {
 					break;
@@ -140,7 +140,7 @@ void ABRManager::updateProfile()
 				int desiredProfileIndexNonIframe = (int)profileCount / 2;
 				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
 				mDesiredIframeProfile = mLowestIframeProfile = 0;
-				for (int cnt = 0; cnt < iframeTrackInfo.size(); cnt++) {
+				for (int cnt = 0; cnt < iframeTrackCount; cnt++) {
 					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
 					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
 						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
@@ -511,9 +511,8 @@ int ABRManager::getDesiredIframeProfile() const
 void ABRManager::addProfile(ABRManager::ProfileInfo profile)
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	int idx = (int)mProfiles.size();
+	addSortedBWProfileList(profile, (int)mProfiles.size() );
 	mProfiles.push_back(profile);
-	addSortedBWProfileList(mProfiles[idx], idx);
 }
 
 /**
