@@ -62,7 +62,7 @@
 #include <type_traits>
 #include <chrono>
 #include "AampEventManager.h"
-#include <HybridABRManager.h>
+#include "abr/abr.h"
 #include "AampCMCDCollector.h"
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
@@ -897,7 +897,7 @@ public:
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
-	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
+	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
 	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
@@ -1063,7 +1063,8 @@ public:
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
-	std::string preferredTextLabelString; 			/**< String value for text type */
+	std::string preferredTextLabelString; 			/**< String value for label */
+	std::string preferredTextSubTypeString; 		/**< String value for sub-type  (i.e. "SUBTITLES" or "CLOSED-CAPTIONS") */
 	std::string preferredInstreamIdString;			/**< String value for instreamId */
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
@@ -2576,12 +2577,12 @@ public:
 	std::string GetPreferredTextProperties();
 
 	/**
-	 * @brief Set current DRM helper
+	 *   @brief Set DRM type
 	 *
-	 * @param[in] drm - DRM helper instance
-	 * @return void
+	 *   @param[in] drm - New DRM type
+	 *   @return void
 	 */
-	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
 
 	/**
 	 * @fn GetMoneyTraceString

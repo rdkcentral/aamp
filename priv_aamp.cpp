@@ -4490,8 +4490,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
-				//HybridABRManager mhABRManager;
-				HybridABRManager::CurlAbortReason hybridabortReason = (HybridABRManager::CurlAbortReason) abortReason;
+				ABRManager::CurlAbortReason hybridabortReason = (ABRManager::CurlAbortReason) abortReason;
 				if((buffer->GetLen() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
@@ -7701,6 +7700,11 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
+			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
+			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
+			// of StreamAbstractionAamp.
+			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -12203,6 +12207,15 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 			}
 		}
 
+		std::string inputTextSubTypeString;
+		if (jsObject->isString("sub-type"))
+		{
+			if (jsObject->get("sub-type", inputTextSubTypeString))
+			{
+				AAMPLOG_INFO("Preferred sub-type string: %s", inputTextSubTypeString.c_str());
+			}
+		}
+
 		Accessibility  inputTextAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -12232,6 +12245,7 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		preferredTextTypeString = std::move(inputTextTypeString);
 		preferredInstreamIdString = std::move(inputInstreamIdString);
 		preferredTextNameString = std::move(inputTextNameString);
+		preferredTextSubTypeString = std::move(inputTextSubTypeString);
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
@@ -13350,7 +13364,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
  */
 void PrivateInstanceAAMP::LoadAampAbrConfig()
 {
-	HybridABRManager::AampAbrConfig mhAampAbrConfig;
+	ABRManager::AampAbrConfig mhAampAbrConfig;
 	// ABR config values
 	mhAampAbrConfig.abrCacheLife = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLife);
 	mhAampAbrConfig.abrCacheLength = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheLength);
