@@ -90,6 +90,8 @@ struct AampTicks
 	 * Prevents overflow when (ticks * 1000) would exceed INT64_MAX or INT64_MIN.
 	 * Uses 128-bit intermediate values on supported platforms, falls back to double on others.
 	 * If overflow would occur, clamps the result to INT64_MAX or INT64_MIN.
+	 * 
+	 * @return Time in milliseconds, clamped to INT64_MIN or INT64_MAX if overflow occurs.
 	 */
 	int64_t inMilli() const
 	{
@@ -126,7 +128,7 @@ class AampTime
 		  * @brief Constructor
 		  * @param seconds time in seconds, as a double
 		  */
-		constexpr AampTime(double seconds = 0.0) : baseTime(int64_t(seconds * baseTimescale)){}
+		constexpr AampTime(double seconds = 0.0) : baseTime(static_cast<int64_t>(seconds * baseTimescale)){}
 
 		/** 
 		  * @brief Copy constructor
