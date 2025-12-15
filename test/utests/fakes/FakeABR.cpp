@@ -47,7 +47,7 @@ void ABRManager::clearProfiles()
 	return;
 }
 
-void ABRManager::addProfile(ABRManager::ProfileInfo profile)
+void ABRManager::addProfile(const ABRManager::ProfileInfo &profile)
 {
 }
 

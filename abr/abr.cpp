@@ -295,9 +295,11 @@ int ABRManager::getUserDataOfProfile(int currentProfileIndex)
 	size_t profileCount = mProfiles.size();
 	if (profileCount == 0 || currentProfileIndex >= profileCount) {
 		AAMPLOG_WARN("No profiles/input profile %d more than profileCount %zu", currentProfileIndex, profileCount);
-		return userData;
 	}
-	userData = mProfiles[currentProfileIndex].userData;
+	else
+	{
+		userData = mProfiles[currentProfileIndex].userData;
+	}
 	return userData;
 }
 
@@ -508,7 +510,7 @@ int ABRManager::getDesiredIframeProfile() const
 /**
  *  @brief Add new profile info into the manager
  */
-void ABRManager::addProfile(ABRManager::ProfileInfo profile)
+void ABRManager::addProfile(const ABRManager::ProfileInfo &profile)
 {
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	addSortedBWProfileList(profile, (int)mProfiles.size() );
@@ -523,7 +525,6 @@ void ABRManager::addProfile(ABRManager::ProfileInfo profile)
 void ABRManager::addSortedBWProfileList(const ABRManager::ProfileInfo &profileInfo, int idx)
 {
 	if (!profileInfo.isIframeTrack) {
-		//std::lock_guard<std::mutex> lock(mProfileLock);
 		mSortedBWProfileList[profileInfo.periodId][profileInfo.bandwidthBitsPerSecond] = idx;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("Period ID: %s", profileInfo.periodId.c_str());
@@ -573,7 +574,7 @@ int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int curren
 	AAMPLOG_MIL("profileCount after removing profiles orig:%zu and new:%zu", profileCount, mProfiles.size() );
 #endif
 	profileCount = mProfiles.size();
-
+	
 	mSortedBWProfileList.clear();
 	// Get new profile count
 	for(int idx = 0; idx < (int)profileCount; idx++) {
@@ -745,7 +746,7 @@ BitsPerSecond ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeM
  * @brief Function to Update Persisted Recent Download Statistics Based on Cache Length
  * @return none
  */
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,BitsPerSecond> > &mAbrBitrateData,BitsPerSecond downloadbps,bool LowLatencyMode)
+void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector <std::pair<long long,BitsPerSecond>> &mAbrBitrateData, BitsPerSecond downloadbps, bool LowLatencyMode)
 {
 	mAbrBitrateData.push_back(std::make_pair(ABRGetCurrentTimeMS(), downloadbps));
 	if(LowLatencyMode)
@@ -764,9 +765,9 @@ void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<
  * @brief Function to Update Persisted Recent Download Statistics Based on abrCacheLife
  * @return none
  */
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,BitsPerSecond> > &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData)
+void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector<std::pair<long long,BitsPerSecond>> &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData)
 {
-	std::vector< std::pair<long long,BitsPerSecond> >::iterator bitrateIter;
+	std::vector<std::pair<long long,BitsPerSecond>>::iterator bitrateIter;
 	long long presentTime = ABRGetCurrentTimeMS();
 	for (bitrateIter = mAbrBitrateData.begin(); bitrateIter != mAbrBitrateData.end();)
 	{

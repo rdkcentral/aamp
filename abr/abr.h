@@ -224,7 +224,7 @@ public:
 	 * @fn addProfile
 	 * @param profile The profile info
 	 */
-	void addProfile(ProfileInfo profile);
+	void addProfile(const ProfileInfo &profile);
 	
 	/**
 	 * @fn clearProfiles
@@ -341,7 +341,6 @@ public:
 		abrThresholdSize(0), abrMaxBuffer(0), abrMinBuffer(0), abrCacheOutlier(0),
 		abrBufferCounter(0), infologging(false), tracelogging(false),
 		warnlogging(false), debuglogging(false) {}
-		
 	};
 	
 	/**
@@ -393,11 +392,11 @@ public:
 	
 	/**
 	 * @brief to update Bitrate Data
-	 * @param BitrateData vector
-	 * @param download Bitrate
-	 * @return none
+	 * @param mAbrBitrateData collection of recent (timestamp, estimated network bandwidth) samples
+	 * @param downloadbps most recent estimate of network bandwidth
+	 * @param lowLatencyMode true if playing low-latency stream
 	 */
-	void UpdateABRBitrateDataBasedOnCacheLength(std::vector <std::pair<long long,BitsPerSecond> > &mAbrBitrateData, BitsPerSecond downloadbps,bool LowLatencyMode );
+	void UpdateABRBitrateDataBasedOnCacheLength(std::vector<std::pair<long long,BitsPerSecond>> &mAbrBitrateData, BitsPerSecond downloadbps, bool LowLatencyMode );
 	
 	/**
 	 * @brief Update Bitrate Data based on ABR CacheLife
@@ -405,7 +404,7 @@ public:
 	 * @param tmpData vector
 	 * @return none
 	 */
-	void UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,BitsPerSecond> > &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData);
+	void UpdateABRBitrateDataBasedOnCacheLife(std::vector<std::pair<long long,BitsPerSecond>> &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData);
 	
 	/**
 	 * @brief Update Bitrate Data based on ABRCacheOutlier
@@ -546,7 +545,7 @@ private:
 	typedef std::map<BitsPerSecond, int>::reverse_iterator SortedBWProfileListRevIter;
 	
 	/**
-	  * @brief state for CheckRampupFromSteadyState
+	 * @brief state for CheckRampupFromSteadyState
 	 */
 	int mRampupFromSteadyStateLoop = 1;
 	
