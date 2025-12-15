@@ -21,24 +21,13 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME Scte35Tests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GTEST_INCLUDE_DIRS})
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+include_directories(${AAMP_ROOT}/test/aampcli)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/.libs/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
-
-include_directories(${UTESTS_ROOT}/mocks)
-include_directories(${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/middleware/subtitle)
-include_directories(${AAMP_ROOT}/downloader)
-include_directories(${AAMP_ROOT}/drm)
-include_directories(${AAMP_ROOT}/drm/helper)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 set(TEST_SOURCES Scte35Tests.cpp
                  Scte35SectionTests.cpp
