@@ -7158,10 +7158,9 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyTextTracksChanged();
 		}
-		std::vector<TextTrackInfo> textTracksCopy;
-		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
+
 		std::vector<CCTrackInfo> updatedTextTracks;
-		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		aamp->UpdateCCTrackInfo(mTextTracks,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
