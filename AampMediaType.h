@@ -26,6 +26,9 @@
 #ifndef AAMPMEDIATYPE_H
 #define AAMPMEDIATYPE_H
 
+typedef long BitsPerSecond;
+#define BITSPERSECOND_FORMAT "ld"
+
 /**
  * @enum AampMediaType
  * @brief Media types

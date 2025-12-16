@@ -153,7 +153,7 @@ float SpeedChangedEvent::getRate() const
 
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate,
 	std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
 		mPosition(position), mStart(start),
@@ -274,7 +274,7 @@ double ProgressEvent::getLiveLatency() const
  *
  * @return Profile Bandwidth
  */
-long ProgressEvent::getProfileBandwidth() const
+BitsPerSecond ProgressEvent::getProfileBandwidth() const
 {
 	return mProfileBandwidth;
 }
@@ -284,7 +284,7 @@ long ProgressEvent::getProfileBandwidth() const
  *
  * @return Network Bandwidth
  */
-long ProgressEvent::getNetworkBandwidth() const
+BitsPerSecond ProgressEvent::getNetworkBandwidth() const
 {
 	return mNetworkBandwidth;
 }

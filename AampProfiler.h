@@ -215,8 +215,8 @@ private:
 
 	long long tuneStartBaseUTCMS;           /**< common UTC base for start of tune */
 	long long xreTimeBuckets[TuneTimeMax];  /**< Start time of each buckets for classic metrics conversion */
-	long bandwidthBitsPerSecondVideo;       /**< Video bandwidth in bps */
-	long bandwidthBitsPerSecondAudio;       /**< Audio bandwidth in bps */
+	BitsPerSecond bandwidthBitsPerSecondVideo;       /**< Video bandwidth in bps */
+	BitsPerSecond bandwidthBitsPerSecondAudio;       /**< Audio bandwidth in bps */
 	int drmErrorCode;                       /**< DRM error code */
 	bool enabled;                           /**< Profiler started or not */
 	std::list<TuneEvent> tuneEventList;     /**< List of events happened during tuning */
@@ -282,7 +282,7 @@ public:
 	 * @param[in] bw - Bandwidth in bps
 	 * @return void
 	 */
-	void SetBandwidthBitsPerSecondVideo(long bw)
+	void SetBandwidthBitsPerSecondVideo(BitsPerSecond bw)
 	{
 		bandwidthBitsPerSecondVideo = bw;
 	}
@@ -293,7 +293,7 @@ public:
 	 * @param[in] bw - Bandwidth in bps
 	 * @return void
 	 */
-	void SetBandwidthBitsPerSecondAudio(long bw)
+	void SetBandwidthBitsPerSecondAudio(BitsPerSecond bw)
 	{
 		bandwidthBitsPerSecondAudio = bw;
 	}
