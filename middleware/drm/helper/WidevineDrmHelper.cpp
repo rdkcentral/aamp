@@ -192,7 +192,7 @@ void WidevineDrmHelper::setDefaultKeyID(const std::string& cencData)
 			if(defaultKeyID == it.second)
 			{
 				mDefaultKeySlot = it.first;
-				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", cencData.c_str(), mDefaultKeySlot);
+				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(defaultKeyID).c_str(), mDefaultKeySlot);
 			}
 		}
 	}
@@ -212,6 +212,11 @@ void WidevineDrmHelper::createInitData(std::vector<uint8_t>& initData) const
 void WidevineDrmHelper::getKey(std::vector<uint8_t>& keyID) const
 {
 	MW_LOG_WARN("WidevineDrmHelper::getKey defaultkey: %d mKeyIDs.size:%zu", mDefaultKeySlot, mKeyIDs.size());
+	// Print all key IDs for debugging
+	for (const auto& keyPair : mKeyIDs) {
+		std::string keyStr = PlayerLogManager::getHexDebugStr(keyPair.second);
+		MW_LOG_DEBUG("Key ID [%d]: %s", keyPair.first, keyStr.c_str());
+	}
 	if ((mDefaultKeySlot >= 0) && (mDefaultKeySlot < mKeyIDs.size()))
 	{
 		keyID = this->mKeyIDs.at(mDefaultKeySlot);

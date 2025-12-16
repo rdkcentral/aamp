@@ -69,7 +69,9 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 		m_drmCallbacks(callbacks),
 		m_keyStatusWait(),
 		m_keyId(),
-		m_keyStored()
+		m_keyStored(),
+		m_usableKeys(),
+		m_usableKeysMutex()
 {
 	MW_LOG_WARN("OCDMSessionAdapter :: enter ");
 	MW_LOG_WARN("OCDMSessionAdapter :: key process timeout is %d", drmHelper->keyProcessTimeout());
@@ -213,16 +215,34 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
-	if (m_pOpenCDMSession) {
-		m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
-		m_keyStateIndeterminate = false;
-	} 
-	else {
-		m_keyStored.clear();
-		m_keyStored.assign(key, key+keySize);
-		m_keyStateIndeterminate = true;
+	// Validate input parameters
+	if (key != nullptr && keySize > 0)
+	{
+		// Convert key to keyId - common for both branches
+		std::vector<uint8_t> keyData = RawKeyToKeyId(key, keySize);
+
+		if (m_pOpenCDMSession)
+		{
+			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			m_keyStateIndeterminate = false;
+		}
+		else
+		{
+			m_keyStored.clear();
+			m_keyStored.assign(key, key + keySize);
+			m_keyStateIndeterminate = true;
+		}
+
+		// Update usable keys list (common for both branches)
+		{
+			std::lock_guard<std::mutex> lock(m_usableKeysMutex);
+			// Check if this key already exists to avoid duplicates
+			if (std::find(m_usableKeys.begin(), m_usableKeys.end(), keyData) == m_usableKeys.end())
+			{
+				m_usableKeys.push_back(keyData);
+			}
+		}
 	}
-  
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
@@ -397,6 +417,13 @@ void OCDMSessionAdapter:: clearDecryptContext()
 		opencdm_destruct_session(m_pOpenCDMSession);
 		m_pOpenCDMSession = NULL;
 	}
+
+	// Clear usable keys when clearing the session
+	{
+		std::lock_guard<std::mutex> keyLock(m_usableKeysMutex);
+		m_usableKeys.clear();
+	}
+
 	m_eKeyState = KEY_INIT;
 }
 
@@ -419,4 +446,15 @@ bool OCDMSessionAdapter::verifyOutputProtection()
 	}
 
 	return true;
+}
+
+/**
+ * @fn getUsableKeys
+ * @brief Get the list of usable key IDs from the DRM session
+ * @retval Reference to vector of usable key IDs
+ */
+const std::vector<std::vector<uint8_t>>& OCDMSessionAdapter::getUsableKeys() const
+{
+	std::lock_guard<std::mutex> lock(m_usableKeysMutex);
+	return m_usableKeys;
 }
