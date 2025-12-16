@@ -19,31 +19,13 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(EXEC_NAME AampDRMLicPreFetcherTests)
-set(CMAKE_CXX_STANDARD 14)
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd ${AAMP_ROOT}/support/aampabr ${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
-include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/externals)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-include_directories(${AAMP_ROOT}/middleware/drm/helper)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
+
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LIBDASH_INCLUDE_DIRS})
-include_directories(${LibXml2_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-include_directories(${AAMP_ROOT}/middleware/vendor)
+
+set(CMAKE_CXX_STANDARD 14)
 
 set(TEST_SOURCES
 	AampDRMLicPreFetcherTestCases.cpp
@@ -61,6 +43,18 @@ set(AAMP_SOURCES
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES} ${AAMP_SOURCES} ${MOCK_SOURCES})
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread -lgtest -lgmock)
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-add_test(${EXEC_NAME} ${EXEC_NAME})
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+	include(CodeCoverage)
+	APPEND_COVERAGE_COMPILER_FLAGS()
+endif()
+
+target_link_libraries(${EXEC_NAME} ${UUID_LINK_LIBRARIES} ${OS_LD_FLAGS} pthread ${GLIB_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GOBJECT_LINK_LIBRARIES} fakes)
+
+aamp_utest_run_add(${EXEC_NAME})

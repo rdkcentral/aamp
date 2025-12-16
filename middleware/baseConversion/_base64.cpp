@@ -122,7 +122,10 @@ unsigned char *base64_Decode(const char *src, size_t *outLen, size_t srcLen)
 	return rc;
 }
 
+/*
 unsigned char *base64_Decode(const char *src, size_t *len)
 {
 	return base64_Decode(src, len, strlen(src));
 }
+*/
+
