@@ -850,7 +850,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						BitsPerSecond bitrate1, bitrate2, bitrate3;
 						std::vector<BitsPerSecond>bitrateList;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoTrack - %s\n", cmd);
-						if (sscanf(cmd, "set %s %ld %ld %ld", command, &bitrate1, &bitrate2, &bitrate3) == 4){
+						if (sscanf(cmd, "set %s %" BITSPERSECOND_FORMAT " %" BITSPERSECOND_FORMAT " %" BITSPERSECOND_FORMAT, command, &bitrate1, &bitrate2, &bitrate3) == 4){
 							bitrateList.push_back(bitrate1);
 							bitrateList.push_back(bitrate2);
 							bitrateList.push_back(bitrate3);

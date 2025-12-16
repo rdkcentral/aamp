@@ -484,7 +484,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				AAMPCLI_PRINTF("[AAMPCLI] Bitrates:\n");
 				for(int i = 0; i < bitrateCount; i++)
 				{
-					AAMPCLI_PRINTF("\t[AAMPCLI] bitrate(%d)=%ld\n", i, bitrates.at(i));
+					AAMPCLI_PRINTF("\t[AAMPCLI] bitrate(%d)=%" BITSPERSECOND_FORMAT "\n", i, bitrates.at(i));
 				}
 				AAMPCLI_PRINTF("[AAMPCLI] Supported Speeds:\n");
 				const std::vector<float> &supportedSpeeds = ev->getSupportedSpeeds();
@@ -543,7 +543,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 						snprintf( seekableRange, sizeof(seekableRange), "[start=%.3fs end=%.3fs]", start/1000.0, end/1000.0 );
 					}
 
-					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedVideoDuration=%.3fs bufferedAudioDuration=%.3fs  PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getVideoBufferedDuration()/1000.0, ev->getAudioBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
+					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedVideoDuration=%.3fs bufferedAudioDuration=%.3fs  PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%" BITSPERSECOND_FORMAT " networkBandwidth=%" BITSPERSECOND_FORMAT " currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getVideoBufferedDuration()/1000.0, ev->getAudioBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
 				}
 			}
 			break;

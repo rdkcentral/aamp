@@ -78,8 +78,6 @@ protected:
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
 		m_ocdmbasicsessionadapter = new OCDMBasicSessionAdapter(drmHelper,nullptr);
 		g_mockOpenCdmSessionAdapter = new NiceMock<MockOpenCdmSessionAdapter>();
-		// Set default return value for getUsableKeys() to return an empty vector
-		ON_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys()).WillByDefault(testing::ReturnRef(g_emptyKeys));
 		g_mockMemorySystem = new NiceMock<MockDrmMemorySystem>();
 	}
 
