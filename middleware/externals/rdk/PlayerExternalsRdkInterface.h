@@ -35,8 +35,6 @@
 #include "dsAudio.h"
 
 #include <memory>
-#ifdef USE_DS_EVENT_SUPPORTED
-#endif
 #include "PlayerExternalsInterfaceBase.h"
 
  /*
