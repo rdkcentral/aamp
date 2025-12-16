@@ -4860,6 +4860,15 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		}
 		ReleaseStreamLock();
 	}
+
+	if(disableDownloads)
+	{
+		// stop the mpd update immediately after Stream abstraction delete
+		if(mMPDDownloaderInstance != nullptr)
+		{
+			mMPDDownloaderInstance->Release();
+		}
+	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	lock.lock();
@@ -7713,12 +7722,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		ReleaseStreamLock();
 	}
 	TeardownStream(true,true); //disable download as well
-
-	// stop the mpd update immediately after Stream abstraction delete
-	if(mMPDDownloaderInstance != nullptr)
-	{
-		mMPDDownloaderInstance->Release();
-	}
 
 	if(mTSBSessionManager)
 	{
