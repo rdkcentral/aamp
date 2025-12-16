@@ -3361,24 +3361,25 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				// Set Default init bitrate according to last PersistBandwidth
 				if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 				{
-					long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
+					BitsPerSecond persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 					long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
 					//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 					if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
 					{
-						AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
+						AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld",persistbandwidth,TimeGap);
 						aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 					}
 					//If current Network bandwidth is higher than current default bitrate and if config for PersistHighBandwidth is true , then network bandwidth will be applied as default bitrate for tune
 					else if(ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth) && TimeGap < 10000 && persistbandwidth > 0)
 					{
-						AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
+						AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth, TimeGap );
 						aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 					}
 					//set default bitrate
 					else
 					{
-						AAMPLOG_MIL("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+						AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld",
+									aamp->GetDefaultBitrate(), persistbandwidth, TimeGap);
 						aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 					}
@@ -3437,10 +3438,10 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
-			long bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
+			BitsPerSecond bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
 			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
-			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
+			AAMPLOG_INFO("Selected BitRate: %" BITSPERSECOND_FORMAT ", Max BitRate: %" BITSPERSECOND_FORMAT, bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 		}
 		InitTracks();
 		TrackState *audio = trackState[eMEDIATYPE_AUDIO];
@@ -3501,14 +3502,14 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						 limitCount, numberOfLimit );
 						/** Choose rampdown profile for next retry */
 						currentProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
-						long bandwidthBitsPerSecond = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
+						BitsPerSecond bandwidthBitsPerSecond = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
 						if(lastSelectedProfileIndex == currentProfileIndex){
-							AAMPLOG_INFO("Failed to rampdown from bandwidth : %ld", bandwidthBitsPerSecond);
+							AAMPLOG_INFO("Failed to rampdown from bandwidth : %" BITSPERSECOND_FORMAT, bandwidthBitsPerSecond);
 							break;
 						}
 
 						lastSelectedProfileIndex = currentProfileIndex;
-						AAMPLOG_INFO("Trying BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond,
+						AAMPLOG_INFO("Trying BitRate: %" BITSPERSECOND_FORMAT ", Max BitRate: %" BITSPERSECOND_FORMAT, bandwidthBitsPerSecond,
 						GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 						std::string uri = GetPlaylistURI(eTRACK_VIDEO, video->streamOutputFormat);
 						if( !uri.empty() ){
@@ -3521,13 +3522,13 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						}
 
 					}else if (video->playlist.GetLen()){
-						long bandwidthBitsPerSecond = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
+						BitsPerSecond bandwidthBitsPerSecond = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
 						aamp->ResetCurrentlyAvailableBandwidth(
 							bandwidthBitsPerSecond,
 							trickplayMode,currentProfileIndex);
 						aamp->profiler.SetBandwidthBitsPerSecondVideo(
 							bandwidthBitsPerSecond);
-						AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld",
+						AAMPLOG_INFO("Selected BitRate: %" BITSPERSECOND_FORMAT ", Max BitRate: %" BITSPERSECOND_FORMAT,
 							bandwidthBitsPerSecond,
 							GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 						break;
@@ -6489,7 +6490,7 @@ bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth
 		height = stream->resolution.height;
 		bandwidth = stream->bandwidthBitsPerSecond;
 		Stream4k = true;
-		AAMPLOG_INFO("4K profile found resolution : %d*%d bandwidth %ld", stream->resolution.height, stream->resolution.width, stream->bandwidthBitsPerSecond);
+		AAMPLOG_INFO("4K profile found resolution : %d*%d bandwidth %" BITSPERSECOND_FORMAT, stream->resolution.height, stream->resolution.width, stream->bandwidthBitsPerSecond);
 	}
 	return Stream4k;
 }
@@ -6500,8 +6501,8 @@ bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth
 void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 {
 	std::string audiogroupId ;
-	long minBitrate = aamp->GetMinimumBitrate();
-	long maxBitrate = aamp->GetMaximumBitrate();
+	BitsPerSecond minBitrate = aamp->GetMinimumBitrate();
+	BitsPerSecond maxBitrate = aamp->GetMaximumBitrate();
 	bool iProfileCapped = false;
 	bool resolutionCheckEnabled = ISCONFIGSET(eAAMPConfig_LimitResolution);
 	if(resolutionCheckEnabled && (0 == aamp->mDisplayWidth || 0 == aamp->mDisplayHeight))
@@ -6551,14 +6552,14 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 					iFrameAvailableCount++;
 					if (false == aamp->userProfileStatus && resolutionCheckEnabled && (streamInfo.resolution.width > aamp->mDisplayWidth))
 					{
-						AAMPLOG_INFO("Iframe Video Profile ignoring higher res=%d:%d display=%d:%d BW=%ld", streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, streamInfo.bandwidthBitsPerSecond);
+						AAMPLOG_INFO("Iframe Video Profile ignoring higher res=%d:%d display=%d:%d BW=%" BITSPERSECOND_FORMAT, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, streamInfo.bandwidthBitsPerSecond);
 						iProfileCapped = true;
 					}
 					else if (aamp->userProfileStatus || ((streamInfo.bandwidthBitsPerSecond >= minBitrate) && (streamInfo.bandwidthBitsPerSecond <= maxBitrate)))
 					{
 						if (aamp->userProfileStatus && false == streamInfo.validity)
 						{
-							AAMPLOG_INFO("Iframe Video Profile ignoring by User profile range BW=%ld", streamInfo.bandwidthBitsPerSecond);
+							AAMPLOG_INFO("Iframe Video Profile ignoring by User profile range BW=%" BITSPERSECOND_FORMAT, streamInfo.bandwidthBitsPerSecond);
 							continue;
 						}
 						else if (false == aamp->userProfileStatus && ISCONFIGSET(eAAMPConfig_Disable4K) &&
@@ -6583,7 +6584,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 						streamInfo.enabled = true;
 						iFrameSelectedCount++;
 
-						AAMPLOG_INFO("Video Profile added to ABR for Iframe, userData=%d BW =%ld res=%d:%d display=%d:%d pc:%d", j, streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height,aamp->mDisplayWidth,aamp->mDisplayHeight,iProfileCapped);
+						AAMPLOG_INFO("Video Profile added to ABR for Iframe, userData=%d BW=%" BITSPERSECOND_FORMAT " res=%d:%d display=%d:%d pc:%d", j, streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height,aamp->mDisplayWidth,aamp->mDisplayHeight,iProfileCapped);
 					}
 				}
 				j++;
@@ -6605,7 +6606,8 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 		if(iFrameSelectedCount == 0 && iFrameAvailableCount !=0)
 		{
 			// Something wrong , though iframe available , but not selected due to bitrate restriction
-			AAMPLOG_WARN("No Iframe available matching bitrate criteria Low[%ld] High[%ld]. Total Iframe available:%d",minBitrate,maxBitrate,iFrameAvailableCount);
+			AAMPLOG_WARN("No Iframe available matching bitrate criteria Low[%" BITSPERSECOND_FORMAT "] High[%" BITSPERSECOND_FORMAT "]. Total Iframe available:%d",
+						 minBitrate,maxBitrate,iFrameAvailableCount);
 		}
 		else if(iFrameSelectedCount)
 		{
@@ -6691,7 +6693,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 						if(false == aamp->userProfileStatus && resolutionCheckEnabled && (streamInfo.resolution.width > aamp->mDisplayWidth))
 						{
 							iProfileCapped = true;
-							AAMPLOG_INFO("Video Profile ignored Bw=%ld res=%d:%d display=%d:%d", streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight);
+							AAMPLOG_INFO("Video Profile ignored Bw=%" BITSPERSECOND_FORMAT " res=%d:%d display=%d:%d", streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight);
 						}
 						else if(false == aamp->userProfileStatus && ISCONFIGSET(eAAMPConfig_Disable4K) && (streamInfo.resolution.height > 1080 || streamInfo.resolution.width > 1920))
 						{
@@ -6708,7 +6710,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 							else if (aamp->userProfileStatus && false == streamInfo.validity && !ignoreBitRateRangeCheck)
 							{
 								iProfileCapped = true;
-								AAMPLOG_INFO("Video Profile ignored User Profile range Bw=%ld", streamInfo.bandwidthBitsPerSecond);
+								AAMPLOG_INFO("Video Profile ignored User Profile range Bw=%" BITSPERSECOND_FORMAT, streamInfo.bandwidthBitsPerSecond);
 							}
 							else
 							{
@@ -6856,7 +6858,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 								streamInfo.resolution.height,
 								"",
 								j});
-						AAMPLOG_INFO("Video Profile added to ABR, userData=%d BW=%ld res=%d:%d display=%d:%d pc=%d", j, streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, iProfileCapped);
+						AAMPLOG_INFO("Video Profile added to ABR, userData=%d BW=%" BITSPERSECOND_FORMAT " res=%d:%d display=%d:%d pc=%d", j, streamInfo.bandwidthBitsPerSecond, streamInfo.resolution.width, streamInfo.resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, iProfileCapped);
 					}
 					else if( isThumbnailStream(streamInfo) )
 					{
@@ -6873,7 +6875,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 								streamInfo.resolution.height,
 								"",
 								j});
-						AAMPLOG_INFO("Adding image track, userData=%d BW = %ld ", j, streamInfo.bandwidthBitsPerSecond);
+						AAMPLOG_INFO("Adding image track, userData=%d BW = %" BITSPERSECOND_FORMAT, j, streamInfo.bandwidthBitsPerSecond);
 					}
 				}
 				if (!aamp->IsFogTSBSupported() && iProfileCapped)
