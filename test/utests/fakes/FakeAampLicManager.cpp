@@ -135,6 +135,14 @@ DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, un
 {
 	return NULL;
 }
+DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
+{
+    if(g_mockAampLicenseManager)
+    {
+        return g_mockAampLicenseManager->createDrmSession(drmHelper, aampInstance, eventHandle, streamTypeIn);
+    }
+    return nullptr;
+}
 SessionMgrState AampDRMLicenseManager::getSessionMgrState()
 {
  return SessionMgrState::eSESSIONMGR_INACTIVE;

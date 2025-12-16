@@ -266,6 +266,13 @@ void AampLicensePreFetcher::PreFetchThread()
 				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDrmSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
+					if(!keyStatus)
+					{
+						AAMPLOG_INFO("Notifying DRM failure for type:%d adaptationSetIdx:%u", obj->mType, obj->mAdaptationIdx);
+						bool isSecClientError = isSecFeatureEnabled();
+						DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+						NotifyDrmFailure(obj, std::move(e));
+					}
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
 					skip = true;
 				}
