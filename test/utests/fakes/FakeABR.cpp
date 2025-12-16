@@ -37,7 +37,7 @@ int ABRManager::getMaxBandwidthProfile(const std::string& periodId)
 	return 0;
 }
 
-long ABRManager::getBandwidthOfProfile(int profileIndex)
+BitsPerSecond ABRManager::getBandwidthOfProfile(int profileIndex)
 {
 	return 0;
 }
@@ -47,7 +47,7 @@ void ABRManager::clearProfiles()
 	return;
 }
 
-void ABRManager::addProfile(ABRManager::ProfileInfo profile)
+void ABRManager::addProfile(const ABRManager::ProfileInfo &profile)
 {
 }
 
@@ -84,7 +84,7 @@ int ABRManager::getLowestIframeProfile() const
 	return 0;
 }
 
-int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth, int nwConsistencyCnt, const std::string& periodId)
+int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, BitsPerSecond currentBandwidth, BitsPerSecond networkBandwidth, int nwConsistencyCnt, const std::string& periodId)
 {
 	return 0;
 }
@@ -141,11 +141,6 @@ long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSeco
 }
 
 bool ABRManager::CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW)
-{
-	return false;
-}
-
-bool ABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
 {
 	return false;
 }

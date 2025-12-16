@@ -421,7 +421,7 @@ public:
 
 	// CMCD Get nor and nrr fields
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType);
-	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType);
+	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType);
 
 	 /*
 	 * @fn NotifyFirstVideoPTS
@@ -831,7 +831,7 @@ protected:
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIdxForBandwidthNotification(uint32_t bandwidth);
+	int GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth);
 	/**
 	 * @fn GetCurrentMimeType
 	 * @param AampMediaType type of media
@@ -1147,7 +1147,7 @@ protected:
 	// DASH does not use abr manager to store the supported bandwidth values,
 	// hence storing max TSB bandwidth in this variable which will be used for VideoEnd Metric data via
 	// StreamAbstractionAAMP::GetMaxBitrate function,
-	long mMaxTSBBandwidth;
+	BitsPerSecond mMaxTSBBandwidth;
 
 	double mLiveEndPosition;    // Live end absolute position
 	double mCulledSeconds;      // Culled absolute position

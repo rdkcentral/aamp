@@ -104,7 +104,7 @@ public:
     bool IsInitialCachingSupported() override;
     /**
      * @fn GetMaxBitrate
-     * @return long MAX video bitrates
+     * @return max video bitrate
      */
     BitsPerSecond GetMaxBitrate(void) override;
     /**

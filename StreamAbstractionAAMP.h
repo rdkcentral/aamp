@@ -448,7 +448,7 @@ public:
 	 * @param[in] bandwidthBps - Bandwidth in bps
 	 * @return void
 	 */
-	void SetCurrentBandWidth(int bandwidthBps);
+	void SetCurrentBandWidth(BitsPerSecond bandwidthBps);
 
 	/**
 	 * @fn GetProfileIndexForBW
@@ -462,7 +462,7 @@ public:
 	 *
 	 * @return Bandwidth in bps
 	 */
-	int GetCurrentBandWidth();
+	BitsPerSecond GetCurrentBandWidth();
 
 	/**
 	 * @brief Get total duration of fetched fragments
@@ -869,7 +869,7 @@ private:
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	int bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
+	BitsPerSecond bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
 	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
