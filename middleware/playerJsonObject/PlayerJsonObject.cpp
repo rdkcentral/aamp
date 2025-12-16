@@ -574,7 +574,7 @@ unsigned char *player_Base64_URL_Decode(const char *src, size_t *len, size_t src
 		}
 		temp[srcLen++] = '=';
 		temp[srcLen++] = '=';
-		temp[srcLen++] = '\0';
+		temp[srcLen] = '\0';
 		rc = base64_Decode(temp, len, srcLen );
 		free(temp);
 	}
