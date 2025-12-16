@@ -28,7 +28,7 @@
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
-#include "HybridABRManager.h"
+#include "abr.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -36,7 +36,7 @@ using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
 
-extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
+extern ABRManager::AampAbrConfig eAAMPAbrConfig;
 
 class AampAbrTests : public ::testing::Test
 {

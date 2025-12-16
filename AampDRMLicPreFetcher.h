@@ -175,7 +175,7 @@ public:
 	 * 
 	 * @return none
 	 */
-	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance) { mFetchInstance = fetcherInstance; }
+	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance);
 
 	/**
 	 * @brief Set the Common Key Duration object
@@ -236,6 +236,7 @@ private:
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
 	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
+	std::mutex mFetchInstanceMutex;                     /** Mutex for accessing mFetchInstance*/
 	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
 	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/
 	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
