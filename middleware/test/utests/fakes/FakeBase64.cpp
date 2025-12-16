@@ -30,14 +30,3 @@ char* base64_Encode(const unsigned char* src, size_t len)
 {
     return NULL;
 }
-
-/**
- * @brief Fake implementation of base64_Decode
- * @param src Source string
- * @param len Output length pointer
- * @return Decoded buffer (stub returns NULL)
- */
-unsigned char* base64_Decode(const char* src, size_t* len)
-{
-    return NULL;
-}

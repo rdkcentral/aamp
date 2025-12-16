@@ -27,7 +27,6 @@
 #include "PlayerJsonObject.h"
 #include "_base64.h"
 
-//unsigned char *player_Base64_URL_Decode(const char *src, size_t *len, size_t srcLen);
 char *player_Base64_URL_Encode(const unsigned char *src, size_t len);
 
 PlayerJsonObject::PlayerJsonObject() : mParent(NULL), mJsonObj()

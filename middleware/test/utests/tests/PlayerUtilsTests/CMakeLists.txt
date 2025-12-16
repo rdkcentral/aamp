@@ -50,7 +50,7 @@ set(TEST_SOURCES
 )
 
 set(PLAYER_SOURCES
-	${PLAYER_ROOT}/PlayerUtils.cpp
+	${PLAYER_ROOT}/PlayerUtils.cpp ${PLAYER_ROOT}/baseConversion/_base64.cpp
 )
 
 add_definitions(-DAAMP_SIMULATOR_BUILD)

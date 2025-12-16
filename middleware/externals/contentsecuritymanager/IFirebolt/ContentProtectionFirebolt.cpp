@@ -314,7 +314,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 								unsigned char* licenseDecoded = nullptr;
 								size_t licenseDecodedLen = 0;
 
-								licenseDecoded = base64_Decode(license.c_str(), &licenseDecodedLen);
+								licenseDecoded = base64_Decode(license.c_str(), &licenseDecodedLen, license.length() );
 								MW_LOG_TRACE("ContentProtection license decoded len: %zu and data: %p", licenseDecodedLen, licenseDecoded);
 
 								if (licenseDecoded != nullptr && licenseDecodedLen != 0)
