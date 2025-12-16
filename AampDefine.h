@@ -31,7 +31,7 @@
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
 #define AAMP_VERSION "7.10"
-#define AAMP_TUNETIME_VERSION 7
+#define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
 #define MACRO_TO_STRING(s) X_STR(s)
@@ -213,10 +213,10 @@
 // weights used for audio/subtitle track-selection heuristic
 #define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
 #define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/
-#define AAMP_LABEL_SCORE 10000000ULL       /**< 3rd priority to  label matching **/
-#define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
-#define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
-#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matching codec **/
+#define AAMP_LABEL_SCORE      10000000ULL  /**< 3rd priority to label matching **/
+#define AAMP_ROLE_SCORE        1000000ULL  /**< 4th priority to role/rendition matching **/
+#define AAMP_TYPE_SCORE         100000ULL  /**< 5th priority to type matching **/
+#define AAMP_CODEC_SCORE          1000ULL  /**< Lowest priority: matching codec **/
 #define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 
 
