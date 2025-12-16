@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2024 RDK Management
+* Copyright 2025 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,21 +17,16 @@
 * limitations under the License.
 */
 
-#ifndef PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
-#define PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
+#include "_base64.h"
+#include <cstdlib>
 
-#include <gmock/gmock.h>
-
-extern std::vector<uint8_t> g_mockKeyId;
-class MockOpenCdmSessionAdapter
+/**
+ * @brief Fake implementation of base64_Encode
+ * @param src Source buffer
+ * @param len Length of source
+ * @return Encoded string (stub returns NULL)
+ */
+char* base64_Encode(const unsigned char* src, size_t len)
 {
-    public:
-
-        MOCK_METHOD(bool, verifyOutputProtection, ());
-        MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
-        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
-};
-
-extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;
-
-#endif /* PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H */
+    return NULL;
+}

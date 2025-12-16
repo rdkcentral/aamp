@@ -18,8 +18,8 @@
 */
 
 /**
- * @file ContentSecurityManager.cpp
- * @brief Class impl for ContentSecurityManager
+ * @file FakeContentSecurityManager.cpp
+ * @brief Fake implementation for ContentSecurityManager
  */
 
 #include "ContentSecurityManager.h"

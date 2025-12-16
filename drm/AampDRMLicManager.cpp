@@ -52,8 +52,8 @@
 static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instance)
 {
 	/* Register the callback for acquire license data */
-	instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
-			return _this->acquireLicense(responseCode, std::move(drmHelper), sessionSlot, cdmError,
+	instance->RegisterLicenseDataCb([_this](int &responseCode, const std::shared_ptr<DrmHelper>& drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
+			return _this->acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,
 					(AampMediaType)streamType,metaDataPtr, false);
 			});
 
@@ -63,7 +63,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 			});
 
 	/** Content Protection Callback */
-	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string{
+	instance->RegisterHandleContentProtectionCb([_this](const std::shared_ptr<DrmHelper>& drmHelper, int streamType, const std::vector<uint8_t>& keyId, int contentProtectionUpd)->std::string{
 			return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
 			});
 	/**  Register the profiler update callback for TriggerProfileBeginCb */
@@ -218,7 +218,7 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 /**
  * @brief sent license challenge to the DRM server and provide the response to CDM
  */
-KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
+KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::shared_ptr<DrmHelper>& drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
@@ -741,7 +741,7 @@ bool AampDRMLicenseManager::configureLicenseServerParameters(std::shared_ptr<Drm
 
 	return isContentMetadataAvailable;
 }
-void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType)
+void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, const std::vector<uint8_t>& keyId, AampMediaType streamType)
 {
 	std::string contentType = GetMediaTypeName(streamType);
 	int iter1 = 0;
@@ -1359,10 +1359,10 @@ std::shared_ptr<void> AampDRMLicenseManager::TriggerDrmMetaDataEvent()
 	auto drmEventPtrWrapper = std::make_shared<DrmMetaDataEventPtr>(drmEvent);
 	return drmEventPtrWrapper;
 }
-std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int isContentProtectionSupported)
+std::string  AampDRMLicenseManager::HandleContentProtectionData(const std::shared_ptr<DrmHelper>& drmHelper, int streamType, const std::vector<uint8_t>& keyId, int isContentProtectionSupported)
 {
 	 /* To fetch correct codec type in tune time metrics when drm data is not given in manifest*/
-	 aampInstance->setCurrentDrm(std::move(drmHelper));
+	 aampInstance->setCurrentDrm(drmHelper);
 
 	bool RuntimeDRMConfigSupported = aampInstance->mConfig->IsConfigSet(eAAMPConfig_RuntimeDRMConfig);
 	if(isContentProtectionSupported)
@@ -1371,8 +1371,8 @@ std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<
 	    {
 	    	aampInstance->mcurrent_keyIdArray = keyId;
 	    	AAMPLOG_INFO("App registered the ContentProtectionDataEvent to send new drm config");
-	    	ContentProtectionDataUpdate(aampInstance, std::move(keyId), (AampMediaType)streamType);
-	    	aampInstance->mcurrent_keyIdArray.clear();
+			ContentProtectionDataUpdate(aampInstance, keyId, (AampMediaType)streamType);
+			aampInstance->mcurrent_keyIdArray.clear();
 	    }
 	}
 	std::string customData = aampInstance->GetLicenseCustomData();
@@ -1445,17 +1445,22 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
     mLicenseRenewalThreads.resize(maxSessions);
 }
 
+/**
+ * @brief Clear DRM sessions
+ *
+ * @param[in] forceClearSession if true, clear all sessions including valid ones
+ */
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
 	mDrmSessionManager->clearDrmSession(forceClearSession);
-	for(int i = 0 ; i < mMaxDRMSessions;i++)
+	for (int i = 0; i < mMaxDRMSessions; i++)
 	{
-		bool isFailedKeyId = mDrmSessionManager->getFailedKeyIdStatus(i);
-		if(( mDrmSessionManager->drmSessionContexts != NULL && (isFailedKeyId || forceClearSession)  ))
+		bool isFailedKeyEntries = mDrmSessionManager->getFailedKeyIdStatus(i);
+		if ((mDrmSessionManager->drmSessionContexts != NULL && (isFailedKeyEntries || forceClearSession)))
 		{
-			if(mDrmSessionManager->drmSessionContexts[i].drmSession != NULL)
+			if (mDrmSessionManager->drmSessionContexts[i].drmSession != NULL)
 			{
-				AAMPLOG_INFO("Clearing Session %d, isFailedKeyId=%d, forceClearSession=%d",i, isFailedKeyId, forceClearSession);
+				AAMPLOG_INFO("Clearing Session %d, isFailedKeyEntries=%d, forceClearSession=%d", i, isFailedKeyEntries, forceClearSession);
 				mLicenseDownloader[i].Clear();
 			}
 		}
