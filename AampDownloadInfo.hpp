@@ -74,7 +74,7 @@ struct URIInfo
 	}
 };
 
-typedef std::map<uint32_t, URIInfo> URLBitrateMap;
+typedef std::map<BitsPerSecond, URIInfo> URLBitrateMap;
 
 /**
  * @struct DownloadInfo
@@ -97,7 +97,7 @@ struct DownloadInfo
 	uint64_t fragmentNumber;	   /**< Fragment number, incremented with each new segment in track, corresponds to $Number& in segment template */
 	uint32_t timeScale;			   /**< Fragment Time scale, divide fragment time or duration by timeScale to convert to seconds */
 	std::string url;			   /**< URL of the fragment */
-	uint32_t bandwidth;			   /**< Bandwidth of the fragment at the time of job submission */
+	BitsPerSecond bandwidth;			   /**< Bandwidth of the fragment at the time of job submission */
 	AampTime ptsOffset;			   /**< Period specific PTS offset used for restamping */
 	URLBitrateMap uriList;		   /**< List of all possible URLs with their respective bitrates */
 

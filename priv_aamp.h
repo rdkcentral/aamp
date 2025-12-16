@@ -62,7 +62,7 @@
 #include <type_traits>
 #include <chrono>
 #include "AampEventManager.h"
-#include "abr/abr.h"
+#include "abr.h"
 #include "AampCMCDCollector.h"
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
@@ -879,7 +879,7 @@ public:
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
-	std::vector< std::pair<long long,long> > mAbrBitrateData;
+	std::vector< std::pair<long long,BitsPerSecond>> mAbrBitrateData;
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
@@ -931,7 +931,7 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-	long mNetworkBandwidth;
+	BitsPerSecond mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1609,14 +1609,14 @@ public:
 	 * @param[in] bandwidth - Bandwidth in bps
 	 * @return void
 	 */
-	void SetPersistedBandwidth(long bandwidth) {mAvailableBandwidth = bandwidth;}
+	void SetPersistedBandwidth(BitsPerSecond bandwidth) {mAvailableBandwidth = bandwidth;}
 
 	/**
 	 * @brief Get persisted bandwidth
 	 *
 	 * @return Bandwidth
 	 */
-	long GetPersistedBandwidth(){return mAvailableBandwidth;}
+	BitsPerSecond GetPersistedBandwidth(){return mAvailableBandwidth;}
 
 	/**
 	 * @fn UpdateDuration
@@ -2113,7 +2113,7 @@ public:
 	 * @param[in] profile		- Profile id.
 	 * @return void
 	 */
-	void ResetCurrentlyAvailableBandwidth(long bitsPerSecond,bool trickPlay,int profile=0);
+	void ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,bool trickPlay,int profile=0);
 
 	/**
 	 * @fn GetCurrentlyAvailableBandwidth
@@ -2686,7 +2686,7 @@ public:
 	 *
 	 *   @return preferred bitrate.
 	 */
-	long GetVideoBitrate();
+	BitsPerSecond GetVideoBitrate();
 
 	/**
 	 *   @fn GetNetworkProxy
@@ -4139,7 +4139,7 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	long mAvailableBandwidth;
+	BitsPerSecond mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;

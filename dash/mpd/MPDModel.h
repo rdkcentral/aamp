@@ -1051,7 +1051,7 @@ public:
      */
     shared_ptr<DashMPDBaseURL> setBaseURLValue(std::string value);
 
-    long long int getBandwidth();
+    BitsPerSecond getBandwidth();
     
     int getWidth();
 

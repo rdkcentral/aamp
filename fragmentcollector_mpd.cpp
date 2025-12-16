@@ -619,7 +619,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	for (const auto& url : uriList)
 	{
 		// All the possible URLs for the fragment are logged with trace level
-		AAMPLOG_TRACE("[%" PRIu32 "] : %s,",url.first, url.second.url.c_str());
+		AAMPLOG_TRACE("[%" BITSPERSECOND_FORMAT "] : %s,",url.first, url.second.url.c_str());
 	}
 
 	double scaledPts = static_cast<double>(pMediaStreamContext->fragmentDescriptor.Time) / static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale);
@@ -1762,7 +1762,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								*/
 								if(eMEDIATYPE_VIDEO == pMediaStreamContext->mediaType)
 								{
-									uint32_t bitrate = 0;
+									BitsPerSecond bitrate = 0;
 									std::map<string,string> rawAttributes =  segmentURL->GetRawAttributes();
 									if(rawAttributes.find("bitrate") == rawAttributes.end()){
 										bitrate = pMediaStreamContext->fragmentDescriptor.Bandwidth;
@@ -5865,7 +5865,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 				std::string index = std::to_string(iAdaptationIndex) + "-" + std::to_string(representationIndex);
 				const dash::mpd::IRepresentation *rep = representation.at(representationIndex);
 				std::string name = rep->GetId();
-				long bandwidth = rep->GetBandwidth();
+				BitsPerSecond bandwidth = rep->GetBandwidth();
 				const std::vector<std::string> repCodecs = rep->GetCodecs();
 				bool isAvailable = !mMPDParseHelper->IsEmptyAdaptation(adaptationSet);
 				// check if Representation includes codec
@@ -5893,7 +5893,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 					}
 					else
 					{
-						AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Audio Track - lang:%s, group:%s, name:%s, codec:%s, bandwidth:%ld, AccessibilityType:%s label:%s type:%s availability:%d",
+						AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Audio Track - lang:%s, group:%s, name:%s, codec:%s, bandwidth:%" BITSPERSECOND_FORMAT ", AccessibilityType:%s label:%s type:%s availability:%d",
 						lang.c_str(), group.c_str(), name.c_str(), codec.c_str(), bandwidth, accessibilityType.c_str(), label.c_str(), type.c_str(), isAvailable);
 						aTracks.push_back(AudioTrackInfo(std::move(index), lang, group, std::move(name), codec, bandwidth, accessibilityType, false, label, type, accessibilityNode, isAvailable));
 					}
@@ -6998,7 +6998,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
-			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth((int)audioTrack.bandwidth);
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
@@ -7010,7 +7010,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
  * @brief Get profile index for bandwidth notification
  * @retval profile index of the current bandwidth
  */
-int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t bandwidth)
+int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth)
 {
 	int profileIndex = 0; // Keep default index as 0
 
@@ -7080,11 +7080,11 @@ static bool IsWebmVideoCodec(const std::string &codec )
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
-	long defaultBitrate = aamp->GetDefaultBitrate();
-	long iframeBitrate = aamp->GetIframeBitrate();
+	BitsPerSecond defaultBitrate = aamp->GetDefaultBitrate();
+	BitsPerSecond iframeBitrate = aamp->GetIframeBitrate();
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;	/*Conveys whether the current playback from FOG or not.*/
-	long minBitrate = aamp->GetMinimumBitrate();
-	long maxBitrate = aamp->GetMaximumBitrate();
+	BitsPerSecond minBitrate = aamp->GetMinimumBitrate();
+	BitsPerSecond maxBitrate = aamp->GetMaximumBitrate();
 	bool periodChanged = false;
 	std::set<uint32_t> chosenAdaptationIdxs;
 
@@ -7486,7 +7486,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					if (0 == addedProfiles)
 					{
 						ret = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
-						AAMPLOG_WARN("No profiles found, minBitrate : %ld maxBitrate: %ld", minBitrate, maxBitrate);
+						AAMPLOG_WARN("No profiles found, minBitrate : %" BITSPERSECOND_FORMAT " maxBitrate: %" BITSPERSECOND_FORMAT, minBitrate, maxBitrate);
 						return ret;
 					}
 					if (modifyDefaultBW)
@@ -7504,24 +7504,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						// Set Default init bitrate according to last PersistBandwidth
 						if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 						{
-							long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
+							BitsPerSecond persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 							long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
 							//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 							if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
 							{
-								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
+								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth, TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 							}
 							//If current Network bandwidth is higher than current default bitrate and if config for PersistHighBandwidth is true , then network bandwidth will be applied as default bitrate for tune
 							else if(ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth) && TimeGap < 10000 && persistbandwidth > 0)
 							{
-								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
+								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 							}
 							// Set default init bitrate
 							else
 							{
-								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 							}
@@ -10726,7 +10726,7 @@ int StreamAbstractionAAMP_MPD::GetBWIndex(BitsPerSecond bitrate)
 	int profileCount = GetProfileCount();
 	if (profileCount)
 	{
-		for (int i = 0; i < profileCount; i++)
+		for (int i = 0; i < (int)profileCount; i++)
 		{
 			StreamInfo *streamInfo = &mStreamInfo[i];
 			if (!streamInfo->isIframeTrack && streamInfo->enabled && streamInfo->bandwidthBitsPerSecond > bitrate)
@@ -10767,7 +10767,7 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 
 /*
 * @brief Gets Max Bitrate available for current playback.
-* @ret long MAX video bitrates
+* @ret max video bitrate
 */
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
@@ -12056,7 +12056,7 @@ void StreamAbstractionAAMP_MPD::printSelectedTrack(const std::string &trackIndex
 			{
 				if (audioTrack.index == trackIndex)
 				{
-					AAMPLOG_INFO("Selected Audio Track: Index:%s language:%s rendition:%s name:%s label:%s type:%s codec:%s bandwidth:%ld Channel:%d Accessibility:%s ",
+					AAMPLOG_INFO("Selected Audio Track: Index:%s language:%s rendition:%s name:%s label:%s type:%s codec:%s bandwidth:%" BITSPERSECOND_FORMAT " Channel:%d Accessibility:%s ",
 					audioTrack.index.c_str(), audioTrack.language.c_str(), audioTrack.rendition.c_str(), audioTrack.name.c_str(),
 					audioTrack.label.c_str(), audioTrack.mType.c_str(), audioTrack.codec.c_str(),
 					audioTrack.bandwidth, audioTrack.channels, audioTrack.accessibilityItem.print().c_str());
@@ -12187,7 +12187,7 @@ void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period,
 		std::string codec;
 		std::string lang;
 		std::string tag ;
-		long bandwidth = 0;
+		BitsPerSecond bandwidth = 0;
 		std::string role;
 		int channel = 0;
 		std::string label;
@@ -12220,7 +12220,7 @@ void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period,
 				role = getRole (childNode);
 				channel = getChannel(childNode);
 				/** Preselection node is used for representing muxed audio tracks **/
-				AAMPLOG_INFO("Preselection node found with tag %s language %s role %s id %s codec %s bandwidth %ld Channel %d ",
+				AAMPLOG_INFO("Preselection node found with tag %s language %s role %s id %s codec %s bandwidth %" BITSPERSECOND_FORMAT " Channel %d ",
 				tag.c_str(), lang.c_str(), role.c_str(), id.c_str(), codec.c_str(), bandwidth, channel);
 				audioAC4Tracks.push_back(AudioTrackInfo(tag, lang, role, id, codec, bandwidth, channel, true, true));
 			}
@@ -13616,7 +13616,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest(std::move(media) ,(fragmentDescriptor)->Bandwidth, mediaType);
 }
 
-void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType)
+void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType)
 {
 	aamp->mCMCDCollector->CMCDSetNextRangeRequest(std::move(nextrange), bandwidth, mediaType);
 }

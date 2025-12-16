@@ -74,7 +74,7 @@ void _downloadResponse::show()
 	AAMPLOG_INFO("dlSize : %f bytes", downloadCompleteMetrics.dlSize);
 	
 	AAMPLOG_INFO("reqSize : %ld bytes", downloadCompleteMetrics.reqSize);
-	AAMPLOG_INFO("downloadbps : %ld bps", downloadCompleteMetrics.downloadbps);
+	AAMPLOG_INFO("downloadbps : %" BITSPERSECOND_FORMAT " bps", downloadCompleteMetrics.downloadbps);
 	AAMPLOG_INFO("dataSize : %d bytes", (int)mDownloadData.size());
 	AAMPLOG_INFO("effective Url : %s", sEffectiveUrl.c_str());
 	

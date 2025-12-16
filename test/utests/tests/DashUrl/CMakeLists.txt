@@ -21,14 +21,9 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME DashUrl)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
-
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-include_directories(${UTESTS_ROOT}/mocks)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+include_directories(${AAMP_ROOT}/dash/utils)
 
 set(TEST_SOURCES DashUrlTests.cpp
                  UrlTests.cpp)
