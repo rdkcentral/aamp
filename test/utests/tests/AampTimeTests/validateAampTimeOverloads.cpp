@@ -563,7 +563,7 @@ TEST_F(validateAampTimeOverloads, AampTicksInMilli_NormalValues)
 	EXPECT_EQ(ticks3.inMilli(), -1000000);
 	
 	// Test with 90kHz timescale (common for PTS) with large but safe value
-	// Value: 90000000 ticks at 90kHz = 1000000 seconds = 1000000 milliseconds
+	// Value: 90000000 ticks at 90kHz
 	// Calculation: (90000000 * 1000) / 90000 = 90000000000 / 90000 = 1000000 ms
 	// This verifies large value handling without triggering overflow
 	AampTicks ticks4(90000000LL, 90000);
