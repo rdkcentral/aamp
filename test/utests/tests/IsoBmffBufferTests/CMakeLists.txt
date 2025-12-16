@@ -22,13 +22,8 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME IsoBmffBufferTests)
 set(TEST_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/testFiles")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
-#include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-#include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-#include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)

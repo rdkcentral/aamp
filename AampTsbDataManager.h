@@ -33,7 +33,7 @@
 #include <mutex>
 #include <utility>
 #include "StreamAbstractionAAMP.h"
-#include "abr/abr.h"
+#include "abr.h"
 #include "AampTime.h"
 
 #define TSB_DATA_DEBUG_ENABLED 0 /** Enable debug log on development/debug */

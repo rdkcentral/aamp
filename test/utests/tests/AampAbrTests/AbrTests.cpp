@@ -28,7 +28,7 @@
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
-#include "abr/abr.h"
+#include "abr.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;

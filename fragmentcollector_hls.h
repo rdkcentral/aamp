@@ -75,7 +75,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 	std::string uri;	/**< URI Information */
 
 	// rarely present
-	long averageBandwidth;			/**< Average Bandwidth */
+	BitsPerSecond averageBandwidth;			/**< Average Bandwidth */
 	std::string closedCaptions;		/**< CC if present */
 	std::string subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
