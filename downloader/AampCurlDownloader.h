@@ -25,7 +25,6 @@
 #ifndef __AAMP_CURL_DOWNLOADER__
 #define __AAMP_CURL_DOWNLOADER__
 
-//#include "AampDefine.h"
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
@@ -41,8 +40,7 @@
 #include <chrono>
 #include <memory>
 #include "AampCurlDefine.h"
-
-
+#include "AampMediaType.h"
 
 typedef std::map<int,std::string> RespHeader;
 typedef std::map<int,std::string>::iterator RespHeaderIter;
@@ -116,7 +114,8 @@ public:
 typedef struct _dnld_metrics
 {
 	double total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
-	long reqSize, downloadbps;
+	long reqSize;
+	BitsPerSecond downloadbps;
 	
 	_dnld_metrics():total(0), connect(0), startTransfer(0), resolve(0), appConnect(0), preTransfer(0), redirect(0), dlSize(0),
 	reqSize(0), downloadbps(0)
