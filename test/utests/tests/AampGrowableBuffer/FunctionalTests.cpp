@@ -192,7 +192,7 @@ TEST_F(FunctionalTests, ReplaceTest)
     EXPECT_EQ(sourceBuffer.GetLen(), 0);       // Check if source length is reset
 }
 
-TEST_F(FunctionalTests, TransferNonEmptyTest)
+TEST_F(FunctionalTests, ExtractNonEmptyTest)
 {
     // Create a new buffer for this test
     AampGrowableBuffer buffer("buffer");
@@ -208,12 +208,18 @@ TEST_F(FunctionalTests, TransferNonEmptyTest)
     EXPECT_NE(dataPtr, nullptr);
     EXPECT_EQ(dataLen, 9);
     
-    // Act: Call the Transfer function
-    // Transfer() marks the buffer as transferred but doesn't return anything
-    // In real usage, caller would have already captured GetPtr() before calling Transfer()
-    buffer.Transfer();
-    
-    // Assert: Check that the properties are reset after transfer
+    // Extract the internal vector and take ownership
+    auto vec = buffer.ExtractVector();
+
+    // Validate the returned vector contains the same data
+    ASSERT_NE(vec, nullptr);
+    EXPECT_EQ(vec->size(), dataLen);
+    EXPECT_EQ(memcmp(vec->data(), dataPtr, dataLen), 0);
+
+    // Clean up the extracted vector (caller owns it)
+    delete vec;
+
+    // Assert: Check that the properties are reset after extraction
     EXPECT_EQ(buffer.GetPtr(), nullptr); // Check if the pointer is null
     EXPECT_EQ(buffer.GetLen(), 0);       // Check if the length is reset
 }
