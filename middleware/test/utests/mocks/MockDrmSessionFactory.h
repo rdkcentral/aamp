@@ -17,19 +17,22 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H
-#define AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H
+#ifndef GST_MOCK_DRM_SESSION_FACTORY_H
+#define GST_MOCK_DRM_SESSION_FACTORY_H
 
 #include <gmock/gmock.h>
-#include "DrmSessionManager.h"
+#include "DrmSessionFactory.h"
 
-class MockDRMSessionManager
+/**
+ * @class MockDrmSessionFactory
+ * @brief Mock class for DrmSessionFactory to enable testing
+ */
+class MockDrmSessionFactory
 {
 public:
-    MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
-    MOCK_METHOD(bool, IsKeyIdProcessed, (std::vector<uint8_t> keyIdArray, bool &status));
+	MOCK_METHOD(DrmSession*, GetDrmSession, (DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks), ());
 };
 
-extern MockDRMSessionManager *g_mockDRMSessionManager;
+extern MockDrmSessionFactory *g_mockDrmSessionFactory;
 
-#endif /* AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H */
+#endif // GST_MOCK_DRM_SESSION_FACTORY_H

@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2024 RDK Management
+* Copyright 2025 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,19 +17,16 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H
-#define AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H
+#include "_base64.h"
+#include <cstdlib>
 
-#include <gmock/gmock.h>
-#include "DrmSessionManager.h"
-
-class MockDRMSessionManager
+/**
+ * @brief Fake implementation of base64_Encode
+ * @param src Source buffer
+ * @param len Length of source
+ * @return Encoded string (stub returns NULL)
+ */
+char* base64_Encode(const unsigned char* src, size_t len)
 {
-public:
-    MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
-    MOCK_METHOD(bool, IsKeyIdProcessed, (std::vector<uint8_t> keyIdArray, bool &status));
-};
-
-extern MockDRMSessionManager *g_mockDRMSessionManager;
-
-#endif /* AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H */
+    return NULL;
+}

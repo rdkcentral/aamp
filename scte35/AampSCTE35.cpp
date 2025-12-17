@@ -25,7 +25,7 @@ SCTE35Decoder::SCTE35Decoder(std::string string) : mParent(nullptr), mLoop(nullp
 													mData(),mJsonObj(cJSON_CreateObject()),mKey()
 {
 	size_t len = 0;
-	mData = base64_Decode(string.c_str(), &len);
+	mData = base64_Decode( string.c_str(), &len, string.length() );
 	mMaxOffset = len*8;
 }
 
