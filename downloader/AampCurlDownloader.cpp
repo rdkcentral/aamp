@@ -339,6 +339,7 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 	
 	// Release and reset and previously called values
 	Release();
+	CleanupCurlHeaderResources();
 
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDnldCfg = std::move(dnldCfg);
