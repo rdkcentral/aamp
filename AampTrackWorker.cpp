@@ -298,7 +298,7 @@ namespace aamp
 	void AampTrackWorker::Pause()
 	{
 		std::lock_guard<std::mutex> lock(mQueueMutex);
-		mPaused.store(true);
+		mPaused = true;
 		AAMPLOG_DEBUG("Pausing worker thread for media type %s", GetMediaTypeName(mMediaType));
 		mCondVar.notify_one(); // Wake up thread to pause
 	}
@@ -313,7 +313,7 @@ namespace aamp
 	void AampTrackWorker::Resume()
 	{
 		std::lock_guard<std::mutex> lock(mQueueMutex);
-		mPaused.store(false);
+		mPaused = false;
 		AAMPLOG_DEBUG("Resuming worker thread for media type %s", GetMediaTypeName(mMediaType));
 		mCondVar.notify_one();
 	}
@@ -387,7 +387,7 @@ namespace aamp
 
 				// Wait while (queue is empty or paused) and not stopped
 				self->mCondVar.wait(lock, [&] {
-					return self->mStop.load() || (!self->mPaused.load() && !self->mJobQueue.empty());
+					return self->mStop.load() || (!self->mPaused && !self->mJobQueue.empty());
 				});
 
 				if (self->mStop.load())
@@ -396,7 +396,7 @@ namespace aamp
 					break;
 				}
 
-				if (self->mPaused.load())
+				if (self->mPaused)
 				{
 					AAMPLOG_DEBUG("Worker thread paused for media type %s", GetMediaTypeName(self->mMediaType));
 					continue;
