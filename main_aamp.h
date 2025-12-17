@@ -622,7 +622,7 @@ public:
 	 *
 	 *   @return bitrate of video profile
 	 */
-	long GetVideoBitrate(void);
+	BitsPerSecond GetVideoBitrate(void);
 
 	/**
 	 *   @fn SetVideoBitrate

@@ -28,6 +28,8 @@ class MockPrivateInstanceAAMP
 public:
 	MOCK_METHOD(void, Individualization, (const std::string &payload));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
+	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
+	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

@@ -561,7 +561,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
  *
  * @return true if validation is successful, false otherwise
  */
-bool DrmSessionManager::ValidateMultiKeySlot(const std::vector<uint8_t>& keyId, int selectedSlot)
+bool DrmSessionManager::ValidateMultiKeySlot(const std::vector<uint8_t> &keyId, int selectedSlot)
 {
 	if (selectedSlot < 0 || selectedSlot >= mMaxDRMSessions)
 	{
@@ -586,27 +586,55 @@ bool DrmSessionManager::ValidateMultiKeySlot(const std::vector<uint8_t>& keyId, 
 		}
 	}
 
-	// Helper lambdas
-	auto normalizeHexString = [](const std::vector<uint8_t> &hexStringWithDashes) -> std::string
+	// Normalize key to binary format (handles binary, hex string with/without dashes)
+	auto normalizeKeyToBinary = [](const std::vector<uint8_t> &key) -> std::vector<uint8_t>
 	{
-		std::string out;
-		out.reserve(hexStringWithDashes.size());
-		for (auto c : hexStringWithDashes)
+		// Check if key is already binary or if it's a hex string
+		bool isHexString = true;
+		for (auto c : key)
 		{
-			if (c != '-') // remove dashes
-				out.push_back(static_cast<char>(c));
+			if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c == '-')))
+			{
+				isHexString = false;
+				break;
+			}
 		}
-		return out;
-	};
 
-	auto vecToString = [](const std::vector<uint8_t> &hexString) -> std::string
-	{
-		return std::string(hexString.begin(), hexString.end());
+		// If not hex string, assume it's already binary
+		if (!isHexString)
+		{
+			return key;
+		}
+
+		// Remove dashes (for UUID format: "abcdef1-2345-6789-abcd-ef01234567")
+		std::string hexStr;
+		hexStr.reserve(key.size());
+		for (auto c : key)
+		{
+			if (c != '-')
+			{
+				hexStr.push_back(static_cast<char>(c));
+			}
+		}
+
+		// Convert hex string to binary
+		std::vector<uint8_t> binary;
+		for (size_t i = 0; i + 1 < hexStr.length(); i += 2)
+		{
+			std::string byteStr = hexStr.substr(i, 2);
+			uint8_t byte = static_cast<uint8_t>(std::stoul(byteStr, nullptr, 16));
+			binary.push_back(byte);
+		}
+		return binary;
 	};
 
 	auto keysMatch = [&](const std::vector<uint8_t> &cachedKey, const std::vector<uint8_t> &usableKey) -> bool
 	{
-		return normalizeHexString(cachedKey) == vecToString(usableKey);
+		MW_LOG_DEBUG("Comparing cachedKey: %s with usableKey: %s",
+					 PlayerLogManager::getHexDebugStr(cachedKey).c_str(),
+					 PlayerLogManager::getHexDebugStr(usableKey).c_str());
+
+		return normalizeKeyToBinary(cachedKey) == normalizeKeyToBinary(usableKey);
 	};
 
 	// Update cachedKeyIDs under its mutex
@@ -759,7 +787,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 				keyIdEntry.keyId = keyId.second;
 				std::string debugStr = PlayerLogManager::getHexDebugStr(keyId.second);
 				MW_LOG_INFO("Insert[%d] - slot:%d keyID %s", keyId.first, sessionSlot, debugStr.c_str());
-				data.push_back(keyIdEntry);
+				data.push_back(std::move(keyIdEntry));
 			}
 
 			cachedKeyIDs[sessionSlot].data = data;

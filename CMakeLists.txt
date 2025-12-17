@@ -150,6 +150,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtitle)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/abr)
 
 # Locally built/installed dependencies are here
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.libs/include)
@@ -187,12 +188,12 @@ add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
-	include_directories(support/aampabr)
 	include_directories(support/aampmetrics)
 
+	# Building ABR for other dependent modules
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics)
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
 endif()
 
 message("Adding tsb folder")
@@ -320,6 +321,7 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
+	abr/abr.cpp abr/abr.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
@@ -512,6 +514,7 @@ install(FILES
 	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
+	abr/abr.h
 	DESTINATION include
 )
 
