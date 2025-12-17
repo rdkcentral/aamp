@@ -17,21 +17,22 @@
 * limitations under the License.
 */
 
-#ifndef PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
-#define PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
+#ifndef GST_MOCK_DRM_SESSION_FACTORY_H
+#define GST_MOCK_DRM_SESSION_FACTORY_H
 
 #include <gmock/gmock.h>
+#include "DrmSessionFactory.h"
 
-extern std::vector<uint8_t> g_mockKeyId;
-class MockOpenCdmSessionAdapter
+/**
+ * @class MockDrmSessionFactory
+ * @brief Mock class for DrmSessionFactory to enable testing
+ */
+class MockDrmSessionFactory
 {
-    public:
-
-        MOCK_METHOD(bool, verifyOutputProtection, ());
-        MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
-        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
+public:
+	MOCK_METHOD(DrmSession*, GetDrmSession, (DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks), ());
 };
 
-extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;
+extern MockDrmSessionFactory *g_mockDrmSessionFactory;
 
-#endif /* PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H */
+#endif // GST_MOCK_DRM_SESSION_FACTORY_H

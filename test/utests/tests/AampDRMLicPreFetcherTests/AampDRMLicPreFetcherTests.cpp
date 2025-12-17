@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2024 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,10 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_AAMP_PRIV_AAMP_H
-#define AAMP_MOCK_AAMP_PRIV_AAMP_H
+#include <gtest/gtest.h>
 
-#include <gmock/gmock.h>
-#include "priv_aamp.h"
-
-class MockPrivateInstanceAAMP
+int main(int argc, char **argv)
 {
-public:
-	MOCK_METHOD(void, Individualization, (const std::string &payload));
-	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
-	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
-	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
-};
-
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
-
-#endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}
