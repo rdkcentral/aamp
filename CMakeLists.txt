@@ -51,7 +51,7 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
-if(DISTRO)
+if(EXT_PLAYER_MW_IF)
 	
 	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
 	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
@@ -163,7 +163,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/abr)
 
 # Locally built/installed dependencies are here
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.libs/include)
-if(DISTRO)
+if(EXT_PLAYER_MW_IF)
 
 	set(LIBAAMP_DEPENDS
 		${OS_LD_FLAGS}
@@ -447,7 +447,7 @@ endif()
 
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
-if(DISTRO)
+if(EXT_PLAYER_MW_IF)
 	target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 else()
 
@@ -474,7 +474,7 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-if(DISTRO)
+if(EXT_PLAYER_MW_IF)
 
 	target_link_libraries(aamp-cli aamp tsb 
 	${PLAYERFBINTERFACE_LINK_LIBRARIES}
