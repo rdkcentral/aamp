@@ -17,14 +17,10 @@
  * limitations under the License.
  */
 
-#include "ABRManager.h"
+#include "abr.h"
 
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
-
-ABRManager::ABRManager()
-{
-}
 
 int ABRManager::getProfileCount()
 {
@@ -41,7 +37,7 @@ int ABRManager::getMaxBandwidthProfile(const std::string& periodId)
 	return 0;
 }
 
-long ABRManager::getBandwidthOfProfile(int profileIndex)
+BitsPerSecond ABRManager::getBandwidthOfProfile(int profileIndex)
 {
 	return 0;
 }
@@ -51,7 +47,7 @@ void ABRManager::clearProfiles()
 	return;
 }
 
-void ABRManager::addProfile(ABRManager::ProfileInfo profile)
+void ABRManager::addProfile(const ABRManager::ProfileInfo &profile)
 {
 }
 

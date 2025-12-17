@@ -150,13 +150,14 @@ public:
     std::atomic<bool> mFirstFrameSeen;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
-private:
+protected:
 	KeyIdEntries *cachedKeyIDs;
+	std::mutex cachedKeyMutex;
+private:
 	char* accessToken;
 	int accessTokenLen;
 	SessionMgrState sessionMgrState;
 	std::mutex accessTokenMutex;
-	std::mutex cachedKeyMutex;
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;

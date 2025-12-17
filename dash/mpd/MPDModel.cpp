@@ -318,9 +318,9 @@ std::vector<std::string> DashMPDRepresentation::getBaseUrls() {
  * @brief   Get Bandwidth from "bandwidth" element attribute
  * @retval  bandwidth
  */
-long long int DashMPDRepresentation::getBandwidth() {
+BitsPerSecond DashMPDRepresentation::getBandwidth() {
     auto v = elem.attribute("bandwidth", "0");
-    return stoll(v);
+    return (BitsPerSecond)stoll(v);
 }
 
 /**

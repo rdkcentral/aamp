@@ -45,6 +45,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
 		mFetchInstance(nullptr),
+		mFetchInstanceMutex(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
@@ -213,10 +214,26 @@ bool AampLicensePreFetcher::Term()
 			mVssFetchQueue.pop_front();
 		}
 	}
-	
+
 	mTrackStatus.fill(false);
-	mFetchInstance = nullptr;
+	SetLicenseFetcher(nullptr);
 	return ret;
+}
+
+/**
+ * @brief Set license fetcher instance in a thread-safe manner.
+ *
+ * Sets the license fetcher instance used by the prefetcher.
+ * This method is thread-safe and uses a mutex (mFetchInstanceMutex)
+ * to protect mFetchInstance from concurrent access.
+ *
+ * @param fetcherInstance Pointer to the AampLicenseFetcher instance to set.
+ * @note Thread-safe: uses mutual exclusion to protect mFetchInstance.
+ */
+void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+	std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+	mFetchInstance = fetcherInstance;
 }
 
 /**
@@ -423,31 +440,34 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	if (skipErrorEvent && mFetchInstance)
 	{
-		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
-	}
-	else
-	{
-		if (!selfAbort)
+		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+		if (skipErrorEvent && mFetchInstance)
 		{
-			//Set the isRetryEnabled flag to true if the failure is due to
-			//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
-			//error is caused by a network failure, so the tune may succeed
-			//on a retry attempt.
-			//For other DRM failures, the flag should be set to false.
-			isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
+			mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		}
+		else
+		{
+			if (!selfAbort)
+			{
+				//Set the isRetryEnabled flag to true if the failure is due to
+				//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
+				//error is caused by a network failure, so the tune may succeed
+				//on a retry attempt.
+				//For other DRM failures, the flag should be set to false.
+				isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
 				      || ((failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
 				      && (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
 				      && (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 				      && (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
 				      && (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR));
-			AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
-			mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
-			AAMPLOG_ERR("Failed DRM Session sending error event");
-			mPrivAAMP->SendDrmErrorEvent(event, std::move(isRetryEnabled));
-			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
-			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+				AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
+				mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
+				AAMPLOG_ERR("Failed DRM Session sending error event");
+				mPrivAAMP->SendDrmErrorEvent(event, std::move(isRetryEnabled));
+				mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
+				mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+			}
 		}
 	}
 }

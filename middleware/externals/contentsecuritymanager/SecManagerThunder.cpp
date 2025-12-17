@@ -14,7 +14,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.m
+ * limitations under the License.
  */
 
 /**
@@ -240,7 +240,7 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 							// Here license is base64 encoded
 							unsigned char * licenseDecoded = nullptr;
 							size_t licenseDecodedLen = 0;
-							licenseDecoded = base64_Decode(license.c_str(), &licenseDecodedLen);
+							licenseDecoded = base64_Decode( license.c_str(), &licenseDecodedLen, license.length() );
 							MW_LOG_TRACE("SecManager license decoded len: %d and data: %p", licenseDecodedLen, licenseDecoded);
 
 							if (licenseDecoded != nullptr && licenseDecodedLen != 0)

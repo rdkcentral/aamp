@@ -809,7 +809,7 @@ void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		}
 		else
 		{
-			AAMPLOG_WARN("%s:%d [WARN] cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
+			AAMPLOG_WARN("cond_timedwait(dynamicDrmUpdate) returned success!" );
 		}
 	}
 }
