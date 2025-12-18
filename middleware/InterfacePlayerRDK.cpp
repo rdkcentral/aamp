@@ -25,13 +25,14 @@
 // ---------------------------------------------------------------------------
 static inline void log_ts(const char* tag, const char* fmt, ...)
 {
-    va_list ap;
-    va_start(ap, fmt);
-    gint64 us = g_get_real_time(); // wall-clock microseconds since Unix epoch
-    g_printerr("[%s] time_us=%" G_GINT64_FORMAT " ", tag, us);
-    g_vprinterr(fmt, ap);
-    g_printerr("\n");
-    va_end(ap);
+	va_list ap;
+	va_start(ap, fmt);
+	const gint64 us = g_get_real_time();
+	gchar* body = g_strdup_vprintf(fmt, ap);
+	g_printerr("********* [%s] time_us=%" G_GINT64_FORMAT " %s *********\n",
+			   tag, us, body ? body : "");
+	g_free(body);
+	va_end(ap);
 }
 
 // Forward declarations (defined below)
@@ -5367,7 +5368,7 @@ static void on_pad_added_log_only(GstElement* src, GstPad* new_pad, gpointer /*u
 		new_pad,
 		(GstPadProbeType)(GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_BUFFER),
 		pad_first_buffer_probe,
-		nullptr);
+		nullptr, nullptr);
 
 	// Log current link state without changing it
 	GstPad* peer = gst_pad_get_peer(new_pad);
