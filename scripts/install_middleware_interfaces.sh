@@ -6,7 +6,7 @@ function install_build_middleware_interface_fn()
     cd $LOCAL_DEPS_BUILD_DIR
 
     # $OPTION_CLEAN == true
-    if [ $1 = true ] ; then
+    if [[ "$1" == true ]] ; then
         echo "middleware clean"
         if [ -d middleware ] ; then
             rm -rf middleware
