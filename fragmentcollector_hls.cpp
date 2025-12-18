@@ -1658,7 +1658,7 @@ void TrackState::FetchFragment()
 		}
 
 		CachedFragment* cachedFragment = GetFetchBuffer(false);
-		if (cachedFragment->fragment.GetPtr())
+		if (cachedFragment->fragment.GetLen() > 0)
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};

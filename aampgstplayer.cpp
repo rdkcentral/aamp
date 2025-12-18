@@ -727,7 +727,6 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 	// Ignore eMEDIATYPE_DSM_CC packets
 	if(mediaType == eMEDIATYPE_DSM_CC)
 	{
-		delete buffer;
 		return false;
 	}
 	if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
@@ -1350,26 +1349,18 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 {
-	MediaSample gstSample;
-
-	// Convert AampMediaSample to MediaSample
-	// This can be deprecated later once we get rid of AampGrowableBuffer and both data structures unified
-	gstSample.mData = sample.mData.GetPtr();
-	gstSample.mDataSize = sample.mData.GetLen();
-	gstSample.mPts = sample.mPts;
-	gstSample.mDts = sample.mDts;
-	gstSample.mDuration = sample.mDuration;
+	// Convert AampMediaSample (with AampGrowableBuffer) to MediaSample (with std::vector)
+	// Use ExtractVector to move data without copying (zero-copy transfer)
+	auto* tempBuffer = sample.mData.ExtractVector();
+	
+	// Construct MediaSample from moved vector (no copy - just moves ownership)
+	MediaSample gstSample(std::move(*tempBuffer), sample.mPts, sample.mDts, sample.mDuration, 0.0);
+	delete tempBuffer; // Delete the now-empty vector wrapper
+	
+	// Move the DRM metadata (avoids copy)
 	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
 
-	bool ret = SendHelper( mediaType, std::move(gstSample), false /*transfer*/);
-
-	if (ret)
-	{
-		sample.mData.Transfer();
-	}
-	else
-	{
-		sample.mData.Free();
-	}
-	return ret;
+	// Send the sample (transfers ownership of vector to GStreamer)
+	// Note: No need to call Transfer() or Free() - ExtractVector already handled cleanup
+	return SendHelper(mediaType, std::move(gstSample), false /*transfer*/);
 }

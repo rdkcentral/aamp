@@ -4477,7 +4477,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				// so that timing/monitoring logic has a valid start timestamp in every case.
 				context.downloadStartTime = progressCtx.downloadStartTime;
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-				if(buffer->GetPtr() != NULL)
+				if(buffer->GetLen() > 0)
 				{
 					buffer->Clear();
 				}
@@ -4593,7 +4593,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 
 					// Do the empty buffer check only for successful downloads
-					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->GetLen() == 0))
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && buffer->GetLen() == 0)
 					{
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
@@ -7916,16 +7916,32 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
  	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
  	if (sink)
  	{
+		// DIAGNOSTIC: Log buffer details before vector creation
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamCopy: mediaType=%d ptr=%p len=%zu fpts=%.6f", 
+			mediaType, ptr, len, fpts);
+		if (len >= 8) {
+			const uint8_t* bytes = static_cast<const uint8_t*>(ptr);
+			AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamCopy: First 8 bytes: %02x %02x %02x %02x %02x %02x %02x %02x",
+				bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]);
+		}
+		
 		// Create a temporary vector and copy the data into it
 		auto* tempBuffer = new std::vector<uint8_t>(static_cast<const uint8_t*>(ptr), static_cast<const uint8_t*>(ptr) + len);
 		
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamCopy: Vector created: vecPtr=%p vecData=%p vecSize=%zu vecCapacity=%zu",
+			tempBuffer, tempBuffer->data(), tempBuffer->size(), tempBuffer->capacity());
+		
 		// Pass vector to sink which will take ownership
 		rc = sink->SendCopy(mediaType, tempBuffer, fpts, fdts, fDuration);
+		
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamCopy: SendCopy returned %s, vector=%p",
+			rc ? "SUCCESS" : "FAILED", tempBuffer);
 		
 		if (!rc)
 		{
 			// Sink didn't take ownership - clean up
 			delete tempBuffer;
+			AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamCopy: Vector deleted (not transferred)");
 		}
  	}
 	return rc;
@@ -7939,17 +7955,42 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowab
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		// Extract the vector from the growable buffer (ownership transferred)
+		// Get buffer state for diagnostics BEFORE extraction
+		size_t len = buffer->GetLen();
+		size_t avail = buffer->GetAvail();
+		char* ptr = buffer->GetPtr();
+		
+		// DIAGNOSTIC: Log buffer state before extraction
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: mediaType=%d BEFORE: bufferObj=%p ptr=%p len=%zu avail=%zu fpts=%.6f initFrag=%d discont=%d",
+			mediaType, buffer, ptr, len, avail, fpts, initFragment, discontinuity);
+		if (ptr && len >= 8) {
+			const uint8_t* bytes = reinterpret_cast<const uint8_t*>(ptr);
+			AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: First 8 bytes: %02x %02x %02x %02x %02x %02x %02x %02x",
+				bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]);
+		}
+		
+		// Use ExtractVector to get ownership of the internal vector
 		auto* tempBuffer = buffer->ExtractVector();
+		
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: Vector extracted: vecPtr=%p vecData=%p vecSize=%zu vecCapacity=%zu",
+			tempBuffer, tempBuffer->data(), tempBuffer->size(), tempBuffer->capacity());
+		
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: Calling SendTransfer with vecPtr=%p", tempBuffer);
 		
 		if( !sink->SendTransfer(mediaType, tempBuffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity) )
 		{
 			// unable to transfer - free up the vector
+			AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: SendTransfer FAILED, deleting vector");
 			delete tempBuffer;
+		}
+		else
+		{
+			AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: SendTransfer SUCCESS, vector ownership transferred");
 		}
 	}
 	else
 	{
+		AAMPLOG_WARN("[DIAGNOSTIC-VEC] SendStreamTransfer: No sink available, freeing buffer");
 		buffer->Free();
 	}
 }

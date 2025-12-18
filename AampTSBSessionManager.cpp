@@ -208,10 +208,30 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 		if (len > 0)
 		{
 			cachedFragment->fragment.ReserveBytes(len);
+			AAMPLOG_WARN("[DIAGNOSTIC-TSB] BEFORE TSB Read (init): url=%s ptr=%p len=%zu", 
+				uniqueUrl.c_str(), cachedFragment->fragment.GetPtr(), len);
+			
 			UnlockReadMutex();
 			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
 			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
+			
+			// DIAGNOSTIC: Log data AFTER reading from TSB
+			const char* dataPtr = cachedFragment->fragment.GetPtr();
+			AAMPLOG_WARN("[DIAGNOSTIC-TSB] AFTER TSB Read (init): status=%d ptr=%p len=%zu", 
+				(int)status, dataPtr, len);
+			if (dataPtr && len >= 32) {
+				AAMPLOG_WARN("[DIAGNOSTIC-TSB] First 32 bytes AFTER Read: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+					(uint8_t)dataPtr[0], (uint8_t)dataPtr[1], (uint8_t)dataPtr[2], (uint8_t)dataPtr[3],
+					(uint8_t)dataPtr[4], (uint8_t)dataPtr[5], (uint8_t)dataPtr[6], (uint8_t)dataPtr[7],
+					(uint8_t)dataPtr[8], (uint8_t)dataPtr[9], (uint8_t)dataPtr[10], (uint8_t)dataPtr[11],
+					(uint8_t)dataPtr[12], (uint8_t)dataPtr[13], (uint8_t)dataPtr[14], (uint8_t)dataPtr[15],
+					(uint8_t)dataPtr[16], (uint8_t)dataPtr[17], (uint8_t)dataPtr[18], (uint8_t)dataPtr[19],
+					(uint8_t)dataPtr[20], (uint8_t)dataPtr[21], (uint8_t)dataPtr[22], (uint8_t)dataPtr[23],
+					(uint8_t)dataPtr[24], (uint8_t)dataPtr[25], (uint8_t)dataPtr[26], (uint8_t)dataPtr[27],
+					(uint8_t)dataPtr[28], (uint8_t)dataPtr[29], (uint8_t)dataPtr[30], (uint8_t)dataPtr[31]);
+			}
+			
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
@@ -276,11 +296,31 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		}
 
 		cachedFragment->fragment.ReserveBytes(len);
+		AAMPLOG_WARN("[DIAGNOSTIC-TSB] BEFORE TSB Read (fragment): url=%s ptr=%p len=%zu", 
+			uniqueUrl.c_str(), cachedFragment->fragment.GetPtr(), len);
+		
 		UnlockReadMutex();
 
 		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
 		cachedFragment->fragment.SetLen(len);
 		LockReadMutex();
+		
+		// DIAGNOSTIC: Log data AFTER reading from TSB
+		const char* dataPtr = cachedFragment->fragment.GetPtr();
+		AAMPLOG_WARN("[DIAGNOSTIC-TSB] AFTER TSB Read (fragment): status=%d ptr=%p len=%zu", 
+			(int)status, dataPtr, len);
+		if (dataPtr && len >= 32) {
+			AAMPLOG_WARN("[DIAGNOSTIC-TSB] First 32 bytes AFTER Read: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				(uint8_t)dataPtr[0], (uint8_t)dataPtr[1], (uint8_t)dataPtr[2], (uint8_t)dataPtr[3],
+				(uint8_t)dataPtr[4], (uint8_t)dataPtr[5], (uint8_t)dataPtr[6], (uint8_t)dataPtr[7],
+				(uint8_t)dataPtr[8], (uint8_t)dataPtr[9], (uint8_t)dataPtr[10], (uint8_t)dataPtr[11],
+				(uint8_t)dataPtr[12], (uint8_t)dataPtr[13], (uint8_t)dataPtr[14], (uint8_t)dataPtr[15],
+				(uint8_t)dataPtr[16], (uint8_t)dataPtr[17], (uint8_t)dataPtr[18], (uint8_t)dataPtr[19],
+				(uint8_t)dataPtr[20], (uint8_t)dataPtr[21], (uint8_t)dataPtr[22], (uint8_t)dataPtr[23],
+				(uint8_t)dataPtr[24], (uint8_t)dataPtr[25], (uint8_t)dataPtr[26], (uint8_t)dataPtr[27],
+				(uint8_t)dataPtr[28], (uint8_t)dataPtr[29], (uint8_t)dataPtr[30], (uint8_t)dataPtr[31]);
+		}
+		
 		if (status == TSB::Status::OK)
 		{
 			return cachedFragment;
@@ -402,8 +442,27 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				// repeated Ad
 				std::string uniqueUrl = ToUniqueUrl(writeData.url, writeData.cachedFragment->absPosition);
 
+				// DIAGNOSTIC: Log data BEFORE writing to TSB
+				const char* dataPtr = writeData.cachedFragment->fragment.GetPtr();
+				size_t dataLen = writeData.cachedFragment->fragment.GetLen();
+				AAMPLOG_WARN("[DIAGNOSTIC-TSB] BEFORE TSB Write: url=%s ptr=%p len=%zu", 
+					uniqueUrl.c_str(), dataPtr, dataLen);
+				if (dataPtr && dataLen >= 32) {
+					AAMPLOG_WARN("[DIAGNOSTIC-TSB] First 32 bytes BEFORE Write: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+						(uint8_t)dataPtr[0], (uint8_t)dataPtr[1], (uint8_t)dataPtr[2], (uint8_t)dataPtr[3],
+						(uint8_t)dataPtr[4], (uint8_t)dataPtr[5], (uint8_t)dataPtr[6], (uint8_t)dataPtr[7],
+						(uint8_t)dataPtr[8], (uint8_t)dataPtr[9], (uint8_t)dataPtr[10], (uint8_t)dataPtr[11],
+						(uint8_t)dataPtr[12], (uint8_t)dataPtr[13], (uint8_t)dataPtr[14], (uint8_t)dataPtr[15],
+						(uint8_t)dataPtr[16], (uint8_t)dataPtr[17], (uint8_t)dataPtr[18], (uint8_t)dataPtr[19],
+						(uint8_t)dataPtr[20], (uint8_t)dataPtr[21], (uint8_t)dataPtr[22], (uint8_t)dataPtr[23],
+						(uint8_t)dataPtr[24], (uint8_t)dataPtr[25], (uint8_t)dataPtr[26], (uint8_t)dataPtr[27],
+						(uint8_t)dataPtr[28], (uint8_t)dataPtr[29], (uint8_t)dataPtr[30], (uint8_t)dataPtr[31]);
+				}
+
 				// Call TSBHandler Write operation
-				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.GetLen());
+				TSB::Status status = mTSBStore->Write(uniqueUrl, dataPtr, dataLen);
+				AAMPLOG_WARN("[DIAGNOSTIC-TSB] AFTER TSB Write: status=%d", (int)status);
+				
 				if (status == TSB::Status::OK)
 				{
 					writeSucceeded = true;

@@ -3026,6 +3026,8 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 			pts_offset = 0;
 		}
 
+		std::vector<uint8_t>* heapVector = new std::vector<uint8_t>(std::move(sample.mData));
+		
 		buffer = gst_buffer_new_wrapped_full(
 			GST_MEMORY_FLAG_READONLY,
 			(gpointer)heapVector->data(), heapVector->size(),
@@ -3064,10 +3066,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 		{
 			bPushBuffer = false;
 		}
-<<<<<<< HEAD
 
-=======
->>>>>>> ae470900 (VPLAY-xxxx GrowableBuffer as a vector discussion)
 		if (bPushBuffer)
 		{
 

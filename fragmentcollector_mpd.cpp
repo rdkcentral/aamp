@@ -1211,7 +1211,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							return retval; /* Incase of fragment download fail, no need to increase the fragment number to download next fragment,
 									 * instead check the same fragment in lower profile. */
 						}
-						else if((mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling))) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL))
+						else if((mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling))) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetLen() == 0))
 						{
 							// Mark fragment fetched and save last segment time to avoid reattempt.
 							if(pMediaStreamContext->freshManifest)
@@ -8762,7 +8762,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		if (!pMediaStreamContext->eos)
 		{
-			if (trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
+			if (trickPlay && pMediaStreamContext->mDownloadedFragment.GetLen() == 0 && !pMediaStreamContext->freshManifest)
 			{
 				double skipTime = 0;
 				skipTime = delta;
