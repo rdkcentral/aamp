@@ -391,7 +391,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 		double fragmentDuration = ComputeFragmentDuration(12, 12); (void)fragmentDuration;
-		pMediaStreamContext->mediaType = eMEDIATYPE_VIDEO;
+		pMediaStreamContext->mediaType = static_cast<AampMediaType>(trackType);
 
 		SegmentTemplate *segmentTemplate = new SegmentTemplate();
 		const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent(); (void)failoverContent;

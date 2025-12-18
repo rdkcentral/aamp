@@ -27,7 +27,6 @@
 #include "PlayerJsonObject.h"
 #include "_base64.h"
 
-//unsigned char *player_Base64_URL_Decode(const char *src, size_t *len, size_t srcLen);
 char *player_Base64_URL_Encode(const unsigned char *src, size_t len);
 
 PlayerJsonObject::PlayerJsonObject() : mParent(NULL), mJsonObj()
@@ -556,9 +555,6 @@ unsigned char *player_Base64_URL_Decode(const char *src, size_t *len, size_t src
 	char *temp = (char *)malloc(srcLen+3);
 	if( temp )
 	{
-		temp[srcLen+2] = '\0';
-		temp[srcLen+1] = '=';
-		temp[srcLen+0] = '=';
 		for( int iter = 0; iter < srcLen; iter++ )
 		{
 			char c = src[iter];
@@ -575,7 +571,10 @@ unsigned char *player_Base64_URL_Decode(const char *src, size_t *len, size_t src
 			}
 			temp[iter] = c;
 		}
-		rc = base64_Decode(temp, len );
+		temp[srcLen++] = '=';
+		temp[srcLen++] = '=';
+		temp[srcLen] = '\0';
+		rc = base64_Decode(temp, len, srcLen );
 		free(temp);
 	}
 	else
