@@ -18,6 +18,31 @@
  */
 #include "mp4demux.hpp" 
 #include <iostream>
+#include <glib.h>
+
+// ---------------------------------------------------------------------------
+// PATCH: Minimal non-intrusive observers for timing (bin add / pad-added)
+// ---------------------------------------------------------------------------
+static inline void log_ts(const char* tag, const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    gint64 us = g_get_real_time(); // wall-clock microseconds since Unix epoch
+    g_printerr("[%s] time_us=%" G_GINT64_FORMAT " ", tag, us);
+    g_vprinterr(fmt, ap);
+    g_printerr("\n");
+    va_end(ap);
+}
+
+// Forward declarations (defined below)
+static void on_pad_added_log_only(GstElement* src, GstPad* new_pad, gpointer user_data);
+static GstPadProbeReturn pad_first_buffer_probe(GstPad* pad, GstPadProbeInfo* info, gpointer user_data);
+static void on_bin_element_added(GstBin* bin, GstElement* elem, gpointer user_data);
+static void on_bin_deep_element_added(GstBin* bin, GstBin* subbin, GstElement* elem, gpointer user_data);
+static void on_subbin_element_added(GstBin* bin, GstElement* child, gpointer user_data);
+
+// ... existing includes / code ...
+
 #include "InterfacePlayerRDK.h"
 #include "InterfacePlayerPriv.h"
 #include <string.h>
@@ -2005,6 +2030,32 @@ static void gst_found_source(GObject * object, GObject * orig, GParamSpec * pspe
 		stream = &privatePlayer->gstPrivateContext->stream[mediaType];
 		g_object_get(orig, pspec->name, &stream->source, NULL);
 		gstInitializeSource(pInterfacePlayerRDK, G_OBJECT(stream->source), mediaType);
+
+		// -------------------------------------------------------------------
+		// PATCH: Attach pad-added (LOG ONLY) when playbin 'source' is a
+		//        decodebin/uridecodebin (appsrc:// path via deep-notify::source)
+		// -------------------------------------------------------------------
+		if (stream->source)
+		{
+			const gchar* type_name = G_OBJECT_TYPE_NAME(stream->source);
+			if (g_str_has_prefix(type_name, "GstDecodeBin") ||
+			    g_str_has_prefix(type_name, "GstURIDecodeBin"))
+			{
+				g_signal_connect_after(
+				    stream->source, "pad-added",
+				    G_CALLBACK(on_pad_added_log_only),
+				    nullptr /* observation only */);
+
+				log_ts("ATTACH_PAD_ADDED", "on %s (mediaType=%d)",
+				       type_name, (int)mediaType);
+
+				// Observe inner decodebins under this source bin as they are added
+				g_signal_connect(
+				    stream->source, "element-added",
+				    G_CALLBACK(on_subbin_element_added),
+				    nullptr);
+			}
+		}
 	}
 }
 
@@ -2028,6 +2079,30 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 			MW_LOG_MIL("httpsoup -> Set network proxy '%s'", networkProxyValue.c_str());
 		}
 	}
+
+	// -----------------------------------------------------------------------
+	// PATCH: Attach pad-added (LOG ONLY) to uridecodebin/decodebin
+	// - Runs AFTER default handlers to avoid racing with playbin autoplugging
+	// - No linking is done here; only timestamps and first-buffer arrival
+	// -----------------------------------------------------------------------
+	const gchar* type_name = G_OBJECT_TYPE_NAME(source);
+	if (g_str_has_prefix(type_name, "GstURIDecodeBin") ||
+	    g_str_has_prefix(type_name, "GstDecodeBin"))
+	{
+		g_signal_connect_after(
+		    source, "pad-added",
+		    G_CALLBACK(on_pad_added_log_only),
+		    nullptr /* observation only */);
+
+		log_ts("ATTACH_PAD_ADDED", "on %s", type_name);
+
+		// Also observe inner decodebins created within this source bin
+		g_signal_connect(
+		    source, "element-added",
+		    G_CALLBACK(on_subbin_element_added),
+		    nullptr);
+	}
+
 	if (pInterfacePlayerRDK->m_gstConfigParam->media == eGST_MEDIAFORMAT_PROGRESSIVE)		//Setting souphttpsrc priority back to GST_RANK_PRIMARY
 	{
 		GstPluginFeature* pluginFeature = gst_registry_lookup_feature (gst_registry_get (), "souphttpsrc");
@@ -3888,6 +3963,26 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 		}
 		if(interfacePlayerPriv->gstPrivateContext->bus)
 		{
+			// -------------------------------------------------------------------
+			// PATCH: Attach bin observers (element-added + deep-element-added)
+			// These log when elements are added to the pipeline or nested bins.
+			// -------------------------------------------------------------------
+			g_signal_connect(
+				GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline),
+				"element-added",
+				G_CALLBACK(on_bin_element_added),
+				nullptr);
+
+			g_signal_connect(
+				GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline),
+				"deep-element-added",
+				G_CALLBACK(on_bin_deep_element_added),
+				nullptr);
+
+			log_ts("OBSERVERS",
+			       "Attached bin observers on %s",
+			       GST_ELEMENT_NAME(interfacePlayerPriv->gstPrivateContext->pipeline));
+
 			interfacePlayerPriv->gstPrivateContext->aSyncControl.enable();
 			guint busWatchId = gst_bus_add_watch(interfacePlayerPriv->gstPrivateContext->bus, (GstBusFunc) bus_message, this);
 			(void)busWatchId;
@@ -5247,4 +5342,63 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
+}
+// ---------------------------------------------------------------------------
+// PATCH: Implementations of observers / probes
+// ---------------------------------------------------------------------------
+static GstPadProbeReturn pad_first_buffer_probe(GstPad* pad, GstPadProbeInfo* info, gpointer /*user_data*/)
+{
+	// Log first-buffer arrival on new pad (one-shot)
+	if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER) {
+		log_ts("PAD_FIRST_BUFFER", "pad=%s", GST_PAD_NAME(pad));
+		return GST_PAD_PROBE_REMOVE;
+	}
+	return GST_PAD_PROBE_OK;
+}
+
+static void on_pad_added_log_only(GstElement* src, GstPad* new_pad, gpointer /*user_data*/)
+{
+	const gchar* src_name = GST_ELEMENT_NAME(src);
+	const gchar* pad_name = GST_PAD_NAME(new_pad);
+	log_ts("PAD_ADDED", "src=%s pad=%s", src_name, pad_name);
+
+	// Observe when the first buffer flows on this pad (approx. post-link)
+	gst_pad_add_probe(
+		new_pad,
+		(GstPadProbeType)(GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_BUFFER),
+		pad_first_buffer_probe,
+		nullptr);
+
+	// Log current link state without changing it
+	GstPad* peer = gst_pad_get_peer(new_pad);
+	gboolean linked = (peer != nullptr);
+	log_ts("PAD_LINK_STATE", "pad=%s linked=%d", pad_name, linked);
+	if (peer) gst_object_unref(peer);
+}
+
+static void on_bin_element_added(GstBin* bin, GstElement* elem, gpointer /*user_data*/)
+{
+	log_ts("BIN_ELEMENT_ADDED", "bin=%s elem=%s",
+	       GST_ELEMENT_NAME(GST_ELEMENT(bin)),
+	       GST_ELEMENT_NAME(elem));
+}
+
+static void on_bin_deep_element_added(GstBin* bin, GstBin* subbin, GstElement* elem, gpointer /*user_data*/)
+{
+	log_ts("BIN_DEEP_ELEMENT_ADDED", "bin=%s subbin=%s elem=%s",
+	       GST_ELEMENT_NAME(GST_ELEMENT(bin)),
+	       subbin ? GST_ELEMENT_NAME(GST_ELEMENT(subbin)) : "NULL",
+	       GST_ELEMENT_NAME(elem));
+}
+
+static void on_subbin_element_added(GstBin* bin, GstElement* child, gpointer /*user_data*/)
+{
+	const gchar* tn = G_OBJECT_TYPE_NAME(child);
+	if (g_str_has_prefix(tn, "GstDecodeBin")) {
+		g_signal_connect_after(child, "pad-added",
+		                       G_CALLBACK(on_pad_added_log_only),
+		                       nullptr);
+		log_ts("ATTACH_PAD_ADDED_INNER", "on %s inside %s",
+		       tn, GST_ELEMENT_NAME(GST_ELEMENT(bin)));
+	}
 }
