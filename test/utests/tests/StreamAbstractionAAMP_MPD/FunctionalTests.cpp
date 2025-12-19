@@ -37,6 +37,7 @@
 #include "MockIsoBmffProcessor.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
+#include "MockABRManager.h"
 
 
 using ::testing::_;
@@ -672,6 +673,21 @@ protected:
 		 */
 		void SetFirstPTSForTest(double pts) { mFirstPTS = pts; }
 		double GetFirstPTSForTest() const { return mFirstPTS; }
+
+		/**
+		 * @brief Test-only methods to access the protected mStreamInfo member.
+		 */
+		std::vector<StreamInfo>& GetStreamInfoVector() { return mStreamInfo; }
+		size_t GetStreamInfoSize() const { return mStreamInfo.size(); }
+		void ResizeStreamInfo(size_t size) { mStreamInfo.resize(size); }
+		void ClearStreamInfo() { mStreamInfo.clear(); }
+		StreamInfo& GetStreamInfoAt(size_t index) { return mStreamInfo[index]; }
+
+		/**
+		 * @brief Test-only methods to set protected members.
+		*/
+		void SetIsFogTSB(bool value) { mIsFogTSB = value; }
+		void SetAdPlayingFromCDN(bool value) { mAdPlayingFromCDN = value; }
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -689,6 +705,7 @@ protected:
 
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampUtils = new StrictMock<MockAampUtils>();
+		g_mockABRManager = new NiceMock<MockABRManager>();
 
 	}
 
@@ -715,6 +732,9 @@ protected:
 
 		delete g_mockAampUtils;
 		g_mockAampUtils = nullptr;
+
+		delete g_mockABRManager;
+		g_mockABRManager = nullptr;
 	}
 };
 
@@ -2196,6 +2216,163 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfoTest) {
 	int idx=-1;
 	StreamInfo* streamInfo = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(idx);
 	(void)streamInfo;
+}
+
+/**
+ * @brief Test GetStreamInfo in non-FOG TSB mode using proper test class
+ * Sets up the StreamAbstractionAAMP_MPD instance in non-FOG TSB mode and verifies that
+ * GetStreamInfo correctly retrieves StreamInfo via the ABR manager.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_NonFogTsbMode)
+{
+	// Set non-FOG TSB mode (uses ABR manager path)
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// Populate mStreamInfo vector with 2 elements
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(2);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 500000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(1).bandwidthBitsPerSecond = 1000000;
+
+	// Mock expectations for ABR manager calls
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(2));
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(1))
+		.WillOnce(Return(1)); // Maps to index 1 in mStreamInfo
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(2))
+		.WillOnce(Return(-1)); // Invalid user data - should cause nullptr return
+
+	// Test valid index access through ABR manager
+	StreamInfo *result1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(1);
+	ASSERT_NE(result1, nullptr);
+	EXPECT_EQ(result1->bandwidthBitsPerSecond, 1000000);
+
+	// Test boundary case - ABR manager returns invalid user data
+	StreamInfo *result2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(2);
+	EXPECT_EQ(result2, nullptr);
+}
+
+/**
+ * @brief Test GetStreamInfo bounds checking with empty vector in FOG TSB mode
+ * Sets up the StreamAbstractionAAMP_MPD instance in FOG TSB mode and verifies that
+ * GetStreamInfo correctly handles out-of-bounds indices when the mStreamInfo vector is empty.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_FogTsb_EmptyVector)
+{
+	// Set FOG TSB mode to enable direct index access with bounds checking
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(true);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// mStreamInfo vector is empty by default
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamInfoSize(), 0);
+
+	// Test accessing invalid indices
+	StreamInfo *result1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(-1);
+	EXPECT_EQ(result1, nullptr);
+
+	StreamInfo *result2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(0);
+	EXPECT_EQ(result2, nullptr);
+
+	StreamInfo *result3 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(5);
+	EXPECT_EQ(result3, nullptr);
+}
+
+/**
+ * @brief Test GetStreamInfo bounds checking with populated vector in FOG TSB mode
+ * Sets up the StreamAbstractionAAMP_MPD instance in FOG TSB mode and verifies that
+ * GetStreamInfo correctly handles valid and out-of-bounds indices when the mStreamInfo vector is populated.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_FogTsb_PopulatedVector)
+{
+	// Set FOG TSB mode to enable direct index access with bounds checking
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(true);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// Populate mStreamInfo vector with 3 elements
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(3);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 500000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(1).bandwidthBitsPerSecond = 1000000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(2).bandwidthBitsPerSecond = 2000000;
+
+	// Test valid indices
+	StreamInfo *result1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(0);
+	ASSERT_NE(result1, nullptr);
+	EXPECT_EQ(result1->bandwidthBitsPerSecond, 500000);
+
+	StreamInfo *result2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(2);
+	ASSERT_NE(result2, nullptr);
+	EXPECT_EQ(result2->bandwidthBitsPerSecond, 2000000);
+
+	// Test invalid indices (out of bounds)
+	StreamInfo *result3 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(-1);
+	EXPECT_EQ(result3, nullptr);
+
+	StreamInfo *result4 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(3);
+	EXPECT_EQ(result4, nullptr);
+}
+
+/**
+ * @brief Test GetStreamInfo heap overflow prevention scenario in non-FOG TSB mode
+ * Simulates a scenario where the stream info vector size decreases and ensures no heap overflow occurs
+ * when using ABR manager path
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_NonFogTsb_HeapOverflowPrevention)
+{
+	// Set non-FOG TSB mode to enable ABR manager path
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// First: Set up ad content with 5 profiles
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(5);
+	for (int i = 0; i < 5; i++)
+	{
+		mStreamAbstractionAAMP_MPD->GetStreamInfoAt(i).bandwidthBitsPerSecond = (i + 1) * 1000000;
+	}
+
+	// Mock ABR manager to simulate initial state with 5 profiles
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(5));
+
+	// Set up user data mapping for initial 5 profiles
+	for (int i = 0; i < 5; i++)
+	{
+		EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(i))
+			.WillRepeatedly(Return(i)); // Maps to index i in mStreamInfo
+	}
+
+	// Verify all profiles are accessible through ABR manager
+	for (int i = 0; i < 5; i++)
+	{
+		StreamInfo *result = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(i);
+		ASSERT_NE(result, nullptr);
+	}
+
+	// Now: Switch to source content with only 1 profile (heap size reduction)
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(1);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 2000000;
+
+	// Update ABR manager to reflect new profile count
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(1));
+
+	// Test: Old cached profileIndex=4 should now be safely handled
+	StreamInfo *result = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(4);
+	EXPECT_EQ(result, nullptr); // Should return nullptr due to invalid user data
+
+	// Valid profile should still work
+	StreamInfo *validResult = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(0); // Profile 0 exists
+	ASSERT_NE(validResult, nullptr);
+	EXPECT_EQ(validResult->bandwidthBitsPerSecond, 2000000);
+
+	// Test additional edge cases
+	StreamInfo *invalidResult1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(1); // Profile 1 doesn't exist
+	EXPECT_EQ(invalidResult1, nullptr);
+
+	// Out of range index
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(10))
+		.WillRepeatedly(Return(-1));
+	StreamInfo *invalidResult2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(10); // Out of range
+	EXPECT_EQ(invalidResult2, nullptr);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, EnableAndSetLiveOffsetForLLDashPlaybackTest)
