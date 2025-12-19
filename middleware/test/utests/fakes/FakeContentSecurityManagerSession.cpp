@@ -18,8 +18,8 @@
 */
 
 /**
- * @file ContentSecurityManagerSession.cpp
- * @brief Class impl for ContentSecurityManagerSession
+ * @file FakeContentSecurityManagerSession.cpp
+ * @brief Fake implementation for ContentSecurityManagerSession
  */
 
 #include "ContentSecurityManagerSession.h"
