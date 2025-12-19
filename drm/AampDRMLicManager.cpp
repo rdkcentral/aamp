@@ -137,6 +137,7 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
         {
 
              mLicenseDownloader[i].Release();
+			 mLicenseDownloader[i].CleanupCurlHeaderResources();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
@@ -162,6 +163,7 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
 	mAccessTokenConnector.Release();
+	mAccessTokenConnector.CleanupCurlHeaderResources();
 	licenseRequestAbort = isAbort;
 }
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
