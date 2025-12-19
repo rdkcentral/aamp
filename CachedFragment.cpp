@@ -53,9 +53,6 @@ CachedFragment::CachedFragment()
  */
 void CachedFragment::Copy(CachedFragment* other, size_t len)
 {
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] CachedFragment::Copy: this=%p (fragment=%p) other=%p (fragment=%p fragmentData=%p len=%zu) copyLen=%zu",
-		this, &this->fragment, other, &other->fragment, other->fragment.GetPtr(), other->fragment.GetLen(), len);
-	
 	// Clear existing data first
 	this->fragment.Free();
 	
@@ -77,11 +74,7 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	
 	// Copy fragment data up to specified length
 	if (other && other->fragment.GetPtr() && len > 0) {
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] CachedFragment::Copy: About to call AppendBytes with ptr=%p len=%zu",
-			other->fragment.GetPtr(), len);
 		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] CachedFragment::Copy: AFTER AppendBytes: this->fragment ptr=%p len=%zu",
-			this->fragment.GetPtr(), this->fragment.GetLen());
 	}
 }
 

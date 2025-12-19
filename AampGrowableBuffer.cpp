@@ -31,10 +31,9 @@ bool AampGrowableBuffer::gbEnableLogging = false;
 int AampGrowableBuffer::gNetMemoryCount = 0;
 int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
 
-
-void AampGrowableBuffer::EnableLogging( bool enable )
+void AampGrowableBuffer::EnableLogging(bool enable)
 {
-    gbEnableLogging = enable;
+	gbEnableLogging = enable;
 }
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
@@ -49,8 +48,6 @@ void AampGrowableBuffer::Free( void )
 {
 	if( !buffer.empty() )
 	{
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Free: this=%p bufferData=%p size=%zu capacity=%zu", 
-			this, buffer.data(), buffer.size(), buffer.capacity());
 		NETMEMORY_MINUS();
 		if( gbEnableLogging )
 		{
@@ -58,13 +55,6 @@ void AampGrowableBuffer::Free( void )
 		}
 		buffer.clear();
 		buffer.shrink_to_fit();  // Release the allocated memory
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Free: AFTER clear/shrink: size=%zu capacity=%zu",
-			buffer.size(), buffer.capacity());
-	}
-	else
-	{
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Free: this=%p buffer already empty (size=%zu capacity=%zu)", 
-			this, buffer.size(), buffer.capacity());
 	}
 }
 
@@ -82,16 +72,11 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 		// TSB Read expects to write directly into the buffer, so we need actual size, not just capacity
 		//buffer.resize(numBytes);
 		buffer.reserve(numBytes);
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::ReserveBytes: this=%p numBytes=%zu AFTER resize: bufferData=%p size=%zu capacity=%zu",
-			this, numBytes, buffer.data(), buffer.size(), buffer.capacity());
 	}
 }
 
 void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::AppendBytes: this=%p srcPtr=%p srcLen=%zu BEFORE: bufferData=%p size=%zu cap=%zu",
-		this, srcPtr, srcLen, buffer.data(), buffer.size(), buffer.capacity());
-	
 	if( srcLen == 0 )
 	{
 		return;
@@ -99,7 +84,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 
 	bool isFirstAllocation = buffer.empty() && buffer.capacity() == 0;
 	size_t required = buffer.size() + srcLen;
-	
+
 	if( buffer.capacity() < required )
 	{ // more memory needed - grow with same strategy as original implementation
 		size_t newCapacity = buffer.capacity() * 2; // first try doubling
@@ -107,11 +92,11 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		{ // if still not enough, allocate double what's required
 			newCapacity = required * 2;
 		}
-		
+
 		try
 		{
 			buffer.reserve(newCapacity);
-			
+
 			if( isFirstAllocation )
 			{
 				NETMEMORY_PLUS();
@@ -127,24 +112,10 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 			return;
 		}
 	}
-	
+
 	// Append the data (reserve guarantees this won't throw or reallocate)
 	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
 	buffer.insert(buffer.end(), bytes, bytes + srcLen);
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::AppendBytes: AFTER: this=%p bufferData=%p size=%zu cap=%zu",
-		this, buffer.data(), buffer.size(), buffer.capacity());
-	
-	// Log first 32 bytes of buffer after append
-	if (!buffer.empty()) {
-		size_t bytesToLog = (buffer.size() < 32) ? buffer.size() : 32;
-		char hexStr[97] = {0}; // 32 bytes * 3 chars per byte + null terminator
-		for (size_t i = 0; i < bytesToLog; i++) {
-			snprintf(hexStr + (i * 3), 4, "%02x ", buffer[i]);
-		}
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::AppendBytes: First %zu bytes after append: %s",
-			bytesToLog, hexStr);
-	}
 }
 
 /**
@@ -176,21 +147,12 @@ void AampGrowableBuffer::Clear( void )
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
 	assert( buffer.empty() ); // only replace if empty!
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Replace: this=%p (size=%zu cap=%zu) src=%p (data=%p size=%zu cap=%zu)",
-		this, buffer.size(), buffer.capacity(), src, src->buffer.data(), src->buffer.size(), src->buffer.capacity());
-	
+
 	buffer = std::move(src->buffer);
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Replace: AFTER MOVE: this=%p (data=%p size=%zu cap=%zu)",
-		this, buffer.data(), buffer.size(), buffer.capacity());
-	
+
 	// Ensure source is in known empty state (not just moved-from)
 	src->buffer.clear();
 	src->buffer.shrink_to_fit();
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Replace: src after clear: %p (size=%zu cap=%zu)",
-		src, src->buffer.size(), src->buffer.capacity());
 }
 
 /**
@@ -201,10 +163,7 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 void AampGrowableBuffer::Transfer( void )
 {
 	assert( !buffer.empty() );
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Transfer: this=%p data=%p size=%zu capacity=%zu (ownership transferred)",
-		this, buffer.data(), buffer.size(), buffer.capacity());
-	
+
 	if( !buffer.empty() )
 	{
 		NETMEMORY_MINUS();
@@ -216,9 +175,6 @@ void AampGrowableBuffer::Transfer( void )
 	// Clear the buffer - ownership has been transferred
 	buffer.clear();
 	buffer.shrink_to_fit();
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::Transfer: AFTER clear: this=%p size=%zu capacity=%zu",
-		this, buffer.size(), buffer.capacity());
 }
 
 /**
@@ -229,15 +185,7 @@ void AampGrowableBuffer::Transfer( void )
 std::vector<uint8_t>* AampGrowableBuffer::ExtractVector( void )
 {
 	assert( !buffer.empty() );
-	
-	// DIAGNOSTIC: Log state BEFORE extraction
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::ExtractVector: BEFORE: this=%p bufferData=%p size=%zu capacity=%zu",
-		this, buffer.data(), buffer.size(), buffer.capacity());
-	if (!buffer.empty() && buffer.size() >= 8) {
-		AAMPLOG_WARN("[DIAGNOSTIC-VEC] ExtractVector: First 8 bytes: %02x %02x %02x %02x %02x %02x %02x %02x",
-			buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]);
-	}
-	
+
 	if( !buffer.empty() )
 	{
 		NETMEMORY_MINUS();
@@ -246,21 +194,13 @@ std::vector<uint8_t>* AampGrowableBuffer::ExtractVector( void )
 			printf("AampGrowableBuffer::%s(%s:%d)\n", "ExtractVector",name,gNetMemoryCount);
 		}
 	}
-	
+
 	// Create new vector and move our data into it
 	auto* extracted = new std::vector<uint8_t>(std::move(buffer));
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::ExtractVector: AFTER MOVE: extracted=%p extractedData=%p size=%zu capacity=%zu",
-		extracted, extracted->data(), extracted->size(), extracted->capacity());
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::ExtractVector: AFTER MOVE: this=%p bufferData=%p size=%zu capacity=%zu (moved-from state)",
-		this, buffer.data(), buffer.size(), buffer.capacity());
-	
+
 	// Explicitly clear to ensure known empty state (not just moved-from state)
 	buffer.clear();
 	buffer.shrink_to_fit();
-	
-	AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::ExtractVector: AFTER CLEAR: this=%p size=%zu capacity=%zu",
-		this, buffer.size(), buffer.capacity());
-	
+
 	return extracted;
 }
