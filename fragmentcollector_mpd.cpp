@@ -6783,7 +6783,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	AAMPLOG_INFO("Selected Period index %d, id %s", mCurrentPeriodIdx, period->GetId().c_str());
 	for( int i = 0; i < mMaxTracks; i++ )
 	{
-		mMediaStreamContext[i]->enabled = false;
+		if( mMediaStreamContext[i] )
+		{
+			mMediaStreamContext[i]->enabled = false;
+		}
 	}
 
 	mMultiVideoAdaptationPresent = false;
