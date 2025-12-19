@@ -7136,8 +7136,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					mUpdateStreamInfo = false;
 					vector<Representation *> representations = mMPDParseHelper->GetBitrateInfoFromCustomMpd(pMediaStreamContext->adaptationSet);
-					int representationCount = (int)representations.size();
-					if (representationCount != (int)mBitrateIndexVector.size())
+					size_t representationCount = representations.size();
+					if (representationCount != mBitrateIndexVector.size())
 					{
 						mStreamInfo.clear();
 					}
