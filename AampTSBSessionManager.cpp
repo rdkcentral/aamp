@@ -208,12 +208,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 		if (len > 0)
 		{
 			cachedFragment->fragment.ReserveBytes(len);
+			cachedFragment->fragment.SetLen(len);
+
 			AAMPLOG_WARN("[DIAGNOSTIC-TSB] BEFORE TSB Read (init): url=%s ptr=%p len=%zu", 
 				uniqueUrl.c_str(), cachedFragment->fragment.GetPtr(), len);
 			
 			UnlockReadMutex();
 			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
-			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
 			
 			// DIAGNOSTIC: Log data AFTER reading from TSB
@@ -296,13 +297,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		}
 
 		cachedFragment->fragment.ReserveBytes(len);
+		cachedFragment->fragment.SetLen(len);
 		AAMPLOG_WARN("[DIAGNOSTIC-TSB] BEFORE TSB Read (fragment): url=%s ptr=%p len=%zu", 
 			uniqueUrl.c_str(), cachedFragment->fragment.GetPtr(), len);
 		
 		UnlockReadMutex();
 
 		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
-		cachedFragment->fragment.SetLen(len);
 		LockReadMutex();
 		
 		// DIAGNOSTIC: Log data AFTER reading from TSB

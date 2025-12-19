@@ -80,7 +80,8 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 		}
 		// CRITICAL FIX: Must resize, not just reserve!
 		// TSB Read expects to write directly into the buffer, so we need actual size, not just capacity
-		buffer.resize(numBytes);
+		//buffer.resize(numBytes);
+		buffer.reserve(numBytes);
 		AAMPLOG_WARN("[DIAGNOSTIC-VEC] AampGrowableBuffer::ReserveBytes: this=%p numBytes=%zu AFTER resize: bufferData=%p size=%zu capacity=%zu",
 			this, numBytes, buffer.data(), buffer.size(), buffer.capacity());
 	}
