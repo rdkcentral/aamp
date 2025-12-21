@@ -2121,7 +2121,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+		AAMPLOG_INFO("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
@@ -2178,6 +2178,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		**  -Used by PlayerInstanceAAMP::SetRateInternal() to calculate seek position.
 		**  -Included for consistency with previous code but isn't directly related to reporting.
 		**  -A good candidate for future refactoring*/
+		AAMPLOG_INFO("position = %fms,seek_pos_seconds:%f",position,seek_pos_seconds);
 		mNewSeekInfo.Update(position, seek_pos_seconds);
 		int CurrentPositionDeltaToManifestEnd = end - position;
 

@@ -13219,22 +13219,31 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					assert(pAampLLDashServiceData->maxLatency >= pAampLLDashServiceData->targetLatency);
 
 					double currentLatency;// = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+					AAMPLOG_WARN("ispopulated:%d ", aamp->mNewSeekInfo.GetInfo().isPopulated() );
 					if(aamp->mNewSeekInfo.GetInfo().isPopulated())
 					{
+						
+						AAMPLOG_WARN("nwUpdateTime:%lf delta time :%lf",aamp->mNewSeekInfo.GetInfo().getUpdateTime()/1000.0,mDeltaTime);
 						double liveTime = (double)aamp->mNewSeekInfo.GetInfo().getUpdateTime()/1000.0 + mDeltaTime;
+						
+						AAMPLOG_WARN("FirstFragOffset:%lf nwPosition:%lf",aamp->mFirstFragmentTimeOffset,((double)aamp->mNewSeekInfo.GetInfo().getPosition()/1000.0));
 						double finalProgressTime = (aamp->mFirstFragmentTimeOffset) + ((double)aamp->mNewSeekInfo.GetInfo().getPosition()/1000.0);
+						
 						currentLatency = (liveTime - finalProgressTime) * 1000;
+						AAMPLOG_WARN("livetime:%lf finalProgressTime:%lf latency:%lf ",liveTime,finalProgressTime,currentLatency);
 						if(aamp->mProgressReportOffset >= 0)
 						{
 							// Correction with progress offset
+							AAMPLOG_WARN("currentLatency:%lf aamp->mProgressReportOffset:%lf",currentLatency,(aamp->mProgressReportOffset * 1000));
 							currentLatency += (aamp->mProgressReportOffset * 1000);
 						}
 					}
 					else
 					{
+						AAMPLOG_WARN("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
 						currentLatency = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
 					}
-					AAMPLOG_TRACE("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
+					AAMPLOG_WARN("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
 #if 0
 					long encoderDisplayLatency = 0;
 					encoderDisplayLatency = (long)( GetEncoderDisplayLatency() * 1000)+currentLatency;
@@ -13251,7 +13260,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 						double bufferValue = GetBufferedDuration();
 						bool isEnoughBuffer = (bufferValue >= targetBuffer);
 						//Added Debug log to triage playrate issue
-						AAMPLOG_TRACE("targetBuffer=%lf bufferValue=%lf isEnoughBuffer=%d segmentDuration=%lf",	targetBuffer, bufferValue, isEnoughBuffer, pAampLLDashServiceData->fragmentDuration);
+						AAMPLOG_WARN("targetBuffer=%lf bufferValue=%lf isEnoughBuffer=%d segmentDuration=%lf",	targetBuffer, bufferValue, isEnoughBuffer, pAampLLDashServiceData->fragmentDuration);
 						bool bufferLowHit = false;
 						static int bufferLowCount = 0;
 						static int bufferLowHitCount = 0;
