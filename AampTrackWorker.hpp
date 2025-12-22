@@ -163,7 +163,7 @@ namespace aamp
 		PrivateInstanceAAMP *aamp;
 		std::atomic<bool> mInitialized; // Flag to indicate if the worker is initialized
 		std::atomic<bool> mStop;
-		std::atomic<bool> mPaused; // Flag to pause the worker threads
+		bool mPaused; // Flag to pause the worker threads (protected by mQueueMutex)
 
 	private:
 		void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
