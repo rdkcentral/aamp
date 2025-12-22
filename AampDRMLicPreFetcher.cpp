@@ -485,6 +485,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	bool ret = false;
 	bool isSecClientError = isSecFeatureEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+	DrmSession *drmSession = NULL;
 
 	if (mPrivAAMP == nullptr)
 	{
@@ -510,7 +511,8 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	{
 		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
 		AAMPLOG_MIL("going to createDrmSession");
-		DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+		//DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 		AAMPLOG_MIL("createDrmSession completed");
 	}
 
