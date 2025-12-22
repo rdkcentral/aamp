@@ -513,9 +513,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		}
 		return nullptr;
 	}
-	MW_LOG_WARN("ANJ: Calling AcquireLicenseCb, selectedSlot = %d ", selectedSlot);
 	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
-	MW_LOG_WARN("ANJ: After Calling AcquireLicenseCb, selectedSlot = %d, code = %d ", selectedSlot, code);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
