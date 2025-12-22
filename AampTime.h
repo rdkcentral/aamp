@@ -55,6 +55,7 @@ inline int64_t multiplyDivideWithOverflowProtection(int64_t multiplicand, int64_
 	
 	return static_cast<int64_t>(result);
 #else
+#warning int128 type not available - falling back to floating point math
 	double intermediate = static_cast<double>(multiplicand) * static_cast<double>(multiplier);
 	double result = intermediate / static_cast<double>(divisor);
 	
