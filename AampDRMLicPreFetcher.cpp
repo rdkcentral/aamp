@@ -509,6 +509,13 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
 	{
+		// mFetchInstanceMutex is used in the start and stop flow, as well as
+		// inside NotifyDrmFailure(triggered from CreateDRMSession flow),
+		// Reuse the same mutex to protect the licenseManger createDrmSession call,
+		// so that, in fast channel change scenarios, stop can ensure that
+		// PrefetchThread has come out from the license acquisition
+		// flow, before moving to a new tune. This helps to avoid setting the
+		// previous tune's license to CDM after initiating the new tune.
 		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
 		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 	}
