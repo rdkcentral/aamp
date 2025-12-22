@@ -49,19 +49,18 @@ inline bool mul_overflow(int64_t a, int64_t b, int64_t* out) {
 inline int64_t multiplyDivideWithOverflowProtection( int64_t multiplicand, int64_t multiplier, uint32_t divisor) noexcept
 {
 	if (divisor == 0)
-	{
+	{ // policy: return zero on avoid divide-by-zero
 		return 0;
 	}
 	int64_t product;
 	if (mul_overflow(multiplicand, multiplier, &product))
 	{
-		bool positive = (multiplicand > 0) == (multiplier > 0);
+		const bool positive = (multiplicand > 0) == (multiplier > 0);
 		return positive ?
 		std::numeric_limits<int64_t>::max() :
 		std::numeric_limits<int64_t>::min();
 	}
-	int64_t result = product / static_cast<int64_t>(divisor);
-	return result;
+	return product / static_cast<int64_t>(divisor);
 }
 
 /** @brief struct to hold time in ticks and timescale */
@@ -174,13 +173,13 @@ class AampTime
 		  * @return Nearest second (integer)
 		  * @note Equivalent to round() but in integer domain
 		  */
-		inline int64_t nearestSecond() const
+		inline int64_t nearestSecond() const noexcept
 		{
-			// Classic integer rounding: floor((baseTime + baseTimescale/2) / baseTimescale)
-			return (baseTime + static_cast<int64_t>(baseTimescale / 2)) /
-				   static_cast<int64_t>(baseTimescale);
+			const int64_t scale = static_cast<int64_t>(baseTimescale);
+			int64_t adj = (baseTime>=0)?(scale/2):-(scale/2);
+			return (baseTime + adj) / scale;
 		}
-
+	
 		// Overloads for comparison operators to check AampTime : AampTime and AampTime : double
 		inline bool operator==(const AampTime &rhs) const
 		{
