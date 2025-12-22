@@ -234,6 +234,7 @@ void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstanc
 {
 	std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
 	mFetchInstance = fetcherInstance;
+	AAMPLOG_MIL("License fetcher set to %p", mFetchInstance);
 }
 
 /**
@@ -506,7 +507,12 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+	{
+		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+		AAMPLOG_MIL("going to createDrmSession");
+		DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+		AAMPLOG_MIL("createDrmSession completed");
+	}
 
 
 	//set failures here 
