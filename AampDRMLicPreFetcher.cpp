@@ -517,6 +517,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
 	{
+<<<<<<< HEAD
 		/**
 		 * @brief Serialize license acquisition with start/stop and failure flows.
 		 *
@@ -540,6 +541,12 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		 */
 		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
 		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+=======
+		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+		AAMPLOG_MIL("going to createDrmSession");
+		DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+		AAMPLOG_MIL("createDrmSession completed");
+>>>>>>> a3fd45f7 (VPLAY-12202 - [Linear] black screen due to 'internal data error' while doing sequential channel change)
 	}
 
 

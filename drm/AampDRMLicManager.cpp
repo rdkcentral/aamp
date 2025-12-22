@@ -164,6 +164,7 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 	MW_LOG_INFO("isAbort : %d ", isAbort);
 	licenseRequestAbort.store(isAbort, std::memory_order_release);
 }
+
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
 {
 	bool isSecClientError = false;
@@ -374,9 +375,15 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				      eventHandle->setSecclientError(false);
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],std::move(licenseServerProxy)));
 				}
+<<<<<<< HEAD
 
 				//check if license req is aborted. if yes, ignore the response.
 				if(licenseRequestAbort.load(std::memory_order_acquire))
+=======
+#if 1//anj
+				//check if license req is aborted. if yes, ignore the response.
+				if(licenseRequestAbort)
+>>>>>>> a3fd45f7 (VPLAY-12202 - [Linear] black screen due to 'internal data error' while doing sequential channel change)
 				{
 					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response.Resetting session slot %d", sessionSlot);
 					eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
@@ -384,6 +391,10 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 					responseCode = int(CURLE_ABORTED_BY_CALLBACK);
 					return KEY_ERROR;
 				}
+<<<<<<< HEAD
+=======
+#endif//anj
+>>>>>>> a3fd45f7 (VPLAY-12202 - [Linear] black screen due to 'internal data error' while doing sequential channel change)
 			}
 		}
 	}
