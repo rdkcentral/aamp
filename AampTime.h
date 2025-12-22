@@ -24,20 +24,52 @@
 
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
+//is this ok?
 
-inline bool mul_overflow(int64_t a, int64_t b, int64_t* out) {
-	if (a == 0 || b == 0) { // handle zero early
+inline bool mul_overflow(int64_t a, int64_t b, int64_t* out) noexcept
+{
+#if defined(__has_builtin)
+#  if __has_builtin(__builtin_mul_overflow)
+	return __builtin_mul_overflow(a, b, out);
+#  endif
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+	return __builtin_mul_overflow(a, b, out);
+#else
+	if (a == 0 || b == 0) {
 		*out = 0;
 		return false;
 	}
-	int64_t result = a * b;
-	if (result / b != a)
-	{ // detect overflow using division
-		return true;
+	if (a == -1) {
+		if (b == std::numeric_limits<int64_t>::min()) return true;
+		*out = -b;
+		return false;
 	}
-	*out = result;
+	if (b == -1) {
+		if (a == std::numeric_limits<int64_t>::min()) return true;
+		*out = -a;
+		return false;
+	}
+	if (a > 0) {
+		if (b > 0) {
+			if (a > std::numeric_limits<int64_t>::max() / b) return true;
+		} else {
+			if (b < std::numeric_limits<int64_t>::min() / a) return true;
+		}
+	}
+	else {
+		if (b > 0) {
+			if (a < std::numeric_limits<int64_t>::min() / b) return true;
+		} else
+		{
+			if (a != 0 && b < std::numeric_limits<int64_t>::max() / a) return true;
+		}
+	}
+	*out = a * b;
 	return false;
+#endif
 }
+
 
 /**
  * @brief Helper function for overflow-protected multiplication and division

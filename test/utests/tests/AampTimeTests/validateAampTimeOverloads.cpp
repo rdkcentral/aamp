@@ -882,3 +882,24 @@ TEST_F(validateAampTimeOverloads, SmallTimeValues_Precision)
 	AampTime t3(0.0000000001); // 0.1 nanoseconds (sub-nanosecond)
 	EXPECT_DOUBLE_EQ(t3.inSeconds(), 0.0);
 }
+
+TEST_F(validateAampTimeOverloads, MulOverflow_Detect)
+{
+	int64_t out;
+	
+	EXPECT_EQ( mul_overflow(0, 1234, &out), false );
+	EXPECT_EQ( out, 0 );
+	
+	EXPECT_EQ( mul_overflow(INT64_MIN, -1, &out), true );
+	
+	EXPECT_EQ( mul_overflow(INT64_MAX, 2, &out), true );
+	
+	EXPECT_EQ( mul_overflow(INT64_MIN, 2, &out), true );
+	
+	EXPECT_EQ( mul_overflow(10, 20, &out), false );
+	EXPECT_EQ( out, 200 );
+	
+	EXPECT_EQ( mul_overflow(-10, -20, &out), false );
+	EXPECT_EQ( out, 200 );
+}
+
