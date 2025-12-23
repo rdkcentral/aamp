@@ -137,7 +137,7 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
         {
 
              mLicenseDownloader[i].Release();
-			 mLicenseDownloader[i].CleanupCurlHeaderResources();
+             mLicenseDownloader[i].CleanupCurlHeaderResources();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }

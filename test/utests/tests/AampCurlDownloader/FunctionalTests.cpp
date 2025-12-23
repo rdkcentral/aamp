@@ -478,52 +478,52 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
  * 
  */
 TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCondition) {
-    DownloadConfigPtr config = std::make_shared<DownloadConfig>();
-    
-    EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
-    EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
-    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
-        .WillOnce(Return(CURLE_OK));
-    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
-        .WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
-    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
-        .WillOnce(Return(CURLE_OK));
-    EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
-        .WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
-    
-    mAampCurlDownloader->Initialize(config);
-    
-    std::atomic<bool> releaseCompleted(false);
-    std::atomic<bool> headerCleanupStarted(false);
-    std::atomic<bool> raceConditionDetected(false);
-    
-    // Thread 1: Simulates download activity
-    std::thread downloadThread([&]() {
-        for (int i = 0; i < 100 && !releaseCompleted.load(); ++i) {
-            if (headerCleanupStarted.load() && !releaseCompleted.load()) {
-                raceConditionDetected.store(true);
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-    });
-    
-    // Allow download thread to start
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    
-    // Step 1: Call Release() first to stop downloads
+	DownloadConfigPtr config = std::make_shared<DownloadConfig>();
+	
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	
+	mAampCurlDownloader->Initialize(config);
+	
+	std::atomic<bool> releaseCompleted(false);
+	std::atomic<bool> headerCleanupStarted(false);
+	std::atomic<bool> raceConditionDetected(false);
+	
+	// Thread 1: Simulates download activity
+	std::thread downloadThread([&]() {
+		for (int i = 0; i < 100 && !releaseCompleted.load(); ++i) {
+			if (headerCleanupStarted.load() && !releaseCompleted.load()) {
+				raceConditionDetected.store(true);
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
+	});
+	
+	// Allow download thread to start
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	
+	// Step 1: Call Release() first to stop downloads
 	mAampCurlDownloader->Release();
 	releaseCompleted.store(true);
-    
-    // Step 2: Call CleanupCurlHeaderResources() after downloads stopped
+	
+	// Step 2: Call CleanupCurlHeaderResources() after downloads stopped
 	headerCleanupStarted.store(true);
 	mAampCurlDownloader->CleanupCurlHeaderResources();
-    
-    downloadThread.join();
-    
-    // Verify no race condition detected
-    EXPECT_FALSE(raceConditionDetected.load()) 
-        << "Race condition detected: CleanupCurlHeaderResources() called before Release() completed";
-		
+	
+	downloadThread.join();
+	
+	// Verify no race condition detected
+	EXPECT_FALSE(raceConditionDetected.load()) 
+		<< "Race condition detected: CleanupCurlHeaderResources() called before Release() completed";
+	
 	// Verify download is stopped
 	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
 }
