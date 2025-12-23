@@ -24,45 +24,52 @@
 
 #ifndef AAMPTIME_H
 #define AAMPTIME_H
-//is this ok?
+
+#if defined(__has_builtin)
+#if __has_builtin(__builtin_mul_overflow)
+#define HAVE_BUILTIN_MUL_OVERFLOW
+#endif
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+#define HAVE_BUILTIN_MUL_OVERFLOW
+#endif
 
 inline bool mul_overflow(int64_t a, int64_t b, int64_t* out) noexcept
 {
-#if defined(__has_builtin)
-#  if __has_builtin(__builtin_mul_overflow)
-	return __builtin_mul_overflow(a, b, out);
-#  endif
-#endif
-#if defined(__GNUC__) || defined(__clang__)
+#ifdef HAVE_BUILTIN_MUL_OVERFLOW
 	return __builtin_mul_overflow(a, b, out);
 #else
-	if (a == 0 || b == 0) {
+	if( a == 0 || b == 0 ){ // if either argument zero, result is zero and no overflow
 		*out = 0;
 		return false;
 	}
-	if (a == -1) {
-		if (b == std::numeric_limits<int64_t>::min()) return true;
+	const auto min = std::numeric_limits<std::int64_t>::min();
+	const auto max = std::numeric_limits<std::int64_t>::max();
+	// handle edge cases - we can't negate INT64_MIN (won't fit)
+	if( a == -1 ){
+		if( b == min ) return true;
 		*out = -b;
 		return false;
 	}
 	if (b == -1) {
-		if (a == std::numeric_limits<int64_t>::min()) return true;
+		if( a == min ) return true;
 		*out = -a;
 		return false;
 	}
-	if (a > 0) {
-		if (b > 0) {
-			if (a > std::numeric_limits<int64_t>::max() / b) return true;
-		} else {
-			if (b < std::numeric_limits<int64_t>::min() / a) return true;
+	if( a > 0 ){ // positive a
+		if( b > 0 ){ // positive b
+			if( a > max/b ) return true;
+		} else { // negative b
+			if( b < min/a) return true; // positive a,
 		}
 	}
-	else {
-		if (b > 0) {
-			if (a < std::numeric_limits<int64_t>::min() / b) return true;
-		} else
-		{
-			if (a != 0 && b < std::numeric_limits<int64_t>::max() / a) return true;
+	else { // negative a
+		if( b > 0 ){ // positive b
+			if( a < min/b ) return true;
+		}
+		else
+		{ // negative b
+			if( b < max/a) return true;
 		}
 	}
 	*out = a * b;
@@ -108,10 +115,9 @@ struct AampTicks
 	AampTicks(int64_t ticks, uint32_t timescale) : ticks(ticks), timescale(timescale) {}
 
 	/**
-	 * @brief Get time in milliseconds with overflow protection using 128-bit arithmetic.
+	 * @brief Get time in milliseconds with overflow protection.
 	 *
 	 * Prevents overflow when (ticks * 1000) would exceed INT64_MAX or INT64_MIN.
-	 * Uses 128-bit intermediate values on supported platforms, falls back to double on others.
 	 * If overflow would occur, clamps the result to INT64_MAX or INT64_MIN.
 	 *
 	 * @return Time in milliseconds, clamped to INT64_MIN or INT64_MAX if overflow occurs.
@@ -141,7 +147,7 @@ class AampTime
 		int64_t baseTime;
 
 		/**
-		 * @brief Convert ticks to base time with overflow protection using 128-bit arithmetic
+		 * @brief Convert ticks to base time with overflow protection
 		 * @param ticks The tick count (signed 64-bit)
 		 * @param timescale The timescale (unsigned 32-bit); if zero, returns 0
 		 * @return The converted time in nanoseconds, clamped to INT64_MIN/MAX if overflow detected, or 0 if timescale is zero
@@ -174,7 +180,7 @@ class AampTime
 		  * @brief Constructor
 		  * @param time struct containing time in ticks and timescale
 		  * @note This is used to convert from AampTicks to AampTime; it is lossy and cannot be converted back
-		  * @note Uses 128-bit intermediate to prevent overflow; clamps result to INT64_MIN/MAX if needed
+		  * @note avoids overflow; clamps result to INT64_MIN/MAX if needed
 		  */
 		explicit AampTime(const AampTicks& time)
 			: baseTime(convertTicksWithOverflowProtection(time.ticks, time.timescale)) {}

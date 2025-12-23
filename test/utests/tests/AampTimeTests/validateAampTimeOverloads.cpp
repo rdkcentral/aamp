@@ -887,19 +887,30 @@ TEST_F(validateAampTimeOverloads, MulOverflow_Detect)
 {
 	int64_t out;
 	
-	EXPECT_EQ( mul_overflow(0, 1234, &out), false );
-	EXPECT_EQ( out, 0 );
-	
-	EXPECT_EQ( mul_overflow(INT64_MIN, -1, &out), true );
-	
-	EXPECT_EQ( mul_overflow(INT64_MAX, 2, &out), true );
-	
-	EXPECT_EQ( mul_overflow(INT64_MIN, 2, &out), true );
-	
-	EXPECT_EQ( mul_overflow(10, 20, &out), false );
-	EXPECT_EQ( out, 200 );
-	
-	EXPECT_EQ( mul_overflow(-10, -20, &out), false );
-	EXPECT_EQ( out, 200 );
-}
+	EXPECT_EQ(mul_overflow(0, 123, &out), false);
+	EXPECT_EQ(out, 0);
 
+	EXPECT_EQ(mul_overflow(INT64_MAX, 0, &out), false);
+	EXPECT_EQ(out, 0);
+
+	EXPECT_EQ(mul_overflow(INT64_MIN, 1, &out), false);
+	EXPECT_EQ(out, INT64_MIN);
+	
+	EXPECT_EQ(mul_overflow(1, 42, &out), false);
+	EXPECT_EQ(out, 42);
+
+	EXPECT_EQ(mul_overflow(-42, 1, &out), false);
+	EXPECT_EQ(out, -42);
+
+	EXPECT_EQ(mul_overflow(10, 20, &out), false);
+	EXPECT_EQ(out, 200);
+
+	EXPECT_EQ(mul_overflow(-10, -20, &out), false);
+	EXPECT_EQ(out, 200);
+
+	EXPECT_EQ(mul_overflow(INT64_MIN, -1, &out), true);
+	EXPECT_EQ(mul_overflow(-1,INT64_MIN, &out), true);
+	
+	EXPECT_EQ(mul_overflow(INT64_MAX, 2, &out), true);
+	EXPECT_EQ(mul_overflow(INT64_MIN, 2, &out), true);
+}
