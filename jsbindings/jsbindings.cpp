@@ -2712,10 +2712,10 @@ static JSValueRef AAMP_setVideoMute(JSContextRef context, JSObjectRef function, 
 	{
 		bool muted = JSValueToBoolean(context, arguments[0]);
 		LOG_WARN(pAAMP,"AAMP_setVideoMute (JS layer) : incoming parameter: %d", muted);
-        	LOG_WARN(pAAMP," _aamp->SetVideoMute(%d)", muted);
-		pAAMP->_aamp->SetVideoMute(muted);
+        	LOG_WARN(pAAMP," _aamp->SetVideoMute(false)");
+		pAAMP->_aamp->SetVideoMute(false);
 		// pAAMP->_aamp->SetSubtitleMute(muted);
-		LOG_WARN(pAAMP,"AAMP_setVideoMute (JS layer) : outgoing parameter: %d", muted);
+		LOG_WARN(pAAMP,"AAMP_setVideoMute (JS layer) : outgoing parameter: 0 (forced to false)");
 	}
 	return JSValueMakeUndefined(context);
 }

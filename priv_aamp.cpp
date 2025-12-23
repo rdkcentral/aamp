@@ -7170,8 +7170,8 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
 	AAMPLOG_WARN("PrivateInstanceAAMP : incoming parameter: %d", muted);
-	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted.load()?"true":"false");
-	video_muted = muted;
+	AAMPLOG_INFO("mute %s subtitles_muted %s", false?"true":"false", subtitles_muted.load()?"true":"false");
+	video_muted = false;
 
 	//If lock could not be acquired, then cache it
 	if (TryStreamLock())
@@ -7193,7 +7193,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 		AAMPLOG_WARN("StreamLock is not available, value has been cached");
 		mApplyCachedVideoMute = true;
 	}
-	AAMPLOG_WARN("PrivateInstanceAAMP : outgoing parameter: %d", muted);
+	AAMPLOG_WARN("PrivateInstanceAAMP : outgoing parameter: 0 (forced to false)");
 }
 
 /**
@@ -7205,7 +7205,7 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SetVideoMute(muted);
+		sink->SetVideoMute(false);
 	}
 	else
 	{
@@ -7213,9 +7213,9 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	}
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
-		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
+		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),false, GetStreamPositionMs());
 	}
-	AAMPLOG_WARN("PrivateInstanceAAMP::SetVideoMuteInternal : outgoing parameter: %d", muted);
+	AAMPLOG_WARN("PrivateInstanceAAMP::SetVideoMuteInternal : outgoing parameter: 0 (forced to false)");
 }
 
 /**

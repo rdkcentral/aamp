@@ -4613,17 +4613,17 @@ void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
 void InterfacePlayerRDK::SetVideoMute(bool muted)
 {
 	MW_LOG_WARN("InterfacePlayerRDK : incoming parameter: %d", muted);
-	MW_LOG_INFO("muted=%d video_sink =%p", muted, interfacePlayerPriv->gstPrivateContext->video_sink);
-	interfacePlayerPriv->gstPrivateContext->videoMuted = muted;
+	MW_LOG_INFO("muted=%d video_sink =%p", false, interfacePlayerPriv->gstPrivateContext->video_sink);
+	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	if (interfacePlayerPriv->gstPrivateContext->video_sink)
 	{
-		g_object_set(interfacePlayerPriv->gstPrivateContext->video_sink, "show-video-window", !interfacePlayerPriv->gstPrivateContext->videoMuted, NULL);	/* videoMuted to true implies setting the 'show-video-window' to false */
+		g_object_set(interfacePlayerPriv->gstPrivateContext->video_sink, "show-video-window", !false, NULL);	/* videoMuted to false implies setting the 'show-video-window' to true */
 	}
 	else
 	{
 		MW_LOG_INFO("InterfacePlayerRDK not setting video mute");
 	}
-	MW_LOG_WARN("InterfacePlayerRDK : outgoing parameter: %d", muted);
+	MW_LOG_WARN("InterfacePlayerRDK : outgoing parameter: 0 (forced to false)");
 }
 
 /**

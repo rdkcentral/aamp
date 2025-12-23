@@ -1478,9 +1478,9 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
 	AAMPLOG_WARN("PlayerInstanceAAMP : incoming parameter: %d", muted);
-	AAMPLOG_MIL("mute %s", muted?"true":"false");
-	aamp->SetVideoMute(muted);
-	AAMPLOG_WARN("PlayerInstanceAAMP : outgoing parameter: %d", muted);
+	AAMPLOG_MIL("mute %s", false?"true":"false");
+	aamp->SetVideoMute(false);
+	AAMPLOG_WARN("PlayerInstanceAAMP : outgoing parameter: 0 (forced to false)");
 }
 
 /**

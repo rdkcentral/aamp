@@ -1426,8 +1426,8 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
 	AAMPLOG_WARN("AampDRMLicenseManager : incoming parameter: %d", isVideoOnMute);
-	mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs,isVideoOnMute, positionMs);
-	AAMPLOG_WARN("AampDRMLicenseManager : outgoing parameter: %d", isVideoOnMute);
+	mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs,false, positionMs);
+	AAMPLOG_WARN("AampDRMLicenseManager : outgoing parameter: 0 (forced to false)");
 }
 
 void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
