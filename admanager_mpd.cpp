@@ -80,21 +80,53 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 /**
  * @brief Method to insert period into period map
  */
-void PrivateCDAIObjectMPD::InsertToPeriodMap(IPeriod * period)
+void PrivateCDAIObjectMPD::InsertToPeriodMap(IPeriod * period, uint64_t periodStartMS)
 {
 	const std::string &prdId = period->GetId();
-	if(!isPeriodExist(prdId))
+	auto it = mPeriodMap.find(prdId);
+	if (it == mPeriodMap.end())
 	{
-		mPeriodMap[prdId] = Period2AdData();
+		mPeriodMap[prdId] = Period2AdData(periodStartMS);
+		AAMPLOG_INFO("Inserted new periodId:%s with startTimeMS:%" PRIu64, prdId.c_str(), periodStartMS);
+	}
+	else
+	{
+		if (it->second.startTimeMS != periodStartMS)
+		{
+			AAMPLOG_INFO("Updating startTimeMS for periodId:%s from %" PRIu64 " to %" PRIu64, prdId.c_str(), it->second.startTimeMS, periodStartMS);
+			it->second.startTimeMS = periodStartMS;
+		}
+		else
+		{
+			AAMPLOG_INFO("PeriodID:%s with startTimeMS:%" PRIu64 " already present in mPeriodMap, no update needed", prdId.c_str(), periodStartMS);
+		}
 	}
 }
-
+ 
 /**
  * @brief Method to check the existence of period in the period map
  */
-bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
+bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId,uint64_t startTimeMS)
 {
-	return (mPeriodMap.end() != mPeriodMap.find(periodId))?true:false;
+	auto it = mPeriodMap.find(periodId);
+	if (it != mPeriodMap.end())
+	{
+		if (it->second.startTimeMS == startTimeMS)
+		{
+			AAMPLOG_INFO("PeriodID and startTimeMS already present in mPeriodMap: %s, startTimeMS: %" PRIu64, periodId.c_str(), startTimeMS);
+			return true;
+		}
+		else
+		{
+			AAMPLOG_INFO("PeriodID present but startTimeMS differs in mPeriodMap: %s, existing: %" PRIu64 ", new: %" PRIu64, periodId.c_str(), it->second.startTimeMS, startTimeMS);
+			return false;
+		}
+	}
+	else
+	{
+		AAMPLOG_INFO("PeriodID not present in mPeriodMap: %s, will be newly added", periodId.c_str());
+		return false;
+	}
 }
 
 /**

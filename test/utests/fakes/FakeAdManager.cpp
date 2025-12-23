@@ -60,7 +60,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 {
 }
 
-void PrivateCDAIObjectMPD::InsertToPeriodMap(IPeriod *period)
+void PrivateCDAIObjectMPD::InsertToPeriodMap(IPeriod *period, uint64_t startMS)
 {
 }
 
@@ -78,10 +78,11 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 	return 0;
 }
 
-bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
+bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId,uint64_t startTimeMS)
 {
 	return false;
 }
+
 
 bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 {

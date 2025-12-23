@@ -1118,7 +1118,7 @@ TEST_F(AdManagerMPDTests, CheckForAdStartTests_2)
         {
           std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
           std::make_pair (30000, AdOnPeriod(1, 0)) // for adId2 idx=1, offset=0s
-        });
+        },0);
     // Add ads to the adBreak
     mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads = std::make_shared<std::vector<AdNode>>();
     mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].ads->emplace_back(false, false, true, "adId1", "url", 30000, "testPeriodId", 0, nullptr);
@@ -1252,7 +1252,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 3);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 6000); // in ms
@@ -1325,7 +1325,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 26000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    }, 0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 0);
@@ -1408,11 +1408,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 26000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->mPeriodMap[periodId2] = Period2AdData(false, periodId2, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
@@ -1506,11 +1506,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 30000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->mPeriodMap[periodId2] = Period2AdData(false, periodId2, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
@@ -1630,7 +1630,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 28000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
@@ -1714,7 +1714,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 26000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   // The current adbreak is filled and placementObj should now be reset
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
@@ -1820,7 +1820,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 18000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 11);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
@@ -2009,7 +2009,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 1);
@@ -2163,7 +2163,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 1);
@@ -2330,11 +2330,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 15000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->mPeriodMap[periodId2] = Period2AdData(false, periodId2, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false);
@@ -2496,7 +2496,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 15000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false);
@@ -2653,7 +2653,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 8000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
@@ -2813,7 +2813,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 14000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false); // ad1 is not placed, waiting for periodId1 to have periodDelta==0
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
@@ -2972,7 +2972,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 15000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false);
@@ -3190,7 +3190,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 8000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
@@ -3305,11 +3305,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 26000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->mPeriodMap[periodId2] = Period2AdData(false, periodId2, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0); // makes sure we are clamped to period boundary
@@ -3513,7 +3513,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 15000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true); // since periodDelta==0, it advances to periodId2
@@ -3686,12 +3686,12 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
 
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId2, 0 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 200);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 200);
@@ -3818,7 +3818,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 24000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 15);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
@@ -3978,7 +3978,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 14000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false); // ad1 is not placed, waiting for periodId1 to have periodDelta==0
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
@@ -4118,7 +4118,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 12000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, false);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);

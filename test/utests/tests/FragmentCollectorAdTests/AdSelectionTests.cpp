@@ -623,7 +623,7 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	cdaiObj->mAdBreaks = {
 		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 0)}
 	};
-	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/, {});
+	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/, {},0);
 
 	bool periodChanged = false;
 	bool adStateChanged = false; // since we finished playing an ad
@@ -697,7 +697,7 @@ TEST_F(AdSelectionTests, onAdEventTest_1)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
@@ -738,7 +738,7 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -823,7 +823,7 @@ TEST_F(AdSelectionTests, onAdEventTest_4)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -885,7 +885,7 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
@@ -949,7 +949,7 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 
@@ -1015,7 +1015,7 @@ TEST_F(AdSelectionTests, onAdEventTest_7)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 	cdaiObj->mCurAdIdx = -1;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
@@ -1078,7 +1078,7 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
@@ -1154,7 +1154,7 @@ TEST_F(AdSelectionTests, onAdEventTest_9)
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 		std::make_pair (15000, AdOnPeriod(1, 0))
-	});
+	},0);
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
@@ -1222,7 +1222,7 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 		std::make_pair (15000, AdOnPeriod(1, 0)),
-	});
+	},0);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -1315,7 +1315,7 @@ TEST_F(AdSelectionTests, onAdEventTest_12)
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 		std::make_pair (15000, AdOnPeriod(1, 0)),
-	});
+	},0);
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
@@ -1376,7 +1376,7 @@ TEST_F(AdSelectionTests, onAdEventTest_13)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0,0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
@@ -1449,7 +1449,7 @@ TEST_F(AdSelectionTests, onAdEventTest_14)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)),
-	});
+	},0);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -1516,7 +1516,7 @@ TEST_F(AdSelectionTests, onAdEventTest_15)
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -1597,7 +1597,7 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
 	{
 	  std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 
 	bool periodChanged = false;
 	bool adStateChanged = false; // since we finished playing an ad
@@ -1705,7 +1705,7 @@ TEST_F(AdSelectionTests, AdTransitionTest_PausedWithAampTSB)
 	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
 	{
 	  std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-	});
+	},0);
 
 	bool periodChanged = false;
 	bool adStateChanged = false; // since we finished playing an ad
@@ -1925,7 +1925,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	mPrivateCDAIObject->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
     {
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-    });
+    },0);
 
 	// Index the initial values
 	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);

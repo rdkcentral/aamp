@@ -7908,6 +7908,7 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
 				cJSON_AddNumberToObject(item, "timeMs", iter->_timeMS);
 				cJSON_AddNumberToObject (item, "durationMs",iter->_durationMS);
 				cJSON_AddStringToObject(item, "data", iter->_content.c_str());
+				AAMPLOG_INFO("Adding timedMetadata to bulk: name='%s', id='%s', timeMs=%lld, durationMs=%.2f, data='%s'", iter->_name.c_str(), iter->_id.c_str(), iter->_timeMS, iter->_durationMS, iter->_content.c_str());
 			}
 
 			char* bulkData = cJSON_PrintUnformatted(root);
@@ -7937,6 +7938,7 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
  */
 void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName, const char *szContent, int nb, bool bSyncCall, const char *id, double durationMS)
 {
+	AAMPLOG_INFO("Reporting timedMetadata: timeMS=%lld, name='%s', content='%.*s'", timeMilliseconds, szName, nb, szContent);
 	std::string content(szContent, nb);
 	bool bFireEvent = false;
 
@@ -7952,6 +7954,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 			{
 				// Already same exists , ignore
 				ignoreMetaAdd = true;
+				AAMPLOG_INFO("Already existed metadata, ignoring addition %s at %lld ms", szName, timeMilliseconds);
 				break;
 			}
 			else
@@ -7979,12 +7982,14 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 			// 1.No entry in the table
 			// 2.Entries available which is only having time < NewMetatime
 			timedMetadata.push_back(TimedMetadata(timeMilliseconds, szName, content, id, durationMS));
+			AAMPLOG_INFO("Added new timedMetadata %s at %lld ms", szName, timeMilliseconds);
 		}
 		else
 		{
 			// New entry in between saved entries.
 			// i->_timeMS >= timeMilliseconds && no similar entry in table
 			timedMetadata.insert(i, TimedMetadata(timeMilliseconds, szName, content, id, durationMS));
+			AAMPLOG_INFO("Inserted new timedMetadata %s at %lld ms", szName, timeMilliseconds);
 		}
 	}
 
@@ -8002,10 +8007,12 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 		if (!bSyncCall)
 		{
 			mEventManager->SendEvent(eventData,AAMP_EVENT_ASYNC_MODE);
+			AAMPLOG_INFO("Sent timedMetadata event asynchronously for %s at %lld ms", szName, timeMilliseconds);
 		}
 		else
 		{
 			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+			AAMPLOG_INFO("Sent timedMetadata event synchronously for %s at %lld ms", szName, timeMilliseconds);
 		}
 	}
 }

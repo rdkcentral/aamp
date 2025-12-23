@@ -404,7 +404,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	mStreamAbstractionAAMP_MPD->mCdaiObject->mPeriodMap[periodId] = Period2AdData(false, periodId, breakdur /*in ms*/,
 		{
 			std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-		});
+		}, 0);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())

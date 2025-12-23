@@ -256,16 +256,21 @@ struct Period2AdData {
 	std::string                 adBreakId;   /**< Parent Adbreak */
 	uint64_t                    duration;    /**< Period's Duration in milliseconds */
 	std::map<int, AdOnPeriod>   offset2Ad;   /**< Mapping period's offset in milliseconds to individual Ads */
+	uint64_t					startTimeMS; /**< Period's start time in milliseconds */
 
 	/**
 	* @brief Period2AdData constructor
 	*/
-	Period2AdData() : filled(false), adBreakId(), duration(0), offset2Ad()
+	Period2AdData() : filled(false), adBreakId(), duration(0), offset2Ad(), startTimeMS(0)
 	{
 	}
 
-	Period2AdData(bool _filled, std::string _adBreakId, uint64_t _duration, std::map<int, AdOnPeriod> _offset2Ad)
-		: filled(_filled), adBreakId(_adBreakId), duration(_duration), offset2Ad(_offset2Ad)
+	Period2AdData(bool _filled, std::string _adBreakId, uint64_t _duration, std::map<int, AdOnPeriod> _offset2Ad, uint64_t _startTimeMS)
+		: filled(_filled), adBreakId(_adBreakId), duration(_duration), offset2Ad(_offset2Ad), startTimeMS(_startTimeMS)
+	{
+	}
+
+	Period2AdData(uint64_t startTimeMS) : filled(false), adBreakId(), duration(0), offset2Ad(), startTimeMS(startTimeMS)
 	{
 	}
 };
@@ -425,7 +430,7 @@ public:
 	 *
 	 * @param[in]  period - Pointer of the period to be inserted
 	 */
-	void InsertToPeriodMap(IPeriod *period);
+	void InsertToPeriodMap(IPeriod *period, uint64_t startMS=0);
 
 	/**
 	 * @fn isPeriodExist
@@ -433,7 +438,8 @@ public:
 	 * @param[in]  periodId - Period id to be checked.
 	 * @return bool true or false
 	 */
-	bool isPeriodExist(const std::string &periodId);
+	bool isPeriodExist(const std::string &periodId,uint64_t startMS=0);
+
 
 	/**
 	 * @brief Method to check the existence of Adbreak object in the AdbreakObject map
