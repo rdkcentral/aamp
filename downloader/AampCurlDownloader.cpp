@@ -152,6 +152,7 @@ AampCurlDownloader::~AampCurlDownloader()
 
 bool AampCurlDownloader::IsDownloadActive()
 {
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	return mDownloadActive;
 }
 
@@ -340,8 +341,8 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 	// Release and reset and previously called values
 	Release();
 
-	std::lock_guard<std::mutex> lock(mCurlMutex);
 	CleanupCurlHeaderResources();
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDnldCfg = std::move(dnldCfg);
 	//mDnldCfg->show();
 	if (!mDnldCfg->pCurl)

@@ -277,9 +277,8 @@ void AampMPDDownloader::Release()
 			mRefreshCondVar.notify_all();
 			mMPDDnldDataCondVar.notify_all();
 			mMPDNotifierCondVar.notify_all();
-
 		}
-		//Disable downloads before joining the threads,which will exit the download loops gracefully 
+		// Disable downloads before joining the threads,which will exit the download loops gracefully 
 		mDownloader1.Release();
 		mDownloader2.Release();
 

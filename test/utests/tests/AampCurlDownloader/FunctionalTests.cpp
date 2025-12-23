@@ -475,7 +475,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
  * downloads (sets mDownloadActive=false), followed by CleanupCurlHeaderResources() to free
  * curl header resources. This ordering prevents potential race conditions where header
  * resources could be freed while curl callbacks are still executing.
- * 
  */
 TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCondition) {
 	DownloadConfigPtr config = std::make_shared<DownloadConfig>();

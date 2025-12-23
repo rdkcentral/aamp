@@ -130,14 +130,13 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
  */
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
-        SAFE_DELETE(mLicensePrefetcher);
+	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDrmSessionManager);
 	releaseLicenseRenewalThreads();
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
-        {
-
-             mLicenseDownloader[i].Release();
-             mLicenseDownloader[i].CleanupCurlHeaderResources();
+	{
+		mLicenseDownloader[i].Release();
+		mLicenseDownloader[i].CleanupCurlHeaderResources();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
