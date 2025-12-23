@@ -2317,12 +2317,19 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		}
 
 #if defined(__APPLE__)
-		if( pInterfacePlayerRDK->gstCbExportYUVFrame )
-		{
-			if (eGST_MEDIATYPE_VIDEO == streamId)
+	if (eGST_MEDIATYPE_VIDEO == streamId)
+	{	
+		GstElement* appsink = nullptr;
+			if( pInterfacePlayerRDK->gstCbExportYUVFrame)
 			{
 				MW_LOG_MIL("using appsink");
-				GstElement* appsink = gst_element_factory_make("appsink", NULL);
+				appsink = gst_element_factory_make("appsink", NULL);
+			}
+			else
+			{
+				MW_LOG_MIL("using osxvideosink");
+				appsink = gst_element_factory_make("osxvideosink", NULL);
+			}
 				assert(appsink);
 				GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
 				gst_app_sink_set_caps (GST_APP_SINK(appsink), caps);
@@ -2332,8 +2339,8 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				GstObject **oldobj = (GstObject **)&interfacePlayerPriv->gstPrivateContext->video_sink;
 				GstObject *newobj = (GstObject *)appsink;
 				gst_object_replace( oldobj, newobj );
-			}
-		}
+			
+	}
 #endif
 	}
 	gst_bin_add(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
