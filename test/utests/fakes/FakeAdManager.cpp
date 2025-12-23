@@ -83,6 +83,11 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 	return false;
 }
 
+bool PrivateCDAIObjectMPD::isStartTimeExist(unsigned long startTime)
+{
+    return false;
+}
+
 bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 {
 	if(g_MockPrivateCDAIObjectMPD != nullptr)

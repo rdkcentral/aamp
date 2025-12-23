@@ -436,6 +436,14 @@ public:
 	bool isPeriodExist(const std::string &periodId);
 
 	/**
+     * @fn isStartTimeExist
+     * @brief Checks if the start time for a period exists (is set and valid)
+     * @param[in] periodStartMS - Start time in milliseconds
+     * @return bool true if start time exists, false otherwise
+     */
+    bool isStartTimeExist(unsigned long periodStartMS);
+
+	/**
 	 * @brief Method to check the existence of Adbreak object in the AdbreakObject map
 	 *
 	 * @param[in]  adBrkId - Adbreak id to be checked.

@@ -98,6 +98,17 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 }
 
 /**
+ * @brief Checks if the start time for a period exists (is set and valid)
+ * @param[in] periodStartMS - Start time in milliseconds
+ * @return bool true if start time exists, false otherwise
+ */
+bool PrivateCDAIObjectMPD::isStartTimeExist(unsigned long periodStartMS)
+{
+    // Consider start time exists if it is not 0 or -1 (invalid)
+    return (periodStartMS != 0);
+}
+
+/**
  * @brief Method to check the existence of Adbreak object in the AdbreakObject map
  */
 bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)

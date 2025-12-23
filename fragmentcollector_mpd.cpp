@@ -4590,6 +4590,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 		int periodCnt = 0;
 		for (size_t i=0; i < subNodes.size(); i++) {
 			Node* node = subNodes.at(i);
+			uint64_t StartvalueMS = 0;
 			if(node == NULL)  //CID:163928 - forward null
 			{
 				AAMPLOG_WARN("node is null");  //CID:80723 - Null Returns
@@ -4606,19 +4607,23 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 				periodStartMS += periodDurationMS;
 				if (node->HasAttribute("start")) {
 					const std::string& value = node->GetAttributeValue("start");
-					uint64_t valueMS = 0;
+					AAMPLOG_INFO("The start value in the period is :%s", value.c_str());
+					StartvalueMS = 0;
 					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					if (periodStartMS < valueMS)
-						periodStartMS = valueMS;
+					{
+						StartvalueMS = ParseISO8601Duration(value.c_str() );
+						AAMPLOG_INFO("the StartvalueMS in the period is :%" PRIu64 , StartvalueMS);
+					}
+					if (periodStartMS < StartvalueMS)
+						periodStartMS = StartvalueMS;
 				}
 				periodDurationMS = 0;
 				if (node->HasAttribute("duration")) {
 					const std::string& value = node->GetAttributeValue("duration");
-					uint64_t valueMS = 0;
+					uint64_t DurationvalueMS = 0;
 					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					periodDurationMS = valueMS;
+						DurationvalueMS = ParseISO8601Duration(value.c_str() );
+					periodDurationMS = DurationvalueMS;
 				}
 				IPeriod * period = NULL;
 				if (mpd != NULL)
@@ -4648,8 +4653,11 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								ProcessPeriodAssetIdentifier(child, periodStartMS, periodDurationMS, AssetID, ProviderID, init, reportBulkMeta);
 								continue;
 							}
-							if((name == "EventStream") && ("" != prdId) && !mCdaiObject->isPeriodExist(prdId))
+							if((name == "EventStream") && ("" != prdId) && (!mCdaiObject->isPeriodExist(prdId)|| !mCdaiObject->isStartTimeExist(StartvalueMS) || mCdaiObject->isStartTimeExist(StartvalueMS)))
 							{
+								AAMPLOG_INFO("Processing EventStream for Period ID: %s", prdId.c_str());
+								AAMPLOG_INFO("The start value in the period is :%" PRIu64 , StartvalueMS);
+								AAMPLOG_INFO("TimedMetadata: Period ID:%s StartTimeMS:%" PRIu64 " DurationMS:%" PRIu64 , prdId.c_str(), periodStartMS, periodDurationMS);
 								bool processEventsInPeriod = ((!init || (1 < periodCnt && 0 == period->GetAdaptationSets().size())) //Take last & empty period at the MPD init AND all new periods in the MPD refresh. (No empty periods will come the middle)
 												  || (!mIsLiveManifest && init) || (mIsLiveManifest && ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive) ));
 
@@ -4659,13 +4667,19 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 									// cdvr events that are currently recording are tagged as live - we still need to process
 									// all the SCTE events for these manifests so we'll just rely on isPeriodExist() to prevent
 									// repeated notifications and process all events in the manifest
+	
 									processEventsInPeriod = true;
 								}
 
 								if (processEventsInPeriod)
 								{
-									mCdaiObject->InsertToPeriodMap(period);	//Need to do it. Because the FulFill may finish quickly
-									ProcessEventStream(periodStartMS, firstSegmentStartTime, period, reportBulkMeta);
+									AAMPLOG_INFO("processEventsInPeriod Period ID: %s", prdId.c_str());
+									AAMPLOG_INFO("processEventsInPeriod Start value in the period is :%" PRIu64 , StartvalueMS);
+									if(!mCdaiObject->isPeriodExist(prdId))
+									{
+										mCdaiObject->InsertToPeriodMap(period);	//Need to do it. Because the FulFill may finish quickly
+									}
+									ProcessEventStream(StartvalueMS, firstSegmentStartTime, period, reportBulkMeta);
 									continue;
 								}
 							}
@@ -4964,6 +4978,7 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 	bool ret = false;
 
 	const std::string &prdId = period->GetId();
+	AAMPLOG_INFO("The startMS in ProcessEventStream is :%" PRIu64 , startMS);
 	if(!prdId.empty())
 	{
 		uint64_t startMS1 = 0;
@@ -5021,10 +5036,12 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 					if (modifySCTEProcessing)
 					{
+						AAMPLOG_INFO("SaveNewTimedMetadata for Live %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 					}
 					else
 					{
+						AAMPLOG_INFO("Found Event Break for Live %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
 					}
 				}
@@ -5039,6 +5056,7 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					else
 					{
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
+						AAMPLOG_INFO("Saving NewTimedMetadata for VOD %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 					}
 				}
 			}
