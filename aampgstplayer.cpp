@@ -986,7 +986,9 @@ void AAMPGstPlayer::ResetFirstFrame(void)
  */
 void AAMPGstPlayer::SetVideoMute(bool muted)
 {
+	AAMPLOG_WARN("AAMPGstPlayer : incoming parameter: %d", muted);
 	playerInstance->SetVideoMute(muted);
+	AAMPLOG_WARN("AAMPGstPlayer : outgoing parameter: %d", muted);
 }
 
 /**

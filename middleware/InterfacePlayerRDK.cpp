@@ -4612,6 +4612,7 @@ void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
  */
 void InterfacePlayerRDK::SetVideoMute(bool muted)
 {
+	MW_LOG_WARN("InterfacePlayerRDK : incoming parameter: %d", muted);
 	MW_LOG_INFO("muted=%d video_sink =%p", muted, interfacePlayerPriv->gstPrivateContext->video_sink);
 	interfacePlayerPriv->gstPrivateContext->videoMuted = muted;
 	if (interfacePlayerPriv->gstPrivateContext->video_sink)
@@ -4622,6 +4623,7 @@ void InterfacePlayerRDK::SetVideoMute(bool muted)
 	{
 		MW_LOG_INFO("InterfacePlayerRDK not setting video mute");
 	}
+	MW_LOG_WARN("InterfacePlayerRDK : outgoing parameter: %d", muted);
 }
 
 /**

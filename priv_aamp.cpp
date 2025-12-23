@@ -7169,6 +7169,7 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	AAMPLOG_WARN("PrivateInstanceAAMP : incoming parameter: %d", muted);
 	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted.load()?"true":"false");
 	video_muted = muted;
 
@@ -7192,6 +7193,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 		AAMPLOG_WARN("StreamLock is not available, value has been cached");
 		mApplyCachedVideoMute = true;
 	}
+	AAMPLOG_WARN("PrivateInstanceAAMP : outgoing parameter: %d", muted);
 }
 
 /**
@@ -7199,6 +7201,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
  */
 void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 {
+	AAMPLOG_WARN("PrivateInstanceAAMP::SetVideoMuteInternal : incoming parameter: %d", muted);
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
@@ -7212,6 +7215,7 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
+	AAMPLOG_WARN("PrivateInstanceAAMP::SetVideoMuteInternal : outgoing parameter: %d", muted);
 }
 
 /**

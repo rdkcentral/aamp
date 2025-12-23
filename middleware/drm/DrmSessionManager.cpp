@@ -223,9 +223,11 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
  */
 void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
+	MW_LOG_WARN("DrmSessionManager : incoming parameter: %d", isVideoOnMute);
 	MW_LOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
 	mIsVideoOnMute.store(isVideoOnMute);
+	MW_LOG_WARN("DrmSessionManager : outgoing parameter: %d", isVideoOnMute);
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
