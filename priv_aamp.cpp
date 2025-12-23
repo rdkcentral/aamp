@@ -2187,8 +2187,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 			else
 			{
-				// For HLS Live, calculate latency based on live edge for backward compatibility
-				latency = static_cast<long>(end - reportFormattedCurrPos);
+				// For HLS Live, calculate latency based on live edge; round to nearest ms
+				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
 			}
 			SetCurrentLatency(latency);
 			// update available buffer to Manifest refresh cycle .
