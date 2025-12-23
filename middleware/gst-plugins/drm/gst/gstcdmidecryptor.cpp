@@ -41,7 +41,7 @@ enum
 	ePROF_BEGIN, ePROF_END , ePROF_ERR
 };
 
-//#define FUNCTION_DEBUG 1
+#define FUNCTION_DEBUG 1
 #ifdef FUNCTION_DEBUG
 #define DEBUG_FUNC()    g_warning("####### %s : %d ####\n", __FUNCTION__, __LINE__);
 #else
@@ -505,7 +505,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		                "[cdmidecrypt] First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu", 
 		                cdmidecryptor->mediaType, buffer, 
 		                buffer ? gst_buffer_get_size(buffer) : 0);
-		printf("[cdmidecrypt] First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu\n", 
+		g_warning("[cdmidecrypt] First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu\n", 
 		       cdmidecryptor->mediaType, buffer, 
 		       buffer ? gst_buffer_get_size(buffer) : 0);
 	}
@@ -715,7 +715,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			GST_DEBUG_OBJECT(cdmidecryptor, "[cdmidecrypt] Decryption successful for Video packets");
 
-			printf("[cdmidecrypt] Decryption successful for Video packets\n");
+			g_warning("[cdmidecrypt] Decryption successful for Video packets\n");
 		}
 	}
 
@@ -814,7 +814,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(cdmidecryptor, 
 		                "[cdmidecrypt] GST_EVENT_PROTECTION received - Starting DRM session creation");
 
-		printf("[cdmidecrypt] GST_EVENT_PROTECTION received - Starting DRM session creation\n");			
+		g_warning("[cdmidecrypt] GST_EVENT_PROTECTION received - Starting DRM session creation\n");			
 
 	if(NULL == cdmidecryptor)
 	{
@@ -970,7 +970,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			                "[cdmidecrypt] DRM session created successfully - mediaType: %d, drmSession: %p", 
 			                cdmidecryptor->mediaType, cdmidecryptor->drmSession);
 
-			printf("[cdmidecrypt] DRM session created successfully - mediaType: %d, drmSession: %p\n", 
+			g_warning("[cdmidecrypt] DRM session created successfully - mediaType: %d, drmSession: %p\n", 
 			       cdmidecryptor->mediaType, cdmidecryptor->drmSession);
 		}
 
