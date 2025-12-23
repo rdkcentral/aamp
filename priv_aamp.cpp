@@ -1182,7 +1182,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, preferredTextNameString("")
 	, preferredNameString("")
 	, mProgressReportOffset(-1)
-	, mFirstFragmentTimeOffset(-1)
 	, mProgressReportAvailabilityOffset(-1)
 	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID)
 	, mAutoResumeTaskPending(false)
@@ -1945,12 +1944,6 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 				AAMPPlayerState state = GetState();
 				if (!mAbortRateCorrection &&!mDisableRateCorrection && DownloadsAreEnabled() && state == eSTATE_PLAYING)
 				{
-					if(mFirstFragmentTimeOffset < 0)
-					{
-						AAMPLOG_WARN("First Fragment offset time is invalid, rate correction stopped!");
-						mAbortRateCorrection = true;
-						break;
-					}
 					double bufferedDuration = 0.0;
 					{
 						std::lock_guard<std::recursive_mutex> guard(mStreamLock);
@@ -1967,14 +1960,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 					{
 						isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
 					}
-					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
-					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
-					double latency = liveTime - finalProgressTime;
-					if(mProgressReportOffset >= 0)
-					{
-						// Correction with progress offset
-						latency += mProgressReportOffset;
-					}
+					double latency = static_cast<double>(GetCurrentLatency()) / 1000.0; // in seconds
 					AAMPLOG_INFO("Current latency is %.02lf current playback rate is %.02lf maxLiveOffset is %.02lf sec, target LiveOffset is %.02lf sec, minLiveOffset is %.02lf sec AvailableBuffer = %.02lf",
 					latency, mCorrectionRate, (mLiveOffset + mLiveOffsetDrift ), mLiveOffset, (mLiveOffset - mLiveOffsetDrift), bufferedDuration );
 					if ((latency > (mLiveOffset + mLiveOffsetDrift)) && isEnoughBuffer)
@@ -2097,7 +2083,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double videoBufferedDuration = 0.0;
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
-		double latency = 0;
+		long latency = 0;
 
 
 		//Report Progress report position based on Availability Start Time
@@ -2190,18 +2176,19 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 		if(IsLiveStream())
 		{
-			if(mFirstFragmentTimeOffset > 0)
+			if(eMEDIAFORMAT_DASH == mMediaFormat)
 			{
-				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
-				if(mProgressReportOffset >= 0)
-				{
-					// Correction with progress offset
-					latency += (mProgressReportOffset * 1000);
-				}
+				// For DASH Live, calculate latency based on wall-clock time.
+				// getUpdateTime() is the current wall-clock time in milliseconds when
+				// the seek info was last updated, and getPosition() is the playback
+				// position in milliseconds at that same update. Their difference
+				// yields how far (in ms) the player is behind the live edge.
+				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition());
 			}
 			else
 			{
-				latency = end - position;
+				// For HLS Live, calculate latency based on live edge; round to nearest ms
+				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
 			}
 			SetCurrentLatency(latency);
 			// update available buffer to Manifest refresh cycle .
@@ -2291,7 +2278,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						(long long) videoPTS,
 						(double)(videoBufferedDuration / 1000.0),
 						(double)(audioBufferedDuration /1000.0),
-						(latency / 1000),
+						(double)(latency / 1000.0),
 						seiTimecode.c_str(),
 						bps,
 						mNetworkBandwidth,
@@ -5166,10 +5153,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
 		mSeekOperationInProgress = true;
-		if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
-		{
-			mFirstFragmentTimeOffset = -1 ; //reset the firstFragmentOffsetTime when seek operation is done
-		}
 	}
 
 	if (eTUNETYPE_LAST == tuneType)
@@ -5525,24 +5508,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		{
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
-
-		if(mFirstFragmentTimeOffset < 0)
-		{
-			long long  duration = 0;
-			// Update first fragment time, ie time of the tune for new tune, and time of retune for seektolive
-			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
-			if(mSeekOperationInProgress && mProgressReportOffset < 0 )
-			{
-					duration = DurationFromStartOfPlaybackMs();
-			}
-			else
-			{
-					duration = GetDurationMs();
-			}
-			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - duration)/1000.0;
-			AAMPLOG_INFO("Updated FirstFragmentTimeOffset:%lf %lld %lld", mFirstFragmentTimeOffset,aamp_GetCurrentTimeMS(),duration);
-			StartRateCorrectionWorkerThread();
-		}
+		StartRateCorrectionWorkerThread();
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -7765,7 +7731,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	mIsLiveStream = false;
 	durationSeconds = 0;
 	mProgressReportOffset = -1;
-	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
 
