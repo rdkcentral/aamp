@@ -502,9 +502,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed)
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor, 
-		                "First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu", 
+		                "[cdmidecrypt] First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu", 
 		                cdmidecryptor->mediaType, buffer, 
 		                buffer ? gst_buffer_get_size(buffer) : 0);
+		printf("[cdmidecrypt] First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu\n", 
+		       cdmidecryptor->mediaType, buffer, 
+		       buffer ? gst_buffer_get_size(buffer) : 0);
 	}
 
 	if (!buffer)
@@ -700,7 +703,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	cdmidecryptor->hdcpOpProtectionFailCount = 0;
 
 		// Log successful decryption completion
-		GST_INFO_OBJECT(cdmidecryptor, 
+		GST_DEBUG_OBJECT(cdmidecryptor, 
 		                "Decryption completed successfully - mediaType: %d, buffer: %p", 
 		                cdmidecryptor->mediaType, buffer);
 
@@ -710,7 +713,9 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		}
 		else
 		{
-			GST_DEBUG_OBJECT(cdmidecryptor, "Decryption successful for Video packets");
+			GST_DEBUG_OBJECT(cdmidecryptor, "[cdmidecrypt] Decryption successful for Video packets");
+
+			printf("[cdmidecrypt] Decryption successful for Video packets\n");
 		}
 	}
 
@@ -807,7 +812,9 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 
 		// Log GST_EVENT_PROTECTION received
 		GST_DEBUG_OBJECT(cdmidecryptor, 
-		                "GST_EVENT_PROTECTION received - Starting DRM session creation");
+		                "[cdmidecrypt] GST_EVENT_PROTECTION received - Starting DRM session creation");
+
+		printf("[cdmidecrypt] GST_EVENT_PROTECTION received - Starting DRM session creation\n");			
 
 	if(NULL == cdmidecryptor)
 	{
@@ -960,8 +967,11 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		else
 		{
 			GST_DEBUG_OBJECT(cdmidecryptor, 
-			                "DRM session created successfully - mediaType: %d, drmSession: %p", 
+			                "[cdmidecrypt] DRM session created successfully - mediaType: %d, drmSession: %p", 
 			                cdmidecryptor->mediaType, cdmidecryptor->drmSession);
+
+			printf("[cdmidecrypt] DRM session created successfully - mediaType: %d, drmSession: %p\n", 
+			       cdmidecryptor->mediaType, cdmidecryptor->drmSession);
 		}
 
 		if(err != -1)
