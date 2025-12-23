@@ -45,7 +45,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
 		mFetchInstance(nullptr),
-		mFetchInstanceMutex(),
+		mLicenseAcquisitionMutex(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
@@ -224,7 +224,7 @@ bool AampLicensePreFetcher::Term()
  * @brief Set license fetcher instance in a thread-safe manner.
  *
  * Sets the license fetcher instance used by the prefetcher.
- * This method is thread-safe and uses a mutex (mFetchInstanceMutex)
+ * This method is thread-safe and uses a mutex (mLicenseAcquisitionMutex)
  * to protect mFetchInstance from concurrent access.
  *
  * @param fetcherInstance Pointer to the AampLicenseFetcher instance to set.
@@ -232,7 +232,7 @@ bool AampLicensePreFetcher::Term()
  */
 void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
 {
-	std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+	std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
 	mFetchInstance = fetcherInstance;
 	AAMPLOG_INFO("License fetcher set to %p", mFetchInstance);
 }
@@ -442,7 +442,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
 		if (skipErrorEvent && mFetchInstance)
 		{
 			mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
@@ -509,14 +509,28 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
 	{
-		// mFetchInstanceMutex is used in the start and stop flow, as well as
-		// inside NotifyDrmFailure(triggered from CreateDRMSession flow),
-		// Reuse the same mutex to protect the licenseManger createDrmSession call,
-		// so that, in fast channel change scenarios, stop can ensure that
-		// PrefetchThread has come out from the license acquisition
-		// flow, before moving to a new tune. This helps to avoid setting the
-		// previous tune's license to CDM after initiating the new tune.
-		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+		/**
+		 * @brief Serialize license acquisition with start/stop and failure flows.
+		 *
+		 * mLicenseAcquisitionMutex is shared between the start/stop flows and
+		 * NotifyDrmFailure(). NotifyDrmFailure() may be invoked from the same
+		 * CreateDRMSession flow (directly or indirectly), so calling it while
+		 * already holding this mutex would risk deadlock if it also attempted
+		 * to acquire mLicenseAcquisitionMutex.
+		 *
+		 * By reusing this mutex around the licenseManager->createDrmSession()
+		 * call, we ensure that, in fast channel-change scenarios, the stop
+		 * path can wait until the PrefetchThread has exited the license
+		 * acquisition flow before moving to a new tune. This helps to avoid
+		 * applying a previous tune's license to the CDM after a new tune
+		 * has been initiated.
+		 *
+		 * @note Callers of NotifyDrmFailure() and any code that may call it
+		 * from within the CreateDRMSession flow must not already hold
+		 * mLicenseAcquisitionMutex. That contract is required to avoid recursive
+		 * locking and potential deadlocks.
+		 */
+		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
 		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 	}
 

@@ -54,7 +54,7 @@ public:
 	std::string accessToken;
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
-	bool licenseRequestAbort;
+	std::atomic<bool> licenseRequestAbort;
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
