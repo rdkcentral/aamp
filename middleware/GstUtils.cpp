@@ -52,6 +52,12 @@ GstCaps* GetCaps(GstStreamOutputFormat format)
 					"mpegversion", G_TYPE_INT, 2,
 					"stream-format", G_TYPE_STRING, "adts", NULL);
 			break;
+		case GST_FORMAT_AUDIO_ES_AAC_RAW:
+			caps = gst_caps_new_simple ("audio/mpeg",
+					"mpegversion", G_TYPE_INT, 4,
+					"framed", G_TYPE_BOOLEAN, TRUE,
+					"stream-format", G_TYPE_STRING, "raw", NULL);
+			break;
 		case GST_FORMAT_AUDIO_ES_AC3:
 			caps = gst_caps_new_simple ("audio/x-ac3", NULL, NULL);
 			break;
