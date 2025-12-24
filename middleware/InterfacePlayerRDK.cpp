@@ -2317,23 +2317,23 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		}
 
 #if defined(__APPLE__)
-	if (eGST_MEDIATYPE_VIDEO == streamId)
-	{
-		if( pInterfacePlayerRDK->gstCbExportYUVFrame)
+		if( pInterfacePlayerRDK->gstCbExportYUVFrame )
 		{
-			MW_LOG_MIL("using appsink");
-			GstElement* appsink = gst_element_factory_make("appsink", NULL);
-			assert(appsink);
-			GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
-			gst_app_sink_set_caps (GST_APP_SINK(appsink), caps);
-			g_object_set (G_OBJECT(appsink), "emit-signals", TRUE, "sync", TRUE, NULL);
-			privatePlayer->SignalConnect(appsink, "new-sample", G_CALLBACK (InterfacePlayerRDK_OnVideoSample), this);
-			g_object_set(stream->sinkbin, "video-sink", appsink, NULL);
-			GstObject **oldobj = (GstObject **)&interfacePlayerPriv->gstPrivateContext->video_sink;
-			GstObject *newobj = (GstObject *)appsink;
-			gst_object_replace( oldobj, newobj );
+			if (eGST_MEDIATYPE_VIDEO == streamId)
+			{
+				MW_LOG_MIL("using appsink");
+				GstElement* appsink = gst_element_factory_make("appsink", NULL);
+				assert(appsink);
+				GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
+				gst_app_sink_set_caps (GST_APP_SINK(appsink), caps);
+				g_object_set (G_OBJECT(appsink), "emit-signals", TRUE, "sync", TRUE, NULL);
+				privatePlayer->SignalConnect(appsink, "new-sample", G_CALLBACK (InterfacePlayerRDK_OnVideoSample), this);
+				g_object_set(stream->sinkbin, "video-sink", appsink, NULL);
+				GstObject **oldobj = (GstObject **)&interfacePlayerPriv->gstPrivateContext->video_sink;
+				GstObject *newobj = (GstObject *)appsink;
+				gst_object_replace( oldobj, newobj );
+			}
 		}
-	}
 #endif
 	}
 	gst_bin_add(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
