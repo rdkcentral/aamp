@@ -503,7 +503,6 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		 * @brief mLicenseAcquisitionMutex shouldn't be locked before calling
 		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
 		 */
-
 		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 		return ret;
 	}
@@ -545,7 +544,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 
 
 	//set failures here 
-	if(NULL == drmSession)
+	if(drmSession == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
 		/**
