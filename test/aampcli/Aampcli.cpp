@@ -412,7 +412,11 @@ static int main_func(int argc, char **argv)
 
 int main( int argc, char **argv )
 {
-#if defined(__APPLE__) && !defined(USE_OPENGL) && defined(__aarch64__)
+#ifdef USE_OPENGL
+	return main_func(argc,argv);
+#endif
+
+#if defined(__APPLE__) && defined (__GST_MACOS_H__)
 	return gst_macos_main((GstMainFunc)main_func, argc, argv, NULL);
 #else
 	return main_func(argc,argv);
