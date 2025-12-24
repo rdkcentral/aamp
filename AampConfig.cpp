@@ -357,7 +357,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// this will eventually be default enabled and deprecated as a configuration
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
-	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
+	{true, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
@@ -372,6 +372,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false},
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
+	{true, "useStaticPipeline", eAAMPConfig_UseStaticPipeline, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

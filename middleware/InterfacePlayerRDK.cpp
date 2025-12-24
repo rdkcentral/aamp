@@ -35,6 +35,7 @@
 #include "player-xternal-stats.h"
 #endif
 #include "PlayerUtils.h"
+#include "drm/DrmConstants.h"
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
@@ -61,6 +62,42 @@ static const char* GstPluginNamePR = "playreadydecryptor";
 static const char* GstPluginNameWV = "widevinedecryptor";
 static const char* GstPluginNameCK = "clearkeydecryptor";
 static const char* GstPluginNameVMX = "verimatrixdecryptor";
+
+/**
+ * @brief Get GStreamer decryptor plugin name based on DRM system UUID
+ * @param[in] drmSystemId DRM system UUID (e.g., WIDEVINE_UUID, PLAYREADY_UUID)
+ * @retval GStreamer plugin name for the decryptor, or nullptr if unsupported
+ */
+static const char* GetDecryptorPluginName(const char* drmSystemId)
+{
+	if (!drmSystemId)
+	{
+		return GstPluginNameWV; // Default to Widevine for backward compatibility
+	}
+
+	if (strcmp(drmSystemId, WIDEVINE_UUID) == 0)
+	{
+		return GstPluginNameWV;
+	}
+	else if (strcmp(drmSystemId, PLAYREADY_UUID) == 0)
+	{
+		return GstPluginNamePR;
+	}
+	else if (strcmp(drmSystemId, CLEARKEY_UUID) == 0)
+	{
+		return GstPluginNameCK;
+	}
+	else if (strcmp(drmSystemId, VERIMATRIX_UUID) == 0)
+	{
+		return GstPluginNameVMX;
+	}
+	else
+	{
+		MW_LOG_WARN("Unknown DRM system ID: %s, defaulting to Widevine", drmSystemId);
+		return GstPluginNameWV; // Default fallback
+	}
+}
+
 #define GST_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
 
 #include <assert.h>
@@ -1805,6 +1842,22 @@ static void gst_enough_data(GstElement *source, void *_this)
 		MW_LOG_ERR( "Null check failed." );
 	}
 }
+/**
+ * @brief Initialize the GStreamer appsrc for a given media stream type.
+ *
+ * This function configures the appsrc element for the specified media type (video, audio, subtitle).
+ * For subtitle streams, the caps are set based on the stream format. If using Closed Caption Control,
+ * caps are set to application/x-subtitle-cc. Otherwise, caps are determined by the stream's format.
+ *
+ * Note: For subtitle streams, the caps may be set to application/mp4 if the stream format indicates
+ * MP4-based subtitles. This is safe because the subtitle demuxing and parsing logic expects this format
+ * and downstream elements are designed to handle it. If additional subtitle formats are supported in the
+ * future, a format check should be added here before setting caps to application/mp4.
+ *
+ * @param[in] PlayerInstance Pointer to the player instance.
+ * @param[in] source         The GStreamer appsrc element.
+ * @param[in] type           The media type (video, audio, subtitle).
+ */
 void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * source, int type)
 {
 	InterfacePlayerRDK* _this = (InterfacePlayerRDK*)PlayerInstance;
@@ -1823,6 +1876,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
 		
 		if( privatePlayer->gstPrivateContext->usingRialtoSink &&
+		   privatePlayer->gstPrivateContext->video_sink != NULL &&
 		   !privatePlayer->socInterface->IsVideoMaster(privatePlayer->gstPrivateContext->video_sink) )
 		{
 			// This property is required so that the segment event sent via gst_app_src_push_sample
@@ -1908,6 +1962,508 @@ static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackAny(GstPad *pad
 	}
 	return rtn;
 }
+
+/**
+ * @brief Retrieve the sink element name for a given media type.
+ *
+ * Maps the specified GstMediaType to the corresponding sink element
+ * name used in the GStreamer pipeline.
+ *
+ * @param[in] mediaType	GStreamer media type (audio or video).
+ *
+ * @return const char*	Name of the sink element for the given media type,
+ *                      or nullptr if the media type is not supported.
+ */
+const char* GetSinkNameForMediaType(GstMediaType mediaType)
+{
+	switch (mediaType)
+	{
+	case eGST_MEDIATYPE_VIDEO:
+		return "video_sink"; // or the actual name used in your pipeline
+	case eGST_MEDIATYPE_AUDIO:
+		return "audio_sink"; // or the actual name used in your pipeline
+	default:
+		return nullptr;
+	}
+}
+
+/**
+ * @brief Link two GStreamer elements using their specified static pads.
+ *
+ * Retrieves the named static pads from the given source and sink elements
+ * and attempts to link them together.
+ *
+ * @param[in] src          Source GstElement from which the pad is obtained.
+ * @param[in] srcPadName   Name of the static pad on the source element.
+ * @param[in] sink         Sink GstElement to which the pad is linked.
+ * @param[in] sinkPadName  Name of the static pad on the sink element.
+ *
+ * @return true if the pads were successfully linked; false otherwise.
+ */
+static bool linkElementsByPad(GstElement* src, const char* srcPadName, GstElement* sink, const char* sinkPadName)
+{
+	GstPad* srcPad = gst_element_get_static_pad(src, srcPadName);
+	GstPad* sinkPad = gst_element_get_static_pad(sink, sinkPadName);
+	if (!srcPad || !sinkPad)
+	{
+		if (srcPad) gst_object_unref(srcPad);
+		if (sinkPad) gst_object_unref(sinkPad);
+		return false;
+	}
+	GstPadLinkReturn linkRet = gst_pad_link_full(srcPad, sinkPad, GST_PAD_LINK_CHECK_NOTHING);
+	gst_object_unref(srcPad);
+	gst_object_unref(sinkPad);
+	return (linkRet == GST_PAD_LINK_OK);
+}
+
+/**
+ * @brief Static callback for handling new pads added by the demuxer element.
+ *
+ * This function is invoked when the demuxer element in the GStreamer pipeline
+ * adds a new pad (e.g., when a new audio or video stream is detected). It determines
+ * the media type of the new pad, logs relevant information, and delegates further
+ * handling to the appropriate InterfacePlayerRDK instance.
+ *
+ * @param demux   Pointer to the GStreamer demuxer element emitting the signal.
+ * @param newPad  Pointer to the newly added GStreamer pad.
+ * @param _this   Pointer to the InterfacePlayerRDK instance (passed as user data).
+ */
+static void HandleDemuxPadAddedStatic(GstElement* demux, GstPad* newPad, void* _this)
+{
+	MW_LOG_WARN("Entering static pipeline functionality");
+	InterfacePlayerRDK* pInterfacePlayerRDK = static_cast<InterfacePlayerRDK*>(_this);
+	if (!pInterfacePlayerRDK)
+	{
+		return;
+	}
+
+	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	if (!privatePlayer)
+	{
+		return;
+	}
+
+	GstMediaType mediaType = eGST_MEDIATYPE_DEFAULT;
+	MW_LOG_WARN("Demux pad added callback for demux:%s pad:%s", GST_ELEMENT_NAME(demux), GST_PAD_NAME(newPad));
+
+	// Determine media type from caps
+	GstCaps *caps = gst_pad_get_current_caps(newPad);
+	if (!caps)
+	{
+		MW_LOG_ERR("Failed to get caps from demux pad");
+		return;
+	}
+
+ 	gchar *capsStr = gst_caps_to_string(caps);
+	MW_LOG_WARN("Demux pad caps: %s", capsStr);
+	g_free(capsStr);
+
+	// Figure out if the caps is video or audio
+	GstStructure *s = gst_caps_get_structure(caps, 0);
+	const gchar *name = gst_structure_get_name(s);
+	const gchar *contentProtectionSystem = nullptr;
+
+	if (g_strcmp0(name, "application/x-cenc") == 0)
+	{
+		// Encrypted content - check original-media-type field
+		const gchar *originalMediaType = gst_structure_get_string(s, "original-media-type");
+		if (originalMediaType)
+		{
+			if (g_str_has_prefix(originalMediaType, "video/"))
+			{
+				mediaType = eGST_MEDIATYPE_VIDEO;
+			}
+			else if (g_str_has_prefix(originalMediaType, "audio/"))
+			{
+				mediaType = eGST_MEDIATYPE_AUDIO;
+			}
+		}
+
+		// Extract the actual protection-system UUID from content caps
+		contentProtectionSystem = gst_structure_get_string(s, "protection-system");
+		if (contentProtectionSystem)
+		{
+			MW_LOG_MIL("Content protection-system from caps: %s", contentProtectionSystem);
+		}
+	}
+	else
+	{
+		MW_LOG_WARN("Demux pad media type caps name: %s", name);
+	}
+
+	gst_caps_unref(caps);
+
+	MW_LOG_MIL("Demux pad media type: %s", gstGetMediaTypeName(mediaType));
+	if (mediaType == eGST_MEDIATYPE_DEFAULT)
+	{
+		MW_LOG_WARN("Unknown demux pad media type for demux:%s pad:%s", GST_ELEMENT_NAME(demux), GST_PAD_NAME(newPad));
+		return;
+	}
+	gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[mediaType];
+	// Create and add queue element
+	GstElement* queue = gst_element_factory_make("queue", nullptr);
+	if (!queue)
+	{
+		MW_LOG_ERR("Failed to create queue for demux:%s", GST_ELEMENT_NAME(demux));
+		return;
+	}
+
+	MW_LOG_WARN("Created queue for demux:%s", GST_ELEMENT_NAME(demux));
+	gst_bin_add(GST_BIN(stream->sinkbin), queue);
+	// DON'T sync queue state yet - keep in NULL for proper static pipeline linking
+
+	// Link demux pad (GstPad*) directly to queue's sink pad
+	GstPad* queueSinkPad = gst_element_get_static_pad(queue, "sink");
+	if (!queueSinkPad)
+	{
+		MW_LOG_ERR("Failed to get sink pad from queue");
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+	GstPadLinkReturn linkRet = gst_pad_link(newPad, queueSinkPad);
+	gst_object_unref(queueSinkPad);
+	if (linkRet != GST_PAD_LINK_OK)
+	{
+		MW_LOG_ERR("Failed to link demux pad to queue sink pad");
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+
+	MW_LOG_WARN("Linked demux pad to queue sink pad");
+	// Get appropriate decryptor based on actual content protection-system
+	// Use content protection-system if available, otherwise fall back to mDrmSystem
+	const char* drmSystemToUse = contentProtectionSystem ? contentProtectionSystem : pInterfacePlayerRDK->mDrmSystem;
+	const char* decryptorPluginName = GetDecryptorPluginName(drmSystemToUse);
+
+	if (contentProtectionSystem && pInterfacePlayerRDK->mDrmSystem)
+	{
+		// Log if there's a mismatch between preferred and actual DRM
+		if (strcmp(contentProtectionSystem, pInterfacePlayerRDK->mDrmSystem) != 0)
+		{
+			MW_LOG_WARN("DRM mismatch - Preferred: %s, Content: %s. Using content protection-system.", pInterfacePlayerRDK->mDrmSystem, contentProtectionSystem);
+		}
+	}
+
+	if (drmSystemToUse)
+	{
+		MW_LOG_MIL("Creating decryptor for DRM system: %s, plugin: %s", drmSystemToUse, decryptorPluginName);
+	}
+	else
+ 	{
+		MW_LOG_WARN("DRM system not set, using default decryptor: %s", decryptorPluginName);
+	}
+
+	GstElement* decryptor = gst_element_factory_make(decryptorPluginName, nullptr);
+	if (!decryptor)
+	{
+		MW_LOG_ERR("Failed to create %s decryptor for demux:%s. Plugin may not be available on this platform.", decryptorPluginName, GST_ELEMENT_NAME(demux));
+		return;
+	}
+
+	MW_LOG_WARN("Created %s decryptor for demux:%s", decryptorPluginName, GST_ELEMENT_NAME(demux));
+	gst_bin_add(GST_BIN(stream->sinkbin), decryptor);
+	// Elements stay in NULL state for static pipeline linking
+
+	MW_LOG_MIL("Linking elements ivideo_sinkpipeline for %s", gstGetMediaTypeName(mediaType));
+
+	// Link queue to decryptor using linkElementsByPad
+	if (!linkElementsByPad(queue, "src", decryptor, "sink"))
+	{
+		MW_LOG_ERR("Failed to link queue to decryptor pads");
+		gst_element_set_state(decryptor, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), decryptor);
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+
+	MW_LOG_WARN("Successfully linked queue to decryptor via linkElementsByPad");
+
+	// Get the pre-created rialto sink (created in SetupStream)
+	/* GstElement* realSink = nullptr;
+	if (mediaType == eGST_MEDIATYPE_VIDEO)
+	{
+		realSink = privatePlayer->gstPrivateContext->video_sink;
+		MW_LOG_WARN("Using pre-created rialtomsevideosink: %p", realSink);
+	}
+	else if (mediaType == eGST_MEDIATYPE_AUDIO)
+	{
+		realSink = privatePlayer->gstPrivateContext->audio_sink;
+		MW_LOG_WARN("Using pre-created rialtomseaudiosink: %p", realSink);
+	}
+
+	if (!realSink)
+	{
+		MW_LOG_ERR("Pre-created rialto sink not found for demux:%s", GST_ELEMENT_NAME(demux));
+		return;
+	}*/
+
+	GstElement* realSink = nullptr;
+	const char* sinkName = GetSinkNameForMediaType(mediaType);
+	if (sinkName)
+	{
+		realSink = SinkIdentifier::GetSinkByName(stream->sinkbin, sinkName);
+		MW_LOG_WARN("Using pre-created sink '%s': %p", sinkName, realSink);
+	}
+	if (!realSink)
+	{
+		MW_LOG_ERR("Pre-created rialto sink not found for demux:%s", GST_ELEMENT_NAME(demux));
+		// Cleanup queue and decryptor elements before returning
+		if (queue)
+		{
+			gst_element_set_state(queue, GST_STATE_NULL);
+			gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+			gst_object_unref(queue);
+			queue = nullptr;
+		}
+		if (decryptor)
+		{
+			gst_element_set_state(decryptor, GST_STATE_NULL);
+			gst_bin_remove(GST_BIN(stream->sinkbin), decryptor);
+			gst_object_unref(decryptor);
+			decryptor = nullptr;
+		}
+		return;
+	}
+
+	// Sink already added to bin in SetupStream, no need to add again
+
+	// Link decryptor to rialto sink using linkElementsByPad
+	if (!linkElementsByPad(decryptor, "src", realSink, "sink"))
+	{
+		MW_LOG_ERR("Failed to link decryptor to rialto sink in static pipeline");
+		gst_element_set_state(realSink, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), realSink);
+		gst_element_set_state(decryptor, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), decryptor);
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+
+	MW_LOG_WARN("Successfully linked decryptor to rialto sink in static pipeline");
+
+	// NOW sync all elements to parent state - proper static pipeline approach
+	gst_element_sync_state_with_parent(queue);
+	gst_element_sync_state_with_parent(decryptor);
+	gst_element_sync_state_with_parent(realSink);
+
+	MW_LOG_MIL("Successfully configured static decryption pipeline for %s track", mediaType == eGST_MEDIATYPE_VIDEO ? "video" : "audio");
+}
+
+/**
+ * @brief Static callback function invoked when a new pad is added to the demuxer element.
+ *
+ * This function serves as a static wrapper for handling the "pad-added" signal from a GStreamer
+ * demuxer element. It delegates the actual handling to the HandleDemuxPadAddedStatic function.
+ *
+ * @param demux Pointer to the GStreamer demuxer element that emitted the signal.
+ * @param newPad Pointer to the newly added GStreamer pad.
+ * @param _this User data pointer, typically used to pass the instance of the class or context.
+ */
+static void GstPlayer_OnDemuxPadAddedCb_Static(GstElement* demux, GstPad* newPad, void* _this)
+{
+    HandleDemuxPadAddedStatic(demux, newPad, _this);
+}
+
+/*static void GstPlayer_OnDemuxPadAddedCb_Static(GstElement* demux, GstPad* newPad, void* _this)
+{
+	MW_LOG_WARN("Entering static pipeline functionality");
+	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK *)_this;
+	if (!pInterfacePlayerRDK)
+	{
+		return;
+	}
+
+	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	if (!privatePlayer)
+	{
+		return;
+	}
+
+	GstMediaType mediaType = eGST_MEDIATYPE_DEFAULT;
+	MW_LOG_WARN("Demux pad added callback for demux:%s pad:%s", GST_ELEMENT_NAME(demux), GST_PAD_NAME(newPad));
+
+	// Determine media type from caps
+	GstCaps *caps = gst_pad_get_current_caps(newPad);
+	if (!caps)
+	{
+		MW_LOG_ERR("Failed to get caps from demux pad");
+		return;
+	}
+
+	gchar *capsStr = gst_caps_to_string(caps);
+	MW_LOG_WARN("Demux pad caps: %s", capsStr);
+	g_free(capsStr);
+
+	// Figure out if the caps is video or audio
+	GstStructure *s = gst_caps_get_structure(caps, 0);
+	const gchar *name = gst_structure_get_name(s);
+	const gchar *contentProtectionSystem = nullptr;
+
+	if (g_strcmp0(name, "application/x-cenc") == 0)
+	{
+		// Encrypted content - check original-media-type field
+		const gchar *originalMediaType = gst_structure_get_string(s, "original-media-type");
+		if (originalMediaType)
+		{
+			if (g_str_has_prefix(originalMediaType, "video/"))
+			{
+				mediaType = eGST_MEDIATYPE_VIDEO;
+			}
+			else if (g_str_has_prefix(originalMediaType, "audio/"))
+			{
+				mediaType = eGST_MEDIATYPE_AUDIO;
+			}
+		}
+
+		// Extract the actual protection-system UUID from content caps
+		contentProtectionSystem = gst_structure_get_string(s, "protection-system");
+		if (contentProtectionSystem)
+		{
+			MW_LOG_MIL("Content protection-system from caps: %s", contentProtectionSystem);
+		}
+	}
+	else
+	{
+		MW_LOG_WARN("Demux pad media type caps name: %s", name);
+	}
+
+	gst_caps_unref(caps);
+
+	MW_LOG_MIL("Demux pad media type: %s", gstGetMediaTypeName(mediaType));
+	if (mediaType == eGST_MEDIATYPE_DEFAULT)
+	{
+		MW_LOG_WARN("Unknown demux pad media type for demux:%s pad:%s", GST_ELEMENT_NAME(demux), GST_PAD_NAME(newPad));
+		return;
+	}
+
+	gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[mediaType];
+
+	// Create and add queue element
+	GstElement* queue = gst_element_factory_make("queue", nullptr);
+	if (!queue)
+	{
+		MW_LOG_ERR("Failed to create queue for demux:%s", GST_ELEMENT_NAME(demux));
+		return;
+	}
+
+	MW_LOG_WARN("Created queue for demux:%s", GST_ELEMENT_NAME(demux));
+	gst_bin_add(GST_BIN(stream->sinkbin), queue);
+	// DON'T sync queue state yet - keep in NULL for proper static pipeline linking
+
+	// Link demux pad to queue using linkElementsByPad
+	if (!linkElementsByPad(GST_ELEMENT(newPad), "src", queue, "sink"))
+	{
+		MW_LOG_ERR("Failed to link demux pad to queue sink pad");
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+
+	MW_LOG_WARN("Linked demux pad to queue sink pad");
+
+	// Get appropriate decryptor based on actual content protection-system
+	// Use content protection-system if available, otherwise fall back to mDrmSystem
+	const char* drmSystemToUse = contentProtectionSystem ? contentProtectionSystem : pInterfacePlayerRDK->mDrmSystem;
+	const char* decryptorPluginName = GetDecryptorPluginName(drmSystemToUse);
+	
+	if (contentProtectionSystem && pInterfacePlayerRDK->mDrmSystem)
+	{
+		// Log if there's a mismatch between preferred and actual DRM
+		if (strcmp(contentProtectionSystem, pInterfacePlayerRDK->mDrmSystem) != 0)
+		{
+			MW_LOG_WARN("DRM mismatch - Preferred: %s, Content: %s. Using content protection-system.", 
+			            pInterfacePlayerRDK->mDrmSystem, contentProtectionSystem);
+		}
+	}
+	
+	if (drmSystemToUse)
+	{
+		MW_LOG_MIL("Creating decryptor for DRM system: %s, plugin: %s", 
+		           drmSystemToUse, decryptorPluginName);
+	}
+	else
+	{
+		MW_LOG_WARN("DRM system not set, using default decryptor: %s", decryptorPluginName);
+	}
+
+	GstElement* decryptor = gst_element_factory_make(decryptorPluginName, nullptr);
+	if (!decryptor)
+	{
+		MW_LOG_ERR("Failed to create %s decryptor for demux:%s. Plugin may not be available on this platform.", 
+		           decryptorPluginName, GST_ELEMENT_NAME(demux));
+		return;
+	}
+
+	MW_LOG_WARN("Created %s decryptor for demux:%s", decryptorPluginName, GST_ELEMENT_NAME(demux));
+	gst_bin_add(GST_BIN(stream->sinkbin), decryptor);
+	// Elements stay in NULL state for static pipeline linking
+	
+	MW_LOG_MIL("Linking elements in static pipeline for %s", gstGetMediaTypeName(mediaType));
+
+	// Manual pad linking to bypass custom element checks while respecting caps
+	// gst_element_link() fails on Xi One UK widevinedecryptor despite compatible template caps
+	// Link queue to decryptor using linkElementsByPad
+	if (!linkElementsByPad(queue, "src", decryptor, "sink"))
+	{
+		MW_LOG_ERR("Failed to link queue to decryptor pads");
+		gst_element_set_state(decryptor, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), decryptor);
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+
+	MW_LOG_WARN("Successfully linked queue to decryptor via linkElementsByPad");
+
+	// Get the pre-created rialto sink (created in SetupStream)
+	GstElement* realSink = nullptr;
+	if (mediaType == eGST_MEDIATYPE_VIDEO)
+	{
+		realSink = privatePlayer->gstPrivateContext->video_sink;
+		MW_LOG_WARN("Using pre-created rialtomsevideosink: %p", realSink);
+	}
+	else if (mediaType == eGST_MEDIATYPE_AUDIO)
+	{
+		realSink = privatePlayer->gstPrivateContext->audio_sink;
+		MW_LOG_WARN("Using pre-created rialtomseaudiosink: %p", realSink);
+	}
+	
+	if (!realSink)
+	{
+		MW_LOG_ERR("Pre-created rialto sink not found for demux:%s", GST_ELEMENT_NAME(demux));
+		return;
+	}
+
+	// Sink already added to bin in SetupStream, no need to add again
+	
+	// Link decryptor to rialto sink using linkElementsByPad
+	if (!linkElementsByPad(decryptor, "src", realSink, "sink"))
+	{
+		MW_LOG_ERR("Failed to link decryptor to rialto sink in static pipeline");
+		gst_element_set_state(realSink, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), realSink);
+		gst_element_set_state(decryptor, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), decryptor);
+		gst_element_set_state(queue, GST_STATE_NULL);
+		gst_bin_remove(GST_BIN(stream->sinkbin), queue);
+		return;
+	}
+
+	MW_LOG_WARN("Successfully linked decryptor to rialto sink in static pipeline");
+	
+	// NOW sync all elements to parent state - proper static pipeline approach
+	gst_element_sync_state_with_parent(queue);
+	gst_element_sync_state_with_parent(decryptor);
+	gst_element_sync_state_with_parent(realSink);
+	
+	MW_LOG_MIL("Successfully configured static decryption pipeline for %s track", 
+	           mediaType == eGST_MEDIATYPE_VIDEO ? "video" : "audio");
+}*/
+
 static void GstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, void* _this)
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK *)_this;
@@ -2079,7 +2635,7 @@ static void httpsoup_source_setup (GstElement * element, GstElement * source, gp
 		}
 	}
 }
-static GstElement* InterfacePlayerRDK_GetAppSrc(void *_this, GstMediaType mediaType)
+static GstElement* InterfacePlayerRDK_GetAppSrc(void *_this, GstMediaType mediaType, bool initializeNow = true)
 {
 	GstElement *source;
 	source = gst_element_factory_make("appsrc", NULL);
@@ -2088,7 +2644,10 @@ static GstElement* InterfacePlayerRDK_GetAppSrc(void *_this, GstMediaType mediaT
 		MW_LOG_WARN("InterfacePlayerRDK_GetAppSrc Cannot create source");
 		return NULL;
 	}
-	gstInitializeSource(_this, G_OBJECT(source), mediaType);
+	if (initializeNow)
+	{
+		gstInitializeSource(_this, G_OBJECT(source), mediaType);
+	}
 	return source;
 }
 
@@ -2151,7 +2710,7 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gst_media_stream* stream = &privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
 
-	// Check elements are not already assigned
+	//Check elements are not already assigned
 	if (stream->sinkbin)
 	{
 		MW_LOG_ERR("Sinkbin already assigned");
@@ -2226,6 +2785,13 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 	}
 }
 
+/**
+ * @brief Set up the GStreamer pipeline for a given stream type.
+ * @param[in] streamId        The media stream type (e.g., video, audio, subtitle).
+ * @param[in] playerInstance  Pointer to the player instance.
+ * @param[in] manifest        The manifest URL or data.
+ * @return 0 on success, negative value on failure.
+ */
 int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::string manifest)
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
@@ -2237,27 +2803,124 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		{
 			if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 			{
-				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
-				MW_LOG_INFO("subs using rialto subtitle sink");
-				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
-				if (textsink)
+				if (m_gstConfigParam->useStaticPipeline)
 				{
-					MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+					MW_LOG_INFO("subs using rialto subtitle sink in static pipeline");
+					
+					// Create appsrc
+					stream->source = GST_ELEMENT(gst_object_ref_sink(InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)));
+					
+					// Set caps on appsrc to indicate we're providing application/mp4 data
+					// This replaces typefind's auto-detection that decodebin would do
+					GstCaps* subtitle_caps = gst_caps_from_string("application/mp4");
+					g_object_set(stream->source, "caps", subtitle_caps, NULL);
+					gst_caps_unref(subtitle_caps);
+					MW_LOG_INFO("Set appsrc caps to application/mp4 for subtitle stream");
+					
+					// Create pipeline elements matching working dynamic case:
+					// appsrc → subtecmp4transform → vipertransform → rialtomsesubtitlesink
+					GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+					GstElement* vipertransform = gst_element_factory_make("vipertransform", NULL);
+					GstElement* subtecmp4transform = gst_element_factory_make("subtecmp4transform", NULL);
+					
+					if (!textsink || !vipertransform)
+					{
+						MW_LOG_ERR("Failed to create subtitle pipeline elements: textsink=%p vipertransform=%p", 
+							textsink, vipertransform);
+						if (textsink) gst_object_unref(textsink);
+						if (vipertransform) gst_object_unref(vipertransform);
+						if (subtecmp4transform) gst_object_unref(subtecmp4transform);
+						return -1;
+					}
+					
+					// Create subtitle_bin to hold the pipeline
+					stream->sinkbin = gst_bin_new("subtitle_bin");
+					if (!stream->sinkbin)
+					{
+						MW_LOG_ERR("Failed to create subtitle_bin");
+						gst_object_unref(textsink);
+						gst_object_unref(vipertransform);
+						if (subtecmp4transform) gst_object_unref(subtecmp4transform);
+						return -1;
+					}
+					stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));
+					
+					// Build pipeline based on element availability
+					if (subtecmp4transform)
+					{
+						MW_LOG_INFO("Creating static subtitle pipeline: appsrc → subtecmp4transform → vipertransform → rialtomsesubtitlesink");
+						
+						// Add all elements to bin
+						gst_bin_add_many(GST_BIN(stream->sinkbin), stream->source, subtecmp4transform, vipertransform, textsink, NULL);
+						
+						// Link: appsrc → subtecmp4transform → vipertransform → fakesink
+						if (!gst_element_link_many(stream->source, subtecmp4transform, vipertransform, textsink, NULL))
+						{
+							MW_LOG_ERR("Failed to link subtitle pipeline elements");
+							gst_object_unref(stream->sinkbin);
+							stream->sinkbin = NULL;
+							return -1;
+						}
+					}
+					else
+					{
+						MW_LOG_WARN("subtecmp4transform not available, creating pipeline: appsrc → vipertransform → rialtomsesubtitlesink");
+						
+						// Add elements to bin (without subtecmp4transform)
+						gst_bin_add_many(GST_BIN(stream->sinkbin), stream->source, vipertransform, textsink, NULL);
+						
+						// Link: appsrc → vipertransform → fakesink
+						if (!gst_element_link_many(stream->source, vipertransform, textsink, NULL))
+						{
+							MW_LOG_ERR("Failed to link subtitle pipeline elements");
+							gst_object_unref(stream->sinkbin);
+							stream->sinkbin = NULL;
+							return -1;
+						}
+					}
+					
+					// Add subtitle_bin to pipeline
+					gst_bin_add(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin);
+					interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
+					
+					// Set mute property on rialtomsesubtitlesink
+					if (textsink)
+					{
+						MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, textsink);
+						g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+					}
+					
+					// Sync state
+					gst_element_sync_state_with_parent(stream->sinkbin);
+					
+					MW_LOG_MIL("using rialtomsesubtitlesink sink=%p in static pipeline", 
+						interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+					return 0;
 				}
 				else
 				{
-					MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
-				}
-				auto subtitlebin = gst_bin_new("subtitlebin");
-				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
-				gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
-				gst_element_link(vipertransform, textsink);
-				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
+					stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
+					MW_LOG_INFO("subs using rialto subtitle sink");
+					GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+					if (textsink)
+					{
+						MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+					}
+					else
+					{
+						MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
+					}
+					auto subtitlebin = gst_bin_new("subtitlebin");
+					auto vipertransform = gst_element_factory_make("vipertransform", NULL);
+					gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
+					gst_element_link(vipertransform, textsink);
+					gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
 
-				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-				interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
-				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
-				g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+					g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
+					interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
+					MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+					g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+				}
 			}
 			else
 			{
@@ -2290,6 +2953,128 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	}
 	else
 	{
+		if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink &&
+			m_gstConfigParam->useStaticPipeline)
+		{
+			if (eGST_MEDIATYPE_AUDIO == streamId)
+			{
+				MW_LOG_INFO("audio using rialtomseaudiosink in static pipeline format=%d", stream->format);
+				
+				// Only use static pipeline for ISO_BMFF (MP4 container) format
+				if (stream->format != GST_FORMAT_ISO_BMFF)
+				{
+					MW_LOG_WARN("Non-ISO_BMFF audio format (%d), falling back to playbin", stream->format);
+					// Fall through to use playbin below
+				}
+				else
+				{
+					MW_LOG_WARN("Entering ISO_BMFF audio static pipeline setup");
+					stream->sinkbin = gst_bin_new("audio_bin");
+					if (!stream->sinkbin)
+					{
+						MW_LOG_WARN("Cannot set up audio_bin");
+						return -1;
+					}
+					MW_LOG_WARN("audio_bin created successfully");
+					stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));
+				stream->source = GST_ELEMENT(gst_object_ref_sink(InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, (GstMediaType)streamId, false)));
+					MW_LOG_INFO("Using qtdemux for ISO_BMFF audio stream");
+					auto demux = gst_element_factory_make("qtdemux", NULL);
+					if (!demux)
+					{
+						MW_LOG_ERR("Failed to create qtdemux element for audio!");
+						return -1;
+					}
+					MW_LOG_WARN("qtdemux created successfully for audio");
+					
+					// Create rialto audio sink and add to bin
+					auto audioSink = gst_element_factory_make("rialtomseaudiosink", "audio_sink");
+					if (!audioSink)
+					{
+						MW_LOG_ERR("Failed to create rialtomseaudiosink");
+						return -1;
+					}
+					MW_LOG_WARN("rialtomseaudiosink created successfully: %p", audioSink);
+					interfacePlayerPriv->gstPrivateContext->audio_sink = audioSink;
+					
+					// Initialize appsrc after sink is created
+					gstInitializeSource(pInterfacePlayerRDK, G_OBJECT(stream->source), streamId);
+					
+					g_signal_connect(demux, "pad-added", G_CALLBACK(GstPlayer_OnDemuxPadAddedCb_Static), pInterfacePlayerRDK);
+					gst_bin_add_many(GST_BIN(stream->sinkbin), stream->source, demux, audioSink, NULL);
+					gst_element_link_many(stream->source, demux, NULL);
+					gst_bin_add_many(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin, NULL);
+					// Sync state of elements in the bin
+					gst_element_sync_state_with_parent(stream->source);
+					gst_element_sync_state_with_parent(demux);
+					gst_element_sync_state_with_parent(stream->sinkbin);
+					return 0;
+				}
+			}
+			else if (eGST_MEDIATYPE_VIDEO == streamId)
+			{
+				MW_LOG_INFO("video using rialtomsevideosink in static pipeline format=%d", stream->format);
+				
+				// Only use static pipeline for ISO_BMFF (MP4 container) format
+				if (stream->format != GST_FORMAT_ISO_BMFF)
+				{
+					MW_LOG_WARN("Non-ISO_BMFF video format (%d), falling back to playbin", stream->format);
+					// Fall through to use playbin below
+				}
+				else
+				{
+					MW_LOG_WARN("Entering ISO_BMFF video static pipeline setup");
+					stream->sinkbin = gst_bin_new("video_bin");
+					if (!stream->sinkbin)
+					{
+						MW_LOG_WARN("Cannot set up video_bin");
+						return -1;
+					}
+					MW_LOG_WARN("video_bin created successfully");
+					stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));
+					stream->source = GST_ELEMENT(gst_object_ref_sink(InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, (GstMediaType)streamId, false)));
+					MW_LOG_WARN("appsrc retrieved successfully");
+					
+					MW_LOG_INFO("Using qtdemux for ISO_BMFF video stream");
+					auto demux = gst_element_factory_make("qtdemux", NULL);
+					if (!demux)
+					{
+						MW_LOG_ERR("Failed to create qtdemux element!");
+						return -1;
+					}
+					MW_LOG_WARN("qtdemux created successfully");
+					
+					// Create rialto video sink and add to bin
+					auto videoSink = gst_element_factory_make("rialtomsevideosink", "video_sink");
+					if (!videoSink)
+					{
+						MW_LOG_ERR("Failed to create rialtomsevideosink");
+						return -1;
+					}
+					MW_LOG_WARN("rialtomsevideosink created successfully: %p", videoSink);
+					interfacePlayerPriv->gstPrivateContext->video_sink = videoSink;
+					
+					// Initialize appsrc after sink is created
+					gstInitializeSource(pInterfacePlayerRDK, G_OBJECT(stream->source), streamId);
+					
+					g_signal_connect(demux, "pad-added", G_CALLBACK(GstPlayer_OnDemuxPadAddedCb_Static), pInterfacePlayerRDK);
+					gst_bin_add_many(GST_BIN(stream->sinkbin), stream->source, demux, videoSink, NULL);
+					gst_element_link_many(stream->source, demux, NULL);
+					gst_bin_add_many(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin, NULL);
+					// Sync state of elements in the bin
+					gst_element_sync_state_with_parent(stream->source);
+					gst_element_sync_state_with_parent(demux);
+					gst_element_sync_state_with_parent(stream->sinkbin);
+					return 0;
+				}
+			}
+		else
+		{
+			MW_LOG_WARN("Invalid streamId for rialto sink static pipeline");
+			return -1;
+		}
+	}
+
 		MW_LOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
 
@@ -4487,7 +5272,12 @@ void InterfacePlayerRDK::SetVolumeOrMuteUnMute(void)
 	MW_LOG_MIL("volume == %lf muted == %s", interfacePlayerPriv->gstPrivateContext->audioVolume,interfacePlayerPriv->gstPrivateContext->audioMuted ? "true" : "false");
 	if (nullptr != gSource)
 	{
-		if (nullptr != mutePropertyName)
+		// Check if element actually supports the properties before setting
+		GObjectClass *object_class = G_OBJECT_GET_CLASS(gSource);
+		bool hasMuteProperty = mutePropertyName && g_object_class_find_property(object_class, mutePropertyName);
+		bool hasVolumeProperty = volumePropertyName && g_object_class_find_property(object_class, volumePropertyName);
+		
+		if (nullptr != mutePropertyName && hasMuteProperty)
 		{
 			/* Muting the audio decoder in general to avoid audio passthrough in expert mode for locked channel */
 			if (0 == interfacePlayerPriv->gstPrivateContext->audioVolume)
@@ -4507,10 +5297,19 @@ void InterfacePlayerRDK::SetVolumeOrMuteUnMute(void)
 				// Deliberately left empty
 			}
 		}
-		if ((nullptr != volumePropertyName) && (false == interfacePlayerPriv->gstPrivateContext->audioMuted))
+		else if (nullptr != mutePropertyName)
+		{
+			MW_LOG_WARN("Element %s does not support '%s' property", GST_ELEMENT_NAME(gSource), mutePropertyName);
+		}
+		
+		if ((nullptr != volumePropertyName) && (false == interfacePlayerPriv->gstPrivateContext->audioMuted) && hasVolumeProperty)
 		{
 			MW_LOG_MIL("Setting Volume %f using \"%s\" property",interfacePlayerPriv->gstPrivateContext->audioVolume, volumePropertyName);
 			g_object_set(gSource, volumePropertyName, interfacePlayerPriv->gstPrivateContext->audioVolume, NULL);
+		}
+		else if ((nullptr != volumePropertyName) && !hasVolumeProperty)
+		{
+			MW_LOG_WARN("Element %s does not support '%s' property", GST_ELEMENT_NAME(gSource), volumePropertyName);
 		}
 	}
 	else

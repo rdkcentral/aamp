@@ -21,6 +21,7 @@
 
 #include <gst/app/gstappsrc.h>
 #include <memory>
+#include <cstdio>
 
 typedef enum
 {

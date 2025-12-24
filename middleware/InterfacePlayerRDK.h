@@ -1,7 +1,6 @@
 /*
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
- *
  * Copyright 2024 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -130,6 +129,7 @@ struct Configs
 	int monitorAvsyncThresholdPositiveMs;
 	int monitorAvsyncThresholdNegativeMs;
 	int monitorAvJumpThresholdMs;
+	bool useStaticPipeline;
 };
 
 
@@ -763,9 +763,38 @@ class InterfacePlayerRDK
 		 * @param[in] codecInfo The codec information.
 		 */
 		void SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo);
+		GstElement* GetPreCreatedRialtoSink(GstMediaType mediaType);
 
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
+};
+
+/**
+ * @class SinkIdentifier
+ * @brief Utility class for retrieving GStreamer sink elements by name from a bin.
+ *
+ * This class provides static helper functions to locate and retrieve sink elements
+ * within a GStreamer bin by their registered name. It is used to manage and access
+ * audio/video sink elements in the playback pipeline.
+ */
+class SinkIdentifier
+{
+public:
+	/**
+	 * @brief Retrieve a sink element from a GStreamer bin by name.
+	 *
+	 * This function searches the specified GStreamer bin for a child element
+	 * with the given name and returns a pointer to it if found.
+	 *
+	 * @param[in] bin      The GStreamer bin to search within.
+	 * @param[in] sinkName The name of the sink element to retrieve.
+	 * @return GstElement* Pointer to the sink element if found, or nullptr otherwise.
+	 */
+	static GstElement* GetSinkByName(GstElement* bin, const char* sinkName)
+	{
+		if (!bin || !sinkName) return nullptr;
+		return gst_bin_get_by_name(GST_BIN(bin), sinkName);
+	}
 };
 struct data
 {
@@ -773,5 +802,4 @@ struct data
 	double ElapsedSeconds;
 	bool GstWaitingForData;
 };
-
 #endif // INTERFACE_PLAYER_H

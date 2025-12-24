@@ -10555,8 +10555,8 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			else
 			{
 				AAMPLOG_INFO("mimeType empty");
-				// Mp4Demux is skipped for subtitles
-				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+				// Mp4Demux is skipped for subtitles - use ISO BMFF format for qtdemux
+				subtitleOutputFormat = FORMAT_ISO_BMFF;
 			}
 		}
 		else
