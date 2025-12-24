@@ -7726,17 +7726,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 				}
 				pMediaStreamContext->fragmentDescriptor.Number = startNumber;
-				bool liveSync = false;
 				if (mMPDParseHelper->GetLiveTimeFragmentSync() && !timelineAvailable)
 				{
 					pMediaStreamContext->fragmentDescriptor.Number += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
 					// For LiveTimeSync cases, availability timeOffset and periodstart is same. So take first fragment time based on fragment number.
-					liveSync = true;
-				}
-				if(aamp->mFirstFragmentTimeOffset < 0 && mLowLatencyMode)
-				{
-					aamp->mFirstFragmentTimeOffset = liveSync? (((double)(pMediaStreamContext->fragmentDescriptor.Number - startNumber)  * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
-					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mProgressReportOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf mPTSOffset:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS, mPTSOffset.inSeconds());
 			}
@@ -12763,23 +12756,16 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					assert(pAampLLDashServiceData->maxLatency !=0 );
 					assert(pAampLLDashServiceData->maxLatency >= pAampLLDashServiceData->targetLatency);
 
-					double currentLatency;// = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+					long currentLatency;
 					if(aamp->mNewSeekInfo.GetInfo().isPopulated())
 					{
-						double liveTime = (double)aamp->mNewSeekInfo.GetInfo().getUpdateTime()/1000.0 + mDeltaTime;
-						double finalProgressTime = (aamp->mFirstFragmentTimeOffset) + ((double)aamp->mNewSeekInfo.GetInfo().getPosition()/1000.0);
-						currentLatency = (liveTime - finalProgressTime) * 1000;
-						if(aamp->mProgressReportOffset >= 0)
-						{
-							// Correction with progress offset
-							currentLatency += (aamp->mProgressReportOffset * 1000);
-						}
+						currentLatency = aamp->GetCurrentLatency();
 					}
 					else
 					{
-						currentLatency = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+						currentLatency = static_cast<long>((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
 					}
-					AAMPLOG_TRACE("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
+					AAMPLOG_TRACE("LiveLatency=%ld currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
 #if 0
 					long encoderDisplayLatency = 0;
 					encoderDisplayLatency = (long)( GetEncoderDisplayLatency() * 1000)+currentLatency;
@@ -12810,7 +12796,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								bufferLowHit = true;
 								bufferLowHitCount++;
 								/** Buffer Low hit so push the data to telemetry*/
-								aamp->profiler.SetLLDLowBufferParam(currentLatency, bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
+								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
 								bufferLowCount = 0;
 							}
 						}
@@ -12821,10 +12807,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							bufferLowHitCount = 0;
 						}
 
-						AAMPLOG_INFO("currentLatency = %.02lf  AvailableBuffer = %.02lf minbuffer = %.02lf targetBuffer=%.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
+						AAMPLOG_INFO("currentLatency = %ld  AvailableBuffer = %.02lf minbuffer = %.02lf targetBuffer=%.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
 							currentLatency, bufferValue, minbuffer, targetBuffer, currPlaybackRate, bufferLowHit, isEnoughBuffer, latencyCorrected, bufferCorrectionStarted);
 
-						if ((currentLatency > ((double) pAampLLDashServiceData->maxLatency )) && isEnoughBuffer)
+						if ((currentLatency > static_cast<long>(pAampLLDashServiceData->maxLatency)) && isEnoughBuffer)
 						{
 							if (latencyCorrected)
 							{
@@ -12833,10 +12819,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							}
 							playRate = pAampLLDashServiceData->maxPlaybackRate;
 						}
-						else if (currentLatency < ((double) pAampLLDashServiceData->minLatency) ||
+						else if (currentLatency < static_cast<long>(pAampLLDashServiceData->minLatency) ||
 						(bufferLowHit && (currPlaybackRate != pAampLLDashServiceData->minPlaybackRate)) )
 						{
-							if ((currentLatency < (double) pAampLLDashServiceData->minLatency) && !latencyCorrected)
+							if ((currentLatency < static_cast<long>(pAampLLDashServiceData->minLatency)) && !latencyCorrected)
 							{
 								/**< Rate change due to latency change; So report event; rare condition*/
 								latencyCorrected = true;
@@ -12849,14 +12835,14 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							}
 							playRate = pAampLLDashServiceData->minPlaybackRate;
 						}
-						else if (((currentLatency <= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate ==  pAampLLDashServiceData->maxPlaybackRate))
+						else if (((currentLatency <= static_cast<long>(pAampLLDashServiceData->targetLatency)) &&  currPlaybackRate ==  pAampLLDashServiceData->maxPlaybackRate))
 						{
 							/** latency corrected; stop max rate playback*/
 							latencyCorrected = true;
 							reportEvent = true;
 							playRate = normalPlaybackRate;
 						}
-						else if (((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (bufferValue > minbuffer))
+						else if (((currentLatency >= static_cast<long>(pAampLLDashServiceData->targetLatency)) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (bufferValue > minbuffer))
 						{
 							if (bufferCorrectionStarted)
 							{
