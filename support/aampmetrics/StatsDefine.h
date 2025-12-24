@@ -73,8 +73,8 @@ extern bool g_ForPartnerApps;
 /**
  *  @enum E_VideoStatTrackType
  *  @brief Stores Track types, With respect to Video Stat
- *  Main Manifest download is also considered as seperate track as Stats are same.
- *  Max of 5 Audio tracks data collection supported and seperate IFRAME stats are collected in single track type STAT_IFRAME
+ *  Main Manifest download is also considered as separate track as Stats are same.
+ *  Max of 5 Audio tracks data collection supported and separate IFRAME stats are collected in single track type STAT_IFRAME
  */
 typedef enum E_VideoStatTrackType {
 	STAT_UNKNOWN,
@@ -102,8 +102,8 @@ typedef enum E_VideoStatDataType{
 /**
  *  @struct Track
  *  @brief  Structure to keep the track type and number
- *  	    Main Manifest download is also considered as seperate track as Stats are same.
- *  	    Max of 5 Audio tracks data collection supported and seperate IFRAME stats are collected in single track type STAT_IFRAME
+ *  	    Main Manifest download is also considered as separate track as Stats are same.
+ *  	    Max of 5 Audio tracks data collection supported and separate IFRAME stats are collected in single track type STAT_IFRAME
  */
 struct Track
 {

@@ -75,7 +75,8 @@ protected:
 
 		bool IsPaused()
 		{
-			return mPaused.load();
+			std::lock_guard<std::mutex> lock(mQueueMutex);
+			return mPaused;
 		}
 	};
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;

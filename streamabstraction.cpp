@@ -2317,6 +2317,16 @@ void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, Stream
 		cacheFragStreamInfo.resolution.width = streamInfo->resolution.width;
 		//AAMPLOG_WARN("stream Info bps(%ld) w(%d) h(%d) fr(%f)", cacheFragStreamInfo.bandwidthBitsPerSecond, cacheFragStreamInfo.resolution.width, cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate);
 	}
+	else
+	{
+		AAMPLOG_ERR("UpdateStreamInfoBitrateData: Failed to get stream info for profile %d, using default values", profileIndex);
+		// Set default values to prevent undefined behavior
+		cacheFragStreamInfo.bandwidthBitsPerSecond = 0;
+		cacheFragStreamInfo.reason = mBitrateReason;
+		cacheFragStreamInfo.resolution.height = 0;
+		cacheFragStreamInfo.resolution.framerate = 0;
+		cacheFragStreamInfo.resolution.width = 0;
+	}
 }
 
 
