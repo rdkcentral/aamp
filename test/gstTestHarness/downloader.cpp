@@ -130,6 +130,7 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		delim++;
 	}
 	
+	curl_easy_setopt(context.curl, CURLOPT_USERAGENT, "gstTestHarness/1.0");
 	if( starts_with(url,"http://") || starts_with(url,"https://" ) )
 	{
 		if( range.empty() )
