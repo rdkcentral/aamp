@@ -234,7 +234,7 @@ void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstanc
 {
 	std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
 	mFetchInstance = fetcherInstance;
-	AAMPLOG_INFO("License fetcher set to %p", mFetchInstance);
+	AAMPLOG_INFO("License fetcher set to %p", static_cast<void*>(mFetchInstance));
 }
 
 /**
@@ -485,7 +485,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	bool ret = false;
 	bool isSecClientError = isSecFeatureEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
-	DrmSession *drmSession = NULL;
+	DrmSession *drmSession = nullptr;
 
 	if (mPrivAAMP == nullptr)
 	{
