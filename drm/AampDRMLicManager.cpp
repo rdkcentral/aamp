@@ -161,8 +161,6 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
  */
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
-	mAccessTokenConnector.Release();
-	mAccessTokenConnector.CleanupCurlHeaderResources();
 	licenseRequestAbort = isAbort;
 }
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
