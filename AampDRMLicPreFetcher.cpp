@@ -272,6 +272,10 @@ void AampLicensePreFetcher::PreFetchThread()
 						AAMPLOG_INFO("Notifying DRM failure for type:%d adaptationSetIdx:%u", obj->mType, obj->mAdaptationIdx);
 						bool isSecClientError = isSecFeatureEnabled();
 						DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+						/**
+						 * @brief mLicenseAcquisitionMutex shouldn't be locked before calling
+						 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
+						 */
 						NotifyDrmFailure(obj, std::move(e));
 					}
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
@@ -495,6 +499,11 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if (fetchObj->mHelper == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation,  no helper");
+		/**
+		 * @brief mLicenseAcquisitionMutex shouldn't be locked before calling
+		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
+		 */
+
 		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 		return ret;
 	}
@@ -539,6 +548,10 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if(NULL == drmSession)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
+		/**
+		 * @brief mLicenseAcquisitionMutex shouldn't be locked before calling
+		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
+		 */
 		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 	}
 	else
