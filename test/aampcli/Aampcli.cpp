@@ -414,9 +414,7 @@ int main( int argc, char **argv )
 {
 #ifdef USE_OPENGL
 	return main_func(argc,argv);
-#endif
-
-#if defined(__APPLE__) && defined (__GST_MACOS_H__)
+#elif defined(__APPLE__) && defined (__GST_MACOS_H__)
 	return gst_macos_main((GstMainFunc)main_func, argc, argv, NULL);
 #else
 	return main_func(argc,argv);
