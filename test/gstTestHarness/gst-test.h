@@ -74,17 +74,19 @@ public:
 	
 	// Apply centralized pipeline-level seek when an appsrc becomes ready
 	void OnAppsrcReady(MediaType mediaType, const SeekParam& param) override {
-		(void)mediaType; // single pipeline controls both tracks
-		if (!pipeline) return;
-		GST_INFO("OnAppsrcReady: applying initial seek start=%.3f stop=%.3f flags=0x%x",
-				 param.start_s, param.stop_s, param.flags);
-		SeekRequest req;
-		req.rate    = 1.0;
-		req.start_s = param.start_s;
-		req.stop_s  = param.stop_s;
-		req.flags   = param.flags;
-		req.reason  = SeekRequest::Initial;
-		pipeline->DoSeekNow(req);
+		printf( "entering OnAppsrcReady %s\n", gstutils_GetMediaTypeName(mediaType) );
+		if( pipeline )
+		{
+			GST_INFO("OnAppsrcReady: applying initial seek start=%.3f stop=%.3f flags=0x%x",
+					 param.start_s, param.stop_s, param.flags);
+			SeekParam req;
+			req.rate    = 1.0;
+			req.start_s = param.start_s;
+			req.stop_s  = param.stop_s;
+			req.flags   = param.flags;
+			req.reason  = SeekParam::Initial;
+			pipeline->DoSeekNow(req);
+		}
 	}
 };
 

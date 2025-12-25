@@ -22,14 +22,13 @@
 #include "gst-utils.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "unistd.h"
+#include <unistd.h>
 #include <assert.h>
 #include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/gstdebugutils.h>
 #include <queue>
 #include "mp4demux.hpp"
-
-// refer gstreamer pipeline unexpected behaviors when attempting to render single iframe
-// #define REALTEK_HACK
 
 typedef enum
 { // 1-to-1 map to GstState
@@ -39,20 +38,12 @@ typedef enum
 	ePIPELINE_STATE_PLAYING	= 4, // GST_STATE_PLAYING
 } PipelineState;
 
-// Unified seek request used by Pipeline
-struct SeekRequest {
-	double      rate    = 1.0;   // playback rate
-	double      start_s = 0.0;   // start in seconds
-	double      stop_s  = 0.0;   // stop in seconds (0 or ==start means open)
-	GstSeekFlags flags  = (GstSeekFlags)(GST_SEEK_FLAG_KEY_UNIT | GST_SEEK_FLAG_ACCURATE);
+struct SeekParam {
+	GstSeekFlags flags = (GstSeekFlags)(GST_SEEK_FLAG_KEY_UNIT | GST_SEEK_FLAG_ACCURATE);
+	double start_s = 0.0; // start in seconds
+	double stop_s = 0.0; // stop in seconds
+	double rate = 1.0; // playback rate
 	enum Reason { User = 0, SegmentEnd, Initial, TrickMode } reason = User;
-};
-
-struct SeekParam
-{
-	GstSeekFlags flags;
-	double start_s;
-	double stop_s;
 };
 
 class PipelineContext
@@ -61,16 +52,16 @@ public:
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
-	// Called when an appsrc becomes ready (discovered via deep-notify::source)
-	// Default no-op; app/test harness may override
-	virtual void OnAppsrcReady(MediaType /*mediaType*/, const SeekParam& /*param*/) {}
 	
-	std::mutex segment_seek_mutex;
+	// discovered via deep-notify::source
+	virtual void OnAppsrcReady(MediaType, const SeekParam&){}
+	
 	/**
 	 * This could/should be better abstracted, but the way it works is:
 	 * 1. belated lazy seek done as each appsrc is first connected (MediaStream::found_source)
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
+	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
 };
 
@@ -96,12 +87,8 @@ public:
 	void SendEOS( MediaType mediaType );
 	void Step( void );
 	void ScheduleSeek( const SeekParam &param ); // for non-flushing seek
-	size_t     GetNumPendingSeek(void) const;
-	// New unified seek API
-	bool       RequestSeek(const SeekRequest& req); // enqueue or apply later
-	bool       DoSeekNow(const SeekRequest& req);   // immediate pipeline-level seek
-	// Backwards-compatible wrapper
-	void       Seek( const SeekParam &param );
+	size_t GetNumPendingSeek(void) const;
+	bool DoSeekNow(const SeekParam& req);
 	void Reset( void );
 	
 private:

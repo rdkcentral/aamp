@@ -1317,11 +1317,13 @@ public:
 		pipelineContext.pipeline->Reset();
 		pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
 		pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
-		SeekParam param;
-		param.flags = GST_SEEK_FLAG_FLUSH;
-		param.start_s = position_s;
-		param.stop_s = STOP_NEVER;
-		pipelineContext.pipeline->Seek( param );
+		SeekParam req;
+		req.rate    = 1.0;
+		req.start_s = position_s;
+		req.stop_s  = STOP_NEVER;
+		req.flags   = GST_SEEK_FLAG_FLUSH;
+		req.reason  = SeekParam::User;
+		pipelineContext.pipeline->DoSeekNow(req);
 	}
 	
 	void ProcessCommand( const char *str )

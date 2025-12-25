@@ -19,6 +19,8 @@
 #include "gst-port.h"
 #include "gst-utils.h"
 #include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/gstdebugutils.h>
 #include <inttypes.h>
 #include <thread>
 
@@ -36,7 +38,7 @@ static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), playbin(NULL), appsrc(NULL), injectedSeconds(), context(context), mediaType(mediaType), pad(NULL)
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), playbin(NULL), appsrc(NULL), injectedSeconds(), context(context), mediaType(mediaType)
 	{
 	}
 	
@@ -53,7 +55,14 @@ public:
 	{
 		if( ptr )
 		{
-			GstBuffer *gstBuffer = gst_buffer_new_wrapped( ptr, len);
+			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
+															   (GstMemoryFlags)0,
+															   ptr,                 // data allocated via g_malloc
+															   len,                 // maxsize: total allocation size
+															   0,                   // offset into data
+															   len,                 // visible size
+															   NULL,                // user_data
+															   (GDestroyNotify)g_free );
 			GstFlowReturn ret = gst_app_src_push_buffer( GST_APP_SRC(appsrc), gstBuffer );
 			switch( ret )
 			{
@@ -62,7 +71,6 @@ public:
 					break;
 				default:
 					GST_ERROR_OBJECT(appsrc, "push_buffer failed - %d", ret);
-					//assert(0);
 					break;
 			}
 		}
@@ -72,7 +80,14 @@ public:
 	{
 		if( ptr )
 		{
-			GstBuffer *gstBuffer = gst_buffer_new_wrapped( ptr, len );
+			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
+															   (GstMemoryFlags)0,
+															   ptr,                 // data allocated via g_malloc
+															   len,                 // maxsize: total allocation size
+															   0,                   // offset into data
+															   len,                 // visible size
+															   NULL,                // user_data
+															   (GDestroyNotify)g_free );
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * GST_SECOND);
@@ -88,7 +103,6 @@ public:
 					break;
 				default:
 					GST_ERROR_OBJECT(appsrc, "push_buffer failed - %d", ret);
-					assert(0);
 					break;
 			}
 		}
@@ -127,9 +141,15 @@ public:
 		{
 			isConfigured = true;
 			playbin = gst_element_factory_make("playbin", NULL);
-			assert( playbin );
+			if (!playbin) {
+				GST_ERROR("Failed to create playbin");
+				return;
+			}
 			gboolean rc = gst_bin_add(GST_BIN(pipeline), playbin);
-			assert( rc );
+			if (!rc) {
+				GST_ERROR_OBJECT(pipeline, "playbin add failed");
+				return;
+			}
 			g_object_set( playbin, "uri", "appsrc://", NULL);
 			g_signal_connect( playbin, "deep-notify::source", G_CALLBACK(found_source_cb), this );
 			if( !gstutils_quiet )
@@ -145,12 +165,12 @@ public:
 		injectedSeconds = 0;
 	}
 	
-	double GetInjectedSeconds( void )
+	double GetInjectedSeconds( void ) const
 	{
 		return injectedSeconds;
 	}
 	
-	long long GetPositionMilliseconds( void )
+	long long GetPositionMilliseconds( void ) const
 	{
 		long long ms = -1;
 		if( playbin )
@@ -191,25 +211,6 @@ public:
 		mp4Demux->setCaps( GST_APP_SRC(appsrc) );
 	}
 	
-	void Seek( const SeekParam &param )
-	{
-		gint64 start = (gint64)(param.start_s*GST_SECOND);
-		gint64 stop = (gint64)(param.stop_s*GST_SECOND);
-		g_print( "MediaStream::Seek %s flags=%d start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT "\n",
-				GetMediaTypeAsString(),
-				param.flags,
-				GST_TIME_ARGS(start),
-				GST_TIME_ARGS(stop) );
-		gboolean rc = gst_element_seek(
-									   appsrc,
-									   1.0, // rate
-									   GST_FORMAT_TIME,
-									   param.flags,
-									   GST_SEEK_TYPE_SET, start,
-									   GST_SEEK_TYPE_SET, stop );
-		assert( rc );
-	}
-	
 	void found_source( GObject * object, GObject * orig, GParamSpec * pspec )
 	{
 		GST_INFO("found_source %s", GetMediaTypeAsString() );
@@ -247,7 +248,6 @@ public:
 		{
 			g_object_set(appsrc, "typefind", TRUE, NULL);
 		}
-		pad = gst_element_get_static_pad(appsrc, "src");
 		// Delegate initial lazy seek to Pipeline via context hook (thread-safe)
 		if (context) {
 			std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
@@ -269,7 +269,6 @@ public:
 	MediaStream& operator=(const MediaStream&)=delete; // copy assignment operator
 	
 private:
-	GstPad * pad;
 	bool isConfigured; // avoid double configure
 	double injectedSeconds;
 	class PipelineContext *context;
@@ -340,8 +339,9 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )
 {
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	if( context->mSegmentEndSeekQueue.size()==0 )
-	{ // workaround: store pair of seek positions at start, for use with each appsrc
+	{ // workaround: store pair of seek positions at start for use with each appsrc
 		context->mSegmentEndSeekQueue.push(seekParam);
 	}
 	context->mSegmentEndSeekQueue.push(seekParam);
@@ -349,7 +349,7 @@ void Pipeline::ScheduleSeek( const SeekParam &seekParam )
 
 size_t Pipeline::GetNumPendingSeek(void) const
 {
-	 std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	return context->mSegmentEndSeekQueue.size();
 }
 
@@ -370,7 +370,7 @@ Pipeline::~Pipeline()
 	gst_element_set_state(pipeline, GST_STATE_NULL);
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		delete( mediaStream[i] );
+		delete mediaStream[i];
 	}
 	gst_object_unref(pipeline);
 }
@@ -385,7 +385,7 @@ PipelineState Pipeline::GetPipelineState( void )
 {
 	GstState state;
 	GstState pending;
-	GstClockTime timeout = 0;
+	GstClockTime timeout = 0; // non-blocking
 	gst_element_get_state( pipeline, &state, &pending, timeout );
 	GST_DEBUG_OBJECT(pipeline, "Get state: %s (pending %s)",
 					 gst_element_state_get_name(state),
@@ -411,7 +411,6 @@ void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds 
 {
 	GST_INFO_OBJECT(pipeline, "SendGap %s pts=%f dur=%f", gstutils_GetMediaTypeName(mediaType), pts, durationSeconds );
 	mediaStream[mediaType]->SendGap(pts,durationSeconds);
-	mediaStream[mediaType]->SendGap(pts,durationSeconds);
 }
 
 void Pipeline::SendEOS( MediaType mediaType )
@@ -419,43 +418,11 @@ void Pipeline::SendEOS( MediaType mediaType )
 	mediaStream[mediaType]->SendEOS();
 }
 
-void Pipeline::Seek( const SeekParam &param )
-{
-	gint64 start = (gint64)(param.start_s*GST_SECOND);
-	gint64 stop = (gint64)(param.stop_s*GST_SECOND);
-	GST_INFO_OBJECT(pipeline, "Seek flags=0x%x start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT,
-					param.flags, GST_TIME_ARGS(start), GST_TIME_ARGS(stop) );
-	// Backwards-compatible wrapper → centralized pipeline-level seek
-	SeekRequest req;
-	req.rate    = 1.0;
-	req.start_s = param.start_s;
-	req.stop_s  = param.stop_s;
-	req.flags   = param.flags;
-	req.reason  = SeekRequest::User;
-	(void)DoSeekNow(req);
-}
-
-bool Pipeline::RequestSeek(const SeekRequest& req)
-{
-	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	SeekParam p { req.flags, req.start_s, req.stop_s };
-	// preserve two-push workaround for initial dual-stream set-up
-	if (context->mSegmentEndSeekQueue.empty() && req.reason == SeekRequest::Initial) {
-		context->mSegmentEndSeekQueue.push(p);
-	}
-	context->mSegmentEndSeekQueue.push(p);
-	GST_DEBUG_OBJECT(pipeline, "Queued seek: rate=%.2f start=%.3f stop=%.3f flags=0x%x reason=%d",
-					 req.rate, req.start_s, req.stop_s, req.flags, req.reason);
-	return true;
-}
-
-bool Pipeline::DoSeekNow(const SeekRequest& req)
+bool Pipeline::DoSeekNow(const SeekParam& req)
 {
 	const gint64 start = (gint64)(req.start_s * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_s  * GST_SECOND);
-	GST_INFO_OBJECT(pipeline, "Applying seek: rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flags=0x%x",
-					req.rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flags);
-	
+	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flags=0x%x", req.rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flags);
 	if (req.flags & GST_SEEK_FLAG_FLUSH) {
 		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
 		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
@@ -466,8 +433,7 @@ bool Pipeline::DoSeekNow(const SeekRequest& req)
 										 GST_FORMAT_TIME,
 										 req.flags,
 										 GST_SEEK_TYPE_SET, start,
-										 (req.stop_s > 0.0 ? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE), stop
-										 );
+										 (req.stop_s > 0.0 ? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE), stop );
 	if (!ok) {
 		GST_ERROR_OBJECT(pipeline, "gst_element_seek failed");
 		return false;
@@ -518,12 +484,12 @@ void Pipeline::ReachedEOS( void )
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	if (!context->mSegmentEndSeekQueue.empty()) {
 		SeekParam p = context->mSegmentEndSeekQueue.front();
-		SeekRequest req;
+		SeekParam req;
 		req.rate    = 1.0;
 		req.start_s = p.start_s;
 		req.stop_s  = p.stop_s;
 		req.flags   = p.flags;
-		req.reason  = SeekRequest::SegmentEnd;
+		req.reason  = SeekParam::SegmentEnd;
 		(void)DoSeekNow(req);
 		context->mSegmentEndSeekQueue.pop();
 	}
@@ -540,7 +506,10 @@ void Pipeline::HandleGstMessageSegmentDone( GstMessage *message, const char *mes
 	GstFormat format;
 	gint64 position;
 	gst_message_parse_segment_done( message, &format, &position );
-	assert( format == GST_FORMAT_TIME );
+	if (format != GST_FORMAT_TIME) {
+		GST_WARNING("SegmentDone format != TIME");
+		return;
+	}
 	GST_INFO( "%s from %s position=%" GST_TIME_FORMAT,
 			 messageName,
 			 GST_OBJECT_NAME(message->src),
@@ -616,5 +585,8 @@ void Pipeline::InstantaneousRateChange( double newRate )
 							   GST_SEEK_FLAG_INSTANT_RATE_CHANGE,
 							   GST_SEEK_TYPE_NONE, 0,
 							   GST_SEEK_TYPE_NONE, 0 );
-	assert( rc );
+	if (!rc) {
+		GST_ERROR_OBJECT(pipeline, "Instantaneous rate change seek failed");
+		return;
+	}
 }
