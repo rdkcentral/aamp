@@ -36,7 +36,7 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 
 class MediaStream 
 { 
-public: 
+	public: 
 	MediaStream( MediaType mediaType, class PipelineContext *context ) : injectedSeconds(), context(context), mediaType(mediaType), appsrc(NULL), parse(NULL), decodebin(NULL) 
 	{ 
 	}
@@ -52,13 +52,13 @@ public:
 		if( ptr && appsrc )
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
-				(GstMemoryFlags)0,
-				ptr,
-				len,
-				0,
-				len,
-				NULL,
-				(GDestroyNotify)g_free );
+															   (GstMemoryFlags)0,
+															   ptr,
+															   len,
+															   0,
+															   len,
+															   NULL,
+															   (GDestroyNotify)g_free );
 			GstFlowReturn ret = gst_app_src_push_buffer( appsrc, gstBuffer );
 			switch( ret )
 			{
@@ -76,13 +76,13 @@ public:
 		if( ptr && appsrc )
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
-				(GstMemoryFlags)0,
-				ptr,
-				len,
-				0,
-				len,
-				NULL,
-				(GDestroyNotify)g_free );
+															   (GstMemoryFlags)0,
+															   ptr,
+															   len,
+															   0,
+															   len,
+															   NULL,
+															   (GDestroyNotify)g_free );
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * GST_SECOND);
@@ -140,11 +140,11 @@ public:
 		appsrc   = GST_APP_SRC(gst_element_factory_make("appsrc", mediaType==eMEDIATYPE_VIDEO?"v_src":"a_src"));
 		decodebin= gst_element_factory_make("decodebin", mediaType==eMEDIATYPE_VIDEO?"v_decode":"a_decode");
 		GstElement* conv = (mediaType==eMEDIATYPE_VIDEO)? gst_element_factory_make("videoconvert","v_conv")
-			                                         : gst_element_factory_make("audioconvert","a_conv");
+		: gst_element_factory_make("audioconvert","a_conv");
 		GstElement* post = (mediaType==eMEDIATYPE_VIDEO)? gst_element_factory_make("videoscale","v_scale")
-			                                         : gst_element_factory_make("audioresample","a_res");
+		: gst_element_factory_make("audioresample","a_res");
 		GstElement* sink = (mediaType==eMEDIATYPE_VIDEO)? gst_element_factory_make("autovideosink","v_sink")
-			                                         : gst_element_factory_make("autoaudiosink","a_sink");
+		: gst_element_factory_make("autoaudiosink","a_sink");
 		if( !appsrc || !decodebin || !conv || !post || !sink )
 		{
 			GST_ERROR("Failed to create branch elements for %s", GetMediaTypeAsString());
@@ -158,7 +158,7 @@ public:
 			return;
 		}
 		g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
-
+		
 		// Configure appsrc flow control
 		switch( mediaType )
 		{
@@ -177,7 +177,7 @@ public:
 		g_signal_connect(appsrc, "seek-data",   G_CALLBACK(appsrc_seek_cb),this);
 		gst_app_src_set_stream_type( appsrc, GST_APP_STREAM_TYPE_SEEKABLE );
 		g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
-
+		
 		// Initial lazy seek once both branches are configured
 		if( context )
 		{
@@ -327,12 +327,12 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 	if( req.flush )   flags = (GstSeekFlags)(flags | GST_SEEK_FLAG_FLUSH);
 	if( req.segment ) flags = (GstSeekFlags)(flags | GST_SEEK_FLAG_SEGMENT);
 	const gboolean ok = gst_element_seek( pipeline,
-							 req.playback_rate,
-							 GST_FORMAT_TIME,
-							 flags,
-							 GST_SEEK_TYPE_SET, start,
-							 req.stop_seconds>req.start_seconds? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE,
-							 stop );
+										 req.playback_rate,
+										 GST_FORMAT_TIME,
+										 flags,
+										 GST_SEEK_TYPE_SET, start,
+										 req.stop_seconds>req.start_seconds? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE,
+										 stop );
 	if (!ok) { GST_ERROR_OBJECT(pipeline, "gst_element_seek failed"); }
 	return ok;
 }
