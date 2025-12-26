@@ -90,14 +90,18 @@ static void decode_error_callback_cb( GstElement* object, guint arg0, gpointer a
 #define PTS_ERROR_CALLBACK "pts-error-callback"
 #define DECODE_ERROR_CALLBACK "decode-error-callback"
 
+void gstutils_Init( void )
+{
+	GST_DEBUG_CATEGORY_INIT(gstutils_cat, "gstutils", 0, "GStreamer utility logs");
+}
+
 void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *messageName )
 {
-	static gsize once = 0;
-	if (g_once_init_enter(&once)) {
-		GST_DEBUG_CATEGORY_INIT(gstutils_cat, "gstutils", 0, "GStreamer utility logs");
-		g_once_init_leave(&once, 1);
-	}
-	
+//	static gsize once = 0;
+//	if (g_once_init_enter(&once)) {
+//		GST_DEBUG_CATEGORY_INIT(gstutils_cat, "gstutils", 0, "GStreamer utility logs");
+//		g_once_init_leave(&once, 1);
+//	}
 	void *userData = NULL;
 	if( !gstutils_quiet )
 	{

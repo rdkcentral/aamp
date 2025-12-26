@@ -342,6 +342,10 @@ gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline
 
 Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipeline(gst_pipeline_new( MY_PIPELINE_NAME )), bus(gst_pipeline_get_bus(GST_PIPELINE(pipeline)))
 {
+	GST_DEBUG_CATEGORY_INIT(gstport_cat, "gstport", 0, "Port/pipeline module logs");
+	GST_INFO_OBJECT(pipeline, "Pipeline created: %s", MY_PIPELINE_NAME);
+	gstutils_Init();
+
 	GstBus *bus = gst_element_get_bus(pipeline);
 	gst_bus_add_watch( bus, (GstBusFunc)bus_message_cb, this );
 	gst_object_unref(bus);
@@ -349,9 +353,6 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	{
 		mediaStream[i] = new MediaStream( (MediaType)i, context );
 	}
-	// Initialize logging category once
-	GST_DEBUG_CATEGORY_INIT(gstport_cat, "gstport", 0, "Port/pipeline module logs");
-	GST_INFO_OBJECT(pipeline, "Pipeline created: %s", MY_PIPELINE_NAME);
 }
 
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )

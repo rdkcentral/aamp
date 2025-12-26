@@ -30,6 +30,7 @@ typedef enum
 
 extern bool gstutils_quiet;
 
+void gstutils_Init( void );
 const char *gstutils_GetMediaTypeName( MediaType mediaType );
 void gstutils_DumpFlags( GstElement * playbin );
 void gstutils_element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream);
