@@ -334,7 +334,6 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	// Initialize logging category once
 	GST_DEBUG_CATEGORY_INIT(gstport_cat, "gstport", 0, "Port/pipeline module logs");
 	GST_INFO_OBJECT(pipeline, "Pipeline created: %s", MY_PIPELINE_NAME);
-	
 }
 
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )
@@ -418,23 +417,25 @@ void Pipeline::SendEOS( MediaType mediaType )
 	mediaStream[mediaType]->SendEOS();
 }
 
-bool Pipeline::DoSeekNow(const SeekParam& req)
+bool Pipeline::DoSeekNow( const SeekParam& req )
 {
-	const gint64 start = (gint64)(req.start_s * GST_SECOND);
-	const gint64 stop  = (gint64)(req.stop_s  * GST_SECOND);
-	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flags=0x%x", req.rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flags);
-	if (req.flags & GST_SEEK_FLAG_FLUSH) {
+	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
+	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
+	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flags=0x%x", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flags);
+	if( req.flags & GST_SEEK_FLAG_FLUSH )
+	{
 		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
 		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
 	}
 	const gboolean ok = gst_element_seek(
 										 pipeline,
-										 req.rate,
+										 req.playback_rate,
 										 GST_FORMAT_TIME,
 										 req.flags,
 										 GST_SEEK_TYPE_SET, start,
-										 (req.stop_s > 0.0 ? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE), stop );
-	if (!ok) {
+										 (req.stop_seconds > 0.0 ? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE), stop );
+	if (!ok)
+	{
 		GST_ERROR_OBJECT(pipeline, "gst_element_seek failed");
 		return false;
 	}
@@ -483,13 +484,7 @@ void Pipeline::ReachedEOS( void )
 {
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	if (!context->mSegmentEndSeekQueue.empty()) {
-		SeekParam p = context->mSegmentEndSeekQueue.front();
-		SeekParam req;
-		req.rate    = 1.0;
-		req.start_s = p.start_s;
-		req.stop_s  = p.stop_s;
-		req.flags   = p.flags;
-		req.reason  = SeekParam::SegmentEnd;
+		SeekParam req = context->mSegmentEndSeekQueue.front();
 		(void)DoSeekNow(req);
 		context->mSegmentEndSeekQueue.pop();
 	}

@@ -40,10 +40,9 @@ typedef enum
 
 struct SeekParam {
 	GstSeekFlags flags = (GstSeekFlags)(GST_SEEK_FLAG_KEY_UNIT | GST_SEEK_FLAG_ACCURATE);
-	double start_s = 0.0; // start in seconds
-	double stop_s = 0.0; // stop in seconds
-	double rate = 1.0; // playback rate
-	enum Reason { User = 0, SegmentEnd, Initial, TrickMode } reason = User;
+	double start_seconds = 0.0;
+	double stop_seconds = 0.0;
+	double playback_rate = 1.0;
 };
 
 class PipelineContext

@@ -78,14 +78,8 @@ public:
 		if( pipeline )
 		{
 			GST_INFO("OnAppsrcReady: applying initial seek start=%.3f stop=%.3f flags=0x%x",
-					 param.start_s, param.stop_s, param.flags);
-			SeekParam req;
-			req.rate    = 1.0;
-			req.start_s = param.start_s;
-			req.stop_s  = param.stop_s;
-			req.flags   = param.flags;
-			req.reason  = SeekParam::Initial;
-			pipeline->DoSeekNow(req);
+					 param.start_seconds, param.stop_seconds, param.flags);
+			pipeline->DoSeekNow(param);
 		}
 	}
 };
