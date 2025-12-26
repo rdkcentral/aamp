@@ -108,6 +108,7 @@ if(CMAKE_PREINIT_DECODER)
 	message("PLAYER PREINIT_DECODING set")
 	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampabr)
 	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_PREINIT_DECODING=1")
+	list(APPEND LIB_EXT_DEPENDS -lWPEFrameworkPowerController)
 endif()
 
 #IARM/RFC

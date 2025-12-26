@@ -44,12 +44,8 @@ Remove the entire folder externals/rdk/IARM
 #include "_base64.h"
 #ifdef USE_PREINIT_DECODING
 #include "main_aamp.h"
-#include <iarmUtil.h>
-#include <libIARM.h>
-#include "manager.hpp"
-#include "host.hpp"
-#include "pwrMgr.h"
-#include <sys/stat.h>
+#include "power_controller.h"
+#include <thread>
 #endif
 #include "PlayerLogManager.h"
 
@@ -65,6 +61,13 @@ typedef enum _NetworkManager_EventId_t {
 	IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS=55,
 	IARM_BUS_NETWORK_MANAGER_MAX
 } IARM_Bus_NetworkManager_EventId_t;
+
+#define RETRYSLEEP (300 * 1000) //Retry sleep
+
+#ifdef USE_PREINIT_DECODING
+static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState, void* userdata);
+#endif
 
 /**
  * @struct _IARM_BUS_NetSrvMgr_Iface_EventData_t
@@ -132,19 +135,79 @@ void triggerFakeTune()
 	}).detach();
 }
 
-void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len) {
-    printf("******** event received **************\n");
-    if (eventId == IARM_BUS_PWRMGR_EVENT_MODECHANGED ) {
-        IARM_Bus_PWRMgr_EventData_t *param = (IARM_Bus_PWRMgr_EventData_t *)data;
-        printf("Event IARM_BUS_PWRMGR_EVENT_MODECHANGED: State Changed %d -- > %d\n",
-                param->data.state.curState, param->data.state.newState);
-        if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
-        {
-        	printf(" DEEPSLEEP : calling triggerFakeTune  \n");
-		triggerFakeTune();
+void getPwrContInterface()
+{
+    MW_LOG_INFO("Enter ... getPwrContInterface()");
+	PowerController_Init();
+
+    while (!PowerController_IsOperational()) {
+        uint32_t status = PowerController_Connect();
+
+        if (POWER_CONTROLLER_ERROR_NONE == status) {
+            MW_LOG_INFO("Success :: Connect");
+            break;
+        } else if (POWER_CONTROLLER_ERROR_UNAVAILABLE == status) {
+            MW_LOG_ERR("Failed :: Connect :: Thunder is UNAVAILABLE");
+        } else if (POWER_CONTROLLER_ERROR_NOT_EXIST == status) {
+            MW_LOG_ERR("Failed :: Connect :: PowerManager is UNAVAILABLE");
+        } else {
+            // Do nothing
         }
+        usleep(RETRYSLEEP); // 300ms
     }
+    MW_LOG_INFO("Registering power mode change callback...");
+    PowerController_RegisterPowerModeChangedCallback(IARM_PowerChangeHandler, nullptr);
+
+    MW_LOG_INFO("Exit ... getPwrContInterface()");
 }
+
+void initPowerController()
+{
+    MW_LOG_INFO("Enter ... initPowerController()");
+    // Get powercontroller thunder client interface in separate thread
+    std::thread pwrThread(getPwrContInterface);
+    if(pwrThread.joinable())
+    {
+        MW_LOG_INFO("[%s:%d]: created getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+        pwrThread.detach();  // Detach the thread to run independently
+    }
+    else
+    {
+        MW_LOG_INFO("[%s:%d]: Failed to create getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+    }
+    MW_LOG_INFO("Exit ... initPowerController()");
+}
+
+void terminatePowerController()
+{
+    MW_LOG_INFO("Enter ... terminatePowerController");
+    PowerController_UnRegisterPowerModeChangedCallback(IARM_PowerChangeHandler);
+    PowerController_Term();
+    MW_LOG_INFO("Exit ... terminatePowerController()");
+}
+
+/**
+ * @brief   Handles Power change
+ * @param   currentState Current power state
+ * @param   newState New power state
+ * @param   userdata pointer to Received userdata
+ * @retval  IARM Result success or Failure
+ */
+static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState, void* userdata)
+{
+	MW_LOG_INFO("Entering IARM_PowerChangeHandler:State Changed currentState: %d, newState: %d",
+			currentState, newState);
+
+	if(currentState == POWER_STATE_STANDBY_DEEP_SLEEP && newState != POWER_STATE_STANDBY_DEEP_SLEEP )
+	{
+		MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
+		triggerFakeTune();
+	}
+
+	MW_LOG_INFO("Exiting IARM_PowerChangeHandler..");
+}
+
 #endif
 
 void DeviceIARMInterface::IARMInit()
@@ -172,7 +235,7 @@ void DeviceIARMInterface::IARMInit()
 		    if(!IsContainerEnvironment())
 		    {
 			    MW_PRE_LOGGER_LOG("Registering power manager mode change in Player");
-			    IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
+		    	    initPowerController();
 		    }
 	    }
 #endif
@@ -187,6 +250,13 @@ void DeviceIARMInterface::IARMInit()
 
 void DeviceIARMInterface::RegisterDsMgrEventHandler()
 {
+#ifdef USE_PREINIT_DECODING
+	if(!IsContainerEnvironment())
+	{
+		MW_LOG_INFO("\nCalling terminatePowerController()");
+		terminatePowerController();
+	}
+#endif
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
