@@ -26,6 +26,7 @@
 #include <gst/gst.h>
 #include <queue>
 #include "mp4demux.hpp"
+
 typedef enum
 { // 1-to-1 map to GstState
 	ePIPELINE_STATE_NULL	= 1, // GST_STATE_NULL
@@ -33,6 +34,7 @@ typedef enum
 	ePIPELINE_STATE_PAUSED	= 3, // GST_STATE_PAUSED
 	ePIPELINE_STATE_PLAYING	= 4, // GST_STATE_PLAYING
 } PipelineState;
+
 struct SeekParam {
 	bool flush = false;
 	bool segment = false;
@@ -40,6 +42,7 @@ struct SeekParam {
 	double stop_seconds = 0.0; // pass stop_seconds == start_seconds for open-ended segment
 	double playback_rate = 1.0;
 };
+
 class PipelineContext
 {
 	public:
@@ -57,6 +60,7 @@ class PipelineContext
 	std::queue<SeekParam> mSegmentEndSeekQueue;
 	std::atomic<int> found_count;
 };
+
 class Pipeline
 {
 	public:
