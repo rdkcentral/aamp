@@ -60,7 +60,7 @@ public:
 	 * 1. belated lazy seek done as each appsrc is first connected (MediaStream::found_source)
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
-	std::mutex segment_seek_mutex;
+	mutable std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
 	int found_count;
 };

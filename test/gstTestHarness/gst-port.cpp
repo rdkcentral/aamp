@@ -219,62 +219,68 @@ public:
 	{
 		GST_INFO("found_source %s name=%s", GetMediaTypeAsString(), pspec->name );
 		g_object_get( orig, pspec->name, &appsrc, NULL );
-		g_assert(GST_IS_APP_SRC(appsrc));
-		
-		// configuration to drive need-data and enough-data signaling
-		switch( mediaType )
+		if( GST_IS_APP_SRC(appsrc) )
 		{
-			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL ); // default = 200000
-				break;
-			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL ); // default = 200000
-				break;
-			default:
-				break;
-		}
-		g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
-		g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
-		g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
-		
-		g_signal_connect(appsrc, "seek-data", G_CALLBACK(appsrc_seek_cb), this);
-		gst_app_src_set_stream_type( appsrc, GST_APP_STREAM_TYPE_SEEKABLE );
-		g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
-		
-		// define or discover expected media formats
-		if( 0 )
-		{
-			GstCaps * caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
-			gst_app_src_set_caps( appsrc, caps );
-			gst_caps_unref(caps);
-		}
-		else
-		{
-			g_object_set(appsrc, "typefind", TRUE, NULL);
-		}
-		
-		// initial lazy seek
-		if( context )
-		{
-			std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-			context->found_count--;
-			if( context->found_count == 0 )
+			
+			// configuration to drive need-data and enough-data signaling
+			switch( mediaType )
 			{
-				if( context->mSegmentEndSeekQueue.empty() )
+				case eMEDIATYPE_VIDEO:
+					g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL ); // default = 200000
+					break;
+				case eMEDIATYPE_AUDIO:
+					g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL ); // default = 200000
+					break;
+				default:
+					break;
+			}
+			g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
+			g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
+			g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
+			
+			g_signal_connect(appsrc, "seek-data", G_CALLBACK(appsrc_seek_cb), this);
+			gst_app_src_set_stream_type( appsrc, GST_APP_STREAM_TYPE_SEEKABLE );
+			g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
+			
+			// define or discover expected media formats
+			if( 0 )
+			{
+				GstCaps * caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
+				gst_app_src_set_caps( appsrc, caps );
+				gst_caps_unref(caps);
+			}
+			else
+			{
+				g_object_set(appsrc, "typefind", TRUE, NULL);
+			}
+			
+			// initial lazy seek
+			if( context )
+			{
+				std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+				context->found_count--;
+				if( context->found_count == 0 )
 				{
-					GST_DEBUG("found_source %s: initial seek queue empty", GetMediaTypeAsString());
+					if( context->mSegmentEndSeekQueue.empty() )
+					{
+						GST_DEBUG("found_source %s: initial seek queue empty", GetMediaTypeAsString());
+					}
+					else
+					{
+						SeekParam param = context->mSegmentEndSeekQueue.front();
+						context->mSegmentEndSeekQueue.pop();
+						context->OnAppsrcReady(param);
+					}
 				}
-				else
-				{
-					SeekParam param = context->mSegmentEndSeekQueue.front();
-					context->mSegmentEndSeekQueue.pop();
-					context->OnAppsrcReady(param);
-				}
+			}
+			else
+			{
+				GST_DEBUG( "found_source %s context is empty!!", GetMediaTypeAsString() );
 			}
 		}
 		else
 		{
-			GST_DEBUG( "found_source %s context is empty!!", GetMediaTypeAsString() );
+			GST_ERROR( "GST_IS_APP_SRC failed" );
 		}
 	}
 	
@@ -375,6 +381,7 @@ Pipeline::~Pipeline()
 {
 	gst_bus_remove_watch(bus);
 	gst_object_unref(bus); // release ref acquired via gst_pipeline_get_bus
+	bus = NULL;
 	gst_element_set_state(pipeline, GST_STATE_NULL);
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
