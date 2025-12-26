@@ -293,3 +293,8 @@ void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
     }
     
 }
+
+void PlayerExternalsRdkInterface::SetPowerEvent(bool powerEvt)
+{
+    mPowerEvt = powerEvt;	
+}

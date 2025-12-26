@@ -2753,6 +2753,13 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
  */
 void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
+#ifdef USE_PREINIT_DECODING
+	if(mManifestUrl == FAKE_TUNE_URL)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error for fake tune");
+		return;
+	}
+#endif
 	bool sendErrorEvent = false;
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	if(mState != eSTATE_ERROR)
@@ -3475,7 +3482,10 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(mManifestUrl != FAKE_TUNE_URL)
+	{
+		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
@@ -3503,7 +3513,10 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(mManifestUrl != FAKE_TUNE_URL)
+	{
+		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);

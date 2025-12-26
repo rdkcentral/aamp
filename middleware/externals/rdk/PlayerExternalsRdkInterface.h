@@ -77,6 +77,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         //remove-start
         bool m_use_firebolt_sdk = false;
 
+	bool mPowerEvt = false;
+
         InitState m_initialized = NOT_INITIALIZED;
         //remove-end
 
@@ -146,6 +148,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
+
+	void SetPowerEvent(bool powerEvt) override;
 
         ~PlayerExternalsRdkInterface();
 };
