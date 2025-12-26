@@ -263,10 +263,10 @@ public:
 			// initial lazy seek
 			if( context )
 			{
-				std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 				context->found_count--;
 				if( context->found_count == 0 )
 				{
+					std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 					if( context->mSegmentEndSeekQueue.empty() )
 					{
 						GST_DEBUG("found_source %s: initial seek queue empty", GetMediaTypeAsString());
@@ -375,7 +375,6 @@ size_t Pipeline::GetNumPendingSeek(void) const
 
 void Pipeline::Configure( MediaType mediaType )
 {
-	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	context->found_count++;
 	mediaStream[mediaType]->Configure(pipeline);
 }
