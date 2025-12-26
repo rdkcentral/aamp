@@ -65,6 +65,7 @@ typedef enum _NetworkManager_EventId_t {
 #define RETRYSLEEP (300 * 1000) //Retry sleep
 
 #ifdef USE_PREINIT_DECODING
+static PowerController_PowerState_t prevState = POWER_STATE_ON;
 static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
                                       const PowerController_PowerState_t newState, void* userdata);
 #endif
@@ -198,13 +199,14 @@ static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentS
 {
 	MW_LOG_INFO("Entering IARM_PowerChangeHandler:State Changed currentState: %d, newState: %d",
 			currentState, newState);
-
-	if(currentState == POWER_STATE_STANDBY_DEEP_SLEEP && newState != POWER_STATE_STANDBY_DEEP_SLEEP )
+	bool isOnOrStandby = (newState == POWER_STATE_STANDBY || newState == POWER_STATE_ON);
+	if((currentState == POWER_STATE_STANDBY_DEEP_SLEEP && isOnOrStandby) || 
+        (prevState == POWER_STATE_STANDBY_DEEP_SLEEP && currentState == POWER_STATE_STANDBY_LIGHT_SLEEP && isOnOrStandby))
 	{
 		MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
 		triggerFakeTune();
 	}
-
+	prevState = currentState;
 	MW_LOG_INFO("Exiting IARM_PowerChangeHandler..");
 }
 
