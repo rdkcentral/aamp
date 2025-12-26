@@ -81,7 +81,7 @@ public:
 	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void );
-	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration, const char *url=NULL );
+	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );
 	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata = NULL );
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
@@ -91,12 +91,16 @@ public:
 	bool DoSeekNow(const SeekParam& req);
 	void Reset( void );
 	
+	class PipelineContext *context;
+	GstElement *appsrc;
+	
 private:
 	void Seek( MediaType mediaType, const SeekParam &param );	
 	void ReachedEOS( void );
-	class PipelineContext *context;
-	class MediaStream *mediaStream[NUM_MEDIA_TYPES];
 	GstElement *pipeline;
+	GstElement *playbin;
+	double injectedSeconds;
+	GstCaps *caps[2];
 	GstBus *bus;
 	gboolean bus_message( GstBus * bus, GstMessage * msg );
 	friend gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline );

@@ -1082,7 +1082,7 @@ public:
 			gst_structure_set_name (s, "application/x-cenc");
 		}
 		gst_app_src_set_caps(appsrc, caps);
-		gst_caps_unref(caps);
+		//gst_caps_unref(caps);
 		gst_buffer_unref (buf);
 	}
 	

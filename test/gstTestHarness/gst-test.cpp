@@ -284,7 +284,7 @@ public:
 					Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
 				}
 			}
-			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration, url.c_str() );
+			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );
 			ptr = NULL;
 		}
 		return true;
@@ -370,7 +370,7 @@ public:
 		gpointer ptr = LoadUrl(path,&len);
 		if( ptr )
 		{
-			context->pipeline->SendBufferMP4( mediaType, ptr, len, SEGMENT_DURATION_SECONDS, path );
+			context->pipeline->SendBufferMP4( mediaType, ptr, len, SEGMENT_DURATION_SECONDS );
 			segmentIndex++;
 			pts += SEGMENT_DURATION_SECONDS;
 			return false; // more
