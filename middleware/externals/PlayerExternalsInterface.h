@@ -93,6 +93,8 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
         bool GetActiveInterface()override{return false;}
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override {}
+
+	void SetPowerEvent(bool powerEvt) override {}
         
         ~FakePlayerExternalsInterface(){}
 };
@@ -196,6 +198,9 @@ public:
 
     void SetUseFireBoltSDK(bool t_use_firebolt_sdk);
 
+    void SetPowerEvent(bool powerEvt);
+
+    static bool IsDevicePropertiesPresent();
 };
 
 #endif // PlayerExternalsInterface_h

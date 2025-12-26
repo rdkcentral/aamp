@@ -136,7 +136,9 @@ class PlayerExternalsInterfaceBase
 
         virtual ~PlayerExternalsInterfaceBase(){}
 
-        virtual void SetUseFireBoltSDK(bool t_use_firebolt_sdk) = 0; 
+        virtual void SetUseFireBoltSDK(bool t_use_firebolt_sdk) = 0;
+
+	virtual void SetPowerEvent(bool powerEvt) = 0;	
 
 };
 

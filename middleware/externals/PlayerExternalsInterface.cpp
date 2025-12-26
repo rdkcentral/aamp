@@ -148,3 +148,22 @@ void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
     m_pIarmInterface->SetUseFireBoltSDK(t_use_firebolt_sdk);
 }
+
+void PlayerExternalsInterface::SetPowerEvent(bool powerEvt)
+{
+    m_pIarmInterface->SetPowerEvent(powerEvt);
+}
+
+bool PlayerExternalsInterface::IsDevicePropertiesPresent()
+{
+    bool bRet = false;
+#ifdef IARM_MGR
+    if(!IsContainerEnvironment())
+    {
+        bRet = true;
+    }
+#else
+    bRet = false;
+#endif
+    return bRet;
+}

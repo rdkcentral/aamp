@@ -147,6 +147,10 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
 
+	void SetPowerEvent(bool powerEvt) override;
+
+	bool mPowerEvt = false;
+
         ~PlayerExternalsRdkInterface();
 };
 

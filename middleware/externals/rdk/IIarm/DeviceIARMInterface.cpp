@@ -42,7 +42,15 @@ Remove the entire folder externals/rdk/IARM
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
 #include "_base64.h"
-
+#ifdef USE_PREINIT_DECODING
+#include "main_aamp.h"
+#include <iarmUtil.h>
+#include <libIARM.h>
+#include "manager.hpp"
+#include "host.hpp"
+#include "pwrMgr.h"
+#include <sys/stat.h>
+#endif
 #include "PlayerLogManager.h"
 
 #include "PlayerExternalsRdkInterface.h"
@@ -116,6 +124,29 @@ void DeviceIARMInterface::Initialize()
     
 }
 
+#ifdef USE_PREINIT_DECODING
+void triggerFakeTune()
+{
+	std::thread([](){
+		doFakeTune();
+	}).detach();
+}
+
+void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len) {
+    printf("******** event received **************\n");
+    if (eventId == IARM_BUS_PWRMGR_EVENT_MODECHANGED ) {
+        IARM_Bus_PWRMgr_EventData_t *param = (IARM_Bus_PWRMgr_EventData_t *)data;
+        printf("Event IARM_BUS_PWRMGR_EVENT_MODECHANGED: State Changed %d -- > %d\n",
+                param->data.state.curState, param->data.state.newState);
+        if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
+        {
+        	printf(" DEEPSLEEP : calling triggerFakeTune  \n");
+		triggerFakeTune();
+        }
+    }
+}
+#endif
+
 void DeviceIARMInterface::IARMInit()
 {
     //char processName[20] = {0};
@@ -132,6 +163,19 @@ void DeviceIARMInterface::IARMInit()
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
             MW_PRE_LOGGER_LOG("IARM Interface Connected in Player\n");
+#ifdef USE_PREINIT_DECODING
+	    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+	    // Register for power mode change event
+	    if (pInstance->mPowerEvt)
+	    {
+		    MW_PRE_LOGGER_LOG("******** Registering **************\n");
+		    if(!IsContainerEnvironment())
+		    {
+			    MW_PRE_LOGGER_LOG("Registering power manager mode change in Player");
+			    IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
+		    }
+	    }
+#endif
     }
     else {
             MW_PRE_LOGGER_LOG("IARM Interface Connected Externally :%d\n", result);
