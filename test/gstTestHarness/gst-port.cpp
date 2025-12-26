@@ -18,11 +18,17 @@
  */
 #include "gst-port.h"
 #include "gst-utils.h"
+#include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/gstdebugutils.h>
 #include <inttypes.h>
-#include <queue>
 #include <thread>
 
 #define MY_PIPELINE_NAME "test-pipeline"
+
+// Logging category for this module
+GST_DEBUG_CATEGORY_STATIC(gstport_cat);
+#define GST_CAT_DEFAULT gstport_cat
 
 static void need_data_cb(GstElement *appSrc, guint length, MediaStream *stream );
 static void enough_data_cb(GstElement *appSrc, MediaStream *stream );
@@ -32,7 +38,7 @@ static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), playbin(NULL), appsrc(NULL), injectedSeconds(), context(context), mediaType(mediaType), pad(NULL)
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : playbin(NULL), appsrc(NULL), injectedSeconds(), context(context), mediaType(mediaType)
 	{
 	}
 	
@@ -47,18 +53,24 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
-		if( ptr )
+		if( ptr && appsrc )
 		{
-			GstBuffer *gstBuffer = gst_buffer_new_wrapped( ptr, len);
-			GstFlowReturn ret = gst_app_src_push_buffer( GST_APP_SRC(appsrc), gstBuffer );
+			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
+															   (GstMemoryFlags)0,
+															   ptr,                 // data allocated via g_malloc
+															   len,                 // maxsize: total allocation size
+															   0,                   // offset into data
+															   len,                 // visible size
+															   NULL,                // user_data
+															   (GDestroyNotify)g_free );
+			GstFlowReturn ret = gst_app_src_push_buffer( appsrc, gstBuffer );
 			switch( ret )
 			{
 				case GST_FLOW_OK:
 					injectedSeconds += duration;
 					break;
 				default:
-					g_print( "gst_app_src_push_buffer failed - %d\n", ret );
-					//assert(0);
+					GST_ERROR_OBJECT(appsrc, "push_buffer failed - %d", ret);
 					break;
 			}
 		}
@@ -66,25 +78,31 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=NULL )
 	{
-		if( ptr )
+		if( ptr && appsrc )
 		{
-			GstBuffer *gstBuffer = gst_buffer_new_wrapped( ptr, len );
+			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
+															   (GstMemoryFlags)0,
+															   ptr,                 // data allocated via g_malloc
+															   len,                 // maxsize: total allocation size
+															   0,                   // offset into data
+															   len,                 // visible size
+															   NULL,                // user_data
+															   (GDestroyNotify)g_free );
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
-			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * 1000000000LL);
+			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * GST_SECOND);
 			if( metadata )
 			{
 				gst_buffer_add_protection_meta(gstBuffer, metadata);
 			}
-			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(appsrc), gstBuffer );
+			GstFlowReturn ret = gst_app_src_push_buffer( appsrc, gstBuffer );
 			switch( ret )
 			{
 				case GST_FLOW_OK:
 					injectedSeconds += duration;
 					break;
 				default:
-					g_print( "gst_app_src_push_buffer failed - %d\n", ret );
-					assert(0);
+					GST_ERROR_OBJECT( appsrc, "push_buffer failed - %d", ret );
 					break;
 			}
 		}
@@ -92,20 +110,26 @@ public:
 	
 	void SendGap( double pts, double durationSeconds )
 	{
-		g_print( "MediaStream::SendGap(%s,pts=%f,dur=%f)\n", GetMediaTypeAsString(), pts, durationSeconds );
-		GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
-		GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
-		GstEvent *event = gst_event_new_gap( timestamp, duration );
-		if( !gst_element_send_event( GST_ELEMENT(appsrc), event) )
+		GST_INFO("SendGap(%s, pts=%f, dur=%f)", GetMediaTypeAsString(), pts, durationSeconds );
+		if( appsrc )
 		{
-			g_print( "Failed to send gap event\n" );
+			GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
+			GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
+			GstEvent *event = gst_event_new_gap( timestamp, duration );
+			if( !gst_element_send_event( GST_ELEMENT(appsrc), event) )
+			{
+				GST_WARNING_OBJECT( appsrc, "Failed to send GAP event" );
+			}
 		}
 	}
 	
 	void SendEOS( void )
 	{
-		g_print( "MediaStream::SendEOS %s\n", GetMediaTypeAsString() );
-		gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
+		GST_INFO("SendEOS %s", GetMediaTypeAsString());
+		if( appsrc )
+		{
+			gst_app_src_end_of_stream( appsrc );
+		}
 	}
 	
 	/**
@@ -114,24 +138,35 @@ public:
 	 */
 	void Configure( GstElement *pipeline )
 	{
-		g_print( "MediaStream::Configure %s\n", GetMediaTypeAsString() );
-		if( isConfigured )
+		GST_INFO("Configure %s", GetMediaTypeAsString());
+		if( playbin )
 		{
-			g_print( "NOP - aleady configured\n" );
+			GST_WARNING("already configured");
 		}
 		else
 		{
-			isConfigured = true;
 			playbin = gst_element_factory_make("playbin", NULL);
-			assert( playbin );
-			gboolean rc = gst_bin_add(GST_BIN(pipeline), playbin);
-			assert( rc );
-			g_object_set( playbin, "uri", "appsrc://", NULL);
-			g_signal_connect( playbin, "deep-notify::source", G_CALLBACK(found_source_cb), this );
-			if( !gstutils_quiet )
+			if( playbin )
 			{
-				g_signal_connect( playbin, "element_setup", G_CALLBACK(gstutils_element_setup_cb), this );
-				gstutils_DumpFlags( playbin );
+				gboolean ok = gst_bin_add(GST_BIN(pipeline), playbin);
+				if( ok )
+				{
+					g_object_set( playbin, "uri", "appsrc://", NULL);
+					g_signal_connect( playbin, "deep-notify::source", G_CALLBACK(found_source_cb), this );
+					if( !gstutils_quiet )
+					{
+						g_signal_connect( playbin, "element_setup", G_CALLBACK(gstutils_element_setup_cb), this );
+						gstutils_DumpFlags( playbin );
+					}
+				}
+				else
+				{
+					GST_ERROR_OBJECT(pipeline, "playbin add failed");
+				}
+			}
+			else
+			{
+				GST_ERROR( "failed to create playbin" );
 			}
 		}
 	}
@@ -141,12 +176,12 @@ public:
 		injectedSeconds = 0;
 	}
 	
-	double GetInjectedSeconds( void )
+	double GetInjectedSeconds( void ) const
 	{
 		return injectedSeconds;
 	}
 	
-	long long GetPositionMilliseconds( void )
+	long long GetPositionMilliseconds( void ) const
 	{
 		long long ms = -1;
 		if( playbin )
@@ -167,13 +202,12 @@ public:
 	
 	void enough_data( GstElement *appSrc )
 	{
-		//g_print( "MediaStream::enough_data %s", GetMediaTypeAsString() );
 		context->EnoughData( mediaType );
 	}
 	
 	gboolean appsrc_seek( GstElement *appSrc, guint64 offset )
 	{
-		g_print( "MediaStream::appsrc_seek %s position=%" GST_TIME_FORMAT "\n", GetMediaTypeAsString(), GST_TIME_ARGS(offset) );
+		GST_INFO("appsrc_seek %s pos=%" GST_TIME_FORMAT, GetMediaTypeAsString(), GST_TIME_ARGS(offset) );
 		return TRUE; // success
 	}
 	
@@ -184,77 +218,75 @@ public:
 	 */
 	void SetCaps( const Mp4Demux *mp4Demux )
 	{
-		mp4Demux->setCaps( GST_APP_SRC(appsrc) );
-	}
-	
-	void Seek( const SeekParam &param )
-	{
-		gint64 start = (gint64)(param.start_s*GST_SECOND);
-		gint64 stop = (gint64)(param.stop_s*GST_SECOND);
-		g_print( "MediaStream::Seek %s flags=%d start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT "\n",
-				GetMediaTypeAsString(),
-				param.flags,
-				GST_TIME_ARGS(start),
-				GST_TIME_ARGS(stop) );
-		gboolean rc = gst_element_seek(
-									   appsrc,
-									   1.0, // rate
-									   GST_FORMAT_TIME,
-									   param.flags,
-									   GST_SEEK_TYPE_SET, start,
-									   GST_SEEK_TYPE_SET, stop );
-		assert( rc );
+		mp4Demux->setCaps( appsrc );
 	}
 	
 	void found_source( GObject * object, GObject * orig, GParamSpec * pspec )
 	{
-		g_print( "MediaStream::found_source %s\n", GetMediaTypeAsString() );
+		GST_INFO("found_source %s name=%s", GetMediaTypeAsString(), pspec->name );
 		g_object_get( orig, pspec->name, &appsrc, NULL );
-		g_assert(GST_IS_APP_SRC(appsrc));
-		
-		// configuration to drive need-data and enough-data signaling
-		switch( mediaType )
+		if( GST_IS_APP_SRC(appsrc) )
 		{
-			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL ); // default = 200000
-				break;
-			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL ); // default = 200000
-				break;
-			default:
-				break;
-		}
-		g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
-		g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
-		g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
-		
-		g_signal_connect(appsrc, "seek-data", G_CALLBACK(appsrc_seek_cb), this);
-		gst_app_src_set_stream_type( GST_APP_SRC(appsrc), GST_APP_STREAM_TYPE_SEEKABLE );
-		g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
-		
-		// define or discover expected media formats
-		if( 0 )
-		{
-			GstCaps * caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
-			gst_app_src_set_caps(GST_APP_SRC(appsrc), caps );
-			gst_caps_unref(caps);
+			
+			// configuration to drive need-data and enough-data signaling
+			switch( mediaType )
+			{
+				case eMEDIATYPE_VIDEO:
+					g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL ); // default = 200000
+					break;
+				case eMEDIATYPE_AUDIO:
+					g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL ); // default = 200000
+					break;
+				default:
+					break;
+			}
+			g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
+			g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
+			g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
+			
+			g_signal_connect(appsrc, "seek-data", G_CALLBACK(appsrc_seek_cb), this);
+			gst_app_src_set_stream_type( appsrc, GST_APP_STREAM_TYPE_SEEKABLE );
+			g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
+			
+			// define or discover expected media formats
+			if( 0 )
+			{
+				GstCaps * caps = gst_caps_new_simple("video/quicktime", NULL, NULL);
+				gst_app_src_set_caps( appsrc, caps );
+				gst_caps_unref(caps);
+			}
+			else
+			{
+				g_object_set(appsrc, "typefind", TRUE, NULL);
+			}
+			
+			// initial lazy seek
+			if( context )
+			{
+				context->found_count--;
+				if( context->found_count == 0 )
+				{
+					std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+					if( context->mSegmentEndSeekQueue.empty() )
+					{
+						GST_DEBUG("found_source %s: initial seek queue empty", GetMediaTypeAsString());
+					}
+					else
+					{
+						SeekParam param = context->mSegmentEndSeekQueue.front();
+						context->mSegmentEndSeekQueue.pop();
+						context->OnAppsrcReady(param);
+					}
+				}
+			}
+			else
+			{
+				GST_DEBUG( "found_source %s context is empty!!", GetMediaTypeAsString() );
+			}
 		}
 		else
 		{
-			g_object_set(appsrc, "typefind", TRUE, NULL);
-		}
-		pad = gst_element_get_static_pad(appsrc, "src");
-		
-		if(context && !context->mSegmentEndSeekQueue.empty())
-		{
-			assert( context->mSegmentEndSeekQueue.size()>0 );
-			SeekParam param = context->mSegmentEndSeekQueue.front();
-			context->mSegmentEndSeekQueue.pop();
-			Seek( param );
-		}
-		else
-		{
-			g_print( "MediaStream::found_source %s context is empty!!\n", GetMediaTypeAsString() );
+			GST_ERROR( "GST_IS_APP_SRC failed" );
 		}
 	}
 	
@@ -262,13 +294,11 @@ public:
 	MediaStream& operator=(const MediaStream&)=delete; // copy assignment operator
 	
 private:
-	GstPad * pad;
-	bool isConfigured; // avoid double configure
 	double injectedSeconds;
 	class PipelineContext *context;
 	MediaType mediaType;
 	GstElement *playbin;
-	GstElement *appsrc;
+	GstAppSrc *appsrc;
 };
 
 /**
@@ -318,6 +348,10 @@ gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline
 
 Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipeline(gst_pipeline_new( MY_PIPELINE_NAME )), bus(gst_pipeline_get_bus(GST_PIPELINE(pipeline)))
 {
+	GST_DEBUG_CATEGORY_INIT(gstport_cat, "gstport", 0, "Port/pipeline module logs");
+	GST_INFO_OBJECT(pipeline, "Pipeline created: %s", MY_PIPELINE_NAME);
+	gstutils_Init();
+
 	GstBus *bus = gst_element_get_bus(pipeline);
 	gst_bus_add_watch( bus, (GstBusFunc)bus_message_cb, this );
 	gst_object_unref(bus);
@@ -329,20 +363,19 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )
 {
-	if( context->mSegmentEndSeekQueue.size()==0 )
-	{ // workaround: store pair of seek positions at start, for use with each appsrc
-		context->mSegmentEndSeekQueue.push(seekParam);
-	}
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	context->mSegmentEndSeekQueue.push(seekParam);
 }
 
-size_t Pipeline::GetNumPendingSeek(void)
+size_t Pipeline::GetNumPendingSeek(void) const
 {
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	return context->mSegmentEndSeekQueue.size();
 }
 
 void Pipeline::Configure( MediaType mediaType )
 {
+	context->found_count++;
 	mediaStream[mediaType]->Configure(pipeline);
 }
 
@@ -354,34 +387,36 @@ void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
 Pipeline::~Pipeline()
 {
 	gst_bus_remove_watch(bus);
+	gst_object_unref(bus); // release ref acquired via gst_pipeline_get_bus
+	bus = NULL;
 	gst_element_set_state(pipeline, GST_STATE_NULL);
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		delete( mediaStream[i] );
+		delete mediaStream[i];
 	}
 	gst_object_unref(pipeline);
 }
 
 void Pipeline::SetPipelineState(PipelineState pipelineState )
 {
+	GST_INFO_OBJECT(pipeline, "Set state -> %s", gst_element_state_get_name((GstState)pipelineState));
 	gst_element_set_state( pipeline, (GstState) pipelineState );
 }
 
-PipelineState Pipeline::GetPipelineState( void )
+PipelineState Pipeline::GetPipelineState( void ) const
 {
 	GstState state;
 	GstState pending;
-	GstClockTime timeout = 0;
+	GstClockTime timeout = 0; // non-blocking
 	gst_element_get_state( pipeline, &state, &pending, timeout );
+	GST_DEBUG_OBJECT(pipeline, "Get state: %s (pending %s)",
+					 gst_element_state_get_name(state),
+					 gst_element_state_get_name(pending));
 	return (PipelineState) state;
 }
 
-void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration, const char * url )
+void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration )
 {
-	if( url )
-	{
-		g_print( "Pipeline::SendBuffer %s len=%zu %s\n", gstutils_GetMediaTypeName(mediaType), len, url );
-	}
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
 void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata )
@@ -392,7 +427,7 @@ void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, doubl
 
 void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds )
 {
-	g_print( "Pipeline::SendGap %s,pts=%f,dur=%f\n", gstutils_GetMediaTypeName(mediaType), pts, durationSeconds );
+	GST_INFO_OBJECT(pipeline, "SendGap %s pts=%f dur=%f", gstutils_GetMediaTypeName(mediaType), pts, durationSeconds );
 	mediaStream[mediaType]->SendGap(pts,durationSeconds);
 }
 
@@ -401,45 +436,60 @@ void Pipeline::SendEOS( MediaType mediaType )
 	mediaStream[mediaType]->SendEOS();
 }
 
-void Pipeline::Seek( MediaType mediaType, const SeekParam &param )
+bool Pipeline::DoSeekNow( const SeekParam& req )
 {
-	mediaStream[mediaType]->ClearInjectedSeconds();
-	mediaStream[mediaType]->Seek( param );
-}
-
-void Pipeline::Seek( const SeekParam &param )
-{
-	gint64 start = (gint64)(param.start_s*GST_SECOND);
-	gint64 stop = (gint64)(param.stop_s*GST_SECOND);
-	g_print( "Pipeline::Seek flags=%d start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT "\n",
-				param.flags, GST_TIME_ARGS(start), GST_TIME_ARGS(stop) );
-	gboolean success = gst_element_seek(
-					 pipeline,
-					 1.0, //rate
-					 GST_FORMAT_TIME,
-					 param.flags,
-					 GST_SEEK_TYPE_SET, start,
-					 GST_SEEK_TYPE_SET, stop );
-	assert( success );
-	if( param.flags & GST_SEEK_FLAG_FLUSH )
+	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
+	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
+	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush);
+	if( req.flush )
 	{
 		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
 		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
 	}
+	
+	GstSeekFlags flags;
+	if( req.flush )
+	{
+		flags = GST_SEEK_FLAG_FLUSH;
+	}
+	else if( req.segment )
+	{
+		flags = GST_SEEK_FLAG_SEGMENT;
+	}
+	else
+	{
+		flags = GST_SEEK_FLAG_NONE;
+	}
+	
+	const gboolean ok = gst_element_seek(
+										 pipeline,
+										 req.playback_rate,
+										 GST_FORMAT_TIME,
+										 flags,
+										 GST_SEEK_TYPE_SET, start,
+										 req.stop_seconds>req.start_seconds? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE,
+										 stop );
+	if (!ok)
+	{
+		GST_ERROR_OBJECT(pipeline, "gst_element_seek failed");
+	}
+	return ok;
 }
 
 void Pipeline::Reset( void )
 {
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	std::queue<SeekParam> empty;
 	std::swap( context->mSegmentEndSeekQueue, empty );
+	GST_DEBUG_OBJECT(pipeline, "Reset seek queue");
 }
 
-long long Pipeline::GetPositionMilliseconds( MediaType mediaType )
+long long Pipeline::GetPositionMilliseconds( MediaType mediaType ) const
 {
 	return mediaStream[mediaType]->GetPositionMilliseconds();
 }
 
-double Pipeline::GetInjectedSeconds( MediaType mediaType )
+double Pipeline::GetInjectedSeconds( MediaType mediaType ) const
 {
 	return mediaStream[mediaType]->GetInjectedSeconds();
 }
@@ -449,7 +499,7 @@ void Pipeline::HandleGstMessageError( GstMessage *msg, const char *messageName )
 	GError *error = NULL;
 	gchar *dbg_info = NULL;
 	gst_message_parse_error(msg, &error, &dbg_info);
-	g_printerr("%s: t%s %s\n", messageName, GST_OBJECT_NAME(msg->src), error->message);
+	GST_ERROR("%s: from %s %s", messageName, GST_OBJECT_NAME(msg->src), error->message);
 	g_clear_error(&error);
 	g_free(dbg_info);
 }
@@ -459,24 +509,25 @@ void Pipeline::HandleGstMessageWarning( GstMessage *msg, const char *messageName
 	GError *error = NULL;
 	gchar *dbg_info = NULL;
 	gst_message_parse_warning(msg, &error, &dbg_info);
-	g_printerr("%s: %s %s\n", messageName, GST_OBJECT_NAME(msg->src), error->message);
+	GST_WARNING("%s: from %s %s", messageName, GST_OBJECT_NAME(msg->src), error->message);
 	g_clear_error(&error);
 	g_free(dbg_info);
 }
 
 void Pipeline::ReachedEOS( void )
 {
-	if( context->mSegmentEndSeekQueue.size()>0 )
-	{
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		Seek( param );
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+	if (!context->mSegmentEndSeekQueue.empty()) {
+		// handle next queued seek
+		const SeekParam &param = context->mSegmentEndSeekQueue.front();
+		(void)DoSeekNow(param);
 		context->mSegmentEndSeekQueue.pop();
 	}
 }
 
 void Pipeline::HandleGstMessageEOS( GstMessage *msg, const char *messageName )
 { // received after all sinks are EOS
-	g_print( "%s from %s\n", messageName, GST_OBJECT_NAME(msg->src) );
+	GST_INFO( "%s from %s", messageName, GST_OBJECT_NAME(msg->src) );
 	ReachedEOS();
 }
 
@@ -485,11 +536,14 @@ void Pipeline::HandleGstMessageSegmentDone( GstMessage *message, const char *mes
 	GstFormat format;
 	gint64 position;
 	gst_message_parse_segment_done( message, &format, &position );
-	assert( format == GST_FORMAT_TIME );
-	g_print( "%s from %s position=%" GST_TIME_FORMAT "\n",
-			messageName,
-			GST_OBJECT_NAME(message->src),
-			GST_TIME_ARGS(position) ); // this is time of the START of just completed segment
+	if (format != GST_FORMAT_TIME) {
+		GST_WARNING("SegmentDone format != TIME");
+		return;
+	}
+	GST_INFO( "%s from %s position=%" GST_TIME_FORMAT,
+			 messageName,
+			 GST_OBJECT_NAME(message->src),
+			 GST_TIME_ARGS(position) ); // this is time of the START of just completed segment
 	ReachedEOS();
 }
 
@@ -530,7 +584,7 @@ gboolean Pipeline::bus_message( _GstBus * bus, _GstMessage * msg )
 	return TRUE;
 }
 
-void Pipeline::DumpDOT( void )
+void Pipeline::DumpDOT( void ) const
 {
 	gchar *graphviz = gst_debug_bin_to_dot_data( (GstBin *)pipeline, GST_DEBUG_GRAPH_SHOW_ALL );
 	// refer: https://graphviz.org/
@@ -547,13 +601,13 @@ void Pipeline::DumpDOT( void )
 
 void Pipeline::Step( void )
 {
-	g_print( "Pipeline::Step\n" );
+	GST_INFO_OBJECT(pipeline, "Step");
 	gst_element_send_event( pipeline, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1, TRUE, FALSE) );
 }
 
 void Pipeline::InstantaneousRateChange( double newRate )
 {
-	g_print( "Pipeline::InstantaneousRateChange(%lf)\n", newRate );
+	GST_INFO_OBJECT(pipeline, "InstantaneousRateChange(%lf)", newRate );
 	auto rc = gst_element_seek(
 							   GST_ELEMENT(pipeline),
 							   newRate,
@@ -561,5 +615,8 @@ void Pipeline::InstantaneousRateChange( double newRate )
 							   GST_SEEK_FLAG_INSTANT_RATE_CHANGE,
 							   GST_SEEK_TYPE_NONE, 0,
 							   GST_SEEK_TYPE_NONE, 0 );
-	assert( rc );
+	if (!rc) {
+		GST_ERROR_OBJECT(pipeline, "Instantaneous rate change seek failed");
+		return;
+	}
 }

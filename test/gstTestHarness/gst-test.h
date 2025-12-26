@@ -65,12 +65,20 @@ public:
 	MyPipelineContext( void );
 	~MyPipelineContext();
 	void ReachedEOS( void );
-	void NeedData( MediaType mediaType );
-	void EnoughData( MediaType mediaType );
+	void NeedData( MediaType mediaType ) override;
+	void EnoughData( MediaType mediaType ) override;
 	void PadProbeCallback( MediaType mediaType );
 	
 	MyPipelineContext(const MyPipelineContext&)=delete;
 	MyPipelineContext& operator=(const MyPipelineContext&)=delete;
+	
+	// Apply centralized pipeline-level seek when an appsrc becomes ready
+	void OnAppsrcReady( const SeekParam& param ) override {
+		if( pipeline )
+		{
+			pipeline->DoSeekNow(param);
+		}
+	}
 };
 
 class TrackEvent
