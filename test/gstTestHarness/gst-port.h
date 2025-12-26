@@ -40,7 +40,7 @@ struct SeekParam {
 	bool flush = false;
 	bool segment = false;
 	double start_seconds = 0.0;
-	double stop_seconds = 0.0;
+	double stop_seconds = 0.0; // pass stop_seconds == start_seconds for open-ended segment
 	double playback_rate = 1.0;
 };
 

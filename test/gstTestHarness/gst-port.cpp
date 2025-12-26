@@ -53,7 +53,7 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
-		if( ptr )
+		if( ptr && appsrc )
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
 															   (GstMemoryFlags)0,
@@ -78,7 +78,7 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=NULL )
 	{
-		if( ptr )
+		if( ptr && appsrc )
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
 															   (GstMemoryFlags)0,
@@ -111,19 +111,25 @@ public:
 	void SendGap( double pts, double durationSeconds )
 	{
 		GST_INFO("SendGap(%s, pts=%f, dur=%f)", GetMediaTypeAsString(), pts, durationSeconds );
-		GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
-		GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
-		GstEvent *event = gst_event_new_gap( timestamp, duration );
-		if( !gst_element_send_event( GST_ELEMENT(appsrc), event) )
+		if( appsrc )
 		{
-			GST_WARNING_OBJECT( appsrc, "Failed to send GAP event" );
+			GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
+			GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
+			GstEvent *event = gst_event_new_gap( timestamp, duration );
+			if( !gst_element_send_event( GST_ELEMENT(appsrc), event) )
+			{
+				GST_WARNING_OBJECT( appsrc, "Failed to send GAP event" );
+			}
 		}
 	}
 	
 	void SendEOS( void )
 	{
 		GST_INFO("SendEOS %s", GetMediaTypeAsString());
-		gst_app_src_end_of_stream( appsrc );
+		if( appsrc )
+		{
+			gst_app_src_end_of_stream( appsrc );
+		}
 	}
 	
 	/**
@@ -369,6 +375,7 @@ size_t Pipeline::GetNumPendingSeek(void) const
 
 void Pipeline::Configure( MediaType mediaType )
 {
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	context->found_count++;
 	mediaStream[mediaType]->Configure(pipeline);
 }
