@@ -73,12 +73,9 @@ public:
 	MyPipelineContext& operator=(const MyPipelineContext&)=delete;
 	
 	// Apply centralized pipeline-level seek when an appsrc becomes ready
-	void OnAppsrcReady(MediaType mediaType, const SeekParam& param) override {
-		printf( "entering OnAppsrcReady %s\n", gstutils_GetMediaTypeName(mediaType) );
+	void OnAppsrcReady( const SeekParam& param ) override {
 		if( pipeline )
 		{
-			GST_INFO("OnAppsrcReady: applying initial seek start=%.3f stop=%.3f flags=0x%x",
-					 param.start_seconds, param.stop_seconds, param.flags);
 			pipeline->DoSeekNow(param);
 		}
 	}
