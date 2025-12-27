@@ -40,40 +40,43 @@ void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *mes
 void gstutils_HandleGstMessageQOS( GstMessage * msg, const char *messageName );
 void gstutils_HandleGstMessageTag( GstMessage *msg, const char *messageName );
 
-struct ScopedGstObjectDeleter
+struct GstObjectDeleter
 {
 	void operator()(GstObject* obj) const noexcept
 	{
-		if (obj) {
+		if( obj )
+		{
 			gst_object_unref(GST_OBJECT(obj));
 		}
 	}
 };
-using ScopedGstObject = std::unique_ptr<GstObject, ScopedGstObjectDeleter>;
+using ScopedGstObject = std::unique_ptr<GstObject, GstObjectDeleter>;
 
-struct ScopedGstElementDeleter
+struct GstElementDeleter
 {
 	void operator()(GstElement* e) const noexcept
 	{
-		if (e) {
+		if( e )
+		{
 			gst_object_unref(GST_OBJECT(e));
 		}
 	}
 };
-using ScopedGstElement = std::unique_ptr<GstElement, ScopedGstElementDeleter>;
+using ScopedGstElement = std::unique_ptr<GstElement, GstElementDeleter>;
 
-struct ScopedGstCapsDeleter
+struct GstCapsDeleter
 {
 	void operator()(GstCaps* caps) const noexcept
 	{
-		if (caps) {
+		if( caps )
+		{
 			gst_caps_unref(GST_CAPS(caps));
 		}
 	}
 };
-using ScopedGstCaps = std::unique_ptr<GstCaps, ScopedGstCapsDeleter>;
+using ScopedGstCaps = std::unique_ptr<GstCaps, GstCapsDeleter>;
 
-struct ScopedGstPadDeleter {
+struct GstPadDeleter {
 	void operator()(GstPad* pad) const noexcept
 	{
 		if( pad )
@@ -82,7 +85,7 @@ struct ScopedGstPadDeleter {
 		}
 	}
 };
-using ScopedGstPad = std::unique_ptr<GstPad, ScopedGstPadDeleter>;
+using ScopedGstPad = std::unique_ptr<GstPad, GstPadDeleter>;
 
 #endif // GST_UTILS_H
 

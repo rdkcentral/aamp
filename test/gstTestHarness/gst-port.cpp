@@ -194,7 +194,8 @@ public:
 	static ScopedGstElement make_element( const char* factory, const char* name )
 	{
 		GstElement* raw = gst_element_factory_make(factory, name);
-		if (!raw) {
+		if( !raw )
+		{
 			GST_ERROR("failed to create %s", factory);
 			return ScopedGstElement(nullptr);
 		}
@@ -431,7 +432,8 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 	
 	// Parent bin (RAII)
 	ScopedGstObject parent = ScopedGstObject(gst_element_get_parent(decodebin));
-	if (!parent) {
+	if (!parent)
+	{
 		GST_ERROR_OBJECT(decodebin, "decodebin has no parent; cannot link newly added pad");
 		return;
 	}
@@ -439,77 +441,38 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 	
 	// Convert element (RAII)
 	ScopedGstElement conv{ gst_bin_get_by_name(parentBin, convName) };
-	if (!conv) {
+	if (!conv)
+	{
 		GST_ERROR_OBJECT(decodebin, "Failed to find convert element '%s' in bin", convName);
 		return;
 	}
 	
 	// Sink pad of conv (RAII)
 	ScopedGstPad sinkpad{ gst_element_get_static_pad(conv.get(), "sink") };
-	if (!sinkpad) {
+	if (!sinkpad)
+	{
 		GST_ERROR_OBJECT(conv.get(), "Failed to get 'sink' pad from convert element '%s'", convName);
 		return;
 	}
 	
 	// Already linked? nothing to do
-	if (gst_pad_is_linked(sinkpad.get())) {
+	if (gst_pad_is_linked(sinkpad.get()))
+	{
 		GST_DEBUG_OBJECT(conv.get(), "conv.sink already linked; skipping");
 		return;
 	}
 	
 	// Dynamic link: decodebin src pad -> conv.sink
-	if (gst_pad_link(pad, sinkpad.get()) == GST_PAD_LINK_OK) {
+	if (gst_pad_link(pad, sinkpad.get()) == GST_PAD_LINK_OK)
+	{
 		GST_INFO_OBJECT(conv.get(), "Linked decodebin src pad -> %s.sink", convName);
-	} else {
+	}
+	else
+	{
 		GST_ERROR_OBJECT(conv.get(), "Failed to link decodebin src pad -> %s.sink", convName);
 	}
 	// All acquired refs auto-unref via RAII on scope exit
 }
-/*
- auto parent = gst_element_get_parent(decodebin);
- if( !parent )
- {
- GST_ERROR_OBJECT(decodebin, "decodebin has no parent; cannot link newly added pad");
- }
- else
- {
- GstBin* parentBin = GST_BIN(parent);
- const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
- const char* convName = isVideo ? "v_conv" : "a_conv";
- GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(parentBin, convName));
- if( !conv )
- {
- GST_ERROR_OBJECT(decodebin, "Failed to find convert element '%s' in bin", convName);
- gst_object_unref(parent);
- }
- else
- { // Link decodebin src pad -> conv.sink (only dynamic part)
- ScopedGstPad sinkpad{ gst_element_get_static_pad(conv, "sink") };
- if( !sinkpad )
- {
- GST_ERROR_OBJECT(conv, "Failed to get 'sink' pad from convert element '%s'", convName);
- gst_object_unref(conv);
- gst_object_unref(parent);
- }
- else if( gst_pad_is_linked(sinkpad.get()) )
- { // already linked
- gst_object_unref(conv);
- gst_object_unref(parent);
- }
- else if (gst_pad_link(pad, sinkpad.get()) == GST_PAD_LINK_OK)
- {
- GST_INFO_OBJECT(conv, "Linked decodebin src pad -> %s.sink", convName);
- }
- else
- {
- GST_ERROR_OBJECT(conv, "Failed to link decodebin src pad -> %s.sink", convName);
- }
- gst_object_unref(conv);
- gst_object_unref(parent);
- }
- }
- }
- */
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
 {
