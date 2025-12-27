@@ -480,7 +480,7 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	GST_INFO_OBJECT(pipeline, "Pipeline created: %s", MY_PIPELINE_NAME);
 	gstutils_Init();
 	bus = gst_element_get_bus(pipeline);
-	gst_bus_add_watch( bus, (GstBusFunc)bus_message_cb, this );
+	gst_bus_add_watch( bus, reinterpret_cast<GstBusFunc>(bus_message_cb), this );
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
 		mediaStream[i] = new MediaStream( (MediaType)i, context );
