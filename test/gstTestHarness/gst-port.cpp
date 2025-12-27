@@ -50,15 +50,7 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context )
-	: injectedSeconds(),
-	context(context),
-	mediaType(mediaType),
-	appsrc(nullptr),
-	decodebin(nullptr),
-	need_data_handle_id(0),
-	enough_data_handle_id(0),
-	appsrc_seek_handle_id(0)
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : injectedSeconds(), context(context), mediaType(mediaType), appsrc(nullptr), decodebin(nullptr), need_data_handle_id(0), enough_data_handle_id(0), appsrc_seek_handle_id(0)
 	{
 	}
 	
