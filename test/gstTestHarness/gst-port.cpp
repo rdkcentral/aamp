@@ -38,6 +38,15 @@ static void enough_data_cb(GstElement *appSrc, class MediaStream *stream );
 static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class MediaStream *stream );
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream );
 
+/**
+ * @class MediaStream
+ * @brief Manages a single media stream (audio or video) in the GStreamer pipeline
+ * 
+ * This class wraps GStreamer elements for a media stream and manages their lifecycle.
+ * The GStreamer objects (appsrc, decodebin) are owned by the parent pipeline bin,
+ * and this class holds non-owning references to them. The pipeline bin handles
+ * reference counting and cleanup when the pipeline is destroyed.
+ */
 class MediaStream
 {
 public:
@@ -45,27 +54,36 @@ public:
 	: injectedSeconds(),
 	context(context),
 	mediaType(mediaType),
-	appsrc(NULL),
-	decodebin(NULL),
+	appsrc(nullptr),
+	decodebin(nullptr),
 	need_data_handle_id(0),
 	enough_data_handle_id(0),
 	appsrc_seek_handle_id(0)
 	{
 	}
 	
+	/**
+	 * @brief Destructor - disconnects signal handlers
+	 * 
+	 * Note: Does NOT unref appsrc or decodebin as they are owned by the pipeline bin.
+	 * The pipeline bin manages their lifecycle and will unref them when the pipeline
+	 * is destroyed. This destructor only disconnects signal handlers that reference
+	 * this MediaStream instance to prevent dangling pointers.
+	 */
 	~MediaStream( void )
 	{
+		// Disconnect signal handlers to prevent callbacks to a destroyed object
 		if( appsrc )
 		{
-			if( need_data_handle_id!=0 )
+			if( need_data_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, need_data_handle_id);
 			}
-			if( enough_data_handle_id!=0 )
+			if( enough_data_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, enough_data_handle_id);
 			}
-			if( appsrc_seek_handle_id!=0 )
+			if( appsrc_seek_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
 			}
@@ -77,6 +95,9 @@ public:
 			// connected with this MediaStream instance as user data.
 			g_signal_handlers_disconnect_by_data(decodebin, this);
 		}
+		
+		// Note: appsrc and decodebin are NOT unreferenced here as they are owned
+		// by the pipeline bin, which will handle their cleanup when destroyed.
 	}
 	
 	
@@ -195,12 +216,21 @@ public:
 		return GstElemUPtr(raw);
 	}
 	
+	/**
+	 * @brief Configure the media stream by creating and linking GStreamer elements
+	 * 
+	 * Creates the GStreamer pipeline elements for this media stream and adds them
+	 * to the provided pipeline. Elements are owned by the pipeline bin after being
+	 * added, and this class stores non-owning references to appsrc and decodebin.
+	 * 
+	 * @param pipeline The GStreamer pipeline to add elements to
+	 */
 	void Configure(GstElement* pipeline)
 	{
 		GST_INFO("Configure %s", GetMediaTypeAsString());
 
 		if (!context) {
-			GST_ERROR("context is NULL");
+			GST_ERROR("context is nullptr");
 			return;
 		}
 		
@@ -246,13 +276,15 @@ public:
 		if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get())) {
 			GST_ERROR("link appsrc->decodebin failed for %s", mediaStr);
 			// Elements are already in the bin; let the bin clean them up.
-			// Clear our member references to indicate failure.
-			decodebin = NULL;
-			appsrc    = NULL;
+			// Set our member references to nullptr to indicate failure.
+			decodebin = nullptr;
+			appsrc    = nullptr;
 			return;
 		}
 		
-		// --- Transfer ownership: release RAII so unique_ptrs don't unref ---
+		// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
+		// The pipeline bin now owns these elements and will manage their lifecycle.
+		// We store raw pointers as non-owning references for signal handling and operations.
 		appsrc    = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
 		decodebin = decodebinLocal.release();               // member is GstElement*
 		// conv/post/sink are not stored as members; release them so bin owns the only ref
@@ -328,9 +360,16 @@ public:
 	
 private:
 	double injectedSeconds;
-	class PipelineContext *context;
-	MediaType mediaType;
+	
+	/// Non-owning pointer to the pipeline context. Const to indicate the pointer never changes.
+	PipelineContext* const context;
+	
+	const MediaType mediaType;
+	
+	/// Non-owning reference to appsrc element (owned by pipeline bin)
 	GstAppSrc *appsrc;
+	
+	/// Non-owning reference to decodebin element (owned by pipeline bin)
 	GstElement *decodebin;
 	
 	gulong need_data_handle_id;
