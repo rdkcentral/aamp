@@ -372,9 +372,16 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class Media
 	return stream->appsrc_seek( appSrc, offset );
 }
 
+/**
+ * @brief link newly exposed pad to the convert element
+ *
+ * @param decodebin - decoder
+ * @param pad - newly exposed pad
+ * @param stream - class encapsulating audio or video path
+ */
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream )
 {
-	// link newly exposed pad to the convert element
+	//
 	const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
 	const char* convName = isVideo ? "v_conv" : "a_conv";
 	
@@ -463,7 +470,10 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 	gst_object_unref(parent);
 }
 
-gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline ) { return pipeline->bus_message( bus, msg ); }
+gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
+{
+	return pipeline->bus_message( bus, msg );
+}
 
 Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipeline(gst_pipeline_new( MY_PIPELINE_NAME )), bus(NULL)
 {
