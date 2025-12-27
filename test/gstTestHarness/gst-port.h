@@ -26,6 +26,8 @@
 #include <assert.h>
 #include <gst/gst.h>
 #include <queue>
+#include <mutex>
+#include <atomic>
 #include "mp4demux.hpp"
 
 typedef enum
@@ -46,33 +48,29 @@ struct SeekParam {
 
 class PipelineContext
 {
-public:
+	public:
 	PipelineContext() : found_count(0) {}
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
-	
-	// discovered via deep-notify::source
+	// called once both appsrc branches are configured
 	virtual void OnAppsrcReady(const SeekParam&) = 0;
-	
 	/**
-	 * This could/should be better abstracted, but the way it works is:
-	 * 1. belated lazy seek done as each appsrc is first connected (MediaStream::found_source)
+	 * 1. initial lazy seek when both appsrc branches are configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
-	mutable std::mutex segment_seek_mutex;
+	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
 	std::atomic<int> found_count;
 };
 
 class Pipeline
 {
-public:
+	public:
 	Pipeline( class PipelineContext *context );
 	~Pipeline();
 	Pipeline(const Pipeline&)=delete; //copy constructor
 	Pipeline& operator=(const Pipeline&)=delete; //copy assignment operator
-	
 	double GetInjectedSeconds( MediaType mediaType ) const;
 	long long GetPositionMilliseconds( MediaType mediaType ) const;
 	void SetPipelineState( PipelineState );
@@ -90,8 +88,7 @@ public:
 	size_t GetNumPendingSeek(void) const;
 	bool DoSeekNow(const SeekParam & );
 	void Reset( void );
-	
-private:
+	private:
 	void Seek( MediaType mediaType, const SeekParam &param );
 	void ReachedEOS( void );
 	class PipelineContext *context;
@@ -100,7 +97,6 @@ private:
 	GstBus *bus;
 	gboolean bus_message( GstBus * bus, GstMessage * msg );
 	friend gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline );
-	
 	void HandleGstMessageError( GstMessage *msg, const char *messageName );
 	void HandleGstMessageWarning( GstMessage *msg, const char *messageName );
 	void HandleGstMessageEOS( GstMessage *msg, const char *messageName );
@@ -110,5 +106,4 @@ private:
 	void HandleGstMessageTag( GstMessage *msg, const char *messageName );
 	void HandleGstMessageQOS( GstMessage *msg, const char *messageName );
 };
-
 #endif // GST_PORT_H
