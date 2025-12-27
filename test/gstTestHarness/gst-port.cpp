@@ -38,15 +38,35 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : injectedSeconds(), context(context), mediaType(mediaType), appsrc(NULL), decodebin(NULL)
+	MediaStream( MediaType mediaType, class PipelineContext *context )
+	: injectedSeconds(),
+	context(context),
+	mediaType(mediaType),
+	appsrc(NULL),
+	decodebin(NULL),
+	need_data_handle_id(0),
+	enough_data_handle_id(0),
+	appsrc_seek_handle_id(0)
 	{
 	}
 	
 	~MediaStream( void )
 	{
-		g_signal_handler_disconnect(appsrc, need_data_handle_id);
-		g_signal_handler_disconnect(appsrc, enough_data_handle_id);
-		g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
+		if( appsrc )
+		{
+			if( need_data_handle_id!=0 )
+			{
+				g_signal_handler_disconnect(appsrc, need_data_handle_id);
+			}
+			if( enough_data_handle_id!=0 )
+			{
+				g_signal_handler_disconnect(appsrc, enough_data_handle_id);
+			}
+			if( appsrc_seek_handle_id!=0 )
+			{
+				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
+			}
+		}
 	}
 	
 	const char *GetMediaTypeAsString( void )
@@ -293,7 +313,7 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class Media
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream )
 {
 	// Link newly exposed pad to the convert element
-	const gboolean isVideo = (stream->GetMediaTypeAsString()[0]=='v');
+	const boolean isVideo = (stream->mediaType == eMEDIATYPE_VIDEO);
 	const char* convName = isVideo? "v_conv" : "a_conv";
 	GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(GST_BIN(gst_element_get_parent(decodebin)), convName));
 	GstPad* sinkpad = gst_element_get_static_pad(conv, "sink");
