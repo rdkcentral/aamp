@@ -362,6 +362,7 @@ private:
 	double injectedSeconds;
 	
 	/// Non-owning pointer to the pipeline context. Pointer is const (cannot be reseated).
+	/// The pointed-to PipelineContext is not const as it has mutable state (queues, atomics).
 	PipelineContext* const context;
 	
 	const MediaType mediaType;
