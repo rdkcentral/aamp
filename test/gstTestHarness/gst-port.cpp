@@ -67,10 +67,17 @@ public:
 				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
 			}
 		}
+		
+		if( decodebin )
+		{
+			// Disconnect any signal handlers (e.g. "pad-added") that were
+			// connected with this MediaStream instance as user data.
+			g_signal_handlers_disconnect_by_data(decodebin, this);
+		}
 	}
 	
 	
-	MediaType GetMediaType( void )
+	MediaType GetMediaType( void ) const
 	{
 		return mediaType;
 	}
@@ -171,95 +178,128 @@ public:
 		if( appsrc )
 		{
 			GST_WARNING("already configured");
+			return;
 		}
-		else
-		{ // Create appsrc and downstream elements
-			appsrc = GST_APP_SRC(gst_element_factory_make("appsrc", mediaType==eMEDIATYPE_VIDEO?"v_src":"a_src"));
-			if( appsrc )
-			{
-				decodebin = gst_element_factory_make("decodebin", mediaType==eMEDIATYPE_VIDEO?"v_decode":"a_decode");
-				if( decodebin )
-				{
-					GstElement* conv = (mediaType==eMEDIATYPE_VIDEO)?
-					gst_element_factory_make("videoconvert","v_conv") :
-					gst_element_factory_make("audioconvert","a_conv");
-					if( conv )
-					{
-						GstElement* post = (mediaType==eMEDIATYPE_VIDEO)?
-						gst_element_factory_make("videoscale","v_scale") :
-						gst_element_factory_make("audioresample","a_res");
-						if( post )
-						{
-							GstElement* sink = (mediaType==eMEDIATYPE_VIDEO)?
-							gst_element_factory_make("autovideosink","v_sink") :
-							gst_element_factory_make("autoaudiosink","a_sink");
-							if( sink )
-							{
-								gst_bin_add_many(GST_BIN(pipeline), GST_ELEMENT(appsrc), decodebin, conv, post, sink, NULL);
-								// link: appsrc -> decodebin (decodebin pad-added will link to conv)
-								if( gst_element_link(GST_ELEMENT(appsrc), decodebin) )
-								{
-									g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
-									
-									// Configure appsrc flow control
-									switch( mediaType )
-									{
-										case eMEDIATYPE_VIDEO:
-											g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL );
-											break;
-										case eMEDIATYPE_AUDIO:
-											g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL );
-											break;
-										default:
-											break;
-									}
-									g_object_set(appsrc, "min-percent", 50, NULL );
-									need_data_handle_id = g_signal_connect(appsrc, "need-data",   G_CALLBACK(need_data_cb),  this );
-									enough_data_handle_id = g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
-									appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",   G_CALLBACK(appsrc_seek_cb),this);
-									gst_app_src_set_stream_type( appsrc, GST_APP_STREAM_TYPE_SEEKABLE );
-									g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
-									if( context )
-									{
-										context->found_count--;
-										if( context->found_count == 0 )
-										{ // Initial lazy seek once both branches are configured
-											std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-											if( context->mSegmentEndSeekQueue.empty() )
-											{
-												GST_DEBUG("Configure %s: initial seek queue empty", GetMediaTypeAsString());
-											}
-											else
-											{
-												SeekParam param = context->mSegmentEndSeekQueue.front();
-												context->mSegmentEndSeekQueue.pop();
-												context->OnAppsrcReady(param);
-											}
-										}
-										return; // success!
-									}
-									else
-									{
-										GST_ERROR( "context is NULL" );
-									}
-								}
-								else
-								{
-									GST_ERROR("link appsrc->decodebin failed for %s", GetMediaTypeAsString() );
-								}
-							}
-							gst_object_unref( sink );
-						}
-						gst_object_unref( post );
-					}
-					gst_object_unref( conv );
-				}
-				gst_object_unref(decodebin);
-				decodebin = NULL;
-			}
+		
+		// Create all elements first before adding to pipeline
+		appsrc = GST_APP_SRC(gst_element_factory_make("appsrc", mediaType==eMEDIATYPE_VIDEO?"v_src":"a_src"));
+		if( !appsrc )
+		{
+			GST_ERROR("Failed to create appsrc for %s", GetMediaTypeAsString());
+			return;
+		}
+		
+		decodebin = gst_element_factory_make("decodebin", mediaType==eMEDIATYPE_VIDEO?"v_decode":"a_decode");
+		if( !decodebin )
+		{
+			GST_ERROR("Failed to create decodebin for %s", GetMediaTypeAsString());
 			gst_object_unref(appsrc);
 			appsrc = NULL;
+			return;
 		}
+		
+		GstElement* conv = (mediaType==eMEDIATYPE_VIDEO)?
+			gst_element_factory_make("videoconvert","v_conv") :
+			gst_element_factory_make("audioconvert","a_conv");
+		if( !conv )
+		{
+			GST_ERROR("Failed to create convert element for %s", GetMediaTypeAsString());
+			gst_object_unref(decodebin);
+			gst_object_unref(appsrc);
+			decodebin = NULL;
+			appsrc = NULL;
+			return;
+		}
+		
+		GstElement* post = (mediaType==eMEDIATYPE_VIDEO)?
+			gst_element_factory_make("videoscale","v_scale") :
+			gst_element_factory_make("audioresample","a_res");
+		if( !post )
+		{
+			GST_ERROR("Failed to create post element for %s", GetMediaTypeAsString());
+			gst_object_unref(conv);
+			gst_object_unref(decodebin);
+			gst_object_unref(appsrc);
+			decodebin = NULL;
+			appsrc = NULL;
+			return;
+		}
+		
+		GstElement* sink = (mediaType==eMEDIATYPE_VIDEO)?
+			gst_element_factory_make("autovideosink","v_sink") :
+			gst_element_factory_make("autoaudiosink","a_sink");
+		if( !sink )
+		{
+			GST_ERROR("Failed to create sink element for %s", GetMediaTypeAsString());
+			gst_object_unref(post);
+			gst_object_unref(conv);
+			gst_object_unref(decodebin);
+			gst_object_unref(appsrc);
+			decodebin = NULL;
+			appsrc = NULL;
+			return;
+		}
+		
+		// Add all elements to the pipeline - pipeline takes ownership
+		gst_bin_add_many(GST_BIN(pipeline), GST_ELEMENT(appsrc), decodebin, conv, post, sink, NULL);
+		
+		// link: appsrc -> decodebin (decodebin pad-added will link to conv)
+		if( !gst_element_link(GST_ELEMENT(appsrc), decodebin) )
+		{
+			GST_ERROR("link appsrc->decodebin failed for %s", GetMediaTypeAsString());
+			// Elements are in bin, so bin will clean them up
+			// Just clear our references
+			decodebin = NULL;
+			appsrc = NULL;
+			return;
+		}
+		
+		g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
+		
+		// Configure appsrc flow control
+		switch( mediaType )
+		{
+			case eMEDIATYPE_VIDEO:
+				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL );
+				break;
+			case eMEDIATYPE_AUDIO:
+				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL );
+				break;
+			default:
+				break;
+		}
+		g_object_set(appsrc, "min-percent", 50, NULL );
+		need_data_handle_id = g_signal_connect(appsrc, "need-data",   G_CALLBACK(need_data_cb),  this );
+		enough_data_handle_id = g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
+		appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",   G_CALLBACK(appsrc_seek_cb),this);
+		gst_app_src_set_stream_type( appsrc, GST_APP_STREAM_TYPE_SEEKABLE );
+		g_object_set(appsrc, "format", GST_FORMAT_TIME, NULL);
+		g_object_set(appsrc, "typefind", TRUE, NULL);
+		
+		if( !context )
+		{
+			GST_ERROR( "context is NULL" );
+			return;
+		}
+		
+		// Use atomic fetch_sub for thread-safe decrement and check
+		auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
+		if( prevCount == 1 )
+		{
+			// Initial lazy seek once both branches are configured
+			std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+			if( context->mSegmentEndSeekQueue.empty() )
+			{
+				GST_DEBUG("Configure %s: initial seek queue empty", GetMediaTypeAsString());
+			}
+			else
+			{
+				SeekParam param = context->mSegmentEndSeekQueue.front();
+				context->mSegmentEndSeekQueue.pop();
+				context->OnAppsrcReady(param);
+			}
+		}
+		// Success - elements are owned by pipeline, don't unref them
 	} // Configure
 	
 	void ClearInjectedSeconds( void ) { injectedSeconds = 0; }
@@ -334,22 +374,94 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class Media
 }
 
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream )
-{ // link newly exposed pad to the convert element
+{
+	// link newly exposed pad to the convert element
 	const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
-	const char* convName = isVideo? "v_conv" : "a_conv";
-	GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(GST_BIN(gst_element_get_parent(decodebin)), convName));
+	const char* convName = isVideo ? "v_conv" : "a_conv";
+	
+	// Get parent and check for null
+	GstElement* parent = gst_element_get_parent(decodebin);
+	if( !parent )
+	{
+		GST_ERROR_OBJECT(decodebin, "decodebin has no parent; cannot link newly added pad");
+		return;
+	}
+	
+	GstBin* parentBin = GST_BIN(parent);
+	
+	// Get conv element and check for null
+	GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(parentBin, convName));
+	if( !conv )
+	{
+		GST_ERROR_OBJECT(decodebin, "Failed to find convert element '%s' in bin", convName);
+		gst_object_unref(parent);
+		return;
+	}
+	
+	// Get sinkpad and check for null
 	GstPad* sinkpad = gst_element_get_static_pad(conv, "sink");
-	if( gst_pad_is_linked(sinkpad) ) { gst_object_unref(sinkpad); gst_object_unref(conv); return; }
+	if( !sinkpad )
+	{
+		GST_ERROR_OBJECT(conv, "Failed to get 'sink' pad from convert element '%s'", convName);
+		gst_object_unref(conv);
+		gst_object_unref(parent);
+		return;
+	}
+	
+	// Check if already linked
+	if( gst_pad_is_linked(sinkpad) )
+	{
+		gst_object_unref(sinkpad);
+		gst_object_unref(conv);
+		gst_object_unref(parent);
+		return;
+	}
+	
+	// Try to link the pads
 	if( gst_pad_link(pad, sinkpad) == GST_PAD_LINK_OK )
 	{
 		gst_object_unref(sinkpad);
+		
 		// Finish link to sink chain
-		GstElement* post = GST_ELEMENT(gst_bin_get_by_name(GST_BIN(gst_element_get_parent(decodebin)), isVideo?"v_scale":"a_res"));
-		GstElement* sink = GST_ELEMENT(gst_bin_get_by_name(GST_BIN(gst_element_get_parent(decodebin)), isVideo?"v_sink":"a_sink"));
-		gst_element_link_many(conv, post, sink, NULL);
-		gst_object_unref(post); gst_object_unref(sink);
+		GstElement* post = GST_ELEMENT(gst_bin_get_by_name(parentBin, isVideo ? "v_scale" : "a_res"));
+		if( !post )
+		{
+			GST_ERROR_OBJECT(decodebin, "Failed to find post element '%s' in bin",
+				isVideo ? "v_scale" : "a_res");
+			gst_object_unref(conv);
+			gst_object_unref(parent);
+			return;
+		}
+		
+		GstElement* sink = GST_ELEMENT(gst_bin_get_by_name(parentBin, isVideo ? "v_sink" : "a_sink"));
+		if( !sink )
+		{
+			GST_ERROR_OBJECT(decodebin, "Failed to find sink element '%s' in bin",
+				isVideo ? "v_sink" : "a_sink");
+			gst_object_unref(post);
+			gst_object_unref(conv);
+			gst_object_unref(parent);
+			return;
+		}
+		
+		gboolean linkOk = gst_element_link_many(conv, post, sink, NULL);
+		if( !linkOk )
+		{
+			GST_ERROR_OBJECT(conv, "Failed to link %s elements in decodebin_pad_added_cb",
+				isVideo ? "video" : "audio");
+		}
+		
+		gst_object_unref(post);
+		gst_object_unref(sink);
 	}
+	else
+	{
+		// On link failure, release sinkpad reference
+		gst_object_unref(sinkpad);
+	}
+	
 	gst_object_unref(conv);
+	gst_object_unref(parent);
 }
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline ) { return pipeline->bus_message( bus, msg ); }

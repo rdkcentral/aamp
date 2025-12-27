@@ -59,7 +59,7 @@ class PipelineContext
 	 * 1. initial lazy seek when both appsrc branches are configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
-	/*mutable*/ std::mutex segment_seek_mutex;
+	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
 	std::atomic<int> found_count;
 };
