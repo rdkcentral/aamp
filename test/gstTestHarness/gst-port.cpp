@@ -88,15 +88,17 @@ public:
 			g_signal_handlers_disconnect_by_data(decodebin, this);
 		}
 		
-		// Clear weak pointers (no-op if already cleared by finalization)
-		// Note: guards protect against double-remove.
+		// Clear weak pointers (no-op if already cleared by finalization).
+		// After removal, set members to nullptr so subsequent calls are safe.
 		if( appsrc )
 		{
 			g_object_remove_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
+			appsrc = nullptr;
 		}
 		if( decodebin )
 		{
 			g_object_remove_weak_pointer(G_OBJECT(decodebin), reinterpret_cast<gpointer*>(&decodebin));
+			decodebin = nullptr;
 		}
 	}
 	
