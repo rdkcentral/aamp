@@ -136,7 +136,7 @@ public:
 		}
 	}
 	
-	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=NULL )
+	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=nullptr )
 	{
 		if( ptr && appsrc )
 		{
@@ -269,7 +269,7 @@ public:
 						 convLocal.get(),
 						 postLocal.get(),
 						 sinkLocal.get(),
-						 NULL
+						 nullptr
 						 );
 		
 		// --- Link appsrc -> decodebin ---
@@ -298,23 +298,23 @@ public:
 		// --- Configure appsrc flow control ---
 		switch (mediaType) {
 			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL);
+				g_object_set(appsrc, "max-bytes", (guint64)12582912, nullptr);
 				break;
 			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL);
+				g_object_set(appsrc, "max-bytes", (guint64)1536000, nullptr);
 				break;
 			default:
 				break;
 		}
-		g_object_set(appsrc, "min-percent", 50, NULL);
+		g_object_set(appsrc, "min-percent", 50, nullptr);
 		
 		need_data_handle_id   = g_signal_connect(appsrc, "need-data",    G_CALLBACK(need_data_cb),    this);
 		enough_data_handle_id = g_signal_connect(appsrc, "enough-data",  G_CALLBACK(enough_data_cb),  this);
 		appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",    G_CALLBACK(appsrc_seek_cb),  this);
 		
 		gst_app_src_set_stream_type(appsrc, GST_APP_STREAM_TYPE_SEEKABLE);
-		g_object_set(appsrc, "format",   GST_FORMAT_TIME, NULL);
-		g_object_set(appsrc, "typefind", TRUE,            NULL);
+		g_object_set(appsrc, "format",   GST_FORMAT_TIME, nullptr);
+		g_object_set(appsrc, "typefind", TRUE,            nullptr);
 		
 		// --- Atomic coordination with the other branch ---
 		auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
