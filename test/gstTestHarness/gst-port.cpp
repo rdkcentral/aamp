@@ -264,8 +264,15 @@ public:
 				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
 				{
 					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
-					decodebin = nullptr;
-					appsrc = nullptr;
+					// Remove elements from bin before returning - bin will unref them
+					gst_bin_remove_many(
+						GST_BIN(pipeline),
+						appsrcLocal.get(),
+						decodebinLocal.get(),
+						convLocal.get(),
+						postLocal.get(),
+						sinkLocal.get(),
+						nullptr);
 					return;
 				}
 				
@@ -273,7 +280,16 @@ public:
 				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
 				{
 					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" );
-					return; // Early exit; RAII locals will unref, bin owns added refs
+					// Remove elements from bin before returning - bin will unref them
+					gst_bin_remove_many(
+						GST_BIN(pipeline),
+						appsrcLocal.get(),
+						decodebinLocal.get(),
+						convLocal.get(),
+						postLocal.get(),
+						sinkLocal.get(),
+						nullptr);
+					return;
 				}
 				
 				// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
