@@ -38,6 +38,15 @@ static void enough_data_cb(GstElement *appSrc, class MediaStream *stream );
 static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class MediaStream *stream );
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream );
 
+/**
+ * @class MediaStream
+ * @brief Manages a single media stream (audio or video) in the GStreamer pipeline
+ *
+ * This class wraps GStreamer elements for a media stream and manages their lifecycle.
+ * The GStreamer objects (appsrc, decodebin) are owned by the parent pipeline bin,
+ * and this class holds non-owning references to them. The pipeline bin handles
+ * reference counting and cleanup when the pipeline is destroyed.
+ */
 class MediaStream
 {
 public:
@@ -45,27 +54,35 @@ public:
 	: injectedSeconds(),
 	context(context),
 	mediaType(mediaType),
-	appsrc(NULL),
-	decodebin(NULL),
+	appsrc(nullptr),
+	decodebin(nullptr),
 	need_data_handle_id(0),
 	enough_data_handle_id(0),
 	appsrc_seek_handle_id(0)
 	{
 	}
 	
+	/**
+	 * @brief Destructor - disconnects signal handlers
+	 *
+	 * Note: Does NOT unref appsrc or decodebin as they are owned by the pipeline bin.
+	 * The pipeline bin manages their lifecycle and will unref them when the pipeline
+	 * is destroyed. This destructor only disconnects signal handlers that reference
+	 * this MediaStream instance to prevent dangling pointers.
+	 */
 	~MediaStream( void )
 	{
 		if( appsrc )
 		{
-			if( need_data_handle_id!=0 )
+			if( need_data_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, need_data_handle_id);
 			}
-			if( enough_data_handle_id!=0 )
+			if( enough_data_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, enough_data_handle_id);
 			}
-			if( appsrc_seek_handle_id!=0 )
+			if( appsrc_seek_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
 			}
@@ -77,6 +94,9 @@ public:
 			// connected with this MediaStream instance as user data.
 			g_signal_handlers_disconnect_by_data(decodebin, this);
 		}
+		
+		// Note: appsrc and decodebin are NOT unreferenced here as they are owned
+		// by the pipeline bin, which will handle their cleanup when destroyed.
 	}
 	
 	
@@ -115,7 +135,7 @@ public:
 		}
 	}
 	
-	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=NULL )
+	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=nullptr )
 	{
 		if( ptr && appsrc )
 		{
@@ -195,12 +215,21 @@ public:
 		return GstElemUPtr(raw);
 	}
 	
+	/**
+	 * @brief Configure the media stream by creating and linking GStreamer elements
+	 *
+	 * Creates the GStreamer pipeline elements for this media stream and adds them
+	 * to the provided pipeline. Elements are owned by the pipeline bin after being
+	 * added, and this class stores non-owning references to appsrc and decodebin.
+	 *
+	 * @param pipeline The GStreamer pipeline to add elements to
+	 */
 	void Configure(GstElement* pipeline)
 	{
 		GST_INFO("Configure %s", GetMediaTypeAsString());
-
+		
 		if (!context) {
-			GST_ERROR("context is NULL");
+			GST_ERROR("context is nullptr");
 			return;
 		}
 		
@@ -239,22 +268,24 @@ public:
 						 convLocal.get(),
 						 postLocal.get(),
 						 sinkLocal.get(),
-						 NULL
+						 nullptr
 						 );
 		
 		// --- Link appsrc -> decodebin ---
 		if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get())) {
 			GST_ERROR("link appsrc->decodebin failed for %s", mediaStr);
 			// Elements are already in the bin; let the bin clean them up.
-			// Clear our member references to indicate failure.
-			decodebin = NULL;
-			appsrc    = NULL;
+			// Set our member references to nullptr to indicate failure.
+			decodebin = nullptr;
+			appsrc    = nullptr;
 			return;
 		}
 		
-		// --- Transfer ownership: release RAII so unique_ptrs don't unref ---
-		appsrc    = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
-		decodebin = decodebinLocal.release();               // member is GstElement*
+		// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
+		// The pipeline bin now owns these elements and will manage their lifecycle.
+		// We store raw pointers as non-owning references for signal handling and operations.
+		appsrc = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
+		decodebin = decodebinLocal.release();            // member is GstElement*
 		// conv/post/sink are not stored as members; release them so bin owns the only ref
 		convLocal.release();
 		postLocal.release();
@@ -266,23 +297,23 @@ public:
 		// --- Configure appsrc flow control ---
 		switch (mediaType) {
 			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL);
+				g_object_set(appsrc, "max-bytes", (guint64)12582912, nullptr);
 				break;
 			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL);
+				g_object_set(appsrc, "max-bytes", (guint64)1536000, nullptr);
 				break;
 			default:
 				break;
 		}
-		g_object_set(appsrc, "min-percent", 50, NULL);
+		g_object_set(appsrc, "min-percent", 50, nullptr);
 		
 		need_data_handle_id   = g_signal_connect(appsrc, "need-data",    G_CALLBACK(need_data_cb),    this);
 		enough_data_handle_id = g_signal_connect(appsrc, "enough-data",  G_CALLBACK(enough_data_cb),  this);
 		appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",    G_CALLBACK(appsrc_seek_cb),  this);
 		
 		gst_app_src_set_stream_type(appsrc, GST_APP_STREAM_TYPE_SEEKABLE);
-		g_object_set(appsrc, "format",   GST_FORMAT_TIME, NULL);
-		g_object_set(appsrc, "typefind", TRUE,            NULL);
+		g_object_set(appsrc, "format",   GST_FORMAT_TIME, nullptr);
+		g_object_set(appsrc, "typefind", TRUE,            nullptr);
 		
 		// --- Atomic coordination with the other branch ---
 		auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
@@ -301,15 +332,30 @@ public:
 		// Success - elements are owned by pipeline, and our members hold required refs
 	}
 	
-	void ClearInjectedSeconds( void ) { injectedSeconds = 0; }
+	void ClearInjectedSeconds( void )
+	{
+		injectedSeconds = 0;
+	}
 	
-	double GetInjectedSeconds( void ) const { return injectedSeconds; }
+	double GetInjectedSeconds( void ) const
+	{
+		return injectedSeconds;
+	}
 	
-	long long GetPositionMilliseconds( void ) const { return -1; } // Pipeline queries global position now
+	long long GetPositionMilliseconds( void ) const
+	{ // Pipeline queries global position now
+		return -1;
+	}
 	
-	void need_data( GstElement *appSrc, guint length ) { context->NeedData( mediaType ); }
+	void need_data( GstElement *appSrc, guint length )
+	{
+		context->NeedData( mediaType );
+	}
 	
-	void enough_data( GstElement *appSrc ) { context->EnoughData( mediaType ); }
+	void enough_data( GstElement *appSrc )
+	{
+		context->EnoughData( mediaType );
+	}
 	
 	gboolean appsrc_seek( GstElement *appSrc, guint64 offset )
 	{
@@ -328,9 +374,17 @@ public:
 	
 private:
 	double injectedSeconds;
-	class PipelineContext *context;
-	MediaType mediaType;
+	
+	/// Non-owning pointer to the pipeline context. Pointer is const (cannot be reseated).
+	/// The pointed-to PipelineContext is not const as it has mutable state (queues, atomics).
+	PipelineContext* const context;
+	
+	const MediaType mediaType;
+	
+	/// Non-owning reference to appsrc element (owned by pipeline bin)
 	GstAppSrc *appsrc;
+	
+	/// Non-owning reference to decodebin element (owned by pipeline bin)
 	GstElement *decodebin;
 	
 	gulong need_data_handle_id;
@@ -480,10 +534,10 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	GST_INFO_OBJECT(pipeline, "Pipeline created: %s", MY_PIPELINE_NAME);
 	gstutils_Init();
 	bus = gst_element_get_bus(pipeline);
-	gst_bus_add_watch( bus, (GstBusFunc)bus_message_cb, this );
+	gst_bus_add_watch( bus, reinterpret_cast<GstBusFunc>(bus_message_cb), this );
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		mediaStream[i] = new MediaStream( (MediaType)i, context );
+		mediaStream[i] = new MediaStream( static_cast<MediaType>(i), context );
 	}
 }
 
@@ -550,14 +604,21 @@ void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds 
 	mediaStream[mediaType]->SendGap(pts,durationSeconds);
 }
 
-void Pipeline::SendEOS( MediaType mediaType ) { mediaStream[mediaType]->SendEOS(); }
+void Pipeline::SendEOS( MediaType mediaType )
+{
+	mediaStream[mediaType]->SendEOS();
+}
 
 bool Pipeline::DoSeekNow( const SeekParam& req )
 {
 	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
 	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush);
-	if( req.flush ) { mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds(); mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds(); }
+	if( req.flush )
+	{
+		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
+		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
+	}
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	if( req.flush )   flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_FLUSH);
 	if( req.segment ) flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_SEGMENT);
