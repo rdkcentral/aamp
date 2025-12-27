@@ -483,7 +483,7 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	gst_bus_add_watch( bus, reinterpret_cast<GstBusFunc>(bus_message_cb), this );
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		mediaStream[i] = new MediaStream( (MediaType)i, context );
+		mediaStream[i] = new MediaStream( static_cast<MediaType>(i), context );
 	}
 }
 
