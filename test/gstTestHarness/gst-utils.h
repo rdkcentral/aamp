@@ -40,7 +40,7 @@ void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *mes
 void gstutils_HandleGstMessageQOS( GstMessage * msg, const char *messageName );
 void gstutils_HandleGstMessageTag( GstMessage *msg, const char *messageName );
 
-struct GstObjectDeleter
+struct ScopedGstObjectDeleter
 {
 	void operator()(GstObject* obj) const noexcept
 	{
@@ -49,9 +49,9 @@ struct GstObjectDeleter
 		}
 	}
 };
-using ScopedGstObject = std::unique_ptr<GstObject, GstObjectDeleter>;
+using ScopedGstObject = std::unique_ptr<GstObject, ScopedGstObjectDeleter>;
 
-struct GstElementDeleter
+struct ScopedGstElementDeleter
 {
 	void operator()(GstElement* e) const noexcept
 	{
@@ -60,7 +60,7 @@ struct GstElementDeleter
 		}
 	}
 };
-using ScopedGstElement = std::unique_ptr<GstElement, GstElementDeleter>;
+using ScopedGstElement = std::unique_ptr<GstElement, ScopedGstElementDeleter>;
 
 struct ScopedGstCapsDeleter
 {
