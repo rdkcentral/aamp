@@ -71,14 +71,6 @@ public:
 	
 	MyPipelineContext(const MyPipelineContext&)=delete;
 	MyPipelineContext& operator=(const MyPipelineContext&)=delete;
-	
-	// Apply centralized pipeline-level seek when an appsrc becomes ready
-	void OnAppsrcReady( const SeekParam& param ) override {
-		if( pipeline )
-		{
-			pipeline->DoSeekNow(param);
-		}
-	}
 };
 
 class TrackEvent

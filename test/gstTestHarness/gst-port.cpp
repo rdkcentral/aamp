@@ -69,14 +69,17 @@ public:
 			if( need_data_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, need_data_handle_id);
+				need_data_handle_id = 0;
 			}
 			if( enough_data_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, enough_data_handle_id);
+				enough_data_handle_id = 0;
 			}
 			if( appsrc_seek_handle_id != 0 )
 			{
 				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
+				appsrc_seek_handle_id = 0;
 			}
 		}
 		
@@ -97,7 +100,7 @@ public:
 		return mediaType;
 	}
 	
-	const char *GetMediaTypeAsString( void )
+	const char *GetMediaTypeAsString( void ) const
 	{
 		return gstutils_GetMediaTypeName(mediaType);
 	}
@@ -307,19 +310,8 @@ public:
 		g_object_set(appsrc, "format",   GST_FORMAT_TIME, nullptr);
 		g_object_set(appsrc, "typefind", TRUE,            nullptr);
 		
-		// --- Atomic coordination with the other branch ---
-		auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
-		if (prevCount == 1) {
-			// Initial lazy seek once both branches are configured
-			std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-			if (context->mSegmentEndSeekQueue.empty()) {
-				GST_DEBUG("Configure %s: initial seek queue empty", mediaStr);
-			} else {
-				SeekParam param = context->mSegmentEndSeekQueue.front();
-				context->mSegmentEndSeekQueue.pop();
-				context->OnAppsrcReady(param);
-			}
-		}
+		// Branch configured; pipeline will perform any initial seek
+		context->configured_streams.fetch_add(1, std::memory_order_acq_rel);
 		
 		// Success - elements are owned by pipeline, and our members hold required refs
 	}
@@ -529,7 +521,7 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	gst_bus_add_watch( bus, reinterpret_cast<GstBusFunc>(bus_message_cb), this );
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		mediaStream[i] = new MediaStream( static_cast<MediaType>(i), context );
+		mediaStream[i] = std::make_unique<MediaStream>( static_cast<MediaType>(i), context );
 	}
 }
 
@@ -547,8 +539,19 @@ size_t Pipeline::GetNumPendingSeek(void) const
 
 void Pipeline::Configure( MediaType mediaType )
 {
-	context->found_count++;
+	printf( "***entering Pipeline::Configure\n" );
 	mediaStream[mediaType]->Configure(pipeline);
+	// When both branches are configured, apply the initial pipeline-level seek (if queued)
+	if (context->configured_streams.load(std::memory_order_acquire) == NUM_MEDIA_TYPES){
+		std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+		if (!context->mSegmentEndSeekQueue.empty()) {
+			SeekParam param = context->mSegmentEndSeekQueue.front();
+			context->mSegmentEndSeekQueue.pop();
+			(void)DoSeekNow(param);
+		} else {
+			GST_DEBUG_OBJECT(pipeline, "Initial seek queue empty; starting at current position");
+		}
+	}
 }
 
 void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
@@ -562,7 +565,6 @@ Pipeline::~Pipeline()
 	gst_object_unref(bus);
 	bus = NULL;
 	gst_element_set_state(pipeline, GST_STATE_NULL);
-	for( int i=0; i<NUM_MEDIA_TYPES; i++ ) { delete mediaStream[i]; }
 	gst_object_unref(pipeline);
 }
 
@@ -605,23 +607,26 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 {
 	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
-	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush);
+	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d segment=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush, req.segment);
+	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	if( req.flush )
 	{
 		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
 		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
+		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_FLUSH);
 	}
-	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
-	if( req.flush )   flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_FLUSH);
-	if( req.segment ) flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_SEGMENT);
-	bool open = req.stop_seconds>req.start_seconds;
+	if (req.segment)
+	{
+		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
+	}
+	bool open = req.stop_seconds==req.start_seconds;
 	const gboolean ok = gst_element_seek( pipeline,
 										 req.playback_rate,
 										 GST_FORMAT_TIME,
 										 flags,
 										 GST_SEEK_TYPE_SET, start,
 										 open? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE,
-										 stop );
+										 open? GST_CLOCK_TIME_NONE : stop );
 	if (!ok) { GST_ERROR_OBJECT(pipeline, "gst_element_seek failed"); }
 	return ok;
 }
