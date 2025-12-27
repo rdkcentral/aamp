@@ -27,6 +27,7 @@
 #include <gst/gst.h>
 #include <queue>
 #include <mutex>
+#include <atomic>
 #include "mp4demux.hpp"
 
 typedef enum
