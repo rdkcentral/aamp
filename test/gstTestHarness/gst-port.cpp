@@ -278,15 +278,15 @@ public:
 			// Elements are already in the bin; let the bin clean them up.
 			// Set our member references to nullptr to indicate failure.
 			decodebin = nullptr;
-			appsrc    = nullptr;
+			appsrc = nullptr;
 			return;
 		}
 		
 		// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
 		// The pipeline bin now owns these elements and will manage their lifecycle.
 		// We store raw pointers as non-owning references for signal handling and operations.
-		appsrc    = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
-		decodebin = decodebinLocal.release();               // member is GstElement*
+		appsrc = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
+		decodebin = decodebinLocal.release();            // member is GstElement*
 		// conv/post/sink are not stored as members; release them so bin owns the only ref
 		convLocal.release();
 		postLocal.release();
@@ -361,7 +361,7 @@ public:
 private:
 	double injectedSeconds;
 	
-	/// Non-owning pointer to the pipeline context. Const to indicate the pointer never changes.
+	/// Non-owning pointer to the pipeline context. Pointer is const (cannot be reseated).
 	PipelineContext* const context;
 	
 	const MediaType mediaType;
