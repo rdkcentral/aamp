@@ -240,7 +240,6 @@ public:
 			
 			if( appsrcLocal && decodebinLocal && convLocal && postLocal && sinkLocal )
 			{
-				
 				// --- Add all elements to the pipeline (bin takes ownership by increasing ref) ---
 				gst_bin_add_many(
 								 GST_BIN(pipeline),
@@ -287,9 +286,13 @@ public:
 				g_object_set(appsrc, "typefind", TRUE,            nullptr);
 				
 				// Branch configured; pipeline will perform any initial seek
-				context->configured_streams.fetch_add(1, std::memory_order_acq_rel);
+				context->configured_stream_count.fetch_add(1, std::memory_order_acq_rel);
 				
 				// Success - elements are owned by pipeline, and our members hold required refs
+			}
+			else
+			{
+				GST_ERROR("failed to create one or more GStreamer elements");
 			}
 		}
 	}
@@ -520,13 +523,13 @@ void Pipeline::Configure( MediaType mediaType )
 	mediaStream[mediaType]->Configure(pipeline);
 	
 	// When both branches are configured, apply the initial pipeline-level seek (if queued)
-	if (context->configured_streams.load(std::memory_order_acquire) == NUM_MEDIA_TYPES){
-		std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-		if (!context->mSegmentEndSeekQueue.empty()) {
-			SeekParam param = context->mSegmentEndSeekQueue.front();
-			context->mSegmentEndSeekQueue.pop();
-			(void)DoSeekNow(param);
-		}
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+	if( context->configured_stream_count.load(std::memory_order_acquire) == NUM_MEDIA_TYPES &&
+		!context->mSegmentEndSeekQueue.empty() )
+	{
+		SeekParam param = context->mSegmentEndSeekQueue.front();
+		context->mSegmentEndSeekQueue.pop();
+		(void)DoSeekNow(param);
 	}
 }
 
@@ -601,7 +604,7 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 										 GST_FORMAT_TIME,
 										 flags,
 										 GST_SEEK_TYPE_SET, start,
-										 open? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE,
+										 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
 										 open? GST_CLOCK_TIME_NONE : stop );
 	if (!ok) { GST_ERROR_OBJECT(pipeline, "gst_element_seek failed"); }
 	return ok;

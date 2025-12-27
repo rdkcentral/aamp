@@ -60,7 +60,7 @@ struct ScopedGstCapsDeleter
 		}
 	}
 };
-using ScopedGstCaps = std::unique_ptr<GstElement, ScopedGstCapsDeleter>;
+using ScopedGstCaps = std::unique_ptr<GstCaps, ScopedGstCapsDeleter>;
 
 #endif // GST_UTILS_H
 
