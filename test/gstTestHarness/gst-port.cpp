@@ -167,7 +167,144 @@ public:
 			gst_app_src_end_of_stream( appsrc );
 		}
 	}
-	
+
+#if 1
+
+#include <memory>
+#include <mutex>
+#include <atomic>
+
+// Custom deleter for GstElement*
+struct GstElementDeleter {
+    void operator()(GstElement* e) const noexcept {
+        if (e) {
+            gst_object_unref(GST_OBJECT(e));
+        }
+    }
+};
+
+using GstElemUPtr = std::unique_ptr<GstElement, GstElementDeleter>;
+
+// Helper to create an element and log an error if creation fails
+static GstElemUPtr make_element_or_log(const char* factory,
+                                       const char* name,
+                                       const char* media_str)
+{
+    GstElement* raw = gst_element_factory_make(factory, name);
+    if (!raw) {
+        GST_ERROR("Failed to create %s for %s", factory, media_str);
+        return GstElemUPtr(nullptr);
+    }
+    return GstElemUPtr(raw);
+}
+
+void Configure(GstElement* pipeline)
+{
+    GST_INFO("Configure %s", GetMediaTypeAsString());
+
+    if (appsrc) {
+        GST_WARNING("already configured");
+        return;
+    }
+
+    const bool isVideo = (mediaType == eMEDIATYPE_VIDEO);
+    const char* mediaStr = GetMediaTypeAsString();
+
+    // --- Create all elements with RAII wrappers (auto-unref on early return) ---
+    auto appsrcLocal = make_element_or_log("appsrc", isVideo ? "v_src" : "a_src", mediaStr);
+    if (!appsrcLocal) return;
+
+    auto decodebinLocal = make_element_or_log("decodebin", isVideo ? "v_decode" : "a_decode", mediaStr);
+    if (!decodebinLocal) return;
+
+    auto convLocal = make_element_or_log(isVideo ? "videoconvert" : "audioconvert",
+                                         isVideo ? "v_conv"        : "a_conv", mediaStr);
+    if (!convLocal) return;
+
+    auto postLocal = make_element_or_log(isVideo ? "videoscale" : "audioresample",
+                                         isVideo ? "v_scale"     : "a_res", mediaStr);
+    if (!postLocal) return;
+
+    auto sinkLocal = make_element_or_log(isVideo ? "autovideosink" : "autoaudiosink",
+                                         isVideo ? "v_sink"         : "a_sink", mediaStr);
+    if (!sinkLocal) return;
+
+    // --- Add all elements to the pipeline (bin takes ownership by increasing ref) ---
+    gst_bin_add_many(
+        GST_BIN(pipeline),
+        appsrcLocal.get(),
+        decodebinLocal.get(),
+        convLocal.get(),
+        postLocal.get(),
+        sinkLocal.get(),
+        NULL
+    );
+
+    // --- Link appsrc -> decodebin ---
+    if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get())) {
+        GST_ERROR("link appsrc->decodebin failed for %s", mediaStr);
+        // Elements are already in the bin; let the bin clean them up.
+        // Clear our member references to indicate failure.
+        decodebin = NULL;
+        appsrc    = NULL;
+        return;
+    }
+
+    // --- Transfer ownership: release RAII so unique_ptrs don't unref ---
+    appsrc    = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
+    decodebin = decodebinLocal.release();               // member is GstElement*
+    // conv/post/sink are not stored as members; release them so bin owns the only ref
+    convLocal.release();
+    postLocal.release();
+    sinkLocal.release();
+
+    // pad-added callback on decodebin
+    g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
+
+    // --- Configure appsrc flow control ---
+    switch (mediaType) {
+        case eMEDIATYPE_VIDEO:
+            g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL);
+            break;
+        case eMEDIATYPE_AUDIO:
+            g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL);
+            break;
+        default:
+            break;
+    }
+    g_object_set(appsrc, "min-percent", 50, NULL);
+
+    need_data_handle_id   = g_signal_connect(appsrc, "need-data",    G_CALLBACK(need_data_cb),    this);
+    enough_data_handle_id = g_signal_connect(appsrc, "enough-data",  G_CALLBACK(enough_data_cb),  this);
+    appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",    G_CALLBACK(appsrc_seek_cb),  this);
+
+    gst_app_src_set_stream_type(appsrc, GST_APP_STREAM_TYPE_SEEKABLE);
+    g_object_set(appsrc, "format",   GST_FORMAT_TIME, NULL);
+    g_object_set(appsrc, "typefind", TRUE,            NULL);
+
+    if (!context) {
+        GST_ERROR("context is NULL");
+        return;
+    }
+
+    // --- Atomic coordination with the other branch ---
+    auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
+    if (prevCount == 1) {
+        // Initial lazy seek once both branches are configured
+        std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+        if (context->mSegmentEndSeekQueue.empty()) {
+            GST_DEBUG("Configure %s: initial seek queue empty", mediaStr);
+        } else {
+            SeekParam param = context->mSegmentEndSeekQueue.front();
+            context->mSegmentEndSeekQueue.pop();
+            context->OnAppsrcReady(param);
+        }
+    }
+
+    // Success - elements are owned by pipeline, and our members hold required refs
+}
+
+#else
 	/**
 	 * @brief create, link, and configure a branch for specified media track (appsrc -> decodebin -> convert/resample -> sink)
 	 * @param pipeline parent pipeline
@@ -301,6 +438,7 @@ public:
 		}
 		// Success - elements are owned by pipeline, don't unref them
 	} // Configure
+#endif
 	
 	void ClearInjectedSeconds( void ) { injectedSeconds = 0; }
 	
