@@ -207,9 +207,11 @@ public:
 	/**
 	 * @brief Configure the media stream by creating and linking GStreamer elements
 	 *
-	 * Creates the GStreamer pipeline elements for this media stream and adds them
-	 * to the provided pipeline. Elements are owned by the pipeline bin after being
-	 * added, and this class stores non-owning references to appsrc and decodebin.
+	 * Creates and links the GStreamer pipeline elements for this media stream.
+	 * Elements are linked before being added to the bin to ensure atomicity - if
+	 * linking fails, no elements are added and RAII cleanup handles unref.
+	 * Elements are owned by the pipeline bin after being added, and this class
+	 * stores non-owning references to appsrc and decodebin.
 	 *
 	 * @param pipeline The GStreamer pipeline to add elements to
 	 */
@@ -250,7 +252,22 @@ public:
 			
 			if( appsrcLocal && decodebinLocal && convLocal && postLocal && sinkLocal )
 			{
-				// --- Add all elements to the pipeline (bin takes ownership by increasing ref) ---
+				// --- Link elements before adding to bin to avoid partial pipeline state ---
+				// First link: appsrc -> decodebin
+				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
+				{
+					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
+					return;
+				}
+				
+				// Second link: conv -> post -> sink
+				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
+				{
+					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink");
+					return;
+				}
+				
+				// --- Add all linked elements to the pipeline (bin takes ownership by increasing ref) ---
 				gst_bin_add_many(
 								 GST_BIN(pipeline),
 								 appsrcLocal.get(),
@@ -259,22 +276,6 @@ public:
 								 postLocal.get(),
 								 sinkLocal.get(),
 								 nullptr );
-				
-				// --- Link appsrc -> decodebin ---
-				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
-				{
-					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
-					decodebin = nullptr;
-					appsrc = nullptr;
-					return;
-				}
-				
-				// --- NEW: statically link conv -> post -> sink here ---
-				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
-				{
-					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" );
-					return; // Early exit; RAII locals will unref, bin owns added refs
-				}
 				
 				// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
 				// The pipeline bin now owns these elements and will manage their lifecycle.
