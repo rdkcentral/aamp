@@ -69,6 +69,12 @@ public:
 		}
 	}
 	
+	
+	MediaType GetMediaType( void )
+	{
+		return mediaType;
+	}
+	
 	const char *GetMediaTypeAsString( void )
 	{
 		return gstutils_GetMediaTypeName(mediaType);
@@ -190,8 +196,7 @@ public:
 							if( sink )
 							{
 								gst_bin_add_many(GST_BIN(pipeline), GST_ELEMENT(appsrc), decodebin, conv, post, sink, NULL);
-								
-								// Link: appsrc -> decodebin (decodebin pad-added will link to conv)
+								// link: appsrc -> decodebin (decodebin pad-added will link to conv)
 								if( gst_element_link(GST_ELEMENT(appsrc), decodebin) )
 								{
 									g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
@@ -295,25 +300,42 @@ private:
 };
 
 // C glue callbacks
+
+/**
+ * @brief handle gstreamer signal that buffers need to be filled - start/continue injecting AV data
+ *
+ * @param appSrc element that emitted the signal
+ * @param length number of bytes needed, or -1 for "any"
+ */
 static void need_data_cb(GstElement *appSrc, guint length, class MediaStream *stream )
 {
 	stream->need_data( appSrc, length );
 }
 
+/**
+ * @brief handle gstreamer signal that buffers are sufficiently full - stop injecting AV data
+ * @param appSrc element that emitted the signal
+ */
 static void enough_data_cb(GstElement *appSrc, class MediaStream *stream )
 {
 	stream->enough_data( appSrc );
 }
 
+/**
+ * @brief sent when a seek event reaches the appsrc - called when appsrc wants us to return data from a new position with the next call to push-buffer.
+ *
+ * @param appSrc element that emitted the signal
+ * @param offset seek target
+ * @return TRUE if seek successful
+ */
 static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class MediaStream *stream )
 {
 	return stream->appsrc_seek( appSrc, offset );
 }
 
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream )
-{
-	// Link newly exposed pad to the convert element
-	const boolean isVideo = (stream->mediaType == eMEDIATYPE_VIDEO);
+{ // link newly exposed pad to the convert element
+	const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
 	const char* convName = isVideo? "v_conv" : "a_conv";
 	GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(GST_BIN(gst_element_get_parent(decodebin)), convName));
 	GstPad* sinkpad = gst_element_get_static_pad(conv, "sink");
