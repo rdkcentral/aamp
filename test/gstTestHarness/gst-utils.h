@@ -20,6 +20,7 @@
 #define GST_UTILS_H
 
 #include <gst/app/gstappsrc.h>
+#include <memory>
 
 typedef enum
 {
@@ -38,6 +39,28 @@ void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *message
 void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *messageName );
 void gstutils_HandleGstMessageQOS( GstMessage * msg, const char *messageName );
 void gstutils_HandleGstMessageTag( GstMessage *msg, const char *messageName );
+
+struct GstElementDeleter
+{
+	void operator()(GstElement* e) const noexcept
+	{
+		if (e) {
+			gst_object_unref(GST_OBJECT(e));
+		}
+	}
+};
+using ScopedGstElement = std::unique_ptr<GstElement, GstElementDeleter>;
+
+struct ScopedGstCapsDeleter
+{
+	void operator()(GstCaps* caps) const noexcept
+	{
+		if (caps) {
+			gst_caps_unref(GST_CAPS(caps));
+		}
+	}
+};
+using ScopedGstCaps = std::unique_ptr<GstElement, ScopedGstCapsDeleter>;
 
 #endif // GST_UTILS_H
 
