@@ -260,11 +260,8 @@ public:
 								 sinkLocal.get(),
 								 nullptr );
 				
-				// --- Link appsrc -> decodebin ---
-				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
-				{
-					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
-					// Remove elements from bin before returning - bin will unref them
+				// Helper lambda to clean up elements from bin on error
+				auto cleanup_on_error = [&]() {
 					gst_bin_remove_many(
 						GST_BIN(pipeline),
 						appsrcLocal.get(),
@@ -273,6 +270,13 @@ public:
 						postLocal.get(),
 						sinkLocal.get(),
 						nullptr);
+				};
+				
+				// --- Link appsrc -> decodebin ---
+				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
+				{
+					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
+					cleanup_on_error();
 					return;
 				}
 				
@@ -280,15 +284,7 @@ public:
 				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
 				{
 					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" );
-					// Remove elements from bin before returning - bin will unref them
-					gst_bin_remove_many(
-						GST_BIN(pipeline),
-						appsrcLocal.get(),
-						decodebinLocal.get(),
-						convLocal.get(),
-						postLocal.get(),
-						sinkLocal.get(),
-						nullptr);
+					cleanup_on_error();
 					return;
 				}
 				
