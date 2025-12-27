@@ -301,15 +301,30 @@ public:
 		// Success - elements are owned by pipeline, and our members hold required refs
 	}
 	
-	void ClearInjectedSeconds( void ) { injectedSeconds = 0; }
+	void ClearInjectedSeconds( void )
+	{
+		injectedSeconds = 0;
+	}
 	
-	double GetInjectedSeconds( void ) const { return injectedSeconds; }
+	double GetInjectedSeconds( void ) const
+	{
+		return injectedSeconds;
+	}
 	
-	long long GetPositionMilliseconds( void ) const { return -1; } // Pipeline queries global position now
+	long long GetPositionMilliseconds( void ) const
+	{
+		return -1; // Pipeline queries global position now
+	}
 	
-	void need_data( GstElement *appSrc, guint length ) { context->NeedData( mediaType ); }
+	void need_data( GstElement *appSrc, guint length )
+	{
+		context->NeedData( mediaType );
+	}
 	
-	void enough_data( GstElement *appSrc ) { context->EnoughData( mediaType ); }
+	void enough_data( GstElement *appSrc )
+	{
+		context->EnoughData( mediaType );
+	}
 	
 	gboolean appsrc_seek( GstElement *appSrc, guint64 offset )
 	{
@@ -550,14 +565,21 @@ void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds 
 	mediaStream[mediaType]->SendGap(pts,durationSeconds);
 }
 
-void Pipeline::SendEOS( MediaType mediaType ) { mediaStream[mediaType]->SendEOS(); }
+void Pipeline::SendEOS( MediaType mediaType )
+{
+	mediaStream[mediaType]->SendEOS();
+}
 
 bool Pipeline::DoSeekNow( const SeekParam& req )
 {
 	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
 	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush);
-	if( req.flush ) { mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds(); mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds(); }
+	if( req.flush )
+	{
+		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
+		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
+	}
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	if( req.flush )   flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_FLUSH);
 	if( req.segment ) flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_SEGMENT);
