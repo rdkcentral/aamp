@@ -18,6 +18,7 @@
  */
 #ifndef GST_PORT_H
 #define GST_PORT_H
+
 #include "gst-utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,7 @@
 #include <assert.h>
 #include <gst/gst.h>
 #include <queue>
+#include <mutex>
 #include "mp4demux.hpp"
 
 typedef enum
@@ -56,7 +58,7 @@ class PipelineContext
 	 * 1. initial lazy seek when both appsrc branches are configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
-	mutable std::mutex segment_seek_mutex;
+	/*mutable*/ std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
 	std::atomic<int> found_count;
 };
