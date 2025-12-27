@@ -198,6 +198,11 @@ public:
 	void Configure(GstElement* pipeline)
 	{
 		GST_INFO("Configure %s", GetMediaTypeAsString());
+
+		if (!context) {
+			GST_ERROR("context is NULL");
+			return;
+		}
 		
 		if (appsrc) {
 			GST_WARNING("already configured");
@@ -278,11 +283,6 @@ public:
 		gst_app_src_set_stream_type(appsrc, GST_APP_STREAM_TYPE_SEEKABLE);
 		g_object_set(appsrc, "format",   GST_FORMAT_TIME, NULL);
 		g_object_set(appsrc, "typefind", TRUE,            NULL);
-		
-		if (!context) {
-			GST_ERROR("context is NULL");
-			return;
-		}
 		
 		// --- Atomic coordination with the other branch ---
 		auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
@@ -381,7 +381,6 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class Media
  */
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream )
 {
-	//
 	const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
 	const char* convName = isVideo ? "v_conv" : "a_conv";
 	
@@ -560,8 +559,8 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush);
 	if( req.flush ) { mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds(); mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds(); }
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
-	if( req.flush )   flags = (GstSeekFlags)(flags | GST_SEEK_FLAG_FLUSH);
-	if( req.segment ) flags = (GstSeekFlags)(flags | GST_SEEK_FLAG_SEGMENT);
+	if( req.flush )   flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_FLUSH);
+	if( req.segment ) flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_SEGMENT);
 	bool open = req.stop_seconds>req.start_seconds;
 	const gboolean ok = gst_element_seek( pipeline,
 										 req.playback_rate,
@@ -640,14 +639,30 @@ gboolean Pipeline::bus_message( _GstBus * bus, _GstMessage * msg )
 	const char *messageName = gst_message_type_get_name( messageType );
 	switch( messageType )
 	{
-		case GST_MESSAGE_ERROR:         HandleGstMessageError( msg, messageName ); break;
-		case GST_MESSAGE_WARNING:       HandleGstMessageWarning( msg, messageName ); break;
-		case GST_MESSAGE_SEGMENT_DONE:  HandleGstMessageSegmentDone( msg, messageName ); break;
-		case GST_MESSAGE_EOS:           HandleGstMessageEOS( msg, messageName ); break;
-		case GST_MESSAGE_STATE_CHANGED: gstutils_HandleGstMessageStateChanged( msg, messageName ); break;
-		case GST_MESSAGE_TAG:           gstutils_HandleGstMessageTag( msg, messageName ); break;
-		case GST_MESSAGE_QOS:           gstutils_HandleGstMessageQOS( msg, messageName ); break;
-		case GST_MESSAGE_STREAM_STATUS: gstutils_HandleGstMessageStreamStatus( msg, messageName ); break;
+		case GST_MESSAGE_ERROR:
+			HandleGstMessageError( msg, messageName );
+			break;
+		case GST_MESSAGE_WARNING:
+			HandleGstMessageWarning( msg, messageName );
+			break;
+		case GST_MESSAGE_SEGMENT_DONE:
+			HandleGstMessageSegmentDone( msg, messageName );
+			break;
+		case GST_MESSAGE_EOS:
+			HandleGstMessageEOS( msg, messageName );
+			break;
+		case GST_MESSAGE_STATE_CHANGED:
+			gstutils_HandleGstMessageStateChanged( msg, messageName );
+			break;
+		case GST_MESSAGE_TAG:
+			gstutils_HandleGstMessageTag( msg, messageName );
+			break;
+		case GST_MESSAGE_QOS:
+			gstutils_HandleGstMessageQOS( msg, messageName );
+			break;
+		case GST_MESSAGE_STREAM_STATUS:
+			gstutils_HandleGstMessageStreamStatus( msg, messageName );
+			break;
 		default: break;
 	}
 	return TRUE;
