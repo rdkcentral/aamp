@@ -40,6 +40,17 @@ void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *mes
 void gstutils_HandleGstMessageQOS( GstMessage * msg, const char *messageName );
 void gstutils_HandleGstMessageTag( GstMessage *msg, const char *messageName );
 
+struct GstObjectDeleter
+{
+	void operator()(GstObject* obj) const noexcept
+	{
+		if (obj) {
+			gst_object_unref(GST_OBJECT(obj));
+		}
+	}
+};
+using ScopedGstObject = std::unique_ptr<GstObject, GstObjectDeleter>;
+
 struct GstElementDeleter
 {
 	void operator()(GstElement* e) const noexcept
@@ -61,6 +72,17 @@ struct ScopedGstCapsDeleter
 	}
 };
 using ScopedGstCaps = std::unique_ptr<GstCaps, ScopedGstCapsDeleter>;
+
+struct ScopedGstPadDeleter {
+	void operator()(GstPad* pad) const noexcept
+	{
+		if( pad )
+		{
+			gst_object_unref(GST_OBJECT(pad));
+		}
+	}
+};
+using ScopedGstPad = std::unique_ptr<GstPad, ScopedGstPadDeleter>;
 
 #endif // GST_UTILS_H
 

@@ -19,6 +19,7 @@
 #include "gst-port.h"
 #include "gst-utils.h"
 #include <gst/gst.h>
+#include <gst/gstcaps.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/gstdebugutils.h>
 #include <inttypes.h>
@@ -57,32 +58,29 @@ public:
 	/**
 	 * @brief Destructor - disconnects signal handlers
 	 *
-	 * Note: Does NOT unref appsrc or decodebin as they are owned by the pipeline bin.
-	 * The pipeline bin manages their lifecycle and will unref them when the pipeline
-	 * is destroyed. This destructor only disconnects signal handlers that reference
-	 * this MediaStream instance to prevent dangling pointers.
+	 * Uses weak pointers to avoid calling into finalized GObjects
+	 * Does NOT unref appsrc or decodebin (owned by pipeline bin).
 	 */
 	~MediaStream( void )
 	{
-		if( appsrc )
+		// Disconnect appsrc signal handlers only if object is still valid
+		if (appsrc)
 		{
-			if( need_data_handle_id != 0 )
+			if (need_data_handle_id != 0)
 			{
 				g_signal_handler_disconnect(appsrc, need_data_handle_id);
-				need_data_handle_id = 0;
 			}
-			if( enough_data_handle_id != 0 )
+			if (enough_data_handle_id != 0)
 			{
 				g_signal_handler_disconnect(appsrc, enough_data_handle_id);
-				enough_data_handle_id = 0;
 			}
-			if( appsrc_seek_handle_id != 0 )
+			if (appsrc_seek_handle_id != 0)
 			{
 				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
-				appsrc_seek_handle_id = 0;
 			}
 		}
-		
+		// Disconnect any decodebin signal handlers connected with 'this' as user data.
+		// Safe even if some were already removed.
 		if( decodebin )
 		{
 			// Disconnect any signal handlers (e.g. "pad-added") that were
@@ -90,10 +88,17 @@ public:
 			g_signal_handlers_disconnect_by_data(decodebin, this);
 		}
 		
-		// Note: appsrc and decodebin are NOT unreferenced here as they are owned
-		// by the pipeline bin, which will handle their cleanup when destroyed.
+		// Clear weak pointers (no-op if already cleared by finalization)
+		// Note: guards protect against double-remove.
+		if( appsrc )
+		{
+			g_object_remove_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
+		}
+		if( decodebin )
+		{
+			g_object_remove_weak_pointer(G_OBJECT(decodebin), reinterpret_cast<gpointer*>(&decodebin));
+		}
 	}
-	
 	
 	MediaType GetMediaType( void ) const
 	{
@@ -208,10 +213,12 @@ public:
 	void Configure(GstElement* pipeline)
 	{
 		GST_INFO("Configure %s", GetMediaTypeAsString());
-		if (!context) {
+		if( !context )
+		{
 			GST_ERROR("no context");
 		}
-		else if (appsrc) {
+		else if( appsrc )
+		{
 			GST_WARNING("already configured");
 		}
 		else
@@ -251,13 +258,19 @@ public:
 								 nullptr );
 				
 				// --- Link appsrc -> decodebin ---
-				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get())) {
-					GST_ERROR("gst_element_link failed");
-					// Elements are already in the bin; let the bin clean them up.
-					// Set our member references to nullptr to indicate failure.
+				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
+				{
+					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
 					decodebin = nullptr;
-					appsrc    = nullptr;
+					appsrc = nullptr;
 					return;
+				}
+				
+				// --- NEW: statically link conv -> post -> sink here ---
+				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
+				{
+					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" );
+					return; // Early exit; RAII locals will unref, bin owns added refs
 				}
 				
 				// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
@@ -265,7 +278,20 @@ public:
 				// We store raw pointers as non-owning references for signal handling and operations.
 				appsrc = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
 				decodebin = decodebinLocal.release();            // member is GstElement*
-				// conv/post/sink are not stored as members; release them so bin owns the only ref
+				
+				// --- NEW: set weak pointers so raw members become nullptr if objects are finalized ---
+				// This prevents destructor from calling g_signal_handler_disconnect on dangling pointers.
+				// Safe to call multiple times; GLib manages internal weak-ref list.
+				if (appsrc)
+				{
+					g_object_add_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
+				}
+				if (decodebin)
+				{
+					g_object_add_weak_pointer(G_OBJECT(decodebin), reinterpret_cast<gpointer*>(&decodebin));
+				}
+				
+				// conv/post/sink are not stored as members; release RAII so bin remains owner
 				convLocal.release();
 				postLocal.release();
 				sinkLocal.release();
@@ -392,7 +418,7 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class Media
 }
 
 /**
- * @brief link newly exposed pad to the convert element
+ * @brief link newly exposed pad to the convert element (dynamic pad -> conv.sink only)
  *
  * @param decodebin - decoder
  * @param pad - newly exposed pad
@@ -403,90 +429,87 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 	const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
 	const char* convName = isVideo ? "v_conv" : "a_conv";
 	
-	// Get parent and check for null
-	auto parent = gst_element_get_parent(decodebin);
-	if( !parent )
-	{
+	// Parent bin (RAII)
+	ScopedGstObject parent = ScopedGstObject(gst_element_get_parent(decodebin));
+	if (!parent) {
 		GST_ERROR_OBJECT(decodebin, "decodebin has no parent; cannot link newly added pad");
 		return;
 	}
+	GstBin* parentBin = GST_BIN(parent.get());
 	
-	GstBin* parentBin = GST_BIN(parent);
-	
-	// Get conv element and check for null
-	GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(parentBin, convName));
-	if( !conv )
-	{
+	// Convert element (RAII)
+	ScopedGstElement conv{ gst_bin_get_by_name(parentBin, convName) };
+	if (!conv) {
 		GST_ERROR_OBJECT(decodebin, "Failed to find convert element '%s' in bin", convName);
-		gst_object_unref(parent);
 		return;
 	}
 	
-	// Get sinkpad and check for null
-	GstPad* sinkpad = gst_element_get_static_pad(conv, "sink");
-	if( !sinkpad )
-	{
-		GST_ERROR_OBJECT(conv, "Failed to get 'sink' pad from convert element '%s'", convName);
-		gst_object_unref(conv);
-		gst_object_unref(parent);
+	// Sink pad of conv (RAII)
+	ScopedGstPad sinkpad{ gst_element_get_static_pad(conv.get(), "sink") };
+	if (!sinkpad) {
+		GST_ERROR_OBJECT(conv.get(), "Failed to get 'sink' pad from convert element '%s'", convName);
 		return;
 	}
 	
-	// Check if already linked
-	if( gst_pad_is_linked(sinkpad) )
-	{
-		gst_object_unref(sinkpad);
-		gst_object_unref(conv);
-		gst_object_unref(parent);
+	// Already linked? nothing to do
+	if (gst_pad_is_linked(sinkpad.get())) {
+		GST_DEBUG_OBJECT(conv.get(), "conv.sink already linked; skipping");
 		return;
 	}
 	
-	// Try to link the pads
-	if( gst_pad_link(pad, sinkpad) == GST_PAD_LINK_OK )
-	{
-		gst_object_unref(sinkpad);
-		
-		// Finish link to sink chain
-		GstElement* post = GST_ELEMENT(gst_bin_get_by_name(parentBin, isVideo ? "v_scale" : "a_res"));
-		if( !post )
-		{
-			GST_ERROR_OBJECT(decodebin, "Failed to find post element '%s' in bin",
-							 isVideo ? "v_scale" : "a_res");
-			gst_object_unref(conv);
-			gst_object_unref(parent);
-			return;
-		}
-		
-		GstElement* sink = GST_ELEMENT(gst_bin_get_by_name(parentBin, isVideo ? "v_sink" : "a_sink"));
-		if( !sink )
-		{
-			GST_ERROR_OBJECT(decodebin, "Failed to find sink element '%s' in bin",
-							 isVideo ? "v_sink" : "a_sink");
-			gst_object_unref(post);
-			gst_object_unref(conv);
-			gst_object_unref(parent);
-			return;
-		}
-		
-		gboolean linkOk = gst_element_link_many(conv, post, sink, NULL);
-		if( !linkOk )
-		{
-			GST_ERROR_OBJECT(conv, "Failed to link %s elements in decodebin_pad_added_cb",
-							 isVideo ? "video" : "audio");
-		}
-		
-		gst_object_unref(post);
-		gst_object_unref(sink);
+	// Dynamic link: decodebin src pad -> conv.sink
+	if (gst_pad_link(pad, sinkpad.get()) == GST_PAD_LINK_OK) {
+		GST_INFO_OBJECT(conv.get(), "Linked decodebin src pad -> %s.sink", convName);
+	} else {
+		GST_ERROR_OBJECT(conv.get(), "Failed to link decodebin src pad -> %s.sink", convName);
 	}
-	else
-	{
-		// On link failure, release sinkpad reference
-		gst_object_unref(sinkpad);
-	}
-	
-	gst_object_unref(conv);
-	gst_object_unref(parent);
+	// All acquired refs auto-unref via RAII on scope exit
 }
+/*
+ auto parent = gst_element_get_parent(decodebin);
+ if( !parent )
+ {
+ GST_ERROR_OBJECT(decodebin, "decodebin has no parent; cannot link newly added pad");
+ }
+ else
+ {
+ GstBin* parentBin = GST_BIN(parent);
+ const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
+ const char* convName = isVideo ? "v_conv" : "a_conv";
+ GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(parentBin, convName));
+ if( !conv )
+ {
+ GST_ERROR_OBJECT(decodebin, "Failed to find convert element '%s' in bin", convName);
+ gst_object_unref(parent);
+ }
+ else
+ { // Link decodebin src pad -> conv.sink (only dynamic part)
+ ScopedGstPad sinkpad{ gst_element_get_static_pad(conv, "sink") };
+ if( !sinkpad )
+ {
+ GST_ERROR_OBJECT(conv, "Failed to get 'sink' pad from convert element '%s'", convName);
+ gst_object_unref(conv);
+ gst_object_unref(parent);
+ }
+ else if( gst_pad_is_linked(sinkpad.get()) )
+ { // already linked
+ gst_object_unref(conv);
+ gst_object_unref(parent);
+ }
+ else if (gst_pad_link(pad, sinkpad.get()) == GST_PAD_LINK_OK)
+ {
+ GST_INFO_OBJECT(conv, "Linked decodebin src pad -> %s.sink", convName);
+ }
+ else
+ {
+ GST_ERROR_OBJECT(conv, "Failed to link decodebin src pad -> %s.sink", convName);
+ }
+ gst_object_unref(conv);
+ gst_object_unref(parent);
+ }
+ }
+ }
+ */
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
 {
@@ -525,7 +548,7 @@ void Pipeline::Configure( MediaType mediaType )
 	// When both branches are configured, apply the initial pipeline-level seek (if queued)
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	if( context->configured_stream_count.load(std::memory_order_acquire) == NUM_MEDIA_TYPES &&
-		!context->mSegmentEndSeekQueue.empty() )
+	   !context->mSegmentEndSeekQueue.empty() )
 	{
 		SeekParam param = context->mSegmentEndSeekQueue.front();
 		context->mSegmentEndSeekQueue.pop();
@@ -540,11 +563,26 @@ void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
 
 Pipeline::~Pipeline()
 {
-	gst_bus_remove_watch(bus);
-	gst_object_unref(bus);
-	bus = NULL;
-	gst_element_set_state(pipeline, GST_STATE_NULL);
-	gst_object_unref(pipeline);
+	// 1) Stop bus watch now, while pipeline is still alive.
+	if (bus)
+	{
+		gst_bus_remove_watch(bus);
+		gst_object_unref(bus);
+		bus = NULL;
+	}
+	// 2) Destroy MediaStream instances first, so they can safely disconnect signals
+	//    while their elements (appsrc/decodebin) still exist in the bin.
+	for (auto& ms : mediaStream)
+	{
+		ms.reset(); // invokes MediaStream::~MediaStream()
+	}
+	// 3) Now tear down the pipeline
+	if (pipeline)
+	{
+		gst_element_set_state(pipeline, GST_STATE_NULL);
+		gst_object_unref(pipeline);
+		pipeline = nullptr;
+	}
 }
 
 void Pipeline::SetPipelineState(PipelineState pipelineState )
@@ -590,15 +628,13 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	if( req.flush )
 	{
-		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
-		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
 		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_FLUSH);
 	}
 	if (req.segment)
 	{
 		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
 	}
-	bool open = req.stop_seconds==req.start_seconds;
+	bool open = (req.stop_seconds==req.start_seconds);
 	const gboolean ok = gst_element_seek( pipeline,
 										 req.playback_rate,
 										 GST_FORMAT_TIME,
@@ -606,7 +642,18 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 										 GST_SEEK_TYPE_SET, start,
 										 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
 										 open? GST_CLOCK_TIME_NONE : stop );
-	if (!ok) { GST_ERROR_OBJECT(pipeline, "gst_element_seek failed"); }
+	if( ok )
+	{
+		if( req.flush )
+		{
+			mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
+			mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
+		}
+	}
+	else
+	{
+		GST_ERROR_OBJECT(pipeline, "gst_element_seek failed");
+	}
 	return ok;
 }
 
