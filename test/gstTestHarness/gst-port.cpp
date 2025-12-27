@@ -88,8 +88,9 @@ public:
 			g_signal_handlers_disconnect_by_data(decodebin, this);
 		}
 		
-		// Clear weak pointers (no-op if already cleared by finalization).
-		// After removal, set members to nullptr so subsequent calls are safe.
+		// Clear weak pointers; if the GObject was already finalized, GLib will
+		// have set these to nullptr, and the guards prevent calling remove on
+		// an already-cleared weak pointer (avoids double-remove).
 		if( appsrc )
 		{
 			g_object_remove_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
@@ -533,7 +534,7 @@ Pipeline::~Pipeline()
 	{
 		gst_bus_remove_watch(bus);
 		gst_object_unref(bus);
-		bus = NULL;
+		bus = nullptr;
 	}
 	// 2) Destroy MediaStream instances first, so they can safely disconnect signals
 	//    while their elements (appsrc/decodebin) still exist in the bin.
