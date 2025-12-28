@@ -19,6 +19,7 @@
 #include "gst-port.h"
 #include "gst-utils.h"
 #include <gst/gst.h>
+#include <gst/gstcaps.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/gstdebugutils.h>
 #include <inttypes.h>
@@ -57,54 +58,64 @@ public:
 	/**
 	 * @brief Destructor - disconnects signal handlers
 	 *
-	 * Note: Does NOT unref appsrc or decodebin as they are owned by the pipeline bin.
-	 * The pipeline bin manages their lifecycle and will unref them when the pipeline
-	 * is destroyed. This destructor only disconnects signal handlers that reference
-	 * this MediaStream instance to prevent dangling pointers.
+	 * Uses weak pointers to avoid calling into finalized GObjects
+	 * Does NOT unref appsrc or decodebin (owned by pipeline bin).
 	 */
 	~MediaStream( void )
 	{
-		if( appsrc )
+		// Disconnect appsrc signal handlers only if object is still valid
+		if (appsrc)
 		{
-			if( need_data_handle_id != 0 )
+			if (need_data_handle_id != 0)
 			{
 				g_signal_handler_disconnect(appsrc, need_data_handle_id);
 			}
-			if( enough_data_handle_id != 0 )
+			if (enough_data_handle_id != 0)
 			{
 				g_signal_handler_disconnect(appsrc, enough_data_handle_id);
 			}
-			if( appsrc_seek_handle_id != 0 )
+			if (appsrc_seek_handle_id != 0)
 			{
 				g_signal_handler_disconnect(appsrc, appsrc_seek_handle_id);
 			}
 		}
-		
-		if( decodebin )
+		// Disconnect any decodebin signal handlers connected with 'this' as user data.
+		// Safe even if some were already removed.
+		if (decodebin)
 		{
 			// Disconnect any signal handlers (e.g. "pad-added") that were
 			// connected with this MediaStream instance as user data.
 			g_signal_handlers_disconnect_by_data(decodebin, this);
 		}
 		
-		// Note: appsrc and decodebin are NOT unreferenced here as they are owned
-		// by the pipeline bin, which will handle their cleanup when destroyed.
+		// Clear weak pointers; if the GObject was already finalized, GLib will
+		// have set these to nullptr, and the guards prevent calling remove on
+		// an already-cleared weak pointer (avoids double-remove).
+		if (appsrc)
+		{
+			g_object_remove_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
+			appsrc = nullptr;
+		}
+		if (decodebin)
+		{
+			g_object_remove_weak_pointer(G_OBJECT(decodebin), reinterpret_cast<gpointer*>(&decodebin));
+			decodebin = nullptr;
+		}
 	}
-	
 	
 	MediaType GetMediaType( void ) const
 	{
 		return mediaType;
 	}
 	
-	const char *GetMediaTypeAsString( void )
+	const char *GetMediaTypeAsString( void ) const
 	{
 		return gstutils_GetMediaTypeName(mediaType);
 	}
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
-		if( ptr && appsrc )
+		if (ptr && appsrc)
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
 															   (GstMemoryFlags)0,
@@ -129,7 +140,7 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=nullptr )
 	{
-		if( ptr && appsrc )
+		if (ptr && appsrc)
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
 															   (GstMemoryFlags)0,
@@ -142,7 +153,7 @@ public:
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * GST_SECOND);
-			if( metadata )
+			if (metadata)
 			{
 				gst_buffer_add_protection_meta(gstBuffer, metadata);
 			}
@@ -162,12 +173,12 @@ public:
 	void SendGap( double pts, double durationSeconds )
 	{
 		GST_INFO("SendGap(%s, pts=%f, dur=%f)", GetMediaTypeAsString(), pts, durationSeconds );
-		if( appsrc )
+		if (appsrc)
 		{
 			GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
 			GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
 			GstEvent *event = gst_event_new_gap( timestamp, duration );
-			if( !gst_element_send_event( GST_ELEMENT(appsrc), event) )
+			if (!gst_element_send_event( GST_ELEMENT(appsrc), event))
 			{
 				GST_WARNING_OBJECT( appsrc, "Failed to send GAP event" );
 			}
@@ -177,34 +188,21 @@ public:
 	void SendEOS( void )
 	{
 		GST_INFO("SendEOS %s", GetMediaTypeAsString());
-		if( appsrc )
+		if (appsrc)
 		{
 			gst_app_src_end_of_stream( appsrc );
 		}
 	}
 	
-	// Custom deleter for GstElement*
-	struct GstElementDeleter {
-		void operator()(GstElement* e) const noexcept {
-			if (e) {
-				gst_object_unref(GST_OBJECT(e));
-			}
-		}
-	};
-	
-	using GstElemUPtr = std::unique_ptr<GstElement, GstElementDeleter>;
-	
-	// Helper to create an element and log an error if creation fails
-	static GstElemUPtr make_element_or_log(const char* factory,
-										   const char* name,
-										   const char* media_str)
+	static ScopedGstElement make_element( const char* factory, const char* name )
 	{
 		GstElement* raw = gst_element_factory_make(factory, name);
-		if (!raw) {
-			GST_ERROR("Failed to create %s for %s", factory, media_str);
-			return GstElemUPtr(nullptr);
+		if (!raw)
+		{
+			GST_ERROR("failed to create %s", factory);
+			return ScopedGstElement(nullptr);
 		}
-		return GstElemUPtr(raw);
+		return ScopedGstElement(raw);
 	}
 	
 	/**
@@ -219,109 +217,111 @@ public:
 	void Configure(GstElement* pipeline)
 	{
 		GST_INFO("Configure %s", GetMediaTypeAsString());
-		
-		if (!context) {
-			GST_ERROR("context is nullptr");
-			return;
+		if (!context)
+		{
+			GST_ERROR("no context");
 		}
-		
-		if (appsrc) {
+		else if (appsrc)
+		{
 			GST_WARNING("already configured");
-			return;
 		}
-		
-		const bool isVideo = (mediaType == eMEDIATYPE_VIDEO);
-		const char* mediaStr = GetMediaTypeAsString();
-		
-		// --- Create all elements with RAII wrappers (auto-unref on early return) ---
-		auto appsrcLocal = make_element_or_log("appsrc", isVideo ? "v_src" : "a_src", mediaStr);
-		if (!appsrcLocal) return;
-		
-		auto decodebinLocal = make_element_or_log("decodebin", isVideo ? "v_decode" : "a_decode", mediaStr);
-		if (!decodebinLocal) return;
-		
-		auto convLocal = make_element_or_log(isVideo ? "videoconvert"  : "audioconvert",
-											 isVideo ? "v_conv"        : "a_conv", mediaStr);
-		if (!convLocal) return;
-		
-		auto postLocal = make_element_or_log(isVideo ? "videoscale"    : "audioresample",
-											 isVideo ? "v_scale"       : "a_res", mediaStr);
-		if (!postLocal) return;
-		
-		auto sinkLocal = make_element_or_log(isVideo ? "autovideosink" : "autoaudiosink",
-											 isVideo ? "v_sink"        : "a_sink", mediaStr);
-		if (!sinkLocal) return;
-		
-		// --- Add all elements to the pipeline (bin takes ownership by increasing ref) ---
-		gst_bin_add_many(
-						 GST_BIN(pipeline),
-						 appsrcLocal.get(),
-						 decodebinLocal.get(),
-						 convLocal.get(),
-						 postLocal.get(),
-						 sinkLocal.get(),
-						 nullptr
-						 );
-		
-		// --- Link appsrc -> decodebin ---
-		if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get())) {
-			GST_ERROR("link appsrc->decodebin failed for %s", mediaStr);
-			// Elements are already in the bin; let the bin clean them up.
-			// Set our member references to nullptr to indicate failure.
-			decodebin = nullptr;
-			appsrc    = nullptr;
-			return;
-		}
-		
-		// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
-		// The pipeline bin now owns these elements and will manage their lifecycle.
-		// We store raw pointers as non-owning references for signal handling and operations.
-		appsrc = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
-		decodebin = decodebinLocal.release();            // member is GstElement*
-		// conv/post/sink are not stored as members; release them so bin owns the only ref
-		convLocal.release();
-		postLocal.release();
-		sinkLocal.release();
-		
-		// pad-added callback on decodebin
-		g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
-		
-		// --- Configure appsrc flow control ---
-		switch (mediaType) {
-			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", (guint64)12582912, nullptr);
-				break;
-			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", (guint64)1536000, nullptr);
-				break;
-			default:
-				break;
-		}
-		g_object_set(appsrc, "min-percent", 50, nullptr);
-		
-		need_data_handle_id   = g_signal_connect(appsrc, "need-data",    G_CALLBACK(need_data_cb),    this);
-		enough_data_handle_id = g_signal_connect(appsrc, "enough-data",  G_CALLBACK(enough_data_cb),  this);
-		appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",    G_CALLBACK(appsrc_seek_cb),  this);
-		
-		gst_app_src_set_stream_type(appsrc, GST_APP_STREAM_TYPE_SEEKABLE);
-		g_object_set(appsrc, "format",   GST_FORMAT_TIME, nullptr);
-		g_object_set(appsrc, "typefind", TRUE,            nullptr);
-		
-		// --- Atomic coordination with the other branch ---
-		auto prevCount = context->found_count.fetch_sub(1, std::memory_order_acq_rel);
-		if (prevCount == 1) {
-			// Initial lazy seek once both branches are configured
-			std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-			if (context->mSegmentEndSeekQueue.empty()) {
-				GST_DEBUG("Configure %s: initial seek queue empty", mediaStr);
-			} else {
-				SeekParam param = context->mSegmentEndSeekQueue.front();
-				context->mSegmentEndSeekQueue.pop();
-				context->OnAppsrcReady(param);
+		else
+		{
+			// --- Create all elements with RAII wrappers (auto-unref on early return) ---
+			ScopedGstElement appsrcLocal, decodebinLocal, convLocal, postLocal, sinkLocal;
+			guint64 maxBytes;
+			if (mediaType == eMEDIATYPE_VIDEO)
+			{
+				appsrcLocal = make_element("appsrc", "v_src");
+				decodebinLocal = make_element("decodebin", "v_decode");
+				convLocal = make_element("videoconvert", "v_conv");
+				postLocal = make_element("videoscale", "v_scale");
+				sinkLocal = make_element("autovideosink","v_sink");
+				maxBytes = 12582912;
+			}
+			else
+			{
+				appsrcLocal = make_element("appsrc", "a_src");
+				decodebinLocal = make_element("decodebin", "a_decode");
+				convLocal = make_element("audioconvert","a_conv");
+				postLocal = make_element("audioresample","a_res");
+				sinkLocal = make_element("autoaudiosink","a_sink");
+				maxBytes = 1536000;
+			}
+			
+			if (appsrcLocal && decodebinLocal && convLocal && postLocal && sinkLocal)
+			{
+				// --- Add all elements to the pipeline (bin takes ownership by increasing ref) ---
+				gst_bin_add_many(
+								 GST_BIN(pipeline),
+								 appsrcLocal.get(),
+								 decodebinLocal.get(),
+								 convLocal.get(),
+								 postLocal.get(),
+								 sinkLocal.get(),
+								 nullptr );
+				
+				// --- Link appsrc -> decodebin ---
+				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
+				{
+					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
+					decodebin = nullptr;
+					appsrc = nullptr;
+					return;
+				}
+				
+				// --- NEW: statically link conv -> post -> sink here ---
+				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
+				{
+					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" );
+					return; // Early exit; RAII locals will unref, bin owns added refs
+				}
+				
+				// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
+				// The pipeline bin now owns these elements and will manage their lifecycle.
+				// We store raw pointers as non-owning references for signal handling and operations.
+				appsrc = GST_APP_SRC(appsrcLocal.release());     // member expects GstAppSrc*
+				decodebin = decodebinLocal.release();            // member is GstElement*
+				
+				// --- NEW: set weak pointers so raw members become nullptr if objects are finalized ---
+				// This prevents destructor from calling g_signal_handler_disconnect on dangling pointers.
+				// Safe to call multiple times; GLib manages internal weak-ref list.
+				if (appsrc)
+				{
+					g_object_add_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
+				}
+				if (decodebin)
+				{
+					g_object_add_weak_pointer(G_OBJECT(decodebin), reinterpret_cast<gpointer*>(&decodebin));
+				}
+				
+				// conv/post/sink are not stored as members; release RAII so bin remains owner
+				convLocal.release();
+				postLocal.release();
+				sinkLocal.release();
+				
+				// pad-added callback on decodebin
+				g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
+				
+				// --- Configure appsrc flow control ---
+				g_object_set(appsrc, "max-bytes", maxBytes, nullptr);
+				g_object_set(appsrc, "min-percent", 50, nullptr);
+				
+				need_data_handle_id   = g_signal_connect(appsrc, "need-data",    G_CALLBACK(need_data_cb),    this);
+				enough_data_handle_id = g_signal_connect(appsrc, "enough-data",  G_CALLBACK(enough_data_cb),  this);
+				appsrc_seek_handle_id = g_signal_connect(appsrc, "seek-data",    G_CALLBACK(appsrc_seek_cb),  this);
+				
+				gst_app_src_set_stream_type(appsrc, GST_APP_STREAM_TYPE_SEEKABLE);
+				g_object_set(appsrc, "format",   GST_FORMAT_TIME, nullptr);
+				g_object_set(appsrc, "typefind", TRUE,            nullptr);
+				
+				// Success - elements are owned by pipeline, and our members hold required refs
+			}
+			else
+			{
+				GST_ERROR("failed to create one or more GStreamer elements");
 			}
 		}
-		
-		// Success - elements are owned by pipeline, and our members hold required refs
 	}
 	
 	void ClearInjectedSeconds( void )
@@ -419,7 +419,7 @@ static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class Media
 }
 
 /**
- * @brief link newly exposed pad to the convert element
+ * @brief link newly exposed pad to the convert element (dynamic pad -> conv.sink only)
  *
  * @param decodebin - decoder
  * @param pad - newly exposed pad
@@ -430,89 +430,48 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 	const bool isVideo = (stream->GetMediaType() == eMEDIATYPE_VIDEO);
 	const char* convName = isVideo ? "v_conv" : "a_conv";
 	
-	// Get parent and check for null
-	auto parent = gst_element_get_parent(decodebin);
-	if( !parent )
+	// Parent bin (RAII)
+	ScopedGstObject parent = ScopedGstObject(gst_element_get_parent(decodebin));
+	if (!parent)
 	{
 		GST_ERROR_OBJECT(decodebin, "decodebin has no parent; cannot link newly added pad");
 		return;
 	}
+	GstBin* parentBin = GST_BIN(parent.get());
 	
-	GstBin* parentBin = GST_BIN(parent);
-	
-	// Get conv element and check for null
-	GstElement* conv = GST_ELEMENT(gst_bin_get_by_name(parentBin, convName));
-	if( !conv )
+	// Convert element (RAII)
+	ScopedGstElement conv{ gst_bin_get_by_name(parentBin, convName) };
+	if (!conv)
 	{
 		GST_ERROR_OBJECT(decodebin, "Failed to find convert element '%s' in bin", convName);
-		gst_object_unref(parent);
 		return;
 	}
 	
-	// Get sinkpad and check for null
-	GstPad* sinkpad = gst_element_get_static_pad(conv, "sink");
-	if( !sinkpad )
+	// Sink pad of conv (RAII)
+	ScopedGstPad sinkpad{ gst_element_get_static_pad(conv.get(), "sink") };
+	if (!sinkpad)
 	{
-		GST_ERROR_OBJECT(conv, "Failed to get 'sink' pad from convert element '%s'", convName);
-		gst_object_unref(conv);
-		gst_object_unref(parent);
+		GST_ERROR_OBJECT(conv.get(), "Failed to get 'sink' pad from convert element '%s'", convName);
 		return;
 	}
 	
-	// Check if already linked
-	if( gst_pad_is_linked(sinkpad) )
+	// Already linked? nothing to do
+	if (gst_pad_is_linked(sinkpad.get()))
 	{
-		gst_object_unref(sinkpad);
-		gst_object_unref(conv);
-		gst_object_unref(parent);
+		GST_DEBUG_OBJECT(conv.get(), "conv.sink already linked; skipping");
 		return;
 	}
 	
-	// Try to link the pads
-	if( gst_pad_link(pad, sinkpad) == GST_PAD_LINK_OK )
+	// Dynamic link: decodebin src pad -> conv.sink
+	if (gst_pad_link(pad, sinkpad.get()) == GST_PAD_LINK_OK)
 	{
-		gst_object_unref(sinkpad);
-		
-		// Finish link to sink chain
-		GstElement* post = GST_ELEMENT(gst_bin_get_by_name(parentBin, isVideo ? "v_scale" : "a_res"));
-		if( !post )
-		{
-			GST_ERROR_OBJECT(decodebin, "Failed to find post element '%s' in bin",
-							 isVideo ? "v_scale" : "a_res");
-			gst_object_unref(conv);
-			gst_object_unref(parent);
-			return;
-		}
-		
-		GstElement* sink = GST_ELEMENT(gst_bin_get_by_name(parentBin, isVideo ? "v_sink" : "a_sink"));
-		if( !sink )
-		{
-			GST_ERROR_OBJECT(decodebin, "Failed to find sink element '%s' in bin",
-							 isVideo ? "v_sink" : "a_sink");
-			gst_object_unref(post);
-			gst_object_unref(conv);
-			gst_object_unref(parent);
-			return;
-		}
-		
-		gboolean linkOk = gst_element_link_many(conv, post, sink, NULL);
-		if( !linkOk )
-		{
-			GST_ERROR_OBJECT(conv, "Failed to link %s elements in decodebin_pad_added_cb",
-							 isVideo ? "video" : "audio");
-		}
-		
-		gst_object_unref(post);
-		gst_object_unref(sink);
+		GST_INFO_OBJECT(conv.get(), "Linked decodebin src pad -> %s.sink", convName);
 	}
 	else
 	{
-		// On link failure, release sinkpad reference
-		gst_object_unref(sinkpad);
+		GST_ERROR_OBJECT(conv.get(), "Failed to link decodebin src pad -> %s.sink", convName);
 	}
-	
-	gst_object_unref(conv);
-	gst_object_unref(parent);
+	// All acquired refs auto-unref via RAII on scope exit
 }
 
 gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline )
@@ -529,7 +488,7 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	gst_bus_add_watch( bus, reinterpret_cast<GstBusFunc>(bus_message_cb), this );
 	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
 	{
-		mediaStream[i] = new MediaStream( static_cast<MediaType>(i), context );
+		mediaStream[i] = std::make_unique<MediaStream>( static_cast<MediaType>(i), context );
 	}
 }
 
@@ -547,8 +506,24 @@ size_t Pipeline::GetNumPendingSeek(void) const
 
 void Pipeline::Configure( MediaType mediaType )
 {
-	context->found_count++;
 	mediaStream[mediaType]->Configure(pipeline);
+	// Increment count and perform initial seek if both branches are configured
+	// All operations protected by mutex to prevent race conditions
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+	
+	// Increment the configured stream count (protected by mutex above)
+	int count = ++context->configured_stream_count;
+	
+	// When both branches are configured and initial seek hasn't been performed yet
+	if (count == NUM_MEDIA_TYPES &&
+	   !context->initial_seek_performed &&
+	   !context->mSegmentEndSeekQueue.empty())
+	{
+		SeekParam param = context->mSegmentEndSeekQueue.front();
+		context->mSegmentEndSeekQueue.pop();
+		(void)DoSeekNow(param);
+		context->initial_seek_performed = true;
+	}
 }
 
 void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
@@ -558,12 +533,26 @@ void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
 
 Pipeline::~Pipeline()
 {
-	gst_bus_remove_watch(bus);
-	gst_object_unref(bus);
-	bus = NULL;
-	gst_element_set_state(pipeline, GST_STATE_NULL);
-	for( int i=0; i<NUM_MEDIA_TYPES; i++ ) { delete mediaStream[i]; }
-	gst_object_unref(pipeline);
+	// 1) Stop bus watch now, while pipeline is still alive.
+	if (bus)
+	{
+		gst_bus_remove_watch(bus);
+		gst_object_unref(bus);
+		bus = nullptr;
+	}
+	// 2) Destroy MediaStream instances first, so they can safely disconnect signals
+	//    while their elements (appsrc/decodebin) still exist in the bin.
+	for (auto& ms : mediaStream)
+	{
+		ms.reset(); // invokes MediaStream::~MediaStream()
+	}
+	// 3) Now tear down the pipeline
+	if (pipeline)
+	{
+		gst_element_set_state(pipeline, GST_STATE_NULL);
+		gst_object_unref(pipeline);
+		pipeline = nullptr;
+	}
 }
 
 void Pipeline::SetPipelineState(PipelineState pipelineState )
@@ -605,24 +594,36 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 {
 	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
-	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush);
-	if( req.flush )
-	{
-		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
-		mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
-	}
+	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d segment=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush, req.segment);
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
-	if( req.flush )   flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_FLUSH);
-	if( req.segment ) flags = static_cast<GstSeekFlags>(flags | GST_SEEK_FLAG_SEGMENT);
-	bool open = req.stop_seconds>req.start_seconds;
+	if (req.flush)
+	{
+		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_FLUSH);
+	}
+	if (req.segment)
+	{
+		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
+	}
+	bool open = (req.stop_seconds==req.start_seconds);
 	const gboolean ok = gst_element_seek( pipeline,
 										 req.playback_rate,
 										 GST_FORMAT_TIME,
 										 flags,
 										 GST_SEEK_TYPE_SET, start,
-										 open? GST_SEEK_TYPE_SET : GST_SEEK_TYPE_NONE,
-										 stop );
-	if (!ok) { GST_ERROR_OBJECT(pipeline, "gst_element_seek failed"); }
+										 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
+										 open? GST_CLOCK_TIME_NONE : stop );
+	if (ok)
+	{
+		if (req.flush)
+		{
+			mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
+			mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
+		}
+	}
+	else
+	{
+		GST_ERROR_OBJECT(pipeline, "gst_element_seek failed");
+	}
 	return ok;
 }
 
@@ -636,7 +637,7 @@ void Pipeline::Reset( void )
 long long Pipeline::GetPositionMilliseconds( MediaType /*mediaType*/ ) const
 {
 	gint64 position = GST_CLOCK_TIME_NONE;
-	if( gst_element_query_position(pipeline, GST_FORMAT_TIME, &position) )
+	if (gst_element_query_position(pipeline, GST_FORMAT_TIME, &position))
 		return GST_TIME_AS_MSECONDS(position);
 	return -1;
 }
@@ -728,7 +729,7 @@ void Pipeline::DumpDOT( void ) const
 	// brew install graphviz
 	// dot -Tsvg gst-test.dot  > gst-test.svg
 	FILE *f = fopen( "gst-test.dot", "wb" );
-	if( f )
+	if (f)
 	{
 		fputs( graphviz, f );
 		fclose( f );

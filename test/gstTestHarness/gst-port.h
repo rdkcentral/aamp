@@ -20,6 +20,8 @@
 #define GST_PORT_H
 
 #include "gst-utils.h"
+#include <array>
+#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -49,19 +51,18 @@ struct SeekParam {
 class PipelineContext
 {
 	public:
-	PipelineContext() : found_count(0) {}
+	PipelineContext() : configured_stream_count(0), initial_seek_performed(false) {}
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
-	// called once both appsrc branches are configured
-	virtual void OnAppsrcReady(const SeekParam&) = 0;
 	/**
 	 * 1. initial lazy seek when both appsrc branches are configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
 	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
-	std::atomic<int> found_count;
+	int configured_stream_count; // Protected by segment_seek_mutex
+	bool initial_seek_performed; // Protected by segment_seek_mutex
 };
 
 class Pipeline
@@ -92,7 +93,7 @@ class Pipeline
 	void Seek( MediaType mediaType, const SeekParam &param );
 	void ReachedEOS( void );
 	class PipelineContext *context;
-	class MediaStream *mediaStream[NUM_MEDIA_TYPES];
+	std::array<std::unique_ptr<class MediaStream>, NUM_MEDIA_TYPES> mediaStream;
 	GstElement *pipeline;
 	GstBus *bus;
 	gboolean bus_message( GstBus * bus, GstMessage * msg );
