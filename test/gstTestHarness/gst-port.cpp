@@ -513,8 +513,8 @@ void Pipeline::Configure( MediaType mediaType )
 	// All operations protected by mutex to prevent race conditions
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
 	
-	// Increment the configured stream count atomically under lock
-	int count = context->configured_stream_count.fetch_add(1, std::memory_order_acq_rel) + 1;
+	// Increment the configured stream count (protected by mutex above)
+	int count = ++context->configured_stream_count;
 	
 	// When both branches are configured and initial seek hasn't been performed yet
 	if( count == NUM_MEDIA_TYPES && 

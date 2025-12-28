@@ -61,7 +61,7 @@ class PipelineContext
 	 */
 	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
-	std::atomic<int> configured_stream_count;
+	int configured_stream_count; // Protected by segment_seek_mutex
 	bool initial_seek_performed; // Protected by segment_seek_mutex
 };
 
