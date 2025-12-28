@@ -260,8 +260,21 @@ public:
 								 sinkLocal.get(),
 								 nullptr );
 				
-				// Helper lambda to clean up elements from bin on error
-				auto cleanup_on_error = [&]() {
+				bool linked = false;
+				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
+				{ // --- Link appsrc -> decodebin ---
+					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
+				}
+				else if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
+				{ // --- NEW: statically link conv -> post -> sink here ---
+					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" )
+				}
+				else
+				{
+					linked = true;
+				}
+				if( !linked )
+				{
 					gst_bin_remove_many(
 						GST_BIN(pipeline),
 						appsrcLocal.get(),
@@ -270,23 +283,9 @@ public:
 						postLocal.get(),
 						sinkLocal.get(),
 						nullptr);
-				};
-				
-				// --- Link appsrc -> decodebin ---
-				if (!gst_element_link(appsrcLocal.get(), decodebinLocal.get()))
-				{
-					GST_ERROR("gst_element_link(appsrc->decodebin) failed");
-					cleanup_on_error();
 					return;
 				}
 				
-				// --- NEW: statically link conv -> post -> sink here ---
-				if (!gst_element_link_many(convLocal.get(), postLocal.get(), sinkLocal.get(), nullptr))
-				{
-					GST_ERROR_OBJECT(convLocal.get(), "gst_element_link_many failure conv->post->sink" );
-					cleanup_on_error();
-					return;
-				}
 				
 				// --- Store non-owning references: release RAII so unique_ptrs don't unref ---
 				// The pipeline bin now owns these elements and will manage their lifecycle.
