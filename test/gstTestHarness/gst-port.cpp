@@ -81,7 +81,7 @@ public:
 		}
 		// Disconnect any decodebin signal handlers connected with 'this' as user data.
 		// Safe even if some were already removed.
-		if( decodebin )
+		if (decodebin)
 		{
 			// Disconnect any signal handlers (e.g. "pad-added") that were
 			// connected with this MediaStream instance as user data.
@@ -91,12 +91,12 @@ public:
 		// Clear weak pointers; if the GObject was already finalized, GLib will
 		// have set these to nullptr, and the guards prevent calling remove on
 		// an already-cleared weak pointer (avoids double-remove).
-		if( appsrc )
+		if (appsrc)
 		{
 			g_object_remove_weak_pointer(G_OBJECT(appsrc), reinterpret_cast<gpointer*>(&appsrc));
 			appsrc = nullptr;
 		}
-		if( decodebin )
+		if (decodebin)
 		{
 			g_object_remove_weak_pointer(G_OBJECT(decodebin), reinterpret_cast<gpointer*>(&decodebin));
 			decodebin = nullptr;
@@ -115,7 +115,7 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
-		if( ptr && appsrc )
+		if (ptr && appsrc)
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
 															   (GstMemoryFlags)0,
@@ -140,7 +140,7 @@ public:
 	
 	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=nullptr )
 	{
-		if( ptr && appsrc )
+		if (ptr && appsrc)
 		{
 			GstBuffer *gstBuffer = gst_buffer_new_wrapped_full(
 															   (GstMemoryFlags)0,
@@ -153,7 +153,7 @@ public:
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * GST_SECOND);
-			if( metadata )
+			if (metadata)
 			{
 				gst_buffer_add_protection_meta(gstBuffer, metadata);
 			}
@@ -173,12 +173,12 @@ public:
 	void SendGap( double pts, double durationSeconds )
 	{
 		GST_INFO("SendGap(%s, pts=%f, dur=%f)", GetMediaTypeAsString(), pts, durationSeconds );
-		if( appsrc )
+		if (appsrc)
 		{
 			GstClockTime timestamp = (GstClockTime)(pts * GST_SECOND);
 			GstClockTime duration = (GstClockTime)(durationSeconds * GST_SECOND);
 			GstEvent *event = gst_event_new_gap( timestamp, duration );
-			if( !gst_element_send_event( GST_ELEMENT(appsrc), event) )
+			if (!gst_element_send_event( GST_ELEMENT(appsrc), event))
 			{
 				GST_WARNING_OBJECT( appsrc, "Failed to send GAP event" );
 			}
@@ -188,7 +188,7 @@ public:
 	void SendEOS( void )
 	{
 		GST_INFO("SendEOS %s", GetMediaTypeAsString());
-		if( appsrc )
+		if (appsrc)
 		{
 			gst_app_src_end_of_stream( appsrc );
 		}
@@ -197,7 +197,7 @@ public:
 	static ScopedGstElement make_element( const char* factory, const char* name )
 	{
 		GstElement* raw = gst_element_factory_make(factory, name);
-		if( !raw )
+		if (!raw)
 		{
 			GST_ERROR("failed to create %s", factory);
 			return ScopedGstElement(nullptr);
@@ -217,11 +217,11 @@ public:
 	void Configure(GstElement* pipeline)
 	{
 		GST_INFO("Configure %s", GetMediaTypeAsString());
-		if( !context )
+		if (!context)
 		{
 			GST_ERROR("no context");
 		}
-		else if( appsrc )
+		else if (appsrc)
 		{
 			GST_WARNING("already configured");
 		}
@@ -230,7 +230,7 @@ public:
 			// --- Create all elements with RAII wrappers (auto-unref on early return) ---
 			ScopedGstElement appsrcLocal, decodebinLocal, convLocal, postLocal, sinkLocal;
 			guint64 maxBytes;
-			if( mediaType == eMEDIATYPE_VIDEO )
+			if (mediaType == eMEDIATYPE_VIDEO)
 			{
 				appsrcLocal = make_element("appsrc", "v_src");
 				decodebinLocal = make_element("decodebin", "v_decode");
@@ -249,7 +249,7 @@ public:
 				maxBytes = 1536000;
 			}
 			
-			if( appsrcLocal && decodebinLocal && convLocal && postLocal && sinkLocal )
+			if (appsrcLocal && decodebinLocal && convLocal && postLocal && sinkLocal)
 			{
 				// --- Add all elements to the pipeline (bin takes ownership by increasing ref) ---
 				gst_bin_add_many(
@@ -515,9 +515,9 @@ void Pipeline::Configure( MediaType mediaType )
 	int count = ++context->configured_stream_count;
 	
 	// When both branches are configured and initial seek hasn't been performed yet
-	if( count == NUM_MEDIA_TYPES &&
+	if (count == NUM_MEDIA_TYPES &&
 	   !context->initial_seek_performed &&
-	   !context->mSegmentEndSeekQueue.empty() )
+	   !context->mSegmentEndSeekQueue.empty())
 	{
 		SeekParam param = context->mSegmentEndSeekQueue.front();
 		context->mSegmentEndSeekQueue.pop();
@@ -596,7 +596,7 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
 	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d segment=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush, req.segment);
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
-	if( req.flush )
+	if (req.flush)
 	{
 		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_FLUSH);
 	}
@@ -612,9 +612,9 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 										 GST_SEEK_TYPE_SET, start,
 										 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
 										 open? GST_CLOCK_TIME_NONE : stop );
-	if( ok )
+	if (ok)
 	{
-		if( req.flush )
+		if (req.flush)
 		{
 			mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
 			mediaStream[eMEDIATYPE_VIDEO]->ClearInjectedSeconds();
@@ -637,7 +637,7 @@ void Pipeline::Reset( void )
 long long Pipeline::GetPositionMilliseconds( MediaType /*mediaType*/ ) const
 {
 	gint64 position = GST_CLOCK_TIME_NONE;
-	if( gst_element_query_position(pipeline, GST_FORMAT_TIME, &position) )
+	if (gst_element_query_position(pipeline, GST_FORMAT_TIME, &position))
 		return GST_TIME_AS_MSECONDS(position);
 	return -1;
 }
@@ -729,7 +729,7 @@ void Pipeline::DumpDOT( void ) const
 	// brew install graphviz
 	// dot -Tsvg gst-test.dot  > gst-test.svg
 	FILE *f = fopen( "gst-test.dot", "wb" );
-	if( f )
+	if (f)
 	{
 		fputs( graphviz, f );
 		fclose( f );
