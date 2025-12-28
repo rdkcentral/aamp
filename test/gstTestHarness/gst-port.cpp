@@ -315,9 +315,6 @@ public:
 				g_object_set(appsrc, "format",   GST_FORMAT_TIME, nullptr);
 				g_object_set(appsrc, "typefind", TRUE,            nullptr);
 				
-				// Branch configured; pipeline will perform any initial seek
-				context->configured_stream_count.fetch_add(1, std::memory_order_acq_rel);
-				
 				// Success - elements are owned by pipeline, and our members hold required refs
 			}
 			else
@@ -510,15 +507,22 @@ size_t Pipeline::GetNumPendingSeek(void) const
 void Pipeline::Configure( MediaType mediaType )
 {
 	mediaStream[mediaType]->Configure(pipeline);
-	
-	// When both branches are configured, apply the initial pipeline-level seek (if queued)
+	// Increment count and perform initial seek if both branches are configured
+	// All operations protected by mutex to prevent race conditions
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	if( context->configured_stream_count.load(std::memory_order_acquire) == NUM_MEDIA_TYPES &&
+	
+	// Increment the configured stream count (protected by mutex above)
+	int count = ++context->configured_stream_count;
+	
+	// When both branches are configured and initial seek hasn't been performed yet
+	if( count == NUM_MEDIA_TYPES &&
+	   !context->initial_seek_performed &&
 	   !context->mSegmentEndSeekQueue.empty() )
 	{
 		SeekParam param = context->mSegmentEndSeekQueue.front();
 		context->mSegmentEndSeekQueue.pop();
 		(void)DoSeekNow(param);
+		context->initial_seek_performed = true;
 	}
 }
 

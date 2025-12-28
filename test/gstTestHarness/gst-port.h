@@ -51,7 +51,7 @@ struct SeekParam {
 class PipelineContext
 {
 	public:
-	PipelineContext() : configured_stream_count(0) {}
+	PipelineContext() : configured_stream_count(0), initial_seek_performed(false) {}
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
@@ -61,7 +61,8 @@ class PipelineContext
 	 */
 	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
-	std::atomic<int> configured_stream_count;
+	int configured_stream_count; // Protected by segment_seek_mutex
+	bool initial_seek_performed; // Protected by segment_seek_mutex
 };
 
 class Pipeline
