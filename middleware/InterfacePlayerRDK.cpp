@@ -2661,6 +2661,10 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
+	else
+	{
+		MW_LOG_ERR("InterfacePlayerRDK: failed to query the pos");
+	}
 	return rc;
 }
 
