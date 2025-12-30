@@ -2638,7 +2638,9 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		}
 		gst_query_unref(segmentQuery);
 	}
-	if (gst_element_query(video->sinkbin,interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
+	/*if (gst_element_query(video->sinkbin,interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)*/
+	if (gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,
+                      interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
 	{
 		gint64 pos = 0;
 		int rate = interfacePlayerPriv->gstPrivateContext->rate;
