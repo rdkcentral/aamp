@@ -31,6 +31,7 @@
 #include "TextStyleAttributes.h"
 #include <memory>
 #include <gst/gst.h>
+#include <gst/gstpadtemplate.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
 #endif
@@ -65,6 +66,48 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
+// Helper: Check if Rialto subtitle sink supports application/x-subtitle-cc caps
+static bool RialtoSubtitleSinkSupportsCCCaps()
+{
+	bool supported = false;
+	GstElementFactory *factory = gst_element_factory_find("rialtomsesubtitlesink");
+	if (!factory)
+	{
+		MW_LOG_WARN("Rialto subtitle sink factory not found");
+		return false;
+	}
+
+	const GList *templates = factory->static_pad_templates;
+	for (const GList *l = templates; l != NULL; l = l->next)
+	{
+		const GstStaticPadTemplate *templ = (const GstStaticPadTemplate *)l->data;
+		if (!templ)
+			continue;
+		if (templ->direction != GST_PAD_SINK)
+			continue;
+		GstCaps *caps = gst_static_caps_get(&templ->static_caps);
+		if (!caps)
+			continue;
+		gchar *caps_str = gst_caps_to_string(caps);
+		if (caps_str)
+		{
+			if (g_strrstr(caps_str, "application/x-subtitle-cc") != NULL)
+			{
+				supported = true;
+			}
+			g_free(caps_str);
+		}
+		gst_caps_unref(caps);
+		if (supported)
+			break;
+	}
+
+	if (!supported)
+	{
+		MW_LOG_WARN("Rialto subtitle sink does not advertise caps 'application/x-subtitle-cc' — skipping CC control-only pipeline");
+	}
+	return supported;
+}
 
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
@@ -2162,6 +2205,13 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 		g_clear_object(&stream->source);
 	}
 
+	// If Rialto subtitle sink capability is missing, skip creating control-only pipeline
+	if (!RialtoSubtitleSinkSupportsCCCaps())
+	{
+		MW_LOG_WARN("Skipping CC control-only pipeline: Rialto sink lacks 'application/x-subtitle-cc' caps");
+		return;
+	}
+
 	// Create elements
 	// Note: rialtomsesubtitlesink is a custom sink that handles CC command data
 	if (!(appsrc = InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)))
@@ -2231,6 +2281,13 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		{
 			if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 			{
+				// Verify Rialto subtitle sink capability before constructing control-only pipeline
+				if (!RialtoSubtitleSinkSupportsCCCaps())
+				{
+					MW_LOG_WARN("Rialto CC capability missing — falling back to subtecbin for subtitles");
+					interfacePlayerPriv->gstPrivateContext->usingRialtoSink = false;
+				}
+
 				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
 				MW_LOG_INFO("subs using rialto subtitle sink");
 				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
