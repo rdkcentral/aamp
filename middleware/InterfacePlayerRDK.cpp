@@ -77,7 +77,7 @@ static bool RialtoSubtitleSinkSupportsCCCaps()
 		return false;
 	}
 
-	const GList *templates = factory->static_pad_templates;
+		const GList *templates = gst_element_factory_get_static_pad_templates(factory);
 	for (const GList *l = templates; l != NULL; l = l->next)
 	{
 		const GstStaticPadTemplate *templ = (const GstStaticPadTemplate *)l->data;
@@ -85,7 +85,8 @@ static bool RialtoSubtitleSinkSupportsCCCaps()
 			continue;
 		if (templ->direction != GST_PAD_SINK)
 			continue;
-		GstCaps *caps = gst_static_caps_get(&templ->static_caps);
+		// gst_static_caps_get may require a non-const pointer depending on GStreamer version
+		GstCaps *caps = gst_static_caps_get(const_cast<GstStaticCaps *>(&templ->static_caps));
 		if (!caps)
 			continue;
 		gchar *caps_str = gst_caps_to_string(caps);
@@ -106,6 +107,8 @@ static bool RialtoSubtitleSinkSupportsCCCaps()
 	{
 		MW_LOG_WARN("Rialto subtitle sink does not advertise caps 'application/x-subtitle-cc' — skipping CC control-only pipeline");
 	}
+	// Unref the factory object retrieved via gst_element_factory_find
+	gst_object_unref(factory);
 	return supported;
 }
 
