@@ -1,3 +1,46 @@
+#include <gst/gstpadtemplate.h>
+// Helper: Check if Rialto subtitle sink supports application/x-subtitle-cc caps
+static bool RialtoSubtitleSinkSupportsCCCaps()
+{
+	bool supported = false;
+	GstElementFactory *factory = gst_element_factory_find("rialtomsesubtitlesink");
+	if (!factory)
+	{
+		MW_LOG_WARN("Rialto subtitle sink factory not found");
+		return false;
+	}
+
+	const GList *templates = factory->static_pad_templates;
+	for (const GList *l = templates; l != NULL; l = l->next)
+	{
+		const GstStaticPadTemplate *templ = (const GstStaticPadTemplate *)l->data;
+		if (!templ)
+			continue;
+		if (templ->direction != GST_PAD_SINK)
+			continue;
+		GstCaps *caps = gst_static_caps_get(&templ->static_caps);
+		if (!caps)
+			continue;
+		gchar *caps_str = gst_caps_to_string(caps);
+		if (caps_str)
+		{
+			if (g_strrstr(caps_str, "application/x-subtitle-cc") != NULL)
+			{
+				supported = true;
+			}
+			g_free(caps_str);
+		}
+		gst_caps_unref(caps);
+		if (supported)
+			break;
+	}
+
+	if (!supported)
+	{
+		MW_LOG_WARN("Rialto subtitle sink does not advertise caps 'application/x-subtitle-cc' — will fallback to OOB subtitles");
+	}
+	return supported;
+}
 /*
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
@@ -3686,8 +3729,15 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	{
 		MW_LOG_MIL("OnFirstAudioFrame. got First Audio Frame");
 		if (audioOnly)
-		{
+			// If configured for Rialto subtitles, verify the sink capability first
+			if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 			if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
+				if (!RialtoSubtitleSinkSupportsCCCaps())
+				{
+					// Capability not present — fallback to OOB (Subtec) pipeline by disabling Rialto sink for subtitles
+					interfacePlayerPriv->gstPrivateContext->usingRialtoSink = false;
+				}
+
 			{
 				interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = true;
 				interfacePlayerPriv->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
