@@ -1562,7 +1562,17 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
 			// the pause.
 			if (posMs >= (localPauseAtMilliseconds - pollPeriodMs))
 			{
-				pollPeriodMs = (localPauseAtMilliseconds - posMs) / rate;
+				// Safety check to prevent division by zero
+				if (rate > 0)
+				{
+					pollPeriodMs = (localPauseAtMilliseconds - posMs) / rate;
+				}
+				else
+				{
+					AAMPLOG_WARN("PLAYER[%d] Invalid rate %f for pause calculation, using default poll period",
+								mPlayerId, rate);
+					pollPeriodMs = AAMP_PAUSE_POSITION_POLL_PERIOD_MS;
+				}
 				forcePause = true;
 				AAMPLOG_INFO("Requested pos %lldms current pos %lldms rate %f, pausing in %dms",
 							localPauseAtMilliseconds, posMs, rate, pollPeriodMs);
@@ -5136,6 +5146,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 
+	AAMPLOG_WARN("[VIPA-DEBUG] TuneHelper ENTERED: tuneType=%d seekWhilePaused=%d", tuneType, seekWhilePaused);
+
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -5404,11 +5416,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			// Update StreamAbstraction object seek position to the absolute position (seconds since 1970)
 			mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds);
 			retVal = mpStreamAbstractionAAMP->InitTsbReader(tuneType);
+			AAMPLOG_WARN("[VIPA-DEBUG] TuneHelper: InitTsbReader completed with retVal=%d", retVal);
 		}
 		else
 		{
+			AAMPLOG_WARN("[VIPA-DEBUG] TuneHelper: Calling Init (normal path) tuneType=%d newTune=%d", tuneType, newTune);
 			mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
 			retVal = mpStreamAbstractionAAMP->Init(tuneType);
+			AAMPLOG_WARN("[VIPA-DEBUG] TuneHelper: Init completed with retVal=%d", retVal);
 		}
 	}
 	else
@@ -5721,6 +5736,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			/*For OTA/RMF this event will be generated from StreamAbstractionAAMP_OTA*/
 			SetState(eSTATE_PREPARED);
 			SendMediaMetadataEvent();
+	
+	AAMPLOG_WARN("[VIPA-DEBUG] TuneHelper EXITING NORMALLY");
 		}
 	}
 }

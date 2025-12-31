@@ -405,11 +405,17 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			(trickTeardown && (eGST_MEDIATYPE_AUDIO == i))) // remove the trickTeardown api not required
 		{
 			trickTeardown = false;
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: About to TearDownStream for mediaType=%d subtitle_sink=%p", 
+				i, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 			TearDownStream((int)i);
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: After TearDownStream for mediaType=%d subtitle_sink=%p", 
+				i, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 			stream->format = newFormat[i];
 			stream->trackId = trackId;
 
 			/* Sets up the stream for the given MediaType */
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: About to SetupStream for mediaType=%d subtitle_sink=%p", 
+				i, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 			if(0 != InterfacePlayer_SetupStream((GstMediaType)i, manifestUrl))
 			{
 				MW_LOG_ERR("InterfacePlayerRDK: track %d failed", i);
@@ -419,14 +425,22 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 					return;
 				}
 			}
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: After SetupStream for mediaType=%d subtitle_sink=%p", 
+				i, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 		}
 		else if ((eGST_MEDIATYPE_SUBTITLE == i) &&
 				 newClosedCaptionsControl &&
 				 !interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
 		{
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: CC mode switch - About to TearDownStream SUBTITLE subtitle_sink=%p", 
+				interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 			TearDownStream(eGST_MEDIATYPE_SUBTITLE);
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: CC mode switch - After TearDownStream SUBTITLE subtitle_sink=%p", 
+				interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 			interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = true;
 			SetupClosedCaptionControlStream();
+			MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: CC mode switch - After SetupClosedCaptionControlStream subtitle_sink=%p", 
+				interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 		}
 	}
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (m_gstConfigParam->media != eGST_MEDIAFORMAT_PROGRESSIVE))
@@ -491,6 +505,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	interfacePlayerPriv->gstPrivateContext->decodeErrorCBCount = 0;
 	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
+		MW_LOG_WARN("[VIPA-DEBUG] ConfigurePipeline: subtitle_sink=%p video_sink=%p audio_sink=%p", 
+			interfacePlayerPriv->gstPrivateContext->subtitle_sink,
+			interfacePlayerPriv->gstPrivateContext->video_sink,
+			interfacePlayerPriv->gstPrivateContext->audio_sink);
 		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 		GstContext *context = gst_context_new("streams-info", false);
 		GstStructure *contextStructure = gst_context_writable_structure(context);
@@ -1361,7 +1379,9 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	}
 	else if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 	{
+		MW_LOG_WARN("[VIPA-DEBUG] TearDownStream: Clearing subtitle_sink=%p", interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+		MW_LOG_WARN("[VIPA-DEBUG] TearDownStream: subtitle_sink cleared, now=%p", interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 	}
 	tearDownCb(false, mediaType);
 	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
@@ -1589,6 +1609,28 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	GstStateChangeReturn ret;
 	ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
+	
+	MW_LOG_WARN("[VIPA-DEBUG] Flush: Initial pipeline state - current=%s pending=%s ret=%d", 
+		gst_element_state_get_name(current), gst_element_state_get_name(pending), ret);
+	
+	// CRITICAL FIX: Wait for pending state transitions to complete before flushing
+	// RialtoServer postpones flush when pipeline has pending state, causing deadlock
+	// Working case: state completes in ~1ms, seek succeeds
+	// Broken case: state stuck pending, RialtoServer postpones, seek never returns
+	if (pending != GST_STATE_VOID_PENDING && ret == GST_STATE_CHANGE_ASYNC)
+	{
+		MW_LOG_WARN("[VIPA-DEBUG] Flush: Pipeline has PENDING state transition (%s->%s), waiting for completion to avoid RialtoServer postponing flush",
+			gst_element_state_get_name(current), gst_element_state_get_name(pending));
+		ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 2 * GST_SECOND);
+		MW_LOG_WARN("[VIPA-DEBUG] Flush: After waiting - current=%s pending=%s ret=%d",
+			gst_element_state_get_name(current), gst_element_state_get_name(pending), ret);
+		
+		if (pending != GST_STATE_VOID_PENDING)
+		{
+			MW_LOG_ERR("[VIPA-DEBUG] Flush: WARNING - State transition still pending after 2s wait! This may cause RialtoServer to postpone flush.");
+		}
+	}
+	
 	if ((current != GST_STATE_PLAYING && current != GST_STATE_PAUSED) || ret == GST_STATE_CHANGE_FAILURE)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);
@@ -1648,8 +1690,21 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
-	if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
-						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
+	MW_LOG_WARN("[VIPA-DEBUG] Flush: About to call gst_element_seek() - rate=%d position=%f playRate=%f subtitle_sink=%p pipeline=%p", 
+		rate, position, playRate, interfacePlayerPriv->gstPrivateContext->subtitle_sink, interfacePlayerPriv->gstPrivateContext->pipeline);
+	
+	GstState pipe_state_before = GST_STATE_NULL;
+	gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &pipe_state_before, NULL, 0);
+	MW_LOG_WARN("[VIPA-DEBUG] Flush: Pipeline state before seek = %s", gst_element_state_get_name(pipe_state_before));
+	
+	gboolean seek_result = gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
+						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
+	
+	GstState pipe_state_after = GST_STATE_NULL;
+	gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &pipe_state_after, NULL, 0);
+	MW_LOG_WARN("[VIPA-DEBUG] Flush: gst_element_seek() returned - result=%d rate=%d subtitle_sink=%p pipeline_state_after=%s", 
+		seek_result, rate, interfacePlayerPriv->gstPrivateContext->subtitle_sink, gst_element_state_get_name(pipe_state_after));
+	if (!seek_result)
 	{
 		MW_LOG_ERR("Seek failed");
 		SetPendingSeek(true);
@@ -1665,8 +1720,10 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
+		MW_LOG_WARN("[VIPA-DEBUG] Flush: About to send EOS to audio sink - rate=%d", rate);
 		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
 		GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
+		MW_LOG_WARN("[VIPA-DEBUG] Flush: EOS sent to audio sink - rate=%d", rate);
 	}
 
 	if(bAsyncModify)
@@ -1675,6 +1732,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
+	MW_LOG_WARN("[VIPA-DEBUG] Flush: Returning successfully - rate=%d", rate);
 	return true;
 }
 void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
@@ -4954,6 +5012,8 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			break;
 		case GST_MESSAGE_ASYNC_DONE:
 
+			MW_LOG_WARN("[VIPA-DEBUG] Received GST_MESSAGE_ASYNC_DONE message - source=%s", 
+				GST_MESSAGE_SRC(msg) ? GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)) : "NULL");
 			MW_LOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
 			if (privatePlayer->gstPrivateContext->buffering_in_progress)
 			{
@@ -5119,8 +5179,12 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(int streamId, std::string ma
 {
 	int retvalue = 0;
 	GstMediaType mediaType = static_cast<GstMediaType>(streamId);
+	MW_LOG_WARN("[VIPA-DEBUG] InterfacePlayer_SetupStream: Called for mediaType=%d subtitle_sink=%p", 
+		mediaType, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 	this->TriggerEvent(InterfaceCB::startNewSubtitleStream, mediaType);
 	retvalue = this->SetupStream(mediaType, (void*)this, std::move(manifestUrl));
+	MW_LOG_WARN("[VIPA-DEBUG] InterfacePlayer_SetupStream: Completed for mediaType=%d retvalue=%d subtitle_sink=%p", 
+		mediaType, retvalue, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 
 	return retvalue;
 }

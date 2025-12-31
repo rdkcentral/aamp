@@ -552,27 +552,34 @@ BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate(void)
 void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
-	AAMPLOG_WARN("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
+	AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRate ENTER: targetRate=%f currentRate=%f pipeline_paused=%d overshoot=%d", 
+		aamp->mPlayerId, rate, aamp->rate, aamp->pipeline_paused, overshootcorrection);
 	if(aamp)
 	{
 		if(mAsyncTuneEnabled)
 		{
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Scheduling async SetRate task", aamp->mPlayerId);
 			mScheduler.ScheduleTask(AsyncTaskObj([rate,overshootcorrection](void *data)
 					{
-						AAMPLOG_WARN("PLAYER[%d] SetRate task picked up from scheduler with rate=%f.", aamp->mPlayerId, rate);
 						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
+						AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRate task STARTED from scheduler rate=%f.", instance->aamp->mPlayerId, rate);
 						instance->SetRateInternal(rate,overshootcorrection);
-						AAMPLOG_WARN("PLAYER[%d] SetRateInternal executed with rate=%f.", aamp->mPlayerId, rate);
+						AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRate task COMPLETED rate=%f.", instance->aamp->mPlayerId, rate);
 					}, (void *) this,__FUNCTION__));
 		}
 		else
 		{
-			AAMPLOG_WARN("PLAYER[%d] SetRateInternal executingwith rate=%f.", aamp->mPlayerId, rate);
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Calling SetRateInternal SYNC rate=%f.", aamp->mPlayerId, rate);
 			SetRateInternal(rate,overshootcorrection);
-			AAMPLOG_WARN("PLAYER[%d] SetRateInternal executed with rate=%f.", aamp->mPlayerId, rate);
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRateInternal SYNC COMPLETED rate=%f.", aamp->mPlayerId, rate);
 		}
 	}
 	else
+	{
+		AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] aamp is NULL, SetRate ignored for rate=%f.", aamp->mPlayerId, rate);
+	}
+	AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRate EXIT rate=%f", aamp->mPlayerId, rate);
+
 	 
 
 
@@ -619,26 +626,31 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 {
 	if( aamp )
 	{
-		AAMPLOG_WARN("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
+		AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRateInternal ENTER: targetRate=%f currentRate=%f pipeline_paused=%d mbPlayEnabled=%d", 
+			aamp->mPlayerId, rate, aamp->rate, aamp->pipeline_paused, aamp->mbPlayEnabled);
 		AAMPPlayerState state = GetState();
+		AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Player state=%d", aamp->mPlayerId, state);
 
 		if (state == eSTATE_ERROR)
 		{
-			AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] operation is not allowed when player in eSTATE_ERROR state !", aamp->mPlayerId);
 			return;
 		}
 
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 		{
-			AAMPLOG_WARN("mRepairIframes is true, setting actual rate %f for the received rate %f", getWorkingTrickplayRate(rate), rate);
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] mRepairIframes is true, setting actual rate %f for the received rate %f", aamp->mPlayerId, getWorkingTrickplayRate(rate), rate);
 			rate = getWorkingTrickplayRate(rate);
 		}
 
+		AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Stopping pause position monitoring", aamp->mPlayerId);
 		aamp->StopPausePositionMonitoring("SetRate() called");
+		AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Pause position monitoring stopped", aamp->mPlayerId);
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] StreamAbstractionAAMP exists, mbDetached=%d", aamp->mPlayerId, aamp->mbDetached);
 			if (aamp->mbDetached)
 			{
 				aamp->enableEventProcessing();
@@ -901,17 +913,22 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			else
 			{
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Normal rate change flow: targetRate=%f currentRate=%f", aamp->mPlayerId, rate, aamp->rate);
 				//Enable playback if setRate call after detach
 				if(aamp->mbDetached){
 					aamp->mbPlayEnabled = true;
+					AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Enabled playback after detach", aamp->mPlayerId);
 				}
 
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Calling ActivatePlayer", aamp->mPlayerId);
 				aamp->ActivatePlayer();
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Calling LogPlayerPreBuffered", aamp->mPlayerId);
 				aamp->LogPlayerPreBuffered();
 				if (AAMP_NORMAL_PLAY_RATE != rate)
 				{
 					/** Rate is not in normal play so expect to clear the cache and redownload the
 					 * iframe fragments; So clear the fragments downloaded (buffered data) time **/
+					AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Resetting profile cache for trickplay rate=%f", aamp->mPlayerId, rate);
 					aamp->ResetProfileCache();
 				}
 
@@ -920,36 +937,48 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
+					AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Jump to live from pause requested", aamp->mPlayerId);
 				}
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] TuneType=%d", aamp->mPlayerId, tuneTypePlay);
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Calling CalculateTrickModePositionEOS", aamp->mPlayerId);
 				aamp->CalculateTrickModePositionEOS();
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Calling EnableDownloads", aamp->mPlayerId);
 				aamp->EnableDownloads();
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Calling ResumeDownloads", aamp->mPlayerId);
 				aamp->ResumeDownloads();
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Acquiring StreamLock", aamp->mPlayerId);
 				aamp->AcquireStreamLock();
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] StreamLock acquired, calling TuneHelper", aamp->mPlayerId);
 				aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] TuneHelper completed, releasing StreamLock", aamp->mPlayerId);
 				aamp->ReleaseStreamLock();
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] StreamLock released", aamp->mPlayerId);
 			}
 
 			if(retValue)
 			{
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
 				// target state will be updated once caching completed
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Notifying speed change: rate=%f pipeline_paused=%d", aamp->mPlayerId, aamp->rate, aamp->pipeline_paused);
 				aamp->NotifySpeedChanged(aamp->pipeline_paused ? 0 : aamp->rate,
 										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
+				AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] Speed change notification sent", aamp->mPlayerId);
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
+			AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->mPlayerId, aamp->rate, aamp->mpStreamAbstractionAAMP, state);
 		}
+		AAMPLOG_WARN("[VIPA-DEBUG] PLAYER[%d] SetRateInternal EXIT: finalRate=%f pipeline_paused=%d", aamp->mPlayerId, aamp->rate, aamp->pipeline_paused);
 	}
 	else
 	{
-		AAMPLOG_WARN("aamp_SetRate called with invalid parameters");
+		AAMPLOG_WARN("[VIPA-DEBUG] aamp_SetRate called with invalid parameters");
 	}	
 }
 
