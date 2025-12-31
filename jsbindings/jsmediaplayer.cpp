@@ -452,7 +452,7 @@ void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSVal
  */
 JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN("Enter");
 	
 
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
@@ -561,6 +561,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
 				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
+				LOG_WARN(privObj,"_aamp->Tune() completed");
 
 			}
 
@@ -574,7 +575,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute load() <= 3 arguments required");
 	}
 
-        LOG_TRACE("Exit..");
+        LOG_WARN("Exit..");
         SAFE_DELETE_ARRAY(url);
         SAFE_DELETE_ARRAY(contentType);
         SAFE_DELETE_ARRAY(strTraceId);
@@ -683,7 +684,7 @@ JSValueRef AAMPMediaPlayerJS_initConfig (JSContextRef ctx, JSObjectRef function,
  */
 JSValueRef AAMPMediaPlayerJS_play (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN("Enter");
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
@@ -694,8 +695,10 @@ JSValueRef AAMPMediaPlayerJS_play (JSContextRef ctx, JSObjectRef function, JSObj
 	{
 		LOG_WARN(privObj," _aamp->SetRate(%d)",AAMP_NORMAL_PLAY_RATE);
 		privObj->_aamp->SetRate(AAMP_NORMAL_PLAY_RATE);
+		LOG_WARN(privObj," _aamp->SetRate(%d) executed",AAMP_NORMAL_PLAY_RATE);
+
 	}
-	LOG_TRACE("Exit");
+	LOG_WARN("Exit");
 	return JSValueMakeUndefined(ctx);
 }
 
@@ -1969,7 +1972,7 @@ JSValueRef AAMPMediaPlayerJS_getPlaybackRate (JSContextRef ctx, JSObjectRef func
  */
 JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN("Enter");
 	bool bRet = false;
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
@@ -1990,6 +1993,7 @@ JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef func
 			{
 				LOG_WARN(privObj,"_aamp->SetRate(%f, %d)", rate, overshootCorrection);
 				privObj->_aamp->SetRate(rate, overshootCorrection);
+				LOG_WARN(privObj,"_aamp->SetRate(%f, %d) executed", rate, overshootCorrection);
 				bRet = true;
 			}
 		}
@@ -1999,7 +2003,7 @@ JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef func
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPlaybackRate() - at least 1 argument required");
 		}
 	}
-	LOG_TRACE("Exit");
+	LOG_WARN("Exit");
 	return JSValueMakeBoolean(ctx, bRet);
 }
 
