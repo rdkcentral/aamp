@@ -543,22 +543,30 @@ BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate(void)
 void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
-	AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
+	AAMPLOG_WARN("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	if(aamp)
 	{
 		if(mAsyncTuneEnabled)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj([rate,overshootcorrection](void *data)
 					{
+						AAMPLOG_WARN("PLAYER[%d] SetRate task picked up from scheduler with rate=%f.", aamp->mPlayerId, rate);
 						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 						instance->SetRateInternal(rate,overshootcorrection);
+						AAMPLOG_WARN("PLAYER[%d] SetRateInternal executed with rate=%f.", aamp->mPlayerId, rate);
 					}, (void *) this,__FUNCTION__));
 		}
 		else
 		{
+			AAMPLOG_WARN("PLAYER[%d] SetRateInternal executingwith rate=%f.", aamp->mPlayerId, rate);
 			SetRateInternal(rate,overshootcorrection);
+			AAMPLOG_WARN("PLAYER[%d] SetRateInternal executed with rate=%f.", aamp->mPlayerId, rate);
 		}
 	}
+	else
+	 
+
+
 }
 
 /**
@@ -602,7 +610,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 {
 	if( aamp )
 	{
-		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
+		AAMPLOG_WARN("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 		AAMPPlayerState state = GetState();
 
 		if (state == eSTATE_ERROR)
@@ -638,11 +646,16 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
 			{
 				rate = AAMP_NORMAL_PLAY_RATE;
+				AAMPLOG_WARN("Special case: playback not started due to autoplay false and first rate paused, setting rate to normal play.");
 				aamp->SetPauseOnStartPlayback(true);
+				AAMPLOG_WARN("SetPauseOnStartPlayback executed with rate=%f.", rate);
 			}
 			else
 			{
+
+				AAMPLOG_WARN("SetPauseOnStartPlayback executing with rate=%f.", rate);
 				aamp->SetPauseOnStartPlayback(false);
+				AAMPLOG_WARN("SetPauseOnStartPlayback executed with rate=%f.", rate);
 			}
 
 			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
@@ -663,11 +676,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					aamp->pipeline_paused = false;
 					aamp->mbSeeked = false;
+					AAMPLOG_WARN(" SetRateInternal exited");
 					return;
 				}
 				else if(AAMP_RATE_PAUSE != rate)
 				{
-					AAMPLOG_INFO("Player switched at trickplay %f", rate);
+					AAMPLOG_WARN("Player switched at trickplay %f", rate);
 					aamp->playerStartedWithTrickPlay = true; //to be used to show at least one frame
 				}
 			}
@@ -676,6 +690,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				AAMPLOG_WARN("Already at logical live point, hence skipping operation");
 				aamp->NotifyOnEnteringLive();
+				AAMPLOG_WARN(" NotifyOnEnteringLive executed.");
 				return;
 			}
 
@@ -787,8 +802,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if( AAMP_SLOWMOTION_RATE == rate )
 			{
 				/* Handling of fwd slowmotion playback */
+				AAMPLOG_WARN("PLAYER[%d] SetSlowMotionPlayRate executing with rate=%f.", aamp->mPlayerId, rate);
 				SetSlowMotionPlayRate(rate);
 				aamp->NotifySpeedChanged(rate, false);
+				AAMPLOG_WARN("PLAYER[%d] SetSlowMotionPlayRate executed with rate=%f.", aamp->mPlayerId, rate);
 				return;
 			}
 			// Adjusting the play/pause position value
@@ -921,6 +938,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			AAMPLOG_WARN("aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
 		}
 	}
+	else
+	{
+		AAMPLOG_WARN("aamp_SetRate called with invalid parameters");
+	}	
 }
 
 /**
