@@ -17,8 +17,7 @@
 #include <curl/curl.h>
 #include <assert.h>
 
-static FILE *f_ewma;
-const double epsilon = 1e-9;
+const double epsilon = 1e-6;
 
 // -------- Utilities --------
 
@@ -59,24 +58,21 @@ struct TransferSample
 	double size_download_bytes = 0.0;   // CURLINFO_SIZE_DOWNLOAD (double bytes)
 	double total_time_s = 0.0;          // CURLINFO_TOTAL_TIME (double seconds)
 	double time_to_first_byte_s = 0.0;  // CURLINFO_STARTTRANSFER_TIME (double seconds)
-	// Derived
-	double payload_download_time_s = 0.0; // total_time_s - time_to_first_byte_s
-	double good_throughput_Bps = 0.0; // bytes per second, payload only
 
+	double payload_download_time_s = 0.0; // derived: total_time_s-time_to_first_byte_s
+	double payload_bytes_per_second = 0.0;  // derived
+	
 	/**
 	 * @brief utility method to populate sample metrics from Curl Handle
 	 */
 	bool MapFromCurlHandle(CURL *curl)
-	{
-		// using "double seconds" variants for consistency and to avoid unit mismatch.
+	{ // using "double seconds" variants for consistency and to avoid unit mismatch.
 		return
 			CURLE_OK == curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &size_download_bytes) &&
 			CURLE_OK == curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &total_time_s) &&
 			CURLE_OK == curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &time_to_first_byte_s);
 	}
 };
-
-// -------- TransferStatistics --------
 
 class TransferStatistics {
 private:
@@ -100,7 +96,7 @@ private:
 	/**
 	 * @brief Recompute median TTFB and harmonic mean from history; this requires iterating through all recent samples
 	 */
-	void recompute_rollup()
+	void RecomputeHarmonicMeanAndMedianTTFB()
 	{ // Overhead = median TTFB from all samples
 		std::vector<double> ttfbs;
 		ttfbs.reserve(history.size());
@@ -110,15 +106,15 @@ private:
 		}
 		overhead_est_s = median(ttfbs);
 
-		// Harmonic mean of good_throughputs over last harmonic_window samples
+		// Harmonic mean of throughput over last harmonic_window samples
 		const size_t n = history.size();
 		const size_t start = (n > harmonic_window) ? (n - harmonic_window) : 0;
 		double denom = 0.0;
 		size_t count = 0;
 		for (size_t i = start; i < n; ++i)
 		{
-			double g = history[i].good_throughput_Bps;
-			if (g > 1e-6) { denom += (1.0 / g); ++count; }
+			double g = history[i].payload_bytes_per_second;
+			if (g > epsilon) { denom += (1.0 / g); ++count; }
 		}
 		harmonic_Bps = (count > 0 && denom > 0.0) ? (static_cast<double>(count) / denom) : 0.0;
 	}
@@ -141,8 +137,8 @@ public:
 	 * @brief record a completed download sample, update rolling estimators
 	 */
 	void SegmentCompleted(TransferSample sample) {
-		sample.payload_download_time_s = std::max(1e-6, sample.total_time_s - sample.time_to_first_byte_s);
-		sample.good_throughput_Bps = safe_div(static_cast<double>(sample.size_download_bytes), sample.payload_download_time_s, 0.0);
+		sample.payload_download_time_s = std::max(epsilon, sample.total_time_s - sample.time_to_first_byte_s);
+		sample.payload_bytes_per_second = safe_div(static_cast<double>(sample.size_download_bytes), sample.payload_download_time_s, 0.0);
 
 		history.push_back(sample);
 
@@ -154,14 +150,14 @@ public:
 		}
 
 		// EWMA updates
-		if (ewma_fast_Bps <= 0.0) ewma_fast_Bps = sample.good_throughput_Bps;
-		else ewma_fast_Bps = ALPHA_FAST * sample.good_throughput_Bps + (1.0 - ALPHA_FAST) * ewma_fast_Bps;
+		if (ewma_fast_Bps <= 0.0) ewma_fast_Bps = sample.payload_bytes_per_second;
+		else ewma_fast_Bps = ALPHA_FAST * sample.payload_bytes_per_second + (1.0 - ALPHA_FAST) * ewma_fast_Bps;
 
-		if (ewma_slow_Bps <= 0.0) ewma_slow_Bps = sample.good_throughput_Bps;
-		else ewma_slow_Bps = ALPHA_SLOW * sample.good_throughput_Bps + (1.0 - ALPHA_SLOW) * ewma_slow_Bps;
+		if (ewma_slow_Bps <= 0.0) ewma_slow_Bps = sample.payload_bytes_per_second;
+		else ewma_slow_Bps = ALPHA_SLOW * sample.payload_bytes_per_second + (1.0 - ALPHA_SLOW) * ewma_slow_Bps;
 
 		// Median TTFB + harmonic mean
-		recompute_rollup();
+		RecomputeHarmonicMeanAndMedianTTFB();
 	}
 
 	/**
@@ -192,25 +188,20 @@ public:
 			return 0.0;
 		}
 	}
-
-	/**
-	 * @brief expose history for diagnostics (optional)
-	 */
-	const std::vector<TransferSample>& History() const { return history; }
 };
-
-// -------- Adaptive Parameters (runtime) --------
 
 struct AdaptiveParameters {
-	double alpha_short = 0.4;    // for progress EWMA (bytes/sec) - higher alpha reacts faster to changes (less smoothing)
-	double safety_factor = 1.5;  // bail margin multiplier (higher => safer)
+	double alpha_short = 0.4; // for progress EWMA (bytes/sec) - higher alpha reacts faster to changes (less smoothing)
+	double safety_factor = 1.5; // bail margin multiplier (higher => safer)
 };
+
 /**
  * @brief adjust parameters for estimates at runtime based on buffer health - not yet used
  */
 AdaptiveParameters AdjustParametersAtRuntime(const std::vector<double>& recent_Bps, double buffer_s) {
 	AdaptiveParameters t{};
-	if (recent_Bps.size() >= 3) {
+	if (recent_Bps.size() >= 3)
+	{
 		const double mean = std::accumulate(recent_Bps.begin(), recent_Bps.end(), 0.0) / recent_Bps.size();
 		double var = 0.0;
 		for (double x : recent_Bps)
@@ -231,19 +222,20 @@ AdaptiveParameters AdjustParametersAtRuntime(const std::vector<double>& recent_B
 	return t;
 }
 
-// -------- DownloadContext + progress/EWMA --------
-
-struct DownloadContext {
+struct DownloadContext
+{
+	FILE *f = NULL; // for logging
+	
 	double segment_total_bytes = 0.0;      // expected size (bytes)
 	double bytes_downloaded_so_far = 0.0;  // progress (bytes)
 	double buffered_seconds = 0.0;         // playback buffer (seconds) remaining
 	double overhead_estimate_s = 0.0;      // optional: from TransferStatistics
 
 	// short window EWMA state, updated from curl progress callback
-	double ewma_Bps = 0.0;       // bytes/sec
-	double alpha = 0.4;          // short-window EWMA weight
-	curl_off_t last_bytes = 0;
-	double last_time = 0.0;
+	double EWMA_BytesPerSecond = 0.0;
+	double EMWA_short_window_weight = 0.4;
+	curl_off_t dlnow_prev = 0;
+	double time_prev = 0.0;
 
 	// bail control
 	bool allow_bail = true;
@@ -265,31 +257,29 @@ void UpdateShortWindowEWMA(DownloadContext &context,
 	
 	context.bytes_downloaded_so_far = static_cast<double>(dlnow);
 	
-	if (context.last_time > 0.0 && now > context.last_time) {
-		const curl_off_t delta_bytes = dlnow - context.last_bytes;
-		const double delta_time = now - context.last_time;
+	if (context.time_prev > 0.0 && now > context.time_prev) {
+		const curl_off_t delta_bytes = dlnow - context.dlnow_prev;
+		const double delta_time = now - context.time_prev;
 
-		if (delta_time > 1e-6 && delta_bytes > 0) {
+		if (delta_time > epsilon && delta_bytes > 0) {
 			const double throughput_Bps = static_cast<double>(delta_bytes) / delta_time; // bytes/sec
 
-			if (context.ewma_Bps <= 0.0) context.ewma_Bps = throughput_Bps;
-			else context.ewma_Bps = context.alpha * throughput_Bps + (1.0 - context.alpha) * context.ewma_Bps;
+			if (context.EWMA_BytesPerSecond <= 0.0) context.EWMA_BytesPerSecond = throughput_Bps;
+			else context.EWMA_BytesPerSecond = context.EMWA_short_window_weight * throughput_Bps + (1.0 - context.EMWA_short_window_weight) * context.EWMA_BytesPerSecond;
 		}
 	}
-	
-	if( dlnow>0 )
+	if( dlnow>context.dlnow_prev )
 	{
-		fprintf( f_ewma, "%f,%ld,%ld,%ld,%f\n",
+		fprintf( context.f, "%f,%ld,%ld,%ld,%f\n",
 				now,
 				(dltotal>0)?(100*dlnow/dltotal):0,
 				dlnow,
 				dltotal,
-				context.ewma_Bps
+				context.EWMA_BytesPerSecond
 				);
 	}
-
-	context.last_bytes = dlnow;
-	context.last_time = now;
+	context.dlnow_prev = dlnow;
+	context.time_prev = now;
 }
 
 /**
@@ -299,12 +289,12 @@ void UpdateShortWindowEWMA(DownloadContext &context,
  */
 bool MidDownloadUnderflowIsLikely(DownloadContext &context) {
 	// Guard: if EWMA not yet established, be conservative (do not bail immediately)
-	const double ewma_Bps = (context.ewma_Bps > 1.0) ? context.ewma_Bps : 1.0;
+	const double EWMA_BytesPerSecond = (context.EWMA_BytesPerSecond > 1.0) ? context.EWMA_BytesPerSecond : 1.0;
 
 	const double remaining_bytes = std::max(0.0, context.segment_total_bytes - context.bytes_downloaded_so_far);
 
 	// Include estimated per-request overhead (TTFB) if available
-	const double payload_download_time_s = remaining_bytes / ewma_Bps;
+	const double payload_download_time_s = remaining_bytes / EWMA_BytesPerSecond;
 	const double time_remaining_s = context.overhead_estimate_s + payload_download_time_s;
 
 	// Hysteresis: leave some margin to avoid flapping
@@ -314,7 +304,10 @@ bool MidDownloadUnderflowIsLikely(DownloadContext &context) {
 	return (time_remaining_s > threshold_s);
 }
 
-// Libcurl progress callback (XFERINFOFUNCTION)
+/** @brief libcurl progress callback (XFERINFOFUNCTION)
+ * This is called at frequent intervals allowing application to monitor progress and abort stalled transfers
+ * Note: this may be called even after all data has been downloaded, while final logic is executed
+ */
 static int xferinfo(void *clientp,
 					curl_off_t dltotal, curl_off_t dlnow,
 					curl_off_t ultotal, curl_off_t ulnow)
@@ -328,7 +321,7 @@ static int xferinfo(void *clientp,
 			const bool likely_underflow = MidDownloadUnderflowIsLikely(*context);
 			if (likely_underflow) {
 				std::printf("decision: bail mid-download (buffer=%.2fs, ewma=%.2f B/s)\n",
-							context->buffered_seconds, context->ewma_Bps);
+							context->buffered_seconds, context->EWMA_BytesPerSecond);
 				context->bailed = true;
 				return 1; // non-zero aborts transfer
 			}
@@ -353,7 +346,7 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 	std::string ewmaPath = std::string(path) + "/ewma.csv";
-	f_ewma = fopen(ewmaPath.c_str(),"wb");
+	FILE *f_ewma = fopen(ewmaPath.c_str(),"wb");
 	assert( f_ewma );
 	fprintf( f_ewma, "Time,Pct,dlnow,dltotal,Bps\n" );
 	
@@ -387,10 +380,11 @@ int main(int argc, const char* argv[])
 					transferStatistics.PredictCompletionTimeInSeconds(estimated_bytes) );
 			
 			DownloadContext ctx{};
+			ctx.f = f_ewma;
 			ctx.segment_total_bytes = estimated_bytes;
 			ctx.buffered_seconds = buffered_seconds;
 			ctx.overhead_estimate_s = 0.0;
-			ctx.alpha = 0.4;
+			ctx.EMWA_short_window_weight = 0.4;
 			ctx.allow_bail = true;
 			
 			curl_easy_setopt(curl, CURLOPT_URL, url);
