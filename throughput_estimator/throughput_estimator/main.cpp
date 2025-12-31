@@ -1,15 +1,6 @@
 
 // main.cpp
 // throughput_estimator
-//
-// Patched and extended on 12/29/25.
-//
-// Build example (Linux/Mac):
-//   g++ -std=c++17 main.cpp -lcurl -o throughput_estimator
-//
-// Run example:
-//   ./throughput_estimator https://example.com/segment.bin 2.0 4000000
-//   Arguments: <url> <segment_duration_s> <representation_bitrate_bps>
 
 #include <algorithm>
 #include <chrono>
@@ -24,8 +15,10 @@
 #include <vector>
 #include <time.h>
 #include <curl/curl.h>
+#include <assert.h>
 
 static FILE *f_ewma;
+const double epsilon = 1e-9;
 
 // -------- Utilities --------
 
@@ -43,7 +36,7 @@ static inline double GetCurrentTimeMonotonicSeconds()
  * @brief safe_div avoids division by zero
  */
 static inline double safe_div(double num, double den, double fallback = 0.0) {
-	return (den > 1e-9) ? (num / den) : fallback;
+	return (den > epsilon) ? (num / den) : fallback;
 }
 
 /**
@@ -68,7 +61,7 @@ struct TransferSample
 	double time_to_first_byte_s = 0.0;  // CURLINFO_STARTTRANSFER_TIME (double seconds)
 	// Derived
 	double payload_download_time_s = 0.0; // total_time_s - time_to_first_byte_s
-	double goodput_Bps = 0.0; // bytes per second, payload only
+	double good_throughput_Bps = 0.0; // bytes per second, payload only
 
 	/**
 	 * @brief utility method to populate sample metrics from Curl Handle
@@ -107,7 +100,7 @@ private:
 	/**
 	 * @brief Recompute median TTFB and harmonic mean from history; this requires iterating through all recent samples
 	 */
-	void recompute_rollups()
+	void recompute_rollup()
 	{ // Overhead = median TTFB from all samples
 		std::vector<double> ttfbs;
 		ttfbs.reserve(history.size());
@@ -117,14 +110,14 @@ private:
 		}
 		overhead_est_s = median(ttfbs);
 
-		// Harmonic mean of goodputs over last harmonic_window samples
+		// Harmonic mean of good_throughputs over last harmonic_window samples
 		const size_t n = history.size();
 		const size_t start = (n > harmonic_window) ? (n - harmonic_window) : 0;
 		double denom = 0.0;
 		size_t count = 0;
 		for (size_t i = start; i < n; ++i)
 		{
-			double g = history[i].goodput_Bps;
+			double g = history[i].good_throughput_Bps;
 			if (g > 1e-6) { denom += (1.0 / g); ++count; }
 		}
 		harmonic_Bps = (count > 0 && denom > 0.0) ? (static_cast<double>(count) / denom) : 0.0;
@@ -149,7 +142,7 @@ public:
 	 */
 	void SegmentCompleted(TransferSample sample) {
 		sample.payload_download_time_s = std::max(1e-6, sample.total_time_s - sample.time_to_first_byte_s);
-		sample.goodput_Bps = safe_div(static_cast<double>(sample.size_download_bytes), sample.payload_download_time_s, 0.0);
+		sample.good_throughput_Bps = safe_div(static_cast<double>(sample.size_download_bytes), sample.payload_download_time_s, 0.0);
 
 		history.push_back(sample);
 
@@ -161,14 +154,14 @@ public:
 		}
 
 		// EWMA updates
-		if (ewma_fast_Bps <= 0.0) ewma_fast_Bps = sample.goodput_Bps;
-		else ewma_fast_Bps = ALPHA_FAST * sample.goodput_Bps + (1.0 - ALPHA_FAST) * ewma_fast_Bps;
+		if (ewma_fast_Bps <= 0.0) ewma_fast_Bps = sample.good_throughput_Bps;
+		else ewma_fast_Bps = ALPHA_FAST * sample.good_throughput_Bps + (1.0 - ALPHA_FAST) * ewma_fast_Bps;
 
-		if (ewma_slow_Bps <= 0.0) ewma_slow_Bps = sample.goodput_Bps;
-		else ewma_slow_Bps = ALPHA_SLOW * sample.goodput_Bps + (1.0 - ALPHA_SLOW) * ewma_slow_Bps;
+		if (ewma_slow_Bps <= 0.0) ewma_slow_Bps = sample.good_throughput_Bps;
+		else ewma_slow_Bps = ALPHA_SLOW * sample.good_throughput_Bps + (1.0 - ALPHA_SLOW) * ewma_slow_Bps;
 
 		// Median TTFB + harmonic mean
-		recompute_rollups();
+		recompute_rollup();
 	}
 
 	/**
@@ -268,8 +261,7 @@ void UpdateShortWindowEWMA(DownloadContext &context,
 	}
 
 	const double now = GetCurrentTimeMonotonicSeconds();
-	// TODO: allow elapsed time to be virtualized, so we can model behavior faster than real time
-
+	// TODO: allow elapsed time to be virtual so we can model behavior faster than real time
 	
 	context.bytes_downloaded_so_far = static_cast<double>(dlnow);
 	
@@ -289,7 +281,7 @@ void UpdateShortWindowEWMA(DownloadContext &context,
 	{
 		fprintf( f_ewma, "%f,%ld,%ld,%ld,%f\n",
 				now,
-				100*dlnow/dltotal,
+				(dltotal>0)?(100*dlnow/dltotal):0,
 				dlnow,
 				dltotal,
 				context.ewma_Bps
@@ -354,31 +346,42 @@ static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdat
 
 int main(int argc, const char* argv[])
 {
-	f_ewma = fopen("/Users/pstrof200@cable.c" "omcast.com/Desktop/ewma.csv","wb");
+	const char *path = std::getenv("outpath");
+	if( path == nullptr )
+	{
+		printf( "please set environment variable 'outpath' to a valid directory\n" );
+		exit(1);
+	}
+	std::string ewmaPath = std::string(path) + "/ewma.csv";
+	f_ewma = fopen(ewmaPath.c_str(),"wb");
+	assert( f_ewma );
 	fprintf( f_ewma, "Time,Pct,dlnow,dltotal,Bps\n" );
 	
-	FILE *f = fopen("/Users/pstrof200@cable.c" "omcast.com/Desktop/abr.csv","wb");
-	if( f )
+	std::string abrPath = std::string(path) + "/abr.csv";
+	FILE *f_abr = fopen(abrPath.c_str(),"wb");
+	assert( f_abr );
+	if( f_abr )
 	{
 		const double segment_duration_s = 2.0; // playback duration of media segment
 		const double representation_bitrate_bps = 5000000; // representation/encoder target bitsPerSecond
 		const double estimated_bytes = (representation_bitrate_bps * segment_duration_s) / 8.0;
 
 		CURL *curl = curl_easy_init();
+		assert( curl );
 		TransferStatistics transferStatistics;
 		
 		const double buffered_seconds = 0;
 		
-		fprintf( f, "TTFB(s),Throughput(Bps),Predicted Download Time(s),Actual Download Time(s)\n" );
+		fprintf( f_abr, "TTFB(s),Throughput(Bps),Predicted Download Time(s),Actual Download Time(s)\n" );
 		
 		for( int i=0; i<30; i++ )
 		{
-			// here we simply download same media segement repeatedly on good network to collect baseline performance data.
+			// here we simply download same media segment repeatedly on good network to collect baseline performance data.
 			const char * url = "https://aamp-test-content.s3.us-east-1.amazonaws.com/VideoTestStream/dash/1080p_001.m4s";
 			
 			fprintf( f_ewma, "%f,%f\n", GetCurrentTimeMonotonicSeconds(), 0.0 );
 
-			fprintf( f, "%f,%f,%f",
+			fprintf( f_abr, "%f,%f,%f",
 					transferStatistics.OverheadEstimateS(),
 					transferStatistics.ThroughputEstimateBps(),
 					transferStatistics.PredictCompletionTimeInSeconds(estimated_bytes) );
@@ -396,7 +399,7 @@ int main(int argc, const char* argv[])
 			curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
 			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 			curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, ""); // allow compressed transfers
-			curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1024L * 64); // larger buffer may produce smoother progress
+			//curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1024L * 64); // larger buffer may produce smoother progress
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "throughput-estimator/1.0");
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 			const CURLcode res = curl_easy_perform(curl);
@@ -421,10 +424,10 @@ int main(int argc, const char* argv[])
 			{
 				std::fprintf(stderr, "curl_easy_perform error: %s\n", curl_easy_strerror(res));
 			}
-			fprintf( f, ",%f\n", sample.total_time_s );
+			fprintf( f_abr, ",%f\n", sample.total_time_s );
 			fprintf( f_ewma, "\n" );
 		}
-		fclose( f );
+		fclose( f_abr );
 		fclose( f_ewma );
 		curl_easy_cleanup(curl);
 	}
