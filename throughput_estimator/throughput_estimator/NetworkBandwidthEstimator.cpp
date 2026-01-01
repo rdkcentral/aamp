@@ -253,7 +253,7 @@ int DownloadContext::xferinfo( size_t dltotal, size_t dlnow )
 		const double remaining_time_estimate = remaining_bytes / m_ewma_bytes_per_second;
 		if( mLogFile )
 		{
-			fprintf( mLogFile, "%f,%ld,%ld,%ld,%f,%f\n",
+			fprintf( mLogFile, "%f,%zu,%zu,%zu,%f,%f\n",
 					now,
 					(dltotal>0)?(100*dlnow/dltotal):0,
 					dlnow,

@@ -25,11 +25,10 @@
 double GetCurrentTimeMonotonicSeconds( void );
 
 /**
- * @brief this class abstracts and encapsulates key profiling information from a given CURL instance
+ * @brief Plain Old Data (POD) structure for profiling information from a given CURL instance
  */
-class CurlInfo
+struct CurlInfo
 {
-public:
 	size_t m_size_download_bytes; // CURLINFO_SIZE_DOWNLOAD
 	double m_total_time_seconds; // CURLINFO_TOTAL_TIME
 	double m_time_to_first_byte_seconds; // CURLINFO_STARTTRANSFER_TIME

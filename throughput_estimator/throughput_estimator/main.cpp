@@ -73,7 +73,7 @@ int main(int argc, const char* argv[])
 			}
 			else
 			{
-				NetworkBandwidthEstimator NetworkBandwidthEstimator;
+				NetworkBandwidthEstimator networkBandwidthEstimator;
 				
 				// write csv headers
 				fprintf( f_ABR, "TTFB(s),Throughput(Bps),Predicted Download Time(s),Actual Download Time(s)\n" );
@@ -85,9 +85,9 @@ int main(int argc, const char* argv[])
 					const char * url = "https://aamp-test-content.s3.us-east-1.amazonaws.com/VideoTestStream/dash/1080p_001.m4s";
 					
 					fprintf( f_ABR, "%f,%f,%f",
-							NetworkBandwidthEstimator.GetTimeToFirstByteSeconds(),
-							NetworkBandwidthEstimator.GetThroughputBytesPerSecond(),
-							NetworkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes) );
+							networkBandwidthEstimator.GetTimeToFirstByteSeconds(),
+							networkBandwidthEstimator.GetThroughputBytesPerSecond(),
+							networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes) );
 					
 					downloadContext.Reset();
 					
@@ -111,7 +111,7 @@ int main(int argc, const char* argv[])
 						curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &temp); curlInfo.m_size_download_bytes = temp;
 						curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &temp); curlInfo.m_total_time_seconds = temp;
 						curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &temp); curlInfo.m_time_to_first_byte_seconds = temp;
-						double total_time_seconds = NetworkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
+						double total_time_seconds = networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
 						fprintf( f_ABR, ",%f\n", total_time_seconds );
 					}
 					else
