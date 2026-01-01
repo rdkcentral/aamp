@@ -18,7 +18,7 @@
  */
 #include "NetworkBandwidthEstimator.hpp"
 #include <curl/curl.h>
-#include <stdlib.h>
+#include <cstdlib>
 
 /**
  * @brief libcurl progress callback (XFERINFOFUNCTION)

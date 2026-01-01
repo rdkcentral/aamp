@@ -67,7 +67,7 @@ private:
 	std::vector<Sample> history;
 	
 	// Robust per-request overhead Time to First Byte (TTFB) estimate
-	double estimated_TFTB_seconds = 0.0; // median TTFB - computed brute force
+	double estimated_TTFB_seconds = 0.0; // median TTFB - computed brute force
 	
 	// Robust throughput estimates (bytes/s)
 	double EWMA_fast_BytesPerSecond = 0.0; // reacts quickly

@@ -26,12 +26,13 @@
 #include <numeric>
 #include <optional>
 #include <string>
-#include <time.h>
+#include <ctime>
 #include <assert.h>
 
 #include "NetworkBandwidthEstimator.hpp"
 
-static constexpr double epsilon = 1e-6;
+static const double epsilon = 1e-6;
+static const double blend_weight_harmonic = 0.6; // 60% harmonic, 40% EWMA
 
 /**
  * @brief get clock time as a floating point monotonic value
@@ -96,7 +97,7 @@ void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 	{
 		ttfbs.push_back(s.getTimeToFirstByteSeconds() );
 	}
-	estimated_TFTB_seconds = median(ttfbs);
+	estimated_TTFB_seconds = median(ttfbs);
 	
 	// Harmonic mean of throughput over last harmonic_window samples
 	const size_t n = history.size();
@@ -105,10 +106,10 @@ void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 	size_t count = 0;
 	for( size_t i = start; i < n; i++ )
 	{
-		double g = history[i].getPayloadBytesPerSecond();
-		if( g > epsilon )
+		const double payloadBytesPerSecond = history[i].getPayloadBytesPerSecond();
+		if( payloadBytesPerSecond > epsilon )
 		{
-			denominator += 1.0/g;
+			denominator += 1.0/payloadBytesPerSecond;
 			count++;
 		}
 	}
@@ -165,8 +166,7 @@ double NetworkBandwidthEstimator::GetThroughputBytesPerSecond() const
 	{
 		return EWMA_min;
 	}
-	const double w = 0.6; // 60% harmonic, 40% EWMA
-	return w * harmonic_BytesPerSecond + (1.0 - w) * EWMA_min;
+	return blend_weight_harmonic * harmonic_BytesPerSecond + (1.0 - blend_weight_harmonic) * EWMA_min;
 }
 
 /**
@@ -174,7 +174,7 @@ double NetworkBandwidthEstimator::GetThroughputBytesPerSecond() const
  */
 double NetworkBandwidthEstimator::GetTimeToFirstByteSeconds() const
 {
-	return estimated_TFTB_seconds;
+	return estimated_TTFB_seconds;
 }
 
 /**
@@ -185,7 +185,7 @@ double NetworkBandwidthEstimator::GetPredictedDownloadTimeSeconds(size_t segment
 	const double throughput = GetThroughputBytesPerSecond();
 	if( throughput >= 1.0 )
 	{
-		return estimated_TFTB_seconds + (static_cast<double>(segment_size_bytes) / throughput);
+		return estimated_TTFB_seconds + (static_cast<double>(segment_size_bytes) / throughput);
 	}
 	else
 	{ // we have no history data to make estimate
