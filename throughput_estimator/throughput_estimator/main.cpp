@@ -48,7 +48,7 @@ int main(int argc, const char* argv[])
 	const char *path = std::getenv("outpath");
 	if( path == nullptr )
 	{
-		std::fprintf(stderr, "please set environment variable 'outpath' to a valid directory\n" );
+		fprintf(stderr, "please set environment variable 'outpath' to a valid directory\n" );
 	}
 	else
 	{
@@ -56,7 +56,7 @@ int main(int argc, const char* argv[])
 		FILE *f_EWMA = fopen(pathEWMA.c_str(),"wb");
 		if( !f_EWMA )
 		{
-			std::fprintf(stderr, "unable to open %s\n", pathEWMA.c_str() );
+			fprintf(stderr, "unable to open %s\n", pathEWMA.c_str() );
 		}
 		else
 		{
@@ -64,7 +64,7 @@ int main(int argc, const char* argv[])
 			FILE *f_ABR = fopen(pathABR.c_str(),"wb");
 			if( !f_ABR )
 			{
-				std::fprintf(stderr, "unable to open %s\n", pathABR.c_str() );
+				fprintf(stderr, "unable to open %s\n", pathABR.c_str() );
 			}
 			else
 			{
@@ -74,7 +74,7 @@ int main(int argc, const char* argv[])
 				CURL *curl = curl_easy_init();
 				if( !curl )
 				{
-					std::fprintf(stderr, "curl_easy_init failed\n" );
+					fprintf(stderr, "curl_easy_init failed\n" );
 				}
 				else
 				{
@@ -124,7 +124,7 @@ int main(int argc, const char* argv[])
 						}
 						else
 						{
-							std::fprintf(stderr, "curl_easy_perform error: %s\n", curl_easy_strerror(res));
+							fprintf(stderr, "curl_easy_perform error: %s\n", curl_easy_strerror(res));
 						}
 						fprintf( f_EWMA, "\n" );
 					} // next iteration

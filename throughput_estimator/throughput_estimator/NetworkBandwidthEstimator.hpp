@@ -19,7 +19,7 @@
 #ifndef NETWORK_BANDWIDTH_ESTIMATOR
 #define NETWORK_BANDWIDTH_ESTIMATOR
 
-#include <stddef.h>
+#include <cstddef>
 #include <vector>
 
 double GetCurrentTimeMonotonicSeconds( void );
@@ -116,7 +116,7 @@ private:
 	double time_prev = 0.0;
 	
 public:
-	DownloadContext( FILE *f );
+	explicit DownloadContext( FILE *f );
 	
 	/**
 	 * @param dltotal total bytes to download

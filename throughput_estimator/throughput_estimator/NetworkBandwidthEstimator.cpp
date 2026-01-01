@@ -27,7 +27,6 @@
 #include <optional>
 #include <string>
 #include <ctime>
-#include <assert.h>
 
 #include "NetworkBandwidthEstimator.hpp"
 
