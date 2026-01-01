@@ -61,11 +61,8 @@ static double median( const std::vector<double> &values )
 	}
 }
 
-Sample::Sample( const CurlInfo &curlInfo )
-{
-	this->m_curlInfo = curlInfo;
-
-	// compute derived values
+Sample::Sample( const CurlInfo &curlInfo ) : m_curlInfo(curlInfo)
+{ // compute derived values
 	m_payload_download_time_seconds = std::max(epsilon, curlInfo.m_total_time_seconds - curlInfo.m_time_to_first_byte_seconds);
 
 	m_payload_bytes_per_second = static_cast<double>(curlInfo.m_size_download_bytes) / m_payload_download_time_seconds;
@@ -230,26 +227,24 @@ int DownloadContext::xferinfo( size_t dltotal, size_t dlnow )
 	const double now = GetCurrentTimeMonotonicSeconds();
 	if( m_time_prev > 0.0 && now > m_time_prev )
 	{
-		const auto delta_bytes = dlnow - m_dlnow_prev;
-		const auto delta_time = now - m_time_prev;
+		const size_t delta_bytes = dlnow - m_dlnow_prev;
+		const double delta_time = now - m_time_prev;
 		if (delta_time > epsilon && delta_bytes > 0)
 		{
 			const double Bps = static_cast<double>(delta_bytes)/delta_time;
-			if( m_ewma_bytes_per_second <= 0.0 )
+			if( m_ewma_bytes_per_second > 0.0 )
 			{
-				m_ewma_bytes_per_second = Bps;
+				m_ewma_bytes_per_second = m_ewma_short_window_weight * Bps + (1.0 - m_ewma_short_window_weight) * m_ewma_bytes_per_second;
 			}
 			else
 			{
-				m_ewma_bytes_per_second =
-				m_ewma_short_window_weight * Bps +
-				(1.0 - m_ewma_short_window_weight) * m_ewma_bytes_per_second;
+				m_ewma_bytes_per_second = Bps;
 			}
 		}
 	}
-	if( dlnow>m_dlnow_prev )
+	if( dlnow>m_dlnow_prev && m_ewma_bytes_per_second > 0.0 )
 	{
-		const auto remaining_bytes = dltotal - dlnow;
+		const size_t remaining_bytes = dltotal - dlnow;
 		const double remaining_time_estimate = remaining_bytes / m_ewma_bytes_per_second;
 		if( mLogFile )
 		{

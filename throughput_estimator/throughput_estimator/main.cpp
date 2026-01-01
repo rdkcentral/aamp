@@ -34,7 +34,7 @@ static int xferinfo(void *clientp,
 					curl_off_t dltotal, curl_off_t dlnow,
 					curl_off_t ultotal, curl_off_t ulnow)
 {
-	auto *context = reinterpret_cast<DownloadContext*>(clientp);
+	DownloadContext *context = reinterpret_cast<DownloadContext*>(clientp);
 	return context->xferinfo( dltotal, dlnow );
 }
 
@@ -78,7 +78,7 @@ int main(int argc, const char* argv[])
 				// write csv headers
 				fprintf( f_ABR, "TTFB(s),Throughput(Bps),Predicted Download Time(s),Actual Download Time(s)\n" );
 				
-				constexpr int iteration_count = 10;
+				constexpr int iteration_count = 30;
 				for( int i=0; i<iteration_count; i++ )
 				{
 					// here we download media segment(s) repeatedly on good network to collect baseline performance data
