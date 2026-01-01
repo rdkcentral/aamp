@@ -46,14 +46,15 @@ double GetCurrentTimeMonotonicSeconds( void )
 /**
  * @brief given a vector of floating point values, retrieve the median value
  */
-static double median(std::vector<double> v)
+static double median( const std::vector<double> &values )
 {
-	if( v.empty() )
+	if( values.empty() )
 	{
 		return 0.0;
 	}
 	else
 	{
+		std::vector<double> v(values);
 		std::sort(v.begin(), v.end());
 		const size_t n = v.size();
 		return (n % 2) ? v[n/2] : 0.5 * (v[n/2 - 1] + v[n/2]);
