@@ -45,6 +45,12 @@ double GetCurrentTimeMonotonicSeconds( void )
 
 /**
  * @brief given a vector of floating point values, retrieve the median value
+ * 
+ * This function uses std::nth_element for O(n) time complexity instead of sorting.
+ * Space complexity is O(n) due to the copy of the input vector.
+ * 
+ * @param values Input vector of floating point values (passed by const reference)
+ * @return The median value, or 0.0 if the input vector is empty
  */
 static double median( const std::vector<double> &values )
 {
@@ -55,9 +61,26 @@ static double median( const std::vector<double> &values )
 	else
 	{
 		std::vector<double> v(values);
-		std::sort(v.begin(), v.end());
 		const size_t n = v.size();
-		return (n % 2) ? v[n/2] : 0.5 * (v[n/2 - 1] + v[n/2]);
+		const size_t mid = n / 2;
+		
+		if( n % 2 )
+		{ // Odd number of elements - find the middle element
+			std::nth_element(v.begin(), v.begin() + mid, v.end());
+			return v[mid];
+		}
+		else
+		{ // Even number of elements - average the two middle elements
+			// Find the element at mid position
+			std::nth_element(v.begin(), v.begin() + mid, v.end());
+			const double upper = v[mid];
+			
+			// Find the element at mid-1 position (the max of the lower half)
+			std::nth_element(v.begin(), v.begin() + (mid - 1), v.end());
+			const double lower = v[mid - 1];
+			
+			return 0.5 * (lower + upper);
+		}
 	}
 }
 
