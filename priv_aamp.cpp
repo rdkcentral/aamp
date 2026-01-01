@@ -7903,6 +7903,7 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
 void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName, const char *szContent, int nb, bool bSyncCall, const char *id, double durationMS)
 {
 	std::string content(szContent, nb);
+	AAMPLOG_INFO("Reported TimedMetadata content: %s and time %lld", content.c_str(), timeMilliseconds);
 	bool bFireEvent = false;
 
 	// Check if timedMetadata was already reported
@@ -7917,6 +7918,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 			{
 				// Already same exists , ignore
 				ignoreMetaAdd = true;
+				AAMPLOG_INFO("Ignored TimedMetadata content: %s and time %lld", content.c_str(), timeMilliseconds);
 				break;
 			}
 			else

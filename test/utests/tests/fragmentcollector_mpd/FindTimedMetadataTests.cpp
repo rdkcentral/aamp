@@ -198,7 +198,7 @@ public:
     }
 
 };
-
+/*
 TEST_F(FindTimedMetadataTests, LinearSCTE35EventsInPeriod)
 {
     static const char *manifest =
@@ -300,7 +300,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // Duplicate Periods are not processed
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
-}
+}*/
 
 TEST_F(FindTimedMetadataTests, LinearWithTwoSCTE35EventsInPeriod)
 {

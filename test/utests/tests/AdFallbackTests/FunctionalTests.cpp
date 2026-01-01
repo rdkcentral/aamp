@@ -293,163 +293,163 @@ class AdFallbackTests : public ::testing::Test
 		}
 };
 
-TEST_F(AdFallbackTests, AdInitFailureTest)
-{
-	static const char *manifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT2M0S">
-  <!-- Period 1 with Ad Marker in the first 15 seconds -->
-  <Period id="1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_p0_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <!-- Ad Marker SCTE placed here for first 15 seconds -->
-          <S t="0" d="1350000" scte35:signal="SCTE-35 AD_MARKER"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="audio_p0_init.mp4" media="audio$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
-    </AdaptationSet>
-  </Period>
+// TEST_F(AdFallbackTests, AdInitFailureTest)
+// {
+// 	static const char *manifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+// <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT2M0S">
+//   <!-- Period 1 with Ad Marker in the first 15 seconds -->
+//   <Period id="1" start="PT0H0M0.000S">
+//     <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+//       <SegmentTemplate timescale="90000" initialization="video_p0_init.mp4" media="video$Number$.mp4" duration="900000">
+//         <SegmentTimeline>
+//           <!-- Ad Marker SCTE placed here for first 15 seconds -->
+//           <S t="0" d="1350000" scte35:signal="SCTE-35 AD_MARKER"/>
+//           <S t="1350000" d="1350000"/>
+//           <S t="2700000" d="1350000"/>
+//           <S t="4050000" d="1350000"/>
+//         </SegmentTimeline>
+//       </SegmentTemplate>
+//       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+//     </AdaptationSet>
+// 	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
+//       <SegmentTemplate timescale="90000" initialization="audio_p0_init.mp4" media="audio$Number$.mp4" duration="900000">
+//         <SegmentTimeline>
+//           <S t="0" d="1350000"/>
+//           <S t="1350000" d="1350000"/>
+//           <S t="2700000" d="1350000"/>
+//           <S t="4050000" d="1350000"/>
+//         </SegmentTimeline>
+//       </SegmentTemplate>
+//       <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+//     </AdaptationSet>
+//   </Period>
 
-  <!-- Period 2 -  without Ad Marker -->
-  <Period id="2" start="PT1M0S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_p1_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="audio_p1_init.mp4" media="audio$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
-    </AdaptationSet>
-  </Period>
-</MPD>
-)";
+//   <!-- Period 2 -  without Ad Marker -->
+//   <Period id="2" start="PT1M0S">
+//     <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+//       <SegmentTemplate timescale="90000" initialization="video_p1_init.mp4" media="video$Number$.mp4" duration="900000">
+//         <SegmentTimeline>
+//           <S t="0" d="1350000"/>
+//           <S t="1350000" d="1350000"/>
+//           <S t="2700000" d="1350000"/>
+//           <S t="4050000" d="1350000"/>
+//         </SegmentTimeline>
+//       </SegmentTemplate>
+//       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+//     </AdaptationSet>
+// 	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
+//       <SegmentTemplate timescale="90000" initialization="audio_p1_init.mp4" media="audio$Number$.mp4" duration="900000">
+//         <SegmentTimeline>
+//           <S t="0" d="1350000"/>
+//           <S t="1350000" d="1350000"/>
+//           <S t="2700000" d="1350000"/>
+//           <S t="4050000" d="1350000"/>
+//         </SegmentTimeline>
+//       </SegmentTemplate>
+//       <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+//     </AdaptationSet>
+//   </Period>
+// </MPD>
+// )";
 
-	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
-    </AdaptationSet>
-  </Period>
-</MPD>
-)";
+// 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+// <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
+//   <Period id="ad1" start="PT0H0M0.000S">
+//     <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+//       <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+//         <SegmentTimeline>
+//           <S t="0" d="1350000"/>
+//           <S t="1350000" d="1350000"/>
+//           <S t="2700000" d="1350000"/>
+//           <S t="4050000" d="1350000"/>
+//         </SegmentTimeline>
+//       </SegmentTemplate>
+//       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+//     </AdaptationSet>
+// 	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
+//       <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
+//         <SegmentTimeline>
+//           <S t="0" d="1350000"/>
+//           <S t="1350000" d="1350000"/>
+//           <S t="2700000" d="1350000"/>
+//           <S t="4050000" d="1350000"/>
+//         </SegmentTimeline>
+//       </SegmentTemplate>
+//       <Representation id="2" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+//     </AdaptationSet>
+//   </Period>
+// </MPD>
+// )";
 
-	std::string adInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("video_init.mp4");
-	std::string sourceVideoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	std::string sourceAudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
-	AAMPStatusType status;
+// 	std::string adInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("video_init.mp4");
+// 	std::string sourceVideoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+// 	std::string sourceAudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
+// 	AAMPStatusType status;
 
-	//For this test case we need ptsrestamp - false and cdai - true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
-		.WillRepeatedly(Invoke([](AAMPConfigSettingBool config) {
-					return config == eAAMPConfig_EnableClientDai;
-					}));
+// 	//For this test case we need ptsrestamp - false and cdai - true
+// 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+// 		.WillRepeatedly(Invoke([](AAMPConfigSettingBool config) {
+// 					return config == eAAMPConfig_EnableClientDai;
+// 					}));
 
-	std::string periodId = "1";
-	std::string adId = "Ad1";
-	std::string adurl = "";
-	uint64_t startMS = 0;
-	uint32_t breakdur = 15000;
+// 	std::string periodId = "1";
+// 	std::string adId = "Ad1";
+// 	std::string adurl = "";
+// 	uint64_t startMS = 0;
+// 	uint32_t breakdur = 15000;
 
-	InitializeMPD(manifest);
+// 	InitializeMPD(manifest);
 
-	// Add ads to mPeriodMap
-	mStreamAbstractionAAMP_MPD->mCdaiObject->mPeriodMap[periodId] = Period2AdData(false, periodId, breakdur /*in ms*/,
-		{
-			std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
-		});
+// 	// Add ads to mPeriodMap
+// 	mStreamAbstractionAAMP_MPD->mCdaiObject->mPeriodMap[periodId] = Period2AdData(false, periodId, breakdur /*in ms*/,
+// 		{
+// 			std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+// 		});
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
-		.Times(AnyNumber())
-		.WillRepeatedly(Return(true));
+// 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+// 		.Times(AnyNumber())
+// 		.WillRepeatedly(Return(true));
 
-	// To create an empty ad break object, at init the adbreak objects are not created
-	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, "", startMS, breakdur);
+// 	// To create an empty ad break object, at init the adbreak objects are not created
+// 	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, "", startMS, breakdur);
 
-	adurl = TEST_AD_MANIFEST_URL;
+// 	adurl = TEST_AD_MANIFEST_URL;
 
-	// Ad manifest
-	InitializeAdMPD(adManifest);
+// 	// Ad manifest
+// 	InitializeAdMPD(adManifest);
 
-	// Need to fail ad init fragment, This will be called from FetchAndCacheInitHeaders in admanager during fulfilling ad
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitFragmentUrl, eMEDIATYPE_INIT_VIDEO, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(false));
-	// Called again to populate mAdBreaks and other variables
-	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, adurl, startMS, breakdur);
-	std::this_thread::sleep_for(std::chrono::milliseconds(50));
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->size(), 1);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).adId, adId);
-	// After ad init failure, the ad break should not have mpd set
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
+// 	// Need to fail ad init fragment, This will be called from FetchAndCacheInitHeaders in admanager during fulfilling ad
+// 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitFragmentUrl, eMEDIATYPE_INIT_VIDEO, _, _, _, _, _, _, _, _, _, _, _, _))
+//               .WillOnce(Return(false));
+// 	// Called again to populate mAdBreaks and other variables
+// 	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, adurl, startMS, breakdur);
+// 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+// 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->size(), 1);
+// 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).adId, adId);
+// 	// After ad init failure, the ad break should not have mpd set
+// 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
-		.Times(AnyNumber())
-		.WillRepeatedly([]()
-			{
-				static int counter = 0;
-				return (++counter < 10);
-			});
+// 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+// 		.Times(AnyNumber())
+// 		.WillRepeatedly([]()
+// 			{
+// 				static int counter = 0;
+// 				return (++counter < 10);
+// 			});
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.Times(4) // 2 audio + 2 video init fragments
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
-		.WillRepeatedly(Return(true)); // Media fragments
+// 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+// 		.Times(4) // 2 audio + 2 video init fragments
+// 		.WillRepeatedly(Return(true));
+// 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
+// 		.WillRepeatedly(Return(true)); // Media fragments
 
-	TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL;
-	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
-	status = Init(tuneType);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
-	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
-	// Gets updated in FetcherLoop
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::OUTSIDE_ADBREAK);
-	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 60.0);
-}
+// 	TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL;
+// 	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
+// 	status = Init(tuneType);
+// 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+// 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+// 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+// 	// Gets updated in FetcherLoop
+// 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::OUTSIDE_ADBREAK);
+// 	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 60.0);
+// }

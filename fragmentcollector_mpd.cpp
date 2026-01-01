@@ -4600,17 +4600,17 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 				std::string AdID;
 				std::string AssetID;
 				std::string ProviderID;
+				uint64_t startValueMS = 0;
 				periodCnt++;
 
 				// Calculate period start time and duration
 				periodStartMS += periodDurationMS;
 				if (node->HasAttribute("start")) {
 					const std::string& value = node->GetAttributeValue("start");
-					uint64_t valueMS = 0;
 					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					if (periodStartMS < valueMS)
-						periodStartMS = valueMS;
+						startValueMS = ParseISO8601Duration(value.c_str());
+					if (periodStartMS < startValueMS)
+						periodStartMS = startValueMS;
 				}
 				periodDurationMS = 0;
 				if (node->HasAttribute("duration")) {
@@ -4648,8 +4648,9 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								ProcessPeriodAssetIdentifier(child, periodStartMS, periodDurationMS, AssetID, ProviderID, init, reportBulkMeta);
 								continue;
 							}
-							if((name == "EventStream") && ("" != prdId) && !mCdaiObject->isPeriodExist(prdId))
+							if((name == "EventStream") && ("" != prdId) && (!mCdaiObject->isPeriodExist(prdId)) && (startValueMS!=0))
 							{
+								AAMPLOG_INFO("Processing EventStream for Period ID: %s with startValueMS %" PRIu64, prdId.c_str(), startValueMS);
 								bool processEventsInPeriod = ((!init || (1 < periodCnt && 0 == period->GetAdaptationSets().size())) //Take last & empty period at the MPD init AND all new periods in the MPD refresh. (No empty periods will come the middle)
 												  || (!mIsLiveManifest && init) || (mIsLiveManifest && ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive) ));
 
@@ -4665,7 +4666,9 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								if (processEventsInPeriod)
 								{
 									mCdaiObject->InsertToPeriodMap(period);	//Need to do it. Because the FulFill may finish quickly
-									ProcessEventStream(periodStartMS, firstSegmentStartTime, period, reportBulkMeta);
+									AAMPLOG_INFO("Inserted period ID: %s to period map for EventStream processing", prdId.c_str());
+									ProcessEventStream(startValueMS, firstSegmentStartTime, period, reportBulkMeta);
+									AAMPLOG_INFO("Completed EventStream processing for Period ID: %s with startValueMS %" PRIu64, prdId.c_str(), startValueMS);
 									continue;
 								}
 							}
@@ -4675,9 +4678,10 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 							AAMPLOG_WARN("name is empty");  //CID:80526 - Null Returns
 						}
 					}
-					if("" != prdId)
+					if("" != prdId && (startValueMS!=0) && (!mCdaiObject->isPeriodExist(prdId)))
 					{
 						mCdaiObject->InsertToPeriodMap(period);
+						AAMPLOG_INFO("Inserted period ID: %s to period map without EventStream", prdId.c_str());
 						newPeriods.emplace_back(prdId);
 					}
 					continue;
