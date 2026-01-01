@@ -16,20 +16,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef NETWORK_BANDWIDTH_ESTIMATOR
-#define NETWORK_BANDWIDTH_ESTIMATOR
+#ifndef THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_HPP
+#define THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_HPP
 
 #include <cstddef>
 #include <vector>
 
 double GetCurrentTimeMonotonicSeconds( void );
 
+/**
+ * @brief this class abstracts and encapsulates key profiling information from a given CURL instance
+ */
 class CurlInfo
 {
 public:
-	size_t size_download_bytes;
-	double total_time_seconds;
-	double time_to_first_byte_seconds;
+	size_t m_size_download_bytes; // CURLINFO_SIZE_DOWNLOAD
+	double m_total_time_seconds; // CURLINFO_TOTAL_TIME
+	double m_time_to_first_byte_seconds; // CURLINFO_STARTTRANSFER_TIME
 };
 
 /**
@@ -38,13 +41,13 @@ public:
 class Sample
 {
 private:
-	CurlInfo curlInfo;
+	CurlInfo m_curlInfo;
 	
 	// total_time - time_to_first_byte
-	double payload_download_time_seconds = 0.0;
+	double m_payload_download_time_seconds = 0.0;
 	
 	// size_download / payload_download_time
-	double payload_bytes_per_second = 0.0;
+	double m_payload_bytes_per_second = 0.0;
 	
 public:
 	/**
@@ -58,21 +61,21 @@ public:
 };
 
 /**
- * @brief abstract network bandwith state and prediction logic
+ * @brief abstract network bandwidth state and prediction logic
  */
 class NetworkBandwidthEstimator
 {
 private:
 	// Rolling history & stats
-	std::vector<Sample> history;
+	std::vector<Sample> m_history;
 	
 	// Robust per-request overhead Time to First Byte (TTFB) estimate
-	double estimated_TTFB_seconds = 0.0; // median TTFB - computed brute force
+	double m_estimated_TTFB_seconds = 0.0; // median TTFB - computed brute force
 	
 	// Robust throughput estimates (bytes/s)
-	double EWMA_fast_BytesPerSecond = 0.0; // reacts quickly
-	double EWMA_slow_BytesPerSecond = 0.0; // stable
-	double harmonic_BytesPerSecond = 0.0;  // conservative
+	double m_EWMA_fast_BytesPerSecond = 0.0; // reacts quickly
+	double m_EWMA_slow_BytesPerSecond = 0.0; // stable
+	double m_harmonic_BytesPerSecond = 0.0;  // conservative
 	
 	// Exponentially Weighted Moving Average (EWMA) tuning
 	static constexpr double ALPHA_FAST = 0.5;
@@ -109,14 +112,16 @@ public:
 class DownloadContext
 {
 private:
-	FILE *f = NULL; // logging
-	static constexpr double ewma_short_window_weight = 0.4;
-	double ewma_bytes_per_second = 0.0;
-	size_t dlnow_prev = 0;
-	double time_prev = 0.0;
+	FILE *mLogFile = NULL; // logging
+	static constexpr double m_ewma_short_window_weight = 0.4;
+	double m_ewma_bytes_per_second = 0.0;
+	size_t m_dlnow_prev = 0;
+	double m_time_prev = 0.0;
 	
 public:
-	explicit DownloadContext( FILE *f );
+	explicit DownloadContext( const char *logPath );
+	~DownloadContext();
+	void Reset( void );
 	
 	/**
 	 * @param dltotal total bytes to download
