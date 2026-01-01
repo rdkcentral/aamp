@@ -27,9 +27,22 @@
 		A33A02232F031C7F00C6C157 /* libcurl.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcurl.tbd; path = usr/lib/libcurl.tbd; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		A378C5862F05FBEF00D6D92B /* Exceptions for "throughput_estimator" folder in "Compile Sources" phase from "throughput_estimator" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = A33A02122F02EE6000C6C157 /* Sources */;
+			membershipExceptions = (
+				NetworkBandwidthEstimator.hpp,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A33A02182F02EE6000C6C157 /* throughput_estimator */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A378C5862F05FBEF00D6D92B /* Exceptions for "throughput_estimator" folder in "Compile Sources" phase from "throughput_estimator" target */,
+			);
 			path = throughput_estimator;
 			sourceTree = "<group>";
 		};
