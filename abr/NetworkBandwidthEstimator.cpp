@@ -49,7 +49,7 @@ double GetCurrentTimeMonotonicSeconds( void )
  * This function uses std::nth_element for O(n) time complexity instead of sorting.
  * For performance reasons, we don't make a copy of input, and so order in values may change as side effect of calling this function.
  *
- * @param values Input vector of floating point values (passed by const reference)
+ * @param values Input vector of floating point values (passed by non-const reference and may be reordered)
  * @return The median value, or 0.0 if the input vector is empty
  */
 double GetMedian( std::vector<double> &values )
