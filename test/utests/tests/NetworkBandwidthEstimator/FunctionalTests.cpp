@@ -21,6 +21,7 @@
 #include "NetworkBandwidthEstimator.h"
 #include <curl/curl.h>
 #include <cstdlib>
+#include <array>
 
 class FunctionalTests : public ::testing::Test {
 protected:
@@ -111,7 +112,7 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 {
 	const double epsilon = 1e-6;
-	const struct
+	struct TestData
 	{
 		double now;
 		double pct;
@@ -119,8 +120,8 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 		size_t dltotal;
 		double Bps;
 		double estimated_remaining;
-	} test_data[] =
-	{
+	};
+	const std::array<TestData, 8> test_data{{
 		{271850.024298,0.000000},
 		{271850.227916,14,15908,112463,78126.688199,1.235877},
 		{271850.259620,28,32274,112463,253360.998893,0.316501},
@@ -129,10 +130,10 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 		{271850.295399,71,80326,112463,24379496.450812,0.001318},
 		{271850.317906,85,96692,112463,14918558.491420,0.001057},
 		{271850.326387,100,112463,112463,9694962.476504,0.000000}
-	};
+	}};
 	DownloadContext downloadContext;
 	downloadContext.Reset(test_data[0].now );
-	for( int i=1; i<sizeof(test_data)/sizeof(test_data[0]); i++ )
+	for( size_t i=1; i<test_data.size(); i++ )
 	{
 		downloadContext.xferinfo( test_data[i].now, test_data[i].dltotal, test_data[i].dlnow);
 		EXPECT_NEAR( test_data[i].estimated_remaining, downloadContext.GetEstimatedRemainingTime(), epsilon );
