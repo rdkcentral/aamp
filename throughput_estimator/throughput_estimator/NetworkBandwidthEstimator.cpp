@@ -216,27 +216,19 @@ double NetworkBandwidthEstimator::GetPredictedDownloadTimeSeconds(size_t segment
 }
 
 DownloadContext::DownloadContext( const char *logPath )
+	: mLogFile(logPath, std::ios::binary)
 {
-	mLogFile = fopen(logPath,"wb");
-	if( mLogFile )
+	if( mLogFile.is_open() )
 	{
-		fprintf( mLogFile, "Time,Pct,dlnow,dltotal,Bps,est remaining(s)\n" );
-	}
-}
-
-DownloadContext::~DownloadContext()
-{
-	if( mLogFile )
-	{
-		fclose( mLogFile );
+		mLogFile << "Time,Pct,dlnow,dltotal,Bps,est remaining(s)\n";
 	}
 }
 
 void DownloadContext::Reset( void )
 {
-	if( mLogFile )
+	if( mLogFile.is_open() )
 	{
-		fprintf( mLogFile, "\n%f,%f\n", GetCurrentTimeMonotonicSeconds(), 0.0 );
+		mLogFile << "\n" << GetCurrentTimeMonotonicSeconds() << "," << 0.0 << "\n";
 	}
 	m_ewma_bytes_per_second = 0.0;
 	m_dlnow_prev = 0;
@@ -271,15 +263,14 @@ int DownloadContext::xferinfo( size_t dltotal, size_t dlnow )
 	{
 		const size_t remaining_bytes = dltotal - dlnow;
 		const double remaining_time_estimate = remaining_bytes / m_ewma_bytes_per_second;
-		if( mLogFile )
+		if( mLogFile.is_open() )
 		{
-			fprintf( mLogFile, "%f,%zu,%zu,%zu,%f,%f\n",
-					now,
-					(dltotal>0)?(100*dlnow/dltotal):0,
-					dlnow,
-					dltotal,
-					m_ewma_bytes_per_second,
-					remaining_time_estimate );
+			mLogFile << now << ","
+					<< ((dltotal>0)?(100*dlnow/dltotal):0) << ","
+					<< dlnow << ","
+					<< dltotal << ","
+					<< m_ewma_bytes_per_second << ","
+					<< remaining_time_estimate << "\n";
 		}
 	}
 	m_dlnow_prev = dlnow;

@@ -19,6 +19,9 @@
 #include "NetworkBandwidthEstimator.hpp"
 #include <curl/curl.h>
 #include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 /**
  * @brief libcurl progress callback (XFERINFOFUNCTION)
@@ -48,86 +51,83 @@ int main(int argc, const char* argv[])
 	const char *path = std::getenv("outpath");
 	if( path == nullptr )
 	{
-		fprintf(stderr, "please set environment variable 'outpath' to a valid directory\n" );
+		std::cerr << "please set environment variable 'outpath' to a valid directory\n";
+		return EXIT_FAILURE;
 	}
-	else
+	
+	std::string pathEWMA = std::string(path) + "/ewma.csv";
+	DownloadContext downloadContext(pathEWMA.c_str());
+	
+	std::string pathABR = std::string(path) + "/abr.csv";
+	std::ofstream f_ABR(pathABR, std::ios::binary);
+	if( !f_ABR.is_open() )
 	{
-		std::string pathEWMA = std::string(path) + "/ewma.csv";
-		DownloadContext downloadContext(pathEWMA.c_str());
+		std::cerr << "unable to open " << pathABR << "\n";
+		return EXIT_FAILURE;
+	}
+	
+	const double segment_duration_seconds = 2.0; // playback duration of media segment
+	const double representation_BytesPerSecond = 5000000/8;
+	const double segment_size_bytes = representation_BytesPerSecond * segment_duration_seconds;
+	
+	CURL *curl = curl_easy_init();
+	if( !curl )
+	{
+		std::cerr << "curl_easy_init failed\n";
+		return EXIT_FAILURE;
+	}
+	
+	NetworkBandwidthEstimator networkBandwidthEstimator;
+	
+	// write csv headers
+	f_ABR << "TTFB(s),Throughput(Bps),Predicted Download Time(s),Actual Download Time(s)\n";
+	
+	constexpr int iteration_count = 30;
+	for( int i=0; i<iteration_count; i++ )
+	{
+		// here we download media segment(s) repeatedly on good network to collect baseline performance data
+		const char * url = "https://aamp-test-content.s3.us-east-1.amazonaws.com/VideoTestStream/dash/1080p_001.m4s";
 		
-		std::string pathABR = std::string(path) + "/abr.csv";
-		FILE *f_ABR = fopen(pathABR.c_str(),"wb");
-		if( !f_ABR )
-		{
-			fprintf(stderr, "unable to open %s\n", pathABR.c_str() );
+		f_ABR << networkBandwidthEstimator.GetTimeToFirstByteSeconds() << ","
+			  << networkBandwidthEstimator.GetThroughputBytesPerSecond() << ","
+			  << networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes);
+		
+		downloadContext.Reset();
+		
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		
+		// enable CURLOPT_XFERINFOFUNCTION, modern alternative to CURLOPT_PROGRESSFUNCTION
+		curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+		curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, xferinfo);
+		curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &downloadContext);
+		
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, ""); // allow compressed transfers
+		//curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1024L * 64); // larger buffer may produce smoother progress
+		curl_easy_setopt(curl, CURLOPT_USERAGENT, "throughput-estimator/1.0");
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+		const CURLcode res = curl_easy_perform(curl);
+		if (res == CURLE_OK ) // || ctx.bailed)
+		{ // note: if we bailed early, partial bytes are still fine for statistics
+			CurlInfo curlInfo;
+			
+			curl_off_t size_download;
+			curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &size_download);
+			curlInfo.m_size_download_bytes = size_download;
+			
+			curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &curlInfo.m_total_time_seconds);
+			
+			curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &curlInfo.m_time_to_first_byte_seconds);
+			
+			networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
+			f_ABR << "," << curlInfo.m_total_time_seconds << "\n";
 		}
 		else
 		{
-			const double segment_duration_seconds = 2.0; // playback duration of media segment
-			const double representation_BytesPerSecond = 5000000/8;
-			const double segment_size_bytes = representation_BytesPerSecond * segment_duration_seconds;
-			CURL *curl = curl_easy_init();
-			if( !curl )
-			{
-				fprintf(stderr, "curl_easy_init failed\n" );
-			}
-			else
-			{
-				NetworkBandwidthEstimator networkBandwidthEstimator;
-				
-				// write csv headers
-				fprintf( f_ABR, "TTFB(s),Throughput(Bps),Predicted Download Time(s),Actual Download Time(s)\n" );
-				
-				constexpr int iteration_count = 30;
-				for( int i=0; i<iteration_count; i++ )
-				{
-					// here we download media segment(s) repeatedly on good network to collect baseline performance data
-					const char * url = "https://aamp-test-content.s3.us-east-1.amazonaws.com/VideoTestStream/dash/1080p_001.m4s";
-					
-					fprintf( f_ABR, "%f,%f,%f",
-							networkBandwidthEstimator.GetTimeToFirstByteSeconds(),
-							networkBandwidthEstimator.GetThroughputBytesPerSecond(),
-							networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes) );
-					
-					downloadContext.Reset();
-					
-					curl_easy_setopt(curl, CURLOPT_URL, url);
-					
-					// enable CURLOPT_XFERINFOFUNCTION, modern alternative to CURLOPT_PROGRESSFUNCTION
-					curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-					curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, xferinfo);
-					curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &downloadContext);
-					
-					curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-					curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, ""); // allow compressed transfers
-					//curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1024L * 64); // larger buffer may produce smoother progress
-					curl_easy_setopt(curl, CURLOPT_USERAGENT, "throughput-estimator/1.0");
-					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-					const CURLcode res = curl_easy_perform(curl);
-					if (res == CURLE_OK ) // || ctx.bailed)
-					{ // note: if we bailed early, partial bytes are still fine for statistics
-						CurlInfo curlInfo;
-						
-						curl_off_t size_download;
-						curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &size_download);
-						curlInfo.m_size_download_bytes = size_download;
-						
-						curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &curlInfo.m_total_time_seconds);
-						
-						curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &curlInfo.m_time_to_first_byte_seconds);
-						
-						networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
-						fprintf( f_ABR, ",%f\n", curlInfo.m_total_time_seconds );
-					}
-					else
-					{
-						fprintf(stderr, "curl_easy_perform error: %s\n", curl_easy_strerror(res));
-					}
-				} // next iteration
-				curl_easy_cleanup(curl);
-			} // curl_easy_init
-			fclose( f_ABR );
-		} // fopen abr.csv
-	} // getenv
+			std::cerr << "curl_easy_perform error: " << curl_easy_strerror(res) << "\n";
+		}
+	} // next iteration
+	
+	curl_easy_cleanup(curl);
 	return EXIT_SUCCESS;
 }

@@ -20,6 +20,7 @@
 #define THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_HPP
 
 #include <cstddef>
+#include <fstream>
 #include <vector>
 
 double GetCurrentTimeMonotonicSeconds( void );
@@ -111,7 +112,7 @@ public:
 class DownloadContext
 {
 private:
-	FILE *mLogFile = NULL; // logging
+	std::ofstream mLogFile; // logging
 	static constexpr double m_ewma_short_window_weight = 0.4;
 	double m_ewma_bytes_per_second = 0.0;
 	size_t m_dlnow_prev = 0;
@@ -119,11 +120,11 @@ private:
 	
 public:
 	explicit DownloadContext( const char *logPath );
-	~DownloadContext();
+	~DownloadContext() = default;
 	void Reset( void );
 	
 	/**
-	 * @brief monitpr download progress
+	 * @brief monitor download progress
 	 * @note: name and parameters are based on CURLOPT_XFERINFOFUNCTION
 	 *
 	 * @param dltotal total bytes to download
