@@ -20,6 +20,8 @@
 #include <curl/curl.h>
 #include <cstdlib>
 
+FILE *f_EWMA;
+
 /**
  * @brief libcurl progress callback (XFERINFOFUNCTION)
  * This is called at frequent intervals allowing application to monitor progress and abort stalled transfers
@@ -34,8 +36,19 @@ static int xferinfo(void *clientp,
 					curl_off_t dltotal, curl_off_t dlnow,
 					curl_off_t ultotal, curl_off_t ulnow)
 {
+	double now = GetCurrentTimeMonotonicSeconds();
 	DownloadContext *context = reinterpret_cast<DownloadContext*>(clientp);
-	return context->xferinfo( dltotal, dlnow );
+	if( context->xferinfo( now, dltotal, dlnow ) )
+	{
+		fprintf( f_EWMA, "%f,%zu,%zu,%zu,%f,%f\n",
+				now,
+				(dltotal>0)?(100*dlnow/dltotal):0,
+				dlnow,
+				dltotal,
+				context->GetEstimatedThroughputBytesPerSecond(),
+				context->GetEstimatedRemainingTime() );
+	}
+	return 0;
 }
 
 static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
@@ -53,7 +66,9 @@ int main(int argc, const char* argv[])
 	else
 	{
 		std::string pathEWMA = std::string(path) + "/ewma.csv";
-		DownloadContext downloadContext(pathEWMA.c_str());
+		f_EWMA = fopen( pathEWMA.c_str(), "wb" );
+		fprintf( f_EWMA,  "Time,Pct,dlnow,dltotal,Bps,est remaining(s)\n" );
+		DownloadContext downloadContext;
 		
 		std::string pathABR = std::string(path) + "/abr.csv";
 		FILE *f_ABR = fopen(pathABR.c_str(),"wb");
@@ -63,9 +78,9 @@ int main(int argc, const char* argv[])
 		}
 		else
 		{
-			const double segment_duration_seconds = 2.0; // playback duration of media segment
-			const double representation_BytesPerSecond = 5000000/8;
-			const double segment_size_bytes = representation_BytesPerSecond * segment_duration_seconds;
+			//const double segment_duration_seconds = 1.92; // playback duration of media segment
+			//const double representation_BytesPerSecond = 468596/8;
+			const double segment_size_bytes = 112463;//representation_BytesPerSecond * segment_duration_seconds;
 			CURL *curl = curl_easy_init();
 			if( !curl )
 			{
@@ -83,13 +98,14 @@ int main(int argc, const char* argv[])
 				{
 					// here we download media segment(s) repeatedly on good network to collect baseline performance data
 					const char * url = "https://aamp-test-content.s3.us-east-1.amazonaws.com/VideoTestStream/dash/1080p_001.m4s";
-					
 					fprintf( f_ABR, "%f,%f,%f",
 							networkBandwidthEstimator.GetTimeToFirstByteSeconds(),
 							networkBandwidthEstimator.GetThroughputBytesPerSecond(),
 							networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes) );
 					
-					downloadContext.Reset();
+					double now = GetCurrentTimeMonotonicSeconds();
+					downloadContext.Reset( now );
+					fprintf( f_EWMA, "\n%f,%f\n", now, 0.0 );
 					
 					curl_easy_setopt(curl, CURLOPT_URL, url);
 					
@@ -116,6 +132,11 @@ int main(int argc, const char* argv[])
 						
 						curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &curlInfo.m_time_to_first_byte_seconds);
 						
+/*						printf( ",%zu,%f,%f\n",
+							   curlInfo.m_size_download_bytes,
+							   curlInfo.m_total_time_seconds,
+							   curlInfo.m_time_to_first_byte_seconds );
+						*/
 						networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
 						fprintf( f_ABR, ",%f\n", curlInfo.m_total_time_seconds );
 					}

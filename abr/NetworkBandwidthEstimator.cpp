@@ -52,7 +52,7 @@ double GetCurrentTimeMonotonicSeconds( void )
  * @param values Input vector of floating point values (passed by const reference)
  * @return The median value, or 0.0 if the input vector is empty
  */
-static double median( std::vector<double> &values )
+double GetMedian( std::vector<double> &values )
 {
 	if( values.empty() )
 	{
@@ -115,7 +115,7 @@ void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 	{
 		ttfbs.push_back(s.GetTimeToFirstByteSeconds() );
 	}
-	m_estimated_TTFB_seconds = median(ttfbs);
+	m_estimated_TTFB_seconds = GetMedian(ttfbs);
 	
 	// Harmonic mean of throughput over last harmonic_window samples
 	const size_t n = m_history.size();
@@ -215,46 +215,47 @@ double NetworkBandwidthEstimator::GetPredictedDownloadTimeSeconds(size_t segment
 	}
 }
 
-DownloadContext::DownloadContext( const char *logPath )
-{
-	mLogFile = fopen(logPath,"wb");
-	if( mLogFile )
-	{
-		fprintf( mLogFile, "Time,Pct,dlnow,dltotal,Bps,est remaining(s)\n" );
-	}
-}
+DownloadContext::DownloadContext() = default;
 
-DownloadContext::~DownloadContext()
-{
-	if( mLogFile )
-	{
-		fclose( mLogFile );
-	}
-}
+DownloadContext::~DownloadContext() = default;
 
-void DownloadContext::Reset( void )
+void DownloadContext::Reset( const double now )
 {
-	if( mLogFile )
-	{
-		fprintf( mLogFile, "\n%f,%f\n", GetCurrentTimeMonotonicSeconds(), 0.0 );
-	}
 	m_ewma_bytes_per_second = 0.0;
+	m_dltotal  = 0;
 	m_dlnow_prev = 0;
-	m_time_prev = 0.0;
+	m_time_prev = now;
+}
+
+double DownloadContext::GetEstimatedRemainingTime( void )
+{
+	double rc = 0.0;
+	const size_t remaining_bytes = m_dltotal - m_dlnow_prev;
+	if( m_ewma_bytes_per_second > 0.0 )
+	{
+		rc = remaining_bytes / m_ewma_bytes_per_second;
+	}
+	return rc;
+}
+
+double DownloadContext::GetEstimatedThroughputBytesPerSecond( void )
+{
+	return m_ewma_bytes_per_second;
 }
 
 /**
  * @param dltotal total bytes to download
  * @param dlnow downloaded bytes so far
  */
-int DownloadContext::xferinfo( size_t dltotal, size_t dlnow )
+bool DownloadContext::xferinfo( const double now, size_t dltotal, size_t dlnow )
 {
-	const double now = GetCurrentTimeMonotonicSeconds();
-	if( m_time_prev > 0.0 && now > m_time_prev )
-	{
-		const size_t delta_bytes = dlnow - m_dlnow_prev;
-		const double delta_time = now - m_time_prev;
-		if (delta_time > epsilon && delta_bytes > 0)
+	bool rc = false;
+	const size_t delta_bytes = dlnow - m_dlnow_prev;
+	const double delta_time = now - m_time_prev;
+	m_dltotal = dltotal;
+	if( delta_bytes > 0 )
+	{ // some data has trickled in
+		if( delta_time > epsilon )
 		{
 			const double Bps = static_cast<double>(delta_bytes)/delta_time;
 			if( m_ewma_bytes_per_second > 0.0 )
@@ -265,25 +266,10 @@ int DownloadContext::xferinfo( size_t dltotal, size_t dlnow )
 			{
 				m_ewma_bytes_per_second = Bps;
 			}
+			m_time_prev = now;
+			m_dlnow_prev = dlnow;
+			rc = true;
 		}
 	}
-	if( dlnow>m_dlnow_prev && m_ewma_bytes_per_second > 0.0 )
-	{
-		const size_t remaining_bytes = dltotal - dlnow;
-		const double remaining_time_estimate = remaining_bytes / m_ewma_bytes_per_second;
-		if( mLogFile )
-		{
-			fprintf( mLogFile, "%f,%zu,%zu,%zu,%f,%f\n",
-					now,
-					(dltotal>0)?(100*dlnow/dltotal):0,
-					dlnow,
-					dltotal,
-					m_ewma_bytes_per_second,
-					remaining_time_estimate );
-		}
-	}
-	m_dlnow_prev = dlnow;
-	m_time_prev = now;
-	return 0; // continue
-	// returning 1 aborts transfer
+	return rc;
 }

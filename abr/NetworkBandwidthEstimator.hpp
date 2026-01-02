@@ -22,6 +22,8 @@
 #include <cstddef>
 #include <vector>
 
+
+double GetMedian( std::vector<double> &values );
 double GetCurrentTimeMonotonicSeconds( void );
 
 /**
@@ -111,16 +113,19 @@ public:
 class DownloadContext
 {
 private:
-	FILE *mLogFile = NULL; // logging
 	static constexpr double m_ewma_short_window_weight = 0.4;
 	double m_ewma_bytes_per_second = 0.0;
+	size_t m_dltotal = 0;
 	size_t m_dlnow_prev = 0;
 	double m_time_prev = 0.0;
 	
 public:
-	explicit DownloadContext( const char *logPath );
+	DownloadContext();
 	~DownloadContext();
-	void Reset( void );
+	void Reset( const double now );
+	
+	double GetEstimatedRemainingTime( void );
+	double GetEstimatedThroughputBytesPerSecond( void );
 	
 	/**
 	 * @brief monitpr download progress
@@ -128,7 +133,8 @@ public:
 	 *
 	 * @param dltotal total bytes to download
 	 * @param dlnow downloaded bytes so far
+	 * @retval true if more bytes have been transfered since last call
 	 */
-	int xferinfo( size_t dltotal, size_t dlnow );
+	bool xferinfo( const double now, size_t dltotal, size_t dlnow );
 };
 #endif
