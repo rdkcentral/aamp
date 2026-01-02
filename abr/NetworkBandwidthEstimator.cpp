@@ -30,8 +30,8 @@
 
 #include "NetworkBandwidthEstimator.h"
 
-static const double epsilon = 1e-6;
-static const double BLEND_WEIGHT_HARMONIC = 0.6; // 60% harmonic, 40% EWMA
+static constexpr double epsilon = 1e-6;
+static constexpr double BLEND_WEIGHT_HARMONIC = 0.6; // 60% harmonic, 40% EWMA
 static constexpr size_t MAX_HISTORY = 24; // how far back in rolling window samples to consider for bandwidth estimate
 
 /**
@@ -80,7 +80,8 @@ double GetMedian( std::vector<double> &values )
 }
 
 Sample::Sample( const CurlInfo &curlInfo ) : m_curlInfo(curlInfo)
-{ // compute derived values
+{
+	// compute derived values
 	m_payload_download_time_seconds = std::max(epsilon, curlInfo.m_total_time_seconds - curlInfo.m_time_to_first_byte_seconds);
 
 	m_payload_bytes_per_second = static_cast<double>(curlInfo.m_size_download_bytes) / m_payload_download_time_seconds;
@@ -105,7 +106,8 @@ double Sample::GetTotalTimeSeconds() const
  * @brief Recompute median TTFB and harmonic mean from history; this requires iterating through all recent samples
  */
 void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
-{ // Overhead = median TTFB from all samples
+{
+	// Overhead = median TTFB from all samples
 	std::vector<double> ttfb;
 	ttfb.reserve(m_history.size());
 	for( const auto& s : m_history )
