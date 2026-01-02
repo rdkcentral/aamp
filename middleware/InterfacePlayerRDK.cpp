@@ -2673,7 +2673,6 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	return rc;
 }
 */
-
 long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 {
 	long long rc = 0;
@@ -2698,6 +2697,17 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		return rc;
 	}
 	gst_media_stream* video = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
+	
+	// Try using PTS (Presentation Time Stamp) - more accurate during ad transitions
+	// PTS represents what's actually being rendered, not buffered position
+	gint64 pts_position = GetVideoPTS();
+	bool use_pts = (pts_position > 0);
+	
+	if (use_pts)
+	{
+		MW_LOG_WARN("PTS available: %lld", pts_position);
+	}
+	
 	// segment.start needs to be queried
 	if (interfacePlayerPriv->gstPrivateContext->segmentStart == -1)
 	{
@@ -2719,23 +2729,33 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		gst_query_unref(segmentQuery);
 	}
 
-	if (gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,
+	if (use_pts || gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,
 	                      interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
 	{
-		MW_LOG_ERR("tanuj quering pos to pipeline");
+		gint64 pos_ms = 0;
+		
+		if (use_pts)
+		{
+			// Use PTS directly - it's already in nanoseconds from video decoder
+			pos_ms = pts_position / 1000000;  // Convert nanoseconds to milliseconds
+			MW_LOG_WARN("Using PTS: %lld ms", pos_ms);
+		}
+		else
+		{
+			// Fallback to position query
+			gint64 pos = 0;
+			gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
+			pos_ms = GST_TIME_AS_MSECONDS(pos);
+			MW_LOG_WARN("Using position query: %lld ms", pos_ms);
+		}
 
-		// ========== DEBUG SECTION START ==========
-		// 1. Parse position first
-		gint64 pos = 0;
 		int rate = interfacePlayerPriv->gstPrivateContext->rate;
-		gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
-		gint64 pos_ms = GST_TIME_AS_MSECONDS(pos);
 
-		// 2. Calculate diff from last position
+		// Debug logging
 		static gint64 last_position = 0;
 		gint64 diff_from_last = pos_ms - last_position;
 
-		// 3. Query actual segment from GStreamer
+		// Query actual segment from GStreamer
 		GstQuery *segQuery = gst_query_new_segment(GST_FORMAT_TIME);
 		gint64 actual_segment_start = -1;
 		if (gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline, segQuery)) {
@@ -2745,15 +2765,15 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		}
 		gst_query_unref(segQuery);
 
-		// 4. Debug log with all info
-		MW_LOG_WARN("POS_DEBUG: pos=%lld, cached_seg=%lld, actual_seg=%lld, diff=%lld, rate=%d",
+		MW_LOG_WARN("POS_DEBUG: pos=%lld, cached_seg=%lld, actual_seg=%lld, diff=%lld, rate=%d, source=%s",
 		            pos_ms,
 		            interfacePlayerPriv->gstPrivateContext->segmentStart,
 		            actual_segment_start,
 		            diff_from_last,
-		            rate);
+		            rate,
+		            use_pts ? "PTS" : "QUERY");
 
-		// 5. Detect segment mismatch
+		// Detect segment mismatch
 		if (actual_segment_start != interfacePlayerPriv->gstPrivateContext->segmentStart
 		    && actual_segment_start != -1) {
 			MW_LOG_WARN("!!! SEGMENT MISMATCH !!! cached=%lld, actual=%lld",
@@ -2761,17 +2781,13 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 			            actual_segment_start);
 		}
 
-		// 6. Detect backward jump
-		if (diff_from_last < -1000) {  // More than 1 second backward
+		// Detect backward jump
+		if (diff_from_last < -1000) {
 			MW_LOG_WARN("!!! BACKWARD JUMP !!! from=%lld to=%lld, jump=%lld ms",
 			            last_position, pos_ms, diff_from_last);
 		}
 
-		// 7. Update last_position for next call
 		last_position = pos_ms;
-		// ========== DEBUG SECTION END ==========
-
-		// Continue with your existing logic
 		if (eGST_MEDIAFORMAT_PROGRESSIVE == static_cast<GstMediaFormat>(m_gstConfigParam->media))
 		{
 			rate = 1; // MP4 position query always return absolute value
@@ -2799,6 +2815,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	MW_LOG_ERR("tanuj out GetPositioninMilliseconds");
 	return rc;
 }
+
 /**
  *  @brief Get playback duration in MS
  */
