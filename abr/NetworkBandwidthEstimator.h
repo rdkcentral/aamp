@@ -31,7 +31,7 @@ double GetCurrentTimeMonotonicSeconds( void );
  */
 struct CurlInfo
 {
-	size_t m_size_download_bytes; // CURLINFO_SIZE_DOWNLOAD
+	std::size_t m_size_download_bytes; // CURLINFO_SIZE_DOWNLOAD
 	double m_total_time_seconds; // CURLINFO_TOTAL_TIME
 	double m_time_to_first_byte_seconds; // CURLINFO_STARTTRANSFER_TIME
 };
@@ -102,7 +102,7 @@ private:
 	// A window of 8 samples provides a balance between responsiveness and
 	// stability: it smooths out short spikes while still tracking recent
 	// network conditions closely enough for ABR decisions.
-	static constexpr size_t harmonic_window = 8;
+	static constexpr std::size_t harmonic_window = 8;
 	
 	/**
 	 * @brief Recompute median TTFB and harmonic mean from history; this requires iterating through all recent samples
@@ -127,7 +127,7 @@ public:
 	/**
 	 * @brief predict completion time for a new segment
 	 */
-	double GetPredictedDownloadTimeSeconds(size_t segment_size_bytes) const;
+	double GetPredictedDownloadTimeSeconds(std::size_t segment_size_bytes) const;
 };
 
 class DownloadContext
@@ -149,8 +149,8 @@ private:
 	 */
 	static constexpr double m_ewma_short_window_weight = 0.4;
 	double m_ewma_bytes_per_second = 0.0;
-	size_t m_dltotal = 0;
-	size_t m_dlnow_prev = 0;
+	std::size_t m_dltotal = 0;
+	std::size_t m_dlnow_prev = 0;
 	double m_time_prev = 0.0;
 	
 public:
@@ -169,6 +169,6 @@ public:
 	 * @param dlnow downloaded bytes so far
 	 * @retval true if more bytes have been transferred since last call
 	 */
-	bool xferinfo( const double now, size_t dltotal, size_t dlnow );
+	bool xferinfo( const double now, std::size_t dltotal, std::size_t dlnow );
 };
 #endif
