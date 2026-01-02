@@ -161,6 +161,13 @@ public:
 	 */
 	void SetProgressStream(std::ostream* stream);
 	
+	/**
+	 * @brief Write a reset marker to the progress stream if configured
+	 * @param now Current timestamp
+	 * @note This is typically called at the start of a new download to separate iterations in CSV output
+	 */
+	void WriteResetMarker(const double now);
+	
 	double GetEstimatedRemainingTime( void );
 	double GetEstimatedThroughputBytesPerSecond( void );
 	

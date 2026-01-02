@@ -107,6 +107,7 @@ int main(int argc, const char* argv[])
 			f_ABR << networkBandwidthEstimator.GetTimeToFirstByteSeconds() << "," << networkBandwidthEstimator.GetThroughputBytesPerSecond() << "," << networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes);
 			double now = GetCurrentTimeMonotonicSeconds();
 			downloadContext.Reset( now );
+			downloadContext.WriteResetMarker( now );
 			
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			

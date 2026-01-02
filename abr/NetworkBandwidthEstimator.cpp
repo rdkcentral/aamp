@@ -221,6 +221,14 @@ void DownloadContext::SetProgressStream(std::ostream* stream)
 	m_progress_stream = stream;
 }
 
+void DownloadContext::WriteResetMarker(const double now)
+{
+	if( m_progress_stream )
+	{
+		*m_progress_stream << "\n" << now << ",0.0\n";
+	}
+}
+
 void DownloadContext::Reset( const double now )
 {
 	m_ewma_bytes_per_second = 0.0;
