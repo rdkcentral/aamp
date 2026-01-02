@@ -32,7 +32,7 @@
 
 static const double epsilon = 1e-6;
 static const double BLEND_WEIGHT_HARMONIC = 0.6; // 60% harmonic, 40% EWMA
-static constexpr size_t MAX_HISTORY = 24; // how far back in rolling window samples to consider for bandwidth estimtate
+static constexpr size_t MAX_HISTORY = 24; // how far back in rolling window samples to consider for bandwidth estimate
 
 /**
  * @brief get clock time as a floating point monotonic value
