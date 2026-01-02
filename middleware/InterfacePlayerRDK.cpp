@@ -4174,109 +4174,99 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
+			if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
+			{	
+				GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
+				const char *frame_step_on_preroll_prop = "frame-step-on-preroll";
+				privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
 
-			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
-			{
-				MW_LOG_MIL("%s %s -> %s (pending %s)",
-						   GST_OBJECT_NAME(msg->src),
-						   gst_element_state_get_name(old_state),
-						   gst_element_state_get_name(new_state),
-						   gst_element_state_get_name(pending_state));
-
-				if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
+				if(video_sink && (g_object_class_find_property(G_OBJECT_GET_CLASS(video_sink), frame_step_on_preroll_prop) != NULL))
 				{
-					GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
-					const char *frame_step_on_preroll_prop = "frame-step-on-preroll";
-					privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+					MW_LOG_INFO("Setting %s property and sending step", frame_step_on_preroll_prop);
+					g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop, 1, NULL);
 
-					if(video_sink && (g_object_class_find_property(G_OBJECT_GET_CLASS(video_sink), frame_step_on_preroll_prop) != NULL))
+					if(!gst_element_send_event(video_sink, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1.0, FALSE, FALSE)))
 					{
-						MW_LOG_INFO("Setting %s property and sending step", frame_step_on_preroll_prop);
-						g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,1, NULL);
-
-						if(!gst_element_send_event(video_sink, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1.0, FALSE, FALSE)))
-						{
-							MW_LOG_ERR("error sending step event");
-						}
-						g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,0, NULL);
-
-						if(privatePlayer->gstPrivateContext->usingRialtoSink)
-						{
-							privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-							pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
-						}
+						MW_LOG_ERR("error sending step event");
 					}
-					else
-					{
-						MW_LOG_WARN("%s property not present on video_sink", frame_step_on_preroll_prop);
-						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
-					}
-				}
-				if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
-				{
-					privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+					g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop, 0, NULL);
 
-					busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
-					if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !privatePlayer->gstPrivateContext->firstAudioFrameReceived && privatePlayer->gstPrivateContext->NumberOfTracks==1)
-					{
-						gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
-						bool ret = privatePlayer->socInterface->AudioOnlyMode(stream->sinkbin);
-						if(ret)
-						{
-							MW_LOG_MIL("Audio only playback detected, hence notify first frame");
-							privatePlayer->gstPrivateContext->firstAudioFrameReceived = ret;
-							pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_AUDIO);
-						}
-					}
-					if(pInterfacePlayerRDK->m_gstConfigParam->media == eGST_MEDIAFORMAT_PROGRESSIVE)
-					{
-						pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
-						// application needs to NotifyFirstBufferProcessed
-						busEvent.firstBufferProcessed = true;
-
-					}
 					if(privatePlayer->gstPrivateContext->usingRialtoSink)
 					{
 						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-						privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
-					else if(privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff && privatePlayer->socInterface->NotifyVideoFirstFrame())
+				}
+				else
+				{
+					MW_LOG_WARN("%s property not present on video_sink", frame_step_on_preroll_prop);
+					privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
+					pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+				}
+			}
+			if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
+			{
+				privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+
+				busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
+				if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !privatePlayer->gstPrivateContext->firstAudioFrameReceived && privatePlayer->gstPrivateContext->NumberOfTracks == 1)
+				{
+					gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
+					bool ret = privatePlayer->socInterface->AudioOnlyMode(stream->sinkbin);
+					if(ret)
 					{
-						privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff = false;
-						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-						privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
-						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+						MW_LOG_MIL("Audio only playback detected, hence notify first frame");
+						privatePlayer->gstPrivateContext->firstAudioFrameReceived = ret;
+						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_AUDIO);
 					}
-					else if(privatePlayer->socInterface->IsSimulatorFirstFrame())
-					{
-						if(!privatePlayer->gstPrivateContext->firstFrameReceived)
-						{
-							privatePlayer->gstPrivateContext->firstFrameReceived = true;
-							busEvent.receivedFirstFrame = true;
-						}
-						pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
-						//Note: Progress event should be sent after the decoderAvailable event only.
-						//BRCM platform sends progress event after InterfacePlayerRDK_OnFirstVideoFrameCallback.
-						pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
-					}
-					if (pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
-					{
-						GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)privatePlayer->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
-						// output graph to .dot format which can be visualized with Graphviz tool if:
-						// gstreamer is configured with --gst-enable-gst-debug
-						// and "gst" is enabled in player cfg
-						// and environment variable GST_DEBUG_DUMP_DOT_DIR is set to a basepath(e.g. /opt).
-					}
-					// First Video Frame Displayed callback for westeros-sink is initialized
-					// via OnFirstVideoFrameCallback()->NotifyFirstFrame() which is more accurate
-					if((!privatePlayer->gstPrivateContext->using_westerossink) && pInterfacePlayerRDK->mFirstFrameRequired)
-					{
-						pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
-					}
+				}
+				if(pInterfacePlayerRDK->m_gstConfigParam->media == eGST_MEDIAFORMAT_PROGRESSIVE)
+				{
+					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
+					// application needs to NotifyFirstBufferProcessed
+					busEvent.firstBufferProcessed = true;
 
 				}
+				if(privatePlayer->gstPrivateContext->usingRialtoSink)
+				{
+					privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
+					privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
+					pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+				}
+				else if(privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff && privatePlayer->socInterface->NotifyVideoFirstFrame())
+				{
+					privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff = false;
+					privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
+					privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
+					pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+				}
+				else if(privatePlayer->socInterface->IsSimulatorFirstFrame())
+				{
+					if(!privatePlayer->gstPrivateContext->firstFrameReceived)
+					{
+						privatePlayer->gstPrivateContext->firstFrameReceived = true;
+						busEvent.receivedFirstFrame = true;
+					}
+					pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
+					//Note: Progress event should be sent after the decoderAvailable event only.
+					//BRCM platform sends progress event after InterfacePlayerRDK_OnFirstVideoFrameCallback.
+					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
+				}
+				if (pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
+				{
+					GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)privatePlayer->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
+					// output graph to .dot format which can be visualized with Graphviz tool if:
+					// gstreamer is configured with --gst-enable-gst-debug
+					// and "gst" is enabled in player cfg
+					// and environment variable GST_DEBUG_DUMP_DOT_DIR is set to a basepath(e.g. /opt).
+				}
+				// First Video Frame Displayed callback for westeros-sink is initialized
+				// via OnFirstVideoFrameCallback()->NotifyFirstFrame() which is more accurate
+				if((!privatePlayer->gstPrivateContext->using_westerossink) && pInterfacePlayerRDK->mFirstFrameRequired)
+				{
+					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
+				}
+
 			}
 			//this code should be handled as part of IARM modification
 			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
@@ -4701,11 +4691,22 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER( privatePlayer->gstPrivateContext->syncControl, GST_BUS_PASS);
+
 	switch(GST_MESSAGE_TYPE(msg))
 	{
 		case GST_MESSAGE_STATE_CHANGED:
 			GstState old_state, new_state;
+			bool isPlaybinStateChangeEvent = false;
+			isPlaybinStateChangeEvent = (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline));
 			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
+			if (NULL != msg->src && (isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging))
+			{
+				/* Log playbin and element transitions for easier debugging */
+				MW_LOG_MIL("Element %s state %s -> %s",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state));
+			}
 
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))
 			{
