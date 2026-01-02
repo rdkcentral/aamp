@@ -128,6 +128,20 @@ public:
 class DownloadContext
 {
 private:
+	/**
+	 * @brief Smoothing factor for short-window EWMA throughput estimate.
+	 *
+	 * This weight acts as the alpha parameter in an Exponentially Weighted
+	 * Moving Average that tracks the instantaneous download rate reported
+	 * by periodic progress callbacks (see xferinfo()).
+	 *
+	 * A value of 0.4 biases the estimate toward the most recent progress
+	 * interval (real-time behavior) while still retaining enough history
+	 * to dampen noise from very short spikes or stalls. This trade-off
+	 * was chosen to make the remaining-time and throughput estimates react
+	 * quickly to genuine bandwidth changes without causing large UI jumps
+	 * between successive callbacks.
+	 */
 	static constexpr double m_ewma_short_window_weight = 0.4;
 	double m_ewma_bytes_per_second = 0.0;
 	size_t m_dltotal = 0;
