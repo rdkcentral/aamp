@@ -224,54 +224,115 @@ if(CMAKE_USE_ETHAN_LOG)
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 # Building jsbindings
-if(CMAKE_WPEWEBKIT_JSBINDINGS)
-	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
-	# Search for WPE WebKit libraries
-	pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
-	if(NOT WPE_WEBKIT_FOUND)
-		pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
-	endif()
-	# Check if any WPE WebKit library was found, if not, throw an error
-	if(NOT WPE_WEBKIT_FOUND)
-		message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
-	endif()
-
-	find_path(JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${WPE_WEBKIT_INCLUDEDIR} ${WPE_WEBKIT_INCLUDE_DIRS})
-	message("JSC_INCDIR is ${JSC_INCDIR}")
-	include_directories(${JSC_INCDIR})
-
-	message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
-	# Link WPE WebKit package to aampjsbindings
-	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
+    message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
-		jsbindings/jscontroller-jsbindings.cpp
-		jsbindings/jsbindings.cpp
-		jsbindings/jsutils.cpp
-		jsbindings/jsmediaplayer.cpp
-		jsbindings/jseventlistener.cpp
-		jsbindings/jsevent.cpp
-		jsbindings/PersistentWatermark/PersistentWatermark.cpp
-	)
-	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-		message("CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS set, adding PersistentWatermark sources")
-		set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
-		set(LIBJSBINDINGS_SOURCES
-			"${LIBJSBINDINGS_SOURCES}"
-			jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp
-			jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp
-			jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp
-			jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp
-		)
-	endif()
+            jsbindings/jscontroller-jsbindings.cpp
+            jsbindings/jsbindings.cpp
+            jsbindings/jsutils.cpp
+            jsbindings/jsmediaplayer.cpp
+            jsbindings/jseventlistener.cpp
+            jsbindings/jsevent.cpp
+            jsbindings/PersistentWatermark/PersistentWatermark.cpp
+        )
 
+	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
+			message("CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS set, adding PersistentWatermark sources")
+            set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
+            list(APPEND LIBJSBINDINGS_SOURCES
+                jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp
+                jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp
+                jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp
+                jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp
+            )
+        endif()
+	
 	add_library(aampjsbindings SHARED ${LIBJSBINDINGS_SOURCES})
-	target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
-	set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
-	install(TARGETS aampjsbindings
-			DESTINATION lib
-	)
+
+    if(APPLE)
+
+		set(LIBJSBINDINGS_SIMULATOR_SOURCES
+			test/jsBindingTest/UVEBinding.cpp)
+        
+        find_library(JSCORE_FRAMEWORK JavaScriptCore)
+        if(NOT JSCORE_FRAMEWORK)
+            message(FATAL_ERROR "JavaScriptCore framework not found on macOS")
+        endif()
+        message("Found JavaScriptCore.framework at ${JSCORE_FRAMEWORK}")
+
+        set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS}" ${JSCORE_FRAMEWORK})
+		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES
+            COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES} "
+            LINK_FLAGS "-framework JavaScriptCore"
+        )
+		
+		install(TARGETS
+		 		aampjsbindings DESTINATION lib
+		)
+
+		add_executable(uveExecuter
+			${LIBJSBINDINGS_SIMULATOR_SOURCES}
+		)
+
+		set_target_properties(uveExecuter
+		 	PROPERTIES COMPILE_FLAGS " ${OS_CXX_FLAGS} ${LIBAAMP_DEFINES}")
+
+		target_include_directories(uveExecuter PRIVATE
+			${GST_INCLUDE_DIRS}
+			${GLIB_INCLUDE_DIRS}
+		)
+
+		target_link_directories(uveExecuter PRIVATE
+			${GST_LIBRARY_DIRS}
+			${GLIB_LIBRARY_DIRS}
+		)
+
+		target_link_libraries(uveExecuter PRIVATE
+			aampjsbindings
+			${GST_LIBRARIES}
+			${GLIB_LIBRARIES}
+			${JSCORE_FRAMEWORK}
+		)
+
+		set_target_properties(uveExecuter PROPERTIES
+			BUILD_RPATH "@loader_path;${GST_LIBRARY_DIRS};${GLIB_LIBRARY_DIRS}"
+		)
+
+		xcode_define_schema(aampjsbindings)
+		xcode_define_schema(uveExecuter)
+
+    else()
+        pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
+        if(NOT WPE_WEBKIT_FOUND)
+            pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
+        endif()
+        if(NOT WPE_WEBKIT_FOUND)
+            message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
+        endif()
+
+        find_path(JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${WPE_WEBKIT_INCLUDEDIR} ${WPE_WEBKIT_INCLUDE_DIRS})
+		message("JSC_INCDIR is ${JSC_INCDIR}")
+        include_directories(${JSC_INCDIR})
+
+		message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
+		# Link WPE WebKit package to aampjsbindings
+        set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
+		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+
+		install(TARGETS
+		 		aampjsbindings DESTINATION lib
+		)
+    endif()
+
+	
+
 else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
