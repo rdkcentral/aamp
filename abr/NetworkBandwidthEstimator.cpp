@@ -37,11 +37,10 @@ static constexpr size_t MAX_HISTORY = 24; // how far back in rolling window samp
 /**
  * @brief get clock time as a floating point monotonic value
  */
-double GetCurrentTimeMonotonicSeconds( void )
+double GetCurrentTimeMonotonicSeconds()
 {
-	timespec ts{};
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
+	using clock = std::chrono::steady_clock;
+	return std::chrono::duration<double>(clock::now().time_since_epoch()).count();
 }
 
 /**

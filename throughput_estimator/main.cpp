@@ -43,7 +43,7 @@ static int xferinfo(void *clientp,
 	DownloadContext *context = reinterpret_cast<DownloadContext*>(clientp);
 	if( context->xferinfo( now, dltotal, dlnow ) )
 	{
-		float pct = (dltotal>0)?(100*dlnow/dltotal):0;
+		float pct = (dltotal>0)?(100.0*double(dlnow)/double(dltotal)):0.0;
 		f_EWMA << now << "," << pct << "," << dlnow << "," << dltotal << "," << context->GetEstimatedThroughputBytesPerSecond() << "," << context->GetEstimatedRemainingTime() << "\n";
 	}
 	return 0;
