@@ -27,14 +27,6 @@ protected:
     FunctionalTests()
     {
     }
-
-    void SetUp() override
-    {
-    }
-
-    void TearDown() override
-    {
-    }
 };
 
 
