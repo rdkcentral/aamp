@@ -147,7 +147,9 @@ int main(int argc, const char* argv[])
 			}
 			else
 			{
-				fprintf(stderr, "curl_easy_perform error: %s\n", curl_easy_strerror(res));
+				std::cerr << "curl_easy_perform error: "
+					<< curl_easy_strerror(res)
+					<< std::endl;
 			}
 		} // next iteration
 		curl_easy_cleanup(curl);
