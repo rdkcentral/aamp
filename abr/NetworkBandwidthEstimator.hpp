@@ -62,7 +62,22 @@ public:
 };
 
 /**
- * @brief abstract network bandwidth state and prediction logic
+ * @class NetworkBandwidthEstimator
+ * @brief Maintains network bandwidth state and predicts download performance.
+ *
+ * This class collects per-request download samples (size, total time and
+ * time-to-first-byte) and derives robust throughput estimates that can be
+ * consumed by Adaptive Bitrate (ABR) decision logic. It maintains two
+ * Exponentially Weighted Moving Average (EWMA) filters over the measured
+ * payload throughput: a fast EWMA that reacts quickly to changes and a
+ * slow EWMA that provides a more stable baseline.
+ *
+ * In addition, it computes a conservative harmonic-mean throughput over a
+ * sliding window of recent samples and blends this with the EWMA-based
+ * estimates. The combination of EWMA smoothing and harmonic mean blending
+ * yields a bandwidth estimate that is responsive to real network changes
+ * while remaining resilient to outliers, and is used to predict segment
+ * download times and guide ABR bitrate selection.
  */
 class NetworkBandwidthEstimator
 {
