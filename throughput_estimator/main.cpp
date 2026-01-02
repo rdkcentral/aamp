@@ -22,6 +22,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <iomanip>
 
 std::ofstream f_EWMA;
 
@@ -137,11 +138,6 @@ int main(int argc, const char* argv[])
 				
 				curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &curlInfo.m_time_to_first_byte_seconds);
 				
-				/*						printf( ",%zu,%f,%f\n",
-				 curlInfo.m_size_download_bytes,
-				 curlInfo.m_total_time_seconds,
-				 curlInfo.m_time_to_first_byte_seconds );
-				 */
 				networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
 				f_ABR << "," << curlInfo.m_total_time_seconds << "\n";
 			}

@@ -16,8 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_HPP
-#define THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_HPP
+#ifndef THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_H
+#define THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_H
 
 #include <cstddef>
 #include <vector>
@@ -96,7 +96,12 @@ private:
 	// Exponentially Weighted Moving Average (EWMA) tuning
 	static constexpr double ALPHA_FAST = 0.5;
 	static constexpr double ALPHA_SLOW = 0.2;
+	
 	// Harmonic mean over last N samples
+	// Harmonic mean over last N samples.
+	// A window of 8 samples provides a balance between responsiveness and
+	// stability: it smooths out short spikes while still tracking recent
+	// network conditions closely enough for ABR decisions.
 	static constexpr size_t harmonic_window = 8;
 	
 	/**
@@ -153,8 +158,8 @@ public:
 	~DownloadContext();
 	void Reset( const double now );
 	
-	double GetEstimatedRemainingTime( void );
-	double GetEstimatedThroughputBytesPerSecond( void );
+	double GetEstimatedRemainingTime( void ) const;
+	double GetEstimatedThroughputBytesPerSecond( void ) const;
 	
 	/**
 	 * @brief monitor download progress

@@ -86,17 +86,17 @@ Sample::Sample( const CurlInfo &curlInfo ) : m_curlInfo(curlInfo)
 	m_payload_bytes_per_second = static_cast<double>(curlInfo.m_size_download_bytes) / m_payload_download_time_seconds;
 }
 
-double Sample::GetTimeToFirstByteSeconds( void ) const
+double Sample::GetTimeToFirstByteSeconds() const
 {
 	return m_curlInfo.m_time_to_first_byte_seconds;
 }
 
-double Sample::GetPayloadBytesPerSecond( void ) const
+double Sample::GetPayloadBytesPerSecond() const
 {
 	return m_payload_bytes_per_second;
 }
 
-double Sample::GetTotalTimeSeconds( void ) const
+double Sample::GetTotalTimeSeconds() const
 {
 	return m_curlInfo.m_total_time_seconds;
 }
@@ -224,7 +224,7 @@ void DownloadContext::Reset( const double now )
 	m_time_prev = now;
 }
 
-double DownloadContext::GetEstimatedRemainingTime( void )
+double DownloadContext::GetEstimatedRemainingTime() const
 {
 	double rc = 0.0;
 	const size_t remaining_bytes = m_dltotal - m_dlnow_prev;
@@ -235,7 +235,7 @@ double DownloadContext::GetEstimatedRemainingTime( void )
 	return rc;
 }
 
-double DownloadContext::GetEstimatedThroughputBytesPerSecond( void )
+double DownloadContext::GetEstimatedThroughputBytesPerSecond() const
 {
 	return m_ewma_bytes_per_second;
 }
