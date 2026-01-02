@@ -57,27 +57,25 @@ double GetMedian( std::vector<double> &values )
 	{
 		return 0.0;
 	}
+
+	const size_t n = values.size();
+	const size_t mid = n / 2;
+	if( n % 2 )
+	{ // Odd number of elements - find the middle element
+		std::nth_element(values.begin(), values.begin() + mid, values.end());
+		return values[mid];
+	}
 	else
-	{
-		const size_t n = values.size();
-		const size_t mid = n / 2;
-		if( n % 2 )
-		{ // Odd number of elements - find the middle element
-			std::nth_element(values.begin(), values.begin() + mid, values.end());
-			return values[mid];
-		}
-		else
-		{ // Even number of elements - average the two middle elements
-			// Find the element at mid position
-			std::nth_element(values.begin(), values.begin() + mid, values.end());
-			const double upper = values[mid];
-			
-			// Find the element at mid-1 position (the max of the lower half)
-			std::nth_element(values.begin(), values.begin() + (mid - 1), values.end());
-			const double lower = values[mid - 1];
-			
-			return 0.5 * (lower + upper);
-		}
+	{ // Even number of elements - average the two middle elements
+		// Find the element at mid position
+		std::nth_element(values.begin(), values.begin() + mid, values.end());
+		const double upper = values[mid];
+		
+		// Find the element at mid-1 position (the max of the lower half)
+		std::nth_element(values.begin(), values.begin() + (mid - 1), values.end());
+		const double lower = values[mid - 1];
+		
+		return 0.5 * (lower + upper);
 	}
 }
 
