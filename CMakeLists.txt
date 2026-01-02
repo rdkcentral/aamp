@@ -382,7 +382,7 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
-	abr/abr.cpp abr/abr.h abr/NetworkBandwidthEstimator.cpp abr/NetworkBandwidthEstimator.hpp
+	abr/abr.cpp abr/abr.h abr/NetworkBandwidthEstimator.cpp abr/NetworkBandwidthEstimator.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp

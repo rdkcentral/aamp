@@ -18,7 +18,7 @@
 */
 
 #include <gtest/gtest.h>
-#include "NetworkBandwidthEstimator.hpp"
+#include "NetworkBandwidthEstimator.h"
 #include <curl/curl.h>
 #include <cstdlib>
 

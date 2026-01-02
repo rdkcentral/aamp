@@ -28,7 +28,7 @@
 #include <string>
 #include <ctime>
 
-#include "NetworkBandwidthEstimator.hpp"
+#include "NetworkBandwidthEstimator.h"
 
 static const double epsilon = 1e-6;
 static const double BLEND_WEIGHT_HARMONIC = 0.6; // 60% harmonic, 40% EWMA
