@@ -52,6 +52,8 @@ static int xferinfo(void *clientp,
 
 static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 { // stub to avoid spewing download contents to console log
+	(void)ptr;
+	(void)userdata;
 	return size*nmemb;
 }
 
