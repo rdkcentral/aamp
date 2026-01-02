@@ -32,6 +32,7 @@
 
 static const double epsilon = 1e-6;
 static const double BLEND_WEIGHT_HARMONIC = 0.6; // 60% harmonic, 40% EWMA
+static constexpr size_t MAX_HISTORY = 24; // how far back in rolling window samples to consider for bandwidth estimtate
 
 /**
  * @brief get clock time as a floating point monotonic value
@@ -45,8 +46,13 @@ double GetCurrentTimeMonotonicSeconds( void )
 
 /**
  * @brief given a vector of floating point values, retrieve the median value
+ * This function uses std::nth_element for O(n) time complexity instead of sorting.
+ * For performance reasons, we don't make a copy of input, and so order in values may change as side effect of calling this function.
+ *
+ * @param values Input vector of floating point values (passed by const reference)
+ * @return The median value, or 0.0 if the input vector is empty
  */
-static double median( const std::vector<double> &values )
+static double median( std::vector<double> &values )
 {
 	if( values.empty() )
 	{
@@ -54,10 +60,25 @@ static double median( const std::vector<double> &values )
 	}
 	else
 	{
-		std::vector<double> v(values);
-		std::sort(v.begin(), v.end());
-		const size_t n = v.size();
-		return (n % 2) ? v[n/2] : 0.5 * (v[n/2 - 1] + v[n/2]);
+		const size_t n = values.size();
+		const size_t mid = n / 2;
+		if( n % 2 )
+		{ // Odd number of elements - find the middle element
+			std::nth_element(values.begin(), values.begin() + mid, values.end());
+			return values[mid];
+		}
+		else
+		{ // Even number of elements - average the two middle elements
+			// Find the element at mid position
+			std::nth_element(values.begin(), values.begin() + mid, values.end());
+			const double upper = values[mid];
+			
+			// Find the element at mid-1 position (the max of the lower half)
+			std::nth_element(values.begin(), values.begin() + (mid - 1), values.end());
+			const double lower = values[mid - 1];
+			
+			return 0.5 * (lower + upper);
+		}
 	}
 }
 
@@ -68,17 +89,17 @@ Sample::Sample( const CurlInfo &curlInfo ) : m_curlInfo(curlInfo)
 	m_payload_bytes_per_second = static_cast<double>(curlInfo.m_size_download_bytes) / m_payload_download_time_seconds;
 }
 
-double Sample::getTimeToFirstByteSeconds( void ) const
+double Sample::GetTimeToFirstByteSeconds( void ) const
 {
 	return m_curlInfo.m_time_to_first_byte_seconds;
 }
 
-double Sample::getPayloadBytesPerSecond( void ) const
+double Sample::GetPayloadBytesPerSecond( void ) const
 {
 	return m_payload_bytes_per_second;
 }
 
-double Sample::getTotalTimeSeconds( void ) const
+double Sample::GetTotalTimeSeconds( void ) const
 {
 	return m_curlInfo.m_total_time_seconds;
 }
@@ -92,7 +113,7 @@ void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 	ttfbs.reserve(m_history.size());
 	for( const auto& s : m_history )
 	{
-		ttfbs.push_back(s.getTimeToFirstByteSeconds() );
+		ttfbs.push_back(s.GetTimeToFirstByteSeconds() );
 	}
 	m_estimated_TTFB_seconds = median(ttfbs);
 	
@@ -103,7 +124,7 @@ void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 	size_t count = 0;
 	for( size_t i = start; i < n; i++ )
 	{
-		const double payloadBytesPerSecond = m_history[i].getPayloadBytesPerSecond();
+		const double payloadBytesPerSecond = m_history[i].GetPayloadBytesPerSecond();
 		if( payloadBytesPerSecond > epsilon )
 		{
 			denominator += 1.0/payloadBytesPerSecond;
@@ -113,38 +134,36 @@ void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 	m_harmonic_BytesPerSecond = (count > 0 && denominator > 0.0) ? (static_cast<double>(count) / denominator) : 0.0;
 }
 
-double NetworkBandwidthEstimator::UpdateDownloadMetrics( const CurlInfo &curlInfo )
+void NetworkBandwidthEstimator::UpdateDownloadMetrics( const CurlInfo &curlInfo )
 {
 	Sample sample(curlInfo);
-	const double payload_bytes_per_second = sample.getPayloadBytesPerSecond();
-	const double total_time_seconds = sample.getTotalTimeSeconds();
-	m_history.push_back(std::move(sample));
+	// extract derived payload_bytes_per_second from sample
+	const double payload_bytes_per_second = sample.GetPayloadBytesPerSecond();
+	m_history.emplace_back(sample);
 	
-	const size_t MAX_HISTORY = 24;
 	if (m_history.size() > MAX_HISTORY)
 	{ // Trim history to avoid unbounded growth
 		m_history.erase(m_history.begin(), m_history.begin() + (m_history.size() - MAX_HISTORY));
 	}
 	
 	// EWMA updates
-	if( m_EWMA_fast_BytesPerSecond <= 0.0 )
-	{
-		m_EWMA_fast_BytesPerSecond = payload_bytes_per_second;
-	}
-	else
+	if( m_EWMA_fast_BytesPerSecond > 0.0 )
 	{
 		m_EWMA_fast_BytesPerSecond = ALPHA_FAST * payload_bytes_per_second + (1.0 - ALPHA_FAST) * m_EWMA_fast_BytesPerSecond;
 	}
-	if( m_EWMA_slow_BytesPerSecond <= 0.0 )
-	{
-		m_EWMA_slow_BytesPerSecond = payload_bytes_per_second;
-	}
 	else
+	{
+		m_EWMA_fast_BytesPerSecond = payload_bytes_per_second;
+	}
+	if( m_EWMA_slow_BytesPerSecond > 0.0 )
 	{
 		m_EWMA_slow_BytesPerSecond = ALPHA_SLOW * payload_bytes_per_second + (1.0 - ALPHA_SLOW) * m_EWMA_slow_BytesPerSecond;
 	}
+	else
+	{
+		m_EWMA_slow_BytesPerSecond = payload_bytes_per_second;
+	}
 	RecomputeHarmonicMeanAndMedianTTFB();
-	return total_time_seconds;
 }
 
 /**
@@ -155,15 +174,21 @@ double NetworkBandwidthEstimator::GetThroughputBytesPerSecond() const
 	double EWMA_min = (m_EWMA_fast_BytesPerSecond > 0.0 && m_EWMA_slow_BytesPerSecond > 0.0)
 	? std::min(m_EWMA_fast_BytesPerSecond, m_EWMA_slow_BytesPerSecond)
 	: std::max(m_EWMA_fast_BytesPerSecond, m_EWMA_slow_BytesPerSecond);
-	if (EWMA_min <= 0.0)
+	if( EWMA_min > 0.0 )
+	{
+		if (m_harmonic_BytesPerSecond > 0.0)
+		{
+			return BLEND_WEIGHT_HARMONIC * m_harmonic_BytesPerSecond + (1.0 - BLEND_WEIGHT_HARMONIC) * EWMA_min;
+		}
+		else
+		{
+			return EWMA_min;
+		}
+	}
+	else
 	{
 		return m_harmonic_BytesPerSecond;
 	}
-	if (m_harmonic_BytesPerSecond <= 0.0)
-	{
-		return EWMA_min;
-	}
-	return BLEND_WEIGHT_HARMONIC * m_harmonic_BytesPerSecond + (1.0 - BLEND_WEIGHT_HARMONIC) * EWMA_min;
 }
 
 /**
@@ -180,12 +205,12 @@ double NetworkBandwidthEstimator::GetTimeToFirstByteSeconds() const
 double NetworkBandwidthEstimator::GetPredictedDownloadTimeSeconds(size_t segment_size_bytes) const
 {
 	const double throughput = GetThroughputBytesPerSecond();
-	if( throughput >= 1.0 )
+	if( throughput > 0.0 )
 	{
 		return m_estimated_TTFB_seconds + (static_cast<double>(segment_size_bytes) / throughput);
 	}
 	else
-	{ // we have no history data to make estimate
+	{ // no history data to make estimate
 		return 0.0;
 	}
 }

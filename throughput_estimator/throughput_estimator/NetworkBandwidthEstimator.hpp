@@ -54,9 +54,9 @@ public:
 	 * @param curlInfo  Curl Handle profiling data
 	 */
 	Sample( const CurlInfo &curlInfo );
-	double getTimeToFirstByteSeconds( void ) const;
-	double getPayloadBytesPerSecond( void ) const;
-	double getTotalTimeSeconds( void ) const;
+	double GetTimeToFirstByteSeconds( void ) const;
+	double GetPayloadBytesPerSecond( void ) const;
+	double GetTotalTimeSeconds( void ) const;
 };
 
 /**
@@ -90,7 +90,7 @@ private:
 public:
 	NetworkBandwidthEstimator() = default;
 	
-	double UpdateDownloadMetrics( const CurlInfo &curl );
+	void UpdateDownloadMetrics( const CurlInfo &curl );
 	
 	/**
 	 * @brief return current robust throughput estimate (bytes/s), buffer-agnostic
@@ -123,6 +123,9 @@ public:
 	void Reset( void );
 	
 	/**
+	 * @brief monitpr download progress
+	 * @note: name and parameters are based on CURLOPT_XFERINFOFUNCTION
+	 *
 	 * @param dltotal total bytes to download
 	 * @param dlnow downloaded bytes so far
 	 */

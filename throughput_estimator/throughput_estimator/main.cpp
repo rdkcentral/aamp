@@ -107,12 +107,17 @@ int main(int argc, const char* argv[])
 					if (res == CURLE_OK ) // || ctx.bailed)
 					{ // note: if we bailed early, partial bytes are still fine for statistics
 						CurlInfo curlInfo;
-						double temp;
-						curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &temp); curlInfo.m_size_download_bytes = temp;
-						curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &temp); curlInfo.m_total_time_seconds = temp;
-						curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &temp); curlInfo.m_time_to_first_byte_seconds = temp;
-						double total_time_seconds = networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
-						fprintf( f_ABR, ",%f\n", total_time_seconds );
+						
+						curl_off_t size_download;
+						curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &size_download);
+						curlInfo.m_size_download_bytes = size_download;
+						
+						curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &curlInfo.m_total_time_seconds);
+						
+						curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &curlInfo.m_time_to_first_byte_seconds);
+						
+						networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
+						fprintf( f_ABR, ",%f\n", curlInfo.m_total_time_seconds );
 					}
 					else
 					{
