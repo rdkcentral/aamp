@@ -157,12 +157,12 @@ public:
 	double GetEstimatedThroughputBytesPerSecond( void );
 	
 	/**
-	 * @brief monitpr download progress
+	 * @brief monitor download progress
 	 * @note: name and parameters are based on CURLOPT_XFERINFOFUNCTION
 	 *
 	 * @param dltotal total bytes to download
 	 * @param dlnow downloaded bytes so far
-	 * @retval true if more bytes have been transfered since last call
+	 * @retval true if more bytes have been transferred since last call
 	 */
 	bool xferinfo( const double now, size_t dltotal, size_t dlnow );
 };

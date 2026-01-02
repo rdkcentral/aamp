@@ -109,13 +109,13 @@ double Sample::GetTotalTimeSeconds( void ) const
  */
 void NetworkBandwidthEstimator::RecomputeHarmonicMeanAndMedianTTFB()
 { // Overhead = median TTFB from all samples
-	std::vector<double> ttfbs;
-	ttfbs.reserve(m_history.size());
+	std::vector<double> ttfb;
+	ttfb.reserve(m_history.size());
 	for( const auto& s : m_history )
 	{
-		ttfbs.push_back(s.GetTimeToFirstByteSeconds() );
+		ttfb.push_back(s.GetTimeToFirstByteSeconds() );
 	}
-	m_estimated_TTFB_seconds = GetMedian(ttfbs);
+	m_estimated_TTFB_seconds = GetMedian(ttfb);
 	
 	// Harmonic mean of throughput over last harmonic_window samples
 	const size_t n = m_history.size();
