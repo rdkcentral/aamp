@@ -22,7 +22,18 @@
 #include <cstddef>
 #include <vector>
 
-
+/**
+ * @brief Compute the median of the given values in-place.
+ *
+ * This function may reorder the contents of @p values for performance
+ * reasons (for example, by using partial sorting algorithms). Callers
+ * must not rely on the original order of @p values after this call.
+ *
+ * @param values Vector of numeric samples to compute the median from.
+ *        The vector is modified and its element order is not preserved.
+ *
+ * @return The median value computed from @p values.
+ */
 double GetMedian( std::vector<double> &values );
 double GetCurrentTimeMonotonicSeconds( void );
 
