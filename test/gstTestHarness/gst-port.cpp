@@ -304,7 +304,7 @@ public:
 				g_signal_connect(decodebin, "pad-added", G_CALLBACK(decodebin_pad_added_cb), this);
 				
 				// --- Configure appsrc flow control ---
-				g_object_set(appsrc, "max-bytes", maxBytes, nullptr);
+				g_object_set(appsrc, "max-bytes", (guint64)maxBytes, nullptr);
 				g_object_set(appsrc, "min-percent", 50, nullptr);
 				
 				need_data_handle_id   = g_signal_connect(appsrc, "need-data",    G_CALLBACK(need_data_cb),    this);
