@@ -20,6 +20,7 @@
 #define THROUGHPUT_ESTIMATOR_NETWORK_BANDWIDTH_ESTIMATOR_HPP
 
 #include <cstddef>
+#include <ostream>
 #include <vector>
 
 
@@ -147,11 +148,18 @@ private:
 	size_t m_dltotal = 0;
 	size_t m_dlnow_prev = 0;
 	double m_time_prev = 0.0;
+	std::ostream* m_progress_stream = nullptr; ///< Optional output stream for progress logging
 	
 public:
 	DownloadContext();
 	~DownloadContext();
 	void Reset( const double now );
+	
+	/**
+	 * @brief Set an optional output stream for progress logging
+	 * @param stream Pointer to output stream, or nullptr to disable logging
+	 */
+	void SetProgressStream(std::ostream* stream);
 	
 	double GetEstimatedRemainingTime( void );
 	double GetEstimatedThroughputBytesPerSecond( void );

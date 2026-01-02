@@ -20,10 +20,9 @@
 #include <curl/curl.h>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <string>
-
-std::ofstream f_EWMA;
 
 /**
  * @brief libcurl progress callback (XFERINFOFUNCTION)
@@ -41,11 +40,7 @@ static int xferinfo(void *clientp,
 {
 	double now = GetCurrentTimeMonotonicSeconds();
 	DownloadContext *context = reinterpret_cast<DownloadContext*>(clientp);
-	if( context->xferinfo( now, dltotal, dlnow ) )
-	{
-		float pct = (dltotal>0)?(100.0*double(dlnow)/double(dltotal)):0.0;
-		f_EWMA << now << "," << pct << "," << dlnow << "," << dltotal << "," << context->GetEstimatedThroughputBytesPerSecond() << "," << context->GetEstimatedRemainingTime() << "\n";
-	}
+	context->xferinfo( now, dltotal, dlnow );
 	return 0;
 }
 
@@ -72,7 +67,7 @@ int main(int argc, const char* argv[])
 	}
 	
 	std::string pathEWMA = std::string(path) + "/ewma.csv";
-	f_EWMA = std::ofstream( pathEWMA );
+	std::ofstream f_EWMA( pathEWMA );
 	if( !f_EWMA )
 	{
 		std::cerr << "unable to open " << pathEWMA << "\n";
@@ -80,7 +75,9 @@ int main(int argc, const char* argv[])
 	}
 	f_EWMA << std::fixed << std::setprecision(16);
 	f_EWMA << "Time,Pct,dlnow,dltotal,Bps,est remaining(s)\n";
+	
 	DownloadContext downloadContext;
+	downloadContext.SetProgressStream(&f_EWMA);
 	
 	std::string pathABR = std::string(path) + "/abr.csv";
 	std::ofstream f_ABR(pathABR);
@@ -110,8 +107,6 @@ int main(int argc, const char* argv[])
 			f_ABR << networkBandwidthEstimator.GetTimeToFirstByteSeconds() << "," << networkBandwidthEstimator.GetThroughputBytesPerSecond() << "," << networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes);
 			double now = GetCurrentTimeMonotonicSeconds();
 			downloadContext.Reset( now );
-			
-			f_EWMA << "\n" << now << ",0.0\n";
 			
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			

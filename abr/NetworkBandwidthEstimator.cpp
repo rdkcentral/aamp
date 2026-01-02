@@ -216,6 +216,11 @@ DownloadContext::DownloadContext() = default;
 
 DownloadContext::~DownloadContext() = default;
 
+void DownloadContext::SetProgressStream(std::ostream* stream)
+{
+	m_progress_stream = stream;
+}
+
 void DownloadContext::Reset( const double now )
 {
 	m_ewma_bytes_per_second = 0.0;
@@ -266,6 +271,14 @@ bool DownloadContext::xferinfo( const double now, size_t dltotal, size_t dlnow )
 			m_time_prev = now;
 			m_dlnow_prev = dlnow;
 			rc = true;
+			
+			// Log progress if stream is configured
+			if( m_progress_stream )
+			{
+				float pct = (dltotal > 0) ? (100.0 * static_cast<double>(dlnow) / static_cast<double>(dltotal)) : 0.0;
+				*m_progress_stream << now << "," << pct << "," << dlnow << "," << dltotal 
+				                   << "," << m_ewma_bytes_per_second << "," << GetEstimatedRemainingTime() << "\n";
+			}
 		}
 	}
 	return rc;
