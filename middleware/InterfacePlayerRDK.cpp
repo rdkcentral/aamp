@@ -2705,7 +2705,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	
 	if (use_pts)
 	{
-		MW_LOG_WARN("PTS available: %lld", pts_position);
+		MW_LOG_WARN("PTS available: %lld", (long long)pts_position);
 	}
 	
 	// segment.start needs to be queried
@@ -2738,7 +2738,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		{
 			// Use PTS directly - it's already in nanoseconds from video decoder
 			pos_ms = pts_position / 1000000;  // Convert nanoseconds to milliseconds
-			MW_LOG_WARN("Using PTS: %lld ms", pos_ms);
+			MW_LOG_WARN("Using PTS: %lld ms", (long long)pos_ms);
 		}
 		else
 		{
@@ -2746,7 +2746,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 			gint64 pos = 0;
 			gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
 			pos_ms = GST_TIME_AS_MSECONDS(pos);
-			MW_LOG_WARN("Using position query: %lld ms", pos_ms);
+			MW_LOG_WARN("Using position query: %lld ms", (long long)pos_ms);
 		}
 
 		int rate = interfacePlayerPriv->gstPrivateContext->rate;
@@ -2766,10 +2766,10 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		gst_query_unref(segQuery);
 
 		MW_LOG_WARN("POS_DEBUG: pos=%lld, cached_seg=%lld, actual_seg=%lld, diff=%lld, rate=%d, source=%s",
-		            pos_ms,
-		            interfacePlayerPriv->gstPrivateContext->segmentStart,
-		            actual_segment_start,
-		            diff_from_last,
+		            (long long)pos_ms,
+		            (long long)interfacePlayerPriv->gstPrivateContext->segmentStart,
+		            (long long)actual_segment_start,
+		            (long long)diff_from_last,
 		            rate,
 		            use_pts ? "PTS" : "QUERY");
 
@@ -2777,14 +2777,14 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		if (actual_segment_start != interfacePlayerPriv->gstPrivateContext->segmentStart
 		    && actual_segment_start != -1) {
 			MW_LOG_WARN("!!! SEGMENT MISMATCH !!! cached=%lld, actual=%lld",
-			            interfacePlayerPriv->gstPrivateContext->segmentStart,
-			            actual_segment_start);
+			            (long long)interfacePlayerPriv->gstPrivateContext->segmentStart,
+			            (long long)actual_segment_start);
 		}
 
 		// Detect backward jump
 		if (diff_from_last < -1000) {
 			MW_LOG_WARN("!!! BACKWARD JUMP !!! from=%lld to=%lld, jump=%lld ms",
-			            last_position, pos_ms, diff_from_last);
+			            (long long)last_position, (long long)pos_ms, (long long)diff_from_last);
 		}
 
 		last_position = pos_ms;
@@ -2815,7 +2815,6 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	MW_LOG_ERR("tanuj out GetPositioninMilliseconds");
 	return rc;
 }
-
 /**
  *  @brief Get playback duration in MS
  */
