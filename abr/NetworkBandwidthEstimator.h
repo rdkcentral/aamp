@@ -100,8 +100,8 @@ private:
 	double m_estimated_TTFB_seconds = 0.0; // median TTFB - computed brute force
 	
 	// Robust throughput estimates (bytes/s)
-	double m_EWMA_fast_BytesPerSecond = 0.0; // reacts quickly
-	double m_EWMA_slow_BytesPerSecond = 0.0; // stable
+	double m_ewma_fast_BytesPerSecond = 0.0; // reacts quickly
+	double m_ewma_slow_BytesPerSecond = 0.0; // stable
 	double m_harmonic_BytesPerSecond = 0.0;  // conservative
 	
 	// Exponentially Weighted Moving Average (EWMA) tuning

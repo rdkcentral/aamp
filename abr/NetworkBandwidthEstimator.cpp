@@ -146,21 +146,21 @@ void NetworkBandwidthEstimator::UpdateDownloadMetrics( const CurlInfo &curlInfo 
 	}
 	
 	// EWMA updates
-	if( m_EWMA_fast_BytesPerSecond > 0.0 )
+	if( m_ewma_fast_BytesPerSecond > 0.0 )
 	{
-		m_EWMA_fast_BytesPerSecond = ALPHA_FAST * payload_bytes_per_second + (1.0 - ALPHA_FAST) * m_EWMA_fast_BytesPerSecond;
+		m_ewma_fast_BytesPerSecond = ALPHA_FAST * payload_bytes_per_second + (1.0 - ALPHA_FAST) * m_ewma_fast_BytesPerSecond;
 	}
 	else
 	{
-		m_EWMA_fast_BytesPerSecond = payload_bytes_per_second;
+		m_ewma_fast_BytesPerSecond = payload_bytes_per_second;
 	}
-	if( m_EWMA_slow_BytesPerSecond > 0.0 )
+	if( m_ewma_slow_BytesPerSecond > 0.0 )
 	{
-		m_EWMA_slow_BytesPerSecond = ALPHA_SLOW * payload_bytes_per_second + (1.0 - ALPHA_SLOW) * m_EWMA_slow_BytesPerSecond;
+		m_ewma_slow_BytesPerSecond = ALPHA_SLOW * payload_bytes_per_second + (1.0 - ALPHA_SLOW) * m_ewma_slow_BytesPerSecond;
 	}
 	else
 	{
-		m_EWMA_slow_BytesPerSecond = payload_bytes_per_second;
+		m_ewma_slow_BytesPerSecond = payload_bytes_per_second;
 	}
 	RecomputeHarmonicMeanAndMedianTTFB();
 }
@@ -170,18 +170,18 @@ void NetworkBandwidthEstimator::UpdateDownloadMetrics( const CurlInfo &curlInfo 
  */
 double NetworkBandwidthEstimator::GetThroughputBytesPerSecond() const
 {
-	double EWMA_min = (m_EWMA_fast_BytesPerSecond > 0.0 && m_EWMA_slow_BytesPerSecond > 0.0)
-	? std::min(m_EWMA_fast_BytesPerSecond, m_EWMA_slow_BytesPerSecond)
-	: std::max(m_EWMA_fast_BytesPerSecond, m_EWMA_slow_BytesPerSecond);
-	if( EWMA_min > 0.0 )
+	double ewma_min = (m_ewma_fast_BytesPerSecond > 0.0 && m_ewma_slow_BytesPerSecond > 0.0)
+	? std::min(m_ewma_fast_BytesPerSecond, m_ewma_slow_BytesPerSecond)
+	: std::max(m_ewma_fast_BytesPerSecond, m_ewma_slow_BytesPerSecond);
+	if( ewma_min > 0.0 )
 	{
 		if (m_harmonic_BytesPerSecond > 0.0)
 		{
-			return BLEND_WEIGHT_HARMONIC * m_harmonic_BytesPerSecond + (1.0 - BLEND_WEIGHT_HARMONIC) * EWMA_min;
+			return BLEND_WEIGHT_HARMONIC * m_harmonic_BytesPerSecond + (1.0 - BLEND_WEIGHT_HARMONIC) * ewma_min;
 		}
 		else
 		{
-			return EWMA_min;
+			return ewma_min;
 		}
 	}
 	else
