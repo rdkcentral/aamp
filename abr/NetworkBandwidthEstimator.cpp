@@ -20,13 +20,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
 #include <numeric>
 #include <optional>
-#include <string>
-#include <ctime>
 
 #include "NetworkBandwidthEstimator.h"
 
@@ -146,21 +141,21 @@ void NetworkBandwidthEstimator::UpdateDownloadMetrics( const CurlInfo &curlInfo 
 	}
 	
 	// EWMA updates
-	if( m_EWMA_fast_BytesPerSecond > 0.0 )
+	if( m_ewma_fast_BytesPerSecond > 0.0 )
 	{
-		m_EWMA_fast_BytesPerSecond = ALPHA_FAST * payload_bytes_per_second + (1.0 - ALPHA_FAST) * m_EWMA_fast_BytesPerSecond;
+		m_ewma_fast_BytesPerSecond = ALPHA_FAST * payload_bytes_per_second + (1.0 - ALPHA_FAST) * m_ewma_fast_BytesPerSecond;
 	}
 	else
 	{
-		m_EWMA_fast_BytesPerSecond = payload_bytes_per_second;
+		m_ewma_fast_BytesPerSecond = payload_bytes_per_second;
 	}
-	if( m_EWMA_slow_BytesPerSecond > 0.0 )
+	if( m_ewma_slow_BytesPerSecond > 0.0 )
 	{
-		m_EWMA_slow_BytesPerSecond = ALPHA_SLOW * payload_bytes_per_second + (1.0 - ALPHA_SLOW) * m_EWMA_slow_BytesPerSecond;
+		m_ewma_slow_BytesPerSecond = ALPHA_SLOW * payload_bytes_per_second + (1.0 - ALPHA_SLOW) * m_ewma_slow_BytesPerSecond;
 	}
 	else
 	{
-		m_EWMA_slow_BytesPerSecond = payload_bytes_per_second;
+		m_ewma_slow_BytesPerSecond = payload_bytes_per_second;
 	}
 	RecomputeHarmonicMeanAndMedianTTFB();
 }
@@ -170,18 +165,18 @@ void NetworkBandwidthEstimator::UpdateDownloadMetrics( const CurlInfo &curlInfo 
  */
 double NetworkBandwidthEstimator::GetThroughputBytesPerSecond() const
 {
-	double EWMA_min = (m_EWMA_fast_BytesPerSecond > 0.0 && m_EWMA_slow_BytesPerSecond > 0.0)
-	? std::min(m_EWMA_fast_BytesPerSecond, m_EWMA_slow_BytesPerSecond)
-	: std::max(m_EWMA_fast_BytesPerSecond, m_EWMA_slow_BytesPerSecond);
-	if( EWMA_min > 0.0 )
+	double ewma_min = (m_ewma_fast_BytesPerSecond > 0.0 && m_ewma_slow_BytesPerSecond > 0.0)
+	? std::min(m_ewma_fast_BytesPerSecond, m_ewma_slow_BytesPerSecond)
+	: std::max(m_ewma_fast_BytesPerSecond, m_ewma_slow_BytesPerSecond);
+	if( ewma_min > 0.0 )
 	{
 		if (m_harmonic_BytesPerSecond > 0.0)
 		{
-			return BLEND_WEIGHT_HARMONIC * m_harmonic_BytesPerSecond + (1.0 - BLEND_WEIGHT_HARMONIC) * EWMA_min;
+			return BLEND_WEIGHT_HARMONIC * m_harmonic_BytesPerSecond + (1.0 - BLEND_WEIGHT_HARMONIC) * ewma_min;
 		}
 		else
 		{
-			return EWMA_min;
+			return ewma_min;
 		}
 	}
 	else
@@ -214,10 +209,6 @@ double NetworkBandwidthEstimator::GetPredictedDownloadTimeSeconds(size_t segment
 	}
 }
 
-DownloadContext::DownloadContext() = default;
-
-DownloadContext::~DownloadContext() = default;
-
 void DownloadContext::Reset( const double now )
 {
 	m_ewma_bytes_per_second = 0.0;
@@ -228,13 +219,13 @@ void DownloadContext::Reset( const double now )
 
 double DownloadContext::GetEstimatedRemainingTime() const
 {
-	double rc = 0.0;
+	double remaining_time_seconds = 0.0;
 	const size_t remaining_bytes = m_dltotal - m_dlnow_prev;
 	if( m_ewma_bytes_per_second > 0.0 )
 	{
-		rc = remaining_bytes / m_ewma_bytes_per_second;
+		remaining_time_seconds = remaining_bytes / m_ewma_bytes_per_second;
 	}
-	return rc;
+	return remaining_time_seconds;
 }
 
 double DownloadContext::GetEstimatedThroughputBytesPerSecond() const
@@ -256,14 +247,14 @@ bool DownloadContext::xferinfo( const double now, size_t dltotal, size_t dlnow )
 	{ // some data has trickled in
 		if( delta_time > epsilon )
 		{
-			const double Bps = static_cast<double>(delta_bytes)/delta_time;
+			const double bytesPerSecond = static_cast<double>(delta_bytes)/delta_time;
 			if( m_ewma_bytes_per_second > 0.0 )
 			{
-				m_ewma_bytes_per_second = m_ewma_short_window_weight * Bps + (1.0 - m_ewma_short_window_weight) * m_ewma_bytes_per_second;
+				m_ewma_bytes_per_second = m_ewma_short_window_weight * bytesPerSecond + (1.0 - m_ewma_short_window_weight) * m_ewma_bytes_per_second;
 			}
 			else
 			{
-				m_ewma_bytes_per_second = Bps;
+				m_ewma_bytes_per_second = bytesPerSecond;
 			}
 			m_time_prev = now;
 			m_dlnow_prev = dlnow;

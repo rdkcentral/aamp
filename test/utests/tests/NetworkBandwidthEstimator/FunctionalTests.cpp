@@ -24,10 +24,6 @@
 #include <array>
 
 class FunctionalTests : public ::testing::Test {
-protected:
-	FunctionalTests()
-	{
-	}
 };
 
 
@@ -43,14 +39,14 @@ protected:
  */
 static int xferinfo(void *clientp,
 					curl_off_t dltotal, curl_off_t dlnow,
-					curl_off_t ultotal, curl_off_t ulnow)
+					curl_off_t , curl_off_t )
 {
-	DownloadContext *context = reinterpret_cast<DownloadContext*>(clientp);
+	DownloadContext *context = static_cast<DownloadContext*>(clientp);
 	const double now = GetCurrentTimeMonotonicSeconds();
 	return context->xferinfo( now, dltotal, dlnow );
 }
 
-static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t write_callback(char *, size_t size, size_t nmemb, void *)
 { // stub to avoid spewing download contents to console log
 	return size*nmemb;
 }
@@ -73,7 +69,7 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 {
 	const double epsilon = 1e-6;
 	const size_t segment_size_bytes = 112463;
-	const struct
+	struct TestData
 	{
 		double timeToFirstByteSeconds;
 		double throughputBytesPerSecond;
@@ -82,8 +78,8 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 		size_t download_bytes;
 		double total_time_seconds;
 		double time_to_first_byte_seconds;
-	} test_data[] =
-	{
+	};
+	const std::array<TestData, 8> test_data{{
 		{ 0.000000,0.000000,0.000000,112463,0.398257,0.249254 },
 		{ 0.249254,754770.038187,0.398257,112463,0.130057,0.048034 },
 		{ 0.148644,935373.273008,0.268877,112463,0.120855,0.056830 },
@@ -92,19 +88,18 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 		{ 0.056830,1315556.262523,0.142317,112463,0.117878,0.052516 },
 		{ 0.054673,1380828.841638,0.136119,112463,0.116275,0.051314 },
 		{ 0.052516,1433386.044995,0.130976,112463,0.116544,0.051999 }
-	};
-	
+	}};
 	NetworkBandwidthEstimator networkBandwidthEstimator;
-	for( int i=0; i<sizeof(test_data)/sizeof(test_data[0]); i++ )
+	for( const auto& data : test_data )
 	{
-		EXPECT_NEAR( test_data[i].timeToFirstByteSeconds, networkBandwidthEstimator.GetTimeToFirstByteSeconds(), epsilon );
-		EXPECT_NEAR( test_data[i].throughputBytesPerSecond, networkBandwidthEstimator.GetThroughputBytesPerSecond(), epsilon );
-		EXPECT_NEAR( test_data[i].predictedDownloadTimeSeconds, networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes), epsilon );
+		EXPECT_NEAR( data.timeToFirstByteSeconds, networkBandwidthEstimator.GetTimeToFirstByteSeconds(), epsilon );
+		EXPECT_NEAR( data.throughputBytesPerSecond, networkBandwidthEstimator.GetThroughputBytesPerSecond(), epsilon );
+		EXPECT_NEAR( data.predictedDownloadTimeSeconds, networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes), epsilon );
 		
 		CurlInfo curlInfo;
-		curlInfo.m_size_download_bytes = test_data[i].download_bytes;
-		curlInfo.m_total_time_seconds = test_data[i].total_time_seconds;
-		curlInfo.m_time_to_first_byte_seconds = test_data[i].time_to_first_byte_seconds;
+		curlInfo.m_size_download_bytes = data.download_bytes;
+		curlInfo.m_total_time_seconds = data.total_time_seconds;
+		curlInfo.m_time_to_first_byte_seconds = data.time_to_first_byte_seconds;
 		networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
 	}
 }
@@ -118,7 +113,7 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 		double pct;
 		size_t dlnow;
 		size_t dltotal;
-		double Bps;
+		double bytesPerSecond;
 		double estimated_remaining;
 	};
 	const std::array<TestData, 8> test_data{{
@@ -133,10 +128,10 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 	}};
 	DownloadContext downloadContext;
 	downloadContext.Reset(test_data[0].now );
-	for( size_t i=1; i<test_data.size(); i++ )
+	for( const auto& data : test_data )
 	{
-		downloadContext.xferinfo( test_data[i].now, test_data[i].dltotal, test_data[i].dlnow);
-		EXPECT_NEAR( test_data[i].estimated_remaining, downloadContext.GetEstimatedRemainingTime(), epsilon );
-		EXPECT_NEAR( test_data[i].Bps, downloadContext.GetEstimatedThroughputBytesPerSecond(), epsilon );
+		downloadContext.xferinfo( data.now, data.dltotal, data.dlnow);
+		EXPECT_NEAR( data.estimated_remaining, downloadContext.GetEstimatedRemainingTime(), epsilon );
+		EXPECT_NEAR( data.bytesPerSecond, downloadContext.GetEstimatedThroughputBytesPerSecond(), epsilon );
 	}
 }
