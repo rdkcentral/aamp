@@ -73,7 +73,7 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 {
 	const double epsilon = 1e-6;
 	const size_t segment_size_bytes = 112463;
-	const struct
+	struct TestData
 	{
 		double timeToFirstByteSeconds;
 		double throughputBytesPerSecond;
@@ -82,8 +82,8 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 		size_t download_bytes;
 		double total_time_seconds;
 		double time_to_first_byte_seconds;
-	} test_data[] =
-	{
+	};
+	const std::array<TestData, 8> test_data{{
 		{ 0.000000,0.000000,0.000000,112463,0.398257,0.249254 },
 		{ 0.249254,754770.038187,0.398257,112463,0.130057,0.048034 },
 		{ 0.148644,935373.273008,0.268877,112463,0.120855,0.056830 },
@@ -92,10 +92,9 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 		{ 0.056830,1315556.262523,0.142317,112463,0.117878,0.052516 },
 		{ 0.054673,1380828.841638,0.136119,112463,0.116275,0.051314 },
 		{ 0.052516,1433386.044995,0.130976,112463,0.116544,0.051999 }
-	};
-	
+	}};
 	NetworkBandwidthEstimator networkBandwidthEstimator;
-	for( int i=0; i<sizeof(test_data)/sizeof(test_data[0]); i++ )
+	for( int i=0; i<test_data.size(); i++ )
 	{
 		EXPECT_NEAR( test_data[i].timeToFirstByteSeconds, networkBandwidthEstimator.GetTimeToFirstByteSeconds(), epsilon );
 		EXPECT_NEAR( test_data[i].throughputBytesPerSecond, networkBandwidthEstimator.GetThroughputBytesPerSecond(), epsilon );
