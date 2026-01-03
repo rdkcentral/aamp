@@ -214,10 +214,6 @@ double NetworkBandwidthEstimator::GetPredictedDownloadTimeSeconds(size_t segment
 	}
 }
 
-DownloadContext::DownloadContext() = default;
-
-DownloadContext::~DownloadContext() = default;
-
 void DownloadContext::Reset( const double now )
 {
 	m_ewma_bytes_per_second = 0.0;

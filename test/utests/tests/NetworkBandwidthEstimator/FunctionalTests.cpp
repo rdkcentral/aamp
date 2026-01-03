@@ -43,14 +43,14 @@ protected:
  */
 static int xferinfo(void *clientp,
 					curl_off_t dltotal, curl_off_t dlnow,
-					curl_off_t ultotal, curl_off_t ulnow)
+					curl_off_t , curl_off_t )
 {
-	DownloadContext *context = reinterpret_cast<DownloadContext*>(clientp);
+	DownloadContext *context = static_cast<DownloadContext*>(clientp);
 	const double now = GetCurrentTimeMonotonicSeconds();
 	return context->xferinfo( now, dltotal, dlnow );
 }
 
-static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t write_callback(char *, size_t size, size_t nmemb, void *)
 { // stub to avoid spewing download contents to console log
 	return size*nmemb;
 }

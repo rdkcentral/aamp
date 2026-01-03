@@ -165,8 +165,6 @@ private:
 	double m_time_prev = 0.0;
 	
 public:
-	DownloadContext();
-	~DownloadContext();
 	void Reset( const double now );
 	
 	double GetEstimatedRemainingTime( void ) const;
