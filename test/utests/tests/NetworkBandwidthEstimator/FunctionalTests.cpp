@@ -90,16 +90,16 @@ TEST_F(FunctionalTests, ThroughputPredictionTest)
 		{ 0.052516,1433386.044995,0.130976,112463,0.116544,0.051999 }
 	}};
 	NetworkBandwidthEstimator networkBandwidthEstimator;
-	for( int i=0; i<test_data.size(); i++ )
+	for( const auto& data : test_data )
 	{
-		EXPECT_NEAR( test_data[i].timeToFirstByteSeconds, networkBandwidthEstimator.GetTimeToFirstByteSeconds(), epsilon );
-		EXPECT_NEAR( test_data[i].throughputBytesPerSecond, networkBandwidthEstimator.GetThroughputBytesPerSecond(), epsilon );
-		EXPECT_NEAR( test_data[i].predictedDownloadTimeSeconds, networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes), epsilon );
+		EXPECT_NEAR( data.timeToFirstByteSeconds, networkBandwidthEstimator.GetTimeToFirstByteSeconds(), epsilon );
+		EXPECT_NEAR( data.throughputBytesPerSecond, networkBandwidthEstimator.GetThroughputBytesPerSecond(), epsilon );
+		EXPECT_NEAR( data.predictedDownloadTimeSeconds, networkBandwidthEstimator.GetPredictedDownloadTimeSeconds(segment_size_bytes), epsilon );
 		
 		CurlInfo curlInfo;
-		curlInfo.m_size_download_bytes = test_data[i].download_bytes;
-		curlInfo.m_total_time_seconds = test_data[i].total_time_seconds;
-		curlInfo.m_time_to_first_byte_seconds = test_data[i].time_to_first_byte_seconds;
+		curlInfo.m_size_download_bytes = data.download_bytes;
+		curlInfo.m_total_time_seconds = data.total_time_seconds;
+		curlInfo.m_time_to_first_byte_seconds = data.time_to_first_byte_seconds;
 		networkBandwidthEstimator.UpdateDownloadMetrics(curlInfo);
 	}
 }
@@ -128,10 +128,10 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 	}};
 	DownloadContext downloadContext;
 	downloadContext.Reset(test_data[0].now );
-	for( size_t i=1; i<test_data.size(); i++ )
+	for( const auto& data : test_data )
 	{
-		downloadContext.xferinfo( test_data[i].now, test_data[i].dltotal, test_data[i].dlnow);
-		EXPECT_NEAR( test_data[i].estimated_remaining, downloadContext.GetEstimatedRemainingTime(), epsilon );
-		EXPECT_NEAR( test_data[i].bytesPerSecond, downloadContext.GetEstimatedThroughputBytesPerSecond(), epsilon );
+		downloadContext.xferinfo( data.now, data.dltotal, data.dlnow);
+		EXPECT_NEAR( data.estimated_remaining, downloadContext.GetEstimatedRemainingTime(), epsilon );
+		EXPECT_NEAR( data.bytesPerSecond, downloadContext.GetEstimatedThroughputBytesPerSecond(), epsilon );
 	}
 }
