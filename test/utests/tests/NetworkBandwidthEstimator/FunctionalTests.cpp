@@ -24,10 +24,6 @@
 #include <array>
 
 class FunctionalTests : public ::testing::Test {
-protected:
-	FunctionalTests()
-	{
-	}
 };
 
 
@@ -117,7 +113,7 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 		double pct;
 		size_t dlnow;
 		size_t dltotal;
-		double Bps;
+		double bytesPerSecond;
 		double estimated_remaining;
 	};
 	const std::array<TestData, 8> test_data{{
@@ -136,6 +132,6 @@ TEST_F(FunctionalTests, MidDownloadMonitoringTest)
 	{
 		downloadContext.xferinfo( test_data[i].now, test_data[i].dltotal, test_data[i].dlnow);
 		EXPECT_NEAR( test_data[i].estimated_remaining, downloadContext.GetEstimatedRemainingTime(), epsilon );
-		EXPECT_NEAR( test_data[i].Bps, downloadContext.GetEstimatedThroughputBytesPerSecond(), epsilon );
+		EXPECT_NEAR( test_data[i].bytesPerSecond, downloadContext.GetEstimatedThroughputBytesPerSecond(), epsilon );
 	}
 }

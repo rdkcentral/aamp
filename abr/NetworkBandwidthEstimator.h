@@ -35,7 +35,7 @@
  * @return The median value computed from @p values.
  */
 double GetMedian( std::vector<double> &values );
-double GetCurrentTimeMonotonicSeconds( void );
+double GetCurrentTimeMonotonicSeconds();
 
 /**
  * @brief Plain Old Data (POD) structure for profiling information from a given CURL instance
@@ -67,9 +67,9 @@ public:
 	 * @param curlInfo  Curl Handle profiling data
 	 */
 	Sample( const CurlInfo &curlInfo );
-	double GetTimeToFirstByteSeconds( void ) const;
-	double GetPayloadBytesPerSecond( void ) const;
-	double GetTotalTimeSeconds( void ) const;
+	double GetTimeToFirstByteSeconds() const;
+	double GetPayloadBytesPerSecond() const;
+	double GetTotalTimeSeconds() const;
 };
 
 /**
@@ -108,7 +108,6 @@ private:
 	static constexpr double ALPHA_FAST = 0.5;
 	static constexpr double ALPHA_SLOW = 0.2;
 	
-	// Harmonic mean over last N samples
 	// Harmonic mean over last N samples.
 	// A window of 8 samples provides a balance between responsiveness and
 	// stability: it smooths out short spikes while still tracking recent
@@ -118,7 +117,7 @@ private:
 	/**
 	 * @brief Recompute median TTFB and harmonic mean from history; this requires iterating through all recent samples
 	 */
-	void RecomputeHarmonicMeanAndMedianTTFB( void );
+	void RecomputeHarmonicMeanAndMedianTTFB();
 	
 public:
 	NetworkBandwidthEstimator() = default;
@@ -167,8 +166,8 @@ private:
 public:
 	void Reset( const double now );
 	
-	double GetEstimatedRemainingTime( void ) const;
-	double GetEstimatedThroughputBytesPerSecond( void ) const;
+	double GetEstimatedRemainingTime() const;
+	double GetEstimatedThroughputBytesPerSecond() const;
 	
 	/**
 	 * @brief monitor download progress
