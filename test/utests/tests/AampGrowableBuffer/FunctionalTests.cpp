@@ -127,7 +127,7 @@ TEST_F(FunctionalTests, AppendBytesTest)
     // Note: GetAvail() no longer exists - std::vector manages capacity internally
 }
 
-#if 0 DJH not needed
+#if 0 //DJH not needed
 TEST_F(FunctionalTests, MoveBytesTest)
 {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test

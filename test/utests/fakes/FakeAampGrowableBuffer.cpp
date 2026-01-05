@@ -157,7 +157,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 	}
 }
 
-#if 0 DJH not needed
+#if 0 //DJH not needed
 void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
 {
 	if( !srcPtr || srcLen == 0 )
