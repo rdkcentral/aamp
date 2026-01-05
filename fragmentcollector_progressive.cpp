@@ -256,11 +256,10 @@ void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 /**
  * @brief Get output format of stream.
  */
-void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 	primaryOutputFormat = FORMAT_ISO_BMFF;
 	audioOutputFormat = FORMAT_INVALID;
-	auxAudioOutputFormat = FORMAT_INVALID;
 	subtitleOutputFormat = FORMAT_INVALID;
 }
 

@@ -37,7 +37,7 @@ public:
 
 	MOCK_METHOD(void, Stop, (bool clearChannelData), (override));
 
-	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
+	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
 
 	MOCK_METHOD(double, GetStreamPosition, (), (override));
 
@@ -98,6 +98,8 @@ public:
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
+
+	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

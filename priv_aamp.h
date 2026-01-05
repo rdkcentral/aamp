@@ -62,7 +62,7 @@
 #include <type_traits>
 #include <chrono>
 #include "AampEventManager.h"
-#include <HybridABRManager.h>
+#include "abr.h"
 #include "AampCMCDCollector.h"
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
@@ -879,7 +879,7 @@ public:
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
-	std::vector< std::pair<long long,long> > mAbrBitrateData;
+	std::vector< std::pair<long long,BitsPerSecond>> mAbrBitrateData;
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
@@ -893,12 +893,11 @@ public:
 	StreamOutputFormat mVideoFormat;
 	StreamOutputFormat mAudioFormat;
 	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
-	StreamOutputFormat mAuxFormat;
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
-	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
+	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
 	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
@@ -932,7 +931,7 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-	long mNetworkBandwidth;
+	BitsPerSecond mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1064,7 +1063,8 @@ public:
 	std::vector<std::string> preferredTextLanguagesList;	/**< list of preferred text languages from most-preferred to the least*/
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
-	std::string preferredTextLabelString; 			/**< String value for text type */
+	std::string preferredTextLabelString; 			/**< String value for label */
+	std::string preferredTextSubTypeString; 		/**< String value for sub-type  (i.e. "SUBTITLES" or "CLOSED-CAPTIONS") */
 	std::string preferredInstreamIdString;			/**< String value for instreamId */
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
@@ -1152,7 +1152,6 @@ public:
 	double mProgressReportOffset; 				/**< Offset time for progress reporting */
 	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
-	double mFirstFragmentTimeOffset;			/**< Offset time for first fragment injected */
 	AampConfig *mConfig;
 	long mDiscStartTime;					/**< start time of discontinuity */
 	bool mRateCorrectionDelay;				/**<Disable live latency correction when discontinuity is playing */
@@ -1609,14 +1608,14 @@ public:
 	 * @param[in] bandwidth - Bandwidth in bps
 	 * @return void
 	 */
-	void SetPersistedBandwidth(long bandwidth) {mAvailableBandwidth = bandwidth;}
+	void SetPersistedBandwidth(BitsPerSecond bandwidth) {mAvailableBandwidth = bandwidth;}
 
 	/**
 	 * @brief Get persisted bandwidth
 	 *
 	 * @return Bandwidth
 	 */
-	long GetPersistedBandwidth(){return mAvailableBandwidth;}
+	BitsPerSecond GetPersistedBandwidth(){return mAvailableBandwidth;}
 
 	/**
 	 * @fn UpdateDuration
@@ -2113,7 +2112,7 @@ public:
 	 * @param[in] profile		- Profile id.
 	 * @return void
 	 */
-	void ResetCurrentlyAvailableBandwidth(long bitsPerSecond,bool trickPlay,int profile=0);
+	void ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,bool trickPlay,int profile=0);
 
 	/**
 	 * @fn GetCurrentlyAvailableBandwidth
@@ -2686,7 +2685,7 @@ public:
 	 *
 	 *   @return preferred bitrate.
 	 */
-	long GetVideoBitrate();
+	BitsPerSecond GetVideoBitrate();
 
 	/**
 	 *   @fn GetNetworkProxy
@@ -3349,20 +3348,18 @@ public:
 	 *
 	 *   @param[in] videoFormat - video stream format
 	 *   @param[in] audioFormat - audio stream format
-	 *   @param[in] auxFormat - aux stream format
 	 *   @return void
 	 */
-	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat,  StreamOutputFormat auxFormat);
+	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat);
 
 	/**
 	 *   @fn IsAudioOrVideoOnly
 	 *
 	 *   @param[in] videoFormat - video stream format
 	 *   @param[in] audioFormat - audio stream format
-	 *   @param[in] auxFormat - aux stream format
 	 *   @return bool
 	 */
-	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat);
+	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat);
 
 	/**
 	 *   @fn DisableContentRestrictions
@@ -3451,28 +3448,6 @@ public:
 	void UpdateLiveOffset();
 
 	/**
-	 *   @fn IsAuxiliaryAudioEnabled
-	 *
-	 *   @return bool - true if aux audio is enabled
-	 */
-	bool IsAuxiliaryAudioEnabled(void);
-
-	/**
-	 *   @brief Set auxiliary language
-	 *
-	 *   @param[in] language - auxiliary language
-	 *   @return void
-	 */
-	void SetAuxiliaryLanguage(const std::string &language) { mAuxAudioLanguage = language; }
-
-	/**
-	 *   @brief Get auxiliary language
-	 *
-	 *   @return std::string auxiliary audio language
-	 */
-	std::string GetAuxiliaryAudioLanguage() { return mAuxAudioLanguage; }
-
-	/**
 	 *   @fn GetPauseOnFirstVideoFrameDisp
 	 *   @return bool
 	 */
@@ -3533,14 +3508,6 @@ public:
 	 * @return uint32_t - Subtitle TimeScale
 	 */
 	uint32_t GetSubTimeScale(void);
-
-	/**
-	 *   @fn SetLLDashSpeedCache
-	 *
-	 *   @param[in] speedCache - Speed Cache
-	 *   @return void
-	 */
-	void SetLLDashSpeedCache(struct SpeedCache &speedCache);
 
 	/**
 	 *   @fn GetLLDashSpeedCache
@@ -4147,12 +4114,10 @@ protected:
 	 *
 	 *   @param[out]  primaryOutputFormat - format of primary track
 	 *   @param[out]  audioOutputFormat - format of audio track
-	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
 	 *   @param[out]  subtitleOutputFormat - format of subtitle  track
 	 *   @return void
 	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
-
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4173,7 +4138,7 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	long mAvailableBandwidth;
+	BitsPerSecond mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;
@@ -4219,7 +4184,6 @@ protected:
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
-	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */
 	int mCCId;
 	AampLLDashServiceData mAampLLDashServiceData; /**< Low Latency Service Configuration Data */
 	bool bLowLatencyServiceConfigured;

@@ -25,7 +25,7 @@
 #ifndef __AAMP_EVENTS_H__
 #define __AAMP_EVENTS_H__
 
-#include "ABRManager.h"
+#include "abr.h"
 
 #include <memory>
 #include <vector>
@@ -270,8 +270,8 @@ struct AAMPEvent
 			double audioBufferedMilliseconds;	/**< current duration of buffered audio ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
-			long profileBandwidth;      /**< Profile Bandwidth */
-			long networkBandwidth;      /**< Network Bandwidth*/
+			BitsPerSecond profileBandwidth;      /**< Profile Bandwidth */
+			BitsPerSecond networkBandwidth;      /**< Network Bandwidth*/
 			double currentPlayRate; /**< CurrentPlayRate */
 			
 			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
@@ -736,8 +736,8 @@ class ProgressEvent: public AAMPEventObject
 	double mAudioBufferedDurationMs; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
-	long mProfileBandwidth;     /**<Profile Bandwidth */
-	long mNetworkBandwidth;     /**<Network Bandwidth */
+	BitsPerSecond mProfileBandwidth;     /**<Profile Bandwidth */
+	BitsPerSecond mNetworkBandwidth;     /**<Network Bandwidth */
 	double mCurrentPlayRate; /**<CurrentPlaybackRate */
 
 public:
@@ -763,7 +763,7 @@ public:
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -826,12 +826,12 @@ public:
 	/**
 	 * @fn getProfileBandwidth
 	 */
-	long getProfileBandwidth() const;
+	BitsPerSecond getProfileBandwidth() const;
 
 	/**
 	 * @fn getNetworkBandwidth
 	 */
-	long getNetworkBandwidth() const;
+	BitsPerSecond getNetworkBandwidth() const;
 
 	/**
 	 * @fn getCurrentPlayRate
@@ -1214,7 +1214,7 @@ public:
 	/**
 	 * @fn getBitrate
 	 */
-	long getBitrate() const;
+	BitsPerSecond getBitrate() const;
 
 	/**
 	 * @fn getDescription

@@ -17,6 +17,7 @@
 
 include(GoogleTest)
 
+add_subdirectory(NetworkBandwidthEstimator)
 add_subdirectory(JsBindingTests)
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
@@ -86,3 +87,4 @@ add_subdirectory(AampAbrTests)
 add_subdirectory(AampTrackWorkerTests)
 add_subdirectory(AampTsbSessionManagerTests_Mocked)
 add_subdirectory(AampDrmLegacy)
+add_subdirectory(AampDRMLicPreFetcherTests)

@@ -75,7 +75,8 @@ protected:
 
 		bool IsPaused()
 		{
-			return mPaused.load();
+			std::lock_guard<std::mutex> lock(mQueueMutex);
+			return mPaused;
 		}
 	};
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -243,7 +244,6 @@ TEST_F(FunctionalTests, CreateMultipleWorkers)
 	{
 		PrivateInstanceAAMP mAAMP;
 		aamp::AampTrackWorker audioWorker(&mAAMP, AampMediaType::eMEDIATYPE_AUDIO);
-		aamp::AampTrackWorker auxAudioWorker(&mAAMP, AampMediaType::eMEDIATYPE_AUX_AUDIO);
 		aamp::AampTrackWorker subtitleWorker(&mAAMP, AampMediaType::eMEDIATYPE_SUBTITLE);
 		SUCCEED();
 	}

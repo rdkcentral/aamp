@@ -45,7 +45,7 @@ private:
 
 public:
 	std::string manifestUrl;
-	uint32_t Bandwidth;
+	BitsPerSecond Bandwidth;
 	std::string RepresentationID;
 	uint64_t Number;
 	double Time; // In units of timescale

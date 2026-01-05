@@ -408,7 +408,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				{
 					writeSucceeded = true;
 					bool TSBDataAddStatus = false;
-					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
+					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
 						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
 						writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
@@ -456,18 +456,18 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				{
 					// Init fragments & Fragments should have a unique url for each absPosition
 					writeSucceeded = true;
-					AAMPLOG_WARN("TSBWrite Metrics...FILE ALREADY EXISTS...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...Period-Id(%s)...URL (%s)",
+					AAMPLOG_WARN("TSBWrite Metrics...FILE ALREADY EXISTS...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...Period-Id(%s)...URL (%s)",
 								 NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type), writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 				}
 				else
 				{
 					if (status != TSB::Status::NO_SPACE) /** Flood the log when storage full so added check*/
 					{
-						AAMPLOG_ERR("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%ld)...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
+						AAMPLOG_ERR("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
 					}
 					else
 					{
-						AAMPLOG_TRACE("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%ld)...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
+						AAMPLOG_TRACE("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
 					}
 					LockReadMutex();
 					if(writeData.cachedFragment->fragment.GetLen() == 0) //Buffer 0 case ,no need to run this loop untill it get success
@@ -661,10 +661,6 @@ AampMediaType AampTSBSessionManager::ConvertMediaType(AampMediaType actualMediat
 	else if (mediaType == eMEDIATYPE_INIT_SUBTITLE)
 	{
 		mediaType = eMEDIATYPE_SUBTITLE;
-	}
-	else if (mediaType == eMEDIATYPE_INIT_AUX_AUDIO)
-	{
-		mediaType = eMEDIATYPE_AUX_AUDIO;
 	}
 	else if (mediaType == eMEDIATYPE_INIT_IFRAME)
 	{

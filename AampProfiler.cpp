@@ -313,14 +313,14 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,"		// video init-segment (start,total,err)
 		"%d,%d,%d,"		// audio init-segment (start,total,err)
 
-		"%d,%d,%d,%ld,"	// video fragment (start,total,err, bitrate)
-		"%d,%d,%d,%ld,"	// audio fragment (start,total,err, bitrate)
+		"%d,%d,%d,%" BITSPERSECOND_FORMAT ","	// video fragment (start,total,err, bitrate)
+		"%d,%d,%d,%" BITSPERSECOND_FORMAT ","	// audio fragment (start,total,err, bitrate)
 
 		"%d,%d,%d,"		// licenseAcqStart, licenseAcqTotal, drmFailErrorCode
 		"%d,%d,%d,"		// LAPreProcDuration, LANetworkDuration, LAPostProcDuration
 
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
-		"%d,%d,%d,"		// gstPlayStartTime, gstFirstFrameTime, gstDecodeTime
+		"%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
@@ -328,7 +328,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,%d,%d,"       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
 					//  TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported	
 		// TODO: settop type, flags, isFOGEnabled, isDDPlus, isDemuxed, assetDurationMs
-		"%u", // Stop Duration;
+		"%u,%d", // Stop Duration, gstDecodeTime;
 
 		tuneTimeStrPrefix,
 		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
@@ -351,12 +351,12 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
-		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
 		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
-		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs
+		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs,
+		tDecode // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,

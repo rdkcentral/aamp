@@ -622,7 +622,7 @@ public:
 	 *
 	 *   @return bitrate of video profile
 	 */
-	long GetVideoBitrate(void);
+	BitsPerSecond GetVideoBitrate(void);
 
 	/**
 	 *   @fn SetVideoBitrate
@@ -1349,14 +1349,6 @@ public:
 	void SetRepairIframes(bool configState);
 
 	/**
-	 *   @fn SetAuxiliaryLanguage
-	 *
-	 *   @param[in] language - auxiliary language
-	 *   @return void
-	 */
-	void SetAuxiliaryLanguage(const std::string &language);
-
-	/**
 	 *   @fn SetLicenseCustomData
 	 *
 	 *   @param[in]  customData - custom data string to be passed to the license server.
@@ -1465,12 +1457,6 @@ protected:
 	 *   @return void
 	 */
 	void SetAudioTrackInternal(std::string language,  std::string rendition, std::string codec,  std::string type, unsigned int channel, std::string label);
-	/**
-	 *   @fn SetAuxiliaryLanguageInternal
-	 *   @param[in][optional] language
-	 *   @return void
-	 */
-	void SetAuxiliaryLanguageInternal(const std::string &language);
 	/**
 	 *   @fn SetTextTrackInternal
 	 *   @param[in] trackId

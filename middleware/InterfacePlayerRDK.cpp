@@ -135,7 +135,7 @@ paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
 firstTuneWithWesterosSinkOff(false),
 decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
-progressiveBufferingEnabled(false), progressiveBufferingStatus(false), forwardAudioBuffers(false),
+progressiveBufferingEnabled(false), progressiveBufferingStatus(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
 filterAudioDemuxBuffers(false),
 aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
@@ -216,18 +216,18 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 		"video",//eMEDIATYPE_VIDEO
 		"audio",//eMEDIATYPE_AUDIO
 		"text",//eMEDIATYPE_SUBTITLE
-		"aux_audio",//eMEDIATYPE_AUX_AUDIO
+		"reserved",//eMEDIATYPE_RESERVED
 		"manifest",//eMEDIATYPE_MANIFEST
 		"licence",//eMEDIATYPE_LICENCE
 		"iframe",//eMEDIATYPE_IFRAME
 		"init_video",//eMEDIATYPE_INIT_VIDEO
 		"init_audio",//eMEDIATYPE_INIT_AUDIO
 		"init_text",//eMEDIATYPE_INIT_SUBTITLE
-		"init_aux_audio",//eMEDIATYPE_INIT_AUX_AUDIO
+		"init_reserved",//eMEDIATYPE_INIT_RESERVED
 		"playlist_video",//eMEDIATYPE_PLAYLIST_VIDEO
 		"playlist_audio",//eMEDIATYPE_PLAYLIST_AUDIO
 		"playlist_text",//eMEDIATYPE_PLAYLIST_SUBTITLE
-		"playlist_aux_audio",//eMEDIATYPE_PLAYLIST_AUX_AUDIO
+		"playlist_reserved",//eMEDIATYPE_PLAYLIST_RESERVED
 		"playlist_iframe",//eMEDIATYPE_PLAYLIST_IFRAME
 		"init_iframe",//eMEDIATYPE_INIT_IFRAME
 		"dsm_cc",//eMEDIATYPE_DSM_CC
@@ -249,10 +249,8 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
  * @brief Configures the GStreamer pipeline.
  * @param format Video format.
  * @param audioFormat Audio format.
- * @param auxFormat Auxiliary format.
  * @param subFormat Whether subtitle format is enabled.
  * @param bESChangeStatus Whether ES change status is enabled.
- * @param forwardAudioToAux Whether audio should be forwarded to the auxiliary output.
  * @param setReadyAfterPipelineCreation Whether to set the player as ready after pipeline creation.
  * @param isSubEnable Whether subtitles are enabled.
  * @param trackId Track ID.
@@ -260,15 +258,14 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
  * @param pipelineName Pipeline name.
  * @param PipelinePriority Pipeline priority.
  */
-void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxFormat,
-										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
+void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subFormat,
+										   bool bESChangeStatus, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
 	MW_PROFILE_FUNCTION();
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
-	GstStreamOutputFormat gstAuxFormat 	= static_cast<GstStreamOutputFormat>(auxFormat);
 	GstStreamOutputFormat gstSubFormat 	= static_cast<GstStreamOutputFormat>(subFormat);
 
 	GstStreamOutputFormat newFormat[GST_TRACK_COUNT];
@@ -286,19 +283,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	{
 		MW_LOG_MIL("Gstreamer subs disabled");
 		newFormat[eGST_MEDIATYPE_SUBTITLE]=GST_FORMAT_INVALID;
-	}
-
-	/*Enable sending of audio data to the auxiliary output*/
-	if(forwardAudioToAux)
-	{
-		MW_LOG_MIL("InterfacePlayerRDK: Override auxFormat %d -> %d", auxFormat, audioFormat);
-		interfacePlayerPriv->gstPrivateContext->forwardAudioBuffers = true;
-		newFormat[eGST_MEDIATYPE_AUX_AUDIO] = gstAudioFormat;
-	}
-	else
-	{
-		interfacePlayerPriv->gstPrivateContext->forwardAudioBuffers = false;
-		newFormat[eGST_MEDIATYPE_AUX_AUDIO] = gstAuxFormat;
 	}
 
 	if(!(m_gstConfigParam->useWesterosSink))
@@ -897,7 +881,7 @@ static void GstPlayer_SignalEOS(GstPlayerPriv* gstPrivateContext)
 
 	if(gstPrivateContext && gstPrivateContext->pipeline)
 	{
-		for(int mediaType=eGST_MEDIATYPE_VIDEO; mediaType<=eGST_MEDIATYPE_AUX_AUDIO; mediaType++)
+		for(int mediaType=eGST_MEDIATYPE_VIDEO; mediaType<=eGST_MEDIATYPE_SUBTITLE; mediaType++)
 		{
 			GstPlayer_SignalEOS(gstPrivateContext->stream[mediaType]);
 		}
@@ -1727,7 +1711,7 @@ static GstMediaType gstGetMediaTypeForSource(const void  *source, const void *_t
 		InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		for (int i = 0; i < GST_TRACK_COUNT; i++)
 		{
-			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE, eMEDIATYPE_AUX_AUDIO */
+			/* eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE */
 			if (source == privatePlayer->gstPrivateContext->stream[i].source)
 			{
 				return static_cast<GstMediaType>(i);
@@ -1823,7 +1807,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
 		}
 	}
-	else if (eGST_MEDIATYPE_AUDIO == mediaType || eGST_MEDIATYPE_AUX_AUDIO == mediaType)
+	else if (eGST_MEDIATYPE_AUDIO == mediaType)
 	{
 
 		int MaxGstAudioBufBytes = m_gstConfigParam->audioBufBytes;
@@ -1921,7 +1905,6 @@ static void GstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, void*
 		}
 		MW_LOG_TRACE("mask %u",mask);
 		// We need to identify which stream the demux belongs to.
-		// We can't use a CAPS based check, for use-cases such as aux-audio
 		GstElement *parent = GST_ELEMENT_PARENT(demux);
 		bool found = false;
 		while (parent)
@@ -2020,11 +2003,6 @@ static void gst_found_source(GObject * object, GObject * orig, GParamSpec * pspe
 		MW_LOG_MIL("Found source for audio");
 		mediaType = eGST_MEDIATYPE_AUDIO;
 	}
-	else if (object == G_OBJECT(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO].sinkbin))
-	{
-		MW_LOG_MIL("Found source for auxiliary audio");
-		mediaType = eGST_MEDIATYPE_AUX_AUDIO;
-	}
 	else if(object == G_OBJECT(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].sinkbin))
 	{
 		MW_LOG_MIL("Found source for subtitle");
@@ -2042,17 +2020,7 @@ static void gst_found_source(GObject * object, GObject * orig, GParamSpec * pspe
 		gstInitializeSource(pInterfacePlayerRDK, G_OBJECT(stream->source), mediaType);
 	}
 }
-static void callback_element_added (GstElement * element, GstElement * source, gpointer data)
-{
-	InterfacePlayerRDK * pInterfacePlayerRDK = (InterfacePlayerRDK*)data;
-	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
-	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
-	MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
-	if (element == privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO].sinkbin)
-	{
-		privatePlayer->socInterface->SetAudioRoutingProperties(source);
-	}
-}
+
 /**
  * @brief callback when the source has been created
  * @param[in] element is the pipeline
@@ -2380,23 +2348,6 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 		}
 #endif
-
-		if (eGST_MEDIATYPE_AUX_AUDIO == streamId)
-		{
-			// We need to route audio through audsrvsink
-			GstElement *audiosink = gst_element_factory_make("audsrvsink", NULL); /* Creates a new element of "audsrvsink" type and returns a new GstElement */
-			g_object_set(audiosink, "session-type", 2, NULL);
-			g_object_set(audiosink, "session-name", "btSAP", NULL);
-			g_object_set(audiosink, "session-private", TRUE, NULL);
-
-			g_object_set(stream->sinkbin, "audio-sink", audiosink, NULL); /* In the stream->sinkbin, set the audio-sink property to audiosink */
-			if (privatePlayer->socInterface->RequiredElementSetup())
-			{
-				privatePlayer->SignalConnect(stream->sinkbin, "element-setup", G_CALLBACK(callback_element_added), this);
-			}
-
-			MW_LOG_MIL("using audsrvsink");
-		}
 	}
 	gst_bin_add(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
 
@@ -2570,14 +2521,6 @@ gboolean InterfacePlayerPriv::SendQtDemuxOverrideEvent(int mediaType, GstClockTi
 	}
 	gst_object_unref(sourceEleSrcPad);
 	return enableOverride;
-}
-
-/**
- *  @brief Check if audio buffers to be forwarded or not
- */
-bool InterfacePlayerRDK::ForwardAudioBuffersToAux()
-{
-	return (interfacePlayerPriv->gstPrivateContext->forwardAudioBuffers && interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format != GST_FORMAT_INVALID);
 }
 
 /**
@@ -2974,42 +2917,6 @@ bool InterfacePlayerRDK::WaitForSourceSetup(int mediaType)
 	return ret;
 }
 
-/**
- *  @brief Forward buffer to aux pipeline
- */
-void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data)
-{
-	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
-	InterfacePlayerRDK *instance = static_cast<InterfacePlayerRDK*>(user_data);
-	if (!stream->sourceConfigured && stream->format != GST_FORMAT_INVALID)
-	{
-		bool status = instance->WaitForSourceSetup((int)eGST_MEDIATYPE_AUX_AUDIO);
-		if (pauseInjector && !status)
-		{
-			// Buffer is not owned by us, no need to free
-			return;
-		}
-	}
-
-	GstBuffer *fwdBuffer = gst_buffer_new();
-	if (fwdBuffer != NULL)
-	{
-		if (FALSE == gst_buffer_copy_into(fwdBuffer, buffer, GST_BUFFER_COPY_ALL, 0, -1))
-		{
-			MW_LOG_ERR("Error while copying audio buffer to auxiliary buffer!!");
-			gst_buffer_unref(fwdBuffer);
-			return;
-		}
-		//MW_LOG_TRACE("Forward audio buffer to auxiliary pipeline!!");
-		GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), fwdBuffer);
-		if (ret != GST_FLOW_OK)
-		{
-			MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)eGST_MEDIATYPE_AUX_AUDIO);
-			assert(false);
-		}
-	}
-}
-
 bool InterfacePlayerRDK::HandleVideoBufferSent()
 {
 	MW_PROFILE_FUNCTION();
@@ -3068,11 +2975,6 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 		//Send Gst Event when first buffer received after new tune, seek or period change
 		int enableGstQuery = m_gstConfigParam->enableGstPosQuery;
 		interfacePlayerPriv->SendGstEvents((int)mediaType, pts, enableGstQuery, m_gstConfigParam->enablePTSReStamp, m_gstConfigParam->vodTrickModeFPS);
-
-		if (mediaType == eGST_MEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
-		{
-			interfacePlayerPriv->SendGstEvents((int)eGST_MEDIATYPE_AUX_AUDIO, pts, enableGstQuery, m_gstConfigParam->enablePTSReStamp, m_gstConfigParam->vodTrickModeFPS);
-		}
 
 		// included to fix av sync / trickmode speed issues
 		// Also add check for trick-play on 1st frame.
@@ -3152,10 +3054,6 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		if (bPushBuffer)
 		{
-			if (mediaType == eGST_MEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
-			{
-				interfacePlayerPriv->ForwardBuffersToAuxPipeline(buffer, mPauseInjector, this);
-			}
 			if( mediaType<2 && m_gstConfigParam->useMp4Demux &&
 			   !copy /* avoid using this path for hls/ts */ )
 			{

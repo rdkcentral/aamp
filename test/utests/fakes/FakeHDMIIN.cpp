@@ -36,7 +36,7 @@ void StreamAbstractionAAMP_VIDEOIN::Start() {  }
 
 void StreamAbstractionAAMP_VIDEOIN::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_VIDEOIN::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_VIDEOIN::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_VIDEOIN::GetFirstPTS() { return 0; }
 

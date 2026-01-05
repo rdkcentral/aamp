@@ -63,6 +63,11 @@ set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
 	playerJsonObject/PlayerJsonObject.cpp
 	)
 
+if(CMAKE_RDK_SVP)
+	message("CMAKE_RDK_SVP Set")
+	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_SVP=1")
+endif()
+
 if(CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_PLATFORM_UBUNTU set")
     link_directories(${CMAKE_LIBRARY_PATH})
@@ -373,7 +378,7 @@ target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
-if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+if (CMAKE_RDK_SVP)
 	target_link_libraries(playergstinterface gstsvpext)
 endif()
 

@@ -785,14 +785,14 @@ void AAMPGstPlayer::Stream()
 /**
  * @brief Configure pipeline based on A/V formats
  */
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
 
-	AAMPLOG_MIL("videoFormat %d audioFormat %d auxFormat %d subFormat %d",format, audioFormat, auxFormat, subFormat);
+	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d",format, audioFormat, subFormat);
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
@@ -803,8 +803,8 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
-	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
-									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
+	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
+									  bESChangeStatus,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();

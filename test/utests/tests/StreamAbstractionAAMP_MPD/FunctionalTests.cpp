@@ -37,6 +37,7 @@
 #include "MockIsoBmffProcessor.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
+#include "MockABRManager.h"
 
 
 using ::testing::_;
@@ -391,7 +392,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 		double fragmentDuration = ComputeFragmentDuration(12, 12); (void)fragmentDuration;
-		pMediaStreamContext->mediaType = eMEDIATYPE_VIDEO;
+		pMediaStreamContext->mediaType = static_cast<AampMediaType>(trackType);
 
 		SegmentTemplate *segmentTemplate = new SegmentTemplate();
 		const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent(); (void)failoverContent;
@@ -671,6 +672,21 @@ protected:
 		 */
 		void SetFirstPTSForTest(double pts) { mFirstPTS = pts; }
 		double GetFirstPTSForTest() const { return mFirstPTS; }
+
+		/**
+		 * @brief Test-only methods to access the protected mStreamInfo member.
+		 */
+		std::vector<StreamInfo>& GetStreamInfoVector() { return mStreamInfo; }
+		size_t GetStreamInfoSize() const { return mStreamInfo.size(); }
+		void ResizeStreamInfo(size_t size) { mStreamInfo.resize(size); }
+		void ClearStreamInfo() { mStreamInfo.clear(); }
+		StreamInfo& GetStreamInfoAt(size_t index) { return mStreamInfo[index]; }
+
+		/**
+		 * @brief Test-only methods to set protected members.
+		*/
+		void SetIsFogTSB(bool value) { mIsFogTSB = value; }
+		void SetAdPlayingFromCDN(bool value) { mAdPlayingFromCDN = value; }
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -688,6 +704,7 @@ protected:
 
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampUtils = new StrictMock<MockAampUtils>();
+		g_mockABRManager = new NiceMock<MockABRManager>();
 
 	}
 
@@ -715,6 +732,9 @@ protected:
 
 		delete g_mockAampUtils;
 		g_mockAampUtils = nullptr;
+
+		delete g_mockABRManager;
+		g_mockABRManager = nullptr;
 	}
 };
 
@@ -1083,9 +1103,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	*/
 	StreamOutputFormat primaryOutputFormat = FORMAT_ISO_BMFF;
 	StreamOutputFormat audioOutputFormat = FORMAT_ISO_BMFF;
-	StreamOutputFormat auxAudioOutputFormat = FORMAT_ISO_BMFF;
 	StreamOutputFormat subtitleOutputFormat = FORMAT_INVALID;
-	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
 	mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
@@ -1951,13 +1970,11 @@ TEST_F(FunctionalTests_1, GetStreamFormatTest)
 	// Create variables to store the output formats
 	StreamOutputFormat primaryFormat;
 	StreamOutputFormat audioFormat;
-	StreamOutputFormat auxFormat;
 	StreamOutputFormat subtitleFormat;
 	// Call the GetStreamFormat function
-	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, auxFormat, subtitleFormat);
+	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
 	EXPECT_EQ(FORMAT_INVALID, primaryFormat);
 	EXPECT_EQ(FORMAT_INVALID, audioFormat);
-	EXPECT_EQ(FORMAT_INVALID, auxFormat);
 	EXPECT_EQ(FORMAT_INVALID, subtitleFormat);
 }
 
@@ -2195,6 +2212,163 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfoTest) {
 	int idx=-1;
 	StreamInfo* streamInfo = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(idx);
 	(void)streamInfo;
+}
+
+/**
+ * @brief Test GetStreamInfo in non-FOG TSB mode using proper test class
+ * Sets up the StreamAbstractionAAMP_MPD instance in non-FOG TSB mode and verifies that
+ * GetStreamInfo correctly retrieves StreamInfo via the ABR manager.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_NonFogTsbMode)
+{
+	// Set non-FOG TSB mode (uses ABR manager path)
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// Populate mStreamInfo vector with 2 elements
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(2);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 500000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(1).bandwidthBitsPerSecond = 1000000;
+
+	// Mock expectations for ABR manager calls
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(2));
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(1))
+		.WillOnce(Return(1)); // Maps to index 1 in mStreamInfo
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(2))
+		.WillOnce(Return(-1)); // Invalid user data - should cause nullptr return
+
+	// Test valid index access through ABR manager
+	StreamInfo *result1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(1);
+	ASSERT_NE(result1, nullptr);
+	EXPECT_EQ(result1->bandwidthBitsPerSecond, 1000000);
+
+	// Test boundary case - ABR manager returns invalid user data
+	StreamInfo *result2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(2);
+	EXPECT_EQ(result2, nullptr);
+}
+
+/**
+ * @brief Test GetStreamInfo bounds checking with empty vector in FOG TSB mode
+ * Sets up the StreamAbstractionAAMP_MPD instance in FOG TSB mode and verifies that
+ * GetStreamInfo correctly handles out-of-bounds indices when the mStreamInfo vector is empty.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_FogTsb_EmptyVector)
+{
+	// Set FOG TSB mode to enable direct index access with bounds checking
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(true);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// mStreamInfo vector is empty by default
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetStreamInfoSize(), 0);
+
+	// Test accessing invalid indices
+	StreamInfo *result1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(-1);
+	EXPECT_EQ(result1, nullptr);
+
+	StreamInfo *result2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(0);
+	EXPECT_EQ(result2, nullptr);
+
+	StreamInfo *result3 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(5);
+	EXPECT_EQ(result3, nullptr);
+}
+
+/**
+ * @brief Test GetStreamInfo bounds checking with populated vector in FOG TSB mode
+ * Sets up the StreamAbstractionAAMP_MPD instance in FOG TSB mode and verifies that
+ * GetStreamInfo correctly handles valid and out-of-bounds indices when the mStreamInfo vector is populated.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_FogTsb_PopulatedVector)
+{
+	// Set FOG TSB mode to enable direct index access with bounds checking
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(true);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// Populate mStreamInfo vector with 3 elements
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(3);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 500000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(1).bandwidthBitsPerSecond = 1000000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(2).bandwidthBitsPerSecond = 2000000;
+
+	// Test valid indices
+	StreamInfo *result1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(0);
+	ASSERT_NE(result1, nullptr);
+	EXPECT_EQ(result1->bandwidthBitsPerSecond, 500000);
+
+	StreamInfo *result2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(2);
+	ASSERT_NE(result2, nullptr);
+	EXPECT_EQ(result2->bandwidthBitsPerSecond, 2000000);
+
+	// Test invalid indices (out of bounds)
+	StreamInfo *result3 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(-1);
+	EXPECT_EQ(result3, nullptr);
+
+	StreamInfo *result4 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(3);
+	EXPECT_EQ(result4, nullptr);
+}
+
+/**
+ * @brief Test GetStreamInfo heap overflow prevention scenario in non-FOG TSB mode
+ * Simulates a scenario where the stream info vector size decreases and ensures no heap overflow occurs
+ * when using ABR manager path
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfo_NonFogTsb_HeapOverflowPrevention)
+{
+	// Set non-FOG TSB mode to enable ABR manager path
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+
+	// First: Set up ad content with 5 profiles
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(5);
+	for (int i = 0; i < 5; i++)
+	{
+		mStreamAbstractionAAMP_MPD->GetStreamInfoAt(i).bandwidthBitsPerSecond = (i + 1) * 1000000;
+	}
+
+	// Mock ABR manager to simulate initial state with 5 profiles
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(5));
+
+	// Set up user data mapping for initial 5 profiles
+	for (int i = 0; i < 5; i++)
+	{
+		EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(i))
+			.WillRepeatedly(Return(i)); // Maps to index i in mStreamInfo
+	}
+
+	// Verify all profiles are accessible through ABR manager
+	for (int i = 0; i < 5; i++)
+	{
+		StreamInfo *result = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(i);
+		ASSERT_NE(result, nullptr);
+	}
+
+	// Now: Switch to source content with only 1 profile (heap size reduction)
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(1);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 2000000;
+
+	// Update ABR manager to reflect new profile count
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(1));
+
+	// Test: Old cached profileIndex=4 should now be safely handled
+	StreamInfo *result = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(4);
+	EXPECT_EQ(result, nullptr); // Should return nullptr due to invalid user data
+
+	// Valid profile should still work
+	StreamInfo *validResult = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(0); // Profile 0 exists
+	ASSERT_NE(validResult, nullptr);
+	EXPECT_EQ(validResult->bandwidthBitsPerSecond, 2000000);
+
+	// Test additional edge cases
+	StreamInfo *invalidResult1 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(1); // Profile 1 doesn't exist
+	EXPECT_EQ(invalidResult1, nullptr);
+
+	// Out of range index
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(10))
+		.WillRepeatedly(Return(-1));
+	StreamInfo *invalidResult2 = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(10); // Out of range
+	EXPECT_EQ(invalidResult2, nullptr);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, EnableAndSetLiveOffsetForLLDashPlaybackTest)
@@ -3611,6 +3785,230 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_ConnectTimeout_WithManif
 	// Execute test
 	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallFetchDashManifest();
 	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with first period having content.
+ * 
+ * Scenario: Initial manifest refresh where first period is not empty.
+ * Expected: First period should be returned as valid period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod)
+{
+	// Create period info with first period having content
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo period1;
+	period1.periodId = "period1";
+	period1.duration = 60000; // 60 seconds in milliseconds
+	period1.startTime = 0;
+	period1.timeScale = 1000;
+	period1.periodIndex = 0;
+	period1.periodStartTime = 0.0;
+	period1.periodEndTime = 60.0;
+	period1.isEmptyPeriod = false;
+	
+	PeriodInfo period2;
+	period2.periodId = "period2";
+	period2.duration = 60000;
+	period2.startTime = 60000;
+	period2.timeScale = 1000;
+	period2.periodIndex = 1;
+	period2.periodStartTime = 60.0;
+	period2.periodEndTime = 120.0;
+	period2.isEmptyPeriod = false;
+	
+	periodDetails.push_back(period1);
+	periodDetails.push_back(period2);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the first period is returned
+	EXPECT_EQ(validPeriod.periodId, "period1");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with empty first period.
+ * 
+ * Scenario: Manifest refresh where first period becomes empty (SCTE35 ad period).
+ * Expected: Second non-empty period should be returned as valid period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
+{
+	// Create period info with first period being empty
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo emptyPeriod;
+	emptyPeriod.periodId = "ad-period";
+	emptyPeriod.duration = 30000; // 30 seconds
+	emptyPeriod.startTime = 0;
+	emptyPeriod.timeScale = 1000;
+	emptyPeriod.periodIndex = 0;
+	emptyPeriod.periodStartTime = 0.0;
+	emptyPeriod.periodEndTime = 30.0;
+	emptyPeriod.isEmptyPeriod = true; // Empty period (SCTE35)
+	
+	PeriodInfo contentPeriod;
+	contentPeriod.periodId = "content-period";
+	contentPeriod.duration = 60000;
+	contentPeriod.startTime = 30000;
+	contentPeriod.timeScale = 1000;
+	contentPeriod.periodIndex = 1;
+	contentPeriod.periodStartTime = 30.0;
+	contentPeriod.periodEndTime = 90.0;
+	contentPeriod.isEmptyPeriod = false; // Valid content period
+	
+	periodDetails.push_back(emptyPeriod);
+	periodDetails.push_back(contentPeriod);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the second period (first non-empty) is returned
+	EXPECT_EQ(validPeriod.periodId, "content-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test with multiple empty periods at the start.
+ * 
+ * Scenario: Multiple empty periods (ads) followed by content.
+ * Expected: First content period should be returned.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriods)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	// Add multiple empty periods
+	for (int i = 0; i < 3; i++)
+	{
+		PeriodInfo emptyPeriod;
+		emptyPeriod.periodId = "ad-period-" + std::to_string(i);
+		emptyPeriod.duration = 15000; // 15 seconds each
+		emptyPeriod.startTime = i * 15000;
+		emptyPeriod.timeScale = 1000;
+		emptyPeriod.periodIndex = i;
+		emptyPeriod.periodStartTime = i * 15.0;
+		emptyPeriod.periodEndTime = (i + 1) * 15.0;
+		emptyPeriod.isEmptyPeriod = true;
+		periodDetails.push_back(emptyPeriod);
+	}
+	
+	// Add content period
+	PeriodInfo contentPeriod;
+	contentPeriod.periodId = "content-period";
+	contentPeriod.duration = 60000;
+	contentPeriod.startTime = 45000;
+	contentPeriod.timeScale = 1000;
+	contentPeriod.periodIndex = 3;
+	contentPeriod.periodStartTime = 45.0;
+	contentPeriod.periodEndTime = 105.0;
+	contentPeriod.isEmptyPeriod = false;
+	
+	periodDetails.push_back(contentPeriod);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the content period is returned, skipping all empty periods
+	EXPECT_EQ(validPeriod.periodId, "content-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+	EXPECT_FALSE(validPeriod.isEmptyPeriod);
+}
+
+/**
+ * @brief Test with zero duration period.
+ * 
+ * Scenario: Period with zero duration should be skipped even if not marked as empty.
+ * Expected: Period with non-zero duration should be returned.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	PeriodInfo zeroDurationPeriod;
+	zeroDurationPeriod.periodId = "zero-duration";
+	zeroDurationPeriod.duration = 0; // Zero duration
+	zeroDurationPeriod.startTime = 0;
+	zeroDurationPeriod.timeScale = 1000;
+	zeroDurationPeriod.periodIndex = 0;
+	zeroDurationPeriod.periodStartTime = 0.0;
+	zeroDurationPeriod.periodEndTime = 0.0;
+	zeroDurationPeriod.isEmptyPeriod = false;
+	
+	PeriodInfo validPeriod1;
+	validPeriod1.periodId = "valid-period";
+	validPeriod1.duration = 60000;
+	validPeriod1.startTime = 0;
+	validPeriod1.timeScale = 1000;
+	validPeriod1.periodIndex = 1;
+	validPeriod1.periodStartTime = 0.0;
+	validPeriod1.periodEndTime = 60.0;
+	validPeriod1.isEmptyPeriod = false;
+	
+	periodDetails.push_back(zeroDurationPeriod);
+	periodDetails.push_back(validPeriod1);
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// Verify that the period with valid duration is returned
+	EXPECT_EQ(validPeriod.periodId, "valid-period");
+	EXPECT_EQ(validPeriod.duration, 60000);
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with all empty periods.
+ * 
+ * Scenario: Edge case where all periods are empty.
+ * Expected: Should return the first period even if empty (fallback behavior).
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
+{
+	std::vector<PeriodInfo> periodDetails;
+	
+	// Add multiple empty periods
+	for (int i = 0; i < 3; i++)
+	{
+		PeriodInfo emptyPeriod;
+		emptyPeriod.periodId = "empty-period-" + std::to_string(i);
+		emptyPeriod.duration = 15000;
+		emptyPeriod.startTime = i * 15000;
+		emptyPeriod.timeScale = 1000;
+		emptyPeriod.periodIndex = i;
+		emptyPeriod.periodStartTime = i * 15.0;
+		emptyPeriod.periodEndTime = (i + 1) * 15.0;
+		emptyPeriod.isEmptyPeriod = true;
+		periodDetails.push_back(emptyPeriod);
+	}
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// With all periods empty, it should return the first one as fallback
+	EXPECT_EQ(validPeriod.periodId, "empty-period-0");
+}
+
+/**
+ * @brief Test GetFirstValidCurrMPDPeriod with empty vector.
+ * 
+ * Scenario: Edge case with no periods.
+ * Expected: Should return default initialized period.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyVector)
+{
+	std::vector<PeriodInfo> periodDetails; // Empty vector
+	
+	// Test GetFirstValidCurrMPDPeriod
+	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
+	
+	// With empty vector, should return default initialized period
+	EXPECT_EQ(validPeriod.periodId, "");
+	EXPECT_EQ(validPeriod.periodIndex, -1);
 }
 
 // Test case to verify seeking behavior with VOD content, with start time, without duration and PTO greater than timeline

@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "AampMediaType.h"
 #include "AampFragmentDescriptor.hpp"
 
 FragmentDescriptor::FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""), matchingBaseURL(""), bUseMatchingBaseUrl(false), nextfragmentNum(-1), nextfragmentTime(0), TimeScale(1)

@@ -47,7 +47,7 @@ public:
      *   @fn Configure
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false)
+	virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 	}

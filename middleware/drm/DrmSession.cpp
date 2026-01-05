@@ -74,5 +74,5 @@ int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *p
 const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
 {
 	static const std::vector<std::vector<uint8_t>> emptyVector;
-	return emptyVector;;
+	return emptyVector;
 }

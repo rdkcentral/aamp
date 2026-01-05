@@ -111,6 +111,14 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	return 0;
 }
 
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->SetCurrentTextTrackIndex(index);
+	}
+}
+
 bool StreamAbstractionAAMP::isInBandCcAvailable()
 {
 	return 0;
@@ -190,7 +198,7 @@ void MediaTrack::FlushFragments()
 {
 }
 
-int MediaTrack::GetCurrentBandWidth()
+BitsPerSecond MediaTrack::GetCurrentBandWidth()
 {
 	return 0;
 }
@@ -216,7 +224,7 @@ void MediaTrack::PlaylistDownloader()
 {
 }
 
-void MediaTrack::SetCurrentBandWidth(int bandwidthBps)
+void MediaTrack::SetCurrentBandWidth(BitsPerSecond bandwidthBps)
 {
 }
 

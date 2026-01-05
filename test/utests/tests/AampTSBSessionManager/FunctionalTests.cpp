@@ -157,9 +157,6 @@ TEST_F(FunctionalTests, ConvertMediaType)
 	convertedType = mAampTSBSessionManager->ConvertMediaType(eMEDIATYPE_INIT_SUBTITLE);
 	EXPECT_EQ(convertedType, eMEDIATYPE_SUBTITLE);
 
-	convertedType = mAampTSBSessionManager->ConvertMediaType(eMEDIATYPE_INIT_AUX_AUDIO);
-	EXPECT_EQ(convertedType, eMEDIATYPE_AUX_AUDIO);
-
 	convertedType = mAampTSBSessionManager->ConvertMediaType(eMEDIATYPE_INIT_IFRAME);
 	EXPECT_EQ(convertedType, eMEDIATYPE_IFRAME);
 }

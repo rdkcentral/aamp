@@ -114,9 +114,9 @@ struct AAMPAbrInfo
 	AAMPAbrType abrCalledFor;
 	int currentProfileIndex;
 	int desiredProfileIndex;
-	long currentBandwidth;
-	long desiredBandwidth;
-	long networkBandwidth;
+	BitsPerSecond currentBandwidth;
+	BitsPerSecond desiredBandwidth;
+	BitsPerSecond networkBandwidth;
 	AAMPNetworkErrorType errorType;
 	int errorCode;
 };
@@ -126,7 +126,7 @@ struct AAMPAbrInfo
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(AAMP_LogLevel level, const char* func, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
 
 extern thread_local int gPlayerId;
 
@@ -169,7 +169,7 @@ public:
 		/* loggerData is the playerId ... set it in case we are in a helper thread that the
 		** caller has spawned. */
 		UsingPlayerId playerId(loggerData);
-		logprintf(eLOGLEVEL_MIL , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+		logprintf(eLOGLEVEL_MIL, __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 	}
 	
 	/**
@@ -353,9 +353,15 @@ public:
 				symptom += " (or) freeze/buffering";
 			}
 			
-			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__, "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%ld]->desiredBandwidth[%ld] nwBandwidth[%ld] reason='%s' symptom='%s'",
-					  profile.c_str(), pstAbrInfo->currentProfileIndex, pstAbrInfo->desiredProfileIndex, pstAbrInfo->currentBandwidth,
-					  pstAbrInfo->desiredBandwidth, pstAbrInfo->networkBandwidth, reason.c_str(), symptom.c_str());
+			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__,
+					  "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%" BITSPERSECOND_FORMAT "]->desiredBandwidth[%" BITSPERSECOND_FORMAT "] nwBandwidth[%" BITSPERSECOND_FORMAT "] reason='%s' symptom='%s'",
+					  profile.c_str(),
+					  pstAbrInfo->currentProfileIndex,
+					  pstAbrInfo->desiredProfileIndex,
+					  pstAbrInfo->currentBandwidth,
+					  pstAbrInfo->desiredBandwidth,
+					  pstAbrInfo->networkBandwidth,
+					  reason.c_str(), symptom.c_str());
 		}
 	}
 	

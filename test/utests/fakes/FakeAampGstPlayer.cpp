@@ -34,11 +34,11 @@ AAMPGstPlayer::~AAMPGstPlayer()
 {
 }
 
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		g_mockAampGstPlayer->Configure(format, audioFormat, auxFormat, subFormat, bESChangeStatus, forwardAudioToAux, setReadyAfterPipelineCreation);
+		g_mockAampGstPlayer->Configure(format, audioFormat, subFormat, bESChangeStatus, setReadyAfterPipelineCreation);
 	}
 }
 

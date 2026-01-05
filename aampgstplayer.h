@@ -112,13 +112,11 @@ public:
 		 * @fn Configure
 		 * @param[in] format video format
 		 * @param[in] audioFormat audio format
-		 * @param[in] auxFormat aux audio format
 		 * @param[in] subFormat subtitle format
 		 * @param[in] bESChangeStatus flag to indicate if the audio type changed in mid stream
-		 * @param[in] forwardAudioToAux if audio buffers to be forwarded to aux pipeline
 		 * @param[in] setReadyAfterPipelineCreation True/False for pipeline is created
 		 */
-	void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false) override;
+	void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false) override;
 	/**
 		 * @fn SendCopy
 		 * @param[in] mediaType stream type

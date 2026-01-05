@@ -277,9 +277,8 @@ void AampMPDDownloader::Release()
 			mRefreshCondVar.notify_all();
 			mMPDDnldDataCondVar.notify_all();
 			mMPDNotifierCondVar.notify_all();
-
 		}
-		//Disable downloads before joining the threads,which will exit the download loops gracefully 
+		// Disable downloads before joining the threads,which will exit the download loops gracefully 
 		mDownloader1.Release();
 		mDownloader2.Release();
 
@@ -622,12 +621,25 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
-	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
-			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
-			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
-			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
-			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
-			0, dnldPtr->sEffectiveUrl.c_str());
+	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%" BITSPERSECOND_FORMAT ",%d,%.500s",
+			appName.c_str(),
+			eMEDIATYPE_TELEMETRY_MANIFEST,
+			eMEDIATYPE_MANIFEST,
+			http_code,
+			timeoutClass.c_str(),
+			totalPerformRequest,
+			total,
+			dnldPtr->downloadCompleteMetrics.connect,
+			dnldPtr->downloadCompleteMetrics.startTransfer,
+			dnldPtr->downloadCompleteMetrics.resolve,
+			dnldPtr->downloadCompleteMetrics.appConnect,
+			dnldPtr->downloadCompleteMetrics.preTransfer,
+			dnldPtr->downloadCompleteMetrics.redirect,
+			dnldPtr->downloadCompleteMetrics.dlSize,
+			dnldPtr->downloadCompleteMetrics.reqSize,
+			dnldPtr->downloadCompleteMetrics.downloadbps,
+			0,
+			dnldPtr->sEffectiveUrl.c_str());
 }
 
 /**

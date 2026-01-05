@@ -130,13 +130,13 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
  */
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
-        SAFE_DELETE(mLicensePrefetcher);
+	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDrmSessionManager);
 	releaseLicenseRenewalThreads();
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
-        {
-
-             mLicenseDownloader[i].Release();
+	{
+		mLicenseDownloader[i].Release();
+		mLicenseDownloader[i].CleanupCurlHeaderResources();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
@@ -161,7 +161,6 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
  */
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
-	mAccessTokenConnector.Release();
 	licenseRequestAbort = isAbort;
 }
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
@@ -809,7 +808,7 @@ void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		}
 		else
 		{
-			AAMPLOG_WARN("%s:%d [WARN] cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
+			AAMPLOG_WARN("cond_timedwait(dynamicDrmUpdate) returned success!" );
 		}
 	}
 }
