@@ -157,26 +157,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 	}
 }
 
-#if 0 //DJH not needed
-void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
-{
-	if( !srcPtr || srcLen == 0 )
-	{
-		return;
-	}
-
-	// Ensure we have space and resize to fit
-	if( buffer.capacity() < srcLen )
-	{
-		buffer.reserve(srcLen * 2);
-	}
-	
-	buffer.resize(srcLen);
-	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
-	std::memcpy(buffer.data(), bytes, srcLen);
-}
-#endif
-
 void AampGrowableBuffer::Clear( void )
 {
 	buffer.clear();

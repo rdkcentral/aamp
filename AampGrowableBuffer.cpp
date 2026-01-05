@@ -115,22 +115,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 	buffer.insert(buffer.end(), bytes, bytes + srcLen);
 }
 
-#if 0
-/**
- * @brief replace contents of AampGrowableBuffer
- * @param srcPtr pointer to memory (may be subset of existing AampGrowableBuffer)
- * @param srcLen new logical size for AampGrowableBuffer reflecting memory being copied/moved
- */
-void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen ) //DJH is this ever used ? resize before move is probably wrong
-{ // this API assumes AampGrowableBuffer is already big enough to fit
-	assert( srcPtr && buffer.capacity() >= srcLen );
-	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
-	// Must resize before writing to buffer.data()
-	buffer.resize(srcLen);
-	std::memmove( buffer.data(), bytes, srcLen );
-}
-#endif
-
 /**
  * @brief reset AampGrowableBuffer logical length without releasing reserved memory
  */

@@ -127,32 +127,6 @@ TEST_F(FunctionalTests, AppendBytesTest)
     // Note: GetAvail() no longer exists - std::vector manages capacity internally
 }
 
-#if 0 //DJH not needed
-TEST_F(FunctionalTests, MoveBytesTest)
-{
-    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
-    // Arrange: The buffer is set up in the fixture's SetUp()
-    const char* srcData = "Hello, World!";
-    size_t srcLen = strlen(srcData);
-
-    // No g_malloc expectation needed - std::vector manages its own memory
-    buffer.ReserveBytes(srcLen); // Make sure the buffer has enough space
-
-    // Act: Call the MoveBytes function
-    buffer.MoveBytes(srcData, srcLen);
-
-    // Assert: Check the effects of the MoveBytes function
-    // These aren't null terminated strings, must use memcmp
-    int result = memcmp(buffer.GetPtr(), srcData, srcLen);
-
-    // No g_free expectation needed - std::vector RAII handles cleanup
-
-    EXPECT_EQ(result, 0);                     // Check if data was moved correctly
-    EXPECT_EQ(buffer.GetLen(), srcLen);       // Check if length is set correctly
-    // Note: GetAvail() no longer exists - MoveBytes uses reserved space
-}
-#endif
-
 TEST_F(FunctionalTests, ClearTest)
 {
     // Create a new buffer for this test
