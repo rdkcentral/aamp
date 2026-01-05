@@ -7425,7 +7425,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		AAMPLOG_WARN("VRN -GetPositionRelativeToSeekMilliseconds IN NON ENV GST POS");
 		long long elapsedTime = aamp_GetCurrentTimeMS() - trickStartUTCMS;
 		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
-		AAMPLOG_WARN("VRN gst position %lld ms", gstPosition);
+		AAMPLOG_WARN("VRN gst position %lld ms", position);
 	}
 
 	return position;
