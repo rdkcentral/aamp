@@ -125,12 +125,79 @@ void PlayerExternalsRdkInterface::Initialize()
     MW_PRE_LOGGER_LOG("Done getting interface \n");
 
     SetHDMIStatus();
+#ifdef USE_DS_EVENT_SUPPORTED
+    RegisterDsClientEventHandler();
+#endif
 
     MW_PRE_LOGGER_LOG("Initializing completed \n");
 }
 
+#ifdef USE_DS_EVENT_SUPPORTED
+void PlayerExternalsRdkInterface::RegisterDsClientEventHandler()
+{
+	try {
+		device::Manager::Initialize();
+		device::Host::getInstance().Register(baseInterface<device::Host::IVideoOutputPortEvents>(),"PI::DisplayInfo");
+		device::Host::getInstance().Register(baseInterface<device::Host::IDisplayDeviceEvents>(), "PI::DisplaySettings");
+	}
+	catch (...) {
+		MW_LOG_WARN("DeviceSettings exception caught\n");
+	}
+}
+
+void PlayerExternalsRdkInterface::RemoveDsClientEventHandlers()
+{
+	try
+	{
+		device::Host::getInstance().UnRegister(baseInterface<device::Host::IVideoOutputPortEvents>());
+		device::Host::getInstance().UnRegister(baseInterface<device::Host::IDisplayDeviceEvents>());
+		device::Manager::DeInitialize();
+	}
+	catch(...)
+	{
+		MW_LOG_WARN("DeviceSettings exception caught\n");
+	}
+}
+
+void PlayerExternalsRdkInterface::OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
+{
+	const char *hdmihotplug = (displayEvent == dsDISPLAY_EVENT_CONNECTED) ? "connected" : "disconnected";
+	MW_LOG_WARN(" Received Display HDMI HotPlug event data:%d status: %s\n",
+			   (int)displayEvent, hdmihotplug);
+
+	SetHDMIStatus();
+}
+
+void PlayerExternalsRdkInterface::OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
+{
+	const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
+	MW_LOG_WARN(" Received HDCP Status Change event data:%d status:%s\n",
+			  hdcpStatus, hdcpStatusStr);
+
+	SetHDMIStatus();
+}
+
+/**
+ * @brief event handler for resolution changes
+ */
+void PlayerExternalsRdkInterface::OnResolutionPostChange(int width, int height)
+{
+
+	MW_LOG_WARN(" Received Resolution Post Change event width : %d height : %d\n", width, height);
+	SetResolution(width, height);
+}
+
+void PlayerExternalsRdkInterface::OnResolutionPreChange(int width, int height)
+{
+	MW_LOG_WARN(" Received Resolution PreChange event \n");
+}
+#endif
+
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
+#ifdef USE_DS_EVENT_SUPPORTED
+	RemoveDsClientEventHandlers();
+#endif
     m_pDeviceInterfaceBase = nullptr;
     s_pPlayerIarmRdkOP = nullptr;
 }
