@@ -66,7 +66,8 @@ typedef enum
 	MW_DRM_SELF_ABORT,			   /**< Download activity is aborted by player */
 	MW_DRM_KEY_UPDATE_FAILED,		   /**< Failed to process DRM key, see the error code returned from Update() for more info */
 	MW_UNTRACKED_DRM_ERROR,
-	MW_FAILED_TO_GET_KEYID			   /**< Failed to parse key id from init data*/
+	MW_FAILED_TO_GET_KEYID,			   /**< Failed to parse key id from init data*/
+	MW_DRM_SESSION_CONSTRUCT_FAILED		   /**< OCDM session construction failure */
 } DrmTuneFailure;
 namespace DrmUtils
 {

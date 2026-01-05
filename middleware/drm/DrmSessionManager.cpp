@@ -928,6 +928,11 @@ KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmH
 			MW_LOG_ERR("DRM session ID is empty: Key State %d ", code);
 			err = MW_DRM_SESSIONID_EMPTY;
 		}
+		else if (code == KEY_ERROR_SESSION_CONSTRUCT_FAILED)
+		{
+			MW_LOG_ERR("OCDM session construction failed: Key State %d ", code);
+			err = MW_DRM_SESSION_CONSTRUCT_FAILED;
+		}
 		else
 		{
 			err= MW_DRM_DATA_BIND_FAILED;

@@ -30,6 +30,7 @@
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
+#include "middleware/drm/DrmUtils.h"
 
 enum ProfilerAction
 {

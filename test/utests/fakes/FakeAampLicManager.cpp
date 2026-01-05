@@ -38,6 +38,7 @@ AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
         case MW_DRM_SELF_ABORT:             return AAMP_TUNE_DRM_SELF_ABORT;
         case MW_DRM_KEY_UPDATE_FAILED:      return AAMP_TUNE_DRM_KEY_UPDATE_FAILED;
         case MW_FAILED_TO_GET_KEYID:        return AAMP_TUNE_FAILED_TO_GET_KEYID;
+        case MW_DRM_SESSION_CONSTRUCT_FAILED: return AAMP_TUNE_DRM_SESSION_CONSTRUCT_FAILED;
         case MW_UNTRACKED_DRM_ERROR:        return AAMP_TUNE_UNTRACKED_DRM_ERROR;
         default:                            return AAMP_TUNE_UNTRACKED_DRM_ERROR;
     }

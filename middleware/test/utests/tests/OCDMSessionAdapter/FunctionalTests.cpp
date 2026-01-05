@@ -85,3 +85,93 @@ TEST_F(OCDMSessionAdapterTests, generateDRMSession)
 
 	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
 }
+
+/**
+ * @brief Test generateDRMSession with OCDM construction failure
+ * 
+ * Verifies that when opencdm_construct_session() fails, the KeyState is set to
+ * KEY_ERROR_SESSION_CONSTRUCT_FAILED instead of generic KEY_ERROR.
+ * This is part of PR VPLAY-11961 fix for proper DRM error reporting.
+ */
+TEST_F(OCDMSessionAdapterTests, generateDRMSession_ConstructionFailure_SetsSpecificErrorState)
+{
+	uint8_t initData[] = {0, 1, 2, 3};
+	uint8_t initDataLen = sizeof(initData);
+	uint32_t f_cbInitData = 99;
+	std::string customData = "Custom Data";
+	const char *initDataType = "cenc";
+	uint8_t initDataTypeLen = strlen(initDataType);
+
+	// Mock opencdm_construct_session to return error
+	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session(ocdmSystem, LicenseType::Temporary, 
+		MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), 
+		f_cbInitData, MemBufEq(customData.c_str(), customData.length()), 
+		customData.length(), _, _, _))
+		.WillOnce(Return(ERROR_FAIL));
+
+	// Call generateDRMSession
+	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
+
+	// Verify that KeyState is set to KEY_ERROR_SESSION_CONSTRUCT_FAILED
+	KeyState state = m_ocdmsessionadapter->getState();
+	EXPECT_EQ(state, KEY_ERROR_SESSION_CONSTRUCT_FAILED);
+}
+
+/**
+ * @brief Test generateDRMSession with invalid session error
+ * 
+ * Verifies that ERROR_INVALID_SESSION also results in KEY_ERROR_SESSION_CONSTRUCT_FAILED.
+ */
+TEST_F(OCDMSessionAdapterTests, generateDRMSession_InvalidSession_SetsSpecificErrorState)
+{
+	uint8_t initData[] = {0, 1, 2, 3};
+	uint8_t initDataLen = sizeof(initData);
+	uint32_t f_cbInitData = 99;
+	std::string customData = "Custom Data";
+	const char *initDataType = "cenc";
+	uint8_t initDataTypeLen = strlen(initDataType);
+
+	// Mock opencdm_construct_session to return ERROR_INVALID_SESSION
+	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session(ocdmSystem, LicenseType::Temporary, 
+		MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), 
+		f_cbInitData, MemBufEq(customData.c_str(), customData.length()), 
+		customData.length(), _, _, _))
+		.WillOnce(Return(ERROR_INVALID_SESSION));
+
+	// Call generateDRMSession
+	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
+
+	// Verify that KeyState is set to KEY_ERROR_SESSION_CONSTRUCT_FAILED
+	KeyState state = m_ocdmsessionadapter->getState();
+	EXPECT_EQ(state, KEY_ERROR_SESSION_CONSTRUCT_FAILED);
+}
+
+/**
+ * @brief Test generateDRMSession success sets correct state
+ * 
+ * Verifies that successful session construction does NOT set error state.
+ */
+TEST_F(OCDMSessionAdapterTests, generateDRMSession_Success_DoesNotSetErrorState)
+{
+	uint8_t initData[] = {0, 1, 2, 3};
+	uint8_t initDataLen = sizeof(initData);
+	uint32_t f_cbInitData = 99;
+	std::string customData = "Custom Data";
+	const char *initDataType = "cenc";
+	uint8_t initDataTypeLen = strlen(initDataType);
+
+	// Mock opencdm_construct_session to return success
+	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session(ocdmSystem, LicenseType::Temporary, 
+		MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), 
+		f_cbInitData, MemBufEq(customData.c_str(), customData.length()), 
+		customData.length(), _, _, _))
+		.WillOnce(Return(ERROR_NONE));
+
+	// Call generateDRMSession
+	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
+
+	// Verify that KeyState is NOT set to error state
+	KeyState state = m_ocdmsessionadapter->getState();
+	EXPECT_NE(state, KEY_ERROR_SESSION_CONSTRUCT_FAILED);
+	EXPECT_NE(state, KEY_ERROR);
+}

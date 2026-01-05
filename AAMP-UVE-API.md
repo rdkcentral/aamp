@@ -2471,6 +2471,7 @@ When a player instance is no longer needed, recommend to call explicit release()
 | AAMP_TUNE_DRM_DECRYPT_FAILED | 50 | AAMP: DRM Decryption Failed for Fragments |
 | AAMP_TUNE_DRM_UNSUPPORTED | 50 | AAMP: DRM format Unsupported |
 | AAMP_TUNE_DRM_SELF_ABORT | 50 | AAMP: DRM license request aborted by player |
+| AAMP_TUNE_DRM_SESSION_CONSTRUCT_FAILED | 50 | AAMP: OCDM session construction failed |
 | AAMP_TUNE_DRM_KEY_UPDATE_FAILED | 50 | AAMP: Failed to process DRM key |
 | AAMP_TUNE_CORRUPT_DRM_DATA | 51 | AAMP: DRM failure due to Corrupt DRM files |
 | AAMP_TUNE_DEVICE_NOT_PROVISIONED | 52 | AAMP: Device not provisioned |
