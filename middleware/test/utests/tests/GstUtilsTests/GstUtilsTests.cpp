@@ -56,16 +56,25 @@ TEST_F(GstUtilsTests, esMP3test)
     EXPECT_TRUE(GetCaps(GST_FORMAT_AUDIO_ES_MP3)==caps);
 }
 
+TEST_F(GstUtilsTests, esAACRawtest)
+{
+    GstCaps dummycaps;
+    GstCaps *caps{&dummycaps};
+    EXPECT_CALL(*g_mockGStreamer,gst_caps_new_simple(StrEq("audio/mpeg"),StrEq("mpegversion"), G_TYPE_INT, 4, _)).WillOnce(Return(caps));
+    EXPECT_TRUE(GetCaps(GST_FORMAT_AUDIO_ES_AAC_RAW)==caps);
+}
+
 TEST_F(GstUtilsTests, GstCapsFormatsTest)
 {
     GstCaps dummycapslist;
     GstCaps *caps{&dummycapslist};
-    GstStreamOutputFormat GstCapsFormats[16] = {
+    GstStreamOutputFormat GstCapsFormats[17] = {
     GST_FORMAT_INVALID,         /**< Invalid format */
     GST_FORMAT_MPEGTS,          /**< MPEG Transport Stream */
     GST_FORMAT_ISO_BMFF,        /**< ISO Base Media File format */
     GST_FORMAT_AUDIO_ES_MP3,    /**< MP3 Audio Elementary Stream */
     GST_FORMAT_AUDIO_ES_AAC,    /**< AAC Audio Elementary Stream */
+    GST_FORMAT_AUDIO_ES_AAC_RAW, /**< AAC Raw Audio Elementary Stream */
     GST_FORMAT_AUDIO_ES_AC3,    /**< AC3 Audio Elementary Stream */
     GST_FORMAT_AUDIO_ES_EC3,    /**< Dolby Digital Plus Elementary Stream */
     GST_FORMAT_AUDIO_ES_ATMOS,  /**< ATMOS Audio stream */
@@ -79,8 +88,8 @@ TEST_F(GstUtilsTests, GstCapsFormatsTest)
     GST_FORMAT_UNKNOWN          /**< Unknown Format */
     };
 
-    for(int i=0;i<16;i++){
-    GetCaps(GstCapsFormats[i]);
-    ASSERT_FALSE(GetCaps(GstCapsFormats[i]));
+    for (int i = 0; i < 17; i++) {
+        GetCaps(GstCapsFormats[i]);
+        ASSERT_FALSE(GetCaps(GstCapsFormats[i]));
     }
 }

@@ -148,7 +148,8 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		(void)curl_easy_setopt(context.curl, CURLOPT_WRITEFUNCTION, CurlContext::write_callback);
 		(void)curl_easy_setopt(context.curl, CURLOPT_WRITEDATA, &context);
 		(void)curl_easy_setopt(context.curl, CURLOPT_TCP_KEEPALIVE, 1L);
-		
+		(void)curl_easy_setopt(context.curl, CURLOPT_USERAGENT, "gstTestHarness/1.0");
+
 		context.clear();
 		CURLcode rc = curl_easy_perform(context.curl);
 		if (CURLE_OK == rc)
