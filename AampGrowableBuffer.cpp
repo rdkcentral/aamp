@@ -115,6 +115,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 	buffer.insert(buffer.end(), bytes, bytes + srcLen);
 }
 
+#if 0
 /**
  * @brief replace contents of AampGrowableBuffer
  * @param srcPtr pointer to memory (may be subset of existing AampGrowableBuffer)
@@ -128,6 +129,7 @@ void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen ) //DJH is
 	buffer.resize(srcLen);
 	std::memmove( buffer.data(), bytes, srcLen );
 }
+#endif
 
 /**
  * @brief reset AampGrowableBuffer logical length without releasing reserved memory
