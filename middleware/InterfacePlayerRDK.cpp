@@ -2594,11 +2594,11 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 
 /**
  *  @brief Get playback position in MS
- 
+*/ 
+
 long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 {
 	long long rc = 0;
-	MW_LOG_ERR("tanuj in GetPositionMilliseconds");
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
 		MW_LOG_ERR("Pipeline is NULL");
@@ -2639,11 +2639,9 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		}
 		gst_query_unref(segmentQuery);
 	}
-	//if (gst_element_query(video->sinkbin,interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
-	if (gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,
-                      interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
+	if (gst_element_query(audio->sinkbin,interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
 	{
-		MW_LOG_ERR("tanuj quering pos to pipeline");
+		MW_LOG_ERR("tanuj quering pos from audio sinkbin");
 		gint64 pos = 0;
 		int rate = interfacePlayerPriv->gstPrivateContext->rate;
 		gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
@@ -2665,154 +2663,6 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
-	else
-	{
-		MW_LOG_ERR("InterfacePlayerRDK: failed to query the pos");
-	}
-	MW_LOG_ERR("tanuj out GetPositioninMilliseconds");
-	return rc;
-}
-*/
-long long InterfacePlayerRDK::GetPositionMilliseconds(void)
-{
-	long long rc = 0;
-	MW_LOG_ERR("tanuj in GetPositionMilliseconds");
-	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
-	{
-		MW_LOG_ERR("Pipeline is NULL");
-		return rc;
-	}
-	if (interfacePlayerPriv->gstPrivateContext->positionQuery == NULL)
-	{
-		MW_LOG_ERR("Position query is NULL");
-		return rc;
-	}
-	// Perform gstreamer query and related operation only when pipeline is playing or if deliberately put in paused
-	if (interfacePlayerPriv->gstPrivateContext->pipelineState != GST_STATE_PLAYING &&
-		!(interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) &&
-		// The player should be (and probably soon will be) in the playing state so don't exit early.
-		GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline) != GST_STATE_PLAYING)
-	{
-		MW_LOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, rc);
-		return rc;
-	}
-	gst_media_stream* video = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
-	
-	// Try using PTS (Presentation Time Stamp) - more accurate during ad transitions
-	// PTS represents what's actually being rendered, not buffered position
-	gint64 pts_position = GetVideoPTS();
-	bool use_pts = (pts_position > 0);
-	
-	if (use_pts)
-	{
-		MW_LOG_WARN("PTS available: %lld", (long long)pts_position);
-	}
-	
-	// segment.start needs to be queried
-	if (interfacePlayerPriv->gstPrivateContext->segmentStart == -1)
-	{
-		GstQuery *segmentQuery = gst_query_new_segment(GST_FORMAT_TIME);
-		// Send query to video playbin in pipeline.
-		// Special case include trickplay, where only video playbin is active
-		// This is to get the actual start position from video decoder/sink. If these element doesn't support the query appsrc should respond
-		if (gst_element_query(video->source, segmentQuery) == TRUE)
-		{
-			gint64 start;
-			gst_query_parse_segment(segmentQuery, NULL, NULL, &start, NULL);
-			interfacePlayerPriv->gstPrivateContext->segmentStart = GST_TIME_AS_MSECONDS(start);
-			MW_LOG_MIL("InterfacePlayerRDK: Segment start: %" G_GINT64_FORMAT, interfacePlayerPriv->gstPrivateContext->segmentStart);
-		}
-		else
-		{
-			MW_LOG_ERR("InterfacePlayerRDK: segment query failed");
-		}
-		gst_query_unref(segmentQuery);
-	}
-
-	if (use_pts || gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,
-	                      interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
-	{
-		gint64 pos_ms = 0;
-		
-		if (use_pts)
-		{
-			// Use PTS directly - it's already in nanoseconds from video decoder
-			pos_ms = pts_position / 1000000;  // Convert nanoseconds to milliseconds
-			MW_LOG_WARN("Using PTS: %lld ms", (long long)pos_ms);
-		}
-		else
-		{
-			// Fallback to position query
-			gint64 pos = 0;
-			gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
-			pos_ms = GST_TIME_AS_MSECONDS(pos);
-			MW_LOG_WARN("Using position query: %lld ms", (long long)pos_ms);
-		}
-
-		int rate = interfacePlayerPriv->gstPrivateContext->rate;
-
-		// Debug logging
-		static gint64 last_position = 0;
-		gint64 diff_from_last = pos_ms - last_position;
-
-		// Query actual segment from GStreamer
-		GstQuery *segQuery = gst_query_new_segment(GST_FORMAT_TIME);
-		gint64 actual_segment_start = -1;
-		if (gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline, segQuery)) {
-			gint64 start;
-			gst_query_parse_segment(segQuery, NULL, NULL, &start, NULL);
-			actual_segment_start = GST_TIME_AS_MSECONDS(start);
-		}
-		gst_query_unref(segQuery);
-
-		MW_LOG_WARN("POS_DEBUG: pos=%lld, cached_seg=%lld, actual_seg=%lld, diff=%lld, rate=%d, source=%s",
-		            (long long)pos_ms,
-		            (long long)interfacePlayerPriv->gstPrivateContext->segmentStart,
-		            (long long)actual_segment_start,
-		            (long long)diff_from_last,
-		            rate,
-		            use_pts ? "PTS" : "QUERY");
-
-		// Detect segment mismatch
-		if (actual_segment_start != interfacePlayerPriv->gstPrivateContext->segmentStart
-		    && actual_segment_start != -1) {
-			MW_LOG_WARN("!!! SEGMENT MISMATCH !!! cached=%lld, actual=%lld",
-			            (long long)interfacePlayerPriv->gstPrivateContext->segmentStart,
-			            (long long)actual_segment_start);
-		}
-
-		// Detect backward jump
-		if (diff_from_last < -1000) {
-			MW_LOG_WARN("!!! BACKWARD JUMP !!! from=%lld to=%lld, jump=%lld ms",
-			            (long long)last_position, (long long)pos_ms, (long long)diff_from_last);
-		}
-
-		last_position = pos_ms;
-		if (eGST_MEDIAFORMAT_PROGRESSIVE == static_cast<GstMediaFormat>(m_gstConfigParam->media))
-		{
-			rate = 1; // MP4 position query always return absolute value
-		}
-
-		if (interfacePlayerPriv->gstPrivateContext->segmentStart > 0)
-		{
-			// Deduct segment.start to find the actual time of media that's played.
-			rc = (pos_ms - interfacePlayerPriv->gstPrivateContext->segmentStart) * rate;
-			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT,
-			            pos_ms, rc, interfacePlayerPriv->gstPrivateContext->segmentStart);
-		}
-		else
-		{
-			rc = pos_ms * rate;
-			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", pos_ms, rc);
-		}
-		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
-		//positionQuery is not unref-ed here, because it could be reused for future position queries
-	}
-	else
-	{
-		MW_LOG_ERR("InterfacePlayerRDK: failed to query the pos");
-	}
-	MW_LOG_ERR("tanuj out GetPositioninMilliseconds");
 	return rc;
 }
 /**
