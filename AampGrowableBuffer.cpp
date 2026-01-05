@@ -68,9 +68,6 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 		{
 			printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
 		}
-		// CRITICAL FIX: Must resize, not just reserve!
-		// TSB Read expects to write directly into the buffer, so we need actual size, not just capacity
-		//buffer.resize(numBytes);
 		buffer.reserve(numBytes);
 	}
 }
@@ -123,7 +120,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
  * @param srcPtr pointer to memory (may be subset of existing AampGrowableBuffer)
  * @param srcLen new logical size for AampGrowableBuffer reflecting memory being copied/moved
  */
-void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
+void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen ) //DJH is this ever used ? resize before move is probably wrong
 { // this API assumes AampGrowableBuffer is already big enough to fit
 	assert( srcPtr && buffer.capacity() >= srcLen );
 	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
