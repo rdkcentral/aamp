@@ -7513,7 +7513,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 	}
 
-	AAMPLOG_DEBUG("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
+	AAMPLOG_WARN("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
 	mPrevPositionMilliseconds.Update(positionMilliseconds ,seek_pos_seconds_copy);
 
 	if(locked)
