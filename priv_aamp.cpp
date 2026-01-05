@@ -2367,7 +2367,7 @@ void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
  */
 void PrivateInstanceAAMP::UpdateDuration(double seconds)
 {
-	AAMPLOG_INFO("aamp_UpdateDuration(%f)", seconds);
+	AAMPLOG_WARN("aamp_UpdateDuration(%f)", seconds);
 	durationSeconds = seconds;
 }
 
@@ -7393,10 +7393,12 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	//Audio only playback is un-tested. Hence disabled for now
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
 	{
+		AAMPLOG_WARN("VRN -GetPositionRelativeToSeekMilliseconds IN ENV GST POS");
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			auto gstPosition = sink->GetPositionMilliseconds();
+			AAMPLOG_WARN("VRN gst position %lld ms", gstPosition);
 
 			/* Prevent spurious values being returned by this function during seek.
 			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
@@ -7420,8 +7422,10 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	}
 	else
 	{
+		AAMPLOG_WARN("VRN -GetPositionRelativeToSeekMilliseconds IN NON ENV GST POS");
 		long long elapsedTime = aamp_GetCurrentTimeMS() - trickStartUTCMS;
 		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
+		AAMPLOG_WARN("VRN gst position %lld ms", gstPosition);
 	}
 
 	return position;
@@ -7451,14 +7455,16 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 
 	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
-	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
+	AAMPLOG_WARN("trickStartUTCMS=%lld", trickStartUTCMS_copy);
 	if (trickStartUTCMS_copy >= 0)
 	{
 		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 		auto rate_copy = rate;
-		AAMPLOG_TRACE("rate=%f", rate_copy);
-
+		AAMPLOG_WARN("rate=%f", rate_copy);
+		
+		AAMPLOG_WARN("VRN - POS BEF MS - %lld!!", positionMilliseconds);
 		positionMilliseconds+=GetPositionRelativeToSeekMilliseconds(rate_copy, trickStartUTCMS_copy);
+		AAMPLOG_WARN("VRN - POS AFT MS - %lld!!", positionMilliseconds);
 
 		if(AAMP_NORMAL_PLAY_RATE == rate_copy)
 		{
@@ -7501,7 +7507,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 			}
 			if(positionMilliseconds > contentEndMs && GetDurationMs() > 0)
 			{
-				AAMPLOG_WARN("Correcting positionMilliseconds %lld to contentEndMs %lld", positionMilliseconds, contentEndMs);
+				AAMPLOG_WARN("Correcting positionMilliseconds %lld to contentEndMs %lld CUL - %f", positionMilliseconds, contentEndMs, culledSeconds);
 				positionMilliseconds = contentEndMs;
 			}
 		}
