@@ -2619,6 +2619,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		return rc;
 	}
 	gst_media_stream* video = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
+	gst_media_stream* audio = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
 	// segment.start needs to be queried
 	if (interfacePlayerPriv->gstPrivateContext->segmentStart == -1)
 	{
