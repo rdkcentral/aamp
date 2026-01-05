@@ -240,6 +240,10 @@ GstStructure *gst_context_writable_structure(GstContext *context)
 
 void gst_structure_set(GstStructure *structure, const gchar *fieldname, ...)
 {
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_structure_set(structure, fieldname);
+	}
 	TRACE_FUNC();
 }
 

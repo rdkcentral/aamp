@@ -677,8 +677,13 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
+ *  @param mediaType Type of media.
+ *  @param sample Media sample to be sent. Moved semantics is used to avoid unnecessary copy.
+ *  @param copy Indicates whether to copy the data.
+ *  @param initFragment Indicates if the fragment is an initialization fragment.
+ *  @param discontinuity Indicates if there is a discontinuity in the stream.
  */
-bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample sample, bool copy, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -1353,28 +1358,13 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 	MediaSample gstSample;
 
 	// Convert AampMediaSample to MediaSample
-	// This can be deprecated later once we get rid of AampGrowableBuffer and both structs unified
+	// This can be deprecated later once we get rid of AampGrowableBuffer and both data structures unified
 	gstSample.mData = sample.mData.GetPtr();
 	gstSample.mDataSize = sample.mData.GetLen();
-	gstSample.mPts = static_cast<double>(sample.mPts);
-	gstSample.mDts = static_cast<double>(sample.mDts);
-	gstSample.mDuration = static_cast<double>(sample.mDuration);
-	// Sample is encrypted, set the DRM metadata
-	if (sample.mDrmMetadata.mIsEncrypted)
-	{
-		gstSample.mDrmMetadata.mIsEncrypted = true;
-		gstSample.mDrmMetadata.mSubSamples = std::move(sample.mDrmMetadata.mSubSamples);
-		gstSample.mDrmMetadata.mNumSubSamples = sample.mDrmMetadata.mNumSubSamples;
-		gstSample.mDrmMetadata.mKeyId = std::move(sample.mDrmMetadata.mKeyId);
-		gstSample.mDrmMetadata.mIV = std::move(sample.mDrmMetadata.mIV);
-		gstSample.mDrmMetadata.mCipher = std::move(sample.mDrmMetadata.mCipher);
-		gstSample.mDrmMetadata.mCryptByteBlock = sample.mDrmMetadata.mCryptByteBlock;
-		gstSample.mDrmMetadata.mSkipByteBlock = sample.mDrmMetadata.mSkipByteBlock;
-	}
-	else
-	{
-		gstSample.mDrmMetadata.mIsEncrypted = false;
-	}
+	gstSample.mPts = sample.mPts;
+	gstSample.mDts = sample.mDts;
+	gstSample.mDuration = sample.mDuration;
+	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
 
 	bool ret = SendHelper( mediaType, std::move(gstSample), false /*transfer*/);
 

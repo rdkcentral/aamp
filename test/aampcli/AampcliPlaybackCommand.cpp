@@ -1191,8 +1191,8 @@ void PlaybackCommand::parse( const char *path )
 										keyIdHex += hexByte;
 									}
 
-									AAMPCLI_PRINTF("  DRM Info: Cipher:%s KID=%s, IV=0x%s, SubSamples=%" PRIu16 ", CryptByteBlock: %d, SkipBytes: %d\n",
-										sample.mDrmMetadata.mCipher.c_str(),
+									AAMPCLI_PRINTF("  DRM Info: Cipher:%d KID=%s, IV=0x%s, SubSamples=%" PRIu16 ", CryptByteBlock: %d, SkipBytes: %d\n",
+										sample.mDrmMetadata.mCipher,
 										keyIdHex.c_str(),
 										ivHex.c_str(),
 										sample.mDrmMetadata.mNumSubSamples,

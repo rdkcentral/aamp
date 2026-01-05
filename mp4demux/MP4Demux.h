@@ -94,6 +94,20 @@ enum Mp4ParseError
 };
 
 /**
+ * @brief Utility function to get stream output format from FourCC code
+ * @param fourCC Four character code identifier
+ * @return GstStreamOutputFormat corresponding to the FourCC
+ */
+GstStreamOutputFormat GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC);
+
+/**
+ * @brief Utility function to get cipher type from FourCC code
+ * @param fourCC Four character code identifier
+ * @return CipherType corresponding to the FourCC
+ */
+CipherType GetCipherTypeFromFourCC(const uint32_t fourCC);
+
+/**
  * @brief MP4 Demultiplexer class
  * 
  * This class provides functionality to parse MP4 containers, extract media samples,
@@ -105,7 +119,6 @@ class Mp4Demux
 private:
 	// Stream format and configuration
 	uint32_t streamFormat;                         /**< Stream format identifier */
-	uint32_t dataReferenceIndex;                   /**< Data reference index */
 	
 	// Encryption parameters
 	uint8_t ivSize;                               /**< Initialization vector size */
@@ -119,11 +132,10 @@ private:
 	std::vector<AampMediaSample> samples;         /**< Parsed media samples */
 	
 	// Encryption-specific data
-	std::string defaultKid;                       /**< Default key identifier */
+	std::vector<uint8_t> defaultKid;              /**< Default key identifier */
 	bool gotAuxiliaryInformationOffset;           /**< Flag for auxiliary info offset */
 	uint64_t auxiliaryInformationOffset;          /**< Auxiliary information offset */
-	uint32_t schemeType;                          /**< Encryption scheme ('cenc' or 'cbcs') */
-	uint32_t schemeVersion;                       /**< Encryption scheme version */
+	CipherType schemeType;                        /**< Encryption scheme ('cenc' or 'cbcs') */
 	uint32_t originalMediaType;                   /**< Original media type before encryption */
 	std::vector<uint8_t> cencAuxInfoSizes;        /**< CENC auxiliary info sizes */
 	std::vector<MediaProtectionInfo> protectionData;     /**< DRM protection system data */
@@ -138,7 +150,6 @@ private:
 	
 	// Track fragment fields
 	uint64_t baseMediaDecodeTime;                 /**< Base media decode time */
-	uint32_t fragmentDuration;                    /**< Fragment duration */
 	uint32_t trackId;                             /**< Track identifier */
 	uint64_t baseDataOffset;                      /**< Base data offset */
 	uint32_t defaultSampleDescriptionIndex;       /**< Default sample description index */
@@ -147,17 +158,7 @@ private:
 	uint32_t defaultSampleFlags;                  /**< Default sample flags */
 	
 	// Track header fields
-	uint64_t creationTime;                        /**< Track creation time */
-	uint64_t modificationTime;                    /**< Track modification time */
 	uint64_t duration;                            /**< Track duration */
-	uint32_t rate;                                /**< Playback rate */
-	uint32_t volume;                              /**< Audio volume */
-	int32_t matrix[9];                            /**< Transformation matrix */
-	uint16_t layer;                               /**< Visual layer */
-	uint16_t alternateGroup;                      /**< Alternate group */
-	uint32_t widthFixed;                          /**< Video width (fixed point) */
-	uint32_t heightFixed;                         /**< Video height (fixed point) */
-	uint16_t language;                            /**< Language code */
 	
 	// Sample processing
 	uint64_t sampleOffset;                        /**< Current sample offset */
@@ -165,13 +166,6 @@ private:
 	bool handledEncryptedSamples;                 /**< Flag indicating encrypted samples have been handled */
 	MediaCodecInfo codecInfo;                     /**< Codec information */
 	Mp4ParseError parseError;                     /**< Current parse error state */
-
-	/**
-	 * @brief Get stream output format from FourCC code
-	 * @param fourCC Four character code identifier
-	 * @return StreamOutputFormat corresponding to the FourCC
-	 */
-	GstStreamOutputFormat GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC);
 
 	/**
 	 * @brief Read n bytes from current position in big-endian format
@@ -247,9 +241,9 @@ private:
 	void ParseSampleAuxiliaryInformationSizes();
 	
 	/**
-	 * @brief Parse auxiliary information box
+	 * @brief Parse protection scheme information
 	 */
-	void ParseAuxInfo();
+	void ParseProtectionSchemeInfo();
 	
 	/**
 	 * @brief Parse sample auxiliary information offsets box
@@ -341,11 +335,6 @@ private:
 	 * @param next Pointer to next box
 	 */
 	void ParseCodecConfigurationBox(uint32_t type, const uint8_t *next);
-	
-	/**
-	 * @brief Parse movie fragment header box
-	 */
-	void ParseMovieFragmentHeaderBox();
 	
 	/**
 	 * @brief Parse movie extends header box

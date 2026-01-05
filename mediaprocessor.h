@@ -28,7 +28,6 @@
 #include "AampMediaType.h"
 #include "AampSegmentInfo.hpp"
 #include "AampGrowableBuffer.h"
-#include "AampDemuxDataTypes.h"
 
 #include <stddef.h>
 #include <functional>

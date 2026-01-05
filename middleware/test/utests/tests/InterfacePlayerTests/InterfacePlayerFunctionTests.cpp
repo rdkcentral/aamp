@@ -2499,11 +2499,13 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_ValidVideoCodecFormat)
 	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
 	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
 	GstCaps caps;
+	GstStructure s;
 	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
 	GstBuffer buffer;
 	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
 		.WillOnce(Return(&buffer));
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillOnce(Return(&s));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
 	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("stream-format"))).Times(1);
 	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
 
@@ -2528,8 +2530,9 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
 	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
 		.WillOnce(Return(&buffer));
 	GstStructure s;
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillOnce(Return(&s));
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillRepeatedly(Return(&s));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("original-media-type"))).Times(1);
 	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("channels"))).Times(1);
 	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
 

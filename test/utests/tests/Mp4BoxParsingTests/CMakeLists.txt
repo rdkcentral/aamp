@@ -22,6 +22,7 @@ set(UTESTS_ROOT "../../")
 set(TEST_SOURCES
 	BoxParsingTests.cpp
 	Mp4BoxParsingTests.cpp
+	FourCCMappingTest.cpp
 )
 
 set(AAMP_SOURCES

@@ -66,6 +66,26 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
 
+std::pair <CipherType, const char *> CipherToStringMap[] = {
+	{CIPHER_TYPE_CENC, "cenc"},
+	{CIPHER_TYPE_CBC1, "cbc1"},
+	{CIPHER_TYPE_CENS, "cens"},
+	{CIPHER_TYPE_CBCS, "cbcs"},
+	{CIPHER_TYPE_NONE, "none"}
+};
+
+const char * CipherTypeToString(CipherType type)
+{
+	for (const auto& pair : CipherToStringMap)
+	{
+		if (pair.first == type)
+		{
+			return pair.second;
+		}
+	}
+	return "unknown";
+}
+
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
@@ -2929,7 +2949,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool InterfacePlayerRDK::SendHelper(int type, MediaSample sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
@@ -5217,6 +5237,33 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 }
 
 /**
+ * @brief Add a buffer field to a GstStructure
+ * @param[in] structure The GstStructure to add the field to
+ * @param[in] fieldName The name of the field
+ * @param[in] data The data to add
+ */
+void AddBufferFieldToStructure(GstStructure *structure, const char *fieldName, const std::vector<uint8_t> &data)
+{
+	if (!structure || !fieldName || data.empty())
+	{
+		MW_LOG_ERR("Invalid GstStructure pointer[%p] or field name[%s] or empty data", structure, fieldName ? fieldName : "null");
+		return;
+	}
+	GstBuffer *buffer = CreateGstBufferWithData((gpointer)data.data(), (gsize)data.size());
+	if (buffer)
+	{
+		gst_structure_set(structure,
+						fieldName, GST_TYPE_BUFFER, buffer,
+						NULL);
+		gst_buffer_unref(buffer);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to allocate buffer for %s structure", fieldName);
+	}
+}
+
+/**
  * @brief Sets the stream capabilities.
  * @param[in] type The media type.
  * @param[in] codecInfo The codec information.
@@ -5230,18 +5277,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 	if (caps)
 	{
 		// Append some additional info to caps
-		if (codecInfo.mCodecData.size() > 0)
+		if (!codecInfo.mCodecData.empty())
 		{
-			GstBuffer *codecBuf = CreateGstBufferWithData((gpointer)codecInfo.mCodecData.data(), (gsize)codecInfo.mCodecData.size());
-			if (codecBuf)
-			{
-				gst_caps_set_simple(caps, "codec_data", GST_TYPE_BUFFER, codecBuf, NULL);
-				gst_buffer_unref(codecBuf);
-			}
-			else
-			{
-				MW_LOG_ERR("Failed to allocate codec_data buffer for caps");
-			}
+			AddBufferFieldToStructure(gst_caps_get_structure (caps, 0), "codec_data", codecInfo.mCodecData);
 		}
 		if (type == eGST_MEDIATYPE_VIDEO)
 		{
@@ -5328,7 +5366,7 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 									"application/x-cenc",
 									"encrypted", G_TYPE_BOOLEAN, TRUE,
 									// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
-									"cipher-mode", G_TYPE_STRING, drmMetadata.mCipher.c_str(),
+									"cipher-mode", G_TYPE_STRING, CipherTypeToString(drmMetadata.mCipher),
 									NULL);
 
 		if (!metadata)
@@ -5339,74 +5377,45 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 
 		if (!drmMetadata.mKeyId.empty())
 		{
-			GstBuffer *kidBuffer = CreateGstBufferWithData((gpointer)drmMetadata.mKeyId.data(), (gsize)drmMetadata.mKeyId.size());
-			if (kidBuffer)
-			{
-				gst_structure_set(metadata,
-									"kid", GST_TYPE_BUFFER, kidBuffer,
-									NULL);
-				gst_buffer_unref(kidBuffer);
-			}
-			else
-			{
-				MW_LOG_ERR("Failed to allocate kid buffer for DRM metadata");
-			}
+			AddBufferFieldToStructure(metadata, "kid", drmMetadata.mKeyId);
 		}
 
 		if (!drmMetadata.mIV.empty())
 		{
-			GstBuffer *ivBuffer = CreateGstBufferWithData((gpointer)drmMetadata.mIV.data(), (gsize)drmMetadata.mIV.size());
-			if (ivBuffer)
-			{
-				gst_structure_set(metadata,
-									"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
-									"iv", GST_TYPE_BUFFER, ivBuffer,
-									NULL);
-				gst_buffer_unref(ivBuffer);
-			}
-			else
-			{
-				MW_LOG_ERR("Failed to allocate iv buffer for DRM metadata");
-			}
+			AddBufferFieldToStructure(metadata, "iv", drmMetadata.mIV);
+			gst_structure_set(metadata,
+							"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
+							NULL);
 		}
 
 		if (!drmMetadata.mSubSamples.empty())
 		{
-			GstBuffer *ssBuffer = CreateGstBufferWithData( (gpointer)drmMetadata.mSubSamples.data(), (gsize)drmMetadata.mSubSamples.size());
-			if (ssBuffer)
-			{
-				gst_structure_set(metadata,
-									"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
-									"subsamples", GST_TYPE_BUFFER, ssBuffer,
-									NULL);
-				gst_buffer_unref(ssBuffer);
-			}
-			else
-			{
-				MW_LOG_ERR("Failed to allocate subsamples buffer for DRM metadata");
-			}
+			AddBufferFieldToStructure(metadata, "subsamples", drmMetadata.mSubSamples);
+			gst_structure_set(metadata,
+							"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
+							NULL);
 		}
 		else
 		{
 			gst_structure_set(metadata,
-								"subsample_count", G_TYPE_UINT, 0,
-								NULL);
+							"subsample_count", G_TYPE_UINT, 0,
+							NULL);
 		}
 
-		if (drmMetadata.mCipher == "cbcs")
+		if (drmMetadata.mCipher == CIPHER_TYPE_CBCS)
 		{
 			gst_structure_set(metadata,
-								"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
-								"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
-								NULL );
+							"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
+							"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
+							NULL );
 		}
 	}
 
 	if (metadata)
 	{
 		// serialize and print the metadata
-		gchar *metaStr = gst_structure_to_string( metadata );
-		MW_LOG_INFO("Added drm metadata: %s", metaStr);
+		gchar *metaStr = gst_structure_to_string(metadata);
+		MW_LOG_DEBUG("Added drm metadata: %s", metaStr);
 		g_free(metaStr);
 
 		gst_buffer_add_protection_meta(buffer, metadata);

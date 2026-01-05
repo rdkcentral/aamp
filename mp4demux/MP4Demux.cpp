@@ -63,6 +63,91 @@
 #define ESDS_TAG_DECODER_SPECIFIC_INFO 0x05
 #define ESDS_TAG_SL_CONFIG_DESCRIPTOR 0x06
 
+#define TENC_BOX_KEY_ID_SIZE 16
+
+#define PSSH_SYSTEM_ID_SIZE 16
+#define FORMATTED_SYSTEM_ID_LENGTH 36
+
+/**
+ * @brief Mapping structure for FourCC to format conversion
+ */
+struct CodecMapping
+{
+	uint32_t fourCC;
+	GstStreamOutputFormat format;
+};
+
+/**
+ * @brief Mapping structure for FourCC to cipher type conversion
+ */
+struct CipherMapping
+{
+	uint32_t fourCC;
+	CipherType cipher;
+};
+
+/**
+ * @brief Mapping of FourCC codes to GstStreamOutputFormat
+ */
+constexpr CodecMapping gCodecMappings[] = {
+	{ MultiChar_Constant("avcC"), GST_FORMAT_VIDEO_ES_H264 },
+	{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
+	{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
+	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 }
+};
+
+/**
+ * @brief Mapping of FourCC codes to CipherType
+ */
+constexpr CipherMapping gCipherMappings[] = {
+	{ MultiChar_Constant("cenc"), CIPHER_TYPE_CENC },
+	{ MultiChar_Constant("cbcs"), CIPHER_TYPE_CBCS }
+};
+
+/**
+ * @brief Convert FourCC code to stream output format
+ * Maps MP4 codec FourCC codes to AAMP stream output formats:
+ * - avcC: H.264 video
+ * - hvcC: HEVC video
+ * - esds: AAC audio (raw)
+ * - dec3: Enhanced AC3 audio
+ *
+ * @param fourCC Four character code from MP4 container
+ * @return StreamOutputFormat corresponding to the codec type
+ */
+GstStreamOutputFormat GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC)
+{
+	for (const auto& mapping : gCodecMappings)
+	{
+		if (mapping.fourCC == fourCC)
+		{
+			return mapping.format;
+		}
+	}
+	return GST_FORMAT_UNKNOWN;
+}
+
+/**
+ * @brief Convert FourCC code to cipher type
+ * Maps MP4 encryption scheme FourCC codes to CipherType:
+ * - cenc: AES-CTR encryption
+ * - cbcs: AES-CBC encryption with pattern
+ *
+ * @param fourCC Four character code from MP4 container
+ * @return CipherType corresponding to the encryption scheme
+ */
+CipherType GetCipherTypeFromFourCC(const uint32_t fourCC)
+{
+	for (const auto& mapping : gCipherMappings)
+	{
+		if (mapping.fourCC == fourCC)
+		{
+			return mapping.cipher;
+		}
+	}
+	return CIPHER_TYPE_NONE;
+}
+
 /**
  * @brief Constructor for Mp4Demux
  * Initializes all member variables to their default values and sets up
@@ -70,21 +155,18 @@
  */
 Mp4Demux::Mp4Demux() :
 	streamFormat(),
-	dataReferenceIndex(),
 	ivSize(),
 	cryptByteBlock(), skipByteBlock(),
 	constantIvSize(), constantIv(), timeScale(),
 	samples(), defaultKid(), gotAuxiliaryInformationOffset(),
-	auxiliaryInformationOffset(), schemeType(), schemeVersion(),
+	auxiliaryInformationOffset(), schemeType(CIPHER_TYPE_NONE),
 	originalMediaType(), cencAuxInfoSizes(), protectionData(),
 	moofPtr(), ptr(),
 	version(), flags(), baseMediaDecodeTime(),
-	fragmentDuration(), trackId(), baseDataOffset(),
+	trackId(), baseDataOffset(),
 	defaultSampleDescriptionIndex(), defaultSampleDuration(), defaultSampleSize(),
-	defaultSampleFlags(), creationTime(), modificationTime(),
-	duration(), rate(), volume(),
-	matrix{}, layer(), alternateGroup(),
-	widthFixed(), heightFixed(), language(),
+	defaultSampleFlags(),
+	duration(),
 	sampleOffset(), sencPresent(false),
 	handledEncryptedSamples(false),
 	codecInfo(GST_FORMAT_INVALID), parseError(MP4_PARSE_OK)
@@ -97,34 +179,6 @@ Mp4Demux::Mp4Demux() :
  */
 Mp4Demux::~Mp4Demux()
 {
-}
-
-/**
- * @brief Convert FourCC code to stream output format
- * Maps MP4 codec FourCC codes to AAMP stream output formats:
- * - avcC: H.264 video
- * - hvcC: HEVC video
- * - esds: AAC audio (raw)
- * - dec3: Enhanced AC3 audio
- * 
- * @param fourCC Four character code from MP4 container
- * @return StreamOutputFormat corresponding to the codec type
- */
-GstStreamOutputFormat Mp4Demux::GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC)
-{
-	switch (fourCC)
-	{
-		case MultiChar_Constant("avcC"):
-			return GST_FORMAT_VIDEO_ES_H264;
-		case MultiChar_Constant("hvcC"):
-			return GST_FORMAT_VIDEO_ES_HEVC;
-		case MultiChar_Constant("esds"):
-			return GST_FORMAT_AUDIO_ES_AAC_RAW;
-		case MultiChar_Constant("dec3"):
-			return GST_FORMAT_AUDIO_ES_EC3;
-		default:
-			return GST_FORMAT_UNKNOWN;
-	}
 }
 
 /**
@@ -227,13 +281,12 @@ void Mp4Demux::ParseOriginalFormat()
  * @brief Parse scheme management box for DRM information
  * Extracts DRM scheme information including:
  * - schemeType: 'cenc' (AES-CTR) or 'cbcs' (AES-CBC with pattern)
- * - schemeVersion: Version of the encryption scheme
  */
 void Mp4Demux::ParseSchemeManagementBox()
 {
 	ReadHeader();
-	schemeType = ReadU32(); // 'cenc' or 'cbcs'
-	schemeVersion = ReadU32();
+	ParseProtectionSchemeInfo();
+	SkipBytes(4); // scheme_type_parameter
 }
 
 /**
@@ -248,9 +301,10 @@ void Mp4Demux::ParseTrackEncryptionBox()
 {
 	ReadHeader();
 
-	ptr++; // skip
+	// Skip: reserved
+	ptr++;
 	uint8_t pattern = *ptr++;
-	if (schemeType == MultiChar_Constant("cbcs"))
+	if (schemeType == CIPHER_TYPE_CBCS)
 	{
 		cryptByteBlock = (pattern >> 4) & 0xf;
 		skipByteBlock = pattern & 0xf;
@@ -260,9 +314,10 @@ void Mp4Demux::ParseTrackEncryptionBox()
 	handledEncryptedSamples = true;
 	ivSize = *ptr++;
 
-	defaultKid = std::string(reinterpret_cast<const char*>(ptr), 16);
-	ptr += 16;
-	if (schemeType == MultiChar_Constant("cbcs"))
+	defaultKid = std::vector<uint8_t>(ptr, ptr + TENC_BOX_KEY_ID_SIZE);
+	ptr += TENC_BOX_KEY_ID_SIZE;
+	// Version 1 adds constant IV
+	if (version == 1)
 	{
 		constantIvSize = *ptr++;
 		if (constantIvSize != 8 && constantIvSize != 16)
@@ -288,24 +343,26 @@ void Mp4Demux::ParseTrackEncryptionBox()
 void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 {
 	ReadHeader();
-	size_t remSize = next > ptr ? static_cast<size_t>(next - ptr) : 0;
-	if (remSize < 16)
+	// To prevent overflow, ensure box size is at least 16 bytes for system ID
+	if (ptr + PSSH_SYSTEM_ID_SIZE > next)
 	{
 		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-		MP4_LOG_ERR("Invalid PSSH box size: %zu, expected at least 16 bytes for system ID", remSize);
+		MP4_LOG_ERR("Invalid PSSH box size, remaining %zu, expected at least %d bytes for system ID", next - ptr, PSSH_SYSTEM_ID_SIZE);
 	}
 	else
 	{
-		char systemId[37]; // 32 hex chars + 4 hyphens + 1 null terminator
-		snprintf(systemId, sizeof(systemId), "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-				ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
-				ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf]);
-		ptr += 16;
-		size_t psshSize = next - ptr;
-
+		// Add new entry into protection data vector
 		protectionData.emplace_back();
 		MediaProtectionInfo &psshData = protectionData.back();
-		psshData.systemID = std::string(systemId);
+
+		// Format UUID to stack buffer, then assign to string (copies data)
+		char systemIdBuffer[FORMATTED_SYSTEM_ID_LENGTH + 1]; // 36 chars + null terminator
+		snprintf(systemIdBuffer, sizeof(systemIdBuffer), "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+				ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
+				ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf]);
+		psshData.systemID.assign(systemIdBuffer, FORMATTED_SYSTEM_ID_LENGTH); // Copy without null terminator
+		ptr += PSSH_SYSTEM_ID_SIZE;
+		size_t psshSize = next - ptr;
 		psshData.pssh = std::vector<uint8_t>(ptr, ptr + psshSize);
 		// Updates ptr to next box
 		SkipBytes(psshSize);
@@ -338,15 +395,15 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			samples[i].mDrmMetadata.mIsEncrypted = true;
 			samples[i].mDrmMetadata.mKeyId = defaultKid;
 			// TODO: Original media type is skipped for now
-			if (schemeType == MultiChar_Constant("cbcs"))
+			if (schemeType == CIPHER_TYPE_CBCS)
 			{
-				samples[i].mDrmMetadata.mCipher = "cbcs";
+				samples[i].mDrmMetadata.mCipher = CIPHER_TYPE_CBCS;
 				samples[i].mDrmMetadata.mCryptByteBlock = cryptByteBlock;
 				samples[i].mDrmMetadata.mSkipByteBlock = skipByteBlock;
 			}
 			else
 			{
-				samples[i].mDrmMetadata.mCipher = "cenc";
+				samples[i].mDrmMetadata.mCipher = CIPHER_TYPE_CENC;
 			}
 			// Skip IV data if present (comes before subsample data in auxiliary info)
 			if (ivSize)
@@ -358,7 +415,7 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 				}
 				ptr += ivSize;
 			}
-			else if (schemeType == MultiChar_Constant("cbcs") && !constantIv.empty())
+			else if (schemeType == CIPHER_TYPE_CBCS && !constantIv.empty())
 			{
 				samples[i].mDrmMetadata.mIV = std::vector<uint8_t>(constantIv.begin(), constantIv.end());
 			}
@@ -395,7 +452,8 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 	// 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 ...
 	if (flags & SAIZ_SAIO_AUX_INFO_TYPE_PRESENT)
 	{
-		ParseAuxInfo();
+		ParseProtectionSchemeInfo();
+		SkipBytes(4); // aux_info_type_parameter
 	}
 	uint8_t defaultInfoSize = *ptr++;
 	uint32_t sampleCount = ReadU32();
@@ -417,23 +475,21 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 }
 
 /**
- * @brief Parse auxiliary information type parameters
- * Reads optional auxiliary information type and parameters when present.
- * Used in conjunction with SAIZ and SAIO boxes to specify encryption
- * auxiliary information format.
+ * @brief Parse protection scheme information
+ * Extracts the encryption scheme type from the box
+ * Supports 'cenc' (AES-CTR) and 'cbcs' (AES-CBC with pattern).
  */
-void Mp4Demux::ParseAuxInfo()
+void Mp4Demux::ParseProtectionSchemeInfo()
 {
-	uint32_t schemeType = ReadU32(); // cenc or cbcs
-	if (schemeType != MultiChar_Constant("cenc") && schemeType != MultiChar_Constant("cbcs"))
+	uint32_t type = ReadU32();
+	auto cipher = GetCipherTypeFromFourCC(type);
+	if (cipher == CIPHER_TYPE_NONE)
 	{
 		parseError = MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME;
-		MP4_LOG_ERR("Unsupported encryption scheme type: 0x%08x, expected 'cenc' or 'cbcs'", schemeType);
+		MP4_LOG_ERR("Unsupported encryption scheme type: %s, expected 'cenc' or 'cbcs'", FourCCToString(type).c_str());
 		return;
 	}
-
-	uint32_t auxInfoTypeParameter = ReadU32();
-	(void)auxInfoTypeParameter;
+	schemeType = cipher;
 }
 
 /**
@@ -453,10 +509,11 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 	ReadHeader();
 	if (flags & SAIZ_SAIO_AUX_INFO_TYPE_PRESENT)
 	{
-		ParseAuxInfo();
+		ParseProtectionSchemeInfo();
+		SkipBytes(4); // aux_info_type_parameter
 	}
-	uint32_t entryCount = ReadU32();
-	(void)entryCount;
+	SkipBytes(4); // entry_count
+
 	if( version == 0 )
 	{
 		auxiliaryInformationOffset = ReadU32();
@@ -491,22 +548,18 @@ void Mp4Demux::ParseSampleEncryption()
 	{
 		samples[iSample].mDrmMetadata.mIsEncrypted = true;
 		samples[iSample].mDrmMetadata.mKeyId = defaultKid;
-		if (schemeType == MultiChar_Constant("cbcs"))
+		samples[iSample].mDrmMetadata.mCipher = schemeType;
+		if (schemeType == CIPHER_TYPE_CBCS)
 		{
-			samples[iSample].mDrmMetadata.mCipher = "cbcs";
 			samples[iSample].mDrmMetadata.mCryptByteBlock = cryptByteBlock;
 			samples[iSample].mDrmMetadata.mSkipByteBlock = skipByteBlock;
-		}
-		else
-		{
-			samples[iSample].mDrmMetadata.mCipher = "cenc";
 		}
 		if (ivSize)
 		{
 			samples[iSample].mDrmMetadata.mIV = std::vector<uint8_t>(ptr, ptr + ivSize);
 			ptr += ivSize;
 		}
-		else if (schemeType == MultiChar_Constant("cbcs") && !constantIv.empty())
+		else if (schemeType == CIPHER_TYPE_CBCS && !constantIv.empty())
 		{
 			samples[iSample].mDrmMetadata.mIV = std::vector<uint8_t>(constantIv.begin(), constantIv.end());
 		}
@@ -646,17 +699,12 @@ void Mp4Demux::ParseTrackFragmentDecodeTime()
  */
 void Mp4Demux::ParseVideoInformation()
 {
-	SkipBytes(4); // always zero?
-	dataReferenceIndex = ReadU32();
-	SkipBytes(16); // always zero?
+	// Skip: reserved[6] (4) + data_reference_index (4) + reserved/pre_defined fields (16)
+	SkipBytes(24);
 	codecInfo.mInfo.video.mWidth = ReadU16();
 	codecInfo.mInfo.video.mHeight = ReadU16();
-	SkipBytes(4); // horizontal resolution
-	SkipBytes(4); // vertical resolution
-	SkipBytes(4);
-	SkipBytes(2); // frame count
-	SkipBytes(32); // compressor name
-	SkipBytes(2); // depth
+	// Skip: horizontal_resolution (4) + vertical_resolution (4) + reserved (4) + frame_count (2) + compressor_name (32) + depth (2)
+	SkipBytes(48);
 	int pad = ReadU16();
 	if (pad != VIDEO_PADDING_MARKER)
 	{
@@ -676,125 +724,67 @@ void Mp4Demux::ParseVideoInformation()
  */
 void Mp4Demux::ParseAudioInformation()
 {
-	SkipBytes(4); // reserved[6] - first 4 bytes
-	dataReferenceIndex = ReadU32(); // data reference index
-	SkipBytes(8); // reserved[2] - 8 bytes (2x uint32)
-	codecInfo.mInfo.audio.mChannelCount = ReadU16(); // channel count
-	SkipBytes(2); // sample size - bits per sample
-	SkipBytes(4); // pre_defined (2 bytes) + reserved (2 bytes)
-	// sample rate - upper 16 bits of 32-bit fixed point value
-	codecInfo.mInfo.audio.mSampleRate = ReadU16();
-	// sample rate - lower 16 bits of fixed point (typically 0)
-	SkipBytes(2);
+	// Skip: reserved[6] (4) + data_reference_index (4) + reserved[2] (8)
+	SkipBytes(16);
+	codecInfo.mInfo.audio.mChannelCount = ReadU16();
+	// Skip: sample_size (2) + pre_defined/reserved (4)
+	SkipBytes(6);
+	codecInfo.mInfo.audio.mSampleRate = ReadU16(); // Upper 16 bits of 32-bit fixed-point sample_rate
+	SkipBytes(2); // Lower 16 bits of sample_rate (typically 0)
 }
 
 /**
  * @brief Parse movie header box (MVHD)
  * Extracts global movie properties including:
- * - Creation and modification times
  * - Time scale and duration
- * - Playback rate and volume
- * - Transformation matrix for video rendering
  */
 void Mp4Demux::ParseMovieHeader()
 {
 	ReadHeader();
 	int sz = (version == 1) ? 8 : 4;
-	creationTime = ReadBytes(sz);
-	modificationTime = ReadBytes(sz);
+	SkipBytes(sz); // creation_time
+	SkipBytes(sz); // modification_time
 	timeScale = ReadU32();
 	duration = ReadBytes(sz);
-	rate = ReadU32();
-	volume = ReadU32(); // fixed point
-	ptr += 8; // reserved
-	for (int i = 0; i < 9; i++)
-	{
-		matrix[i] = ReadI32();
-	}
-	// skip pre_defined
-	SkipBytes(24);
-	// skip next trackID
-	SkipBytes(4);
+	// Skip: rate (fixed-point 16.16) (4) + volume (fixed-point 8.8) (2) + reserved (10)
+	SkipBytes(16);
+	// Skip: matrix (36) + pre_defined[6] (24) + next_track_ID (4)
+	SkipBytes(64);
 }
 
 /**
  * @brief Parse track header box (TKHD)
  * Extracts track-specific properties including:
- * - Creation and modification times
  * - Track ID and duration
- * - Layer, alternate group, and volume
- * - Transformation matrix and video dimensions
  */
 void Mp4Demux::ParseTrackHeader()
 {
 	ReadHeader();
 	int sz = (version == 1) ? 8 : 4;
-	creationTime = ReadBytes(sz);
-	modificationTime = ReadBytes(sz);
+	SkipBytes(sz); // creation_time
+	SkipBytes(sz); // modification_time
 	trackId = ReadU32();
-	ptr += 20 + sz; // duration, layer, alternateGroup, volume
-	for (int i = 0; i < 9; i++)
-	{
-		matrix[i] = ReadI32();
-	}
-	widthFixed = ReadU32();
-	heightFixed = ReadU32();
+	//Skip: reserved (4) + duration (sz) + reserved[2] (8) + layer (2) + alternate_group (2) + volume (2) + reserved (2)
+	SkipBytes(20 + sz);
+	//Skip: matrix (36) + width_fixed (4) + height (4)
+	SkipBytes(44);
 }
 
 /**
  * @brief Parse media header box (MDHD)
  * Extracts media-specific properties including:
- * - Creation and modification times
  * - Time scale and duration
- * - Language code
  */
 void Mp4Demux::ParseMediaHeader()
 {
 	ReadHeader();
 	int sz = (version == 1) ? 8 : 4;
-	creationTime = ReadBytes(sz);
-	modificationTime = ReadBytes(sz);
+	SkipBytes(sz); // creation_time
+	SkipBytes(sz); // modification_time
 	timeScale = ReadU32();
 	duration = ReadBytes(sz);
-	language = ReadU16();
-	// skip pre_defined
-	SkipBytes(2);
-}
-
-/**
- * @brief Parse handler reference box (HDLR)
- * Extracts handler type and name for the media track.
- */
-void Mp4Demux::ParseHandlerReference()
-{
-	ReadHeader();
-	SkipBytes(4); // pre_defined
-	uint32_t handlerType = ReadU32();
-	(void)handlerType;
-	SkipBytes(12); // reserved
-	// handler name is null-terminated string (remaining bytes)
-}
-
-/**
- * @brief Parse movie fragment header box (MFHD)
- * Extracts the sequence number for the movie fragment.
- * This number indicates the order of fragments within the movie.
- */
-void Mp4Demux::ParseMovieFragmentHeaderBox()
-{
-	ReadHeader();
-	uint32_t sequenceNumber = ReadU32();
-	(void)sequenceNumber;
-}
-
-/**
- * @brief Parse movie extends header box (MEHD)
- * Extracts the fragment duration for the movie fragment.
- */
-void Mp4Demux::ParseMovieExtendsHeader()
-{
-	ReadHeader();
-	fragmentDuration = ReadU32();
+	// Skip: 1 bit reserved + 3 x 5 bits language code (2) + pre_defined (2)
+	SkipBytes(4);
 }
 
 /**
@@ -932,7 +922,7 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 				 * avgBitrate (4 bytes / 32 bits) - average bitrate
 				 * Total: 1 + 1 + 3 + 4 + 4 = 13 bytes
 				 */
-				ptr += 13;
+				SkipBytes(13); // Skip entire decoder config descriptor header
 				break;
 
 			case ESDS_TAG_DECODER_SPECIFIC_INFO:
@@ -988,7 +978,7 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	else
 	{
 		size_t codecDataLen = next - ptr;
-		//No need to read this for dec3 box. Filter this against other types if any.
+		// No need to read this for dec3 box. Expand the filter later if needed.
 		if (type != MultiChar_Constant("dec3"))
 		{
 			codecInfo.mCodecData = std::vector<uint8_t>(ptr, ptr + codecDataLen);
@@ -1059,10 +1049,6 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleEncryption();
 				break;
 
-			case MultiChar_Constant("mfhd"):
-				ParseMovieFragmentHeaderBox();
-				break;
-
 			case MultiChar_Constant("tfhd"):
 				ParseTrackFragmentHeader();
 				break;
@@ -1077,10 +1063,6 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 
 			case MultiChar_Constant("mvhd"):
 				ParseMovieHeader();
-				break;
-
-			case MultiChar_Constant("mehd"):
-				ParseMovieExtendsHeader();
 				break;
 
 			case MultiChar_Constant("trex"):
@@ -1099,6 +1081,55 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleDescriptionBox(next);
 				break;
 
+			case MultiChar_Constant("schm"):
+				ParseSchemeManagementBox();
+				break;
+
+			case MultiChar_Constant("frma"):
+				ParseOriginalFormat();
+				break;
+
+			case MultiChar_Constant("tenc"):
+				ParseTrackEncryptionBox();
+				break;
+
+			case MultiChar_Constant("moof"):  // Movie Fragment
+				// Update moofPtr to current moof box start
+				moofPtr = ptr - 8;
+				// For LLD streams, we may have multiple moof boxes
+				// so we need to track sampleOffset to map samples to mdat
+				sampleOffset = samples.size();
+				// Reset encryption state for each moof
+				gotAuxiliaryInformationOffset = false;
+				cencAuxInfoSizes.clear();
+				sencPresent = false;
+
+				DemuxHelper(next);
+				MP4_LOG_DEBUG("Completed parsing 'moof' box, sampleOffset: %" PRIu64 " total samples: %zu", sampleOffset, samples.size());
+
+				if (!sencPresent && gotAuxiliaryInformationOffset)
+				{
+					// If no 'senc' box, we need to get IVs and subsample data from auxiliary info
+					ProcessAuxiliaryInformation();
+				}
+				break;
+
+			case MultiChar_Constant("schi"): // Scheme Information
+			case MultiChar_Constant("traf"): // Track Fragment
+			case MultiChar_Constant("moov"): // Movie
+			case MultiChar_Constant("trak"): // Track
+			case MultiChar_Constant("minf"): // Media Information
+			case MultiChar_Constant("dinf"): // Data Information
+			case MultiChar_Constant("mvex"): // Movie Extends
+			case MultiChar_Constant("mdia"): // Media
+			case MultiChar_Constant("stbl"): // Sample Table
+			case MultiChar_Constant("sinf"): // Protection Scheme Information
+				// Recursive parsing for container boxes
+				DemuxHelper(next);
+				break;
+
+			case MultiChar_Constant("mehd"): // Movie Extends Header
+			case MultiChar_Constant("mfhd"): // Movie Fragment Header
 			case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
 			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
 			case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
@@ -1121,50 +1152,6 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("mdat"): // Movie Data (under file box)
 				// Skip these boxes for now
 				ptr = next;
-				break;
-
-			case MultiChar_Constant("schm"):
-				ParseSchemeManagementBox();
-				break;
-
-			case MultiChar_Constant("frma"):
-				ParseOriginalFormat();
-				break;
-
-			case MultiChar_Constant("tenc"):
-				ParseTrackEncryptionBox();
-				break;
-
-			case MultiChar_Constant("moof"):  // Movie Fragment
-				moofPtr = ptr - 8;
-				// For LLD streams, we may have multiple moof boxes
-				// so we need to track sampleOffset to map samples to mdat
-				sampleOffset = samples.size();
-				// Reset encryption state for each moof
-				gotAuxiliaryInformationOffset = false;
-				cencAuxInfoSizes.clear();
-				sencPresent = false;
-
-				DemuxHelper(next);
-
-				if (!sencPresent && gotAuxiliaryInformationOffset)
-				{
-					// If no 'senc' box, we need to get IVs and subsample data from auxiliary info
-					ProcessAuxiliaryInformation();
-				}
-				break;
-
-			case MultiChar_Constant("schi"): // Scheme Information
-			case MultiChar_Constant("traf"): // Track Fragment
-			case MultiChar_Constant("moov"): // Movie
-			case MultiChar_Constant("trak"): // Track
-			case MultiChar_Constant("minf"): // Media Information
-			case MultiChar_Constant("dinf"): // Data Information
-			case MultiChar_Constant("mvex"): // Movie Extends
-			case MultiChar_Constant("mdia"): // Media
-			case MultiChar_Constant("stbl"): // Sample Table
-			case MultiChar_Constant("sinf"): // Protection Scheme Information
-				DemuxHelper(next);
 				break;
 
 			default:

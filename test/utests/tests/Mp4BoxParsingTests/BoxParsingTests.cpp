@@ -176,14 +176,14 @@ TEST_F(Mp4DemuxFunctionalTests, ParseEncryptedFragmentWithSencBox)
 	EXPECT_TRUE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
 	EXPECT_FALSE(samples[0].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
 	EXPECT_FALSE(samples[0].mDrmMetadata.mIV.empty()) << "Sample should have IV";
-	EXPECT_FALSE(samples[0].mDrmMetadata.mCipher.empty()) << "Sample should have cipher type";
+	EXPECT_FALSE(samples[0].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
 	EXPECT_EQ(samples[0].mDrmMetadata.mSubSamples.size(), 6) << "Sample should have subsample encryption data";
 	EXPECT_EQ(samples[0].mDrmMetadata.mNumSubSamples, 1) << "Sample should have 1 subsamples";
 
 	EXPECT_TRUE(samples[1].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
 	EXPECT_FALSE(samples[1].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
 	EXPECT_FALSE(samples[1].mDrmMetadata.mIV.empty()) << "Sample should have IV";
-	EXPECT_FALSE(samples[1].mDrmMetadata.mCipher.empty()) << "Sample should have cipher type";
+	EXPECT_FALSE(samples[1].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
 	EXPECT_EQ(samples[1].mDrmMetadata.mSubSamples.size(), 12) << "Sample should have subsample encryption data";
 	EXPECT_EQ(samples[1].mDrmMetadata.mNumSubSamples, 2) << "Sample should have 2 subsamples";
 }
@@ -209,14 +209,14 @@ TEST_F(Mp4DemuxFunctionalTests, ParseEncryptedFragmentWithSaioSaizBoxes)
 	EXPECT_TRUE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
 	EXPECT_FALSE(samples[0].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
 	EXPECT_FALSE(samples[0].mDrmMetadata.mIV.empty()) << "Sample should have IV";
-	EXPECT_FALSE(samples[0].mDrmMetadata.mCipher.empty()) << "Sample should have cipher type";
+	EXPECT_FALSE(samples[0].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
 	EXPECT_EQ(samples[0].mDrmMetadata.mSubSamples.size(), 6) << "Sample should have subsample encryption data";
 	EXPECT_EQ(samples[0].mDrmMetadata.mNumSubSamples, 1) << "Sample should have 1 subsamples";
 
 	EXPECT_TRUE(samples[1].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
 	EXPECT_FALSE(samples[1].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
 	EXPECT_FALSE(samples[1].mDrmMetadata.mIV.empty()) << "Sample should have IV";
-	EXPECT_FALSE(samples[1].mDrmMetadata.mCipher.empty()) << "Sample should have cipher type";
+	EXPECT_FALSE(samples[1].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
 	EXPECT_EQ(samples[1].mDrmMetadata.mSubSamples.size(), 6) << "Sample should have subsample encryption data";
 	EXPECT_EQ(samples[1].mDrmMetadata.mNumSubSamples, 1) << "Sample should have 1 subsamples";
 }

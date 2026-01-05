@@ -436,12 +436,7 @@ class InterfacePlayerRDK
         	/**
         	 * @brief Send PTS/DTS to downstream elements.
         	 * @param[in] type The type of event.
-        	 * @param[in] ptr Pointer to the event data.
-        	 * @param[in] len Length of the event data.
-        	 * @param[in] fpts First PTS value.
-        	 * @param[in] fdts First DTS value.
-        	 * @param[in] fDuration Duration of the event.
-        	 * @param[in] fragmentPTSoffset Offset PTS value.
+        	 * @param[in] sample The media sample. Ownership is transferred
         	 * @param[in] copy True to copy the event data.
         	 * @param[in] initFragment True if this is an initialization fragment.
         	 * @param[out] discontinuity Indicates whether there is a discontinuity.
@@ -451,7 +446,7 @@ class InterfacePlayerRDK
         	 * @param[out] firstBufferPushed Indicates whether the first buffer was pushed.
         	 * @return True if the event was sent successfully, false otherwise.
         	 */
-			bool SendHelper(int type, MediaSample sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
+			bool SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
         	/**
         	 * @brief Pauses the injector.
         	 */

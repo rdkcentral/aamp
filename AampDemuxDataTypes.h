@@ -24,19 +24,20 @@
 #include <vector>
 #include <cstring> // for std::memset
 #include "AampGrowableBuffer.h" // for AampGrowableBuffer
-#include "AampTime.h" // for AampTime
 #include "DemuxDataTypes.h" // for MediaDrmMetadata
 
 /*
  * @struct AampMediaSample
  * @brief Media sample structure
+ * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
  */
 struct AampMediaSample
 {
+	// For lifetime management of sample data, we are using AampGrowableBuffer
 	AampGrowableBuffer mData;
-	AampTime mPts;
-	AampTime mDts;
-	AampTime mDuration;
+	double mPts;
+	double mDts;
+	double mDuration;
 
     MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
 

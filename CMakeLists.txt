@@ -577,7 +577,7 @@ install(FILES
 	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
-	AampDemuxDataTypes.h AampTime.h
+	AampDemuxDataTypes.h
 	abr/abr.h
 	DESTINATION include
 )

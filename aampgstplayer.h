@@ -93,16 +93,11 @@ private:
 	/**
 	 * @fn SendHelper
 	 * @param[in] mediaType stream type
-	 * @param[in] ptr buffer pointer
-	 * @param[in] len length of buffer
-	 * @param[in] fpts PTS of buffer (in sec)
-	 * @param[in] fdts DTS of buffer (in sec)
-	 * @param[in] duration duration of buffer (in sec)
-	 * @param[in] fragmentPTSoffset PTS offset
+	 * @param[in] sample media sample. Ownership is transferred
 	 * @param[in] copy to map or transfer the buffer
 	 * @param[in] initFragment flag for buffer type (init, data)
 	 */
-	bool SendHelper(AampMediaType mediaType, MediaSample sample, bool copy, bool initFragment = false, bool discontinuity = false);
+	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment = false, bool discontinuity = false);
 
 public:
 	class PrivateInstanceAAMP *aamp;

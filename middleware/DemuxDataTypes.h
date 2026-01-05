@@ -26,6 +26,19 @@
 #include "GstUtils.h" // for GstStreamOutputFormat
 
 /*
+ * @enum CipherType
+ * @brief Enumeration of supported cipher types
+ */
+enum CipherType
+{
+	CIPHER_TYPE_CENC,
+	CIPHER_TYPE_CBCS,
+	CIPHER_TYPE_CBC1,
+	CIPHER_TYPE_CENS,
+	CIPHER_TYPE_NONE
+};
+
+/*
  * @struct MediaProtectionInfo
  * @brief Protection data structure which holds the system ID and PSSH blob
  */
@@ -105,14 +118,12 @@ struct MediaCodecInfo
 	MediaCodecInfo(MediaCodecInfo&& other) noexcept
         : mCodecFormat(std::move(other.mCodecFormat))
         , mCodecData(std::move(other.mCodecData))
-        , mIsEncrypted(std::move(other.mIsEncrypted))
+        , mIsEncrypted(other.mIsEncrypted)
         , mInfo(std::move(other.mInfo))
     {
         // Explicitly reset the source object to default state after move
         other.mCodecFormat = GST_FORMAT_INVALID;
         other.mIsEncrypted = false;
-        std::memset(&other.mInfo, 0, sizeof(other.mInfo));
-        // mCodecData is already empty after std::move
     }
 
 	/** Move assignment operator for MediaCodecInfo
@@ -124,14 +135,12 @@ struct MediaCodecInfo
 		{
 			mCodecFormat = std::move(other.mCodecFormat);
 			mCodecData = std::move(other.mCodecData);
-			mIsEncrypted = std::move(other.mIsEncrypted);
+			mIsEncrypted = other.mIsEncrypted;
 			mInfo = std::move(other.mInfo);
 
 			// Explicitly reset the source object to default state after move
 			other.mCodecFormat = GST_FORMAT_INVALID;
 			other.mIsEncrypted = false;
-			std::memset(&other.mInfo, 0, sizeof(other.mInfo));
-			// mCodecData is already empty after std::move
 		}
 		return *this;
 	}
@@ -144,9 +153,9 @@ struct MediaCodecInfo
 struct MediaDrmMetadata
 {
 	bool mIsEncrypted;
-	std::string mKeyId; // 16 bytes UUID
+	std::vector<uint8_t> mKeyId; // 16 bytes UUID
 	std::vector<uint8_t> mIV; // 8 or 16 bytes
-	std::string mCipher; // e.g. 'cenc', 'cbcs'
+	CipherType mCipher;
 	std::vector<uint8_t> mSubSamples; // optional subsample encryption data
 	uint16_t mNumSubSamples; // number of subsamples
 	uint8_t mCryptByteBlock;
@@ -155,7 +164,7 @@ struct MediaDrmMetadata
 	/**
 	 * @brief Constructor for MediaDrmMetadata
 	 */
-	MediaDrmMetadata() : mIsEncrypted(false), mKeyId(), mIV(), mCipher(),
+	MediaDrmMetadata() : mIsEncrypted(false), mKeyId(), mIV(), mCipher(CIPHER_TYPE_NONE),
 		mSubSamples(), mNumSubSamples(0), mCryptByteBlock(0), mSkipByteBlock(0)
 	{
 	}
@@ -168,7 +177,7 @@ struct MediaDrmMetadata
 		: mIsEncrypted(other.mIsEncrypted),
 		  mKeyId(std::move(other.mKeyId)),
 		  mIV(std::move(other.mIV)),
-		  mCipher(std::move(other.mCipher)),
+		  mCipher(other.mCipher),
 		  mSubSamples(std::move(other.mSubSamples)),
 		  mNumSubSamples(other.mNumSubSamples),
 		  mCryptByteBlock(other.mCryptByteBlock),
@@ -176,9 +185,6 @@ struct MediaDrmMetadata
 	{
 		// Reset source object to default state after move
 		other.mIsEncrypted = false;
-		other.mNumSubSamples = 0;
-		other.mCryptByteBlock = 0;
-		other.mSkipByteBlock = 0;
 	}
 
 	/**
@@ -193,7 +199,7 @@ struct MediaDrmMetadata
 			mIsEncrypted = other.mIsEncrypted;
 			mKeyId = std::move(other.mKeyId);
 			mIV = std::move(other.mIV);
-			mCipher = std::move(other.mCipher);
+			mCipher = other.mCipher;
 			mSubSamples = std::move(other.mSubSamples);
 			mNumSubSamples = other.mNumSubSamples;
 			mCryptByteBlock = other.mCryptByteBlock;
@@ -201,9 +207,6 @@ struct MediaDrmMetadata
 
 			// Reset source object to default state after move
 			other.mIsEncrypted = false;
-			other.mNumSubSamples = 0;
-			other.mCryptByteBlock = 0;
-			other.mSkipByteBlock = 0;
 		}
 		return *this;
 	}
@@ -255,9 +258,6 @@ struct MediaSample
 		// Reset source object to default state after move
 		other.mData = nullptr;
 		other.mDataSize = 0;
-		other.mPts = 0;
-		other.mDts = 0;
-		other.mDuration = 0;
 	}
 	/* @brief Move assignment operator for MediaSample
 	 * @param other Source MediaSample to move from
@@ -277,9 +277,6 @@ struct MediaSample
 			// Reset source object to default state after move
 			other.mData = nullptr;
 			other.mDataSize = 0;
-			other.mPts = 0;
-			other.mDts = 0;
-			other.mDuration = 0;
 		}
 		return *this;
 	}
