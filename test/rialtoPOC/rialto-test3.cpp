@@ -9,7 +9,7 @@
 #include <queue>
 #include <condition_variable>
 #include "mp4demux.hpp"
-#include "rialto-gst-pipeline.h"
+#include "rialto-pipeline3.h"
 
 static const int64_t NS_SECOND = 1000000000LL;
 

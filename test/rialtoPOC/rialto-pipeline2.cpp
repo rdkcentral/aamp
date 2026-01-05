@@ -1,4 +1,4 @@
-#include "rialto-gst-pipeline.h"
+#include "rialto-pipeline2.h"
 #include <assert.h>
 #include <inttypes.h>
 #include <gst/app/gstappsrc.h>

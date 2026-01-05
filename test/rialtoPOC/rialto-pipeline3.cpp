@@ -1,4 +1,4 @@
-#include "rialto-gst-pipeline.h"
+#include "rialto-pipeline3.h"
 #include <iostream>
 #include <vector>
 #include <cassert>

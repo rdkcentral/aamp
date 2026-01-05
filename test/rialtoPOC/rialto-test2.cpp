@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "mp4demux.hpp"
-#include "rialto-gst-pipeline.h"
+#include "rialto-pipeline2.h"
 
 static Mp4Demux trackAudio;
 static Mp4Demux trackVideo;
