@@ -547,6 +547,44 @@ install(TARGETS gstTestHarness
 # XCode schema target
 xcode_define_schema(gstTestHarness)
 
+# Rialto POC
+set(RIALTOPOC_SOURCES
+	test/gstTestHarness/mp4demux.hpp
+	test/rialtoPOC/rialto-pipeline.cpp
+	test/rialtoPOC/rialto-pipeline.h
+	test/rialtoPOC/rialto-test.cpp
+)
+
+find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto)
+find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
+include( FindPackageHandleStandardArgs )
+find_package_handle_standard_args( RIALTO DEFAULT_MSG
+        RIALTO_LIBRARY RIALTO_INCLUDE_DIR )
+
+mark_as_advanced(
+    RIALTO_INCLUDE_DIR
+    RIALTO_LIBRARY
+    RIALTO_GSTREAMER_INCLUDE_DIR
+)
+
+if( RIALTO_FOUND )
+    set( RIALTO_LIBRARIES ${RIALTO_LIBRARY} )
+    set(RIALTO_INCLUDE_DIRS
+		${RIALTO_INCLUDE_DIR}
+		${RIALTO_GSTREAMER_INCLUDE_DIR}
+)
+endif()
+
+if( RIALTO_FOUND AND NOT TARGET Rialto::RialtoClient )
+    add_library( Rialto::RialtoClient SHARED IMPORTED )
+    set_target_properties( Rialto::RialtoClient PROPERTIES
+            IMPORTED_LOCATION "${RIALTO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${RIALTO_INCLUDE_DIR}" )
+endif()
+
+add_executable(rialtoPOC ${RIALTOPOC_SOURCES})
+target_link_libraries(rialtoPOC ${RIALTO_LIBRARIES} "-lreadline" Rialto::RialtoClient)
+
 #TODO: Decide which are the actual public headers
 install(FILES
 	Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h
