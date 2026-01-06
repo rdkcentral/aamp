@@ -11022,14 +11022,14 @@ int PrivateInstanceAAMP::GetTextTrack()
 				}
 			}
 		}
-		AAMPLOG_INFO("idx %d", idx);
+		AAMPLOG_MIL("idx %d", idx);
 	}
 	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
 	ReleaseStreamLock();
-	AAMPLOG_INFO("idx %d", idx);
+	AAMPLOG_MIL("idx %d", idx);
 	return idx;
 }
 
