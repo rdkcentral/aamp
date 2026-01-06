@@ -241,7 +241,8 @@ struct CurlCallbackContext
 		eTRANSFER_STATE_PENDING_CHUNK_START_LF, // chunk size read, along with following CR delimiter - waiting for LF
 		eTRANSFER_STATE_READING_CHUNK_DATA, // collecting binary payload for chunk
 		eTRANSFER_STATE_PENDING_CHUNK_END_CR, // chunk payload has been read, next byte expected to be chunk-end CR
-		eTRANSFER_STATE_PENDING_CHUNK_END_LF // chunk payload and first CR delimiter read; waiting for LF
+		eTRANSFER_STATE_PENDING_CHUNK_END_LF, // chunk payload and first CR delimiter read; waiting for LF
+		eTRANSFER_STATE_ERROR
 	} TransferState;
 	struct
 	{

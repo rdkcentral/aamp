@@ -417,9 +417,11 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
 /**
  * @brief map ascii character to base16 number
  * @param c '0'..'9', 'a'..'f', or 'A'..'F'
- * @retval corredponding number (0..15) for character or -1 if invalid
+ * @retval corresponding number (0..15) for character or -1 if invalid
  */
 int aamp_hascii_char_to_number( char c );
+
+/**
  * @fn isTuneScheme
  *
  * @param[in] uri
