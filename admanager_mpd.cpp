@@ -25,6 +25,7 @@
 #include "admanager_mpd.h"
 #include "AampUtils.h"
 #include "fragmentcollector_mpd.h"
+#include "AampCacheHandler.h"
 #include <inttypes.h>
 
 #include <algorithm>
@@ -59,7 +60,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
 	StartFulfillAdLoop();
@@ -537,8 +538,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 
 			for(iter = 0; iter < periods.size(); iter++)
 			{
-				auto period = periods.at(iter);
-				const std::string &periodId = period->GetId();
+				const std::string &periodId = periods.at(iter)->GetId();
 				//We need to check, end period is available in the manifest. Else, something wrong
 				if(abObj.endPeriodId == periodId)
 				{
@@ -685,11 +685,11 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				std::string adBreakIdToRemove = mPlacementObj.pendingAdbrkId;
 				if(!mAdtoInsertInNextBreakVec.empty())
 				{
-					mPlacementObj = setPlacementObj(mPlacementObj.pendingAdbrkId,abObj.endPeriodId);
+					mPlacementObj = UpdatePlacementObj(mPlacementObj.pendingAdbrkId, abObj.endPeriodId);
 					// Remove the placement object that was placed completely
-					RemovePlacementObj(adBreakIdToRemove);
+					RemovePlacementObj(std::move(adBreakIdToRemove));
 				}
-				AAMPLOG_INFO("[CDAI] num of adbrks avail: %zu",mAdtoInsertInNextBreakVec.size());
+				AAMPLOG_INFO("[CDAI] num of adbrks avail: %zu", mAdtoInsertInNextBreakVec.size());
 			}
 		}
 	}
@@ -828,7 +828,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 			AdNode &curAd = abObj.ads->at(adIdx);
 			if(!curAd.placed)
 			{
-				for(auto placementObj: mAdtoInsertInNextBreakVec)
+				for(const auto& placementObj: mAdtoInsertInNextBreakVec)
 				{
 					if(curP2Ad.adBreakId == placementObj.pendingAdbrkId)
 					{
@@ -878,10 +878,11 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
  * @param[out] finalManifest - Is final MPD or the final MPD should be downloaded later
  * @param[out] http_error - http error code
  * @param[out] downloadTime - Time taken to download the manifest
+ * @param[out] errorCode - AAMPCDAIError Error code if any.
  * @param[in]  tryFog - Attempt to download from FOG or not
  * @return MPD* MPD instance
  */
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
 {
 	MPD* adMpd = NULL;
 	AampGrowableBuffer manifest("adMPD_CDN");
@@ -907,7 +908,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			finalManifest = true;
 		}
-		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
+		std::string manifestStr(manifest.GetPtr(), manifest.GetLen());
+		xmlTextReaderPtr reader = xmlReaderForMemory(manifestStr.c_str(), (int) manifestStr.size(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
 			std::string channelUrl = mAamp->GetManifestUrl();	//TODO: Get FOG URL from channel URL
@@ -935,12 +937,13 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
-				manifestUrl = effectiveUrl;
+				manifestUrl = std::move(effectiveUrl);
 				if(200 == http_error)
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
 					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.GetLen(), NULL, NULL, 0);
+					manifestStr.assign(fogManifest.GetPtr(), fogManifest.GetLen());
 					manifest.Free();
 					manifest.Replace(&fogManifest);
 				}
@@ -948,6 +951,11 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					finalManifest = false;
 				}
+			}
+			else
+			{
+				AAMPLOG_ERR("PrivateCDAIObjectMPD:: FOG manifest download failed with http_error %d", http_error);
+				// Optionally, return early or handle as needed
 			}
 
 			if(fogManifest.GetPtr())
@@ -957,89 +965,184 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		}
 		if (reader != NULL)
 		{
-			if (xmlTextReaderRead(reader))
+			// Cache the init headers before processing the manifest nodes
+			if (FetchAndCacheInitHeaders(manifestStr, manifestUrl, errorCode))
 			{
-				Node* root = MPDProcessNode(&reader, manifestUrl, true);
-				if (NULL != root)
+				if (xmlTextReaderRead(reader))
 				{
-					std::vector<Node*> children = root->GetSubNodes();
-					for (size_t i = 0; i < children.size(); i++)
+					Node *root = MPDProcessNode(&reader, manifestUrl, true);
+					if (NULL != root)
 					{
-						Node* child = children.at(i);
-						const std::string& name = child->GetName();
-						AAMPLOG_INFO("PrivateCDAIObjectMPD:: child->name %s", name.c_str());
-						if (name == "Period")
+						std::vector<Node *> children = root->GetSubNodes();
+						for (size_t i = 0; i < children.size(); i++)
 						{
-							AAMPLOG_INFO("PrivateCDAIObjectMPD:: found period");
-							std::vector<Node *> children = child->GetSubNodes();
-							bool hasBaseUrl = false;
-							for (size_t i = 0; i < children.size(); i++)
+							Node *child = children.at(i);
+							const std::string &name = child->GetName();
+							AAMPLOG_INFO("PrivateCDAIObjectMPD:: child->name %s", name.c_str());
+							if (name == "Period")
 							{
-								if (children.at(i)->GetName() == "BaseURL")
-								{
-									hasBaseUrl = true;
-								}
-							}
-							if (!hasBaseUrl)
-							{
-								// BaseUrl not found in the period. Get it from the root and put it in the period
-								children = root->GetSubNodes();
+								AAMPLOG_INFO("PrivateCDAIObjectMPD:: found period");
+								std::vector<Node *> children = child->GetSubNodes();
+								bool hasBaseUrl = false;
 								for (size_t i = 0; i < children.size(); i++)
 								{
 									if (children.at(i)->GetName() == "BaseURL")
 									{
-										Node* baseUrl = new Node(*children.at(i));
-										child->AddSubNode(baseUrl);
 										hasBaseUrl = true;
-										break;
 									}
 								}
+								if (!hasBaseUrl)
+								{
+									// BaseUrl not found in the period. Get it from the root and put it in the period
+									children = root->GetSubNodes();
+									for (size_t i = 0; i < children.size(); i++)
+									{
+										if (children.at(i)->GetName() == "BaseURL")
+										{
+											Node *baseUrl = new Node(*children.at(i));
+											child->AddSubNode(baseUrl);
+											hasBaseUrl = true;
+											break;
+										}
+									}
+								}
+								if (!hasBaseUrl)
+								{
+									std::string baseUrlStr = Path::GetDirectoryPath(manifestUrl);
+									Node *baseUrl = new Node();
+									baseUrl->SetName("BaseURL");
+									baseUrl->SetType(Text);
+									baseUrl->SetText(baseUrlStr);
+									AAMPLOG_INFO("PrivateCDAIObjectMPD:: manual adding BaseURL Node [%p] text %s",
+												 baseUrl, baseUrl->GetText().c_str());
+									child->AddSubNode(baseUrl);
+								}
+								break;
 							}
-							if (!hasBaseUrl)
-							{
-								std::string baseUrlStr = Path::GetDirectoryPath(manifestUrl);
-								Node* baseUrl = new Node();
-								baseUrl->SetName("BaseURL");
-								baseUrl->SetType(Text);
-								baseUrl->SetText(baseUrlStr);
-								AAMPLOG_INFO("PrivateCDAIObjectMPD:: manual adding BaseURL Node [%p] text %s",
-								         baseUrl, baseUrl->GetText().c_str());
-								child->AddSubNode(baseUrl);
-							}
-							break;
 						}
+						adMpd = root->ToMPD();
+						SAFE_DELETE(root);
 					}
-					adMpd = root->ToMPD();
-					SAFE_DELETE(root);
+					else
+					{
+						AAMPLOG_ERR("Could not create root node");
+						errorCode = eCDAI_ERROR_INVALID_MANIFEST;
+				}
 				}
 				else
 				{
-					AAMPLOG_ERR("Could not create root node");
-				}
-			}
-			else
-			{
+					errorCode = eCDAI_ERROR_INVALID_MANIFEST;
 				AAMPLOG_ERR("xmlTextReaderRead failed");
+				}
 			}
 			xmlFreeTextReader(reader);
 		}
 		else
 		{
 			AAMPLOG_ERR("xmlReaderForMemory failed");
+			errorCode = eCDAI_ERROR_INVALID_MANIFEST;
 		}
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			manifest.AppendNulTerminator(); // make safe for cstring operations
-			printf("***Ad manifest***:\n\n%s\n", manifest.GetPtr() );
+			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.GetLen(), manifest.GetPtr() );
 		}
 		manifest.Free();
 	}
 	else
 	{
 		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
+		if (http_error != CURLE_ABORTED_BY_CALLBACK)
+		{
+			errorCode = (http_error<100)? eCDAI_ERROR_DELIVERY_ERROR : eCDAI_ERROR_DELIVERY_HTTP_ERROR;
+		}
 	}
 	return adMpd;
+}
+
+/**
+ * @brief Insert to the placement queue if not already present
+ * @param[in] periodId Period ID for ad placement
+ */
+void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
+{
+	if(isPeriodExist(periodId) && mPeriodMap[periodId].offset2Ad.empty())
+	{
+		//First Ad placement is doing now.
+		mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
+	}
+
+	// Add entry to mAdtoInsertInNextBreakVec if not already present
+	auto placementIter = std::find_if(mAdtoInsertInNextBreakVec.begin(), mAdtoInsertInNextBreakVec.end(),
+									[periodId] (const PlacementObj &obj) {
+										return obj.pendingAdbrkId == periodId;
+									});
+
+	if (placementIter == mAdtoInsertInNextBreakVec.end())
+	{
+		if(mPlacementObj.curAdIdx == -1)
+		{
+			mPlacementObj.pendingAdbrkId = periodId;
+			mPlacementObj.openPeriodId = periodId;
+			mPlacementObj.curEndNumber = 0;
+			mPlacementObj.curAdIdx = 0;
+			mPlacementObj.adNextOffset = 0;
+			mPlacementObj.adStartOffset = 0;
+			mPlacementObj.waitForNextPeriod = false;
+			mAdtoInsertInNextBreakVec.push_back(mPlacementObj);
+			AAMPLOG_WARN("Next available DAI Ad break = %s", periodId.c_str());
+		}
+		else
+		{
+			// Add to an array of DAI ad's for B2B substitution
+			mAdtoInsertInNextBreakVec.emplace_back(periodId, periodId, 0, 0, 0, 0, false);
+		}
+	}
+}
+
+/**
+ * @fn ValidateAdManifest
+ * @brief Validate the ad manifest for basic requirements
+ * @param[in] adMPDParseHelper - AampMPDParseHelper reference of the ad manifest
+ * @param[in] adErrorCode - Ad error code to be set in case of failure
+ */
+void PrivateCDAIObjectMPD::ValidateAdManifest(AampMPDParseHelper& adMPDParseHelper, AAMPCDAIError& adErrorCode)
+{
+	const auto& ad = adMPDParseHelper.getMPD();
+	// Check if the ad has exactly one period
+	if (ad->GetPeriods().size() != 1)
+	{
+		adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+	}
+	else
+	{
+		// Use adMPDParseHelper to check for audio and video
+		const auto& period = ad->GetPeriods().front();
+		if (period->GetAdaptationSets().size() == 0)
+		{
+			adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+		}
+		else
+		{
+			bool hasVideo = false;
+			bool hasAudio = false;
+			for (const auto& adaptation : period->GetAdaptationSets())
+			{
+				if (adMPDParseHelper.IsContentType(adaptation, eMEDIATYPE_VIDEO))
+				{
+					hasVideo = true;
+				}
+				if (adMPDParseHelper.IsContentType(adaptation, eMEDIATYPE_AUDIO))
+				{
+					hasAudio = true;
+				}
+			}
+			if (!hasVideo || !hasAudio)
+			{
+				adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+			}
+		}
+	}
 }
 
 /**
@@ -1052,6 +1155,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
+	AAMPCDAIError adErrorCode = eCDAI_ERROR_NONE;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -1059,60 +1163,35 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	std::lock_guard<std::mutex> lock( mDaiMtx );
 	int http_error = 0;
 	double downloadTime = 0;
-	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, true);
+	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
 	if(ad)
 	{
 		adMPDParseHelper.Initialize(ad);
-		auto periodId = mAdFulfillObj.periodId;
-		if(ad->GetPeriods().size() && isAdBreakObjectExist(periodId))	// Ad has periods && ensuring that the adbreak still exists
+		ValidateAdManifest(adMPDParseHelper, adErrorCode);
+		const auto &periodId = mAdFulfillObj.periodId;
+		if(isAdBreakObjectExist(periodId))	// Ad has periods && ensuring that the adbreak still exists
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
 			AdNodeVectorPtr adBreakAssets = adbreakObj.ads;
-			durationMs = (uint32_t)adMPDParseHelper.GetDurationFromRepresentation();
+			if (adErrorCode == eCDAI_ERROR_NONE)
+			{
+				durationMs = (uint32_t)adMPDParseHelper.GetDurationFromRepresentation();
 
-			startMS = adbreakObj.adsDuration;
-			uint32_t availSpace = (uint32_t)(adbreakObj.brkDuration - startMS);
-			if(availSpace < durationMs)
-			{
-				AAMPLOG_MIL("Adbreak's available space[%u] < Ad's Duration[%u]. Trimming the Ad.",  availSpace, durationMs);
-				durationMs = availSpace;
+				startMS = adbreakObj.adsDuration;
+				uint32_t availSpace = (uint32_t)(adbreakObj.brkDuration - startMS);
+				if(availSpace < durationMs)
+				{
+					AAMPLOG_MIL("Adbreak's available space[%u] < Ad's Duration[%u]. Trimming the Ad.",  availSpace, durationMs);
+					durationMs = availSpace;
+				}
+				adbreakObj.adsDuration += durationMs;
 			}
-			adbreakObj.adsDuration += durationMs;
 
-			// Add offset to mPeriodMap
-			if(isPeriodExist(periodId) && mPeriodMap[periodId].offset2Ad.empty())
-			{
-				//First Ad placement is doing now.
-				mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
-			}
-			// Add entry to mAdtoInsertInNextBreakVec if not already present
-			auto placementIter = std::find_if(mAdtoInsertInNextBreakVec.begin(), mAdtoInsertInNextBreakVec.end(), [periodId](const PlacementObj &obj) { return obj.pendingAdbrkId == periodId; });
-			if (placementIter == mAdtoInsertInNextBreakVec.end())
-			{
-				//If current ad index is -1 (that is no ads are pushed into the map yet), current ad placement can take place from here itself.
-				//Otherwise, the Player need to wait until the current ad placement is done.
-				if(mPlacementObj.curAdIdx == -1 )
-				{
-					mPlacementObj.pendingAdbrkId = periodId;
-					mPlacementObj.openPeriodId = periodId;	//May not be available Now.
-					mPlacementObj.curEndNumber = 0;
-					mPlacementObj.curAdIdx = 0;
-					mPlacementObj.adNextOffset = 0;
-					mPlacementObj.adStartOffset = 0;
-					mPlacementObj.waitForNextPeriod = false;
-					mAdtoInsertInNextBreakVec.push_back(mPlacementObj);
-					AAMPLOG_WARN("Next available DAI Ad break = %s",mPlacementObj.pendingAdbrkId.c_str());
-				}
-				else
-				{
-					// Add to an array of DAI ad's for B2B substitution
-					mAdtoInsertInNextBreakVec.emplace_back(periodId, periodId, 0, 0, 0, 0, false);
-				}
-			}
 			if(!finalManifest)
 			{
 				AAMPLOG_INFO("Final manifest to be downloaded from the FOG later. Deleting the manifest got from CDN.");
 				SAFE_DELETE(ad);
+				adMPDParseHelper.Clear();
 			}
 			if (!adBreakAssets->empty())
 			{
@@ -1122,6 +1201,26 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 					AdNode &node = adBreakAssets->at(iter);
 					if (node.adId == mAdFulfillObj.adId)
 					{
+						// If ad marked invalid, sent ad resolved with error
+						if (node.invalid)
+						{
+							adErrorCode = eCDAI_ERROR_DELIVERY_TIMEOUT;
+							adStatus = false;
+						}
+						else
+						{
+							// If any error encountered during ad MPD validation, mark the ad as invalid
+							if (adErrorCode != eCDAI_ERROR_NONE)
+							{
+								node.invalid = true;
+							}
+							else
+							{
+								// Insert the adbreak to placement queue if not already present
+								InsertToPlacementQueue(periodId);
+								adStatus = true;
+							}
+						}
 						node.mpd = ad;
 						node.duration = durationMs;
 						if (iter == 0)
@@ -1132,7 +1231,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						else
 						{
 							// For subsequent ads in an adbreak, basePeriodId and basePeriodOffset will be filled on placement
-							node.basePeriodId ="";
+							node.basePeriodId = "";
 							node.basePeriodOffset = -1;
 						}
 						node.url = mAdFulfillObj.url;
@@ -1140,25 +1239,26 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						break;
 					}
 				}
+				// Resolve the full adbreak object, this is used for conditional wait if it was primarily waiting on this ad
+				adbreakObj.resolved = true;
 			}
 			else
 			{
-				// Handle the case where the vector is empty if necessary
-				// For example, you might want to push the new node if the vector is empty
-				AAMPLOG_WARN("AdBreakAssets is empty. Adding new Ad, May be a BUG in fulfill queue.");
-				adBreakAssets->emplace_back(AdNode{false, false, true, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, periodId, 0, ad});
+				adErrorCode = eCDAI_ERROR_UNKNOWN;
+				AAMPLOG_WARN("AdBreakAssets is empty. Skip adding new ad, maybe a BUG in fulfill queue.");
 			}
 			AAMPLOG_MIL("New Ad successfully for periodId : %s added[Id=%s, url=%s, durationMs=%" PRIu32 "].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(), durationMs);
-			adStatus = true;
 		}
 		else
 		{
+			adErrorCode = eCDAI_ERROR_UNKNOWN;
 			AAMPLOG_ERR("AdBreakId[%s] not existing. Dropping the Ad.", periodId.c_str());
 			SAFE_DELETE(ad);
 		}
 	}
 	else
 	{
+		// If the error is CURLE_ABORTED_BY_CALLBACK, it means the ad fulfillment was aborted due to a seek/trickplay/tune away
 		if(CURLE_ABORTED_BY_CALLBACK == http_error)
 		{
 			AAMPLOG_ERR("Ad MPD[%s] download aborted.", mAdFulfillObj.url.c_str());
@@ -1170,7 +1270,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			if(isAdBreakObjectExist(mAdFulfillObj.periodId))
 			{
 				// Retrieve the ad break object
-				auto &adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
+				const auto &adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
 				// Ensure the ad break object and its ads vector are valid
 				if(adbreakObj.ads)
 				{
@@ -1196,7 +1296,11 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	{
 		// Send the resolved event to the player
 		AbortWaitForNextAdResolved();
-		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+		if(!adStatus && adErrorCode == eCDAI_ERROR_NONE)
+		{
+			adErrorCode = eCDAI_ERROR_UNKNOWN;
+		}
+		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs, adErrorCode);
 	}
 	return ret;
 }
@@ -1219,7 +1323,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		if(!(isAdBreakObjectExist(periodId)))
 		{
 			auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
-			mAdBreaks.emplace(periodId, AdBreakObject{breakdur, adBreakAssets, "", 0, 0});	//Fix the duration after getting the Ad
+			mAdBreaks.emplace(periodId, AdBreakObject{breakdur, std::move(adBreakAssets), "", 0, 0});	//Fix the duration after getting the Ad
 			Period2AdData &pData = mPeriodMap[periodId];
 			pData.adBreakId = periodId;
 		}
@@ -1227,12 +1331,18 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 	else
 	{
 		bool adCached = false;
+		AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
 		if(isAdBreakObjectExist(periodId))
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
-			if(adbreakObj.brkDuration <= adbreakObj.adsDuration)
+			if (adbreakObj.invalid)
+			{
+				adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
+			}
+			else if (adbreakObj.brkDuration <= adbreakObj.adsDuration)
 			{
 				AAMPLOG_WARN("No more space left in the Adbreak. Rejecting the promise.");
+				adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
 			}
 			else
 			{
@@ -1244,19 +1354,19 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0, adErrorCode);
 		}
 	}
 }
 
 /**
- * @fn setPlacementObj
+ * @fn UpdatePlacementObj
  * @brief Function to update the PlacementObj with the new available DAI ad
  * @param[in] adBrkId : currentPlaying DAI AdId
  * @param[in] endPeriodId : nextperiod to play(after DAI playback)
  * @return new PlacementObj to be placed
  */
-PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::string endPeriodId)
+PlacementObj PrivateCDAIObjectMPD::UpdatePlacementObj(std::string adBrkId, std::string endPeriodId)
 {
 	PlacementObj nxtPlacementObj = PlacementObj();
 	std::lock_guard<std::mutex> guard(mAdBrkVecMtx);
@@ -1399,7 +1509,7 @@ void PrivateCDAIObjectMPD::FulfillAdLoop()
 		{
 			AdFulfillObj adFulfillObj = mAdFulfillQ.front();
 			lock.unlock();
-			mAdFulfillObj = adFulfillObj;
+			mAdFulfillObj = std::move(adFulfillObj);
 			AAMPLOG_INFO("Fulfilling Ad[%s] with URL[%s]", mAdFulfillObj.adId.c_str(), mAdFulfillObj.url.c_str());
 			if(FulFillAdObject())
 			{
@@ -1419,9 +1529,8 @@ void PrivateCDAIObjectMPD::FulfillAdLoop()
  */
 void PrivateCDAIObjectMPD::StartFulfillAdLoop()
 {
-	if(!mAdObjThreadStarted)
+	if(!mAdObjThreadID.joinable())
 	{
-		mAdObjThreadStarted = true;
 		mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulfillAdLoop, this);
 		AAMPLOG_INFO("Thread created mAdObjThreadID[%zx]", GetPrintableThreadID(mAdObjThreadID));
 	}
@@ -1432,12 +1541,12 @@ void PrivateCDAIObjectMPD::StartFulfillAdLoop()
  */
 void PrivateCDAIObjectMPD::StopFulfillAdLoop()
 {
-	if(mAdObjThreadStarted)
+	if(mAdObjThreadID.joinable())
 	{
 		mExitFulfillAdLoop = true;
 		NotifyAdLoopWait();
 		mAdObjThreadID.join();
-		mAdObjThreadStarted = false;
+		AAMPLOG_INFO("mAdObjThreadID joined.");
 	}
 }
 
@@ -1495,15 +1604,15 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 		auto& ads = this->mAdBreaks[mAdFulfillObj.periodId].ads;
 		auto adId = mAdFulfillObj.adId;
 		auto it = std::find_if(ads->begin(), ads->end(), [adId](const AdNode& node) {
-			return node.adId == adId;
+			return node.adId == std::move(adId);
 		});
 		if (it != ads->end())
 		{
 			if (!it->resolved)
 			{
 				AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
-				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [it] {
-					return it->resolved;
+				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &it] {
+					return it->resolved || !mAamp->DownloadsAreEnabled();
 				});
 			}
 			else
@@ -1527,18 +1636,24 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
 	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
-	if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs)) == std::cv_status::no_timeout)
+	if (isAdBreakObjectExist(periodId))
 	{
-		completed = true;
-	}
-	else
-	{
-		AAMPLOG_INFO("Timed out waiting for next ad placement.");
-		if(isAdBreakObjectExist(periodId))
+		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, periodId] {
+			return !mAamp->DownloadsAreEnabled() || mAdBreaks[periodId].resolved;
+		}))
 		{
+			completed = true;
+		}
+		else
+		{
+			AAMPLOG_INFO("Timed out waiting for next ad placement.");
 			// Mark the ad break as invalid
 			mAdBreaks[periodId].invalid = true;
 		}
+	}
+	else
+	{
+		AAMPLOG_INFO("AdBreakId[%s] not existing while waiting. Returning false.", periodId.c_str());
 	}
 	return completed;
 }
@@ -1607,5 +1722,153 @@ bool PrivateCDAIObjectMPD::GetNextAdInBreakToPlace()
 	}
 	// New Ad's offset
 	mPlacementObj.adNextOffset = 0;
+	return ret;
+}
+
+/**
+ * @brief Getting all init headers for the Ad
+ * @param[in] manifestStr - Manifest string
+ * @param[in] manifestUrl - Manifest URL
+ * @param[out] errorCode - AAMPCDAIError Error code if any.
+ * @return true if all init headers are fetched and cached successfully, false otherwise
+ */
+bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, std::string& manifestUrl, AAMPCDAIError &errorCode)
+{
+	bool ret = true;
+	std::shared_ptr<DashMPDDocument> mpdDoc = std::make_shared<DashMPDDocument>(manifestStr);
+	if (!mpdDoc || !mpdDoc->getRoot())
+	{
+		ret = false;
+		errorCode = eCDAI_ERROR_INVALID_MANIFEST;
+		AAMPLOG_ERR("Failed to parse MPD document or root is null");
+	}
+	else
+	{
+		auto periods = mpdDoc->getRoot()->getPeriods();
+		if (periods.empty())
+		{
+			ret = false;
+			errorCode = eCDAI_ERROR_INVALID_MANIFEST;
+			AAMPLOG_ERR("No periods found in the MPD document");
+		}
+		else
+		{
+			const auto& period = periods.at(0);
+			if (!period)
+			{
+				ret = false;
+				errorCode = eCDAI_ERROR_INVALID_MEDIA;
+				AAMPLOG_ERR("Period is null in the MPD document");
+			}
+			else
+			{
+				const auto& adaptationSets = period->getAdaptationSets();
+				for (AampMediaType track = eMEDIATYPE_VIDEO; track < eMEDIATYPE_SUBTITLE; track = static_cast<AampMediaType>(static_cast<int>(track) + 1))
+				{
+					bool initFragmentFetched = false;
+					for (const auto& adaptationSet : adaptationSets)
+					{
+						std::string mediaType = adaptationSet->getMediaType();
+						AAMPLOG_INFO("AdaptationSet mediaType[%s] track[%s]", mediaType.c_str(), GetMediaTypeName(track));
+						if (!(mediaType.empty() || strcasecmp(mediaType.c_str(), GetMediaTypeName(track)) == 0 || IsCompatibleMimeType(mediaType, track)))
+						{
+							continue;
+						}
+						if (track == eMEDIATYPE_VIDEO && adaptationSet->isIframeTrack())
+						{
+							continue;
+						}
+						const auto& representations = adaptationSet->getRepresentations();
+						if (representations.empty())
+						{
+							continue;
+						}
+						const auto& representation = representations.at(0);
+						if (!representation)
+						{
+							continue;
+						}
+						auto segmentTemplate = representation->getSegmentTemplate();
+						if (!segmentTemplate)
+						{
+							AAMPLOG_ERR("No segment template available for ad representation");
+							continue;
+						}
+						std::string fragmentUrl;
+						std::unique_ptr<FragmentDescriptor> fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+						fragmentDescriptor->manifestUrl = manifestUrl;
+						fragmentDescriptor->Bandwidth = static_cast<uint32_t>(representation->getBandwidth());
+						fragmentDescriptor->RepresentationID = representation->getId();
+						fragmentDescriptor->ClearMatchingBaseUrl();
+						if (!representation->getBaseUrls().empty())
+						{
+							fragmentDescriptor->AppendMatchingBaseUrl(representation->getBaseUrls());
+						}
+						else
+						{
+							fragmentDescriptor->AppendMatchingBaseUrl({Path::GetDirectoryPath(manifestUrl)});
+						}
+						AampMediaType actualMediaType = static_cast<AampMediaType>(eMEDIATYPE_INIT_VIDEO + track);
+						ConstructFragmentURL(fragmentUrl, fragmentDescriptor.get(), segmentTemplate->getInitializationAttr(), mAamp->mConfig);
+						if (fragmentUrl.empty())
+						{
+							continue;
+						}
+						std::shared_ptr<AampGrowableBuffer> adInit = std::make_shared<AampGrowableBuffer>("adInit");
+						int segment_http_error = 0;
+						double segment_downloadTime = 0;
+						AAMPLOG_INFO("Fetching init header %s for %s adId:%s periodId:%s", fragmentUrl.c_str(), GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit.get(), fragmentUrl);
+						if(!gotInit)
+						{
+							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit.get(), fragmentUrl, &segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
+							mAamp->UpdateVideoEndMetrics(actualMediaType, fragmentDescriptor->Bandwidth, segment_http_error, fragmentUrl, 0, segment_downloadTime);
+						}
+						if (gotInit)
+						{
+							AAMPLOG_INFO("Init header fetched successfully for %s adId:%s periodId:%s", GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit.get(), fragmentUrl, actualMediaType);
+							adInit->Free();
+							initFragmentFetched = true;
+							break;
+						}
+						else
+						{
+							AAMPLOG_ERR("Error on %s fragment fetch, error code: %d", GetMediaTypeName(actualMediaType), segment_http_error);
+							if (track == eMEDIATYPE_VIDEO)
+							{
+								break;
+							}
+						}
+					}
+					if (!initFragmentFetched)
+					{
+						if (isAdBreakObjectExist(mAdFulfillObj.periodId))
+						{
+							auto& adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
+							if (adbreakObj.ads)
+							{
+								for (auto& node : *adbreakObj.ads)
+								{
+									if (node.adId == mAdFulfillObj.adId)
+									{
+										AAMPLOG_ERR("Failed to fetch init fragment for %s adId:%s periodId:%s", GetMediaTypeName(track), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+										node.resolved = true;
+										node.invalid = true;
+										errorCode = eCDAI_ERROR_INVALID_MEDIA;
+										ret = false;
+									}
+								}
+							}
+						}
+						if (track == eMEDIATYPE_VIDEO)
+						{
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
 	return ret;
 }

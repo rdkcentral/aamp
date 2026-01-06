@@ -484,3 +484,29 @@ TEST_F(AampStreamSinkManagerTests,  CheckMultipipeline2)
     sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
     ASSERT_NE(nullptr, sink);
 }
+
+/*
+    @brief: - Microtests for AddMediaHeader, RemoveMediaHeader, and GetMediaHeader
+*/
+TEST_F(AampStreamSinkManagerTests, MediaHeader_AddGetRemove)
+{
+    auto& manager = AampStreamSinkManager::GetInstance();
+
+    // Create a MediaHeader and add it
+    auto header = std::make_shared<AampStreamSinkManager::MediaHeader>("http://test.url/init.mp4", "application/mp4");
+    int trackId = eMEDIATYPE_SUBTITLE;
+
+    manager.AddMediaHeader(trackId, header);
+
+    // GetMediaHeader should return the same header
+    auto retrieved = manager.GetMediaHeader(trackId);
+    ASSERT_NE(retrieved, nullptr);
+    EXPECT_EQ(retrieved->url, "http://test.url/init.mp4");
+    EXPECT_EQ(retrieved->mimeType, "application/mp4");
+    EXPECT_FALSE(retrieved->injected);
+
+    // RemoveMediaHeader should remove the header
+    manager.RemoveMediaHeader(trackId);
+    auto removed = manager.GetMediaHeader(trackId);
+    EXPECT_EQ(removed, nullptr);
+}

@@ -46,7 +46,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 	{
 		// Check if event is for current aamp instance,
 		// sometimes blocked events are delayed and in fast channel change
-		// senario , it is delivered late.
+		// scenario it is delivered late.
 		currentLocator =  aamp->GetManifestUrl();
 
 		if( 0 != currentLocator.compare(data.eventUrl))
@@ -79,7 +79,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 			AAMPLOG_WARN( "[OTA_SHIM] Received BLOCKED event from player with REASON: %s Current Ratings: %s",  data.reasonString.c_str(), data.ratingString.c_str());
 
 			aamp->SendAnomalyEvent(ANOMALY_WARNING,"BLOCKED REASON:%s", data.reasonString.c_str());
-			aamp->SendBlockedEvent(data.reasonString, currentLocator);
+			aamp->SendBlockedEvent(data.reasonString, std::move(currentLocator));
 			state = eSTATE_BLOCKED;
 			prevBlockedReason = data.reasonString;
 		}else if(0 == data.currState.compare("PLAYING"))
@@ -119,7 +119,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 	if( 0 == data.currState.compare("PLAYING") ||
 	   (0 == data.currState.compare("BLOCKED") && 0 == data.reasonString.compare("SERVICE_PIN_LOCKED")) )
 	{
-		if(PopulateMetaData(data))
+		if(PopulateMetaData(std::move(data)))
 		{
 			SendMediaMetadataEvent();
 
@@ -286,7 +286,7 @@ AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType)
 
 		thunderAccessObj.ActivatePlugin();
 		std::function<void(PlayerStatusData)> actualMethod = std::bind(&StreamAbstractionAAMP_OTA::onPlayerStatusHandler, this, std::placeholders::_1);
-		thunderAccessObj.RegisterOnPlayerStatusOta(actualMethod);
+		thunderAccessObj.RegisterOnPlayerStatusOta(std::move(actualMethod));
 	}
     return retval;
 }
@@ -322,7 +322,7 @@ StreamAbstractionAAMP_OTA::~StreamAbstractionAAMP_OTA()
 	else
 	{
 		std::string id = "3";
-        std:: string response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.release", "{\"id\":\"MainPlayer\",\"tag\" : \"MyApp\"}");
+        std:: string response = aamp_PostJsonRPC(std::move(id), "org.rdk.MediaPlayer.1.release", "{\"id\":\"MainPlayer\",\"tag\" : \"MyApp\"}");
         AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
 	}
 }
@@ -377,7 +377,7 @@ void StreamAbstractionAAMP_OTA::Start(void)
 			Request : {"jsonrpc":"2.0", "id":3, "method": "org.rdk.MediaPlayer.1.load", "params":{ "id":"MainPlayer", "url":"live://...", "autoplay": true} }
 			Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
 			*/
-			response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.load","{\"id\":\"MainPlayer\",\"url\":\""+url+"\",\"autoplay\":true}" );
+			response = aamp_PostJsonRPC(std::move(id), "org.rdk.MediaPlayer.1.load","{\"id\":\"MainPlayer\",\"url\":\""+url+"\",\"autoplay\":true}" );
 				AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
 				response.clear();
 			/*
@@ -393,7 +393,7 @@ void StreamAbstractionAAMP_OTA::Start(void)
 		else
 		{
 			
-			thunderAccessObj.StartOta(url, waylandDisplay, aamp->preferredLanguagesString, gATSCSettings.preferredLanguages, aamp->preferredRenditionString, gATSCSettings.preferredRendition);
+			thunderAccessObj.StartOta(std::move(url), std::move(waylandDisplay), aamp->preferredLanguagesString, gATSCSettings.preferredLanguages, aamp->preferredRenditionString, gATSCSettings.preferredRendition);
 
 		}
 	}
@@ -418,7 +418,7 @@ void StreamAbstractionAAMP_OTA::Stop(bool clearChannelData)
         Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
         */
         std::string id = "3";
-        std::string response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.stop", "{\"id\":\"MainPlayer\"}");
+        std::string response = aamp_PostJsonRPC(std::move(id), "org.rdk.MediaPlayer.1.stop", "{\"id\":\"MainPlayer\"}");
         AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
 	}
 	else
@@ -439,13 +439,13 @@ void StreamAbstractionAAMP_OTA::SetVideoRectangle(int x, int y, int w, int h)
         Response: { "jsonrpc":"2.0", "id":3, "result": { "success": true } }
         */
         std::string id = "3";
-        std::string response = aamp_PostJsonRPC(id, "org.rdk.MediaPlayer.1.setVideoRectangle", "{\"id\":\"MainPlayer\", \"x\":" + to_string(x) + ", \"y\":" + to_string(y) + ", \"w\":" + to_string(w) + ", \"h\":" + std::to_string(h) + "}");
+        std::string response = aamp_PostJsonRPC(std::move(id), "org.rdk.MediaPlayer.1.setVideoRectangle", "{\"id\":\"MainPlayer\", \"x\":" + to_string(x) + ", \"y\":" + to_string(y) + ", \"w\":" + to_string(w) + ", \"h\":" + std::to_string(h) + "}");
         AAMPLOG_WARN( "StreamAbstractionAAMP_OTA: response '%s'", response.c_str());
 	}
 	else
 	{
 		std::string videoInputType = "";
-		thunderAccessObj.SetVideoRectangle(x, y, w, h, videoInputType, PlayerThunderAccessShim::OTA_SHIM);
+		thunderAccessObj.SetVideoRectangle(x, y, w, h, std::move(videoInputType), PlayerThunderAccessShim::OTA_SHIM);
 	}
 }
 
@@ -534,7 +534,7 @@ void StreamAbstractionAAMP_OTA::SetPreferredAudioLanguages()
 		data.pluginPreferredLanguagesString = gATSCSettings.preferredLanguages;
 		data.preferredRenditionString = aamp->preferredRenditionString;
 		data.pluginPreferredRenditionString = gATSCSettings.preferredRendition;
-		thunderAccessObj.SetPreferredAudioLanguages(data, PlayerThunderAccessShim::OTA_SHIM);
+		thunderAccessObj.SetPreferredAudioLanguages(std::move(data), PlayerThunderAccessShim::OTA_SHIM);
 
 		if((0 != aamp->preferredLanguagesString.length()) && (aamp->preferredLanguagesString != gATSCSettings.preferredLanguages)){
 			modifiedLang = true;
@@ -612,11 +612,11 @@ void StreamAbstractionAAMP_OTA::GetAudioTracks()
 
 			std::string languageCode;
 			languageCode = Getiso639map_NormalizeLanguageCode(plyrAudData[i].language, aamp->GetLangCodePreference());
-			aTracks.push_back(AudioTrackInfo(index, /*idx*/ languageCode, /*lang*/ plyrAudData[i].contentType, /*rend*/ plyrAudData[i].name, /*name*/ plyrAudData[i].type, /*codecStr*/ plyrAudData[i].pk, /*primaryKey*/ plyrAudData[i].contentType, /*contentType*/ plyrAudData[i].mixType /*mixType*/));
+			aTracks.push_back(AudioTrackInfo(index, /*idx*/ std::move(languageCode), /*lang*/ plyrAudData[i].contentType, /*rend*/ plyrAudData[i].name, /*name*/ plyrAudData[i].type, /*codecStr*/ plyrAudData[i].pk, /*primaryKey*/ plyrAudData[i].contentType, /*contentType*/ plyrAudData[i].mixType /*mixType*/));
 		}
 
-		mAudioTracks = aTracks;
-		mAudioTrackIndex = aTrackIdx;
+		mAudioTracks = std::move(aTracks);
+		mAudioTrackIndex = std::move(aTrackIdx);
     }
 }
 
@@ -631,7 +631,7 @@ void StreamAbstractionAAMP_OTA::SetAudioTrack(int trackId)
 		tempStr = thunderAccessObj.SetAudioTrackOta(trackId, mAudioTracks[trackId].primaryKey);
 		if(!tempStr.empty())
 		{
-			mAudioTrackIndex = tempStr;
+			mAudioTrackIndex = std::move(tempStr);
 		}
 	}
 }
@@ -735,7 +735,7 @@ void StreamAbstractionAAMP_OTA::GetTextTracks()
 		txtTracks.push_back(TextTrackInfo("0", "und", true, empty, "Undetermined", "CC1", empty, 0 ));
 	}
 
-	mTextTracks = txtTracks;
+	mTextTracks = std::move(txtTracks);
 }
 
 /**
@@ -757,11 +757,10 @@ void StreamAbstractionAAMP_OTA::EnableContentRestrictions()
 /**
  * @brief Get output format of stream.
  */
-void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
     primaryOutputFormat = FORMAT_INVALID;
     audioOutputFormat = FORMAT_INVALID;
-	auxAudioOutputFormat = FORMAT_INVALID;
 	subtitleOutputFormat = FORMAT_INVALID;
 }
 

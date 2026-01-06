@@ -33,7 +33,12 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &accessNode)
 {
-   	Accessibility accessibilityNode;
+
+    Accessibility accessibilityNode;
+    if (g_mockStreamAbstractionAAMP_MPD)
+    {
+        accessibilityNode = g_mockStreamAbstractionAAMP_MPD->getAccessibilityNode(accessNode);
+    }
     return accessibilityNode;
 }
 
@@ -61,11 +66,11 @@ void StreamAbstractionAAMP_MPD::Start() {  }
 
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 
-double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() { 
+double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() {
 
     if (g_mockStreamAbstractionAAMP_MPD)
     {
@@ -274,4 +279,29 @@ void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int 
 bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 {
 	return true;
+}
+
+void StreamAbstractionAAMP_MPD::TsbReader()
+{
+
+}
+bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+	bool shouldFlush = false;
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		shouldFlush = g_mockStreamAbstractionAAMP_MPD->DoEarlyStreamSinkFlush(newTune, rate);
+	}
+	return shouldFlush;
+}
+bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity() { return false; }
+
+void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
+{
+
+}
+
+bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
+{
+	return false;
 }

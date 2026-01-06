@@ -20,7 +20,8 @@
 #include <iostream>
 #include <string>
 #include <string.h>
-#include<limits>
+#include <limits>
+#include "AampConfig.h"
 
 //include the google test dependencies
 #include <gtest/gtest.h>

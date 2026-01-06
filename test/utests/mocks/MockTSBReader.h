@@ -25,10 +25,14 @@ class MockTSBReader
 {
 public:
 	MOCK_METHOD(AAMPStatusType, Init, (double, float, TuneType));
-	MOCK_METHOD(TsbFragmentDataPtr, FindNext, (AampTime));
+	MOCK_METHOD(TsbFragmentDataPtr, FindNext, ());
 	MOCK_METHOD(void, ReadNext, (TsbFragmentDataPtr));
 	MOCK_METHOD(bool, IsFirstDownload, ());
 	MOCK_METHOD(float, GetPlaybackRate, ());
+	MOCK_METHOD(double, GetFirstPTS, ());
+	MOCK_METHOD(AampTime, GetFirstPTSOffset, ());
+	MOCK_METHOD(bool, TrackEnabled, ());
+	MOCK_METHOD(bool, IsEos, ());
 };
 
 extern std::shared_ptr<MockTSBReader> g_mockTSBReader;

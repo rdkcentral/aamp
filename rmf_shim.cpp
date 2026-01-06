@@ -109,7 +109,7 @@ void StreamAbstractionAAMP_RMF::Start(void)
 	std::function<void(std::string)> eventHandler = std::bind(&StreamAbstractionAAMP_RMF::onPlayerStatusHandler, this, std::placeholders::_1);
 	std::function<void(std::string)> errorHandler = std::bind(&StreamAbstractionAAMP_RMF::onPlayerErrorHandler, this, std::placeholders::_1);
 
-	if(!thunderAccessObj.StartRmf(url, eventHandler, errorHandler))
+	if(!thunderAccessObj.StartRmf(url, std::move(eventHandler), std::move(errorHandler)))
 	{
 		AAMPLOG_ERR("Failed to play RMF URL %s", url.c_str());
 	}
@@ -137,7 +137,7 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 void StreamAbstractionAAMP_RMF::SetVideoRectangle(int x, int y, int w, int h)
 {
 	std::string videoInputType = "";
-	if(true != thunderAccessObj.SetVideoRectangle(x, y, w, h, videoInputType, PlayerThunderAccessShim::RMF_SHIM))
+	if(true != thunderAccessObj.SetVideoRectangle(x, y, w, h, std::move(videoInputType), PlayerThunderAccessShim::RMF_SHIM))
 	{
 		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->GetManifestUrl().c_str());
 	}
@@ -207,7 +207,7 @@ void StreamAbstractionAAMP_RMF::SetPreferredAudioLanguages()
 	PlayerPreferredAudioData data;
 	data.preferredLanguagesString = aamp->preferredLanguagesString;
 	data.pluginPreferredLanguagesString = gRMFSettings.preferredLanguages;
-	thunderAccessObj.SetPreferredAudioLanguages(data, PlayerThunderAccessShim::RMF_SHIM);
+	thunderAccessObj.SetPreferredAudioLanguages(std::move(data), PlayerThunderAccessShim::RMF_SHIM);
 }
 
 /**
@@ -304,11 +304,10 @@ void StreamAbstractionAAMP_RMF::EnableContentRestrictions()
 /**
  * @brief Get output format of stream.
  */
-void StreamAbstractionAAMP_RMF::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_RMF::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 	primaryOutputFormat = FORMAT_INVALID;
 	audioOutputFormat = FORMAT_INVALID;
-	auxAudioOutputFormat = FORMAT_INVALID;
 	subtitleOutputFormat = FORMAT_INVALID;
 }
 

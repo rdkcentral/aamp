@@ -34,13 +34,14 @@
 #include "priv_aamp.h"
 #include <atomic>
 #include <algorithm>
-
-#include "InterfacePlayerPriv.h"
+#include "AampDRMLicManager.h"
+#include "InterfacePlayerRDK.h"
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
 #include "AampDefine.h"
 #include <functional>
+#include <inttypes.h>
 
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
@@ -265,7 +266,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::idleCb] = [this]()
 	{
 		UsingPlayerId playerId( aamp->mPlayerId );
-		aamp->ReportProgress();
+		aamp->MonitorProgress();
 
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
@@ -275,7 +276,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 		{
 			privateContext->mBufferControl[i].update(this, static_cast<AampMediaType>(i));
 		}
-		aamp->ReportProgress();
+		aamp->MonitorProgress();
 	};
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
@@ -389,7 +390,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
 	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
-	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback},
+	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{std::move(id3HandlerCallback)},
 	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
 
 {
@@ -403,15 +404,16 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->mEncryptedAamp = aamp;
 
 		this->cbExportYUVFrame = exportFrames;
-		playerInstance->gstCbExportYUVFrame = exportFrames;
+		playerInstance->gstCbExportYUVFrame = std::move(exportFrames);
 		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 		if(!debugLevel.empty())
 		{
-			playerInstance->EnableGstDebugLogging(debugLevel);
+			playerInstance->EnableGstDebugLogging(std::move(debugLevel));
 		}
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
-		playerInstance->setEncryption((void*)aamp);
+		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
+
 		RegisterFirstFrameCallbacks();
 		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
 	}
@@ -431,6 +433,7 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	UnregisterBusCb();
 	UnregisterFirstFrameCallbacks();
 	playerInstance->DestroyPipeline();
+	SAFE_DELETE(playerInstance);
 	SAFE_DELETE(privateContext);
 }
 
@@ -782,14 +785,14 @@ void AAMPGstPlayer::Stream()
 /**
  * @brief Configure pipeline based on A/V formats
  */
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
 
-	AAMPLOG_MIL("videoFormat %d audioFormat %d auxFormat %d subFormat %d",format, audioFormat, auxFormat, subFormat);
+	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d",format, audioFormat, subFormat);
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
@@ -800,8 +803,8 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
-	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
-									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
+	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
+									  bESChangeStatus,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();
@@ -856,8 +859,8 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
-	playerInstance->setEncryption((void*)mEncryptedAamp);
-
+ 	void*	mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
+	playerInstance->setEncryption((void*)mEncryptedAamp,(void*)mDRMSessionManager);
 }
 
 bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
@@ -880,7 +883,7 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 		playerInstance->ResumeInjector();
 	}
 	playerInstance->DisableDecoderHandleNotified();
-	m_ID3MetadataHandler = id3HandlerCallback;
+	m_ID3MetadataHandler = std::move(id3HandlerCallback);
 }
 /**
  * @brief Flush the track playbin
@@ -1032,7 +1035,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 
 	bool CompleteDiscontinuityDataDeliverForPTSRestamp =false;
 	bool shouldHaltBuffering = false;
-	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForCodecChange(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
+	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForElementaryStreamUpdate(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
 
 	if(CompleteDiscontinuityDataDeliverForPTSRestamp)
 	{
@@ -1109,21 +1112,6 @@ void AAMPGstPlayer::GetVideoSize(int &width, int &height)
 {
 	playerInstance->GetVideoSize( width, height);
 }
-
-/***
- * @fn  IsCodecSupported
- *
- * @brief Check whether Gstreamer platform has support of the given codec or not.
- *        codec to component mapping done in gstreamer side.
- * @param codecName - Name of codec to be checked
- * @return True if platform has the support else false
- */
-
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	return InterfacePlayerRDK::IsCodecSupported(codecName);
-}
-
 
 /**
  *  @brief Increase the rank of AAMP decryptor plugins
@@ -1266,8 +1254,8 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 		{
 			if(monitorAVState.tLastSampled == 0 || monitorAVState.description == nullptr)
 			{
-				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled(%lld) or description(%p) not available, skipping report",
-						monitorAVState.tLastSampled, monitorAVState.description);
+				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled((%" PRId64 ") or description(%p) not available, skipping report",
+						static_cast<int64_t>(monitorAVState.tLastSampled), monitorAVState.description);
 			}
 			else
 			{
@@ -1280,10 +1268,12 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 				{
 					timeInState = player->GetMonitorAVInterval(); // Cap to reporting interval
 				}
+				GstPlaybackQualityStruct* playbackQuality = player->playerInstance->GetVideoPlaybackQuality();
 				player->aamp->SendMonitorAvEvent(monitorAVState.description,
 						monitorAVState.av_position[eMEDIATYPE_VIDEO],
 						monitorAVState.av_position[eMEDIATYPE_AUDIO],
-						timeInState);
+						timeInState,
+						(playbackQuality && playbackQuality->dropped > 0) ? playbackQuality->dropped : 0);
 			}
 		}
 	}

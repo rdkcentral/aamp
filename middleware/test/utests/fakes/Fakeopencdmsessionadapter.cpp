@@ -24,6 +24,7 @@
 
 MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter = nullptr;
 std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
+const std::vector<std::vector<uint8_t>> g_emptyUsableKeys{};
 
 OCDMSessionAdapter::OCDMSessionAdapter(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks *callbacks) :
     DrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}
@@ -42,26 +43,26 @@ bool OCDMSessionAdapter::verifyOutputProtection()
     return ret_val;
 }
 
-void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData) 
+void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData)
 {
 
 }
 
-DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout) 
+DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
 {
     return nullptr;
 }
 
-int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout) 
+int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 {
     return 0;
 }
 
-KeyState OCDMSessionAdapter::getState() 
+KeyState OCDMSessionAdapter::getState()
 {
     return KEY_INIT;
 }
-void OCDMSessionAdapter::clearDecryptContext() 
+void OCDMSessionAdapter::clearDecryptContext()
 {
 }
 bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
@@ -69,3 +70,24 @@ bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
     return true;
 }
 
+/**
+ * @brief Get the list of usable key IDs from the DRM session
+ * @retval Reference to vector of usable key IDs
+ * @note Default implementation returns the reference to an empty vector
+ */
+const std::vector<std::vector<uint8_t>>& OCDMSessionAdapter::getUsableKeys() const
+{
+    if (g_mockOpenCdmSessionAdapter) {
+        return g_mockOpenCdmSessionAdapter->getUsableKeys();
+    }
+    return g_emptyUsableKeys;
+}
+
+#if defined(USE_OPENCDM_ADAPTER)
+void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
+{
+    if (g_mockOpenCdmSessionAdapter) {
+        g_mockOpenCdmSessionAdapter->setKeyId(keyId);
+    }
+}
+#endif

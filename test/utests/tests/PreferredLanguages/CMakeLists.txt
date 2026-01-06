@@ -19,28 +19,8 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME PreferredLanguages)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper  ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
-include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
-include_directories(${AAMP_ROOT}/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/middleware/externals)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-include_directories(${AAMP_ROOT}/middleware/vendor)
-
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LIBDASH_INCLUDE_DIRS})
-include_directories(${LibXml2_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES SetPreferredLanguagesTests.cpp
                  SetPreferredTextLanguagesTests.cpp
@@ -48,7 +28,8 @@ set(TEST_SOURCES SetPreferredLanguagesTests.cpp
 
 # These tests use the real AampJsonObject code.
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
-                 ${AAMP_ROOT}/AampJsonObject.cpp)
+                 ${AAMP_ROOT}/AampJsonObject.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

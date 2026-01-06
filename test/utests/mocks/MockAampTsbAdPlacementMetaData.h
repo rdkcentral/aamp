@@ -34,6 +34,8 @@ public:
 		: AampTsbAdPlacementMetaData(EventType::START, 0, 0, "", 0, 0) {}
 
 	MOCK_METHOD(Type, GetType, (), (const, override));
+	MOCK_METHOD(AdType, GetAdType, (), (const, override));
+	MOCK_METHOD(EventType, GetEventType, (), (const, override));
 	MOCK_METHOD(AampTime, GetPosition, (), (const, override));
 	MOCK_METHOD(void, SetPosition, (const AampTime& position), (override));
 	MOCK_METHOD(void, Dump, (const std::string& message), (const, override));

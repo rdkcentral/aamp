@@ -19,7 +19,7 @@
 
 #include "AampProfiler.h"
 
-ProfileEventAAMP::ProfileEventAAMP() : telemetryParam(nullptr)
+ProfileEventAAMP::ProfileEventAAMP() : telemetryParam(nullptr), mLldLowBuffObject(nullptr)
 {
 }
 
@@ -28,10 +28,6 @@ void ProfileEventAAMP::TuneBegin(void)
 }
 
 void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,std::string failureReason,std::string *tuneMetricData)
-{
-}
-
-void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationS, char *TuneTimeInfoStr)
 {
 }
 

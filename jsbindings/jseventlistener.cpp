@@ -120,7 +120,11 @@ public:
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("videoBufferedMiliseconds");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("audioBufferedMiliseconds");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("timecode");
@@ -941,6 +945,14 @@ public:
 		prop = JSStringCreateWithUTF8CString("placementDuration");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorCode");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getErrorCode().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorDescription");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getErrorDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 
@@ -1676,6 +1688,10 @@ public:
 		prop = JSStringCreateWithUTF8CString("timeInStateMs");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("droppedFrames");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDroppedFrames()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 
@@ -1797,112 +1813,126 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 {
 	LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
 
-	AAMP_JSEventListener* pListener = NULL;
+    // Check for duplicate: see if jsCallback is already registered for this event type
+	if (obj->_listeners.count(type) > 0)
+	{
+		auto range = obj->_listeners.equal_range(type);
+		for (auto iter = range.first; iter != range.second; ++iter)
+		{
+			auto listener = std::static_pointer_cast<AAMP_JSEventListener>(iter->second);
+			if (listener->p_jsCallback == jsCallback)
+			{
+				// Listener already registered for this type and callback, ignore registration
+				LOG_WARN_EX("Duplicate event listener registration ignored for type %d and callback %p", type, jsCallback);
+				return;
+			}
+		}
+	}
+	std::shared_ptr<AAMP_JSEventListener> pListener = NULL;
 
 	switch(type)
 	{
 		case AAMP_EVENT_STATE_CHANGED:
-			pListener = new AAMP_Listener_PlaybackStateChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_PlaybackStateChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_PROGRESS:
-			pListener = new AAMP_Listener_ProgressUpdate(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_ProgressUpdate>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_SPEED_CHANGED:
-			pListener = new AAMP_Listener_SpeedChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_SpeedChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BUFFERING_CHANGED:
-			pListener = new AAMP_Listener_BufferingChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_BufferingChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TUNE_FAILED:
-			pListener = new AAMP_Listener_PlaybackFailed(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_PlaybackFailed>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MEDIA_METADATA:
-			pListener = new AAMP_Listener_MediaMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_MediaMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_SPEEDS_CHANGED:
-			pListener = new AAMP_Listener_SpeedsChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_SpeedsChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_SEEKED:
-			pListener = new AAMP_Listener_Seeked(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_Seeked>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TUNE_PROFILING:
-			pListener = new AAMP_Listener_TuneProfiling(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_TuneProfiling>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:
-			pListener = new AAMP_Listener_CCHandleAvailable(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_CCHandleAvailable>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_DRM_METADATA:
-			pListener = new AAMP_Listener_DRMMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_DRMMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_REPORT_ANOMALY:
-			pListener = new AAMP_Listener_AnomalyReport(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AnomalyReport>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_WEBVTT_CUE_DATA:
-			pListener = new AAMP_Listener_VTTCueData(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_VTTCueData>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BULK_TIMED_METADATA:
-			pListener = new AAMP_Listener_BulkTimedMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_BulkTimedMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TIMED_METADATA:
-			pListener = new AAMP_Listener_TimedMetadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_TimedMetadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_HTTP_RESPONSE_HEADER:
-			pListener = new AAMP_Listener_HTTPResponseHeader(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_HTTPResponseHeader>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BITRATE_CHANGED:
-			pListener = new AAMP_Listener_BitrateChanged(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_BitrateChanged>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_RESOLVED:
-			pListener = new AAMP_Listener_AdResolved(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdResolved>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_RESERVATION_START:
-			pListener = new AAMP_Listener_AdReservationStart(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdReservationStart>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_RESERVATION_END:
-			pListener = new AAMP_Listener_AdReservationEnd(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdReservationEnd>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_START:
-			pListener = new AAMP_Listener_AdPlacementStart(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdPlacementStart>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_END:
-			pListener = new AAMP_Listener_AdPlacementEnd(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdPlacementEnd>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_PROGRESS:
-			pListener = new AAMP_Listener_AdProgress(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_AdProgress>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_ERROR:
-			pListener = new AAMP_Listener_AdPlacementError(obj, type, jsCallback);
-			break;
+			pListener = std::make_shared<AAMP_Listener_AdPlacementError>(obj, type, jsCallback);				break;
 		case AAMP_EVENT_ID3_METADATA:
-			pListener = new AAMP_Listener_Id3Metadata(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_Id3Metadata>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_BLOCKED:
-			pListener = new AAMP_Listener_Blocked(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_Blocked>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_CONTENT_GAP:
-			pListener = new AAMP_Listener_ContentGap(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_ContentGap>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_WATERMARK_SESSION_UPDATE:
-			pListener = new AAMP_Listener_WatermarkSessionUpdate(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_WatermarkSessionUpdate>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE:
-			pListener = new AAMP_Listener_ContentProtectionData(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_ContentProtectionData>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
-			pListener = new AAMP_Listener_DashManifestRefreshNotify(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_DashManifestRefreshNotify>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_TUNE_TIME_METRICS:
-			pListener = new AAMP_Listener_TuneMetricData(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_TuneMetricData>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_MONITORAV_STATUS:
-			pListener = new AAMP_Listener_MonitorAVStatus(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_MonitorAVStatus>(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,
 		// AAMP_EVENT_AUDIO_TRACKS_CHANGED, AAMP_EVENT_TEXT_TRACKS_CHANGED, AAMP_EVENT_NEED_MANIFEST_DATA
 		default:
 			// pListener = new AAMP_JSEventListener(obj, type, jsCallback);
-			pListener = new AAMP_Listener_DefaultEvent(obj, type, jsCallback);
+			pListener = std::make_shared<AAMP_Listener_DefaultEvent>(obj, type, jsCallback);
 			break;
 	}
 
@@ -1911,7 +1941,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		obj->_aamp->AddEventListener(type, pListener);
 	}
 
-	obj->_listeners.insert({type, (void *)pListener});
+	obj->_listeners.insert({type,(pListener)});
 }
 
 
@@ -1921,15 +1951,14 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
-
 	if (obj->_listeners.count(type) > 0)
 	{
 
-		typedef std::multimap<AAMPEventType, void*>::iterator listenerIter_t;
+		typedef std::multimap<AAMPEventType, std::shared_ptr<void>>::iterator listenerIter_t;
 		std::pair<listenerIter_t, listenerIter_t> range = obj->_listeners.equal_range(type);
 		for(listenerIter_t iter = range.first; iter != range.second; )
 		{
-			AAMP_JSEventListener *listener = (AAMP_JSEventListener *)iter->second;
+			auto listener = std::static_pointer_cast<AAMP_JSEventListener>((iter->second));
 			if (listener->p_jsCallback == jsCallback)
 			{
 				if (obj->_aamp != NULL)
@@ -1937,7 +1966,6 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 					obj->_aamp->RemoveEventListener(iter->first, listener);
 				}
 				iter = obj->_listeners.erase(iter);
-				SAFE_DELETE(listener);
 			}
 			else
 			{
@@ -1958,13 +1986,12 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 
 	for (auto listenerIter = obj->_listeners.begin(); listenerIter != obj->_listeners.end();)
 	{
-		AAMP_JSEventListener *listener = (AAMP_JSEventListener *)listenerIter->second;
+		auto listener = std::static_pointer_cast<AAMP_JSEventListener>((listenerIter->second));
 		if (obj->_aamp != NULL)
 		{
 			obj->_aamp->RemoveEventListener(listenerIter->first, listener);
 		}
 		listenerIter = obj->_listeners.erase(listenerIter);
-		SAFE_DELETE(listener);
 	}
 
 	obj->_listeners.clear();

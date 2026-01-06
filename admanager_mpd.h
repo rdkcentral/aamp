@@ -32,7 +32,9 @@
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
 #include "libdash/IMPD.h"
+#include "dash/mpd/MPDModel.h"
 #include "AampMPDParseHelper.h"
+#include "AampEvent.h"
 
 using namespace dash;
 using namespace std;
@@ -146,7 +148,7 @@ struct AdNode {
 	*/
 	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
 		std::string basePeriodId, int basePeriodOffset, MPD* mpd)
-		: invalid(invalid), placed(placed), resolved(resolved), adId(adId), url(url), duration(duration), basePeriodId(basePeriodId),
+		: invalid(invalid), placed(placed), resolved(resolved), adId(std::move(adId)), url(std::move(url)), duration(duration), basePeriodId(std::move(basePeriodId)),
 		basePeriodOffset(basePeriodOffset), mpd(mpd)
 	{
 
@@ -188,13 +190,14 @@ struct AdBreakObject{
 	bool                                 mAdFailed;       /** Current Ad playback failed flag */
 	bool                                 mSplitPeriod;    /**< To identify whether the ad is split period ad or not */
 	bool                                 invalid;         /**< flag marks if the adbreak is invalid or not */
+	bool                                 resolved;       /**< flag marks if the adbreak is resolved or not */
 	AampTime                             mAbsoluteAdBreakStartTime; /**< Period start time */
 	/**
 	* @brief AdBreakObject default constructor
 	*/
 	AdBreakObject()
 		: brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false),
-		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), mAbsoluteAdBreakStartTime(0.0)
+		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0)
 	{
 	}
 
@@ -209,8 +212,8 @@ struct AdBreakObject{
 	*/
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 		uint64_t _endPeriodOffset, uint32_t _adsDuration)
-		: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset),
-		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), mAbsoluteAdBreakStartTime(0.0)
+		: brkDuration(_duration), ads(std::move(_ads)), endPeriodId(std::move(_endPeriodId)), endPeriodOffset(_endPeriodOffset),
+		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0)
 	{
 	}
 };
@@ -288,7 +291,7 @@ struct AdFulfillObj {
 	* @brief AdFulfillObj constructor
 	*/
 	AdFulfillObj(std::string _periodId, std::string _adId, std::string _url)
-		: periodId(_periodId), adId(_adId), url(_url)
+		: periodId(std::move(_periodId)), adId(std::move(_adId)), url(std::move(_url))
 	{
 	}
 };
@@ -349,7 +352,6 @@ public:
 	std::unordered_map<std::string, Period2AdData> mPeriodMap;          /**< periodId to Ad map */
 	std::string                                    mCurPlayingBreakId;  /**< Currently playing Ad */
 	std::thread                                    mAdObjThreadID;      /**< ThreadId of Ad fulfillment */
-	bool                                           mAdObjThreadStarted; /**< Flag denotes if ad object thread is started */
 	AdNodeVectorPtr                                mCurAds;             /**< Vector of ads from the current Adbreak */
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */
 	AdFulfillObj                                   mAdFulfillObj;       /**< Temporary object for Ad fulfillment (to pass to the fulfillment thread) */
@@ -416,7 +418,7 @@ public:
 	 * @param[in]  tryFog - Attempt to download from FOG or not
 	 * @return MPD* MPD instance
 	 */
-	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog = false);
+	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &adErrorCode, bool tryFog = false);
 
 	/**
 	 * @fn InsertToPeriodMap
@@ -504,13 +506,13 @@ public:
 	inline bool isPeriodInAdbreak(const std::string &periodId);
 
 	/**
-	 * @fn setPlacementObj
+	 * @fn UpdatePlacementObj
 	 * @brief Function to update the PlacementObj with the new available DAI ad
 	 * @param[in] adBrkId : currentPlaying DAI AdId
 	 * @param[in] endPeriodId : nextperiod to play(after DAI playback)
 	 * @return new PlacementObj to be placed
 	 */
-	PlacementObj setPlacementObj(const std::string adBrkId, const std::string endPeriodId);
+	PlacementObj UpdatePlacementObj(const std::string adBrkId, const std::string endPeriodId);
 
 	/**
 	 * @fn RemovePlacementObj
@@ -597,6 +599,29 @@ public:
 	 * @return true if the next ad is available, false otherwise
 	 */
 	bool GetNextAdInBreakToPlace();
+
+	/**
+	 * @brief Getting all init headers for the Ad
+	 * @param[in] manifestStr - Manifest string
+	 * @param[in] manifestUrl - Manifest URL
+	 * @param[out] errorCode - AAMPCDAIError Error code if any.
+	 * @return true if all init headers are fetched and cached successfully, false otherwise
+	 */
+	bool FetchAndCacheInitHeaders(std::string& manifestStr, std::string& manifestUrl, AAMPCDAIError &errorCode);
+
+	/**
+	 * @fn ValidateAdManifest
+	 * @brief Validate the ad manifest for basic requirements
+	 * @param[in] adMPDParseHelper - AampMPDParseHelper reference of the ad manifest
+	 * @param[in] adErrorCode - Ad error code to be set in case of failure
+	 */
+	void ValidateAdManifest(AampMPDParseHelper& adMPDParseHelper, AAMPCDAIError &adErrorCode);
+
+	/**
+	 * @brief Insert to the placement queue if not already present
+	 * @param[in] periodId Period ID for ad placement
+	 */
+	void InsertToPlacementQueue(const std::string& periodId);
 };
 
 #endif /* ADMANAGER_MPD_H_ */

@@ -249,6 +249,13 @@ public :
 	*/	
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
 	/**
+	*
+	*   @fn GetPublishTime
+	*   @brief  Returns PublishTime from the manifest
+	* 	@retval double . PublishTime
+	*/
+	double GetPublishTime() { return mPublishTime; }
+	/**
 	*   @fn GetSegmentDurationSeconds
 	*   @brief  Returns SegmentDuration from the manifest  
  	* 	@retval uint64_t . SegmentDuration
@@ -400,7 +407,7 @@ public :
 	 * This function allows you to set the MPD period details using the provided vector of PeriodInfo objects.
 	 * @param currMPDDetails A vector containing the period details to be set.
 	 */
-	void SetMPDPeriodDetails(const std::vector<PeriodInfo> currMPDDetails){mMPDPeriodDetails =  currMPDDetails;}
+	void SetMPDPeriodDetails(const std::vector<PeriodInfo> currMPDDetails){mMPDPeriodDetails =  std::move(currMPDDetails);}
 
 	/**
 	 * @brief  GetFirstSegment start time from period
@@ -459,12 +466,28 @@ public :
 	 */
 	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration);
 
-    /**
-     * @brief  A helper function to  check if period has segment timeline for video track
-     * @param period period of segment
-     * @return True if period has segment timeline for video otherwise false
-     */
-    bool aamp_HasSegmentTimeline(IPeriod * period);
+	/**
+	 * @brief  A helper function to  check if period has segment timeline for video track
+	 * @param period period of segment
+	 * @return True if period has segment timeline for video otherwise false
+	 */
+	bool aamp_HasSegmentTime(IPeriod *period);
+
+	/**
+	 * @brief  A helper function to  check if period has segment template for video track
+	 * @param period period of segment
+	 * @return True if period has segment template for video otherwise false
+	 */
+	bool aamp_HasSegmentTemplate(IPeriod *period);
+
+	/**
+	 * @brief A helper function to get segment template for video
+	 * @param[in] period for current period
+	 *
+	 * @return segment template for video track
+	 */
+	std::shared_ptr<SegmentTemplates> GetSegmentTemplateForVideo(IPeriod *period);
+
 
 	/**
 	 * @brief Get the MPD instance.
@@ -488,6 +511,8 @@ private:
 	uint64_t mMinUpdateDurationMs;
 	/* storage for Availability Start Time */
 	double mAvailabilityStartTime;
+	/* storage for Publish Time in seconds*/
+	double mPublishTime;
 	/* storage for Segment Duration in seconds */
 	uint64_t mSegmentDurationSeconds;
 	/* storage of TSB Depth */

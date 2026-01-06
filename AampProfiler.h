@@ -48,22 +48,18 @@ typedef enum
 	PROFILE_BUCKET_PLAYLIST_VIDEO,      /**< Video playlist download bucket*/
 	PROFILE_BUCKET_PLAYLIST_AUDIO,      /**< Audio playlist download bucket*/
 	PROFILE_BUCKET_PLAYLIST_SUBTITLE,   /**< Subtitle playlist download bucket*/
-	PROFILE_BUCKET_PLAYLIST_AUXILIARY,  /**< Auxiliary playlist download bucket*/
 
 	PROFILE_BUCKET_INIT_VIDEO,          /**< Video init fragment download bucket*/
 	PROFILE_BUCKET_INIT_AUDIO,          /**< Audio init fragment download bucket*/
 	PROFILE_BUCKET_INIT_SUBTITLE,       /**< Subtitle fragment download bucket*/
-	PROFILE_BUCKET_INIT_AUXILIARY,      /**< Auxiliary fragment download bucket*/
 
 	PROFILE_BUCKET_FRAGMENT_VIDEO,      /**< Video fragment download bucket*/
 	PROFILE_BUCKET_FRAGMENT_AUDIO,      /**< Audio fragment download bucket*/
 	PROFILE_BUCKET_FRAGMENT_SUBTITLE,   /**< Subtitle fragment download bucket*/
-	PROFILE_BUCKET_FRAGMENT_AUXILIARY,  /**< Auxiliary fragment download bucket*/
 
 	PROFILE_BUCKET_DECRYPT_VIDEO,       /**< Video decryption bucket*/
 	PROFILE_BUCKET_DECRYPT_AUDIO,       /**< Audio decryption bucket*/
 	PROFILE_BUCKET_DECRYPT_SUBTITLE,    /**< Subtitle decryption bucket*/
-	PROFILE_BUCKET_DECRYPT_AUXILIARY,   /**< Auxiliary decryption bucket*/
 
 	PROFILE_BUCKET_LA_TOTAL,            /**< License acquisition total bucket*/
 	PROFILE_BUCKET_LA_PREPROC,          /**< License acquisition pre-processing bucket*/
@@ -77,7 +73,9 @@ typedef enum
 	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
 	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
 	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
-	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
+	PROFILE_BUCKET_TYPE_COUNT,           /**< Bucket count*/
+
+	PROFILE_BUCKET_INVALID =255
 } ProfilerBucketType;
 
 /**
@@ -217,8 +215,8 @@ private:
 
 	long long tuneStartBaseUTCMS;           /**< common UTC base for start of tune */
 	long long xreTimeBuckets[TuneTimeMax];  /**< Start time of each buckets for classic metrics conversion */
-	long bandwidthBitsPerSecondVideo;       /**< Video bandwidth in bps */
-	long bandwidthBitsPerSecondAudio;       /**< Audio bandwidth in bps */
+	BitsPerSecond bandwidthBitsPerSecondVideo;       /**< Video bandwidth in bps */
+	BitsPerSecond bandwidthBitsPerSecondAudio;       /**< Audio bandwidth in bps */
 	int drmErrorCode;                       /**< DRM error code */
 	bool enabled;                           /**< Profiler started or not */
 	std::list<TuneEvent> tuneEventList;     /**< List of events happened during tuning */
@@ -250,29 +248,32 @@ private:
 public:
 
 	/**
-	 * @fn ProfileEventAAMP
+	 * @fn ProfileEventAAMP Constructor
 	 */
 	ProfileEventAAMP();
 
 	/**
 	 * @brief ProfileEventAAMP Destructor
 	 */
-	~ProfileEventAAMP(){
+	~ProfileEventAAMP()
+	{
 		if(telemetryParam != NULL)
 		{
 			cJSON_Delete(telemetryParam);
-			mLldLowBuffObject = NULL;
+			// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		}
 	}
+
 	/**
-         * @brief Copy constructor disabled
-         *
-         */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	ProfileEventAAMP(const ProfileEventAAMP&) = delete;
+
 	/**
-         * @brief assignment operator disabled
-         *
-         */
+	 * @brief assignment operator disabled
+	 *
+	 */
 	ProfileEventAAMP& operator=(const ProfileEventAAMP&) = delete;
 
 	/**
@@ -281,7 +282,7 @@ public:
 	 * @param[in] bw - Bandwidth in bps
 	 * @return void
 	 */
-	void SetBandwidthBitsPerSecondVideo(long bw)
+	void SetBandwidthBitsPerSecondVideo(BitsPerSecond bw)
 	{
 		bandwidthBitsPerSecondVideo = bw;
 	}
@@ -292,7 +293,7 @@ public:
 	 * @param[in] bw - Bandwidth in bps
 	 * @return void
 	 */
-	void SetBandwidthBitsPerSecondAudio(long bw)
+	void SetBandwidthBitsPerSecondAudio(BitsPerSecond bw)
 	{
 		bandwidthBitsPerSecondAudio = bw;
 	}
@@ -357,20 +358,7 @@ public:
 	 * @return void
 	 */
 	void TuneEnd(TuneEndMetrics &mTuneendmetrics, std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData);
-	/**
-	 * @fn GetClassicTuneTimeInfo
-	 *
-	 * @param[in] success - Tune status
-	 * @param[in] tuneRetries - Number of tune attempts
-	 * @param[in] playerLoadTime - Time at which the first tune request reached the AAMP player
-	 * @param[in] streamType - Type of stream. eg: HLS, DASH, etc
-	 * @param[in] isLive  - Live channel or not
-	 * @param[in] durationS - Asset duration in seconds
-	 * @param[out] TuneTimeInfoStr - Formatted output string
-	 * @return void
-	 */
-	void GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive, unsigned int durationS, char *TuneTimeInfoStr);
-
+	
 	/**
 	 * @fn ProfileBegin
 	 *
@@ -475,6 +463,8 @@ public:
 	 * @return void
 	 */
 	void GetTelemetryParam();
+
+	unsigned int mStopDurationMs;			/**< Duration of Previous stop call in ms */
 
 };
 

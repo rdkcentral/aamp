@@ -156,7 +156,7 @@ static DrmHelperPtr getDrmHelper(string attrName , bool bPropagateUriParams, boo
 	}
 	DrmInfo drmInfo;
 	drmInfo.mediaFormat = eMEDIAFORMAT_HLS_MP4;
-	drmInfo.systemUUID = systemId;
+	drmInfo.systemUUID = std::move(systemId);
 	drmInfo.bPropagateUriParams = bPropagateUriParams;
 	drmInfo.bDecryptClearSamplesRequired = bDecryptClearSamplesRequired;
 	return DrmHelperEngine::getInstance().createHelper(drmInfo);
@@ -183,7 +183,7 @@ shared_ptr<DrmHelper> ProcessContentProtection( std::string attrName, bool propa
 	int status = DRM_API_FAILED;  
 	string psshDataStr = "";
 	char* psshData = NULL;
-	
+
 	do
 	{
 		shared_ptr<DrmHelper> drmHelper = getDrmHelper(attrName, propagateURIParam, isSamplesRequired);
@@ -193,7 +193,7 @@ shared_ptr<DrmHelper> ProcessContentProtection( std::string attrName, bool propa
 			break;
 		}
 
-		status  = getPsshData(attrName, psshDataStr);
+		status  = getPsshData(std::move(attrName), psshDataStr);
 		if (DRM_API_SUCCESS != status)
 		{
 			MW_LOG_ERR("Failed to get PSSH Data from manifest!");
@@ -211,7 +211,7 @@ shared_ptr<DrmHelper> ProcessContentProtection( std::string attrName, bool propa
 		}
 		else
 		{
-			data = base64_Decode(psshData, &dataLength);
+			data = base64_Decode(psshData, &dataLength, strlen(psshData));
 			/* No more use */
 			free(psshData);
 			psshData = NULL;
@@ -244,7 +244,7 @@ shared_ptr<DrmHelper> ProcessContentProtection( std::string attrName, bool propa
 			break;
 		}
 		// After processing the PSSH information, return the drmHelper
-		finalDrmHelper = drmHelper;
+		finalDrmHelper = std::move(drmHelper);
 	} while(0);
 
 	if(data)

@@ -23,12 +23,13 @@
 #include <gmock/gmock.h>
 
 extern std::vector<uint8_t> g_mockKeyId;
-class MockOpenCdmSessionAdapter 
+class MockOpenCdmSessionAdapter
 {
     public:
-        
-        MOCK_METHOD(bool, verifyOutputProtection, ());
 
+        MOCK_METHOD(bool, verifyOutputProtection, ());
+        MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
+        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
 };
 
 extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;

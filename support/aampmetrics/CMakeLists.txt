@@ -14,46 +14,55 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.5)
 project (Metrics)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 
-set(LIB_SOURCES IPHTTPStatistics.cpp
-	    IPLicnsStatistics.cpp
-	    IPFragmentStatistics.cpp
-	    IPVideoStat.cpp
-	    IPProfileInfo.cpp
-	    IPSessionSummary.cpp
-	    IPLatencyReport.cpp
-	    ManifestGenericStats.cpp
-	    CMCDHeaders.cpp 
-	    VideoCMCDHeaders.cpp
-	    AudioCMCDHeaders.cpp
-	    SubtitleCMCDHeaders.cpp
-	    ManifestCMCDHeaders.cpp)
+set(LIBMETRICS_SOURCES
+	IPHTTPStatistics.cpp
+	IPLicnsStatistics.cpp
+	IPFragmentStatistics.cpp
+	IPVideoStat.cpp
+	IPProfileInfo.cpp
+	IPSessionSummary.cpp
+	IPLatencyReport.cpp
+	ManifestGenericStats.cpp
+	CMCDHeaders.cpp
+	VideoCMCDHeaders.cpp
+	AudioCMCDHeaders.cpp
+	SubtitleCMCDHeaders.cpp
+	ManifestCMCDHeaders.cpp
+)
+set(LIBMETRICS_PUBLIC_HEADERS
+	IPHTTPStatistics.h
+	IPLicnsStatistics.h
+	IPFragmentStatistics.h
+	IPVideoStat.h
+	IPProfileInfo.h
+	IPSessionSummary.h
+	IPLatencyReport.h
+	StatsDefine.h
+	ManifestGenericStats.h
+	CMCDHeaders.h
+	VideoCMCDHeaders.h
+	AudioCMCDHeaders.h
+	SubtitleCMCDHeaders.h
+	ManifestCMCDHeaders.h
+)
 
-add_library(metrics SHARED ${LIB_SOURCES})
+add_library(metrics SHARED ${LIBMETRICS_SOURCES})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11 -Wno-multichar")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wno-multichar")
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-        execute_process (
-                COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
-        set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L/usr/local/lib/")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
-        string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
-	target_link_libraries(metrics "${OS_LD_FLAGS}")
-        link_directories(${LIBCJSON_LIBRARY_DIRS})
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-
-target_link_libraries(metrics "-lcjson")
-
-set_target_properties(metrics PROPERTIES PUBLIC_HEADER "IPVideoStat.h;CMCDHeaders.h;VideoCMCDHeaders.h;AudioCMCDHeaders.h;SubtitleCMCDHeaders.h;ManifestCMCDHeaders.h")
-install(TARGETS metrics DESTINATION lib PUBLIC_HEADER DESTINATION include)
-install(FILES IPHTTPStatistics.h IPFragmentStatistics.h IPLicnsStatistics.h IPProfileInfo.h IPSessionSummary.h IPLatencyReport.h StatsDefine.h ManifestGenericStats.h CMCDHeaders.h VideoCMCDHeaders.h AudioCMCDHeaders.h SubtitleCMCDHeaders.h ManifestCMCDHeaders.h DESTINATION include)
+target_link_libraries(metrics ${LIBCJSON_LINK_LIBRARIES})
+set_target_properties(metrics PROPERTIES PUBLIC_HEADER "${LIBMETRICS_PUBLIC_HEADERS}")
+install(TARGETS metrics
+		DESTINATION lib
+		PUBLIC_HEADER DESTINATION include
+)

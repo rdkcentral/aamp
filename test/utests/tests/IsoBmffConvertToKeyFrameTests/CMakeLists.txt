@@ -22,18 +22,8 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME IsoBmffConvertToKeyFrameTests)
 set(TEST_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/testFiles")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff)
-include_directories(${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper)
-include_directories(${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/middleware/subtitle)
-include_directories(${AAMP_ROOT}/downloader)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
-
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${UTESTS_ROOT}/mocks)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 include_directories(${TEST_FILES_DIR})
 
 set(TEST_SOURCES IsoBmffConvertToKeyFrameTests.cpp IsoBmffConvertToKeyFrameMainTest.cpp)
@@ -61,7 +51,7 @@ if (COVERAGE_ENABLED)
 endif()
 
 add_compile_definitions(TESTS_DIR="${TEST_FILES_DIR}")
-target_link_libraries(${EXEC_NAME} fakes  ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes  ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

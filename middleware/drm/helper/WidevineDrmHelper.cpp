@@ -30,6 +30,13 @@
 #include "PlayerLogManager.h"
 #include "DrmConstants.h"
 
+#define MultiChar_Constant(TEXT) ( \
+(static_cast<uint32_t>(TEXT[0]) << 0x18) | \
+(static_cast<uint32_t>(TEXT[1]) << 0x10) | \
+(static_cast<uint32_t>(TEXT[2]) << 0x08) | \
+(static_cast<uint32_t>(TEXT[3]) << 0x00) )
+
+
 static WidevineDrmHelperFactory widevine_helper_factory;
 
 const std::string WidevineDrmHelper::WIDEVINE_OCDM_ID = "com.widevine.alpha";
@@ -73,7 +80,7 @@ bool WidevineDrmHelper::parsePssh( const uint8_t* psshData, uint32_t psshSize )
 	else
 	{
 		uint32_t boxType = READ_U32(psshData);
-		if( boxType!='pssh' )
+		if( boxType!=MultiChar_Constant("pssh") )
 		{
 			MW_LOG_ERR( "unexpected boxType %d", boxType );
 		}
@@ -185,7 +192,7 @@ void WidevineDrmHelper::setDefaultKeyID(const std::string& cencData)
 			if(defaultKeyID == it.second)
 			{
 				mDefaultKeySlot = it.first;
-				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", cencData.c_str(), mDefaultKeySlot);
+				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(defaultKeyID).c_str(), mDefaultKeySlot);
 			}
 		}
 	}
@@ -205,6 +212,11 @@ void WidevineDrmHelper::createInitData(std::vector<uint8_t>& initData) const
 void WidevineDrmHelper::getKey(std::vector<uint8_t>& keyID) const
 {
 	MW_LOG_WARN("WidevineDrmHelper::getKey defaultkey: %d mKeyIDs.size:%zu", mDefaultKeySlot, mKeyIDs.size());
+	// Print all key IDs for debugging
+	for (const auto& keyPair : mKeyIDs) {
+		std::string keyStr = PlayerLogManager::getHexDebugStr(keyPair.second);
+		MW_LOG_DEBUG("Key ID [%d]: %s", keyPair.first, keyStr.c_str());
+	}
 	if ((mDefaultKeySlot >= 0) && (mDefaultKeySlot < mKeyIDs.size()))
 	{
 		keyID = this->mKeyIDs.at(mDefaultKeySlot);
@@ -247,10 +259,14 @@ bool WidevineDrmHelperFactory::isDRM(const struct DrmInfo& drmInfo) const
 
 DrmHelperPtr WidevineDrmHelperFactory::createHelper(const struct DrmInfo& drmInfo) const
 {
+
 	if (isDRM(drmInfo))
 	{
+		MW_LOG_ERR("creating helper");
 		return std::make_shared<WidevineDrmHelper>(drmInfo);
 	}
+	else
+		MW_LOG_ERR("failed to create helper");
 	return NULL;
 }
 

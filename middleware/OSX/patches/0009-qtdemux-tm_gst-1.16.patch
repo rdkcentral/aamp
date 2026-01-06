@@ -23,7 +23,7 @@ index a99fcaa..1fee819 100644
 +++ b/gst/isomp4/qtdemux.c
 @@ -678,6 +678,11 @@ gst_qtdemux_init (GstQTDemux * qtdemux)
    GST_OBJECT_FLAG_SET (qtdemux, GST_ELEMENT_FLAG_INDEXABLE);
- 
+
    gst_qtdemux_reset (qtdemux, TRUE);
 +
 +  qtdemux->aamp_base_pts = GST_CLOCK_TIME_NONE;
@@ -31,11 +31,11 @@ index a99fcaa..1fee819 100644
 +  qtdemux->aamp_override_enabled = FALSE;
 +  qtdemux->aamp_rate = 1.0;
  }
- 
+
  static void
 @@ -2382,10 +2387,13 @@ gst_qtdemux_handle_sink_event (GstPad * sinkpad, GstObject * parent,
        GST_DEBUG_OBJECT (demux, "Pushing newseg %" GST_SEGMENT_FORMAT, &segment);
- 
+
        /* map segment to internal qt segments and push on each stream */
 -      if (QTDEMUX_N_STREAMS (demux)) {
 +      if (QTDEMUX_N_STREAMS (demux) && !demux->aamp_override_enabled) {
@@ -45,11 +45,11 @@ index a99fcaa..1fee819 100644
 +      else if(demux->aamp_override_enabled) {
 +          GST_WARNING_OBJECT (demux, "ignore newsegment %" GST_SEGMENT_FORMAT, &segment);
 +      }
- 
+
        /* clear leftover in current segment, if any */
        gst_adapter_clear (demux->adapter);
 @@ -2502,6 +2510,37 @@ gst_qtdemux_handle_sink_event (GstPad * sinkpad, GstObject * parent,
- 
+
        goto drop;
      }
 +    case GST_EVENT_CUSTOM_DOWNSTREAM:
@@ -89,7 +89,7 @@ index a99fcaa..1fee819 100644
 @@ -6226,8 +6265,58 @@ gst_qtdemux_decorate_and_push_buffer (GstQTDemux * qtdemux,
      goto exit;
    }
- 
+
 -  GST_BUFFER_DTS (buf) = dts;
 -  GST_BUFFER_PTS (buf) = pts;
 +  if (G_LIKELY (!qtdemux->aamp_override_enabled))
@@ -162,8 +162,7 @@ index 83a050a..66d79d1 100644
 +  gdouble aamp_rate;
 +  gboolean aamp_override_enabled;
  };
- 
- struct _GstQTDemuxClass {
--- 
-2.14.2
 
+ struct _GstQTDemuxClass {
+--
+2.14.2

@@ -339,7 +339,7 @@ protected:
 			{eAAMPConfig_EnableClientDai, true},
 			{eAAMPConfig_MatchBaseUrl, false},
 			{eAAMPConfig_UseAbsoluteTimeline, false},
-			{eAAMPConfig_DisableAC4, true},
+			{eAAMPConfig_DisableAC4, false},
 			{eAAMPConfig_AudioOnlyPlayback, false},
 			{eAAMPConfig_LimitResolution, false},
 			{eAAMPConfig_Disable4K, false},
@@ -362,7 +362,9 @@ protected:
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
-			{eAAMPConfig_InterruptHandling, false}};
+			{eAAMPConfig_InterruptHandling, false},
+			{eAAMPConfig_useRialtoSink, false},
+		};
 
 	BoolConfigSettings mBoolConfigSettings;
 
@@ -381,6 +383,7 @@ protected:
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
+			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 		};
 
@@ -410,6 +413,7 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -520,6 +524,8 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -534,6 +540,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		// For the time being return the same manifest again
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillRepeatedly(WithoutArgs(Invoke(this, &StreamSelectionTests::GetManifestForMPDDownloader)));
@@ -566,8 +574,7 @@ public:
 TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 {
 	const auto& params = GetParam(); /*Retrieve the parameter values */
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.Times(AnyNumber())
 		.WillOnce(Return(true));
 	AAMPStatusType status = InitializeMPD(params.manifestUsed, TuneType::eTUNETYPE_NEW_NORMAL, params.position);

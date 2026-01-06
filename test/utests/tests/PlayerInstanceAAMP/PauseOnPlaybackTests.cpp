@@ -24,7 +24,6 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "main_aamp.h"
 #include "MockStreamAbstractionAAMP.h"
-#include "priv_aamp.h"
 
 using ::testing::_;
 using ::testing::Return;

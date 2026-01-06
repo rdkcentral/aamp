@@ -90,7 +90,7 @@ void parseSIDX( MediaData &obj, const ArrayBuffer &arrayBuffer, uint64_t baseCon
 				range += std::to_string(baseContentOffset);
 				range += '-';
 				range += std::to_string(next-1);
-				obj.media.push_back( range );
+				obj.media.push_back( std::move(range) );
 				//obj.media.push( "@"+baseContentOffset+"-"+(next-1) );
 				baseContentOffset = next;
 				obj.time.push_back(t);
@@ -109,7 +109,7 @@ void unsuportedTag( const XmlNode &child, const XmlNode &parent )
 		"Accessibility",
 		"AssetIdentifier",
 		"AudioChannelConfiguration",
-		"AvailableBitrates"
+		"AvailableBitrates",
 		"body",
 		"BufferLevel",
 		"EssentialProperty",
@@ -216,7 +216,7 @@ void parseSegmentTimeline( MediaData &obj, const XmlNode &SegmentTimeline )
 				t = Number(Segment.getAttribute("t"));
 			}
 			uint64_t d = Number(Segment.getAttribute("d"));
-			uint64_t repeat = 0;
+			int64_t repeat = 0;
 			if( Segment.hasAttribute("r") )
 			{
 				repeat = Number(Segment.getAttribute("r"));
@@ -257,7 +257,7 @@ void parseSegmentBase( MediaData &obj, const XmlNode &SegmentBase, MediaType med
 	//manifest_characteristics |= FLAG_SEGMENT_BASE;
 	timeline.pending++;
 	parsePTO( obj, SegmentBase );
-	auto indexRange = SegmentBase.getAttribute("indexRange");
+	const auto& indexRange = SegmentBase.getAttribute("indexRange");
 	auto indexSplit = splitString(indexRange,'-');
 	auto baseContentOffset = 1+Number(indexSplit[1]);
 	(void)baseContentOffset;
@@ -355,8 +355,8 @@ void parseSegmentList( MediaData &obj, const XmlNode &SegmentList )
 			}
 			else
 			{
-				auto mediaRange = child.getAttribute("mediaRange");
-				auto indexRange = child.getAttribute("indexRange"); // TODO
+				const auto& mediaRange = child.getAttribute("mediaRange");
+				const auto& indexRange = child.getAttribute("indexRange"); // TODO
 				obj.media.push_back( "@" + mediaRange );
 			}
 		}
@@ -424,7 +424,7 @@ void parseRepresentation( Representation &representation, const XmlNode &Represe
 	for( const auto pChild : Representation.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
-		auto tagName = child.tagName;
+		const auto& tagName = child.tagName;
 		if( tagName == "SegmentList" )
 		{
 			parseSegmentList( representation.data, child );
@@ -457,8 +457,8 @@ void parseRepresentation( Representation &representation, const XmlNode &Represe
 		}
 		else if( tagName == "AudioChannelConfiguration" )
 		{
-			auto schemeIdUri = child.getAttribute("schemeIdUri"); // urn:mpeg:dash:23003:3:audio_channel_configuration:2011
-			auto value = child.getAttribute("value"); // 1
+			const auto& schemeIdUri = child.getAttribute("schemeIdUri"); // urn:mpeg:dash:23003:3:audio_channel_configuration:2011
+			const auto& value = child.getAttribute("value"); // 1
 		}
 		else
 		{
@@ -471,13 +471,13 @@ void parseContentProtection( const XmlNode &ContentProtection, std::string BaseU
 {
 	//manifest_characteristics |= FLAG_ENCRYPTED;
 	
-	auto type = ContentProtection.getAttribute("schemeIdUri");
+	const auto& type = ContentProtection.getAttribute("schemeIdUri");
 	if( type == "urn:uuid:e2719d58-a985-b3c9-781a-b030af78d30e" )
 	{ // CLEAR_KEY_DASH_IF
 		for( const auto pChild : ContentProtection.children )
 		{
 			const XmlNode &child = *pChild; // hack for . syntax
-			auto tagName = child.tagName;
+			const auto& tagName = child.tagName;
 			if( tagName == "dashif:laurl" )
 			{
 				adaptationSet.licenseURL = appendURL( BaseURL, child.innerHTML );
@@ -516,12 +516,12 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 	for( const auto pChild : AdaptationSet.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
-		auto tagName = child.tagName;
+		const auto& tagName = child.tagName;
 		if( tagName == "Representation" )
 		{
 			Representation representation;
 			parseRepresentation( representation, child, BaseURL, adaptationSet, timeline );
-			adaptationSet.representation.push_back( representation );
+			adaptationSet.representation.push_back( std::move(representation) );
 		}
 		else if( tagName == "BaseURL" )
 		{
@@ -537,13 +537,13 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 		}
 		else if( tagName == "Role" )
 		{
-			auto schemeIdUri = child.getAttribute("schemeIdUri"); // urn:mpeg:dash:role:2011
-			auto value = child.getAttribute("value"); // main
+			const auto& schemeIdUri = child.getAttribute("schemeIdUri"); // urn:mpeg:dash:role:2011
+			const auto& value = child.getAttribute("value"); // main
 		}
 		else if( tagName == "EssentialProperty" )
 		{
-			auto schemeIdUri = child.getAttribute("schemeIdUri");
-			auto value = child.getAttribute("value");
+			const auto& schemeIdUri = child.getAttribute("schemeIdUri");
+			const auto& value = child.getAttribute("value");
 			printf( "***EssentialProperty: %s\n", schemeIdUri.c_str() );
 			if( schemeIdUri == "http://dashif.org/guidelines/trickmode" && Number(value) != 0 )
 			{ // skip iframe track
@@ -579,7 +579,7 @@ void parsePeriod( PeriodObj &period, const XmlNode &Period, std::string BaseURL,
 	for( const auto pChild : Period.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
-		auto tagName = child.tagName;
+		const auto& tagName = child.tagName;
 		if( tagName == "AdaptationSet" )
 		{
 			AdaptationSet adaptationSet;
@@ -658,7 +658,7 @@ Timeline parseManifest( const XmlNode &MPD, const std::string url )
 	auto BaseURL = url.substr(0,url.find_last_of("/")+1);
 	printf( "BaseURL: %s\n", BaseURL.c_str() );
 //	auto BaseURL = url.substr(0,url.lastIndexOf("/")+1);
-	timeline.url = url;
+	timeline.url = std::move(url);
 	timeline.pending = 0;
 	
 	parseManifestAttributes( timeline, MPD );
@@ -666,7 +666,7 @@ Timeline parseManifest( const XmlNode &MPD, const std::string url )
 	for( const auto pChild : MPD.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
-		auto tagName = child.tagName;
+		const auto& tagName = child.tagName;
 		if( tagName == "Period" )
 		{
 			PeriodObj period;

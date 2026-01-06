@@ -26,7 +26,7 @@
  * @enum GstMediaType
  * @brief Media types
  * 
- * @note Please maintain the order video, audio, subtitle, and aux_audio in future.
+ * @note Please maintain the order video, audio and subtitle in future.
  * This order is to be maintained across fragment, init, and playlist media types.
  * These enums are used in a lot of calculations in AAMP code and breaking the order will bring a lot of issues.
  * This order is also followed in other enums like AampCurlInstance and TrackType.
@@ -36,18 +36,18 @@ enum GstMediaType
         eGST_MEDIATYPE_VIDEO,               /**< Type video */
         eGST_MEDIATYPE_AUDIO,               /**< Type audio */
         eGST_MEDIATYPE_SUBTITLE,            /**< Type subtitle */
-        eGST_MEDIATYPE_AUX_AUDIO,           /**< Type auxiliary audio */
+        eGST_MEDIATYPE_RESERVED,            /**< Reserved for future */
         eGST_MEDIATYPE_MANIFEST,            /**< Type manifest */
         eGST_MEDIATYPE_LICENCE,             /**< Type license */
         eGST_MEDIATYPE_IFRAME,              /**< Type iframe */
         eGST_MEDIATYPE_INIT_VIDEO,          /**< Type video init fragment */
         eGST_MEDIATYPE_INIT_AUDIO,          /**< Type audio init fragment */
         eGST_MEDIATYPE_INIT_SUBTITLE,       /**< Type subtitle init fragment */
-        eGST_MEDIATYPE_INIT_AUX_AUDIO,      /**< Type auxiliary audio init fragment */
+        eGST_MEDIATYPE_INIT_RESERVED,       /**< Reserved for future */
         eGST_MEDIATYPE_PLAYLIST_VIDEO,      /**< Type video playlist */
         eGST_MEDIATYPE_PLAYLIST_AUDIO,      /**< Type audio playlist */
         eGST_MEDIATYPE_PLAYLIST_SUBTITLE,   /**< Type subtitle playlist */
-        eGST_MEDIATYPE_PLAYLIST_AUX_AUDIO,  /**< Type auxiliary audio playlist */
+        eGST_MEDIATYPE_PLAYLIST_RESERVED,   /**< Reserved for future */
         eGST_MEDIATYPE_PLAYLIST_IFRAME,     /**< Type Iframe playlist */
         eGST_MEDIATYPE_INIT_IFRAME,         /**< Type IFRAME init fragment */
         eGST_MEDIATYPE_DSM_CC,              /**< Type digital storage media command and control (DSM-CC) */
@@ -66,6 +66,7 @@ enum GstStreamOutputFormat
         GST_FORMAT_ISO_BMFF,        /**< ISO Base Media File format */
         GST_FORMAT_AUDIO_ES_MP3,    /**< MP3 Audio Elementary Stream */
         GST_FORMAT_AUDIO_ES_AAC,    /**< AAC Audio Elementary Stream */
+        GST_FORMAT_AUDIO_ES_AAC_RAW, /**< AAC Raw Audio Elementary Stream */
         GST_FORMAT_AUDIO_ES_AC3,    /**< AC3 Audio Elementary Stream */
         GST_FORMAT_AUDIO_ES_EC3,    /**< Dolby Digital Plus Elementary Stream */
         GST_FORMAT_AUDIO_ES_ATMOS,  /**< ATMOS Audio stream */
@@ -115,7 +116,7 @@ GstCaps* GetCaps(GstStreamOutputFormat format);
 /**
  * @fn GetCurrentTimeMS
  * @brief Get the current time in milliseconds
- * 
+ *
  * @return The current time in milliseconds
  */
 long long GetCurrentTimeMS(void);

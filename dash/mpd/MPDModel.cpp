@@ -90,7 +90,7 @@ string elem_get_attribute_hierarchy(string attr, T _this, P _parent) {
  */
 template<class T, class P>
 void elem_set_attribute_hierarchy(string attr, string value, T _this, P _parent) {
-    _this->elem.setAttribute(attr, value);
+    _this->elem.setAttribute(attr, std::move(value));
     auto parent = _parent.lock();
     if(parent) {
         parent->elem.removeAttribute(attr);
@@ -125,7 +125,7 @@ string DashMPDRoot::getLocalRelativePathFromURL(string &targetUrl_) {
 
     if (mpdBaseUrl.isParentOf(targetUrl)) {
         // if child of mpd base url, store as simple relative path
-        Url localPathUrl = Url(targetUrl.relativeTo(mpdBaseUrl));
+        Url localPathUrl = Url(targetUrl.relativeTo(std::move(mpdBaseUrl)));
         localPathUrl.set_query().clear(); //Clears query args
         return localPathUrl.format(Url::StripTrailingSlash);
     } else {
@@ -170,13 +170,103 @@ string findBaseUrl(DomElement &element, const string &current, bool isFile) {
 
         Url newbase(eUrl.text());
         if (newbase.isRelative()) {
-            auto out = Url(_current).resolve(newbase).format(Url::StripTrailingSlash).append(
-                    slash);
+            auto out = std::move(Url(_current).resolve(std::move(newbase)).format(Url::StripTrailingSlash).append(
+                    slash));
             return out;
         } else {
             return newbase.format(Url::StripTrailingSlash).append(slash);
         }
     }
+}
+
+
+/**
+ * Extracts all Base URLs from the element.
+ * @param element Element to extract Base URLs from
+ * @return Vector of Base URL texts
+ */
+std::vector<std::string> extractBaseUrlTexts(DomElement &element)
+{
+    vector<string> baseUrlTexts;
+    for (DomElement eUrl = element.firstChildElement("BaseURL"); !eUrl.isNull(); eUrl = eUrl.nextSiblingElement("BaseURL"))
+    {
+        string text = eUrl.text();
+        if (!text.empty())
+        {
+            baseUrlTexts.push_back(std::move(text));
+        }
+    }
+    return baseUrlTexts;
+}
+
+/**
+ * @brief   Finds all Base URLs for an element
+ * @param   element Element
+ * @param   current Parent Base URLs
+ * @param   isFile Flag to indicate File
+ * @retval  Vector of Base URLs
+ */
+std::vector<std::string> findAllBaseUrls(DomElement &element, const std::vector<std::string> &current, bool isFile)
+{
+    vector<string> baseUrls;
+    vector<string> baseUrlTexts = extractBaseUrlTexts(element);
+    string slash = isFile ? "" : "/";
+
+    if (!baseUrlTexts.empty())
+    {
+        for (const auto &urlText : baseUrlTexts)
+        {
+            Url newbase(urlText);
+            if (newbase.isRelative())
+            {
+                if (current.empty())
+                {
+                    baseUrls.push_back(newbase.format(Url::StripTrailingSlash).append(slash));
+                }
+                else
+                {
+                    for (const auto &base : current)
+                    {
+                        baseUrls.push_back(Url(base).resolve(newbase).format(Url::StripTrailingSlash).append(slash));
+                    }
+                }
+            }
+            else
+            {
+                baseUrls.push_back(newbase.format(Url::StripTrailingSlash).append(slash));
+            }
+        }
+    }
+    else if (!current.empty())
+    {
+        for (const auto &base : current)
+        {
+            if (!base.empty())
+            {
+                if (isFile)
+                {
+                    baseUrls.push_back(base);
+                }
+                else
+                {
+                    if (base.back() == '/')
+                    {
+                        baseUrls.push_back(base);
+                    }
+                    else
+                    {
+                        auto i = base.find_last_of('/');
+                        if (i != string::npos)
+                            baseUrls.push_back(base.substr(0, i + 1));
+                        else
+                            baseUrls.push_back(base + "/");
+                    }
+                }
+            }
+        }
+    }
+
+    return baseUrls;
 }
 
 /**
@@ -212,12 +302,25 @@ std::string DashMPDRepresentation::getBaseUrl() {
 }
 
 /**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDRepresentation::getBaseUrls() {
+    vector<string> baseUrls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseUrls = findAllBaseUrls(elem, parent->getBaseUrls());
+    }
+    return baseUrls;
+}
+
+/**
  * @brief   Get Bandwidth from "bandwidth" element attribute
  * @retval  bandwidth
  */
-long long int DashMPDRepresentation::getBandwidth() {
+BitsPerSecond DashMPDRepresentation::getBandwidth() {
     auto v = elem.attribute("bandwidth", "0");
-    return stoll(v);
+    return (BitsPerSecond)stoll(v);
 }
 
 /**
@@ -345,6 +448,29 @@ std::string DashMPDAdaptationSet::getInitUrl()
 }
 
 /**
+ * @brief   Get mediaType by checking contentType, then mimeType, then representations
+ * @retval  mediaType string
+ */
+std::string DashMPDAdaptationSet::getMediaType() {
+    std::string mediaType = getContentType();
+    if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+        return mediaType;
+    }
+    mediaType = getMimeType();
+    if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+        return mediaType;
+    }
+    auto reps = getRepresentations();
+    for (const auto& rep : reps) {
+        mediaType = rep->getMimeType();
+        if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+            return mediaType;
+        }
+    }
+    return "";
+}
+
+/**
  * @brief   Validates current Segment Template with Dash MPD Adaptation Set
  * @param   adaptationSet Dash MPD Adaptation Set
  * @retval  True on Dash MPD Adaptation Sets else false
@@ -381,7 +507,7 @@ string DashMPDRepresentation::getMimeType() {
  */
 string DashMPDRepresentation::getRepresentationKey() const {
     string repId = this->getId();
-    string representation = repId.empty() ? to_string(this->index) : repId;
+    string representation = repId.empty() ? to_string(this->index) : std::move(repId);
     auto parent = this->parent.lock();
     if(parent) {
         representationKey = parent->getAdaptationSetKey() + "-" + representation;
@@ -506,7 +632,7 @@ shared_ptr<DashMPDBaseURL> DashMPDRepresentation::setBaseURLValue(std::string va
     } else {
         auto baseurl = getFirstChild<DashMPDBaseURL>("BaseURL");
         if (baseurl->isNull()) baseurl = addChild<DashMPDBaseURL>("BaseURL");
-        baseurl->setText(value);
+        baseurl->setText(std::move(value));
         return baseurl;
     }
 }
@@ -541,6 +667,18 @@ std::string DashMPDRoot::getBaseUrlValue() {
     Url location = getLocation();
     location = location.parent();
     return findBaseUrl(elem, location.str());
+}
+
+
+/**
+ * @brief   Gets Base URL
+ * @retval  Base URLs
+ */
+std::vector<std::string> DashMPDRoot::getAllBaseUrls() {
+    Url location = getLocation();
+    location = location.parent();
+    vector<string> baseUrls = {location.str()};
+    return findAllBaseUrls(elem, baseUrls);
 }
 
 /**
@@ -857,6 +995,19 @@ std::string DashMPDPeriod::getBaseUrl() {
 }
 
 /**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDPeriod::getBaseUrls() {
+    vector<string> baseUrls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseUrls = findAllBaseUrls(elem, parent->getAllBaseUrls());
+    }
+    return baseUrls;
+}
+
+/**
  * @brief   Get Dash MPD SegmentTemplate
  * @retval  Dash MPD SegmentTemplate
  */
@@ -1128,7 +1279,7 @@ void DashMPDPeriod::removeSegmentDetails()
             auto samplingRate = representation->elem.attribute("audioSamplingRate", MPD_UNSET_STRING);
             if (MPD_UNSET_STRING != samplingRate)
             {
-                repr.setAttribute("audioSamplingRate", samplingRate);
+                repr.setAttribute("audioSamplingRate", std::move(samplingRate));
             }
             for(auto supProp : representation->getSupplementalProperties())
             {
@@ -1197,7 +1348,7 @@ shared_ptr<DashMPDAdaptationSet> DashMPDPeriod::findAdaptationSet(const shared_p
     {
         if (as->elem.attribute("id") == adaptationSet->elem.attribute("id"))
         {
-            ret = as;
+            ret = std::move(as);
             break;
         }
     }
@@ -1225,7 +1376,7 @@ void DashMPDPeriod::mergePeriod(const shared_ptr<DashMPDPeriod> &period) {
             AAMPLOG_WARN("New adaptation is getting added to the period at the middle of refresh");
             auto eAdaptationSet = adaptationSet->elem.cloneTo(elem, true);
             auto clonedAdaptationSet = addChild<DashMPDAdaptationSet>(eAdaptationSet);
-            adaptationSets.push_back(clonedAdaptationSet);
+            adaptationSets.push_back(std::move(clonedAdaptationSet));
             hasNewAdaptationSet = true;
         }
     }
@@ -1346,9 +1497,9 @@ void DashMPDRoot::setRelativeBaseUrlElement(DashMPDAny &e, string parentUrl_) {
         // Make URL absolute
         Url elemUrl(eBaseUrl.text());
         if (!elemUrl.str().empty() && elemUrl.isRelative()) {
-            absUrl = parentUrl.resolve(elemUrl);
+            absUrl = parentUrl.resolve(std::move(elemUrl));
         } else {
-            absUrl = elemUrl;
+            absUrl = std::move(elemUrl);
         }
 
         Url newBaseUrl;
@@ -1396,7 +1547,7 @@ double DashMPDRoot::getTimeShiftBufferDepth() {
 void DashMPDRoot::setAvailabilityEndTime(double epochSeconds) {
     std::string isoDateTime;
     if (epochSecondsToIsoDateTime(epochSeconds, isoDateTime)) {
-        SET_ATTRIBUTE_DOUBLE("availabilityEndTime", epochSeconds, isoDateTime);
+        SET_ATTRIBUTE_DOUBLE("availabilityEndTime", epochSeconds, std::move(isoDateTime));
     } else {
         AAMPLOG_ERR("Failed to convert %lf to iso datetime", epochSeconds);
     }
@@ -1432,8 +1583,8 @@ void DashMPDRoot::setLocation(string location) {
 }
 
 /**
- * @briefa  Set fetchTime
- * @param   FetchTime
+ * @brief Set fetchTime
+ * @param FetchTime
  */
 void DashMPDRoot::setFetchTime(double fetchTime) {
     elem.addNamespace(FOG_EXTRA_NS, FOG_EXTRA_NS_URI);
@@ -1480,7 +1631,7 @@ double DashMPDRoot::getAvailabilityEndTime() {
 void DashMPDRoot::setAvailabilityStartTime(double availStartTime) {
     std::string isoDateTime;
     if (epochSecondsToIsoDateTime(availStartTime, isoDateTime)) {
-        SET_ATTRIBUTE_DOUBLE("availabilityStartTime", availStartTime, isoDateTime);
+        SET_ATTRIBUTE_DOUBLE("availabilityStartTime", availStartTime, std::move(isoDateTime));
     } else {
         AAMPLOG_ERR("Failed to convert %lf to iso datetime", availStartTime);
     }
@@ -1501,7 +1652,7 @@ double DashMPDRoot::getPublishTime() {
 void DashMPDRoot::setPublishTime(double epochSeconds) {
     std::string isoDateTime;
     if (epochSecondsToIsoDateTime(epochSeconds, isoDateTime)) {
-        SET_ATTRIBUTE_DOUBLE("publishTime", epochSeconds, isoDateTime);
+        SET_ATTRIBUTE_DOUBLE("publishTime", epochSeconds, std::move(isoDateTime));
     }
 }
 
@@ -1618,7 +1769,7 @@ shared_ptr<DashMPDPeriod> DashMPDRoot::findPeriod(const string &periodId)
         shared_ptr<DashMPDPeriod> currPeriod = periods.at(iter);
         if (currPeriod->getId() == periodId)
         {
-            retPeriod = currPeriod;
+            retPeriod = std::move(currPeriod);
             break;
         }
     }
@@ -1676,6 +1827,19 @@ std::string DashMPDAdaptationSet::getBaseUrl() {
         baseUrl = findBaseUrl(elem, parent->getBaseUrl());
     }
     return baseUrl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDAdaptationSet::getBaseUrls() {
+    vector<string> baseUrls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseUrls = findAllBaseUrls(elem, parent->getBaseUrls());
+    }
+    return baseUrls;
 }
 
 
@@ -1748,7 +1912,7 @@ shared_ptr<DashMPDBaseURL> DashMPDAdaptationSet::setBaseURLValue(std::string val
     } else {
         auto baseurl = getFirstChild<DashMPDBaseURL>("BaseURL");
         if (baseurl->isNull()) baseurl = addChild<DashMPDBaseURL>("BaseURL");
-        baseurl->setText(value);
+        baseurl->setText(std::move(value));
         return baseurl;
     }
 }
@@ -2216,7 +2380,7 @@ string DashMPDSegmentURL::getMediaRange() {
  * @param   path
  */
 void DashMPDSegmentURL::setSegmentPath(string path) {
-    segmentPath = path;
+    segmentPath = std::move(path);
 }
 
 /**

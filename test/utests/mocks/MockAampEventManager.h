@@ -51,6 +51,21 @@ MATCHER_P(StateChanged, state, "")
     return match;
 }
 
+MATCHER_P4(AdResolved, resolveStatus, asId, errorCode, errorDescription, "")
+{
+    bool match = false;
+
+    if (AAMP_EVENT_AD_RESOLVED == arg->getType())
+    {
+        AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(arg);
+        match = (resolveStatus == ev->getResolveStatus() &&
+                 asId == ev->getAdId() &&
+                 errorCode == ev->getErrorCode() &&
+                 errorDescription == ev->getErrorDescription());
+    }
+    return match;
+}
+
 class MockAampEventManager
 {
 public:

@@ -67,9 +67,4 @@ namespace SocUtils
 	{
 		return false;
 	}
-
-	bool isGstSubtecEnabled()
-	{
-		return false;
-	}
 }

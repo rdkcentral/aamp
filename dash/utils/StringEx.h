@@ -51,7 +51,7 @@ public:
 
     }
 
-    String(string s): string(s) { }
+    String(string s): string(std::move(s)) { }
 
     bool endsWith(string ending) {
         return std::equal(begin() + size() - ending.size(), end(), ending.begin());

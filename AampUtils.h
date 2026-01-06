@@ -27,12 +27,16 @@
 #define __AAMP_UTILS_H__
 
 #include "DrmSystems.h"
-#include "main_aamp.h"
+#include "StreamOutputFormat.h"
+#include "AampMediaType.h"
+#include <thread>
 #include "iso639map.h"
 #include <string>
 #include <sstream>
+#include <curl/curl.h>
 #include <chrono>
 #include "TsbApi.h"
+#include "AampCurlDownloader.h"
 
 
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
@@ -51,8 +55,7 @@
 //Delete Array object
 #define SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
 
-/**HTTP SUccess*/
-#define IS_HTTP_SUCCESS(code) ((code) == 200 || (code) == 204 || (code) == 206)
+bool IS_HTTP_SUCCESS(int code);
 
 /** FHD height*/
 #define AAMP_FHD_HEIGHT (1080)
@@ -223,7 +226,7 @@ void trim(std::string& src);
  * @param[in] lang - Language in string format
  * @param[in] preferFormat - Preferred language format
  */
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang, LangCodePreference preferFormat );
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferFormat );
 
 /**
  * @fn aamp_GetTimespec
@@ -334,13 +337,6 @@ namespace aamp_utils
     }
 }
 
- /* @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp);
-
 /**
  * @fn ConvertTsbLogLevel
  * @param[in] int Log leve set by user
@@ -424,5 +420,25 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
  * @retval corredponding number (0..15) for character or -1 if invalid
  */
 int aamp_hascii_char_to_number( char c );
+ * @fn isTuneScheme
+ *
+ * @param[in] uri
+ *
+ * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
+ */
+bool aamp_isTuneScheme( const char *cmdBuf );
+
+/**
+ * @brief disambiguate CURLE_OPERATION_TIMEDOUT, using state from CURL connection
+ *
+ * @parm curl ClientURL instance from a completed download attempt
+ *
+ * @retval eCURL_TIMEOUT_DNS (1000) if timeout occurred while attempting to resolve DNS
+ * @retval eCURL_TIMEOUT_CONNECT (1001) if timeout occurred after resolving DNS, but before completing connection
+ * @retval eCURL_TIMEOUT_DATA (28) if timeout occurred while downloading data
+ */
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
+
+bool IsCurlTimeoutFailure( int httpResponseCode );
 
 #endif  /* __AAMP_UTILS_H__ */

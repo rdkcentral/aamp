@@ -174,7 +174,7 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 		ParseFragment(base_frag_ptr, curr_packet_ptr, curr_packet_len, discontinuity_pending);
 		
 		// Demux the fragment to extract the actual audio/video/metadata information
-		DemuxFragment(curr_packet_ptr, curr_packet_len, discontinuity_pending, processor);
+		DemuxFragment(curr_packet_ptr, curr_packet_len, discontinuity_pending, std::move(processor));
 	}
 	else
 	{
@@ -562,7 +562,7 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 			/* Audio is not playing in particular hls file.
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
-			 * But in one particular hls file, we dont have PES data in the first audio pid.
+			 * But in one particular hls file, we don't have PES data in the first audio pid.
 			 * So, we have now modified to choose the next available audio pid index,
 			 * when there is no PES data available in the current audio pid.
 			 */
@@ -623,13 +623,11 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	char work[32];
+	char work[32] = {};
 
 	int version = ((section[2] >> 1) & 0x1F);
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
-
-	memset(work, 0, sizeof(work));
 
 	// Reset of old values
 	ResetAudioComponents();
@@ -817,15 +815,13 @@ void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLen
 
 void TSFragmentProcessor::ResetAudioComponents()
 {
-	// Reset of old values
 	for (auto & comp : m_audioComponents)
 	{
 		if (comp.associatedLanguage)
 		{
 			free(comp.associatedLanguage);
 		}
-		comp.associatedLanguage = nullptr;
-		memset(&comp, 0, sizeof(RecordingComponent));
+		comp = RecordingComponent();
 	}
 
 	m_audioComponentCount = 0;	
@@ -835,7 +831,7 @@ void TSFragmentProcessor::ResetVideoComponents()
 {
 	for (auto & comp : m_videoComponents)
 	{
-		memset(&comp, 0, sizeof(RecordingComponent));
+		comp = RecordingComponent();
 	}
 	m_videoComponentCount = 0;
 }

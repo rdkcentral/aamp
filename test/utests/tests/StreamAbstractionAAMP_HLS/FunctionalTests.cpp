@@ -867,15 +867,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAudio)
     EXPECT_EQ(outputFormat, expectedAudioOutputFormat);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAuxAudio)
-{
-
-    TrackType auxAudioTrackType = eTRACK_AUX_AUDIO;
-    StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(auxAudioTrackType);
-    StreamOutputFormat expectedAuxAudioOutputFormat = FORMAT_AUDIO_ES_AAC; // Example value, replace with your logic
-    EXPECT_EQ(outputFormat, expectedAuxAudioOutputFormat);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage)
 {
 
@@ -936,7 +927,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest)
 {
     StreamOutputFormat format = FORMAT_MPEGTS;
     TrackType type = eTRACK_VIDEO;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, format);
     ASSERT_EQ(format, FORMAT_MPEGTS);
     ASSERT_EQ(type, eTRACK_VIDEO);
 }
@@ -946,16 +937,48 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAudioPlaylistURITest)
 {
     // mStreamAbstractionAAMP_HLS->currentAudioProfileIndex = 3;
     StreamOutputFormat format;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_AUDIO, format);
     ASSERT_NE(FORMAT_AUDIO_ES_AAC, format);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, GetVideoPlaylistURITest2)
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE1)
 {
-    // mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 3;
+    /* test when no subtitle track selected*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = -1;
     StreamOutputFormat format = FORMAT_MPEGTS;
-    TrackType type = eTRACK_SUBTITLE;
-    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(type, &format);
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_MPEGTS, format); //value not changed
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetPlaylistURISUBTITLE2)
+{
+    /*
+    * For test purposes we create 2 subtitle options inband and outband but
+    * in reality AAMP will not handle different subtitle formats in the same manifest
+    */
+    MediaInfo MediaInfoObj0 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx0", .isCC = false};
+    MediaInfo MediaInfoObj1 = {.type = eMEDIATYPE_SUBTITLE, .uri= "idx1", .isCC = true};
+    StreamOutputFormat format = FORMAT_MPEGTS;
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(MediaInfoObj0);
+    mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(MediaInfoObj1);
+
+    /* test when .isCC = false*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 0;
+    auto playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_SUBTITLE_WEBVTT, format);
+    ASSERT_EQ("idx0", playlistURI);
+
+    /* test when .isCC = true*/
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 1;
+    playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_INVALID, format);
+    ASSERT_EQ("idx1", playlistURI);
+
+    /* test vector index out of bounds */
+    mStreamAbstractionAAMP_HLS->currentTextTrackProfileIndex = 2;
+    format = FORMAT_AUDIO_ES_ATMOS; //Some unlikely value
+    playlistURI = mStreamAbstractionAAMP_HLS->GetPlaylistURI(eTRACK_SUBTITLE, format);
+    ASSERT_EQ(FORMAT_AUDIO_ES_ATMOS, format); //not changed
 
 }
 
@@ -1146,13 +1169,6 @@ TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_SUBTITLE)
 {
     //To Cover MediaTrack::type as eTRACK_SUBTITLE
     TrackStateobj->type = TrackType::eTRACK_SUBTITLE;
-    TrackStateobj->FetchPlaylist();
-}
-
-TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUX_AUDIO)
-{
-    //To Cover MediaTrack::type as eTRACK_AUX_AUDIO
-    TrackStateobj->type = TrackType::eTRACK_AUX_AUDIO;
     TrackStateobj->FetchPlaylist();
 }
 
@@ -1989,12 +2005,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshSubtitlestest)
     mStreamAbstractionAAMP_HLS->RefreshSubtitles();
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, WaitForVideoTrackCatchupForAuxtest)
-{
-    // Set up necessary data and conditions for testing
-    mStreamAbstractionAAMP_HLS->WaitForVideoTrackCatchupForAux();
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetPreferredLiveOffsetFromConfigtest_1)
 {
     // Set up necessary data and conditions for testing
@@ -2466,11 +2476,6 @@ TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_3)
     AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
 }
 
-TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_4)
-{
-    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
-}
-
 TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest_1)
 {
     double seekPosition = 470.0;
@@ -2526,11 +2531,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest_1)
     mStreamAbstractionAAMP_HLS->aamp->rate = 0;
     double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
     ASSERT_EQ(result, -1);
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, ProcessDiscontinuity)
-{
-    mStreamAbstractionAAMP_HLS->ProcessDiscontinuity(eTRACK_AUX_AUDIO);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, SetAudioTrackInfoFromMuxedStreamTest)
@@ -2752,7 +2752,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
     EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
 }
 
-extern std::vector<TileInfo> IndexThumbnails( lstring iter, double stTime=0 );
+extern std::vector<TileInfo> IndexThumbnails( lstring iter );
 
 TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 {
@@ -2775,25 +2775,73 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 	"#EXT-X-ENDLIST\r\n";
 	lstring ii = lstring( raw, strlen(raw) );
 	auto x = IndexThumbnails( ii );
-	
+
 	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
 	EXPECT_EQ(x[0].layout.numCols,5);
 	EXPECT_EQ(x[0].layout.numRows,6);
 	EXPECT_EQ(x[0].layout.posterDuration,10);
 	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
-	
+
 	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
 	EXPECT_EQ(x[1].layout.numCols,9);
 	EXPECT_EQ(x[1].layout.numRows,17);
 	EXPECT_EQ(x[1].layout.posterDuration,20);
 	EXPECT_EQ(x[1].layout.tileSetDuration,200);
-	
+
 	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
 	EXPECT_EQ(x[2].layout.numCols,4);
 	EXPECT_EQ(x[2].layout.numRows,3);
 	EXPECT_EQ(x[2].layout.posterDuration,30);
 	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
 }
+
+extern std::vector<TileInfo> IndexSleThumbnails( lstring iter, double tStartTime, long long lastProgramDateTime );
+
+TEST_F(StreamAbstractionAAMP_HLSTest, LiveThumbnailIndexing)
+{
+	const char *raw =
+	"#EXTM3U\r\n"
+	"#EXT-X-TARGETDURATION:10\r\n"
+	"#EXT-X-VERSION:7\r\n"
+	"#EXT-X-MEDIA-SEQUENCE:0\r\n"
+	"#EXT-X-IMAGES-ONLY\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:34.412Z\n"
+	"#EXTINF:136.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=5x6,DURATION=10\r\n"
+	"pckimage-0.jpg\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:37.412Z\n"
+	"#EXTINF:200,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=9x17,DURATION=20\r\n"
+	"pckimage-1.jpg\r\n"
+    "#EXT-X-PROGRAM-DATE-TIME:2023-05-12T04:10:41.412Z\r\n"
+	"#EXTINF:100.8367,\r\n"
+	"#EXT-X-TILES:RESOLUTION=336x189,LAYOUT=4x3,DURATION=30\r\n"
+	"pckimage-2.jpg\r\n";
+
+    long long lpt=0;
+    double start=0.0f;
+    lstring ii = lstring( raw, strlen(raw) );
+	auto x = IndexSleThumbnails( ii, start, lpt );
+
+	EXPECT_EQ(x[0].url,"pckimage-0.jpg");
+	EXPECT_EQ(x[0].layout.numCols,5);
+	EXPECT_EQ(x[0].layout.numRows,6);
+	EXPECT_EQ(x[0].layout.posterDuration,10);
+	EXPECT_EQ(x[0].layout.tileSetDuration,136.8367);
+
+	EXPECT_EQ(x[1].url,"pckimage-1.jpg");
+	EXPECT_EQ(x[1].layout.numCols,9);
+	EXPECT_EQ(x[1].layout.numRows,17);
+	EXPECT_EQ(x[1].layout.posterDuration,20);
+	EXPECT_EQ(x[1].layout.tileSetDuration,200);
+
+	EXPECT_EQ(x[2].url,"pckimage-2.jpg");
+	EXPECT_EQ(x[2].layout.numCols,4);
+	EXPECT_EQ(x[2].layout.numRows,3);
+	EXPECT_EQ(x[2].layout.posterDuration,30);
+	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
+}
+
 TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 {
 	std::vector<TextTrackInfo> tracks;
@@ -2819,4 +2867,86 @@ TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 	EXPECT_EQ("lang0",trackInfo.language);
 	EXPECT_EQ("rend0",trackInfo.rendition);
 	EXPECT_EQ("trackName0",trackInfo.name);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrackSubType)
+{
+	std::vector<TextTrackInfo> tracks;
+	TextTrackInfo trackInfo;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "","","","",0));
+	tracks.push_back(TextTrackInfo("idx1", "lang0", true, "","","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	// Verify CLOSED-CAPTIONS preference selects CC track (isCC=true)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
+
+	// Verify SUBTITLES preference selects subtitle track (isCC=false)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
+
+	// Verify SUBTITLES preference still selects subtitle track (repeated)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
+
+	// Verify CLOSED-CAPTIONS preference still selects CC track (repeated)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
+
+	// Verify empty sub-type preference doesn't award bonus
+	// With no sub-type preference, both tracks have equal language score,
+	// so the first track (idx0) should be selected
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Empty sub-type preference should not award bonus";
+
+	// Verify unrecognized sub-type preference doesn't award bonus
+	// With unrecognized preference, both tracks have equal language score,
+	// so the first track (idx0) should be selected
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "UNKNOWN";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Unrecognized sub-type preference should not award bonus";
+
+	// Verify sub-type bonus overrides track order
+	// Create tracks with different languages but matching sub-type
+	tracks.clear();
+	tracks.push_back(TextTrackInfo("idx0", "lang1", false, "","","","",0)); // First, but wrong sub-type
+	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "","","","",0));  // Second, but matches sub-type
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang1",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index) << "Sub-type bonus should select CC track even if not first";
+	EXPECT_TRUE(trackInfo.isCC);
+
+	// Verify SUBTITLES sub-type bonus overrides track order
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang1",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Sub-type bonus should select subtitle track";
+	EXPECT_FALSE(trackInfo.isCC);
 }

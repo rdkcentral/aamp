@@ -46,6 +46,7 @@ void BrcmSocInterface::SetAudioProperty(const char * &volume, const char * &mute
  */
 bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
+	//For rialto sinks default soc routine will be called
 	bool status = true;
 	MW_LOG_MIL("send custom-instant-rate-change : %f ...", rate);
 	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
@@ -114,68 +115,35 @@ GstElement* BrcmSocInterface::GetVideoSink(GstElement* sinkbin)
 /**
  * @brief Check if the given name is a video sink.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video sink, false otherwise.
  */
-bool BrcmSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool BrcmSocInterface::IsVideoSink(const char* name)
 {
-	if(name)
-	{
-		return  (!mUsingWesterosSink && StartsWith(name, "brcmvideosink") == true) ||
-			( mUsingWesterosSink && StartsWith(name, "westerossink") == true) ||
-			(isRialto && StartsWith(name, "rialtomsevideosink") == true);
-	}
-	else
-	{
-		return false;
-	}
+	return name && (
+					StartsWith(name, "brcmvideosink") ||
+					StartsWith(name, "westerossink"));
 }
 
 /**
  * @brief Check if the given name is an audio sink or audio decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's an audio sink or audio decoder, false otherwise.
  */
-bool BrcmSocInterface::IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)
+bool BrcmSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
 {
-	if(name)
-	{
-		return StartsWith(name, "brcmaudiodecoder");
-	}
-	else
-	{
-		return false;
-	}
+	return name && StartsWith(name, "brcmaudiodecoder");
 }
 
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool BrcmSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool BrcmSocInterface::IsVideoDecoder(const char* name)
 {
-	if(name)
-	{
-		if(mUsingWesterosSink)
-		{
-			return StartsWith(name, "westerossink");
-		}
-		else if (isRialto)
-		{
-			return StartsWith(name, "rialtomsevideosink");
-		}
-		else
-		{
-			return StartsWith(name, "brcmvideodecoder");
-		}
-	}
-	else
-	{
-		return false;
-	}
+	return name && (
+					StartsWith(name, "westerossink") ||
+					StartsWith(name, "brcmvideodecoder") );
 }
 
 bool BrcmSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync)
@@ -193,7 +161,7 @@ bool BrcmSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *sr
 		g_object_set(src, "limit_buffering", 1, NULL);
 		MW_LOG_MIL("Found audiodecoder, limiting audio decoder buffering");
 
-		/* if aamp->mAudioDecoderStreamSync==false, tell decoder not to look for 2nd/next frame sync, decode if it finds a single frame sync */
+		/* if mAudioDecoderStreamSync==false, tell decoder not to look for 2nd/next frame sync, decode if it finds a single frame sync */
 		g_object_set(src, "stream_sync_mode", (decStreamSync)? 1 : 0, NULL);
 		MW_LOG_MIL("For audiodecoder set 'stream_sync_mode': %d", decStreamSync);
 
@@ -207,29 +175,12 @@ bool BrcmSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *sr
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool BrcmSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
+bool BrcmSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(name)
-	{
-		if(!mUsingWesterosSink && StartsWith(name, "brcmvideodecoder"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-		else if (StartsWith(name, "brcmaudiodecoder"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-		if(mUsingWesterosSink && StartsWith(name, "westerossink"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-		else if(isRialto && StartsWith(name, "rialtomse"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-	}
-	return AudioOrVideoDecoder;
+	return name && (
+					StartsWith(name, "brcmvideodecoder") ||
+					StartsWith(name, "brcmaudiodecoder") ||
+					StartsWith(name, "westerossink") );
 }
 
 void BrcmSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
@@ -255,3 +206,4 @@ void BrcmSocInterface::SetPlaybackFlags(gint &flags, bool isSub)
 		flags = PLAY_FLAG_TEXT;
 	}
 }
+

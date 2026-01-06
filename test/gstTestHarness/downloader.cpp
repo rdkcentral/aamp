@@ -112,28 +112,44 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 	
 	static CurlContext context; // static to enable connection reuse
 	
+	std::string range;
+	size_t delim = 0;
+	for(;;)
+	{
+		delim = url.find('@', delim);
+		if( delim == std::string::npos )
+		{
+			break;
+		}
+		char c = url[delim+1];
+		if( isdigit(c) )
+		{ // sanity check - @ followed by number to avoid bogus parsing of non-range directives
+			range = url.substr(delim+1);
+			break;
+		}
+		delim++;
+	}
+	
 	if( starts_with(url,"http://") || starts_with(url,"https://" ) )
 	{
-		auto delim = url.find('@');
-		if( delim != std::string::npos )
-		{
-			std::string range = url.substr(delim+1);
-			std::string prefix = url.substr(0,delim);
-			(void)curl_easy_setopt(context.curl, CURLOPT_URL, prefix.c_str() );
-			(void)curl_easy_setopt(context.curl, CURLOPT_RANGE, range.c_str() );
-		}
-		else
+		if( range.empty() )
 		{
 			(void)curl_easy_setopt(context.curl, CURLOPT_URL, url.c_str() );
 			(void)curl_easy_setopt(context.curl, CURLOPT_RANGE, NULL);
 		}
-		
+		else
+		{
+			std::string prefix = url.substr(0,delim);
+			(void)curl_easy_setopt(context.curl, CURLOPT_URL, prefix.c_str() );
+			(void)curl_easy_setopt(context.curl, CURLOPT_RANGE, range.c_str() );
+		}
 		(void)curl_easy_setopt(context.curl, CURLOPT_BUFFERSIZE, 4096L);
 		(void)curl_easy_setopt(context.curl, CURLOPT_FOLLOWLOCATION, 1L);
 		(void)curl_easy_setopt(context.curl, CURLOPT_WRITEFUNCTION, CurlContext::write_callback);
 		(void)curl_easy_setopt(context.curl, CURLOPT_WRITEDATA, &context);
 		(void)curl_easy_setopt(context.curl, CURLOPT_TCP_KEEPALIVE, 1L);
-		
+		(void)curl_easy_setopt(context.curl, CURLOPT_USERAGENT, "gstTestHarness/1.0");
+
 		context.clear();
 		CURLcode rc = curl_easy_perform(context.curl);
 		if (CURLE_OK == rc)
@@ -174,19 +190,7 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		}
 		FILE *f = NULL;
 		long offs = 0;
-		auto delim = url.find('@',start);
-		if( delim != std::string::npos )
-		{
-			std::string range = url.substr(delim+1);
-			std::string prefix = url.substr(start,delim-start);
-			f = fopen( prefix.c_str(), "rb" );
-			assert( f );
-			delim = range.find('-');
-			assert( delim != std::string::npos );
-			offs = atol( range.substr(0,delim).c_str() );
-			len = atol( range.substr(delim+1).c_str() ) + 1 - offs;
-		}
-		else
+		if( range.empty() )
 		{
 			std::string prefix = url.substr(start);
 			f = fopen( prefix.c_str(), "rb" );
@@ -198,6 +202,16 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			//assert( f );
 			fseek( f, 0, SEEK_END );
 			len = ftell(f);
+		}
+		else
+		{
+			std::string prefix = url.substr(start,delim-start);
+			f = fopen( prefix.c_str(), "rb" );
+			assert( f );
+			delim = range.find('-');
+			assert( delim != std::string::npos );
+			offs = atol( range.substr(0,delim).c_str() );
+			len = atol( range.substr(delim+1).c_str() ) + 1 - offs;
 		}
 		if( f )
 		{

@@ -28,10 +28,13 @@
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
+#include "MockIsoBmffBuffer.h"
 #include "StreamAbstractionAAMP.h"
+#include "AampDownloadInfo.hpp"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockTSBSessionManager.h"
+#include "MockTSBReader.h"
 
 using ::testing::_;
 using ::testing::NiceMock;;
@@ -39,6 +42,7 @@ using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
+using ::testing::DoAll;
 
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
@@ -50,6 +54,7 @@ struct TestParams
 	bool paused;                       // true if pipeline is paused, false otherwise
 	bool underflow;                    // true if underflow occurred, false otherwise
 	bool init;                         // true if init fragment, false if media fragment
+	float rate;                        // play rate
 	int expectedFragmentChunksCached;  // expected number of fragments added to chunk cache
 	int expectedFragmentCached;        // expected number of fragments added to regular cache
 };
@@ -57,48 +62,51 @@ struct TestParams
 // Test cases
 TestParams testCases[] =
 {
-	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
 
 	// Test with AAMP TSB enabled, chunk cache is used for non-chunked fragments
-	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 
 	// Test EOS with AAMP TSB enabled
-	{.lowlatency = true, .chunk = true, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = true, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 
 	// Test with pipeline paused
-	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
 
 	// Test with AAMP TSB enabled and pipeline paused
-	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
 
 	// Test with pipeline paused and underflow
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = true, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = true, .underflow = true, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0}
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = true, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = true, .underflow = true, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+
+	// Test with rate != AAMP_NORMAL_PLAY_RATE
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .rate = (AAMP_NORMAL_PLAY_RATE*2), .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0}
 };
 
 
@@ -127,7 +135,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_EnableClientDai, false},
 			{eAAMPConfig_MatchBaseUrl, false},
 			{eAAMPConfig_UseAbsoluteTimeline, false},
-			{eAAMPConfig_DisableAC4, true},
+			{eAAMPConfig_DisableAC4, false},
 			{eAAMPConfig_LimitResolution, false},
 			{eAAMPConfig_Disable4K, false},
 			{eAAMPConfig_PersistHighNetworkBandwidth, false},
@@ -142,7 +150,8 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
-			{eAAMPConfig_EnableIFrameTrackExtract, false}
+			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_EnableABR, true},
 		};
 
 		BoolConfigSettings mBoolConfigSettings;
@@ -159,6 +168,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter,DEFAULT_ABR_BUFFER_COUNTER},
+			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 			{eAAMPConfig_MaxFragmentChunkCached,DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 		};
 
@@ -193,10 +203,17 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 			g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
 			mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
+			g_mockTSBReader = std::make_shared<MockTSBReader>();
+			g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
 		}
 
 		void TearDown() override
 		{
+			delete g_mockIsoBmffBuffer;
+			g_mockIsoBmffBuffer = nullptr;
+
+			g_mockTSBReader.reset();
+
 			delete g_mockTSBSessionManager;
 			g_mockTSBSessionManager = nullptr;
 
@@ -269,13 +286,13 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			mPeriod = new DummyPeriod();
 		}
 
-		void Initialize(bool lowlatency, bool chunk, bool tsb, bool eos, bool paused, bool underflow)
+		void Initialize(bool lowlatency, bool chunk, bool tsb, bool eos, bool paused, bool underflow, bool init, float rate)
 		{
 			unsigned char data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 			AampLLDashServiceData llDashData;
 			llDashData.availabilityTimeOffset = 1.2;
 			llDashData.lowLatencyMode = lowlatency;
-			mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+			mPrivateInstanceAAMP->rate = rate;
 			mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 			mPrivateInstanceAAMP->SetLocalAAMPTsb(tsb);
 			mPrivateInstanceAAMP->pipeline_paused = paused;
@@ -284,7 +301,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			mMediaStreamContext->mTempFragment->AppendBytes(data, 12);
 			// The tests simulating EOS inject from the TSB, the rest of the tests inject from live
 			mMediaStreamContext->SetLocalTSBInjection(eos);
-			mPrivateInstanceAAMP->SetLLDashChunkMode(chunk);
+
 			AampTSBSessionManager *tsbSessionManager = nullptr;
 			if (tsb)
 			{
@@ -296,7 +313,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{
 				mStreamAbstractionAAMP_MPD->mTuneType = eTUNETYPE_SEEKTOLIVE;
 				EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(mTsbReader));
-				mTsbReader->mEosReached = true;
+				EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(true));
 				if (!paused)
 				{
 					EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection());
@@ -304,6 +321,14 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			}
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunk));
+			if(init)
+			{
+				EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
+				EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(90000), Return(true)));
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVidTimeScale(_)).Times(AtLeast(1));
+			}
 		}
 };
 
@@ -315,7 +340,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 TEST_P(MediaStreamContextTest, CacheFragment)
 {
 	TestParams testParam = GetParam();
-	AAMPLOG_INFO("Test with lowlatency: %d, chunk: %d, AAMP TSB: %d, eos: %d, paused: %d, underflow: %d, init: %d, expectedFragmentChunksCached: %d, expectedFragmentCached: %d",
+	AAMPLOG_INFO("Test with lowlatency: %d, chunk: %d, AAMP TSB: %d, eos: %d, paused: %d, underflow: %d, init: %d, rate: %f, expectedFragmentChunksCached: %d, expectedFragmentCached: %d",
 		testParam.lowlatency,
 		testParam.chunk,
 		testParam.tsb,
@@ -323,11 +348,23 @@ TEST_P(MediaStreamContextTest, CacheFragment)
 		testParam.paused,
 		testParam.underflow,
 		testParam.init,
+		testParam.rate,
 		testParam.expectedFragmentChunksCached,
 		testParam.expectedFragmentCached);
-	Initialize(testParam.lowlatency, testParam.chunk, testParam.tsb, testParam.eos, testParam.paused, testParam.underflow);
-
-	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.init, false, false, 0, 0, false);
+	Initialize(testParam.lowlatency, testParam.chunk, testParam.tsb, testParam.eos, testParam.paused, testParam.underflow, testParam.init, testParam.rate);
+	URIInfo uriInfo;
+	uriInfo.url = "remoteUrl";
+	URLBitrateMap urlList = { { 0, uriInfo } };
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO, 10, 2, "", -1, 0, testParam.init, false, false, false, 0.0, 0, 1, 0, 0, urlList);
+	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.init, false, false, 0);
+	if(retResult)
+	{
+		mMediaStreamContext->OnFragmentDownloadSuccess(mMediaStreamContext->mActiveDownloadInfo);
+	}
+	else
+	{
+		mMediaStreamContext->OnFragmentDownloadFailed(mMediaStreamContext->mActiveDownloadInfo);
+	}
 
 	if (testParam.eos && !testParam.paused)
 	{

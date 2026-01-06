@@ -102,7 +102,7 @@ public:
 	virtual void SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url, uint64_t startMS=0, uint32_t breakdur=0)
 	{
 		AAMPLOG_WARN("Stream doesn't support CDAI. Rejecting the promise.");
-		mAamp->SendAdResolvedEvent(adId, false, 0, 0);
+		mAamp->SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_ADS_MISCONFIGURED);
 	}
 };
 

@@ -186,7 +186,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -197,7 +196,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(404), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(404, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -208,7 +206,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->curlRetValue);
+	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->iHttpRetValue);
 	EXPECT_NE(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -238,7 +236,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_6)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -281,7 +278,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_8)
 	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
 		.Times(0); // This prevents the function from being called if CURL return value is not CURLE_OK
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_NE(200, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_NONE ,respData->mAbortReason);
 	respData->show();
@@ -333,7 +330,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_StallAtStart)
 	mAampCurlDownloader->Download(mUrl, respData);
 	respData->show();
 	EXPECT_EQ(progress_callback_return, -1);
-	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_START_TIMEDOUT ,respData->mAbortReason);
 
 	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
@@ -390,7 +387,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 	respData->show();
 	EXPECT_EQ(write_func_return, (write_sz * write_nmemb));
 	EXPECT_EQ(progress_callback_return, -1);
-	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->curlRetValue);
+	EXPECT_EQ(CURLE_ABORTED_BY_CALLBACK, respData->iHttpRetValue);
 	EXPECT_EQ(eCURL_ABORT_REASON_STALL_TIMEDOUT ,respData->mAbortReason);
 	free(write_buffer);
 
@@ -438,7 +435,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 		.Times(triesExpected)
 		.WillRepeatedly(DoAll(SetArgPointee<2>(502), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(502, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -453,7 +449,6 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 		.WillOnce(DoAll(SetArgPointee<2>(502), Return(CURLE_OK)))
 		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(200, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
@@ -468,8 +463,83 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 		.WillOnce(DoAll(SetArgPointee<2>(408), Return(CURLE_OK)))
 		.WillOnce(DoAll(SetArgPointee<2>(408), Return(CURLE_OK)));
 	mAampCurlDownloader->Download(mUrl, respData);
-	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
 	EXPECT_EQ(408, respData->iHttpRetValue);
 	respData->show();
 	respData->clear();
+}
+
+/**
+ * @brief Test case to verify Release() stops download activity before header cleanup
+ * 
+ * This test verifies that:
+ * 1. Release() sets mDownloadActive to false, which causes progress callbacks to abort
+ * 2. CleanupCurlHeaderResources() safely frees curl headers after download is stopped
+ * 3. The sequence prevents race conditions where headers could be accessed during cleanup
+ */
+TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCondition) {
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr config = std::make_shared<DownloadConfig>();
+	config->bIgnoreResponseHeader = false; // Enable header callback to use mHeaders
+	
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_HEADERDATA, mAampCurlDownloader))
+		.WillRepeatedly(Return(CURLE_OK));
+
+	
+	mAampCurlDownloader->Initialize(config);
+	
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	
+	std::atomic<bool> downloadAborted(false);
+	
+	// Simulate a download that will be interrupted by Release()
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(DoAll(
+			InvokeWithoutArgs([&]() {
+				// Simulate ongoing download - progress callback should detect abort
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				int result = mCurlProgressCallback(mAampCurlDownloader, 0, 0, 0, 0);
+				if (result == -1) {
+					downloadAborted.store(true);
+				}
+			}),
+			Return(CURLE_ABORTED_BY_CALLBACK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.Times(0); // Should not be called when curl returns CURLE_ABORTED_BY_CALLBACK
+	
+	// Start download in separate thread
+	std::thread downloadThread([&]() {
+		mAampCurlDownloader->Download(mUrl, respData);
+	});
+	
+	// Allow download to start
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	
+	// Step 1: Call Release() to abort the download
+	mAampCurlDownloader->Release();
+	
+	// Wait for download thread to complete
+	downloadThread.join();
+	
+	// Verify download was aborted by Release()
+	EXPECT_TRUE(downloadAborted.load()) << "Progress callback should have detected abort from Release()";
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive()) << "Download should be inactive after Release()";
+	EXPECT_EQ(respData->iHttpRetValue, CURLE_ABORTED_BY_CALLBACK);
+	
+	// Step 2: Now it's safe to cleanup curl headers since download is stopped
+	mAampCurlDownloader->CleanupCurlHeaderResources();
+	
+	// Verify no crash occurred and state is clean
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
 }

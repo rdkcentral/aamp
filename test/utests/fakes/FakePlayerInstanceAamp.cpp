@@ -22,6 +22,13 @@
 
 MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 
+const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
+}
+
+
 	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
@@ -44,7 +51,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 									std::string session_id,
 									const char *preprocessedManifest
 									) { }
-    void PlayerInstanceAAMP::Stop(void) {  }
+    void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }
 	void PlayerInstanceAAMP::SetRate(float rate, int overshootcorrection) {  }
 	void PlayerInstanceAAMP::PauseAt(double  position) {  }
@@ -65,8 +72,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> responseHeaders) {  }
 	void PlayerInstanceAAMP::LoadJS(void* context) {  }
 	void PlayerInstanceAAMP::UnloadJS(void* context) {  }
-	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener) {  }
-	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener) {  }
+	void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
+	void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener) {  }
 	void PlayerInstanceAAMP::InsertAd(const char *url, double  positionSeconds) {  }
 	void PlayerInstanceAAMP::AddPageHeaders(std::map<std::string, std::string> customHttpHeaders) {  }
 	void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader) {  }
@@ -155,10 +162,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::PersistBitRateOverSeek(bool value) {  }
 	void PlayerInstanceAAMP::SetPausedBehavior(int behavior) {  }
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
-	void PlayerInstanceAAMP::XRESupportedTune(bool xreSupported) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
-	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }
 	void PlayerInstanceAAMP::SetLicenseCustomData(const char *customData) {  }
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }
@@ -200,7 +205,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
+	std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }

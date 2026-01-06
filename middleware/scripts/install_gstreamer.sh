@@ -7,13 +7,13 @@ function install_gstreamer_fn()
 {
     # There is no CLEAN function
 
-    if [[ "$OSTYPE" == "darwin"* ]]; then    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
         # homebrew versions are not equivalent to the install package so we don't use it.  In the future that may change.
 
         if [[ $ARCH == "x86_64" ]]; then
             DEFAULT_GSTVERSION="1.18.6"
         elif [[ $ARCH == "arm64" ]]; then
-            DEFAULT_GSTVERSION="1.24.9" 
+            DEFAULT_GSTVERSION="1.24.9"
         else
             echo "Architecture $ARCH is unsupported"
             return 1
@@ -50,7 +50,7 @@ function install_gstreamer_fn()
                 echo "Fixing Gstreamer.framework .pc files."
                 sudo sed -i '.bak'  's#prefix=.*#prefix=/Library/Frameworks/GStreamer.framework/Versions/1.0#' /Library/Frameworks/GStreamer.framework/Libraries/pkgconfig/*
             fi
-            
+
         fi
         INSTALL_STATUS_ARR+=("gstreamer $DEFAULT_GSTVERSION was successfully installed.")
 
@@ -65,7 +65,7 @@ function install_gstpluginsgoodfn()
 {
     cd $LOCAL_DEPS_BUILD_DIR
 
-    if [[ "$OSTYPE" == "darwin"* ]]; then    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
         # homebrew versions are not equivalent to the install package so we don't use it.  In the future that may change.
 
         # $OPTION_CLEAN == true
@@ -84,7 +84,7 @@ function install_gstpluginsgoodfn()
             curl -o gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz
             tar -xvzf gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz
             cd gst-plugins-good-$DEFAULT_GSTVERSION
- 
+
             patch -p1 < ../../OSx/patches/0009-qtdemux-tm_gst-1.16.patch
             patch -p1 < ../../OSx/patches/0013-qtdemux-remove-override-segment-event_gst-1.16.patch
             patch -p1 < ../../OSx/patches/0014-qtdemux-clear-crypto-info-on-trak-switch_gst-1.16.patch

@@ -71,7 +71,7 @@ void RealtekSocInterface::SetAudioProperty(const char * &volume, const char * &m
  */
 bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
-
+    //SOC specific code will  be executed for rialto sink at default soc 
 	if(!pipeline)
 	{
 		MW_LOG_ERR("Failed to set playback rate");
@@ -125,55 +125,41 @@ void RealtekSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 /**
  * @brief Check if the given name is a video sink.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video sink, false otherwise.
  */
-bool RealtekSocInterface::IsVideoSink(const char* name, bool isRialto)
+bool RealtekSocInterface::IsVideoSink(const char* name)
 {
-	if(name)
-		return (StartsWith(name, "westerossink") || StartsWith(name, "rtkv1sink") || (isRialto && StartsWith(name, "rialtomsevideosink") == true));
-	else
-		return false;
+	return name && (
+					StartsWith(name, "westerossink") ||
+					StartsWith(name, "rtkv1sink") );
 }
 
 /**
  * @brief Check if the given name is an audio sink or audio decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's an audio sink or audio decoder, false otherwise.
  */
-bool RealtekSocInterface::IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)
+bool RealtekSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
 {
-	if(name)
-	{
-		return (StartsWith(name, "rtkaudiosink")
-				|| StartsWith(name, "alsasink")
-				|| StartsWith(name, "fakesink")
-				|| (isRialto && StartsWith(name, "rialtomseaudiosink") == true));
-	}
-	else
-	{
-		return false;
-	}
+	return name && (
+					StartsWith(name, "rtkaudiosink") ||
+					StartsWith(name, "alsasink") ||
+					StartsWith(name, "fakesink") );
 }
 
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
- * @param isRialto Rialto flag.
  * @return True if it's a video decoder, false otherwise.
  */
-bool RealtekSocInterface::IsVideoDecoder(const char* name, bool isRialto)
+bool RealtekSocInterface::IsVideoDecoder(const char* name)
 {
-	if(name)
-	{
-		return (StartsWith(name, "omxwmvdec") || StartsWith(name, "omxh26")
-				|| StartsWith(name, "omxav1dec") || StartsWith(name, "omxvp") || StartsWith(name, "omxmpeg"));
-	}
-	else
-	{
-		return false;
-	}
+	return name && (
+					StartsWith(name, "omxwmvdec") ||
+					StartsWith(name, "omxh26") ||
+					StartsWith(name, "omxav1dec") ||
+					StartsWith(name, "omxvp") ||
+					StartsWith(name, "omxmpeg") );
 }
 
 /**
@@ -211,21 +197,9 @@ bool RealtekSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
+bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name)
 {
-	bool AudioOrVideoDecoder = false;
-	if(name)
-	{
-		if(StartsWith(name, "omx"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-		else if(isRialto && StartsWith(name, "rialtomse"))
-		{
-			AudioOrVideoDecoder = true;
-		}
-	}
-	return AudioOrVideoDecoder;
+	return name && StartsWith(name, "omx");
 }
 
 /**
@@ -307,29 +281,6 @@ void RealtekSocInterface::SetFreerunThreshold(GstObject* src)
 }
 
 /**
- * @brief Set audio routing properties on source.
- *
- * Sets audio routing properties on the given source element.
- *
- * @param source The source element.
- */
-void RealtekSocInterface::SetAudioRoutingProperties(GstElement *source)
-{
-	if ((strstr(GST_ELEMENT_NAME(source), "omxaacdec") != NULL) ||
-			(strstr(GST_ELEMENT_NAME(source), "omxac3dec") != NULL) ||
-			(strstr(GST_ELEMENT_NAME(source), "omxeac3dec") != NULL) ||
-			(strstr(GST_ELEMENT_NAME(source), "omxmp3dec") != NULL) ||
-			(strstr(GST_ELEMENT_NAME(source), "omxvorbisdec") != NULL) ||
-			(strstr(GST_ELEMENT_NAME(source), "omxac4dec") != NULL))
-	{
-		g_object_set(source, "audio-tunnel-mode", FALSE, NULL );
-		MW_LOG_INFO("callback_element_added audio-tunnel-mode FALSE");
-		g_object_set(source, "aux-audio", TRUE, NULL );
-		MW_LOG_INFO("callback_element_added aux-audio TRUE");
-	}
-}
-
-/**
  * @brief Set playback flags.
  *
  * Sets the playback flags based on the given parameters.
@@ -354,7 +305,6 @@ void RealtekSocInterface::SetH264Caps(GstCaps *caps)
 {
 	gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 }
-
 
 /**
  * @brief Get video sink from sinkbin.

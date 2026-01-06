@@ -25,7 +25,6 @@
 #include "MockOpenCdm.h"
 #include <cstring>
 #include "_base64.h"
-#include "PlayerUtils.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;

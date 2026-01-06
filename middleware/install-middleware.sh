@@ -23,6 +23,10 @@ if [[ -z "${MAKEFLAGS}" ]]; then
     export MAKEFLAGS=-j$(nproc)
 fi
 
+# Set the CMAKE_POLICY_VERSION_MINIMUM to 3.5
+# Mostly required for OSX builds
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
 
@@ -42,8 +46,6 @@ source scripts/install_gtest.sh
 source scripts/install_glib.sh
 # libdash install and build
 source scripts/install_libdash.sh
-# libcjson install and build
-source scripts/install_libcjson.sh
 # gstreamer install
 source scripts/install_gstreamer.sh
 # subtec install and build
@@ -72,7 +74,7 @@ PLAYER_DIR=$PWD
 # MAIN execution starts
 
 # Get and process install options
-install_options_fn "$@" 
+install_options_fn "$@"
 INSTALL_STATUS_ARR+=("install_options_fn check passed.")
 
 tools_banner_fn
@@ -101,7 +103,7 @@ fi
 if [ ${OPTION_QUICK} = false ] ; then
     echo ""
     echo "*** Check/Install dependency packages"
-    install_pkgs_fn 
+    install_pkgs_fn
     INSTALL_STATUS_ARR+=("install_pkgs_fn check passed.")
 else
     INSTALL_STATUS_ARR+=("install_pkgs_fn check SKIPPED.")
@@ -114,7 +116,7 @@ echo "*** Check/Install source packages"
 
 # Install gstreamer
 #
-install_gstreamer_fn 
+install_gstreamer_fn
 INSTALL_STATUS_ARR+=("install_gstreamer_fn check passed.")
 
 # Build gst-plugins-good. install_gstreamer_fn must have been called first
@@ -123,29 +125,25 @@ INSTALL_STATUS_ARR+=("install_gstplugingood_fn check passed.")
 
 # Build googletest
 #
-install_build_googletest_fn "${OPTION_CLEAN}" 
+install_build_googletest_fn "${OPTION_CLEAN}"
 INSTALL_STATUS_ARR+=("install_build_googletest check passed.")
 
 # Build glib
 #
-install_build_glib_fn "${OPTION_CLEAN}" 
+install_build_glib_fn "${OPTION_CLEAN}"
 INSTALL_STATUS_ARR+=("install_build_glib check passed.")
-
-# Build libcjson
-install_build_libcjson_fn "${OPTION_CLEAN}" 
-INSTALL_STATUS_ARR+=("install_build_libcjson check passed.")
 
 # Build subtec
 #
 CLEAN=false
-if [ ${OPTION_CLEAN} = true ] ; then 
+if [ ${OPTION_CLEAN} = true ] ; then
     CLEAN=true
 fi
 if [ ${OPTION_SUBTEC_CLEAN} = true ] ; then
     CLEAN=true
 fi
 
-if [ ${OPTION_SUBTEC_SKIP} = false ] ; then 
+if [ ${OPTION_SUBTEC_SKIP} = false ] ; then
     subtec_install_build_fn "${CLEAN}"
     INSTALL_STATUS_ARR+=("subtec_install_build check passed.")
 else

@@ -19,7 +19,7 @@
 
 /**
  * @file vttCue.h
- * 
+ *
  * @brief Provides data structure to hold a WebVTT cue data
  *
  */

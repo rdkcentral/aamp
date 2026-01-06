@@ -23,7 +23,7 @@ set(UTESTS_ROOT "..")
 include_directories(${PLAYER_ROOT})
 include_directories(${PLAYER_ROOT}/subtec/subtecparser)
 include_directories(${PLAYER_ROOT}/subtec/libsubtec)
-include_directories(${PLAYER_ROOT}/playerjsonobject)
+include_directories(${PLAYER_ROOT}/playerJsonObject)
 include_directories(${PLAYER_ROOT}/vendor)
 include_directories(${PLAYER_ROOT}/playerLogManager)
 include_directories(${PLAYER_ROOT}/externals)
@@ -37,7 +37,7 @@ include_directories(${UTESTS_ROOT}/ocdm)
 include_directories(${PLAYER_ROOT}/drm)
 include_directories(${PLAYER_ROOT}/drm/ocdm)
 include_directories(${PLAYER_ROOT}/baseConversion)
-include_directories(${PLAYER_ROOT}/externals/playersecmanager)
+include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -63,3 +63,10 @@ add_library(fakes ${fakes_SRC})
 target_include_directories(fakes PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../)
 set_target_properties(fakes PROPERTIES FOLDER "utests")
 set_target_properties(fakes PROPERTIES COMPILE_FLAGS "-Wno-effc++ -Wno-varargs")
+
+# Build fakes with hidden symbol visibility to avoid exporting symbols
+# (e.g. g_object_set) into test executables' dynamic symbol table. Exporting
+# those symbols can clash with system GLib/GStreamer initializers and cause
+# crashes at process startup. Hidden visibility prevents that.
+target_compile_options(fakes PRIVATE -fvisibility=hidden)
+set_target_properties(fakes PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)

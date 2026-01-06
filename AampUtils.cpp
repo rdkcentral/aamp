@@ -36,16 +36,17 @@
 #include <assert.h>
 #include <ctime>
 #include <cctype>
-#include <curl/curl.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fstream>
 #include <dirent.h>
 #include <algorithm>
+#include <inttypes.h>
 
 #define DEFER_DRM_LIC_OFFSET_FROM_START 5
 #define DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND 5
+#define MAX_THREAD_NAME_LENGTH 16 // Linux is least common denominator, with up to 15 characters + null terminator
 
 /*
  * Variable initialization for various audio formats
@@ -76,6 +77,11 @@ static const FormatMap mVideoFormatMap[] =
 	{ "mpeg2v", FORMAT_VIDEO_ES_MPEG2 }//For testing.
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
+
+bool IS_HTTP_SUCCESS(int code)
+{
+	return code == 200 || code == 204 || code == 206;
+}
 
 /**
  * @brief Get current time from epoch is milliseconds
@@ -320,9 +326,6 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 	char *temp = (char *)malloc(srcLen+3);
 	if( temp )
 	{
-		temp[srcLen+2] = '\0';
-		temp[srcLen+1] = '=';
-		temp[srcLen+0] = '=';
 		for( int iter = 0; iter < srcLen; iter++ )
 		{
 			char c = src[iter];
@@ -339,7 +342,10 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 			}
 			temp[iter] = c;
 		}
-		rc = base64_Decode(temp, len );
+		temp[srcLen++] = '=';
+		temp[srcLen++] = '=';
+		temp[srcLen] = '\0';
+		rc = base64_Decode(temp, len, srcLen );
 		free(temp);
 	}
 	else
@@ -412,18 +418,9 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 	T1.Initialize(inpData);
 	T1.Download(remoteUrl, respData);
 	
-	std::string response;
-	if( respData->curlRetValue == CURLE_OK )
-	{
-		AAMPLOG_WARN("JSONRPC data: %s", inpData->postData.c_str() );
-		AAMPLOG_WARN("HTTP %d", respData->iHttpRetValue);
-		response =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
-	}
-	else
-	{
-		AAMPLOG_ERR("failed: %d", respData->curlRetValue);
-	}
-
+	AAMPLOG_WARN("JSONRPC data: %s", inpData->postData.c_str() );
+	AAMPLOG_WARN("HTTP %d", respData->iHttpRetValue);
+	std::string response = std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
 	return response;
 	
 }
@@ -557,7 +554,7 @@ void trim(std::string& src)
 	{
 		size_t last = src.find_last_not_of(" \n\r\t\f\v");
 		std::string dst = src.substr(first, (last - first + 1));
-		src = dst;
+		src = std::move(dst);
 	}
 }
 
@@ -565,16 +562,22 @@ void trim(std::string& src)
  * @brief To get the preferred iso639mapped language code
  * @retval[out] preferred iso639 mapped language.
  */
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferLangFormat )
 {
-        if (preferLangFormat != ISO639_NO_LANGCODE_PREFERENCE)
-        {
-                char lang2[MAX_LANGUAGE_TAG_LENGTH];
-                strcpy(lang2, lang.c_str());
-                iso639map_NormalizeLanguageCode(lang2, preferLangFormat);
-                lang = lang2;
-        }
-	return lang;
+	std::string rc;
+	if (preferLangFormat == ISO639_NO_LANGCODE_PREFERENCE)
+	{
+		rc = std::move(lang);
+	}
+	else
+	{
+		char lang2[3+1]; // max 3 characters, i.e. 'eng' with cstring NUL terminator
+		strncpy(lang2, lang.c_str(), sizeof(lang2) );
+		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination (not guaranteed by strncpy)
+		iso639map_NormalizeLanguageCode(lang2, preferLangFormat); // modifies lang2
+		rc = lang2;
+	}
+	return rc;
 }
 
 /**
@@ -604,18 +607,18 @@ enum HarvestConfigType
 	eHARVEST_ENABLE_VIDEO = 0x00000001,              /**< Enable Harvest Video fragments - set 1st bit*/
 	eHARVEST_ENABLE_AUDIO = 0x00000002,              /**< Enable Harvest audio - set 2nd bit*/
 	eHARVEST_ENABLE_SUBTITLE = 0x00000004,           /**< Enable Harvest subtitle - set 3rd bit */
-	eHARVEST_ENABLE_AUX_AUDIO = 0x00000008,          /**< Enable Harvest auxiliary audio - set 4th bit*/
+	eHARVEST_ENABLE_RESERVED = 0x00000008,           /**< Reserved for future use */
 	eHARVEST_ENABLE_MANIFEST = 0x00000010,           /**< Enable Harvest manifest - set 5th bit */
 	eHARVEST_ENABLE_LICENCE = 0x00000020,            /**< Enable Harvest license - set 6th bit  */
 	eHARVEST_ENABLE_IFRAME = 0x00000040,             /**< Enable Harvest iframe - set 7th bit  */
 	eHARVEST_ENABLE_INIT_VIDEO = 0x00000080,         /**< Enable Harvest video init fragment - set 8th bit*/
 	eHARVEST_ENABLE_INIT_AUDIO = 0x00000100,         /**< Enable Harvest audio init fragment - set 9th bit*/
 	eHARVEST_ENABLE_INIT_SUBTITLE = 0x00000200,      /**< Enable Harvest subtitle init fragment - set 10th bit*/
-	eHARVEST_ENABLE_INIT_AUX_AUDIO = 0x00000400,     /**< Enable Harvest auxiliary audio init fragment - set 11th bit*/
+	eHARVEST_ENABLE_INIT_RESERVED = 0x00000400,      /**< Reserved for future use */
 	eHARVEST_ENABLE_PLAYLIST_VIDEO = 0x00000800,     /**< Enable Harvest video playlist - set 12th bit*/
 	eHARVEST_ENABLE_PLAYLIST_AUDIO = 0x00001000,     /**< Enable Harvest audio playlist - set 13th bit*/
 	eHARVEST_ENABLE_PLAYLIST_SUBTITLE = 0x00002000,  /**< Enable Harvest subtitle playlist - set 14th bit*/
-	eHARVEST_ENABLE_PLAYLIST_AUX_AUDIO = 0x00004000, /**< Enable Harvest auxiliary audio playlist - set 15th bit*/
+	eHARVEST_ENABLE_PLAYLIST_RESERVED = 0x00004000,  /**< Reserved for future use */
 	eHARVEST_ENABLE_PLAYLIST_IFRAME = 0x00008000,    /**< Enable Harvest Iframe playlist - set 16th bit*/
 	eHARVEST_ENABLE_INIT_IFRAME = 0x00010000,        /**< Enable Harvest IFRAME init fragment - set 17th bit*/
 	eHARVEST_ENABLE_DSM_CC = 0x00020000,             /**< Enable Harvest digital storage media command and control (DSM-CC)- set 18th bit */
@@ -986,35 +989,28 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	inpData->iStallTimeout = 2; // 2sec
 	inpData->iStartTimeout = 2; // 2sec
 	inpData->iDownloadTimeout = 3; // 3sec
-	inpData->proxyName 	  = NetworkProxy;
+	inpData->proxyName = std::move(NetworkProxy);
 	
 	inpData->bNeedDownloadMetrics = true;
-	T1.Initialize(inpData);
+	T1.Initialize(std::move(inpData));
 	T1.Download(remoteUrl, respData);
-		
-	if (respData->curlRetValue == CURLE_OK)
+	
+	if ((respData->iHttpRetValue == 204) || (respData->iHttpRetValue == 200))
 	{
-		if ((respData->iHttpRetValue == 204) || (respData->iHttpRetValue == 200))
+		std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
+		if(dataStr.size())
 		{
-			std::string dataStr =  std::string( respData->mDownloadData.begin(), respData->mDownloadData.end());
-			if(dataStr.size())
-			{
-				//2021-06-15T18:11:39Z - UTC Zulu
-				//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
-				//const char* format = "%Y-%m-%dT%H:%M:%SZ";
-				//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
-				retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
-				AAMPLOG_INFO("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
-			}
-		}
-		else
-		{
-			AAMPLOG_ERR("Http Error Returned [%d]", respData->iHttpRetValue);
+			//2021-06-15T18:11:39Z - UTC Zulu
+			//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
+			//const char* format = "%Y-%m-%dT%H:%M:%SZ";
+			//mTime = convertTimeToEpoch((const char*)dataStr.c_str(), format);
+			retValue = ISO8601DateTimeToUTCSeconds((const char*)dataStr.c_str());
+			AAMPLOG_INFO("ProducerReferenceTime Wallclock (Epoch): [%f] TimeTaken[%f]", retValue, respData->downloadCompleteMetrics.total);
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to perform curl request [%d]", respData->curlRetValue);
+		AAMPLOG_ERR("Http Error Returned [%d]", respData->iHttpRetValue);
 	}
 	
 	if(http_error)
@@ -1140,18 +1136,18 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 		"video",//eMEDIATYPE_VIDEO
 		"audio",//eMEDIATYPE_AUDIO
 		"text",//eMEDIATYPE_SUBTITLE
-		"aux_audio",//eMEDIATYPE_AUX_AUDIO
+		"reserved",//eMEDIATYPE_RESERVED
 		"manifest",//eMEDIATYPE_MANIFEST
 		"licence",//eMEDIATYPE_LICENCE
 		"iframe",//eMEDIATYPE_IFRAME
 		"init_video",//eMEDIATYPE_INIT_VIDEO
 		"init_audio",//eMEDIATYPE_INIT_AUDIO
 		"init_text",//eMEDIATYPE_INIT_SUBTITLE
-		"init_aux_audio",//eMEDIATYPE_INIT_AUX_AUDIO
+		"init_reserved",//eMEDIATYPE_INIT_RESERVED
 		"playlist_video",//eMEDIATYPE_PLAYLIST_VIDEO
 		"playlist_audio",//eMEDIATYPE_PLAYLIST_AUDIO
 		"playlist_text",//eMEDIATYPE_PLAYLIST_SUBTITLE
-		"playlist_aux_audio",//eMEDIATYPE_PLAYLIST_AUX_AUDIO
+		"playlist_reserved",//eMEDIATYPE_PLAYLIST_RESERVED
 		"playlist_iframe",//eMEDIATYPE_PLAYLIST_IFRAME
 		"init_iframe",//eMEDIATYPE_INIT_IFRAME
 		"dsm_cc",//eMEDIATYPE_DSM_CC
@@ -1165,63 +1161,6 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 	{
 		return "UNKNOWN";
 	}
-}
-
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-	switch( mediaType )
-	{
-	case eMEDIATYPE_VIDEO:
-		timeScale = aamp->GetVidTimeScale();
-		break;
-	case eMEDIATYPE_AUDIO:
-	case eMEDIATYPE_AUX_AUDIO:
-		timeScale = aamp->GetAudTimeScale();
-		break;
-	case eMEDIATYPE_SUBTITLE:
-		timeScale = aamp->GetSubTimeScale();
-		break;
-	default:
-		AAMPLOG_WARN("Invalid media type %d", mediaType);
-		break;
-	}
-	IsoBmffBuffer isobuf;
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-		}
-	}
-	return ret;
 }
 
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
@@ -1423,26 +1362,35 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 
 /**
  * @brief To set the thread name
+ * The thread name should be 16 characters or less, including null terminator.
+ * If the name is longer than 15 characters, it will be truncated.
+ * @note This function is only supported on POSIX threads.
  * @param[in] name thread name
  */
 void aamp_setThreadName(const char *name)
 {
 	if (name == NULL)
 	{
-		AAMPLOG_ERR("Invalid name");
+		AAMPLOG_ERR("invalid name");
 	}
 	else
 	{
+		char truncatedThreadName[MAX_THREAD_NAME_LENGTH];
+		size_t len = strlen(name);
+		if( len>=MAX_THREAD_NAME_LENGTH )
+		{ // clamp, avoiding ERANGE error
+			len = MAX_THREAD_NAME_LENGTH-1;
+		}
+		memcpy( truncatedThreadName, name, len );
+		truncatedThreadName[len] = '\0';
 #ifdef __APPLE__
-		// Set the thread name
-		int ret = pthread_setname_np(name);
+		int ret = pthread_setname_np(truncatedThreadName); // different API signature on OSX
 #else
-		// Set the thread name
-		int ret = pthread_setname_np(pthread_self(), name);
+		int ret = pthread_setname_np(pthread_self(), truncatedThreadName);
 #endif
-		if (ret != 0)
-		{
-			AAMPLOG_ERR("Error: pthread_setname_np failed with error code[%d]", ret);
+		if( ret != 0 )
+		{ // Not exactly an error, but log it for information
+			AAMPLOG_WARN( "pthread_setname_np failed with error code[%d]", ret );
 		}
 	}
 }
@@ -1495,3 +1443,65 @@ int aamp_hascii_char_to_number( char c )
  * EOF
  */
 
+bool aamp_isTuneScheme( const char *cmdBuf )
+{
+    size_t cmdLen = strlen(cmdBuf);
+    bool isTuneScheme = false;
+    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+    for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
+    {
+        size_t protocolLen = strlen(protocol[i]);
+        if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
+        {
+            isTuneScheme=true;
+            break;
+        }
+    }
+    return isTuneScheme;
+}
+/**
+ * @brief In order to find the reason for timeout failure, we check the curl timings
+  * CURLINFO_NAMELOOKUP_TIME - time taken for DNS resolution
+  * CURLINFO_CONNECT_TIME - time taken to connect to the server
+  * If both are zero, it indicates that DNS resolution itself has failed.
+  * If DNS resolution is successful but connection time is zero, it indicates that connection to server has failed.
+  * If both DNS resolution and connection to server are successful, it indicates that data transfer has failed.
+ * @param[in] curl CURL handle
+ * @retval CurlTimeoutFailureReason enum value indicating the reason for timeout
+ */
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
+{
+    double nameLookupTime = 0;
+    curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &nameLookupTime);
+	if ( nameLookupTime == 0)
+	{
+		return eCURL_TIMEOUT_DNS;
+	}
+	else
+	{
+		double connectTime = 0;
+		curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
+		if (connectTime == 0 )
+		{
+			return eCURL_TIMEOUT_CONNECT;
+		}
+    }
+	return eCURL_TIMEOUT_DATA;
+}
+/**
+ * @brief To check if the curl error is due to timeout
+ * @param[in] httpResponseCode HTTP response code
+ * @retval true if the error is due to timeout, false otherwise
+ */
+bool IsCurlTimeoutFailure( int httpResponseCode )
+{
+	switch( httpResponseCode )
+	{
+		case CURLE_OPERATION_TIMEDOUT:
+		case eCURL_TIMEOUT_DNS:
+		case eCURL_TIMEOUT_CONNECT:
+			return true;
+		default:
+			return false;
+	}
+}

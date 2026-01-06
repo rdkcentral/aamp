@@ -19,8 +19,11 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockMediaTrack.h"
+#include <memory>
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
+MockMediaTrack *g_mockMediaTrack = nullptr;
 
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
@@ -49,6 +52,11 @@ double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 	return 0.0;
 }
 
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
+{
+	return 0.0;
+}
+
 void StreamAbstractionAAMP::MuteSubtitles(bool mute)
 {
 	if (g_mockStreamAbstractionAAMP != nullptr)
@@ -62,6 +70,10 @@ void StreamAbstractionAAMP::ResetTrickModePtsRestamping()
 }
 
 void StreamAbstractionAAMP::RefreshSubtitles()
+{
+}
+
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
 {
 }
 
@@ -97,6 +109,14 @@ int StreamAbstractionAAMP::GetTextTrack()
 bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 {
 	return 0;
+}
+
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->SetCurrentTextTrackIndex(index);
+	}
 }
 
 bool StreamAbstractionAAMP::isInBandCcAvailable()
@@ -178,14 +198,21 @@ void MediaTrack::FlushFragments()
 {
 }
 
-int MediaTrack::GetCurrentBandWidth()
+BitsPerSecond MediaTrack::GetCurrentBandWidth()
 {
 	return 0;
 }
 
 CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 {
-	return NULL;
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->GetFetchBuffer(initialize);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
@@ -197,7 +224,7 @@ void MediaTrack::PlaylistDownloader()
 {
 }
 
-void MediaTrack::SetCurrentBandWidth(int bandwidthBps)
+void MediaTrack::SetCurrentBandWidth(BitsPerSecond bandwidthBps)
 {
 }
 
@@ -209,7 +236,17 @@ void MediaTrack::StartPlaylistDownloaderThread()
 {
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name)
+bool MediaTrack::isFragmentInjectorThreadStarted()
+{
+	return true;
+}
+
+bool MediaTrack::isPlaylistDownloaderThreadStarted()
+{
+	return true;
+}
+
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
 {
 }
 
@@ -227,6 +264,10 @@ void MediaTrack::StopPlaylistDownloaderThread()
 
 void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 {
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterFetch(isInitSegment);
+	}
 }
 
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
@@ -280,12 +321,26 @@ bool MediaTrack::IsLocalTSBInjection()
 
 bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 {
-	return true;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->CheckForRampDownLimitReached();
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 {
-	return true;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->CheckForRampDownProfile(http_error);
+	}
+	else
+	{
+		return false;
+	}
 }
 
 double StreamAbstractionAAMP::LastVideoFragParsedTimeMS(void)
@@ -348,11 +403,22 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 
 CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
-	 return NULL;
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->GetFetchChunkBuffer(initialize);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 void MediaTrack::UpdateTSAfterChunkFetch()
 {
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterChunkFetch();
+	}
 }
 
 void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
@@ -371,7 +437,7 @@ void MediaTrack::AbortWaitForCachedFragmentChunk()
 {
 }
 
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	return 0;
 }
@@ -380,6 +446,10 @@ void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 }
 void MediaTrack::UpdateTSAfterInject()
 {
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterInject();
+	}
 }
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
 {
@@ -392,8 +462,7 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 		g_mockStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
 	}
 }
-
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 {
 }
 
@@ -423,10 +492,68 @@ void MediaTrack::FlushFragmentChunks()
 
 bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 {
-	bool ret = false;
-	return ret;
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->IsInjectionFromCachedFragmentChunks();
+	}
+	else
+	{
+		bool ret = false;
+		return ret;
+	}
 }
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
 {
+}
+
+void MediaTrack::ResetTrickModePtsRestamping()
+{
+}
+
+void StreamAbstractionAAMP::ReinitializeInjection(double rate)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->ReinitializeInjection(rate);
+	}
+}
+
+void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
+{
+}
+
+void MediaTrack::LoadNewSubtitle(bool initialize)
+{
+}
+
+void MediaTrack::OffsetTrackParams(double offset, double seekPos, int trackType)
+{
+}
+
+void MediaTrack::NotifyCachedAudioFragmentAvailable()
+{
+}
+
+bool MediaTrack::IsFragmentCacheFull()
+{
+	return false;
+}
+
+void MediaTrack::UpdateInjectedDuration(double duration)
+{
+}
+
+void MediaTrack::FlushFetchedFragments()
+{
+}
+
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType)
+{
+	return nullptr;
+}
+
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType)
+{
+	return nullptr;
 }

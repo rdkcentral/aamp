@@ -26,6 +26,7 @@
 #include "AampUtils.h"
 #include <vector>
 #include "AampLogManager.h"
+#include "AampDefine.h"
 
 void _downloadConfig::show()
 {
@@ -62,7 +63,6 @@ void _downloadConfig::show()
 
 void _downloadResponse::show()
 {
-	AAMPLOG_INFO("curlRetValue : %d", curlRetValue);
 	AAMPLOG_INFO("iHttpRetValue : %d", iHttpRetValue);
 	AAMPLOG_INFO("total : %lf msec", downloadCompleteMetrics.total*1000);
 	AAMPLOG_INFO("connect : %lf msec", downloadCompleteMetrics.connect*1000);
@@ -74,7 +74,7 @@ void _downloadResponse::show()
 	AAMPLOG_INFO("dlSize : %f bytes", downloadCompleteMetrics.dlSize);
 	
 	AAMPLOG_INFO("reqSize : %ld bytes", downloadCompleteMetrics.reqSize);
-	AAMPLOG_INFO("downloadbps : %ld bps", downloadCompleteMetrics.downloadbps);
+	AAMPLOG_INFO("downloadbps : %" BITSPERSECOND_FORMAT " bps", downloadCompleteMetrics.downloadbps);
 	AAMPLOG_INFO("dataSize : %d bytes", (int)mDownloadData.size());
 	AAMPLOG_INFO("effective Url : %s", sEffectiveUrl.c_str());
 	
@@ -127,7 +127,7 @@ char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
 
 
 AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownloadActive(false),mCreatedNewFd(false),
-			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0)
+			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0),contentLength(0)
 
 {
 	// All download related configs are read here
@@ -152,13 +152,13 @@ AampCurlDownloader::~AampCurlDownloader()
 
 bool AampCurlDownloader::IsDownloadActive()
 {
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	return mDownloadActive;
 }
 
 int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<DownloadResponse> dnldData )
 {
 	int httpRetVal=0;
-	int curlRetVal=0;
 	int numDownloadAttempts=0;
 	int numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
 	if(urlStr.size() == 0 || dnldData == nullptr)
@@ -171,18 +171,22 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 		{
 			{
 				std::lock_guard<std::mutex> lock(mCurlMutex);
-				mDownloadActive		=	true;
-				mDownloadResponse	=	dnldData;
-				mDownloadResponse->sEffectiveUrl	=	urlStr;
+				mDownloadActive = true;
+				mDownloadResponse = dnldData;
+				mDownloadResponse->sEffectiveUrl = urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
 			bool loopAgain = false;
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
-				curlRetVal = curl_easy_perform(mCurl);
+				if( mDnldCfg && mDnldCfg->bCurlThroughput )
+				{
+					AAMPLOG_MIL( "curl-begin type=%d", eMEDIATYPE_MANIFEST);
+				}
+				httpRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
 				numDownloadAttempts++;
-				if(curlRetVal == CURLE_OK)
+				if(httpRetVal == CURLE_OK)
 				{
 					if( memcmp(urlStr.c_str(), "file:", 5) == 0 )
 					{ // file uri scheme
@@ -204,7 +208,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					{
 						numRetriesAllowed = mDnldCfg->iDownload502RetryCount;
 					}
-					AAMPLOG_INFO("Download Status Ret:%d %d %s",mDownloadResponse->curlRetValue,mDownloadResponse->iHttpRetValue, urlStr.c_str());
+					AAMPLOG_INFO("Download Status Ret:%d %s", mDownloadResponse->iHttpRetValue, urlStr.c_str());
 					if ( numDownloadAttempts <= numRetriesAllowed )
 					{
 						//make http 408 retry-worthy as well
@@ -225,13 +229,11 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 						}
 					}
 				}
-				//NETWORK_ERROR
 				else
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
-					{
-						//Attempt retry for partial downloads, which have a higher chance to succeed
-						if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
+					{ //Attempt retry for partial downloads, which have a higher chance to succeed
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
 						{
 							loopAgain = true;
 						}
@@ -245,26 +247,27 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			 * We can distinguish curl error and http error based on value
 			 * curl errors are below 100 and http error starts from 100
 			 */
-			if(curlRetVal !=  CURLE_OK)
+			if( httpRetVal == CURLE_FILE_COULDNT_READ_FILE )
 			{
-				if( curlRetVal == CURLE_FILE_COULDNT_READ_FILE )
-				{
-					mDownloadResponse->iHttpRetValue = httpRetVal = 404; // translate file not found to URL not found
-				}
-				else if(mDownloadResponse->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
-				{
-					mDownloadResponse->iHttpRetValue = httpRetVal = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
-				}
-				else
-				{
-					mDownloadResponse->iHttpRetValue = httpRetVal = curlRetVal;
-				}
+				mDownloadResponse->iHttpRetValue = httpRetVal = 404; // translate file not found to URL not found
+			}
+			else if(mDownloadResponse->mAbortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+			{ // Timed out wrt configured low bandwidth timeout.
+				mDownloadResponse->iHttpRetValue = httpRetVal = CURLE_OPERATION_TIMEDOUT;
 			}
 			// update the download response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
-			mDownloadActive = false;		
-			mDownloadResponse->curlRetValue = curlRetVal;
+			mDownloadActive = false;
+			mDownloadResponse->iHttpRetValue = httpRetVal;		
+			if( mDnldCfg && mDnldCfg->bCurlThroughput )
+			{
+				AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d",
+					   eMEDIATYPE_MANIFEST,
+					   mDownloadResponse->downloadCompleteMetrics.appConnect,
+					   mDownloadResponse->downloadCompleteMetrics.redirect,
+					   mDownloadResponse->iHttpRetValue );
+			}
 		}
 		else
 		{
@@ -338,31 +341,34 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 	// Release and reset and previously called values
 	Release();
 
-	std::lock_guard<std::mutex> lock(mCurlMutex);
-	mDnldCfg = dnldCfg;
-	//mDnldCfg->show();
-	if (!mDnldCfg->pCurl)
+	CleanupCurlHeaderResources(); // internally, this temporarily acquires mCurlMutex
+	
 	{
-		if(mCurl == NULL)
+		std::lock_guard<std::mutex> lock(mCurlMutex);
+		mDnldCfg = std::move(dnldCfg);
+		//mDnldCfg->show();
+		if (!mDnldCfg->pCurl)
 		{
-			mCurl = curl_easy_init();
-			mCreatedNewFd = true;
+			if(mCurl == NULL)
+			{
+				mCurl = curl_easy_init();
+				mCreatedNewFd = true;
+			}
+			
 		}
-
-	}
-	else
-	{
-		if(mCreatedNewFd && mCurl)
+		else
 		{
-			// Whatever created by this module should be freed by this module
-			// AampCurlDownloader is not responsible for the curl handles provided for download
-			curl_easy_cleanup(mCurl);
-			mCreatedNewFd = false;
+			if(mCreatedNewFd && mCurl)
+			{
+				// Whatever created by this module should be freed by this module
+				// AampCurlDownloader is not responsible for the curl handles provided for download
+				curl_easy_cleanup(mCurl);
+				mCreatedNewFd = false;
+			}
+			mCurl =	mDnldCfg->pCurl;
 		}
-		mCurl =	mDnldCfg->pCurl;
+		updateCurlParams();
 	}
-	updateCurlParams();
-
 }
 
 
@@ -370,6 +376,11 @@ void AampCurlDownloader::Release()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
+}
+
+void AampCurlDownloader::CleanupCurlHeaderResources()
+{
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;
 	mWriteCallbackBufferSize = 0;
@@ -486,6 +497,10 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
 	if(context != NULL)
 	{
+		if( context->mDnldCfg && context->mDnldCfg->bCurlThroughput )
+		{
+			AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu", eMEDIATYPE_MANIFEST, sz*nmemb, context->contentLength );
+		}
 		ret = context->write_callback(buffer, sz, nmemb);
 	}
 	return ret;
@@ -509,38 +524,43 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 	return retSize;
 }
 
-size_t AampCurlDownloader::HeaderCallback(void *buffer, size_t sz, size_t nmemb, void *userdata)
-{
-	// Call non-static member function.
-	size_t ret = 0;
+size_t AampCurlDownloader::HeaderCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{ // Call non-static member function.
+	size_t len = nmemb * size;
 	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
 	if(context != NULL)
 	{
-		ret = context->header_callback(buffer, sz, nmemb);
+		context->header_callback(ptr, len);
+		if( len>=2 && ptr[len-2]=='\r' && ptr[len-1]=='\n' )
+		{ // CRLF terminated curl header as expected
+			if( STARTS_WITH_IGNORE_CASE(ptr, CONTENTLENGTH_STRING) )
+			{
+				int contentLengthStartPosition = STRLEN_LITERAL(CONTENTLENGTH_STRING);
+				const char * contentLengthStr = ptr + contentLengthStartPosition;
+				context->contentLength = atoi(contentLengthStr);
+			}
+		}
 	}
-	return ret;
+	return len;
 }
 
-size_t AampCurlDownloader::header_callback(void *buffer, size_t sz, size_t nmemb)
+void AampCurlDownloader::header_callback(char *ptr, size_t len )
 {
-	size_t retSize = sz * nmemb;
-	
-	if(retSize)
+	if(len)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
-		std::uint8_t *bufferE = bufferS + retSize;
 		std::string str;
-		size_t pos;
-		str.assign(bufferS, bufferE);
-		if((pos = str.find('\n')) != std::string::npos)
+		str.assign(ptr, ptr+len);
+		size_t pos = str.find('\n');
+		if( pos != std::string::npos)
 		{
 			str.erase(pos);
 		}
 		if(str.size())
-			this->mDownloadResponse->mResponseHeader.push_back(str);
+		{
+			this->mDownloadResponse->mResponseHeader.push_back(std::move(str));
+		}
 	}
-	return retSize;
 }
 
 int AampCurlDownloader::ProgressCallback(
@@ -647,3 +667,7 @@ size_t AampCurlDownloader::GetDataString(std::string &dataStr)
 	return ret;
 }
 
+CURL* AampCurlDownloader::GetCurlHandle()
+{
+	return mCurl;
+}

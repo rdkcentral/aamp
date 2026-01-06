@@ -22,7 +22,7 @@ index 5750031..e3d6b36 100644
 @@ -2680,6 +2680,17 @@ gst_qtdemux_stream_flush_samples_data (QtDemuxStream * stream)
    stream->duration_last_moof = 0;
  }
- 
+
 +static void gst_qtdemux_stream_flush_crypto_info (QtDemuxStream * stream)
 +{
 +    QtDemuxCencSampleSetInfo *info =
@@ -43,8 +43,7 @@ index 5750031..e3d6b36 100644
    gst_qtdemux_stream_flush_samples_data (stream);
 +  gst_qtdemux_stream_flush_crypto_info (stream);
  }
- 
- static void
--- 
-2.14.2
 
+ static void
+--
+2.14.2

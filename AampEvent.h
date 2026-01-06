@@ -25,7 +25,7 @@
 #ifndef __AAMP_EVENTS_H__
 #define __AAMP_EVENTS_H__
 
-#include "ABRManager.h"
+#include "abr.h"
 
 #include <memory>
 #include <vector>
@@ -153,7 +153,10 @@ typedef enum
 	AAMP_TUNE_INVALID_MANIFEST_FAILURE,		   /**< Manifest is invalid */
 	AAMP_TUNE_FAILED_PTS_ERROR,			   /**< Playback failed due to PTS error */
 	AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING,		   /**< Init fragments missing in playlist */
-	AAMP_TUNE_FAILURE_UNKNOWN			   /**<  Unknown failure */
+	AAMP_TUNE_DNS_RESOLVE_TIMEOUT,
+	AAMP_TUNE_CURL_CONNECTION_TIMEOUT,
+	AAMP_TUNE_DATA_TRANSFER_TIMEOUT,
+	AAMP_TUNE_FAILURE_UNKNOWN		   /**<  Unknown failure */
 } AAMPTuneFailure;
 
 /**
@@ -180,6 +183,24 @@ typedef enum
 	eSTATE_RELEASED     = 13, /**< all resources released (equivalent to eSTATE_IDLE)  */
 	eSTATE_BLOCKED      = 14  /**< AV muted due to parental control */
 } AAMPPlayerState;
+
+/**
+ * @enum AAMPCDAIError
+ * @brief CDAI failure error code
+ */
+typedef enum
+{
+	eCDAI_ERROR_ADS_MISCONFIGURED,		/*Ad configuration is Invalid*/
+	eCDAI_ERROR_INVALID_MANIFEST,		/*The ad manifest is unreadable or contains invalid syntax*/
+	eCDAI_ERROR_INVALID_MEDIA,			/*The ad media file is invalid*/
+	eCDAI_ERROR_INVALID_SPECIFICATION,	/*The ad contains invalid Specifications*/
+	eCDAI_ERROR_DECISIONING_TIMEOUT,	/*The ad decisioning service is timed out*/
+	eCDAI_ERROR_DELIVERY_TIMEOUT,		/*The ad delivery service is timed out*/
+	eCDAI_ERROR_DELIVERY_HTTP_ERROR,	/*A HTTP error was received from the ad delivery service*/
+	eCDAI_ERROR_DELIVERY_ERROR,			/*Ad deliver Error due to no adbreakobject*/
+	eCDAI_ERROR_UNKNOWN,				/*unknown error during ad placement*/
+	eCDAI_ERROR_NONE					/*Successful ad Placement */
+} AAMPCDAIError;
 
 /**
  * @enum MetricsDataType
@@ -246,10 +267,11 @@ struct AAMPEvent
 			double endMilliseconds;      		/**< time shift buffer end position (relative to tune time - starts at zero) */
 			long long videoPTS; 			/**< Video Presentation 90 Khz time-stamp  */
 			double videoBufferedMilliseconds;	/**< current duration of buffered video ready to playback */
+			double audioBufferedMilliseconds;	/**< current duration of buffered audio ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
-			long profileBandwidth;      /**< Profile Bandwidth */
-			long networkBandwidth;      /**< Network Bandwidth*/
+			BitsPerSecond profileBandwidth;      /**< Profile Bandwidth */
+			BitsPerSecond networkBandwidth;      /**< Network Bandwidth*/
 			double currentPlayRate; /**< CurrentPlayRate */
 			
 			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
@@ -421,6 +443,8 @@ struct AAMPEvent
 			const char *adId;
 			uint64_t startMS;
 			uint64_t durationMs;
+			const char* errorCode;
+			const char* errorDescription;
 		} adResolved;
 
 		/**
@@ -509,6 +533,7 @@ struct AAMPEvent
 			int64_t mVideoPositionMS;	/**< Video position in milliseconds */
 			int64_t mAudioPositionMS;	/**< Audio position in milliseconds */
 			uint64_t mTimeInStateMS;	/**< Time in the current state in milliseconds */
+			uint64_t mDroppedFrames;   /**< Dropped Frames Count */
 		} monitorAVStatus;
 	} data;
 
@@ -707,11 +732,12 @@ class ProgressEvent: public AAMPEventObject
 	double mEnd;			/**< time shift buffer end position (relative to tune time - starts at zero) in MS */
 	float mSpeed;			/**< current trick speed (1.0 for normal play rate) */
 	long long mPTS;			/**< Video Presentation 90 Khz time-stamp  */
-	double mBufferedDuration;	/**< current duration of buffered video ready to playback */
+	double mVideoBufferedDurationMs; /**< current duration of buffered video ready to playback */
+	double mAudioBufferedDurationMs; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
-	long mProfileBandwidth;     /**<Profile Bandwidth */
-	long mNetworkBandwidth;     /**<Network Bandwidth */
+	BitsPerSecond mProfileBandwidth;     /**<Profile Bandwidth */
+	BitsPerSecond mNetworkBandwidth;     /**<Network Bandwidth */
 	double mCurrentPlayRate; /**<CurrentPlaybackRate */
 
 public:
@@ -728,7 +754,8 @@ public:
 	 * @param[in]  end      - End Position
 	 * @param[in]  speed    - Current Speed
 	 * @param[in]  pts      - Video PTS
-	 * @param[in]  bufferedDuration - buffered duration
+	 * @param[in]  videoBufferedDuration - video buffered duration in milliseconds
+	 * @param[in]  audioBufferedDuration - audio buffered duration in milliseconds
 	 * @param[in]  seiTimecode      - Time code
 	 * @param[in]  liveLatency      - Live latency
 	 * @param[in]  profileBandwidth - profile Bandwidth
@@ -736,7 +763,7 @@ public:
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -777,12 +804,17 @@ public:
 	long long getPTS() const;
 
 	/**
-	 * @fn getBufferedDuration
+	 * @fn getVideoBufferedDuration in milliseconds
 	 */
-	double getBufferedDuration() const;
+	double getVideoBufferedDuration() const;
 
 	/**
-	 * @fn getSEITimeCode
+	 * @fn getAudioBufferedDuration in milliseconds
+	 */
+	double getAudioBufferedDuration() const;
+
+	/**
+	 * @fn getSEITimeCode in milliseconds
 	 */
 	const char* getSEITimeCode() const;
 
@@ -794,12 +826,12 @@ public:
 	/**
 	 * @fn getProfileBandwidth
 	 */
-	long getProfileBandwidth() const;
+	BitsPerSecond getProfileBandwidth() const;
 
 	/**
 	 * @fn getNetworkBandwidth
 	 */
-	long getNetworkBandwidth() const;
+	BitsPerSecond getNetworkBandwidth() const;
 
 	/**
 	 * @fn getCurrentPlayRate
@@ -1182,7 +1214,7 @@ public:
 	/**
 	 * @fn getBitrate
 	 */
-	long getBitrate() const;
+	BitsPerSecond getBitrate() const;
 
 	/**
 	 * @fn getDescription
@@ -1794,6 +1826,9 @@ class AdResolvedEvent: public AAMPEventObject
 	std::string mAdId;	/**<Ad identifier */
 	uint64_t mStartMS;	/**<Ad's start position in MS */
 	uint64_t mDurationMs;	/**<Ad's duration in MS */
+	std::string mErrorCode;	/**<Ad's error code, if any */
+	std::string mErrorDescription; /**<Ad's error description, if any */
+
 
 public:
 	AdResolvedEvent() = delete;
@@ -1807,8 +1842,11 @@ public:
 	 * @param[in] adId          - Identifier of the Ad
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
+	 * @param[in] errorCode     - Error code
+	 * @param[in] errorDesc     - Error description
+	 * @param[in] sid           - Session ID
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid);
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, const std::string &errorCode, const std::string &errorDesc, std::string sid);
 
 	/**
 	 * @brief AdResolvedEvent Destructor
@@ -1834,6 +1872,16 @@ public:
 	 * @fn getDuration
 	 */
 	uint64_t getDuration() const;
+
+	/**
+	 * @fn getErrorCode
+	 */
+	const std::string &getErrorCode() const;
+
+	/**
+	 * @fn getErrorDescription
+	 */
+	const std::string &getErrorDescription() const;
 
 };
 
@@ -2399,6 +2447,7 @@ class MonitorAVStatusEvent: public AAMPEventObject
 	int64_t mVideoPositionMS;	/**< Video position in milliseconds */
 	int64_t mAudioPositionMS;	/**< Audio position in milliseconds */
 	uint64_t mTimeInStateMS;	/**< Time in the current state in milliseconds */
+	uint64_t mDroppedFrames;   /**< Dropped Frames Count */
 
 public:
 	MonitorAVStatusEvent() = delete;
@@ -2413,8 +2462,9 @@ public:
 	 * @param[in] audioPositionMS - Audio position in milliseconds
 	 * @param[in] timeInStateMS - Time in the current state in milliseconds
 	 * @param[in] sid - Session Identifier
+	 * @param[in] droppedFrames - Dropped Frames Count
 	 */
-	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid);
+	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid, uint64_t droppedFrames);
 
 	/**
 	 * @brief MonitorAVStatusEvent Destructor
@@ -2440,6 +2490,11 @@ public:
 	 * @fn getTimeInStateMS
 	 */
 	uint64_t getTimeInStateMS() const;
+
+	/**
+	 * @fn getDroppedFrames
+	 */
+	uint64_t getDroppedFrames() const;
 };
 
 

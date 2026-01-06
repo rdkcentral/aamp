@@ -32,6 +32,7 @@ public:
 	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingString cfg, const std::string &value));
 
     MOCK_METHOD(bool, IsConfigSet, (AAMPConfigSettingBool cfg));
+	MOCK_METHOD(bool, GetConfigValue, (AAMPConfigSettingBool cfg));
 	MOCK_METHOD(int, GetConfigValue, (AAMPConfigSettingInt cfg));
     MOCK_METHOD(double, GetConfigValue, (AAMPConfigSettingFloat cfg));
 	MOCK_METHOD(std::string, GetConfigValue, (AAMPConfigSettingString cfg));

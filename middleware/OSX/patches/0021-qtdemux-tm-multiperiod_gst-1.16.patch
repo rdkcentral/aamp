@@ -28,7 +28,7 @@ index 70ba6fa..e0528f8 100644
 +  qtdemux->aamp_last_pts = GST_CLOCK_TIME_NONE;
 +  qtdemux->aamp_pts_offset = 0;
  }
- 
+
  static void
 @@ -2517,6 +2519,8 @@ gst_qtdemux_handle_sink_event (GstPad * sinkpad, GstObject * parent,
          if (gst_structure_has_name(structure, "aamp_override"))
@@ -118,8 +118,7 @@ index ed37c52..906d442 100644
 +  GstClockTime aamp_last_pts;
 +  GstClockTime aamp_pts_offset;
  };
- 
- struct _GstQTDemuxClass {
--- 
-2.14.2
 
+ struct _GstQTDemuxClass {
+--
+2.14.2

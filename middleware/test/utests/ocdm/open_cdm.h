@@ -76,7 +76,7 @@
 extern "C" {
 #endif
 
-#if defined(_WINDOWS) 
+#if defined(_WINDOWS)
     #if !defined(OCDM_EXPORTS)
     #pragma comment(lib, "ocdm.lib")
     #endif
@@ -171,7 +171,7 @@ typedef enum {
     InternalError,
     HWError
 } KeyStatus;
-  
+
 /**
  * OpenCDM error code. Zero always means success.
  */
@@ -288,16 +288,16 @@ EXTERNAL OpenCDMError opencdm_is_type_supported(const char keySystem[],
  *
  * \param system Instance of \ref OpenCDMAccessor.
  * \param metadata, buffer to write metadata into, always 0 terminated (also when not large enough to hold all data) except when metadata is
- *     Null of course. Null allowed to retrieve required size needed for this buffer in metadataSize to be able to allocate required buffer 
+ *     Null of course. Null allowed to retrieve required size needed for this buffer in metadataSize to be able to allocate required buffer
  *     for subsequent call to opencdm_is_type_supported
  * \param metadataSize, in: size of metadata buffer, out: required size to hold all data available when return value is ERROR_MORE_DATA_AVAILBALE,
  *     , number of characters written into metadata (incl 0 terminator) otherwise. Note in case metadata could not hold all data but was not of zero
  *     length it is filled up to the maximum size (still zero terminated) but also ERROR_MORE_DATA_AVAILBALE is returned with the required size needed
  *     to hold all data
- * \return Zero on success, non-zero on error. ERROR_MORE_DATA_AVAILBALE when the buffer was not large enough to hold all the data available. 
+ * \return Zero on success, non-zero on error. ERROR_MORE_DATA_AVAILBALE when the buffer was not large enough to hold all the data available.
  */
-EXTERNAL OpenCDMError opencdm_system_get_metadata(struct OpenCDMSystem* system, 
-    char metadata[], 
+EXTERNAL OpenCDMError opencdm_system_get_metadata(struct OpenCDMSystem* system,
+    char metadata[],
     uint16_t* metadataSize);
 
 /**
@@ -464,17 +464,17 @@ EXTERNAL OpenCDMError opencdm_session_remove(struct OpenCDMSession* session);
  * Retrieves DRM session specific metadata of a session.
  * \param session \ref OpenCDMSession instance.
 * \param metadata, buffer to write metadata into, always 0 terminated (also when not large enough to hold all data) except when metadata is
- *     Null of course. Null allowed to retrieve required size needed for this buffer in metadataSize to be able to allocate required buffer 
+ *     Null of course. Null allowed to retrieve required size needed for this buffer in metadataSize to be able to allocate required buffer
  *     for subsequent call to opencdm_session_metadata
  * \param metadataSize, in: size of metadata buffer, out: required size to hold all data available when return value is ERROR_MORE_DATA_AVAILBALE,
  *     , number of characters written into metadata (incl 0 terminator) otherwise. Note in case metadata could not hold all data but was not of zero
  *     length it is filled up to the maximum size (still zero terminated) but also ERROR_MORE_DATA_AVAILBALE is returned with the required size needed
  *     to hold all data
- * \return Zero on success, non-zero on error. ERROR_MORE_DATA_AVAILBALE when the buffer was not large enough to hold all the data available. 
+ * \return Zero on success, non-zero on error. ERROR_MORE_DATA_AVAILBALE when the buffer was not large enough to hold all the data available.
 
  */
-EXTERNAL OpenCDMError opencdm_session_metadata(const struct OpenCDMSession* session, 
-    char metadata[], 
+EXTERNAL OpenCDMError opencdm_session_metadata(const struct OpenCDMSession* session,
+    char metadata[],
     uint16_t* metadataSize);
 
 /**
@@ -498,7 +498,7 @@ EXTERNAL const char* opencdm_session_id(const struct OpenCDMSession* session);
  * \param keyId Key ID.
  * \return 1 if keyID found else 0.
  */
-EXTERNAL uint32_t opencdm_session_has_key_id(struct OpenCDMSession* session, 
+EXTERNAL uint32_t opencdm_session_has_key_id(struct OpenCDMSession* session,
     const uint8_t length, const uint8_t keyId[]);
 
 /**
@@ -570,7 +570,7 @@ EXTERNAL OpenCDMError opencdm_session_decrypt(struct OpenCDMSession* session,
     uint8_t encrypted[],
     const uint32_t encryptedLength,
     const EncryptionScheme encScheme,
-    const EncryptionPattern pattern, 
+    const EncryptionPattern pattern,
     const uint8_t* IV, uint16_t IVLength,
     const uint8_t* keyId, const uint16_t keyIdLength,
     uint32_t initWithLast15 = 0);

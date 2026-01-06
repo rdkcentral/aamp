@@ -114,10 +114,10 @@ cmake_version=$(cmake --version | head -n 1 | awk '{print $3}')
 major_version=$(echo "$cmake_version" | cut -d. -f1)
 minor_version=$(echo "$cmake_version" | cut -d. -f2)
 if [[ "$major_version" -gt 3 ]] || [[ "$major_version" -eq 3 && "$minor_version" -ge 21 ]]; then
-  CT_TESTDIR="" 
+  CT_TESTDIR=""
 else
-  CT_TESTDIR="--testdir build" 
-    
+  CT_TESTDIR="--testdir build"
+
 fi
 
 if [ "$rdke_build" -eq "1" ]; then

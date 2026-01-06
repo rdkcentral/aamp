@@ -42,7 +42,7 @@
 #include "GstUtils.h"
 
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
-#define GST_TRACK_COUNT 4 /**< internal use - audio+video+sub+aux track */
+#define GST_TRACK_COUNT 3 /**< internal use - audio+video+sub track */
 #define VIDEO_COORDINATES_SIZE 32
 #define GST_TASK_ID_INVALID 0
 #define GST_NORMAL_PLAY_RATE 1
@@ -62,7 +62,6 @@ typedef enum
 	eGST_MEDIAFORMAT_RMF,                              /**< RMF media */
 	eGST_MEDIAFORMAT_UNKNOWN                           /**< Unknown media format */
 } GstMediaFormat;
-
 typedef enum
 {
 	eGST_PLAY_FLAG_VIDEO = (1 << 0),                         /**< value is 0x001 */
@@ -121,24 +120,10 @@ typedef enum
 	eGST_STATE_BLOCKED               /**< 14 - Player has blocked and cant play content*/
 } GstPrivPlayerState;
 
-/**
- * @name gstMapDecoderLookUptable
- *
- * @brief Decoder map list lookup table
- * convert from codec to string map list of gstreamer
- * component.
- */
-static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable =
-{
-	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
-	{"ac-4", {"omxac4dec"}}};
-
-
-
 struct gst_media_stream
 {
 	GstElement *sinkbin;              /**< Sink element to consume data */
-	GstElement *source;                       /**< to provide data to the pipleline */
+	GstElement *source;                       /**< to provide data to the pipeline */
 	GstStreamOutputFormat format; /**< Stream output format for this stream */
 	bool pendingSeek;                         /**< Flag denotes if a seek event has to be sent to the source */
 	bool resetPosition;                       /**< To indicate that the position of the stream is reset */
@@ -167,21 +152,6 @@ struct gst_media_stream
 	gst_media_stream(const gst_media_stream &) = delete;
 
 	gst_media_stream &operator=(const gst_media_stream &) = delete;
-};
-
-struct MonitorAVState
-{
-	long long tLastReported;
-	long long tLastSampled;
-	const char *description;
-	gint64 av_position[2];
-	bool happy;
-
-	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
-	{
-		av_position[0] = 0; // Video position
-		av_position[1] = 0; // Audio position
-	}
 };
 
 /**
@@ -228,6 +198,7 @@ struct GstPlayerPriv
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink;                                                         /**< true if westeros sink is used as video sink */
 	bool usingRialtoSink;                                                            /**< true if rialto sink is used for video and audio sinks */
+	bool usingClosedCaptionsControl;                                                 /**< true if subtitle sink being used for CC control */
 	char videoRectangle[VIDEO_COORDINATES_SIZE];
 	bool pauseOnStartPlayback;                                                               /**< true if should start playback paused */
 	std::atomic<bool> eosSignalled;                                                  /**< Indicates if EOS has signaled */
@@ -250,7 +221,6 @@ struct GstPlayerPriv
 	int decodeErrorCBCount;                                                                  /**< Total decode error cb received within threshold time */
 	bool progressiveBufferingEnabled;
 	bool progressiveBufferingStatus;
-	bool forwardAudioBuffers;                                 /**< flag denotes if audio buffers to be forwarded to aux pipeline */
 	bool enableSEITimeCode;                                   /**< Enables SEI Time Code handling */
 	bool firstVideoFrameReceived;                     /**< flag that denotes if first video frame was notified. */
 	bool firstAudioFrameReceived;                     /**< flag that denotes if first audio frame was notified */
@@ -331,13 +301,5 @@ class InterfacePlayerPriv
 		 * @ret TRUE if override is enabled, FALSE otherwise
 		 */
 		gboolean SendQtDemuxOverrideEvent(int mediaType, GstClockTime pts, bool enablePTSReStamp, int vodTrickModeFPS, const void *ptr = nullptr, size_t len = 0);
-
-		/**
-		 * @fn ForwardBuffersToAuxPipeline
-		 *
-		 * @param[in] buffer - input buffer to be forwarded
-		 */
-		void ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data);
-
 };
 #endif

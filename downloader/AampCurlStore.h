@@ -254,7 +254,7 @@ struct CurlCallbackContext
 	std::vector<std::string> allResponseHeaders;
 	AampGrowableBuffer *buffer;
 	httpRespHeaderData *responseHeaderData;
-	long bitrate;
+	BitsPerSecond bitrate;
 	bool downloadIsEncoded;
 	//represents transfer-encoding based download
 	bool chunkedDownload;

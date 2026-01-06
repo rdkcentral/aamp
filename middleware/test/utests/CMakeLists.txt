@@ -27,6 +27,9 @@ set(PLAYER_ROOT "../../")
 
 find_package(PkgConfig REQUIRED)
 
+pkg_check_modules(OPENSSL REQUIRED openssl)
+include_directories(${OPENSSL_INCLUDE_DIRS})
+
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
@@ -40,7 +43,7 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${JSCORE_INCLUDE_DIRS} REQUIRED)
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")
 if(NOT CMAKE_SYSTEM_NAME MATCHES "Linux")

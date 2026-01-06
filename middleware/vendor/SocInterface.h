@@ -25,9 +25,13 @@
 #include <vector>
 #include <memory>
 #include <gst/base/gstbasesink.h>
+#include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
+
+typedef gboolean (*AcceptCapsFunc)(GstBaseTransform *, GstPadDirection, GstCaps *);
+
 /**
  * @brief Enumeration for play flags.
  *
@@ -100,6 +104,16 @@ public:
 	 * @param status Set to `true` if Westeros Sink is enabled, `false` otherwise.
 	 */
 	void SetWesterosSinkState(bool status);
+
+	/**
+	 * @brief Get SVP Context
+	 */
+	virtual void SvpGetContext(void **svpCtx, int flags){};
+
+	/**
+	 * @brief Free SVP Context
+	 */
+	virtual void SvpFreeContext(void *svpCtx){};
 	
 	/*@brief returns true if video stats required from sink otherwise false*/
 	virtual bool IsPlaybackQualityFromSink(){return false;}
@@ -125,6 +139,27 @@ public:
 	 * @return A pointer to the created SocInterface object.
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
+
+	/**
+	 * @brief Configure the accept caps
+	 * @return void
+	 */
+	virtual void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+						 AcceptCapsFunc accept_caps_func);
+
+	/**
+	 * @brief Indicates whether transform capabilities are required.
+	 * @return true if transform capabilities are required; otherwise, false
+	 */
+	virtual bool IsTransformCapsRequired() const {
+		return false; }
+
+	/**
+	 * @brief Indicates whether decryption is required.
+	 * @return true if decryption are required; otherwise, false
+	 */
+	virtual bool IsDecryptRequired() const {
+		return false; }
 	
 	/**
 	 * @brief Check if AppSrc should be used.
@@ -134,15 +169,6 @@ public:
 	 * @return True if AppSrc should be used, false otherwise.
 	 */
 	virtual bool UseAppSrc(){return false;}
-	
-	/**
-	 * @brief Check if AC4 should be disabled.
-	 *
-	 * Determines whether AC4 support should be disabled.
-	 *
-	 * @return True if AC4 should be disabled, false otherwise.
-	 */
-	virtual bool IsSupportedAC4(){return false;}
 	
 	/**
 	 * @brief Check if Westeros sink should be used.
@@ -268,27 +294,23 @@ public:
 	/**
 	 * @brief Check if the given name is a video sink.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
 	 * @return True if it's a video sink, false otherwise.
 	 */
-	virtual bool IsVideoSink(const char* name, bool isRialto) = 0;
+	virtual bool IsVideoSink(const char* name) = 0;
 	
 	/**
 	 * @brief Check if the given name is an audio sink or audio decoder.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
 	 * @return True if it's an audio sink or audio decoder, false otherwise.
 	 */
-	virtual bool IsAudioSinkOrAudioDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsAudioSinkOrAudioDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Check if the given name is a video decoder.
 	 * @param name Element name.
-	 * @param isRialto Rialto flag.
-	 * @param isWesteros Westeros flag.
 	 * @return True if it's a video decoder, false otherwise.
 	 */
-	virtual bool IsVideoDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsVideoDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Configure the audio sink.
@@ -301,11 +323,10 @@ public:
 	
 	/**
 	 * @brief Check if the given name is an audio or video decoder.
-	 * @param name Element name.
-	 * @param IsWesteros Westeros flag.
+	 * @param name Element name
 	 * @return True if it's an audio or video decoder, false otherwise.
 	 */
-	virtual bool IsAudioOrVideoDecoder(const char* name, bool isRialto) = 0;
+	virtual bool IsAudioOrVideoDecoder(const char* name) = 0;
 	
 	/**
 	 * @brief Disable asynchronous audio.
@@ -377,15 +398,6 @@ public:
 	virtual bool RequiredElementSetup(){return false;}
 	
 	/**
-	 * @brief Set audio routing properties on source.
-	 *
-	 * Sets audio routing properties on the given source element.
-	 *
-	 * @param source The source element.
-	 */
-	virtual void SetAudioRoutingProperties(GstElement *source){}
-	
-	/**
 	 * @brief Check if first audio frame callback is set.
 	 *
 	 * Determines if a callback function has been set for the first audio frame.
@@ -455,22 +467,13 @@ public:
 	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
 	 */
 	virtual bool ResetNewSegmentEvent(){return false;}
-	
+
 	/**
-	 * @brief Checks if the platform segment is ready for processing new segment.
+	 * @brief Checks if the platform is video master.
 	 *
-	 * This function returns a boolean value indicating whether the platform segment
-	 * is ready. If the function returns `true`, it means the segment is ready;
-	 * otherwise, it is not.
-	 *
-	 * @return `true` if the platform segment is ready, `false` otherwise.
+	 * @param videoSink The video sink element.
+	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsPlatformSegmentReady(){return false;}
-	
-	/**
-	 *@brief Checks if the platform is video master.
-	 *@return 'true' if video master otherwise false.
-	 */
-	virtual bool IsVideoMaster(){return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
 };
 #endif

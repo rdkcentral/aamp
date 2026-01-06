@@ -312,18 +312,18 @@ bool PlayerThunderInterface::ActivatePlugin()
 
 bool PlayerThunderInterface::UnSubscribeEvent(std::string eventName)
 {
-    return m_pThunderAccess->UnSubscribeEvent(eventName);
+    return m_pThunderAccess->UnSubscribeEvent(std::move(eventName));
 }
 
 bool PlayerThunderInterface::SetVideoRectangle(int x, int y, int w, int h, std::string videoInputType, PlayerThunderAccessShim shim)
 {
-    return m_pThunderAccess->SetVideoRectangle(x, y, w, h, videoInputType, shim);
+    return m_pThunderAccess->SetVideoRectangle(x, y, w, h, std::move(videoInputType), shim);
 }
 
 
 void PlayerThunderInterface::RegisterAllEventsVideoin(std::function<void(std::string)> OnSignalChangedCb, std::function<void(std::string)> OnInputStatusChangedCb)
 {
-    m_pThunderAccess->RegisterAllEventsVideoin(OnSignalChangedCb, OnInputStatusChangedCb);
+    m_pThunderAccess->RegisterAllEventsVideoin(std::move(OnSignalChangedCb), std::move(OnInputStatusChangedCb));
 }
 
 void PlayerThunderInterface::UnRegisterAllEventsVideoin()
@@ -333,22 +333,22 @@ void PlayerThunderInterface::UnRegisterAllEventsVideoin()
 
 void PlayerThunderInterface::StartHelperVideoin(int port, std::string videoInputType)
 {
-    m_pThunderAccess->StartHelperVideoin(port, videoInputType);
+    m_pThunderAccess->StartHelperVideoin(port, std::move(videoInputType));
 }
 
 void PlayerThunderInterface::StopHelperVideoin(std::string videoInputType)
 {
-    m_pThunderAccess->StopHelperVideoin(videoInputType);
+    m_pThunderAccess->StopHelperVideoin(std::move(videoInputType));
 }
 
 void PlayerThunderInterface::RegisterEventOnVideoStreamInfoUpdateHdmiin(std::function<void(PlayerVideoStreamInfoData)> videoInfoUpdatedMethodCb)
 {
-    m_pThunderAccess->RegisterEventOnVideoStreamInfoUpdateHdmiin(videoInfoUpdatedMethodCb);
+    m_pThunderAccess->RegisterEventOnVideoStreamInfoUpdateHdmiin(std::move(videoInfoUpdatedMethodCb));
 }
 
 void PlayerThunderInterface::RegisterOnPlayerStatusOta(std::function<void(PlayerStatusData)> onPlayerStatusCb)
 {
-    m_pThunderAccess->RegisterOnPlayerStatusOta(onPlayerStatusCb);
+    m_pThunderAccess->RegisterOnPlayerStatusOta(std::move(onPlayerStatusCb));
 }
 
 void PlayerThunderInterface::ReleaseOta()
@@ -358,7 +358,7 @@ void PlayerThunderInterface::ReleaseOta()
 
 void PlayerThunderInterface::StartOta(std::string url, std::string waylandDisplay, std::string preferredLanguagesString, std::string atsc_preferredLanguagesString, std::string preferredRenditionString, std::string atsc_preferredRenditionString)
 {
-    m_pThunderAccess->StartOta(url, waylandDisplay, preferredLanguagesString, atsc_preferredLanguagesString, preferredRenditionString, atsc_preferredRenditionString);
+    m_pThunderAccess->StartOta(std::move(url), std::move(waylandDisplay), std::move(preferredLanguagesString), std::move(atsc_preferredLanguagesString), std::move(preferredRenditionString), std::move(atsc_preferredRenditionString));
 }
 
 void PlayerThunderInterface::StopOta()
@@ -368,12 +368,12 @@ void PlayerThunderInterface::StopOta()
 
 void PlayerThunderInterface::SetPreferredAudioLanguages(PlayerPreferredAudioData data, PlayerThunderAccessShim shim)
 {
-    m_pThunderAccess->SetPreferredAudioLanguages(data, shim);
+    m_pThunderAccess->SetPreferredAudioLanguages(std::move(data), shim);
 }
 
 std::string PlayerThunderInterface::GetAudioTracksOta(std::vector<PlayerAudioData> audData)
 {
-    return m_pThunderAccess->GetAudioTracksOta(audData);
+    return m_pThunderAccess->GetAudioTracksOta(std::move(audData));
 }
 
 std::string PlayerThunderInterface::SetAudioTrackOta(int index, int primaryKey)
@@ -383,7 +383,7 @@ std::string PlayerThunderInterface::SetAudioTrackOta(int index, int primaryKey)
 
 bool PlayerThunderInterface::GetTextTracksOta(std::vector<PlayerTextData> txtData)
 {
-    return m_pThunderAccess->GetTextTracksOta(txtData);
+    return m_pThunderAccess->GetTextTracksOta(std::move(txtData));
 }
 
 void PlayerThunderInterface::DisableContentRestrictionsOta(long grace, long time, bool eventChange)
@@ -403,7 +403,7 @@ bool PlayerThunderInterface::InitRmf()
 
 bool PlayerThunderInterface::StartRmf(std::string url, std::function<void(std::string)> onPlayerStatusHandlerCb, std::function<void(std::string)> onPlayerErrorHandlerCb)
 {
-    return m_pThunderAccess->StartRmf(url, onPlayerStatusHandlerCb, onPlayerErrorHandlerCb);
+    return m_pThunderAccess->StartRmf(std::move(url), std::move(onPlayerStatusHandlerCb), std::move(onPlayerErrorHandlerCb));
 }
 
 void PlayerThunderInterface::StopRmf()
@@ -443,7 +443,7 @@ std::string PlayerThunderInterface::GetMetaDataWatermark()
 
 bool PlayerThunderInterface::PersistentStoreSaveWatermark(const char* base64Image, std::string metaData)
 {
-    return m_pThunderAccess->PersistentStoreSaveWatermark(base64Image, metaData);
+    return m_pThunderAccess->PersistentStoreSaveWatermark(base64Image, std::move(metaData));
 }
 
 bool PlayerThunderInterface::PersistentStoreLoadWatermark(int layerID)

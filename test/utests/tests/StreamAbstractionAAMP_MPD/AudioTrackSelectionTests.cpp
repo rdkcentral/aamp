@@ -89,7 +89,8 @@ protected:
 		{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
-		{eAAMPConfig_EnableIFrameTrackExtract, false}
+		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_useRialtoSink, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -125,6 +126,7 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -227,6 +229,8 @@ public:
 				.WillRepeatedly(Return(b.second));
 		}
 
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -240,7 +244,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
-
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &SelectAudioTrackTests::GetManifestForMPDDownloader)));
 
@@ -276,7 +281,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -324,7 +329,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -373,7 +378,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -419,7 +424,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
 	<Period id="0" start="PT0.0S">
 			<AdaptationSet id="3" contentType="audio">
-					<Representation id="0" mimeType="audio/mp4" codecs="ac-4" bandwidth="64000" audioSamplingRate="48000">
+					<Representation id="0" mimeType="audio/mp4" codecs="ac-4.02.01.00" bandwidth="64000" audioSamplingRate="48000">
 							<SegmentTemplate timescale="48000" initialization="ac4/audio_init.mp4" media="ac4/audio_$Number$.mp4" startNumber="1">
 									<SegmentTimeline>
 											<S t="0" d="96000" r="59" />
@@ -431,12 +436,89 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("ac4/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	std::vector<AudioTrackInfo> audioTracks = mStreamAbstractionAAMP_MPD->GetAvailableAudioTracks();
 	EXPECT_EQ(audioTracks.size(), 1);
-	EXPECT_EQ(audioTracks[0].codec, "ac-4");
+	EXPECT_EQ(audioTracks[0].codec, "ac-4.02.01.00");
+}
+
+TEST_F(SelectAudioTrackTests, MultiAudio)
+{
+	AAMPStatusType status;
+	std::string fragmentUrl;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+  <Period id="0" start="PT0.0S">
+	<AdaptationSet id="0" contentType="audio">
+	  <Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="64000" audioSamplingRate="48000">
+		<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp4" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="96000" r="59"/>
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="1" contentType="audio">
+	  <Representation id="1" mimeType="audio/mp4" codecs="ac-3" bandwidth="64000" audioSamplingRate="48000">
+		<SegmentTemplate timescale="48000" initialization="ac3/audio_init.mp4" media="ac3/audio_$Number$.mp4" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="96000" r="59"/>
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="2" contentType="audio">
+	  <Representation id="2" mimeType="audio/mp4" codecs="ec-3" bandwidth="64000" audioSamplingRate="48000">
+		<SegmentTemplate timescale="48000" initialization="ec3/audio_init.mp4" media="ec3/audio_$Number$.mp4" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="96000" r="59"/>
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="3" contentType="audio">
+	  <Representation id="3" mimeType="audio/mp4" codecs="ec+3" bandwidth="64000" audioSamplingRate="48000">
+		<SegmentTemplate timescale="48000" initialization="atmos/audio_init.mp4" media="atmos/audio_$Number$.mp4" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="96000" r="59"/>
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+	<AdaptationSet id="4" contentType="audio">
+	  <Representation id="4" mimeType="audio/mp4" codecs="ac-4.02.01.00" bandwidth="64000" audioSamplingRate="48000">
+		<SegmentTemplate timescale="48000" initialization="ac4/audio_init.mp4" media="ac4/audio_$Number$.mp4" startNumber="1">
+		  <SegmentTimeline>
+			<S t="0" d="96000" r="59"/>
+		  </SegmentTimeline>
+		</SegmentTemplate>
+	  </Representation>
+	</AdaptationSet>
+  </Period>
+</MPD>)";
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("ac4/audio_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	
+	std::vector<AudioTrackInfo> audioTracks = mStreamAbstractionAAMP_MPD->GetAvailableAudioTracks();
+	EXPECT_EQ(audioTracks.size(), 5);
+	const char *expected_codec[5] =
+	{
+		"mp4a.40.2",
+		"ac-3",
+		"ec-3",
+		"ec+3",
+		"ac-4.02.01.00"
+	};
+	for( int i=0; i<audioTracks.size(); i++ )
+	{
+		EXPECT_EQ( audioTracks[i].codec, expected_codec[i] );
+	}
 }

@@ -40,14 +40,14 @@ include_directories(${UTEST_ROOT}/fakes)
 set(TEST_SOURCES    GstUtilsTests.cpp
 			GstUtilsPlayerTests.cpp)
 
-set(PLAYER_SOURCES 
+set(PLAYER_SOURCES
 	${PLAYER_ROOT}/GstUtils.cpp
 	${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp )
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${PLAYER_SOURCES})
-	       
+
 if (CMAKE_XCODE_BUILD_SYSTEM)
   # XCode schema target
   xcode_define_schema(${EXEC_NAME})

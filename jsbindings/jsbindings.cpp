@@ -28,7 +28,6 @@
 #include "jsbindings-version.h"
 #include "jsutils.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
 #include <mutex>
 #include "PlayerCCManager.h"
 
@@ -49,7 +48,7 @@ extern "C"
 	JSObjectRef AAMP_JS_AddEventTypeClass(JSGlobalContextRef context);
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
 }
-
+class AAMP_JSListener;
 /**
  * @struct AAMP_JS
  * @brief Data structure of AAMP object
@@ -58,7 +57,7 @@ struct AAMP_JS
 {
 	JSGlobalContextRef _ctx;
 	class PlayerInstanceAAMP* _aamp;
-	class AAMP_JSListener* _listeners;
+	std::shared_ptr<AAMP_JSListener> _listeners;
 	int  iPlayerId; /*An int variable iPlayerID to store Playerid */
         bool bInfoEnabled; /*A bool variable bInfoEnabled for INFO logging check*/
 	JSObjectRef _eventType;
@@ -351,20 +350,19 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	PrivateInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp->aamp : NULL;
-	if (privAAMP == NULL)
+	if (pAAMP->_aamp == NULL)
 	{
                 LOG_ERROR_EX("privAAMP not initialized");
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "AAMP.timedMetadata - initialization error");
 		return JSValueMakeUndefined(context);
 	}
-
-	int32_t length = (int32_t)privAAMP->timedMetadata.size();
+	auto timedMetadata = pAAMP->_aamp->GetTimedMetadata();
+	int32_t length = (int32_t)timedMetadata.size();
 
 	JSValueRef* array = new JSValueRef[length];
 	for (int32_t i = 0; i < length; i++)
 	{
-		TimedMetadata item = privAAMP->timedMetadata.at(i);
+		TimedMetadata item = timedMetadata.at(i);
 		JSObjectRef ref = aamp_CreateTimedMetadataJSObject(context, item._timeMS, item._name.c_str(), item._content.c_str(), item._id.c_str(), item._durationMS);
 		array[i] = ref;
 	}
@@ -707,7 +705,7 @@ public:
 	AAMP_JS*			_aamp;
 	AAMPEventType		_type;
 	JSObjectRef			_jsCallback;
-	AAMP_JSListener*	_pNext;
+	std::shared_ptr<AAMP_JSListener>	_pNext;
 };
 
 /**
@@ -764,7 +762,11 @@ public:
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("videoBufferedMiliseconds"); // FIXME
-		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("audioBufferedMiliseconds"); // FIXME
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("timecode");
@@ -1499,6 +1501,14 @@ public:
 		prop = JSStringCreateWithUTF8CString("placementDuration");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorCode");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getErrorCode().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorDescription");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getErrorDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 
@@ -2037,6 +2047,11 @@ public:
 		prop = JSStringCreateWithUTF8CString("timeInStateMs");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("droppedFrames");
+		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getDroppedFrames()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
 	}
 };
 /**
@@ -2101,128 +2116,128 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
 {
         LOG_TRACE("(%p, %d, %p)", aamp, type, jsCallback);
 
-	AAMP_JSListener* pListener = 0;
+	std::shared_ptr<AAMP_JSListener> pListener = NULL;
 
 	if(type == AAMP_EVENT_PROGRESS)
 	{
-		pListener = new AAMP_JSListener_Progress(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_Progress>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_SPEED_CHANGED)
 	{
-		pListener = new AAMP_JSListener_SpeedChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_SpeedChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_CC_HANDLE_RECEIVED)
 	{
-		pListener = new AAMP_JSListener_CCHandleReceived(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_CCHandleReceived>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_MEDIA_METADATA)
 	{
-		pListener = new AAMP_JSListener_VideoMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_VideoMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_TUNE_FAILED)
 	{
-		pListener = new AAMP_JSListener_TuneFailed(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_TuneFailed>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_BITRATE_CHANGED)
 	{
-		pListener = new AAMP_JSListener_BitRateChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_BitRateChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_BULK_TIMED_METADATA)
 	{
-		pListener = new AAMP_JSListener_BulkTimedMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_BulkTimedMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_TIMED_METADATA)
 	{
-		pListener = new AAMP_JSListener_TimedMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_TimedMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_CONTENT_GAP)
 	{
-		pListener = new AAMP_JSListener_ContentGap(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_ContentGap>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_STATE_CHANGED)
 	{
-		pListener = new AAMP_JSListener_StatusChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_StatusChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_SPEEDS_CHANGED)
 	{
-		pListener = new AAMP_JSListener_SpeedsChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_SpeedsChanged>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_REPORT_ANOMALY)
 	{
-		pListener = new AAMP_JSListener_AnomalyReport(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AnomalyReport>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_REPORT_METRICS_DATA)
 	{
-		pListener = new AAMP_JSListener_MetricsData(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_MetricsData>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_DRM_METADATA)
 	{
-		pListener = new AAMP_JSListener_DRMMetadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_DRMMetadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_RESOLVED)
 	{
-		pListener = new AAMP_JSListener_AdResolved(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdResolved>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_RESERVATION_START)
 	{
-		pListener = new AAMP_JSListener_AdReservationStart(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdReservationStart>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_RESERVATION_END)
 	{
-		pListener = new AAMP_JSListener_AdReservationEnd(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdReservationEnd>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_START)
 	{
-		pListener = new AAMP_JSListener_AdPlacementStart(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdPlacementStart>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_END)
 	{
-		pListener = new AAMP_JSListener_AdPlacementEnd(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdPlacementEnd>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_PROGRESS)
 	{
-		pListener = new AAMP_JSListener_AdProgress(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdProgress>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_AD_PLACEMENT_ERROR)
 	{
-		pListener = new AAMP_JSListener_AdPlacementEror(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_AdPlacementEror>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_BUFFERING_CHANGED)
 	{
-		pListener = new AAMP_JSListener_BufferingChanged(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_BufferingChanged>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_ID3_METADATA)
 	{
-		pListener = new AAMP_JSListener_Id3Metadata(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_Id3Metadata>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_DRM_MESSAGE)
 	{
-		pListener = new AAMP_JSListener_DrmMessage(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_DrmMessage>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE)
 	{
-		pListener = new AAMP_JSListener_ContentProtectionData(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_ContentProtectionData>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_MANIFEST_REFRESH_NOTIFY)
 	{
-		pListener = new AAMP_JSListener_DashManifestRefreshNotify(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_DashManifestRefreshNotify>(aamp, type, jsCallback);
 	}
 	else if(type == AAMP_EVENT_TUNE_TIME_METRICS)
 	{
-		pListener = new AAMP_JSListener_TuneMetricData(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_TuneMetricData>(aamp, type, jsCallback);
 	}
 	else if (type == AAMP_EVENT_MONITORAV_STATUS)
 	{
-		pListener = new AAMP_JSListener_MonitorAVStatus(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener_MonitorAVStatus>(aamp, type, jsCallback);
 	}
 	else
 	{
-		pListener = new AAMP_JSListener(aamp, type, jsCallback);
+		pListener = std::make_shared<AAMP_JSListener>(aamp, type, jsCallback);
 	}
 
 	pListener->_pNext = aamp->_listeners;
 	aamp->_listeners = pListener;
-	aamp->_aamp->AddEventListener(type, pListener);
+	aamp->_aamp->AddEventListener(type, std::static_pointer_cast<EventListener>(pListener));
 }
 
 /**
@@ -2287,16 +2302,15 @@ static JSValueRef AAMP_removeEventListener(JSContextRef context, JSObjectRef fun
 void AAMP_JSListener::RemoveEventListener(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", aamp, type, jsCallback);
-	AAMP_JSListener** ppListener = &aamp->_listeners;
+	std::shared_ptr<AAMP_JSListener>* ppListener = &aamp->_listeners;
 	while (*ppListener != NULL)
 	{
-		AAMP_JSListener* pListener = *ppListener;
+		std::shared_ptr<AAMP_JSListener>& pListener = *ppListener;
 		if ((pListener->_type == type) && (pListener->_jsCallback == jsCallback))
 		{
 			*ppListener = pListener->_pNext;
-                        LOG_WARN_EX(" type=%d,pListener= %p", type, pListener);
-			aamp->_aamp->RemoveEventListener(type, pListener);
-			SAFE_DELETE(pListener);
+			LOG_WARN_EX(" type=%d,pListener= %p", type, pListener.get());
+			aamp->_aamp->RemoveEventListener(type, std::static_pointer_cast<EventListener>(pListener));
 			return;
 		}
 		ppListener = &pListener->_pNext;
@@ -4118,42 +4132,6 @@ static JSValueRef AAMP_setLicenseCaching(JSContextRef context, JSObjectRef funct
 }
 
 /**
- * @brief Callback invoked from JS to set auxiliary audio language
- * @param[in] context JS execution context
- * @param[in] function JSObject that is the function being called
- * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
- * @param[in] argumentCount number of args
- * @param[in] arguments[] JSValue array of args
- * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- * @retval JSValue that is the function's return value
- */
-static JSValueRef AAMP_setAuxiliaryLanguage(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
-{
-	LOG_TRACE("Enter");
-	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject); 
-	if(!pAAMP)
-	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.setAuxiliaryLanguage on instances of AAMP");
-		return JSValueMakeUndefined(context);
-	}
-
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
-		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAuxiliaryLanguage' - 1 argument required");
-	}
-	else
-	{
-		char* lang = aamp_JSValueToCString(context, arguments[0], exception);
-        	LOG_WARN(pAAMP," _aamp->SetAuxiliaryLanguage(%s)", lang);
-		pAAMP->_aamp->SetAuxiliaryLanguage(lang);
-		SAFE_DELETE_ARRAY(lang);
-	}
-	return JSValueMakeUndefined(context);
-}
-
-/**
  * @brief Callback invoked from JS to get playback stats
  * @param[in] context JS execution context
  * @param[in] function JSObject that is the function being called
@@ -4174,40 +4152,6 @@ static JSValueRef AAMP_getPlaybackStats(JSContextRef context, JSObjectRef functi
 		return JSValueMakeUndefined(context);
 	}
 	return aamp_CStringToJSValue(context, pAAMP->_aamp->GetPlaybackStats().c_str());
-}
-
-/**
- *  * @brief Callback invoked from JS to set xre supported tune
- *  * @param[in] context JS execution context
- *  * @param[in] function JSObject that is the function being called
- *  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
- *  * @param[in] argumentCount number of args
- *  * @param[in] arguments[] JSValue array of args
- *  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- *  * @retval JSValue that is the function's return value
- *  */
-static JSValueRef AAMP_xreSupportedTune(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
-{
-	LOG_TRACE("Enter");
-	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
-	if(!pAAMP)
-	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.xreSupportedTune on instances of AAMP");
-		return JSValueMakeUndefined(context);
-	}
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
-		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.xreSupportedTune' - 1 argument required");
-	}
-	else
-	{
-		bool xreSupported = JSValueToBoolean(context, arguments[0]);
-        	LOG_WARN(pAAMP," _aamp->XRESupportedTune(%d)",xreSupported);
-		pAAMP->_aamp->XRESupportedTune(xreSupported);
-	}
-	return JSValueMakeUndefined(context);
 }
 
 /**
@@ -4374,8 +4318,6 @@ static const JSStaticFunction AAMP_staticfunctions[] =
 	{ "getTextStyleOptions", AAMP_getTextStyleOptions, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLanguageFormat", AAMP_setLanguageFormat, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLicenseCaching", AAMP_setLicenseCaching, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-	{ "setAuxiliaryLanguage", AAMP_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-	{ "xreSupportedTune", AAMP_xreSupportedTune, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "getPlaybackStatistics", AAMP_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMP_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMP_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -4422,8 +4364,9 @@ static void AAMP_finalize(JSObjectRef thisObject)
 		std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL != _allocated_aamp)
 		{
-			LOG_WARN(pAAMP,"aamp->Stop()");
-			_allocated_aamp->Stop();
+			//when finalizing JS object, don't generate state change events
+			LOG_WARN(pAAMP," aamp->Stop(false)");
+			_allocated_aamp->Stop(false, true);  // sendStateChangeEvent=false, forceCleanup=true
 			LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
 			SAFE_DELETE(_allocated_aamp);
 		}
@@ -4814,7 +4757,8 @@ void __attribute__ ((destructor(101))) _aamp_term()
 	if (NULL != _allocated_aamp)
 	{
 		LOG_WARN_EX("stopping aamp");
-		_allocated_aamp->Stop();
+		//when finalizing JS object, don't generate state change events
+		_allocated_aamp->Stop(false, true);  // sendStateChangeEvent=false, forceCleanup=true
 		LOG_WARN_EX("stopped aamp");
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;

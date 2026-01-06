@@ -51,7 +51,6 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 	}
 }
 
-
 void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 {
 }
@@ -65,13 +64,42 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* )
 	return false;	
 }
 
-string DrmSession::getKeySystem(void)
+// DrmSession implementations
+DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem), m_OutputProtectionEnabled(false)
+		, mContentSecurityManagerSession()
 {
-	return NULL;
 }
 
+DrmSession::~DrmSession()
+{
+}
 
-DrmSession * DrmSessionManager::createDrmSession(int& err,
+string DrmSession::getKeySystem(void)
+{
+	return m_keySystem;
+}
+
+int DrmSession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount, GstBuffer* subSamplesBuffer, GstCaps* caps)
+{
+	return -1;
+}
+
+int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData)
+{
+	return -1;
+}
+
+const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
+{
+	static const std::vector<std::vector<uint8_t>> emptyVector;
+	return emptyVector;
+}
+
+void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
+{
+}
+
+DrmSession * DrmSessionManager::createDrmSession(int &responseCode,int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
@@ -80,7 +108,7 @@ DrmSession * DrmSessionManager::createDrmSession(int& err,
 	return nullptr;
 }
 
-DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
 	return nullptr;
 }
@@ -88,6 +116,19 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 SessionMgrState DrmSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
+}
+
+void DrmSessionManager::notifyCleanup()
+{
+}
+
+bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
+{
+	if (g_mockDRMSessionManager)
+	{
+		return g_mockDRMSessionManager->IsKeyIdProcessed(keyIdArray, status);
+	}
+	return false;
 }
 
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
@@ -102,41 +143,7 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
-void DrmSessionManager::notifyCleanup()
-{
-}
-
-bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
+bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
 {
 	return false;
 }
-
-void DrmSessionManager::UpdateDRMConfig(
-                       bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune)
-{
-}
-#if 0
-void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
-{
-}
-
-bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
-{
-	return false;
-}
-
-void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
-{
-}
-
-
-void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
-{
-}
-
-void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
-{
-}
-
-
-#endif

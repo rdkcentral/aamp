@@ -239,7 +239,16 @@ protected:
 	 */
 	void Stop();
 
-	
+	/**
+	 * @fn ResetState
+	 *
+	 * @return void
+	 */
+	virtual void ResetState();
+
+	/* NOTE WELL: The ResetState() method resets these member variables back to
+	** their initial state. It should be updated if any of the following change
+	** or are added to. */
 	std::string mOptions{};                /**< CC rendering styles */
 	std::string mTrack{};                  /**< CC track */
 	std::vector<CCTrackInfo> mLastTextTracks;
@@ -264,6 +273,13 @@ public:
 	static PlayerCCManagerBase * GetInstance();
 
 	/**
+	 * @fn SetRialto
+	 *
+	 * @return void
+	 */
+	static void SetRialto(bool bIsRialto);
+
+	/**
 	 * @fn DestroyInstance
 	 *
 	 * @return void
@@ -272,6 +288,7 @@ public:
 
 private:
 	static PlayerCCManagerBase *mInstance; /**< Singleton instance */
+	static bool mIsRialto;	/**< Determines which class to instantiate */
 };
 
 class PlayerFakeCCManager : public PlayerCCManagerBase

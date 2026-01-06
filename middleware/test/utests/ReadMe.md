@@ -18,7 +18,7 @@ NOTE: Writing microtests is a really useful tool in improving code quality but i
 
 ## Pre-requisites to building:
 
-AAMP installed using install-aamp.sh (-c if code coverage is neeeded) script which:
+AAMP installed using install-middleware.sh (-c if code coverage is neeeded) script which:
  - installs headers from dependent libraries
  - installs GoogleTest and GoogleMock
  - installs jq
@@ -32,14 +32,14 @@ From the *utests* folder run:
 ```
 ## To run tests and generate combined report in json format
 
-./run.sh -e 
+./run.sh -e
 
 Report can be found in utests/TestReport.json
 
 ## Check line coverage in microtests:
 
-For code coverage install-aamp.sh -c 
-must have been run first to generate a baseline set of aamp files.
+For code coverage install-middleware.sh -c
+must have been run first to generate a baseline set of middleware files.
 
 From the *utests* directory, run:
 

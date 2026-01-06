@@ -24,6 +24,7 @@
 #include <cstdarg>
 #include <sys/time.h>
 #include <cstring>
+#include <algorithm>
 
 #if !defined(__APPLE__)
 #if defined(USE_SYSTEMD_JOURNAL_PRINT)
@@ -711,4 +712,59 @@ void ABRManager::setLogDirectory(char driveName) {
  */
 void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {
   mDefaultIframeBitrate = defaultIframeBitrate;
+}
+
+/**
+ *  @brief Get the lowest bitrate pointing index
+ */
+int  ABRManager::getProfileIndexForLowestBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mProfileLock);
+	int profileCount = getProfileCountUnlocked();
+	PROFILES_EMPTY_CHECK_RET(profileCount, 0);
+	int index = 0;
+	auto &profileMap = mSortedBWProfileList.begin()->second;
+	if (!profileMap.empty()) 
+	{
+		index = profileMap.begin()->second;
+	}
+	return index;
+}
+/**
+ *  @brief Get the best matched profile index by bandwidth using sorted list
+ */
+int ABRManager::getClosestProfileIndexByBandwidth( long inputBandwidth )
+{
+    std::lock_guard<std::mutex> lock(mProfileLock);
+    // Use the first period's map
+    if (!mSortedBWProfileList.empty())
+    { 
+        int bestIdx = INVALID_PROFILE;
+        auto& profileMap = mSortedBWProfileList.begin()->second;
+        for (std::map<long, int>::const_iterator it = profileMap.begin(); it != profileMap.end(); ++it) 
+        {
+            if (it->first > inputBandwidth)
+            {
+                break;
+            }
+
+            bestIdx = it->second;
+            #if defined(DEBUG_ENABLED)
+            logprintf("%s:%d Matched bw:%ld idx:%d\n",__FUNCTION__, __LINE__,it->first, it->second);
+            #endif
+        }
+        if( bestIdx == INVALID_PROFILE)
+        {
+          /* If the bandwidth of the current period is greater than the previous period, just return the initial profile index, having
+           *  lowest bandwidth
+           */
+          bestIdx = profileMap.begin()->second;
+        }
+        return bestIdx;
+    }
+    else
+    {
+       //return 0th index for safer side
+        return 0;
+    }
 }

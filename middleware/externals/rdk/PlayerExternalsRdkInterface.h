@@ -29,42 +29,72 @@
 #include "videoResolution.hpp"
 #include "videoOutputPort.hpp"
 #include "videoOutputPortType.hpp"
-#include <libIARM.h>
-#include <libIBus.h>
-#include "libIBusDaemon.h"
 #include "dsMgr.h"
 #include "dsDisplay.h"
-#include <iarmUtil.h>
 #include "audioOutputPort.hpp"
 #include "dsAudio.h"
 
+#include <memory>
 #include "PlayerExternalsInterfaceBase.h"
+
+ /*
+IARM Deprecation Note:
+IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
+*/
+
+/*
+Deprecate HDCP support in PlayerExternalsRdkInterface when deprecating IARM
+*/
+
+/*
+Remove the section between the comment section remove-start and remove-end when deprecating IARM
+*/
+
+/*
+Replace the section between the comment section replace-start, replace-with and replace-end when deprecating IARM
+*/
+
+class DeviceInterfaceBase;
 
 //class representing IARM interface in rdk
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
+#ifdef USE_DS_EVENT_SUPPORTED
+	, public device::Host::IDisplayDeviceEvents
+	, public device::Host::IVideoOutputPortEvents
+#endif
 {
+        enum InitState{
+            NOT_INITIALIZED,
+            FIREBOLT,
+            IARM
+        };
     
-       dsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
+        dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
+
+        //replace-start
+        std::shared_ptr<DeviceInterfaceBase> m_pDeviceInterfaceBase = nullptr;
+        //replace-with
+        //std::shared_ptr<DeviceFireboltInterface> m_pDeviceInterfaceBase = nullptr;
+        //replace-end
+
+        //remove-start
+        bool m_use_firebolt_sdk = false;
+
+        InitState m_initialized = NOT_INITIALIZED;
+        //remove-end
+
+        PlayerExternalsRdkInterface();
+
     public:
-
-        /**
-         * @fn IARMInit
-         * @brief Initialize IARM
-         * @param[in] processName string of the name of the process initializing IARM
-         */
-        static void IARMInit(const char* processName);
-
-        /**
-         * @fn IARMRegisterDsMgrEventHandler
-         * @brief Register Display Settings Mgr event handlers
-         */
-        void IARMRegisterDsMgrEventHandler() override;
-
-        /**
-         * @fn IARMRemoveDsMgrEventHandler
-         * @brief Remove Display Settings Mgr event handlers
-         */
-        void IARMRemoveDsMgrEventHandler() override;
+#ifdef USE_DS_EVENT_SUPPORTED
+		template <typename T>
+		T* baseInterface()
+		{
+			static_assert(std::is_base_of<T, PlayerExternalsRdkInterface>::value, "base type mismatch");
+			return static_cast<T*>(this);
+		}
+#endif
+        void Initialize() override;
 
         /**
          * @fn GetDisplayResolution
@@ -88,20 +118,13 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
          */
         void SetResolution(int width, int height);
 
-        /**
-         * @fn IsActiveStreamingInterfaceWifi
-         * @brief Checks if current active interface is wifi and also sets up NET_SRV_MGR event to handles active interface change
-         * @return True if current active is wifi. False if not.
-         */
-        static bool IsActiveStreamingInterfaceWifi();
-
         // Singleton for object creation
 	
         /**
          * @fn GetPlayerExternalsRdkInterfaceInstance
          * @retval PlayerExternalsRdkInterface object
          */	
-        static PlayerExternalsRdkInterface * GetPlayerExternalsRdkInterfaceInstance();
+        static std::shared_ptr<PlayerExternalsRdkInterface> GetPlayerExternalsRdkInterfaceInstance();
 
         /**
          * @fn GetTR181Config
@@ -121,12 +144,33 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         /**
          * @fn GetActiveInterface
-         * @brief Is current active interface wifi? 
+         * @brief Is current active interface wifi?
          * @return True if wifi. False, if not.
          */
         bool GetActiveInterface();
 
-        ~PlayerExternalsRdkInterface(){}
+        void SetActiveInterface(bool isWifi);
+
+        std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface();
+
+        void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
+
+        void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
+
+        ~PlayerExternalsRdkInterface();
+
+#ifdef USE_DS_EVENT_SUPPORTED
+        void RegisterDsClientEventHandler();
+        void RemoveDsClientEventHandlers();
+
+        /* IVideoOutputPortEvents */
+        void OnResolutionPreChange(const int width, const int height) override;
+        void OnResolutionPostChange(const int width, const int height) override;
+        void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus) override;
+
+        /* IDisplayDeviceEvents */
+        void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent) override;
+#endif
 };
 
 

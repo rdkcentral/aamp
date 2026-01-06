@@ -16,9 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
 #include "WebvttSubtecDevParser.hpp"
 #include <sstream>
+#include "AampLogManager.h"
 
 std::string getTtmlHeader()
 {

@@ -25,6 +25,7 @@
 #ifndef AAMPSTREAMSINKMANAGER_H
 #define AAMPSTREAMSINKMANAGER_H
 
+#include <vector>
 #include <stddef.h>
 #include "aampgstplayer.h"
 #include "AampStreamSinkInactive.h"
@@ -38,6 +39,21 @@ class PrivateInstanceAAMP;
 class AampStreamSinkManager
 {
 public:
+
+	/**
+	 * @class MediaHeader
+	 * @brief  Class containing MediaHeader data to be cached from the main asset
+	 */
+	class MediaHeader {
+	public:
+		std::string url;           /**< url of the media */
+		std::string mimeType;      /**< mime type of the media */
+		bool injected;             /**< indicates if the media header has been injected */
+
+		MediaHeader() = default;
+		MediaHeader(const std::string& url_, const std::string& mimeType_)
+			: url(url_), mimeType(mimeType_), injected(false) {}
+	};
 
 	virtual ~AampStreamSinkManager();
 	/**
@@ -142,6 +158,25 @@ public:
 	 *  @param[in] aamp - the PrivateInstanceAAMP that represents the player being tuned
 	 */
 	virtual void UpdateTuningPlayer(PrivateInstanceAAMP *aamp);
+	/**
+	 *  @fn AddMediaHeader
+	 *  @brief Store the media init headers collected from the main VOD asset
+	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be saved
+	 *  @param[in] header - contains the init url and mimeType of the media
+	 */
+	virtual void AddMediaHeader(unsigned track, std::shared_ptr<MediaHeader> header);
+	/**
+	 *  @fn RemoveMediaHeader
+	 *  @brief Removes the media init headers collected from the main VOD asset
+	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be removed
+	 */
+	virtual void RemoveMediaHeader(unsigned track);
+	/**
+	 *  @fn GetMediaHeader
+	 *  @brief Returns the media init headers collected from the main VOD asset
+	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be retrieved
+	 */
+	virtual std::shared_ptr<MediaHeader> GetMediaHeader(unsigned track);
 
 protected:
 
@@ -178,12 +213,15 @@ private:
 	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactiveGstPlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
 
+	std::vector<std::shared_ptr<MediaHeader> > mMediaHeaders;
+
 	PipelineMode mPipelineMode;
 
 	std::mutex mStreamSinkMutex;
 
 	PrivateInstanceAAMP *mEncryptedAamp;
 	bool mEncryptedHeadersInjected;
+
 };
 
 #endif /* AAMPSTREAMSINKMANAGER_H */

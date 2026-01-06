@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <cstring>
+#include <atomic>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
 
@@ -81,6 +82,9 @@ bool PlayerLogManager::disableLogRedirection = false;
 bool PlayerLogManager::enableEthanLogRedirection = false;
 
 static std::hash<std::thread::id> std_thread_hasher;
+
+// Sequential log counter for tracking missing log lines
+static std::atomic<uint32_t> gMwLogCounter(0);
 std::size_t GetPlayerPrintableThreadID( void )
 {
 	return std_thread_hasher( std::this_thread::get_id() );
@@ -88,8 +92,11 @@ std::size_t GetPlayerPrintableThreadID( void )
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char *format, ...)
 {
+	// Increment log counter for each log line, wrap at 1000 for consistent 3-digit formatting
+	uint32_t logSeqNum = gMwLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
+	
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
 	if( PlayerLogManager::disableLogRedirection )
@@ -103,11 +110,12 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[MIDDLEWARE][%s][%zx][%s][%d]%s\n",
+                                                           "%s[PLAYER_IF][%03u][%s][%zx][%s][%d]%s\n",
                                                            timestamp,
+                                                           logSeqNum,
                                                            mLogLevelStr[logLevelIndex],
 							   GetPlayerPrintableThreadID(),
-                                                           file, line,
+                                                           func, line,
                                                            format );
             if( format_bytes<=0 )
             { // should never happen!

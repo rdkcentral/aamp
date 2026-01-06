@@ -50,42 +50,42 @@ namespace base64Test {
 	{
 		size_t size = 4;
 		char *result;
-		
+
 		// padded output
 		result = ::base64_Encode(base64Inp1, size);
 		EXPECT_EQ(memcmp(result, base64Exp1, strlen(base64Exp1)), 0) << "The base64 encode of " << base64Inp1 << ", size " << size << " is not correct";
 		free(result);
-		
+
 		// all supported characters limited length
 		size = 4;
 		result = ::base64_Encode(base64Inp2, size);
 		EXPECT_EQ(memcmp(result, base64Exp2, strlen(base64Exp2)), 0) << "The base64 encode of " << base64Inp2 << ", size " << size << " is not correct";
 		free(result);
-		
+
 		// all supported characters full length
 		size = strlen((char *)base64Inp2);
 		result = ::base64_Encode(base64Inp2, size);
 		EXPECT_EQ(memcmp(result, base64Exp3, strlen(base64Exp3)), 0) << "The base64 encode of " << base64Inp2 << ", size " << size << " is not correct";
 		free(result);
-		
+
 		// unsupported character should return empty result?
 		size = 1;
 		result = ::base64_Encode(base64Inp4, size);
 		EXPECT_EQ(memcmp(result, base64Exp4, strlen(base64Exp4)), 0) << "The base64 encode of " << base64Inp4 << ", size " << size << " is not correct";
 		free(result);
-		
+
 		// empty input
 		size = 0;
 		result = ::base64_Encode(base64Inp5, size);
 		EXPECT_EQ(memcmp(result, base64Exp5, size), 0) << "The base64 encode of " << base64Inp5 << ", size " << size << " is not correct";
 		free(result);
-		
+
 		// NULL doesn't upset us if size is 0, crashes if > 0
 		size = 0;
 		result = ::base64_Encode(NULL, size);
 		EXPECT_EQ(memcmp(result, "", size), 0) << "The base64 encode of NULL, size 1 is not correct";
 		free(result);
-		
+
 		size = 0;
 		for (int i=7; i < 12; i++)
 		{
@@ -120,85 +120,85 @@ namespace base64Test {
 		size_t len = 0;
 		size_t size = 0;
 		char *result;
-		
+
 		// padded output used truncated input of length 4
-		result = (char *)::base64_Decode(base64Exp1, &len);
+		result = (char *)::base64_Decode( base64Exp1, &len, strlen(base64Exp1) );
 		int cmp = strncmp(result, (char*)base64Inp1, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp1 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp1)) << "The base64 decode of " << base64Exp1 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		// all supported characters full length
-		result = (char *)::base64_Decode(base64Exp3, &len);
+		result = (char *)::base64_Decode( base64Exp3, &len, strlen(base64Exp3) );
 		cmp = strncmp(result, (char*)base64Inp2, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp2 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp2)) << "The base64 decode of " << base64Exp2 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		// unsupported character should return empty result?
-		result = (char *)::base64_Decode(base64Exp4, &len);
+		result = (char *)::base64_Decode( base64Exp4, &len, strlen(base64Exp4) );
 		EXPECT_EQ(memcmp(result, base64Inp4, strlen((char *)base64Inp4)), 0) << "The base64 decode of " << base64Exp4 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp4)) << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		// Check for invalid sizes, should not trigger address sanitizer.
 		size = 1;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
 		EXPECT_EQ( len, 0 );
 		free(result);
-		
+
 		size = 2;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
 		EXPECT_EQ( len, 1 );
 		EXPECT_EQ(result[0], '_') << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		size = 3;
 		result = (char *)::base64_Decode(base64Exp4, &len, size);
 		EXPECT_EQ( len, 1 );
 		EXPECT_EQ(result[0], '_') << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		// NULL crashes
 		//result = (char *)::base64_Decode(NULL, &len);
 		//EXPECT_STREQ(result, (char *)base64Inp2) << "The base64 decode of NULL is not correct";
 		//free(result);
-		
-		result = (char *)::base64_Decode(base64Exp6, &len);
+
+		result = (char *)::base64_Decode( base64Exp6, &len,strlen(base64Exp6) );
 		cmp = strncmp(result, (char*)base64Inp6, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp6 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp6)) << "The base64 decode of " << base64Exp6 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 	}
 	TEST(_base64Suite, decodeLen)
 	{
 		size_t len = 0;
 		size_t size = 4;
 		char *result;
-		
+
 		// Not checking returned len, checked in decode()
-		
+
 		// padded output
 		result = (char *)::base64_Decode(base64Exp1, &len, size);
 		int cmp = strncmp(result, (char *)base64Inp1, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp1 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		// all supported characters limited length
 		size = 3;
 		result = (char *)::base64_Decode(base64Exp2, &len, size);
 		cmp = strncmp(result, (char *)base64Inp2, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp2 << " is not correct";
 		free(result);
-		
+
 		// all supported characters full length
 		size = sizeof(base64Exp3);
 		result = (char *)::base64_Decode(base64Exp3, &len, size);
@@ -206,21 +206,21 @@ namespace base64Test {
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp3 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-				
+
 		// empty input
 		size = 0;
 		result = (char *)::base64_Decode(base64Exp5, &len, size);
 		EXPECT_EQ(len, 0) << "The base64 decode of " << base64Exp5 << " is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		// NULL doesn't upset us if size is 0, crashes if > 0
 		size = 0;
 		result = (char *)::base64_Decode(NULL, &len, size);
 		EXPECT_EQ(memcmp(result, base64Inp5, strlen((char *)base64Inp5)), 0) << "The base64 decode of NULL is not correct";
 		memset(result, 0, len);
 		free(result);
-		
+
 		size = 0;
 		for (int i=7; i < 12; i++)
 		{
@@ -284,7 +284,7 @@ TEST(_base64Suite, encodedecode )
 			"abcdefghijklmnopqrstuvwxyz01234567890!\"£$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ|\\<>?,./:;@'~#{}[]-_"
 		},
 		{ "bGlnaHQgd29yay4=", "light work." },
-		
+
 		{ "AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQL38/m5MtSFqBGT0XY2KM4yIUTkJDVTA0Mzg3NjU0MDA1NjMwMDc=",
 			"\000\000\000Jpssh\000\000\000\000\355\357\213\251y\326J\316\243\310'\334\325\035!\355\000\000\000*\010\001\022\020/?\233\223-HZ\201\031=\027cb\214\343\042\024NBCU0438765400563007",
 			74 // binary data size - can't use strlen
@@ -295,7 +295,7 @@ TEST(_base64Suite, encodedecode )
 			true // old syntax, with "-" instead of "/"
 		},
 	};
-	
+
 	for( int i=0; i<sizeof(testData)/sizeof(testData[0]); i++ )
 	{
 		const char *base64 = testData[i].base64;
@@ -306,11 +306,11 @@ TEST(_base64Suite, encodedecode )
 			expectedLen = strlen(expected);
 		}
 		printf( "test#%d\n%s\n", i, expected );
-		
+
 		size_t len = 0;
 		unsigned char *result = ::base64_Decode(base64, &len, strlen(base64));
 		EXPECT_EQ(len,expectedLen);
-		
+
 		for( int j=0; j<len; j++ )
 		{
 			unsigned char c;
@@ -318,7 +318,7 @@ TEST(_base64Suite, encodedecode )
 			ASSERT_EQ( result[j], c );
 		}
 		free(result);
-		
+
 		if( !testData[i].oldSyntax )
 		{ // old syntax is not reversible
 			size_t encodedLen = strlen(base64);

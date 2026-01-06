@@ -33,8 +33,8 @@
  * @brief
  */
 
-#ifndef FOG_CLI_DASHMODEL_H
-#define FOG_CLI_DASHMODEL_H
+#ifndef AAMP_DASHMODEL_H
+#define AAMP_DASHMODEL_H
 
 #include <vector>
 #include <unordered_map>
@@ -141,11 +141,11 @@ protected:
     template<typename Child>
     void getChildren(std::vector<std::shared_ptr<Child>> &out, string childName) {
         auto self = std::dynamic_pointer_cast<typename Child::ParentType>(shared_from_this());
-        ElemVector elemVector(elem, childName);
+        ElemVector elemVector(elem, std::move(childName));
         int idx = 0;
         for (auto e : elemVector) {
             auto child = std::shared_ptr<Child>(new Child(self, e, idx++));
-            out.push_back(child);
+            out.push_back(std::move(child));
         }
     }
 
@@ -359,6 +359,8 @@ public:
     }
 
     std::string getBaseUrlValue();
+
+    std::vector<std::string> getAllBaseUrls();
 
     shared_ptr<DashMPDBaseURL> setBaseURLValue(const string &value);
 
@@ -764,6 +766,8 @@ public:
 
     std::string getBaseUrl();
 
+    std::vector<std::string> getBaseUrls();
+
     std::shared_ptr<DashMPDSegmentTemplate> getSegmentTemplate();
 
     std::vector<std::shared_ptr<DashMPDAdaptationSet>> getAdaptationSets();
@@ -910,7 +914,11 @@ public:
 
     std::string getBaseUrl();
 
+    std::vector<std::string> getBaseUrls();
+
     string getMimeType();
+
+    string getMediaType();
 
     string getLanguage();
 
@@ -1034,6 +1042,8 @@ public:
 
     std::string getBaseUrl();
 
+    std::vector<std::string> getBaseUrls();
+
     /**
      * @brief   set BaseURL
      * @param   Base URL
@@ -1041,7 +1051,7 @@ public:
      */
     shared_ptr<DashMPDBaseURL> setBaseURLValue(std::string value);
 
-    long long int getBandwidth();
+    BitsPerSecond getBandwidth();
     
     int getWidth();
 
@@ -1108,7 +1118,7 @@ class DashMPDDocument {
 public:
     explicit DashMPDDocument(const string &content);
 
-    explicit DashMPDDocument( shared_ptr<DomDocument> xmlDoc) :xmlDoc(xmlDoc),root() {};
+    explicit DashMPDDocument( shared_ptr<DomDocument> xmlDoc) :xmlDoc(std::move(xmlDoc)),root() {};
     bool isValid();
 
     shared_ptr<DashMPDRoot> getRoot();
@@ -1217,6 +1227,10 @@ struct TimelineItem {
 
 std::string findBaseUrl(DomElement &element, const std::string &current, bool isFile = false);
 
+std::vector<std::string> findAllBaseUrls(DomElement &element, const std::vector<std::string> &current, bool isFile = false);
+
+std::vector<std::string> extractBaseUrlTexts(DomElement &element);
+
 void extractTimeline(DashMPDSegmentTimeline &timeline, std::vector<TimelineItem> &timelineItems);
 
-#endif //FOG_CLI_DASHMODEL_H
+#endif //AAMP_DASHMODEL_H

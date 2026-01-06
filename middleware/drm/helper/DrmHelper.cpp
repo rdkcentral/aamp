@@ -45,7 +45,7 @@ bool DrmHelper::compare(DrmHelperPtr other)
 	std::vector<std::vector<uint8_t>> keyIdVector;
 	if(otherKeyIds.empty())
 	{
-		keyIdVector.push_back(otherKeyId);
+		keyIdVector.push_back(std::move(otherKeyId));
 	}
 	else
 	{

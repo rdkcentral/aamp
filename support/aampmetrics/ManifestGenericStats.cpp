@@ -51,7 +51,7 @@ cJSON * ManifestGenericStats::ToJson() const
 	if(isInitialized && jsonObj)
 	{
 		cJSON * manifest;
-		for(auto item : mManifestData)
+		for(const auto& item : mManifestData)
 		{
 			manifest =  cJSON_CreateNumber(item.second);
 			cJSON_AddItemToObject(jsonObj, item.first.c_str(), manifest);

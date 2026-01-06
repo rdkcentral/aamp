@@ -45,7 +45,7 @@ void _manifestDownloadResponse::show()
 			 AAMPLOG_INFO("location: %s", mMPDInstance->GetLocations()[0].c_str());
 		}
 		AAMPLOG_INFO("type: %s", mMPDInstance->GetType().c_str());
-		auto periods = mMPDInstance->GetPeriods();
+		const auto& periods = mMPDInstance->GetPeriods();
 		AAMPLOG_INFO("Size of 'periods': %zu", periods.size());
 		AAMPLOG_INFO("Minimum Update Period:  %s", mMPDInstance->GetMinimumUpdatePeriod().c_str());
 	}
@@ -58,8 +58,8 @@ void _manifestDownloadResponse::show()
 		SAFE_DELETE(mRootNode);
 	}
 
-	mMPDDownloadResponse	=	NULL;
-	mDashMpdDoc	=	NULL;
+	mMPDDownloadResponse = NULL;
+	mDashMpdDoc = NULL;
 
 }
 
@@ -128,8 +128,8 @@ void _manifestDownloadResponse::parseMPD()
 					{
 						mpd->SetFetchTime(fetchTime);
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
-						mMPDInstance		=	tmp_ptr;
-						mMPDStatus 		= 	AAMPStatusType::eAAMPSTATUS_OK;
+						mMPDInstance = std::move(tmp_ptr);
+						mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);
 					}
 					else
@@ -180,9 +180,9 @@ AampMPDDownloader::~AampMPDDownloader()
 	// Clear the queue and release all the objects
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically
-	mMPDData	=	nullptr;
-	mMPDDnldCfg	=	NULL;
-	mCachedMPDData	=	nullptr;
+	mMPDData = nullptr;
+	mMPDDnldCfg = nullptr;
+	mCachedMPDData = nullptr;
 }
 
 /**
@@ -197,7 +197,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 		return;
 	}
 
-	mAppName	=	appName;
+	mAppName = std::move(appName);
 
 	// Release and reset and previously called values
 	// Initialize to be called only once . If repeatedly called , then stored vars will be
@@ -206,11 +206,11 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	mReleaseCalled = false;
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
-	mMPDDnldCfg = mpdDnldCfg;
+	mMPDDnldCfg = std::move(mpdDnldCfg);
 
 	if(mpdPreProcessFuncptr)
 	{
-		mMpdPreProcessFuncptr = mpdPreProcessFuncptr;
+		mMpdPreProcessFuncptr = std::move(mpdPreProcessFuncptr);
 	}
 
 }
@@ -277,9 +277,8 @@ void AampMPDDownloader::Release()
 			mRefreshCondVar.notify_all();
 			mMPDDnldDataCondVar.notify_all();
 			mMPDNotifierCondVar.notify_all();
-
 		}
-
+		// Disable downloads before joining the threads,which will exit the download loops gracefully 
 		mDownloader1.Release();
 		mDownloader2.Release();
 
@@ -288,6 +287,9 @@ void AampMPDDownloader::Release()
 
 		if(mDownloaderThread_t2.joinable())
 			mDownloaderThread_t2.join();
+		// Clear the headers only after the graceful exit of download threads.
+		mDownloader1.CleanupCurlHeaderResources();
+		mDownloader2.CleanupCurlHeaderResources();
 
 		if(mManifestUpdateCb != NULL)
 		{
@@ -360,7 +362,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				std::unordered_map<std::string, std::vector<std::string>> CMCDHeaders = getCMCDHeader();
 				Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
 			}
-			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+			mMPDDnldCfg->mDnldConfig->sCustomHeaders = std::move(Headers);
 			mMPDDnldCfg->mDnldConfig->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
 			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
 			refreshNeeded = false;
@@ -398,13 +400,10 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 		}
 
-		if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 		{
 			if(!mMPDData->mMPDDownloadResponse->getString().empty())
 			{
-				//std::string dataStr =  std::string( mMPDData->mMPDDownloadResponse->mDownloadData.begin(), mMPDData->mMPDDownloadResponse->mDownloadData.end());
-				//mMPDData->show();
-				// store the last manifestdownloadTime
 				mMPDData->mLastPlaylistDownloadTimeMs	=	aamp_GetCurrentTimeMS();
 				mMPDData->parseMPD();
 				if(firstDownload)
@@ -454,7 +453,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				AAMPLOG_INFO("Ignoring MPD processing for empty manifest, Response Code : %d..!", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 			}
-		}
+		} // IS_HTTP_SUCCESS
 		else
 		{
 			// Failure in request
@@ -468,9 +467,18 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mEffectiveUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
-			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
+			
+			if( !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 			{ 
-				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT )
+				{
+					mMPDData->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorTimeout, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				}
+				else
+				{
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				}
 				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
 				mMPDData->mMPDDownloadResponse->show();
 			}
@@ -521,8 +529,7 @@ void AampMPDDownloader::downloadMPDThread1()
  */
 void AampMPDDownloader::harvestManifest()
 {
-	if(mMPDData->mMPDDownloadResponse->curlRetValue == 0 && 
-		(mMPDData->mMPDDownloadResponse->iHttpRetValue == 200 || mMPDData->mMPDDownloadResponse->iHttpRetValue == 206))
+	if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 	{
 			AampMediaType mediaType	=	eMEDIATYPE_MANIFEST	;
 			if((mMPDDnldCfg->mHarvestCountLimit > 0) && (mMPDDnldCfg->mHarvestConfig & getHarvestConfigForMedia(mediaType)))
@@ -584,7 +591,6 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 */
 void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime)
 {
-	CURLcode res 			=	static_cast<CURLcode>(dnldPtr->curlRetValue);
 	int http_code			=	dnldPtr->iHttpRetValue;
 	double total			=	dnldPtr->downloadCompleteMetrics.total;
 	double totalPerformRequest	= (double)(totalPerformanceTime)/1000;	// in sec
@@ -597,22 +603,43 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		appName = mAppName + ",";
 	}
 
-	if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+	switch( http_code )
 	{
-		// introduce  extra marker for connection status curl 7/18/28,
-		// example 18(0) if connection failure with PARTIAL_FILE code
-		timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
+		case CURLE_OPERATION_TIMEDOUT:
+		case CURLE_PARTIAL_FILE:
+		case CURLE_COULDNT_CONNECT:
+		case eCURL_TIMEOUT_DNS:
+		case eCURL_TIMEOUT_CONNECT:
+			// introduce  extra marker for connection status curl 7/18/28,
+			// example 18(0) if connection failure with PARTIAL_FILE code
+			timeoutClass = "(" + std::to_string(dnldPtr->downloadCompleteMetrics.reqSize > 0) + ")";
+			break;
+		default:
+			break;
 	}
-	if(res != CURLE_OK || http_code == 0 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
+	if( http_code < 200 || http_code >= 400 || totalPerformRequest > 2.0 /*seconds*/)
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
-	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%d,%.500s",
-			appName.c_str(), eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST, http_code, timeoutClass.c_str(), totalPerformRequest, total,
-			dnldPtr->downloadCompleteMetrics.connect, dnldPtr->downloadCompleteMetrics.startTransfer, dnldPtr->downloadCompleteMetrics.resolve,
-			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
-			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
-			0, dnldPtr->sEffectiveUrl.c_str());
+	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%" BITSPERSECOND_FORMAT ",%d,%.500s",
+			appName.c_str(),
+			eMEDIATYPE_TELEMETRY_MANIFEST,
+			eMEDIATYPE_MANIFEST,
+			http_code,
+			timeoutClass.c_str(),
+			totalPerformRequest,
+			total,
+			dnldPtr->downloadCompleteMetrics.connect,
+			dnldPtr->downloadCompleteMetrics.startTransfer,
+			dnldPtr->downloadCompleteMetrics.resolve,
+			dnldPtr->downloadCompleteMetrics.appConnect,
+			dnldPtr->downloadCompleteMetrics.preTransfer,
+			dnldPtr->downloadCompleteMetrics.redirect,
+			dnldPtr->downloadCompleteMetrics.dlSize,
+			dnldPtr->downloadCompleteMetrics.reqSize,
+			dnldPtr->downloadCompleteMetrics.downloadbps,
+			0,
+			dnldPtr->sEffectiveUrl.c_str());
 }
 
 /**
@@ -682,6 +709,22 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 			{
 				// Timed out
 				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+
+				CURL *curlHandle = mDownloader1.GetCurlHandle();;
+
+				// Optionally, log or use the handle
+				if (curlHandle)
+				{
+					/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
+						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through 
+						curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
+					*/
+					respPtr->mMPDDownloadResponse->iHttpRetValue = GetCurlTimeoutFailureReason(curlHandle);
+				}
+				else
+				{
+					AAMPLOG_WARN("GetManifest: CURL handle is null");
+				}
 				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
 				return respPtr;
 			}
@@ -775,13 +818,13 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 		} 
 		else
 		{
-			mRefreshInterval = getMeNextManifestDownloadWaitTime(dnldManifest);
+			mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		}
 	} 
 	else 
 	{
 		mPublishTime = publishTimeMSec;
-		mRefreshInterval = getMeNextManifestDownloadWaitTime(dnldManifest);
+		mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		mMinimalRefreshRetryCount = 0;  // Reset the retry count on detecting a new publish time
 	}
 	return retVal;
@@ -908,7 +951,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 		for (int iter = 0; iter < periods.size(); iter++)
 		{
 			auto period = periods.at(iter);
-			auto eventStream = period->GetEventStreams();
+			const auto& eventStream = period->GetEventStreams();
 			if(!(eventStream.empty()))
 			{
 				eventStreamFound = true;
@@ -1127,7 +1170,7 @@ std::unordered_map<std::string, std::vector<std::string>> AampMPDDownloader::get
 				std::string header_name = header.substr(0, colon_pos + 1); // include the colon
 				std::string header_value = header.substr(colon_pos + 1);
 				trim(header_value); // remove any whitespace
-				cmcd[header_name].push_back(header_value);
+				cmcd[header_name].push_back(std::move(header_value));
 			}
 		}
 	}

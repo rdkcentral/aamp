@@ -87,24 +87,20 @@ TEST_F(AampProfilertests, ProfileResetTest1)
 TEST_F(AampProfilertests, ProfileResetTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[24] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
-    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
-    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
-    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
-    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -117,7 +113,7 @@ TEST_F(AampProfilertests, ProfileResetTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<24;i++){
     profileEvent.ProfileReset(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -127,29 +123,25 @@ TEST_F(AampProfilertests, ProfileEndTest1)
     profileEvent->ProfileReset(PROFILE_BUCKET_MANIFEST); 
     profileEvent->ProfileBegin(PROFILE_BUCKET_MANIFEST);    
     profileEvent->ProfileEnd(PROFILE_BUCKET_TYPE_COUNT);
-    EXPECT_EQ(PROFILE_BUCKET_TYPE_COUNT,27);
+    EXPECT_EQ(PROFILE_BUCKET_TYPE_COUNT,23);
 }
 TEST_F(AampProfilertests, ProfileEndTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[24] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
-    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
-    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
-    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
-    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -162,7 +154,7 @@ TEST_F(AampProfilertests, ProfileEndTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<24;i++){
     profileEvent.ProfileEnd(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -188,32 +180,24 @@ TEST_F(AampProfilertests, ProfileErrorTest1)
     profileEvent.ProfileError(PROFILE_BUCKET_PLAYLIST_SUBTITLE, result);
     EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_SUBTITLE,3);
     EXPECT_EQ(result,2147483647);
-    result = 0;
-    profileEvent.ProfileError(PROFILE_BUCKET_PLAYLIST_AUXILIARY, result);
-    EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_AUXILIARY,4);
-    EXPECT_EQ(result,0);
 }
 TEST_F(AampProfilertests, ProfileErrorTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[24] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
-    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
-    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
-    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
-    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -226,7 +210,7 @@ TEST_F(AampProfilertests, ProfileErrorTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<24;i++){
     profileEvent.ProfileError(profilesList[i],i);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -238,24 +222,20 @@ TEST_F(AampProfilertests, ProfileBeginTest)
 TEST_F(AampProfilertests, ProfileBeginTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[24] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
-    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
-    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
-    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
-    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -268,7 +248,7 @@ TEST_F(AampProfilertests, ProfileBeginTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<24;i++){
     profileEvent.ProfileBegin(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -278,12 +258,8 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest1)
     ProfileEventAAMP profileEvent;
     int tuneFailCode = 10;
     profileEvent.SetTuneFailCode(tuneFailCode,PROFILE_BUCKET_LA_PREPROC);
-    EXPECT_EQ(PROFILE_BUCKET_LA_PREPROC,18);
+    EXPECT_EQ(PROFILE_BUCKET_LA_PREPROC,14);
     EXPECT_EQ(tuneFailCode,10);
-    tuneFailCode = INT_MAX;
-    profileEvent.SetTuneFailCode(tuneFailCode,PROFILE_BUCKET_PLAYLIST_AUXILIARY);
-    EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_AUXILIARY,4);
-    EXPECT_EQ(tuneFailCode,2147483647);
     tuneFailCode = INT_MIN;
     profileEvent.SetTuneFailCode(tuneFailCode,PROFILE_BUCKET_PLAYLIST_AUDIO);
     EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_AUDIO,2);
@@ -296,24 +272,20 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest1)
 TEST_F(AampProfilertests, SetTuneFailCodeTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[24] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
-    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
-    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
-    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
-    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -326,7 +298,7 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<24;i++){
     profileEvent.SetTuneFailCode(i,profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -335,29 +307,25 @@ TEST_F(AampProfilertests, ProfilePerformedTest1)
 {
     ProfileEventAAMP profileEvent;
     profileEvent.ProfilePerformed(PROFILE_BUCKET_LA_NETWORK);
-    EXPECT_EQ(PROFILE_BUCKET_LA_NETWORK,19);
+    EXPECT_EQ(PROFILE_BUCKET_LA_NETWORK,15);
 }
 TEST_F(AampProfilertests, ProfilePerformedTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType ProfilePerformedList[28] = {
+    ProfilerBucketType ProfilePerformedList[24] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
-    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
-    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
-    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
-    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -370,7 +338,7 @@ TEST_F(AampProfilertests, ProfilePerformedTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<24;i++){
     profileEvent.ProfilePerformed(ProfilePerformedList[i]);
     EXPECT_EQ(ProfilePerformedList[i],i);
     }
@@ -384,71 +352,7 @@ TEST_F(AampProfilertests, GetTuneEventsJSONTest)
     profileEvent->getTuneEventsJSON(outStr, streamType, url, success);
     std::string expectedJson = "{\"s\":0,\"td\":0,\"st\":\"Video\",\"u\":\"https://www.example.com\",\"tf\":{\"i\":0,\"er\":0},\"r\":1,\"v\":[{\"i\":1,\"b\":100,\"d\":200,\"o\":0},{\"i\":2,\"b\":300,\"d\":150,\"o\":1}]}";
 }
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest)
-{
-    bool success = false;
-    int tuneRetries = 3;
-    int firstTuneType = 1;
-    long long playerLoadTime = 1000;
-    int streamType = 2;
-    bool isLive = true;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256] = "azdwcdewvewvadwvwavwf sjdjjdjjdjjdjdjjdjdjdjjdjdssjjsjjsjjsjsjbcgdbsdbssbdfw v"; 
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr); 
-}
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest1)
-{
-    bool success = true;
-    int tuneRetries = INT_MAX;
-    int firstTuneType = INT_MAX;
-    long long playerLoadTime = 1000;
-    int streamType = INT_MAX;
-    bool isLive = true;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256]; 
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr);
-    EXPECT_EQ(tuneRetries,2147483647);
-    EXPECT_EQ(firstTuneType,2147483647);
-    EXPECT_EQ(playerLoadTime,1000);
-    EXPECT_EQ(streamType,2147483647);
-    ASSERT_TRUE(isLive);
-}
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest2)
-{
-    bool success = true;
-    int tuneRetries = INT_MIN;
-    int firstTuneType = INT_MIN;
-    long long playerLoadTime = 1000;
-    int streamType = INT_MIN;
-    bool isLive = true;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256]; 
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr);
-    EXPECT_EQ(tuneRetries,-2147483648);
-    EXPECT_EQ(firstTuneType,-2147483648);
-    EXPECT_EQ(playerLoadTime,1000);
-    EXPECT_EQ(streamType,-2147483648);
-    ASSERT_TRUE(isLive);
-}
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest3)
-{
-    bool success = false;
-    int tuneRetries = INT_MIN;
-    int firstTuneType = INT_MAX;
-    long long playerLoadTime = 0;
-    int streamType = INT_MAX;
-    bool isLive = false;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256];
-    for(int i=0;i<256;i++)
-    TuneTimeInfoStr[i]= 'A';
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr);
-    EXPECT_EQ(tuneRetries,-2147483648);
-    EXPECT_EQ(firstTuneType,2147483647);
-    EXPECT_EQ(playerLoadTime,0);
-    EXPECT_EQ(streamType,2147483647);
-    ASSERT_TRUE(true);
-}
+
 TEST_F(AampProfilertests, TuneEndTest1)
 {
     TuneEndMetrics metrics;

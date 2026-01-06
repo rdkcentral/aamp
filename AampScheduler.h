@@ -53,7 +53,7 @@ struct AsyncTaskObj
 	std::string mTaskName;
 
 	AsyncTaskObj(AsyncTask task, void *data, std::string tskName="", int id = AAMP_TASK_ID_INVALID) :
-				mTask(task), mData(data), mId(id),mTaskName(tskName)
+				mTask(std::move(task)), mData(data), mId(id),mTaskName(std::move(tskName))
 	{
 	}
 

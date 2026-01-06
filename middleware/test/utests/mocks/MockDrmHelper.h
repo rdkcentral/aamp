@@ -17,8 +17,8 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_AAMP_DRM_HELPER_H
-#define AAMP_MOCK_AAMP_DRM_HELPER_H
+#ifndef PLAYER_MOCK_DRM_HELPER_H
+#define PLAYER_MOCK_DRM_HELPER_H
 
 #include <gmock/gmock.h>
 #include "DrmHelper.h"
@@ -38,10 +38,10 @@ public:
 
 	MOCK_METHOD(bool, parsePssh, (const uint8_t* initData, uint32_t initDataLen), (override));
 
-	MOCK_METHOD(bool, isClearDecrypt, (), (const));
+	MOCK_METHOD(bool, isClearDecrypt, (), (const, override));
 
 	MOCK_METHOD(bool, isHdcp22Required, (), (const, override));
-	
+
 	MOCK_METHOD(const std::string&, getDrmMetaData, (), (const, override));
 
 	MOCK_METHOD(void, setDrmMetaData, (const std::string& metaData), (override));
@@ -66,7 +66,7 @@ public:
 
 	MOCK_METHOD(void, transformLicenseResponse, (std::shared_ptr<DrmData> licenseResponse), (const, override));
 
-    	MOCK_METHOD(DRMMemorySystem*, getMemorySystem, (), (override));
+	MOCK_METHOD(DRMMemorySystem*, getMemorySystem, (), (override));
 
 	MOCK_METHOD(void, cancelDrmSession, (), (override));
 
@@ -82,4 +82,4 @@ public:
 };
 
 
-#endif /* AAMP_MOCK_AAMP_CONFIG_H */
+#endif /* PLAYER_MOCK_CONFIG_H */

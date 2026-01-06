@@ -78,14 +78,14 @@ private:
 
 	void setAccessibilityData(std::string schemeId, const std::string &val)
 	{
-		strSchemeId = schemeId;
+		strSchemeId = std::move(schemeId);
 		intValue = parseNonNegativeDecimalInt(val);
 		strValue = (intValue>=0)?"":val;
 	};
 
 	void setAccessibilityData(std::string schemeId, int val)
 	{
-		strSchemeId = schemeId;
+		strSchemeId = std::move(schemeId);
 		intValue = (val>=0)?val:-1;
 		strValue = "";
 	};

@@ -28,7 +28,7 @@ function aampcli_install_postbuild_fn()
             (open AAMP.xcodeproj) &
         else
             echo "To use Xcode, open aamp/build/AAMP.xcodeproj project file"
-        fi      
+        fi
     fi
 }
 
@@ -68,7 +68,7 @@ function aampcli_install_prebuild_fn()
     else
         echo "Creating default channel list file ${HOME}/aampcli.csv"
         cp ./OSX/aampcli.csv ${HOME}/aampcli.csv
-    fi 
+    fi
 }
 
 function aampcli_install_build_darwin_fn()
@@ -108,7 +108,7 @@ function aampcli_install_build_darwin_fn()
         echo "AAMP Environment FAILED to Install."
         arr_install_status+=("AAMP Environment FAILED to Install.")
     fi
-   
+
     echo "Starting Xcode, open aamp/build/AAMP.xcodeproj project file OR Execute ./aamp-cli or /playbintest <url> binaries"
     echo "Opening AAMP project in Xcode..."
     # Changed "\-bash" as that signifies login shell, running ./install-aamp.sh (as opposed to source install-aamp.sh) and that would not be the case
@@ -119,7 +119,7 @@ function aampcli_install_build_darwin_fn()
         chsh -s /bin/bash
     fi
 
-   
+
     echo "Now Building aamp-cli"
     xcodebuild -scheme aamp-cli  build
 
@@ -131,13 +131,14 @@ function aampcli_install_build_darwin_fn()
     if [  -f "./Debug/aamp-cli" ]; then
         echo "OSX AAMP Build PASSED"
         arr_install_status+=("OSX AAMP Build PASSED")
+
 	subtec_install_run_script_fn   # after build/Debug directory created by xcodebuild
     else
-	echo "OSX AAMP Build FAILED"
+        echo "OSX AAMP Build FAILED"
         arr_install_status+=("OSX AAMP Build FAILED")
         return 1
     fi
-    
+
 }
 
 function aampcli_install_build_linux_fn
@@ -149,7 +150,7 @@ function aampcli_install_build_linux_fn
     # Local built dependencies
     PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"
 
-    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
+    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DSANITIZER_ENABLED=${OPTION_UBUNTU_SANITIZER} -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
 
    echo "Making aamp-cli..."
    cd build

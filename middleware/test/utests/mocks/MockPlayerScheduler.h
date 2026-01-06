@@ -34,4 +34,3 @@ public:
 extern MockPlayerScheduler *g_mockPlayerScheduler;
 
 #endif /* PLAYER_MOCK_PLAYER_SCHEDULER_H */
-

@@ -2,7 +2,7 @@
 
 function tools_banner_fn ()
 {
-                                                                  
+
   echo ""
   echo "  ######   ####       #    ####   ####  ######         ### # ####   #### "
   echo "   ##  ##   ##       ###    ###   ###   ##   ##       #   ##  ##     ##  "
@@ -17,7 +17,7 @@ function tools_banner_fn ()
 
 function tools_arch_fn ()
 {
-    if [[ "${OSTYPE}" == "darwin"* ]]; then    
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
         ARCH=$(uname -m)
         if [[ ${ARCH} == "x86_64" ]]; then
             export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
@@ -40,7 +40,7 @@ function tools_arch_fn ()
 
 function tools_install_fn ()
 {
-    if [[ "${OSTYPE}" == "darwin"* ]]; then    
+    if [[ "${OSTYPE}" == "darwin"* ]]; then
 
         echo "Checking Xcode..."
 
@@ -65,12 +65,12 @@ function tools_install_fn ()
         if [[ -z ${CUR_XTOOLS_VER} || -z ${CUR_XCODE_VER} ]] ; then
             echo "Xcode or Xcode CLI tools installation not found."
             echo -e "
-  XCode and Xcode Command Line Tools can be found here. 
+  XCode and Xcode Command Line Tools can be found here.
   https://developer.apple.com/download/all/?q=xcode%20${CUR_MACOS_VER}
- 
-  Download the required XIP file(s). Double-click the XIP file(s) to make its content available 
-  (the name will show up in the Finder sidebar), and a window generally opens also showing the 
-  content. Drag the application from the dialog into the Applications directory to install (you 
+
+  Download the required XIP file(s). Double-click the XIP file(s) to make its content available
+  (the name will show up in the Finder sidebar), and a window generally opens also showing the
+  content. Drag the application from the dialog into the Applications directory to install (you
   may need an administrator password). Wait for the copy process to finish.
 
   Then run the following:
@@ -85,11 +85,11 @@ function tools_install_fn ()
         if XPATH=$( xcode-select --print-path ) &&
             test -d "${XPATH}" && test -x "${XPATH}" ; then
             echo "Xcode tools installed in '${XPATH}'"
-        else    
+        else
             #... isn't correctly installed
             echo "Xcode tools installation not found."
             return 1
-        fi 
+        fi
 
         # Check if homebrew is installed
         if [[ -z $(which brew) ]] ; then
@@ -127,7 +127,7 @@ echo ""
 echo "********PLAYER install summary end*************"
 
 echo -n "build completed $(date) elapsed time "
-if [[ "${OSTYPE}" == "darwin"* ]]; then    
+if [[ "${OSTYPE}" == "darwin"* ]]; then
     date -ju -f "%s" ${SECONDS}  +%T
 else
     date -u -d "@$SECONDS" +%T

@@ -1,35 +1,55 @@
-
 # LibPlayerGstInterface CMakeLists.txt
+# If not stated otherwise in this file or this component's license file the
+# following copyright and licenses apply:
+#
+# Copyright 2025 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 cmake_minimum_required(VERSION 3.5)
 project(Playergstinterface)
+
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GST REQUIRED gstreamer-plugins-base-1.0)
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 
 include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff 
-	closedcaptions 
-	closedcaptions/subtec 
-	drm drm/helper 
-	drm/ocdm 
-	externals/playersecmanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
+	closedcaptions
+	closedcaptions/subtec
+	drm drm/helper
+	drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/playersecmanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/baseConversion)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerLogManager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerJsonObject)
 
-pkg_check_modules(LIBDASH REQUIRED libdash)
-include_directories(${LIBDASH_INCLUDE_DIRS})
 
 set(LIBPLAYERGSTINTERFACE_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} -ldl)
 
 #shoud be made part of PLAYERGSTINTERFACE cmakelists
 add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
+add_subdirectory(playerJsonObject)
 add_subdirectory(externals)
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/PlayerCCManager.cpp PlayerUtils.cpp)
@@ -40,8 +60,13 @@ set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
 	subtec/subtecparser/TtmlSubtecParser.cpp
 	subtec/subtecparser/TextStyleAttributes.cpp
 	subtec/subtecparser/WebvttSubtecDevInterface.cpp
-	playerjsonobject/PlayerJsonObject.cpp
+	playerJsonObject/PlayerJsonObject.cpp
 	)
+
+if(CMAKE_RDK_SVP)
+	message("CMAKE_RDK_SVP Set")
+	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_SVP=1")
+endif()
 
 if(CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_PLATFORM_UBUNTU set")
@@ -91,6 +116,8 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	closedcaptions/CCTrackInfo.h
 	GstUtils.h
 	PlayerUtils.h
+	GstUtils.h
+	PlayerMetadata.hpp
 	closedcaptions/PlayerCCManager.h
 	PlayerScheduler.h
 	gstplayertaskpool.h
@@ -108,9 +135,9 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	vendor/realtek/RealtekSocInterface.h
 	vendor/brcm/BrcmSocInterface.h
 	vendor/default/DefaultSocInterface.h
-    subtitle/vttCue.h
-    ProcessHandler.h
-)
+        subtitle/vttCue.h
+	ProcessHandler.h
+	)
 
 install(FILES closedcaptions/CCTrackInfo.h
 	PlayerScheduler.h
@@ -119,6 +146,8 @@ install(FILES closedcaptions/CCTrackInfo.h
 	InterfacePlayerRDK.h
 	SocUtils.h
 	drm/DrmUtils.h
+	GstUtils.h
+	PlayerMetadata.hpp
 	closedcaptions/PlayerCCManager.h
 	PlayerUtils.h
 	drm/ocdm/opencdmsessionadapter.h
@@ -126,11 +155,21 @@ install(FILES closedcaptions/CCTrackInfo.h
 	drm/DrmMemorySystem.h drm/DrmSessionManager.h drm/DrmSystems.h
 	drm/DrmData.h drm/DrmInfo.h drm/DrmMediaFormat.h drm/DrmCallbacks.h
 	drm/DrmSession.h drm/ClearKeyDrmSession.h drm/DrmSessionFactory.h drm/ocdm/opencdmsessionadapter.h
-	drm/helper/DrmHelper.h drm/HlsDrmBase.h
+	drm/helper/DrmHelper.h
+	drm/HlsDrmBase.h
 	drm/DrmConstants.h
+	drm/PlayerHlsDrmSessionInterface.h
+	drm/PlayerHlsDrmSessionInterfaceBase.h
+	drm/helper/VanillaDrmHelper.h
+	drm/HlsOcdmBridgeInterface.h
+	drm/HlsDrmSessionManager.h
+	vendor/SocInterface.h
 	subtitle/subtitleParser.h
 	subtec/subtecparser/WebVttSubtecParser.hpp
 	subtec/subtecparser/TtmlSubtecParser.hpp
+	subtec/subtecparser/WebvttSubtecDevInterface.hpp
+	subtec/subtecparser/TextStyleAttributes.h
+	subtec/libsubtec/SubtecPacket.hpp
 	playerisobmff/playerisobmffbuffer.h
 	playerisobmff/playerisobmffbox.h
 	DESTINATION include)
@@ -143,14 +182,18 @@ set(SOURCES
 	PlayerScheduler.cpp
 	gstplayertaskpool.cpp
 	PlayerUtils.cpp
-	vendor/SocInterface.cpp
-	vendor/amlogic/AmlogicSocInterface.cpp
-	vendor/realtek/RealtekSocInterface.cpp
-	vendor/brcm/BrcmSocInterface.cpp
-	vendor/default/DefaultSocInterface.cpp
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
+						vendor/realtek/RealtekSocInterface.cpp
+						vendor/brcm/BrcmSocInterface.cpp
+						vendor/default/DefaultSocInterface.cpp
+						vendor/SocInterface.cpp)
+else()
+	list(APPEND SOURCES test/utests/fakes/FakeSocInterface.cpp)
+endif()
 set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp
 	drm/DrmSession.cpp
@@ -165,13 +208,14 @@ set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	)
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
-	# uncomment below to build additional drm support in simulator
-	# set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-	# set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
-	# set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
-	# set(CMAKE_USE_SECCLIENT TRUE)
-	# set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
-  endif()
+	if(CMAKE_SIM_DRM_SUPPORT)
+		set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
+		set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
+		set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
+		set(CMAKE_USE_SECCLIENT TRUE)
+		set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
+	endif()
+endif()
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} ${SOURCES}  ${SUBTEC_CLASS_SOURCES})
 
@@ -255,7 +299,7 @@ set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${SUBTEC_PUBLIC_HEADERS}"
 set(SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
 if(CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
-	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUBUNTU=1 -DNO_NATIVE_AV=1")
+	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUBUNTU=1")
 	set(SUBTEC_COMPILE_FLAGS "${SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
 endif()
 
@@ -300,6 +344,7 @@ if (CMAKE_SUBTITLE_SUPPORT)
 	install(TARGETS subtec_connector DESTINATION lib)
 
 	set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/subtec/PlayerSubtecCCManager.cpp)
+	set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/rialto/PlayerRialtoCCManager.cpp)
 endif()
 add_library(playergstinterface SHARED ${SOURCES} ${LIBPLAYERGSTINTERFACE_HEADERS} ${LIBPLAYERGSTINTERFACE_SOURCES} ${LIBPLAYERGSTINTERFACE_DRM_SOURCES} ${LIBPLAYERGSTINTERFACE_HELP_SOURCES})
 
@@ -313,6 +358,7 @@ target_include_directories(playergstinterface PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/playerjsonobject
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/subtec
+	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/rialto
 	${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 if (CMAKE_SUBTITLE_SUPPORT)
@@ -320,12 +366,18 @@ if (CMAKE_SUBTITLE_SUPPORT)
 endif()
 
 string(STRIP "${LIBPLAYERGSTINTERFACE_DEPENDS}" LIBPLAYERGSTINTERFACE_DEPENDS)
+message("Building middleware support libraries")
+add_subdirectory(gst-plugins)
 
 target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
-target_link_libraries(playergstinterface ${GST_LIBRARIES} ${GSTREAMER_LIBRARIES} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
+target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
+
+if (CMAKE_RDK_SVP)
+	target_link_libraries(playergstinterface gstsvpext)
+endif()
 
 set_target_properties(playergstinterface PROPERTIES COMPILE_FLAGS "${LIBPLAYERGSTINTERFACE_DEFINES} ${OS_CXX_FLAGS}")
 

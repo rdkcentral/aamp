@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #ifndef __OPEN_CDM_ADAPTER_H
 #define __OPEN_CDM_ADAPTER_H
 
@@ -63,7 +63,7 @@ extern "C" {
  *
  * This version 3 method accepts encrypted data and will typically decrypt it out-of-process (for security reasons). The actual data copying is performed
  * using a memory-mapped file (for performance reasons). If the DRM system allows access to decrypted data (i.e. decrypting is not
- * performed in a TEE), the decryption is performed in-place. 
+ * performed in a TEE), the decryption is performed in-place.
  * This version assumes all data required is attached as metadata to the buffer. Specification for this data is as follows:
  *
  * Typically, the caller would parse the protection information for a video/audio frame from its input data and use this information to populate the
@@ -85,7 +85,7 @@ extern "C" {
  * \param buffer Gstreamer buffer containing encrypted data and related meta data. If applicable, decrypted data will be stored here after this call returns.
  * \return Zero on success, non-zero on error.
  */
-    
+
     EXTERNAL OpenCDMError opencdm_gstreamer_session_decrypt_buffer(struct OpenCDMSession* session, GstBuffer* buffer, GstCaps* caps);
 
 

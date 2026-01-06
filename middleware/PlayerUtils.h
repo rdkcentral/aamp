@@ -33,6 +33,7 @@
 #include <inttypes.h>
 #include <iostream>
 #include <cstring>
+#include <vector>
 
 //Delete non-array object
 #define MW_SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
@@ -92,16 +93,22 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
  * @return The current time in milliseconds
  */
 long long GetCurrentTimeMS(void);
-/**
- * @brief Resolve file URL from the base and file path
- */
-void player_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
 
 /**
  * @fn trim
  * @param[in][out] src Buffer containing string
  */
 void trim(std::string& src);
+
+/**
+ * @fn RawKeyToKeyId
+ * @brief Convert raw key bytes to key ID format (ASCII hex)
+ *
+ * @param[in] key Pointer to raw key bytes
+ * @param[in] keySize Size of the raw key in bytes
+ * @return Vector containing the key ID in ASCII hex format
+ */
+std::vector<uint8_t> RawKeyToKeyId(const uint8_t* key, size_t keySize);
 
 #endif  /* __PLAYER_UTILS_H__ */
 

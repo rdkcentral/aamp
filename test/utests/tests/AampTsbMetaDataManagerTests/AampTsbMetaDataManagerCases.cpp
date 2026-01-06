@@ -71,20 +71,20 @@ TEST_F(AampTsbMetaDataManagerTest, RegisterMetaDataTypeTest)
 	bool isTransient = false;
 
 	// Check unregistered type
-	EXPECT_FALSE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, isTransient));
+	EXPECT_FALSE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, isTransient));
 
 	// Register a new type
-	EXPECT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	EXPECT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Check if types are registered
-	EXPECT_TRUE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, isTransient));
+	EXPECT_TRUE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, isTransient));
 	EXPECT_FALSE(isTransient);
 
 	// Try to register the same type again
-	EXPECT_FALSE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true));
+	EXPECT_FALSE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, true));
 
 	// Check if types are registered
-	EXPECT_TRUE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, isTransient));
+	EXPECT_TRUE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, isTransient));
 	EXPECT_FALSE(isTransient);
 }
 
@@ -94,12 +94,12 @@ TEST_F(AampTsbMetaDataManagerTest, RegisterMetaDataTypeTest)
 TEST_F(AampTsbMetaDataManagerTest, AddMetaDataTest)
 {
 	// Register metadata type - must succeed for test to continue
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register metadata type";
 
 	// Create mock metadata
 	auto mockMetaData = std::make_shared<StrictMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData, GetOrderAdded()).WillRepeatedly(Return(1));
@@ -119,7 +119,7 @@ TEST_F(AampTsbMetaDataManagerTest, AddMetaDataTest)
 TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 {
 	// Register metadata type as non-transient
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register non-transient metadata type";
 
 	// Add mock metadata
@@ -127,19 +127,19 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 	auto mockMetaData2 = std::make_shared<StrictMock<MockAampTsbMetaData>>();
 	auto mockMetaData3 = std::make_shared<StrictMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, GetOrderAdded()).WillRepeatedly(Return(1));
 	EXPECT_CALL(*mockMetaData1, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(15.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, GetOrderAdded()).WillRepeatedly(Return(2));
 	EXPECT_CALL(*mockMetaData2, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition()).WillRepeatedly(Return(AampTime(20.0)));
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
 	EXPECT_CALL(*mockMetaData3, GetOrderAdded()).WillRepeatedly(Return(3));
@@ -159,7 +159,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 
 	// Test 1: Range that covers mockMetaData2 and mockMetaData3 completely
 	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 15.0, 25.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 15.0, 25.0);
 
 	// Verify size and content of returned list
 	ASSERT_EQ(result.size(), 2)
@@ -178,7 +178,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 
 	// Test 2: Range that covers only mockMetaData1
 	auto result2 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 5.0, 12.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 5.0, 12.0);
 
 	ASSERT_EQ(result2.size(), 1) << "Expected 1 metadata item in range 5.0-12.0";
 	EXPECT_EQ(result2.front(), mockMetaData1) << "Item should be mockMetaData1";
@@ -187,7 +187,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 
 	// Test 2a: Range where end equals a metadata position - should exclude that metadata
 	auto result2a = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 5.0, 15.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 5.0, 15.0);
 
 	ASSERT_EQ(result2a.size(), 1)
 		<< "Expected only 1 metadata item when rangeEnd equals a metadata position";
@@ -196,7 +196,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 
 	// Test 3: Range that doesn't cover any items exactly but returns non-transient item before the range
 	auto result3 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 11.0, 14.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 11.0, 14.0);
 
 	ASSERT_EQ(result3.size(), 1) << "Expected 1 metadata item for non-transient behavior";
 	EXPECT_EQ(result3.front(), mockMetaData1) << "Should get mockMetaData1 as it's before range start";
@@ -204,7 +204,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 
 	// Test 4: Position after all metadata - should return last item for non-transient
 	auto result4 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 25.0, 30.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 25.0, 30.0);
 
 	ASSERT_EQ(result4.size(), 1) << "Expected 1 metadata item for position after all metadata";
 	EXPECT_EQ(result4.front(), mockMetaData3) << "Should get mockMetaData3 as it's the last item";
@@ -216,7 +216,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeNonTransientTest)
 TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
 {
 	// Register metadata type as transient
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, true))
 		<< "Failed to register transient metadata type";
 
 	// Add mock metadata
@@ -224,19 +224,19 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
 	auto mockMetaData2 = std::make_shared<StrictMock<MockAampTsbMetaData>>();
 	auto mockMetaData3 = std::make_shared<StrictMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, GetOrderAdded()).WillRepeatedly(Return(1));
 	EXPECT_CALL(*mockMetaData1, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(15.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, GetOrderAdded()).WillRepeatedly(Return(2));
 	EXPECT_CALL(*mockMetaData2, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition()).WillRepeatedly(Return(AampTime(20.0)));
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
 	EXPECT_CALL(*mockMetaData3, GetOrderAdded()).WillRepeatedly(Return(3));
@@ -256,7 +256,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
 
 	// Test 1: Range that includes position of mockMetaData2
 	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 15.0, 16.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 15.0, 16.0);
 
 	ASSERT_EQ(result.size(), 1)
 		<< "Expected exactly 1 metadata item for exact match with transient type";
@@ -265,7 +265,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
 
 	// Test 2: Range that spans multiple positions
 	auto result2 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 15.0, 25.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 15.0, 25.0);
 
 	ASSERT_EQ(result2.size(), 2)
 		<< "Expected exactly 2 metadata items for range including two positions";
@@ -275,7 +275,7 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
 
 	// Test 3: Range where end equals a metadata position - should exclude that metadata
 	auto result2a = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 15.0, 20.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 15.0, 20.0);
 
 	ASSERT_EQ(result2a.size(), 1)
 		<< "Expected only 1 metadata item when rangeEnd equals a metadata position";
@@ -284,21 +284,21 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
 
 	// Test 4: Range that doesn't include any exact positions - should return empty list for transient
 	auto result3 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 11.0, 14.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 11.0, 14.0);
 
 	EXPECT_EQ(result3.size(), 0)
 		<< "Expected 0 metadata items when no exact positions in range (transient behavior)";
 
 	// Test 5: Position before any metadata - should return empty list for transient
 	auto result4 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 5.0, 8.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 5.0, 8.0);
 
 	EXPECT_EQ(result4.size(), 0)
 		<< "Expected 0 metadata items for range before any metadata (transient behavior)";
 
 	// Test 6: Position after all metadata - should return empty list for transient
 	auto result5 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 25.0, 30.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 25.0, 30.0);
 
 	EXPECT_EQ(result5.size(), 0)
 		<< "Expected 0 metadata items for range after all metadata (transient behavior)";
@@ -309,20 +309,20 @@ TEST_F(AampTsbMetaDataManagerTest, GetMetaDataByTypeRangeTransientTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, PriorityHandlingTest)
 {
-	manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false);
+	manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false);
 
 	// Create mocks with behavior setup (supporting methods)
 	auto mockMetaDataHighPriority = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 	auto mockMetaDataLowPriority = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
 	// Verify critical behaviors that must occur
-	EXPECT_CALL(*mockMetaDataLowPriority, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaDataLowPriority, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaDataLowPriority, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaDataLowPriority, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaDataLowPriority, GetOrderAdded()).WillRepeatedly(Return(1));
 	EXPECT_CALL(*mockMetaDataLowPriority, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaDataHighPriority, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaDataHighPriority, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaDataHighPriority, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaDataHighPriority, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaDataHighPriority, GetOrderAdded()).WillRepeatedly(Return(2));
@@ -336,7 +336,7 @@ TEST_F(AampTsbMetaDataManagerTest, PriorityHandlingTest)
 
 	// Get metadata at exact position - both should be returned with low priority first
 	auto result1 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 10.0, 10.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 10.0, 10.0);
 
 	EXPECT_EQ(result1.size(), 2);
 	EXPECT_EQ(result1.front()->GetOrderAdded(), 1);
@@ -344,7 +344,7 @@ TEST_F(AampTsbMetaDataManagerTest, PriorityHandlingTest)
 
 	// Get metadata with position after - higher priority should be returned
 	auto result2 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 11.0, 11.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 11.0, 11.0);
 
 	EXPECT_EQ(result2.size(), 1);
 	EXPECT_EQ(result2.front()->GetOrderAdded(), 2);
@@ -356,7 +356,7 @@ TEST_F(AampTsbMetaDataManagerTest, PriorityHandlingTest)
 TEST_F(AampTsbMetaDataManagerTest, FilteredMetaDataTest)
 {
 	// Register metadata types
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register metadata type";
 
 	// Add mock metadata
@@ -364,17 +364,17 @@ TEST_F(AampTsbMetaDataManagerTest, FilteredMetaDataTest)
 	auto mockMetaData2 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 	auto mockMetaData3 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(15.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump(std::string("Add "))).Times(1);
 
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition()).WillRepeatedly(Return(AampTime(20.0)));
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
 	EXPECT_CALL(*mockMetaData3, Dump(std::string("Add "))).Times(1);
@@ -388,7 +388,7 @@ TEST_F(AampTsbMetaDataManagerTest, FilteredMetaDataTest)
 
 	// Filter for specific position
 	auto filteredMetaData = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE,
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE,
 		[](const std::shared_ptr<MockAampTsbMetaData>& md) {
 			return md->GetPosition() == AampTime(15.0);
 		});
@@ -398,12 +398,12 @@ TEST_F(AampTsbMetaDataManagerTest, FilteredMetaDataTest)
 
 	// Test with null filter (should return all)
 	auto allMetaData = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, nullptr);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, nullptr);
 	EXPECT_EQ(allMetaData.size(), 3);
 
 	// Test with a filter that returns false for all
 	auto noMetaData = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE,
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE,
 		[](const std::shared_ptr<MockAampTsbMetaData>&) { return false; });
 	EXPECT_EQ(noMetaData.size(), 0);
 }
@@ -413,11 +413,11 @@ TEST_F(AampTsbMetaDataManagerTest, FilteredMetaDataTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register metadata type";
 
 	auto mockMetaData = std::make_shared<StrictMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 	EXPECT_CALL(*mockMetaData, GetOrderAdded()).WillRepeatedly(Return(1));
 	EXPECT_CALL(*mockMetaData, SetOrderAdded(1)).Times(1);
@@ -440,7 +440,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, RemoveNonTransientMetaDataByPositionTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register metadata type";
 
 	// Add mock metadata
@@ -448,19 +448,19 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveNonTransientMetaDataByPositionTest)
 	auto mockMetaData2 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 	auto mockMetaData3 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump(std::string("Add "))).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump("Erase (non-transient) 15000ms ")).Times(1);  // Fixed position
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(15.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump(std::string("Add "))).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump("Erase (non-transient) 30000ms ")).Times(1);  // Fixed position
 
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition()).WillRepeatedly(Return(AampTime(20.0)));
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
 	EXPECT_CALL(*mockMetaData3, Dump(_)).Times(0);
@@ -483,7 +483,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveNonTransientMetaDataByPositionTest)
 
 	// Verify mockMetaData2 and mockMetaData3 remain
 	// mockMetaData2 remains because it is the ative metadata from 15-20
-	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, 0, 30.0);
+	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 0, 30.0);
 	ASSERT_EQ(result.size(), 2);
 	auto it = result.begin();
 	EXPECT_EQ((*it++)->GetPosition(), AampTime(15.0));  // mockMetaData2
@@ -502,7 +502,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveNonTransientMetaDataByPositionTest)
 
 	// Verify mockMetaData3 remains (highest priority at or before 30.0)
 	auto finalResult = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 0, 30.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 0, 30.0);
 	ASSERT_EQ(finalResult.size(), 1);
 	EXPECT_EQ(finalResult.front()->GetPosition(), AampTime(20.0)); // mockMetaData3
 }
@@ -512,7 +512,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveNonTransientMetaDataByPositionTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, RemoveTransientMetaDataByPositionTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, true))
 		<< "Failed to register transient metadata type";
 
 	// Add mock metadata with varied positions
@@ -522,25 +522,25 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveTransientMetaDataByPositionTest)
 	auto mockMetaData4 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
 	// First metadata at position 10.0
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump(std::string("Add "))).Times(1);
 
 	// Second metadata at same position as first
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump(std::string("Add "))).Times(1);
 
 	// Third metadata at position 15.0
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition()).WillRepeatedly(Return(AampTime(15.0)));
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
 	EXPECT_CALL(*mockMetaData3, Dump(std::string("Add "))).Times(1);
 
 	// Fourth metadata at position 20.0
-	EXPECT_CALL(*mockMetaData4, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData4, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData4, GetPosition()).WillRepeatedly(Return(AampTime(20.0)));
 	EXPECT_CALL(*mockMetaData4, SetOrderAdded(4)).Times(1);
 	EXPECT_CALL(*mockMetaData4, Dump(std::string("Add "))).Times(1);
@@ -585,7 +585,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveTransientMetaDataByPositionTest)
 
 	// Verify only mockMetaData4 remains
 	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 0, 30.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 0, 30.0);
 	ASSERT_EQ(result.size(), 1)
 		<< "Expected exactly one metadata item to remain";
 	EXPECT_EQ(result.front()->GetPosition(), AampTime(20.0))
@@ -605,7 +605,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveTransientMetaDataByPositionTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataIfTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register metadata type";
 
 	// Add mock metadata
@@ -613,19 +613,19 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataIfTest)
 	auto mockMetaData2 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 	auto mockMetaData3 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump(std::string("Add "))).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump("Erase ")).Times(1);  // Fixed format
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(15.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump(std::string("Add "))).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump("Erase ")).Times(1);  // Fixed format
 
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition()).WillRepeatedly(Return(AampTime(20.0)));
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
 	EXPECT_CALL(*mockMetaData3, Dump(std::string("Add "))).Times(1);
@@ -650,7 +650,7 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataIfTest)
 		<< "Expected 2 metadata items to be removed";
 
 	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 0, 30.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 0, 30.0);
 	ASSERT_EQ(result.size(), 1)
 		<< "Expected exactly one metadata item to remain";
 	EXPECT_EQ(result.front()->GetPosition(), AampTime(10.0))
@@ -680,14 +680,14 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataIfTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, ThreadSafetyTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	std::vector<std::thread> threads;
 	std::atomic<bool> running{true};
 
 	// Pre-create a single mock to minimize thread contention
 	auto mockMetaData = std::make_shared<NiceMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 
 	// Thread 1: Add metadata repeatedly
@@ -705,7 +705,7 @@ TEST_F(AampTsbMetaDataManagerTest, ThreadSafetyTest)
 	{
 		while (running)
 		{
-			(void)manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, 1.0, 3.0);
+			(void)manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 1.0, 3.0);
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		}
 	});
@@ -740,11 +740,11 @@ TEST_F(AampTsbMetaDataManagerTest, ThreadSafetyTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, DuplicateMetaDataTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Create mock metadata
 	auto mockMetaData = std::make_shared<StrictMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 	EXPECT_CALL(*mockMetaData, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData, GetOrderAdded()).WillRepeatedly(Return(1));
@@ -768,7 +768,7 @@ TEST_F(AampTsbMetaDataManagerTest, DuplicateMetaDataTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false))
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		<< "Failed to register metadata type";
 
 	// Create mock metadata with different priorities
@@ -777,7 +777,7 @@ TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionTest)
 	auto mockMetaData3 = std::make_shared<StrictMock<MockAampTsbMetaData>>();
 
 	// First metadata with lower priority
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition())
 		.WillOnce(Return(10.0))   // Initial add
 		.WillOnce(Return(10.0))   // During position change
@@ -789,7 +789,7 @@ TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionTest)
 	EXPECT_CALL(*mockMetaData1, Dump("Change Pos ")).Times(1);
 
 	// Second metadata with medium priority
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition())
 		.WillOnce(Return(15.0))   // Initial add
 		.WillOnce(Return(15.0))   // During position change
@@ -801,7 +801,7 @@ TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionTest)
 	EXPECT_CALL(*mockMetaData2, Dump("Change Pos ")).Times(1);
 
 	// Third metadata with highest priority at target position - not being moved
-	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData3, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData3, GetPosition())
 		.WillRepeatedly(Return(20.0));  // Already at target position
 	EXPECT_CALL(*mockMetaData3, SetOrderAdded(3)).Times(1);
@@ -826,7 +826,7 @@ TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionTest)
 
 	// Verify ordering by priority at same position
 	auto result = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 20.0, 20.0);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 20.0, 20.0);
 	ASSERT_EQ(result.size(), 3)
 		<< "Expected all three metadata items at position";
 
@@ -840,7 +840,7 @@ TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionTest)
 		<< "Should fail with empty list";
 
 	auto notInManagerMetaData = std::make_shared<StrictMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*notInManagerMetaData, GetType()).WillOnce(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*notInManagerMetaData, GetType()).WillOnce(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_FALSE(manager->ChangeMetaDataPosition({notInManagerMetaData}, 30.0))
 		<< "Should fail with metadata not in manager";
 }
@@ -854,7 +854,7 @@ TEST_F(AampTsbMetaDataManagerTest, DumpTest)
 	manager->Dump();
 
 	// Register different types
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Verify Dump call with no metadata, no expectations to check
 	manager->Dump();
@@ -863,11 +863,11 @@ TEST_F(AampTsbMetaDataManagerTest, DumpTest)
 	auto mockMetaData1 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 	auto mockMetaData2 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 	EXPECT_CALL(*mockMetaData1, Dump(_)).Times(AtLeast(1));
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(2.0)));
 	EXPECT_CALL(*mockMetaData2, Dump(_)).Times(AtLeast(1));
 
@@ -907,11 +907,11 @@ TEST_F(AampTsbMetaDataManagerTest, GetNonTransientMetaDataByTypeRangeEdgeCases)
 	double practicalMax = 1000000.0;
 
 	// Register as non-transient first
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Create test metadata
 	auto mockMetaData = std::make_shared<NiceMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData, Dump("Add ")).Times(1);
@@ -919,24 +919,24 @@ TEST_F(AampTsbMetaDataManagerTest, GetNonTransientMetaDataByTypeRangeEdgeCases)
 	ASSERT_TRUE(manager->AddMetaData(mockMetaData));
 
 	// Test with equal rangeStart and rangeEnd
-	auto result1 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, 10.0, 10.0);
+	auto result1 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 10.0, 10.0);
 	EXPECT_EQ(result1.size(), 1)
 		<< "Zero duration should still return matches";
 
 	// Test with very large rangeEnd
 	auto result2 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, 10.0, practicalMax);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 10.0, practicalMax);
 	EXPECT_EQ(result2.size(), 1)
 		<< "Large duration should return matches";
 
 	// Test with rangeEnd < rangeStart
-	auto result3 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, 10.0, 9.0);
+	auto result3 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 10.0, 9.0);
 	EXPECT_EQ(result3.size(), 0)
 		<< "rangeEnd < rangeStart should be treated as error";
 
 	// Test position at max double
 	auto result4 = manager->GetMetaDataByType<MockAampTsbMetaData>(
-		AampTsbMetaData::Type::AD_METADATA_TYPE, practicalMax, practicalMax);
+		AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, practicalMax, practicalMax);
 	EXPECT_EQ(result4.size(), 1)
 		<< "Position at practicalMax should still return matches for non-transient metadata";
 }
@@ -951,11 +951,11 @@ TEST_F(AampTsbMetaDataManagerTest, GetTransientMetaDataByTypeRangeEdgeCases)
 	double practicalMax = 1000000.0;
 
 	// Now register the same type as transient
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, true));
 
 	// Add metadata at same position
 	auto mockMetaData = std::make_shared<NiceMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(10.0)));
 	EXPECT_CALL(*mockMetaData, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData, Dump("Add ")).Times(1);
@@ -963,15 +963,15 @@ TEST_F(AampTsbMetaDataManagerTest, GetTransientMetaDataByTypeRangeEdgeCases)
 	ASSERT_TRUE(manager->AddMetaData(mockMetaData));
 
 	// Test range query with transient metadata - should only match exact positions
-	auto result5 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, 10.0, 10.0);
+	auto result5 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 10.0, 10.0);
 	EXPECT_EQ(result5.size(), 1)
 		<< "Exact position match should return metadata for transient type";
 
-	auto result6 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, 11.0, 12.0);
+	auto result6 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, 11.0, 12.0);
 	EXPECT_EQ(result6.size(), 0)
 		<< "Range not containing position should return nothing for transient metadata";
 
-	auto result7 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, practicalMax, practicalMax);
+	auto result7 = manager->GetMetaDataByType<MockAampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, practicalMax, practicalMax);
 	EXPECT_EQ(result7.size(), 0)
 		<< "Position at practicalMax should return nothing for transient metadata";
 }
@@ -985,16 +985,16 @@ TEST_F(AampTsbMetaDataManagerTest, IsRegisteredTypeOutputTest)
 	bool isTransient = true;  // Initialize to opposite of expected
 
 	// Test unregistered type
-	EXPECT_FALSE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, isTransient, &metadataList))
+	EXPECT_FALSE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, isTransient, &metadataList))
 		<< "Unregistered type should return false";
 	EXPECT_TRUE(metadataList == nullptr)
 		<< "Metadata list should be null for unregistered type";
 
 	// Register as non-transient
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Test registered non-transient type
-	EXPECT_TRUE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, isTransient, &metadataList))
+	EXPECT_TRUE(manager->IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, isTransient, &metadataList))
 		<< "Registered type should return true";
 	EXPECT_FALSE(isTransient)
 		<< "isTransient should be false for non-transient type";
@@ -1009,11 +1009,11 @@ TEST_F(AampTsbMetaDataManagerTest, IsRegisteredTypeOutputTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataIfNullptrTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Add some test metadata
 	auto mockMetaData = std::make_shared<NiceMock<MockAampTsbMetaData>>();
-	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 	EXPECT_CALL(*mockMetaData, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData, Dump(std::string("Add "))).Times(1);
@@ -1047,18 +1047,18 @@ TEST_F(AampTsbMetaDataManagerTest, RemoveMetaDataIfNullptrTest)
  */
 TEST_F(AampTsbMetaDataManagerTest, ChangeMetaDataPositionEdgeCasesTest)
 {
-	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, false));
+	ASSERT_TRUE(manager->RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false));
 
 	// Add some test metadata
 	auto mockMetaData1 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 	auto mockMetaData2 = std::make_shared<NiceMock<MockAampTsbMetaData>>();
 
-	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData1, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData1, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 	EXPECT_CALL(*mockMetaData1, SetOrderAdded(1)).Times(1);
 	EXPECT_CALL(*mockMetaData1, Dump(::testing::AnyOf(std::string("Add "), std::string("Change Pos ")))).Times(AtLeast(1));
 
-	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_METADATA_TYPE));
+	EXPECT_CALL(*mockMetaData2, GetType()).WillRepeatedly(Return(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE));
 	EXPECT_CALL(*mockMetaData2, GetPosition()).WillRepeatedly(Return(AampTime(1.0)));
 	EXPECT_CALL(*mockMetaData2, SetOrderAdded(2)).Times(1);
 	EXPECT_CALL(*mockMetaData2, Dump(::testing::AnyOf(std::string("Add "), std::string("Change Pos ")))).Times(AtLeast(1));

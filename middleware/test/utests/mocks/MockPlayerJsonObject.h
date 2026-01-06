@@ -47,4 +47,3 @@ public:
 };
 
 extern std::shared_ptr<MockPlayerJsonObject> g_mockPlayerJsonObject;
-

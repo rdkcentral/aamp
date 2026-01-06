@@ -143,7 +143,7 @@ disableLowLatencyABR		Enable/Disable Low Latency ABR. Default: true
 enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default: false
 enableFogConfig			Enable/Disable setting player configurations to Fog. Default: true
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
-gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-plugins-rdk-aamp repo)
+gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in middleware/gst-plugins repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" in conjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default: disabled.
@@ -264,19 +264,16 @@ playlistTimeout			Playlist download time out in sec. Default: 10s
     By default aamp will dump all the type of data, set 0 for disabling harvest
 	0x00000001 (1)      - Enable Harvest Video fragments - set 1st bit 
 	0x00000002 (2)      - Enable Harvest audio - set 2nd bit 
-	0x00000004 (4)      - Enable Harvest subtitle - set 3rd bit 
-	0x00000008 (8)      - Enable Harvest auxiliary audio - set 4th bit 
+	0x00000004 (4)      - Enable Harvest subtitle - set 3rd bit  
 	0x00000010 (16)     - Enable Harvest manifest - set 5th bit 
 	0x00000020 (32)     - Enable Harvest license - set 6th bit , TODO: not yet supported license dumping
 	0x00000040 (64)     - Enable Harvest iframe - set 7th bit 
 	0x00000080 (128)    - Enable Harvest video init fragment - set 8th bit 
 	0x00000100 (256)    - Enable Harvest audio init fragment - set 9th bit 
 	0x00000200 (512)    - Enable Harvest subtitle init fragment - set 10th bit 
-	0x00000400 (1024)   - Enable Harvest auxiliary audio init fragment - set 11th bit 
 	0x00000800 (2048)   - Enable Harvest video playlist - set 12th bit 
 	0x00001000 (4096)   - Enable Harvest audio playlist - set 13th bit 
 	0x00002000 (8192)   - Enable Harvest subtitle playlist - set 14th bit 
-	0x00004000 (16384)  - Enable Harvest auxiliary audio playlist - set 15th bit 
 	0x00008000 (32768)  - Enable Harvest Iframe playlist - set 16th bit 
 	0x00010000 (65536)  - Enable Harvest IFRAME init fragment - set 17th bit  
 	example :- if you want harvest only manifest and video fragments , set value like 0x00000001 + 0x00000010 = 0x00000011 = 17
@@ -382,6 +379,18 @@ version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,Manifes
 version#5
 ```
 version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time
+```
+version#6
+```
+version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,gstDecodeTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time
+```
+version#7
+```
+version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,gstDecodeTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time,PreviousStopTime
+```
+version#8
+```
+version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time,PreviousStopTime,gstDecodeTime
 ```
 ---
 # VideoEnd (Session Statistics) Event 

@@ -225,14 +225,14 @@ std::list<std::shared_ptr<T>> AampTsbMetaDataManager::GetMetaDataByType(AampTsbM
 				if (!isTransient &&
 					(result.empty() || (result.front()->GetPosition() > rangeStart)))
 				{
-					result.push_front(castData); // Maintain chronological order
+					result.push_front(std::move(castData)); // Maintain chronological order
 				}
 				break; // Can stop since list is ordered and we're going backwards
 			}
 			// Take into account that rangeEnd may be same as rangeStart
 			if ((metaPos == rangeStart) || (metaPos < rangeEnd))
 			{
-				result.push_front(castData); // Maintain chronological order
+				result.push_front(std::move(castData)); // Maintain chronological order
 			}
 		}
 	}

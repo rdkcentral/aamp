@@ -33,6 +33,9 @@ using namespace std;
 
 MockGLib *g_mockGLib = nullptr;
 
+#if defined(__GNUC__)
+#pragma GCC visibility push(hidden)
+#endif
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {
 	TRACE_FUNC();
@@ -47,18 +50,23 @@ void g_object_set(gpointer object, const gchar *first_property_name, ...)
 		{
 			if ((strcmp(property_name, "mute") == 0) ||
 				(strcmp(property_name, "show-video-window") == 0) ||
-				(strcmp(property_name, "zoom-mode") == 0)
+				(strcmp(property_name, "zoom-mode") == 0) ||
+				(strcmp(property_name, "seamless-switch") == 0)
 			   )
-			{				
+			{
 				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, int));
 			}
 			else if((strcmp(property_name, "rectangle") == 0))
 			{
 				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, char *));
 			}
-			else if((strcmp(property_name, "volume") == 0))
+			else if((strcmp(property_name, "volume") == 0)|| (strcmp(property_name, "stream-volume") == 0))
 			{
 				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, double));
+			}
+			else if((strcmp(property_name, "attribute-values") == 0))
+			{
+				g_mockGLib->g_object_set(object, property_name, va_arg(args_list, GstStructure*));
 			}
 			else
 			{
@@ -73,6 +81,35 @@ void g_object_set(gpointer object, const gchar *first_property_name, ...)
 void g_object_get(gpointer object, const gchar *first_property_name, ...)
 {
 	TRACE_FUNC();
+	if(g_mockGLib != nullptr)
+	{
+		va_list args_list;
+		va_start(args_list, first_property_name);
+		const gchar *property_name = first_property_name;
+
+		while (property_name)
+		{
+			
+			if((strcmp(property_name, "stats") == 0))
+			{
+				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, GstStructure*));
+			}
+			else if((strcmp(property_name, "video-pts") == 0))
+			{
+				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, gint64*));
+			}
+			else if((strcmp(property_name, "queued_frames") == 0))
+			{
+				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, uint*));
+			}
+			else if((strcmp(property_name, "videodecoder") == 0))
+			{
+				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, gpointer*));
+			}
+			property_name = va_arg(args_list, gchar *);
+		}
+		va_end(args_list);
+	}
 }
 
 gulong g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GCallback c_handler,
@@ -80,24 +117,52 @@ gulong g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GC
 							 GConnectFlags connect_flags)
 {
 	TRACE_FUNC();
-	return 0;
+	gulong retval = 0;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_signal_connect_data(instance, detailed_signal, c_handler,
+							 						data, destroy_data, connect_flags);
+	}
+	return retval;
 }
 
 gboolean g_type_check_instance_is_a(GTypeInstance *instance, GType iface_type)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean retval = FALSE;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_type_check_instance_is_a(instance, iface_type);
+	}
+
+	return retval;
 }
 
 gboolean g_signal_handler_is_connected(gpointer instance, gulong handler_id)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean retval = FALSE;
+	printf("instance = %p, iface_type = %ld\n", instance, handler_id);
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_signal_handler_is_connected(instance, handler_id);
+	}
+
+	return retval;
 }
 
 void g_signal_handler_disconnect(gpointer instance, gulong handler_id)
 {
 	TRACE_FUNC();
+	printf("instance = %p, iface_type = %ld\n", instance, handler_id);
+
+	if (g_mockGLib != nullptr)
+	{
+		g_mockGLib->g_signal_handler_disconnect(instance, handler_id);
+	}
 }
 
 GTypeInstance *g_type_check_instance_cast(GTypeInstance *instance, GType iface_type)
@@ -250,3 +315,6 @@ gpointer g_realloc (gpointer mem, gsize n_bytes)
 	return ptr;
 
 }
+#if defined(__GNUC__)
+#pragma GCC visibility pop
+#endif

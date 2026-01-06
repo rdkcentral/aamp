@@ -24,7 +24,7 @@ set(EXEC_NAME base16Tests)
 include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/drm ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/drm/ave ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/middleware/subtitle)
 include_directories(${PLAYER_ROOT}/subtec/libsubtec)
 include_directories(${PLAYER_ROOT}/subtec/subtecparser)
-include_directories(${PLAYER_ROOT}/playerjsonobject)
+include_directories(${PLAYER_ROOT}/playerJsonobject)
 include_directories(${PLAYER_ROOT}/baseConversion)
 
 include_directories(${GTEST_INCLUDE_DIRS})

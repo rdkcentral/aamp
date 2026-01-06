@@ -25,7 +25,6 @@
 #ifndef __AAMP_CURL_DOWNLOADER__
 #define __AAMP_CURL_DOWNLOADER__
 
-//#include "AampDefine.h"
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
@@ -41,8 +40,7 @@
 #include <chrono>
 #include <memory>
 #include "AampCurlDefine.h"
-
-
+#include "AampMediaType.h"
 
 typedef std::map<int,std::string> RespHeader;
 typedef std::map<int,std::string>::iterator RespHeaderIter;
@@ -69,6 +67,7 @@ typedef struct _downloadConfig
 	bool 	bIgnoreResponseHeader;
 	bool	bNeedDownloadMetrics;
 	long 	iDnsCacheTimeOut;
+	bool 	bCurlThroughput;
 
 	//AampMediaType mediaType;
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
@@ -80,7 +79,7 @@ typedef struct _downloadConfig
 	_downloadConfig() : pCurl(nullptr),iDownloadTimeout(DEFAULT_CURL_TIMEOUT),iLowBWTimeout(0),iCurlConnectionTimeout(DEFAULT_CURL_CONNECTTIMEOUT),
 			iStallTimeout(0),iStartTimeout(0),bSSLVerifyPeer(false),lSupportedTLSVersion(CURL_SSLVERSION_TLSv1_2),proxyName(""),userAgentString(""),sCustomHeaders(),
 			bVerbose(false),bIgnoreResponseHeader(false),bNeedDownloadMetrics(false),eRequestType(eCURL_GET),postData(""),iDownloadRetryCount(0),iDownload502RetryCount(0),
-			iDownloadRetryWaitMs(50),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT)
+			iDownloadRetryWaitMs(50),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT), bCurlThroughput(false)
 	{
 	}
 	
@@ -115,7 +114,8 @@ public:
 typedef struct _dnld_metrics
 {
 	double total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
-	long reqSize, downloadbps;
+	long reqSize;
+	BitsPerSecond downloadbps;
 	
 	_dnld_metrics():total(0), connect(0), startTransfer(0), resolve(0), appConnect(0), preTransfer(0), redirect(0), dlSize(0),
 	reqSize(0), downloadbps(0)
@@ -166,7 +166,6 @@ typedef struct _dnldprogress_metrics
 
 typedef struct _downloadResponse
 {
-	int curlRetValue;
 	int iHttpRetValue;
 	CurlAbortReason mAbortReason;
 	Dnld_Metrics downloadCompleteMetrics;
@@ -176,7 +175,7 @@ typedef struct _downloadResponse
 	std::vector<std::string>  mResponseHeader;
 	std::vector<std::uint8_t> mDownloadData;
 	
-	_downloadResponse() : curlRetValue(0), iHttpRetValue(0), mAbortReason(eCURL_ABORT_REASON_NONE), downloadCompleteMetrics(),progressMetrics(), sEffectiveUrl(""), mResponseHeader(), mDownloadData() {}
+	_downloadResponse() : iHttpRetValue(0), mAbortReason(eCURL_ABORT_REASON_NONE), downloadCompleteMetrics(),progressMetrics(), sEffectiveUrl(""), mResponseHeader(), mDownloadData() {}
 
 public:
 	void clear()
@@ -185,7 +184,6 @@ public:
 		sEffectiveUrl.clear();
 		downloadCompleteMetrics.clear();
 		progressMetrics.clear();
-		curlRetValue = 0;
 		iHttpRetValue = 0;
 		mAbortReason = eCURL_ABORT_REASON_NONE;
 		mResponseHeader.clear();		
@@ -229,6 +227,23 @@ public:
 	* @param[in] dnldCfg - configuration for download
 	*/	
 	void Release();
+	/**
+	 * @brief Cleanup curl header resources after downloads have stopped
+	 *
+	 * Frees the curl header list (mHeaders) using curl_slist_free_all and
+	 * resets any associated download timing or state required before the
+	 * next use of this downloader instance.
+	 *
+	 * This method must be called after Release() has been invoked and after
+	 * any worker or download threads using this instance have been joined to
+	 * ensure that no curl callbacks are still accessing the header list.
+	 *
+	 * @note This method is thread-safe; it acquires mCurlMutex internally.
+	 * @warning Do not call this method until all download activity associated
+	 *          with this instance has fully stopped, to avoid race conditions
+	 *          where headers are freed while curl callbacks are still running.
+	 */
+	void CleanupCurlHeaderResources();
 	void Clear();
 	/**
 	* @brief Download - function to start  download 
@@ -245,13 +260,15 @@ public:
 	*/	
 	size_t GetDataString(std::string &dataStr);
 
+	CURL* GetCurlHandle();
+
 private:
 	void updateCurlParams();
 	void updateResponseParams();
 	static size_t WriteCallback( void *contents, size_t size, size_t nmemb, void *userp );
 	size_t write_callback(void *buffer, size_t sz, size_t n);
-	static size_t HeaderCallback( void *contents, size_t size, size_t nmemb, void *userp );
-	size_t header_callback(void *buffer, size_t sz, size_t n);
+	static size_t HeaderCallback( char *ptr, size_t size, size_t nmemb, void *userp );
+	void header_callback( char *ptr, size_t len );
 	static int ProgressCallback(
 								 void *clientp, // app-specific as optionally set with CURLOPT_PROGRESSDATA
 								 double dltotal, // total bytes expected to download
@@ -280,6 +297,7 @@ private:
 	std::shared_ptr<DownloadResponse> mDownloadResponse;
 	CURL *mCurl;
 	struct curl_slist *mHeaders;
+	size_t contentLength;
 };
 
 #endif 

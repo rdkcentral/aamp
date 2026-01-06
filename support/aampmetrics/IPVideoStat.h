@@ -70,7 +70,7 @@ public:
          *
 	 *   @return None
 	 */
-	CVideoStat(std::string mediaFormat = "") : mMediaFormat(mediaFormat), mTmeToTopProfile(0), mTimeAtTopProfile(0),mTotalVideoDuration(0), mNetworkDropCount(COUNT_NONE), mErrorDropCount (COUNT_NONE),
+	CVideoStat(std::string mediaFormat = "") : mMediaFormat(std::move(mediaFormat)), mTmeToTopProfile(0), mTimeAtTopProfile(0),mTotalVideoDuration(0), mNetworkDropCount(COUNT_NONE), mErrorDropCount (COUNT_NONE),
 					mMapStreamInfo(),mMapLang(),mMapLicenseInfo(),mbTsb(false),mDisplayWidth(0),mDisplayHeight(0),mbProfileCapped(false), mLiveLatency(0),mPlaybackMode("NOT SET"), mRateCorrectionCount(COUNT_NONE)
 	{
 		ManifestGenericStats::totalGaps = 0;
@@ -105,7 +105,7 @@ public:
 	 */
 	void setPlaybackMode (std::string playbackMode)
 	{
-		mPlaybackMode = playbackMode;
+		mPlaybackMode = std::move(playbackMode);
 	}
 
 	/**

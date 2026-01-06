@@ -45,9 +45,9 @@ function rialto_build_repo_fn()
     make
     make install
     popd
-}   
+}
 
-function rialto_build_fn() 
+function rialto_build_fn()
 {
     echo "Building protobuf"
     pushd protobuf
@@ -55,8 +55,8 @@ function rialto_build_fn()
     ./configure --prefix="${1}"
     make
     make install
-    popd 
-    
+    popd
+
     rialto_build_repo_fn rialto -DNATIVE_BUILD=ON -DRIALTO_BUILD_TYPE=Debug
     INSTALL_STATUS_ARR+=("rialto was successfully installed.")
 

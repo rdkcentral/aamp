@@ -26,17 +26,16 @@
 #include "AampConfig.h"
 #include <assert.h>
 #include <glib.h>
-#include "priv_aamp.h"
 
-// optional realtime logging for memory use
-#define AAMPGROWABLEBUF_LOG() \
-    if(PrivateInstanceAAMP::mTrackGrowableBufMem) \
-        printf("AampGrowableBuffer::%s(%s:%d)\n",\
-        __FUNCTION__,name,gNetMemoryCount);
-
-
+bool AampGrowableBuffer::gbEnableLogging = false;
 int AampGrowableBuffer::gNetMemoryCount = 0;
 int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
+
+
+void AampGrowableBuffer::EnableLogging( bool enable )
+{
+    gbEnableLogging = enable;
+}
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
 {
@@ -51,8 +50,11 @@ void AampGrowableBuffer::Free( void )
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
-		AAMPGROWABLEBUF_LOG();
-		g_free( ptr );
+        if( gbEnableLogging )
+        {
+            printf("AampGrowableBuffer::%s(%s:%d)\n", "Free",name,gNetMemoryCount);
+        }
+		g_free(ptr);
 		ptr = NULL;
 	}
 	len = 0;
@@ -66,7 +68,10 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 	if( ptr )
 	{
 		NETMEMORY_PLUS();
-		AAMPGROWABLEBUF_LOG();
+		if( gbEnableLogging )
+		{
+			printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
+		}
 		avail = numBytes;
 	}
 }
@@ -87,7 +92,10 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 			if( !ptr )
 			{ // first allocation
 				NETMEMORY_PLUS();
-				AAMPGROWABLEBUF_LOG();
+				if( gbEnableLogging )
+				{
+					printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes",name,gNetMemoryCount);
+				}
 			}
 			ptr = mem;
 			avail = numBytes;
@@ -114,15 +122,6 @@ void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
 	assert( ptr && srcPtr && avail >= srcLen );
 	memmove( ptr, srcPtr, srcLen );
 	len = srcLen;
-}
-
-/**
- * @brief Append nul character(s) to buffer
- */
-void AampGrowableBuffer::AppendNulTerminator(void)
-{ // ensure that AampGrowableBuffer used for ASCII data looks like a C String
-	static const char zeros[2] = { 0, 0 };
-	AppendBytes( zeros, sizeof(zeros) );
 }
 
 /**
@@ -158,7 +157,10 @@ void AampGrowableBuffer::Transfer( void )
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
-		AAMPGROWABLEBUF_LOG();
+		if( gbEnableLogging )
+		{
+			printf("AampGrowableBuffer::%s(%s:%d)\n", "Transfer",name,gNetMemoryCount);
+		}
 	}
 	ptr = NULL;
 	len = 0;

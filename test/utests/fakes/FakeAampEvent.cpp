@@ -257,7 +257,7 @@ bool BufferingChangedEvent::buffering() const
 	return false;
 }
 
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode,double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode,double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid))
 {
 }
@@ -267,7 +267,8 @@ double ProgressEvent::getPosition(void) const{ return 0.0; }
 double ProgressEvent::getLiveLatency(void) const{ return 0.0; }
 const char* ProgressEvent::getSEITimeCode(void) const{ return NULL; }
 double ProgressEvent::getCurrentPlayRate(void) const{ return 0.0; }
-double ProgressEvent::getBufferedDuration(void) const{ return 0.0; }
+double ProgressEvent::getVideoBufferedDuration(void) const{ return 0.0; }
+double ProgressEvent::getAudioBufferedDuration(void) const{ return 0.0; }
 long ProgressEvent::getNetworkBandwidth(void) const{ return 0; }
 long ProgressEvent::getProfileBandwidth(void) const{ return 0; }
 double ProgressEvent::getEnd(void) const{ return 0.0; }
@@ -383,9 +384,13 @@ TuneProfilingEvent::TuneProfilingEvent(std::string &profilingData, std::string s
 {
 }
 
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid):
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, const std::string &errorCode, const std::string &errorDescription, std::string sid):
 		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid))
 {
+	mResolveStatus = resolveStatus;
+	mAdId = adId;
+	mErrorCode = errorCode;
+	mErrorDescription = errorDescription;
 }
 
 AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid):
@@ -400,10 +405,12 @@ uint64_t AdReservationEvent::getAbsolutePositionMs() const
 uint64_t AdReservationEvent::getPosition( void ) const { return 0; }
 const std::string &AdReservationEvent::getAdBreakId() const { return mAdBreakId; }
 
-bool AdResolvedEvent::getResolveStatus() const { return false; }
+bool AdResolvedEvent::getResolveStatus() const { return mResolveStatus; }
 const std::string &AdResolvedEvent::getAdId() const { return mAdId; }
-uint64_t AdResolvedEvent::getStart() const { return 0; }
-uint64_t AdResolvedEvent::getDuration(void) const { return 0; }
+uint64_t AdResolvedEvent::getStart() const { return mStartMS; }
+uint64_t AdResolvedEvent::getDuration(void) const { return mDurationMs; }
+const std::string &AdResolvedEvent::getErrorCode() const { return mErrorCode; }
+const std::string &AdResolvedEvent::getErrorDescription() const { return mErrorDescription; }
 
 AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
 		AAMPEventObject(evtType, std::move(sid))
@@ -544,9 +551,9 @@ const std::string &MetricsDataEvent::getMetricsData() const { return mMetricsDat
 
 /**
  * @fn MonitorAVStatusEvent Constructor                                                                                               */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid):
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid, uint64_t droppedFrames):
 		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(status), mVideoPositionMS(videoPositionMS),
-		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS)
+		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS), mDroppedFrames(droppedFrames)
 {
 }
 
@@ -588,4 +595,14 @@ int64_t MonitorAVStatusEvent::getAudioPositionMS() const
 uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
 {
 	return mTimeInStateMS;
+}
+
+/**
+ * @brief getDroppedFrames
+ *
+ * @return Dropped Frames Count
+ */
+uint64_t MonitorAVStatusEvent::getDroppedFrames() const
+{
+	return mDroppedFrames;
 }

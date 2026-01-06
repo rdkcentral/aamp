@@ -38,7 +38,8 @@ public:
 	 */
 	enum class Type
 	{
-		AD_METADATA_TYPE,	/**< Ad Metadata */
+		AD_RESERVATION_METADATA_TYPE,	/**< Ad Reservation Metadata */
+		AD_PLACEMENT_METADATA_TYPE,		/**< Ad Placement Metadata */
 	};
 
 	/**

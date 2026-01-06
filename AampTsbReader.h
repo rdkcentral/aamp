@@ -26,8 +26,8 @@
 #define AAMP_TSBREADER_H
 
 #include "AampTsbDataManager.h"
-#include "priv_aamp.h"
 #include "AampMediaType.h"
+#include "AampTime.h"
 
 /**
  * @class AampTsbReader
@@ -70,7 +70,7 @@ public:
 	 *
 	 * @return Pointer to the next fragment data
 	 */
-	TsbFragmentDataPtr FindNext(AampTime offset = 0.0);
+	TsbFragmentDataPtr FindNext();
 
 	/**
 	 * @fn ReadNext - function to update the last read file from TSB
@@ -82,9 +82,9 @@ public:
 	/**
 	 * @fn GetStartPosition
 	 *
-	 * @return None
+	 * @return AampTime - Start position
 	 */
-	double GetStartPosition();
+	AampTime GetStartPosition();
 
 	/**
 	 * @fn Flush  - function to clear the TSB storage
@@ -98,7 +98,7 @@ public:
 	 *
 	 * @return bool - EOS
 	 */
-	bool IsEos() { return mEosReached; }
+	bool IsEos();
 
 	/**
 	 * @fn Reset EOS
@@ -124,14 +124,22 @@ public:
 	 *
 	 * @return bool - true if enabled
 	 */
-	bool TrackEnabled() { return !IsEos() && mTrackEnabled; }
+	bool TrackEnabled();
 
 	/**
 	 * @fn GetFirstPTS
 	 *
 	 * @return double - First PTS
 	 */
-	double GetFirstPTS() { return mFirstPTS; }
+  
+	double GetFirstPTS();
+
+	/**
+	 * @fn GetFirstPTSOffset
+	 *
+	 * @return AampTime - First PTS Offset
+	 */
+	AampTime GetFirstPTSOffset();
 
 	/**
 	 * @fn GetMediaType
@@ -184,13 +192,15 @@ public:
 	void SetEndFragmentInjected() { mIsEndFragmentInjected.store(true); }
 
 private:
+
 	bool mInitialized_;
 
-	double mStartPosition;
+	AampTime mStartPosition;
 	float mCurrentRate;
 	std::string mTsbSessionId;
 	AampMediaType mMediaType;
-	double mFirstPTS;
+	AampTime mFirstPTS;
+	AampTime mFirstPTSOffset;
 	bool mNewInitWaiting;
 	TuneType mActiveTuneType;
 	bool mIsNextFragmentDisc;
@@ -198,9 +208,10 @@ private:
 	std::atomic<bool> mIsEndFragmentInjected;
 	std::mutex mEosMutex;					/**< EOS mutex for conditional, used for syncing live downloader and reader*/
 	std::condition_variable mEosCVWait;	/**< Conditional variable for signaling wait*/
+	TsbFragmentDataPtr mCurrentFragment;	/**< Current fragment pointer for list navigation*/
 
 protected:
-	double mUpcomingFragmentPosition;
+	AampTime mUpcomingFragmentPosition;
 	/**
 	 * @fn CheckPeriodBoundary
 	 * 

@@ -43,7 +43,7 @@ class RealtekSocInterface : public SocInterface
 		 * @return True if audio fragments should be synchronized, false otherwise.
 		 */
 		bool IsAudioFragmentSyncSupported()override{return true;}
-
+		
 		/*@brief returns true if video stats required from sink otherwise false*/
 		bool IsPlaybackQualityFromSink() override {return true;}
 
@@ -136,26 +136,23 @@ class RealtekSocInterface : public SocInterface
 		/**
 		 * @brief Check if the given name is a video sink.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's a video sink, false otherwise.
 		 */
-		bool IsVideoSink(const char* name, bool isRialto)override;
+		bool IsVideoSink(const char* name)override;
 
 		/**
 		 * @brief Check if the given name is an audio sink or audio decoder.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's an audio sink or audio decoder, false otherwise.
 		 */
-		bool IsAudioSinkOrAudioDecoder(const char* name, bool isRialto)override;
+		bool IsAudioSinkOrAudioDecoder(const char* name)override;
 
 		/**
 		 * @brief Check if the given name is a video decoder.
 		 * @param name Element name.
-		 * @param isRialto Rialto flag.
 		 * @return True if it's a video decoder, false otherwise.
 		 */
-		bool IsVideoDecoder(const char* name, bool isRialto)override;
+		bool IsVideoDecoder(const char* name)override;
 
 		/**
 		 * @brief Configure the audio sink.
@@ -172,7 +169,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param IsWesteros Westeros flag.
 		 * @return True if it's an audio or video decoder, false otherwise.
 		 */
-		bool IsAudioOrVideoDecoder(const char* name, bool isRialto)override;
+		bool IsAudioOrVideoDecoder(const char* name)override;
 
 		/**
 		 * @brief Disable asynchronous audio.
@@ -244,15 +241,6 @@ class RealtekSocInterface : public SocInterface
 		bool RequiredElementSetup()override{return true;}
 
 		/**
-		 * @brief Set audio routing properties on source.
-		 *
-		 * Sets audio routing properties on the given source element.
-		 *
-		 * @param source The source element.
-		 */
-		void SetAudioRoutingProperties(GstElement *source)override;
-
-		/**
 		 * @brief Check if first audio frame callback is set.
 		 *
 		 * Determines if a callback function has been set for the first audio frame.
@@ -289,6 +277,6 @@ class RealtekSocInterface : public SocInterface
 		 */
 		void SetHevcCaps(GstCaps *caps)override;
 
-
+		bool IsVideoMaster(GstElement *videoSink)override{return true;}
 };
 #endif

@@ -39,18 +39,18 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mFetchQueue(),
 		mQMutex(),
 		mQCond(),
-		mPreFetchThreadStarted(false),
 		mExitLoop(false),
 		mCommonKeyDuration(0),
 		mTrackStatus(),
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
 		mFetchInstance(nullptr),
+		mFetchInstanceMutex(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
 		mQVssCond(),
-		mVssPreFetchThreadStarted(false)
+		mIsSecClientError(false)
 {
 	mTrackStatus.fill(false);
 	mIsSecClientError = isSecFeatureEnabled();
@@ -67,19 +67,17 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 		std::lock_guard<std::mutex>lock(mQMutex);
 		mExitLoop = true;
 	}
-	if (mPreFetchThreadStarted)
+	if (mPreFetchThread.joinable())
 	{
 		mQCond.notify_one();
 		AAMPLOG_WARN("Joining mPreFetchThread");
 		mPreFetchThread.join();
-		mPreFetchThreadStarted = false;
 	}
-	if (mVssPreFetchThreadStarted)
+	if (mVssPreFetchThread.joinable())
 	{
 		mQVssCond.notify_one();
 		AAMPLOG_WARN("Joining mVssFetchThread");
 		mVssPreFetchThread.join();
-		mVssPreFetchThreadStarted = false;
 	}
 }
 
@@ -92,7 +90,7 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 bool AampLicensePreFetcher::Init()
 {
 	bool ret = true;
-	if (mPreFetchThreadStarted || mVssPreFetchThreadStarted)
+	if (mPreFetchThread.joinable() || mVssPreFetchThread.joinable())
 	{
 		AAMPLOG_WARN("PreFetch thread is already started when calling Init!!");
 	}
@@ -148,12 +146,11 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 			if(isVssPeriod)
 			{
 				std::lock_guard<std::mutex>lock(mQVssMutex);
-				mVssFetchQueue.push_back(fetchObject);
-				if (!mVssPreFetchThreadStarted)
+				mVssFetchQueue.push_back(std::move(fetchObject));
+				if (!mVssPreFetchThread.joinable())
 				{
-					AAMPLOG_WARN("Starting mVssPreFetchThread");
+					AAMPLOG_MIL("Starting mVssPreFetchThread");
 					mVssPreFetchThread = std::thread(&AampLicensePreFetcher::VssPreFetchThread, this);
-					mVssPreFetchThreadStarted = true;
 				}
 				else
 				{
@@ -173,16 +170,15 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 					return true;
 				}
 
-				mFetchQueue.push_back(fetchObject);
-				if (!mPreFetchThreadStarted)
+				mFetchQueue.push_back(std::move(fetchObject));
+				if (!mPreFetchThread.joinable())
 				{
-					AAMPLOG_WARN("Starting mPreFetchThread");
+					AAMPLOG_MIL("Starting mPreFetchThread");
 					mPreFetchThread = std::thread(&AampLicensePreFetcher::PreFetchThread, this);
-					mPreFetchThreadStarted = true;
 				}
 				else
 				{
-					AAMPLOG_WARN("Notify mPreFetchThread");
+					AAMPLOG_MIL("Notify mPreFetchThread");
 					mQCond.notify_one();
 				}
 			}
@@ -218,10 +214,26 @@ bool AampLicensePreFetcher::Term()
 			mVssFetchQueue.pop_front();
 		}
 	}
-	
+
 	mTrackStatus.fill(false);
-	mFetchInstance = nullptr;
+	SetLicenseFetcher(nullptr);
 	return ret;
+}
+
+/**
+ * @brief Set license fetcher instance in a thread-safe manner.
+ *
+ * Sets the license fetcher instance used by the prefetcher.
+ * This method is thread-safe and uses a mutex (mFetchInstanceMutex)
+ * to protect mFetchInstance from concurrent access.
+ *
+ * @param fetcherInstance Pointer to the AampLicenseFetcher instance to set.
+ * @note Thread-safe: uses mutual exclusion to protect mFetchInstance.
+ */
+void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+	std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+	mFetchInstance = fetcherInstance;
 }
 
 /**
@@ -254,6 +266,13 @@ void AampLicensePreFetcher::PreFetchThread()
 				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDrmSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
+					if(!keyStatus)
+					{
+						AAMPLOG_INFO("Notifying DRM failure for type:%d adaptationSetIdx:%u", obj->mType, obj->mAdaptationIdx);
+						bool isSecClientError = isSecFeatureEnabled();
+						DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+						NotifyDrmFailure(obj, std::move(e));
+					}
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
 					skip = true;
 				}
@@ -421,31 +440,34 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	if (skipErrorEvent && mFetchInstance)
 	{
-		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
-	}
-	else
-	{
-		if (!selfAbort)
+		std::lock_guard<std::mutex> lock(mFetchInstanceMutex);
+		if (skipErrorEvent && mFetchInstance)
 		{
-			//Set the isRetryEnabled flag to true if the failure is due to
-			//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
-			//error is caused by a network failure, so the tune may succeed
-			//on a retry attempt.
-			//For other DRM failures, the flag should be set to false.
-			isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
+			mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		}
+		else
+		{
+			if (!selfAbort)
+			{
+				//Set the isRetryEnabled flag to true if the failure is due to
+				//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
+				//error is caused by a network failure, so the tune may succeed
+				//on a retry attempt.
+				//For other DRM failures, the flag should be set to false.
+				isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
 				      || ((failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
 				      && (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
 				      && (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 				      && (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
 				      && (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR));
-			AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
-			mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
-			AAMPLOG_ERR("Failed DRM Session sending error event");
-			mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
-			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
-			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+				AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
+				mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
+				AAMPLOG_ERR("Failed DRM Session sending error event");
+				mPrivAAMP->SendDrmErrorEvent(event, std::move(isRetryEnabled));
+				mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
+				mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+			}
 		}
 	}
 }
@@ -460,8 +482,8 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 {
 	bool ret = false;
-
-	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, mIsSecClientError, mPrivAAMP->GetSessionId());
+	bool isSecClientError = isSecFeatureEnabled();
+	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
 
 	if (mPrivAAMP == nullptr)
 	{
@@ -471,7 +493,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if (fetchObj->mHelper == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation,  no helper");
-		NotifyDrmFailure(fetchObj, e);
+		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 		return ret;
 	}
 	AampDRMLicenseManager* licenseManger= mPrivAAMP->mDRMLicenseManager;
@@ -491,7 +513,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if(NULL == drmSession)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
-		NotifyDrmFailure(fetchObj, e);
+		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 	}
 	else
 	{
@@ -499,7 +521,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		if(e->getAccessStatusValue() != 3)
 		{
 			AAMPLOG_INFO("Sending DRMMetaData");
-			mPrivAAMP->SendDRMMetaData(e);
+			mPrivAAMP->SendDRMMetaData(std::move(e));
 		}
 	}
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);

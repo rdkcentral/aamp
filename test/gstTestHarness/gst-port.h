@@ -20,16 +20,17 @@
 #define GST_PORT_H
 
 #include "gst-utils.h"
+#include <array>
+#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
-#include "unistd.h"
+#include <unistd.h>
 #include <assert.h>
 #include <gst/gst.h>
 #include <queue>
+#include <mutex>
+#include <atomic>
 #include "mp4demux.hpp"
-
-// refer gstreamer pipeline unexpected behaviors when attempting to render single iframe
-// #define REALTEK_HACK
 
 typedef enum
 { // 1-to-1 map to GstState
@@ -39,64 +40,64 @@ typedef enum
 	ePIPELINE_STATE_PLAYING	= 4, // GST_STATE_PLAYING
 } PipelineState;
 
-struct SeekParam
-{
-	GstSeekFlags flags;
-	double start_s;
-	double stop_s;
+struct SeekParam {
+	bool flush = false;
+	bool segment = false;
+	double start_seconds = 0.0;
+	double stop_seconds = 0.0; // pass stop_seconds == start_seconds for open-ended segment
+	double playback_rate = 1.0;
 };
 
 class PipelineContext
 {
-public:
+	public:
+	PipelineContext() : configured_stream_count(0), initial_seek_performed(false) {}
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
-	
 	/**
-	 * This could/should be better abstracted, but the way it works is:
-	 * 1. belated lazy seek done as each appsrc is first connected (MediaStream::found_source)
+	 * 1. initial lazy seek when both appsrc branches are configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
+	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
+	int configured_stream_count; // Protected by segment_seek_mutex
+	bool initial_seek_performed; // Protected by segment_seek_mutex
 };
 
 class Pipeline
 {
-public:
+	public:
 	Pipeline( class PipelineContext *context );
 	~Pipeline();
 	Pipeline(const Pipeline&)=delete; //copy constructor
 	Pipeline& operator=(const Pipeline&)=delete; //copy assignment operator
-
-	double GetInjectedSeconds( MediaType mediaType );
-	long long GetPositionMilliseconds( MediaType mediaType );
+	double GetInjectedSeconds( MediaType mediaType ) const;
+	long long GetPositionMilliseconds( MediaType mediaType ) const;
 	void SetPipelineState( PipelineState );
-	PipelineState GetPipelineState( void );
+	PipelineState GetPipelineState( void ) const;
 	void Configure( MediaType mediaType );
 	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
-	void DumpDOT( void );
-	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration, const char *url=NULL );
-	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts );
+	void DumpDOT( void ) const;
+	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );
+	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata = NULL );
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
 	void Step( void );
-	void ScheduleSeek( const SeekParam &param ); // for non-flushing seek
-	size_t GetNumPendingSeek(void);
-	void Seek( const SeekParam &param );
+	void ScheduleSeek( const SeekParam & );
+	size_t GetNumPendingSeek(void) const;
+	bool DoSeekNow(const SeekParam & );
 	void Reset( void );
-
-private:
-	void Seek( MediaType mediaType, const SeekParam &param );	
+	private:
+	void Seek( MediaType mediaType, const SeekParam &param );
 	void ReachedEOS( void );
 	class PipelineContext *context;
-	class MediaStream *mediaStream[NUM_MEDIA_TYPES];
+	std::array<std::unique_ptr<class MediaStream>, NUM_MEDIA_TYPES> mediaStream;
 	GstElement *pipeline;
 	GstBus *bus;
 	gboolean bus_message( GstBus * bus, GstMessage * msg );
 	friend gboolean bus_message_cb(GstBus * bus, GstMessage * msg, class Pipeline *pipeline );
-	
 	void HandleGstMessageError( GstMessage *msg, const char *messageName );
 	void HandleGstMessageWarning( GstMessage *msg, const char *messageName );
 	void HandleGstMessageEOS( GstMessage *msg, const char *messageName );
@@ -106,5 +107,4 @@ private:
 	void HandleGstMessageTag( GstMessage *msg, const char *messageName );
 	void HandleGstMessageQOS( GstMessage *msg, const char *messageName );
 };
-
 #endif // GST_PORT_H

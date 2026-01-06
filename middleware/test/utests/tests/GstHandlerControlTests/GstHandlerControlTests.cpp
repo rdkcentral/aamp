@@ -102,7 +102,7 @@ TEST_F(FunctionalTests, waitForDoneMultiple)
 TEST_F(FunctionalTests, moveAssignToDefault)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
-	{	
+	{
 		GstHandlerControl::ScopeHelper helperA = mControl->getScopeHelper();
 		ASSERT_EQ(1, mControl->instancesRunning());
 		{
@@ -166,7 +166,7 @@ TEST_F(FunctionalTests, moveAssignOverwriteValidWithValid)
 TEST_F(FunctionalTests, moveConstruct)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
-	
+
 	GstHandlerControl::ScopeHelper helperA = mControl->getScopeHelper();
 	ASSERT_EQ(1, mControl->instancesRunning());
 	ASSERT_FALSE(helperA.returnStraightAway());

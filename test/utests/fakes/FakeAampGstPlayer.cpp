@@ -34,8 +34,12 @@ AAMPGstPlayer::~AAMPGstPlayer()
 {
 }
 
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->Configure(format, audioFormat, subFormat, bESChangeStatus, setReadyAfterPipelineCreation);
+	}
 }
 
 bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
@@ -235,15 +239,6 @@ void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 
 bool AAMPGstPlayer::SignalSubtitleClock( void )
 {
-	return false;
-}
-
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	if (g_mockAampGstPlayer != nullptr)
-	{
-		return g_mockAampGstPlayer->IsCodecSupported(codecName);
-	}
 	return false;
 }
 

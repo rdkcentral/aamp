@@ -35,7 +35,7 @@ typedef enum
 class Track
 {
 public:
-	uint32_t timeScale;
+	uint32_t timeScale; // needed here?
 	bool needsData;
 	bool gstreamerReadyForInjection;
 	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
@@ -65,8 +65,8 @@ public:
 	MyPipelineContext( void );
 	~MyPipelineContext();
 	void ReachedEOS( void );
-	void NeedData( MediaType mediaType );
-	void EnoughData( MediaType mediaType );
+	void NeedData( MediaType mediaType ) override;
+	void EnoughData( MediaType mediaType ) override;
 	void PadProbeCallback( MediaType mediaType );
 	
 	MyPipelineContext(const MyPipelineContext&)=delete;

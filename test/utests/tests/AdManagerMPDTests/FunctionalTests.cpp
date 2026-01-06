@@ -44,6 +44,7 @@ using ::testing::StrictMock;
 using ::testing::WithArgs;
 using ::testing::Invoke;
 using ::testing::StrEq;
+using ::testing::DoAll;
 
 using namespace dash::xml;
 using namespace dash::mpd;
@@ -63,7 +64,9 @@ protected:
   IMPD *mMPD;
   AampMPDParseHelperPtr mAdMPDParseHelper;
   static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
+  static constexpr const char *TEST_AD_MANIFEST_HOST = "http://host/ad/";
   static constexpr const char *TEST_FOG_AD_MANIFEST_URL = "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=http%3A%2F%2Fhost%2Fad%2Fmanifest.mpd";
+    static constexpr const char *TEST_FOG_AD_MANIFEST_HOST = "http://127.0.0.1:9080/";
   static constexpr const char *TEST_FOG_MAIN_MANIFEST_URL = "http://127.0.0.1:9080/recording/manifest.mpd";
 
   void SetUp()
@@ -82,7 +85,7 @@ protected:
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
 
     mManifest = nullptr;
     mMPD = nullptr;
@@ -91,15 +94,15 @@ protected:
 
   void TearDown()
   {
-    delete mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP = nullptr;
-
     delete mCdaiObj;
     mCdaiObj = nullptr;
     mPrivateCDAIObjectMPD = nullptr;
 
     delete g_mockPrivateInstanceAAMP;
     g_mockPrivateInstanceAAMP = nullptr;
+
+    delete mPrivateInstanceAAMP;
+    mPrivateInstanceAAMP = nullptr;
 
     delete gpGlobalConfig;
     gpGlobalConfig = nullptr;
@@ -127,13 +130,14 @@ public:
     return true;
   }
 
-  void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true, int count = 1)
+  void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true, int count = 1, int httpError = 404)
   {
     std::string adManifestUrl = TEST_AD_MANIFEST_URL;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     if (manifest)
     {
       mManifest = manifest;
+      mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
       // remoteUrl, manifest, effectiveUrl
       EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
               .Times(count)
@@ -158,11 +162,14 @@ public:
     else
     {
       EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(false));
+              .WillOnce(WithArgs<4>(Invoke([httpError](int* err){
+                *err = httpError;
+                return false;
+              })));
     }
   }
 
-  void InitializeAdMPDObject(const char* manifest)
+  void ProcessSourceMPD(const char* manifest)
   {
     if (manifest)
     {
@@ -195,6 +202,17 @@ public:
     }
   }
 
+  /**
+   * @brief Constructs the ad initialization URI based on the host and path.
+   * @param host The host URL
+   * @param path The path to the ad manifest
+   *
+   * @return The complete ad initialization URL
+   */
+  std::string GetFullURI(const std::string &host, const std::string &path)
+  {
+    return host + path;
+  }
 };
 
 /**
@@ -266,23 +284,23 @@ TEST_F(AdManagerMPDTests, PrunePeriodMapsTest)
 }
 
 /**
- * @brief Tests the functionality of the setPlacementObj function when adBrkId equals endPeriodId.
+ * @brief Tests the functionality of the UpdatePlacementObj function when adBrkId equals endPeriodId.
  * 
- * This test case verifies that the `setPlacementObj` function correctly sets the next placement object
+ * This test case verifies that the `UpdatePlacementObj` function correctly sets the next placement object
  * when the ad break ID is the same as the end period ID.
  * 
  * @note This test case is part of the AdManagerMPDTests fixture.
  */
-TEST_F(AdManagerMPDTests, SetPlacementObjTest)
+TEST_F(AdManagerMPDTests, UpdatePlacementObjTest)
 {
   // Empty mAdtoInsertInNextBreakVec
   // Call the function to test
-  PlacementObj nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId1", "testAdBrkId1");
+  PlacementObj nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId1", "testAdBrkId1");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
 
   // Call the function to test
-  nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId1", "testAdBrkId2");
+  nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId1", "testAdBrkId2");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
 
@@ -294,28 +312,28 @@ TEST_F(AdManagerMPDTests, SetPlacementObjTest)
   };
 
   // Call the function to test when adBrkId equals endPeriodId
-  nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId1", "testAdBrkId1");
+  nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId1", "testAdBrkId1");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "testAdBrkId2");
 
 
   // Call the function to test when adBrkId not equals to endPeriodId
-  nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId2", "testAdBrkId3");
+  nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId2", "testAdBrkId3");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "testAdBrkId3");
 
   // Call the function to test endPeriodId not available in mAdtoInsertInNextBreakVec
-  nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId2", "testAdBrkId4");
+  nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId2", "testAdBrkId4");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "testAdBrkId3");
 
   // Call the function to test endPeriodId not available and end of mAdtoInsertInNextBreakVec
-  nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId3", "testAdBrkId4");
+  nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId3", "testAdBrkId4");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
 
   // Call the function to test adBrkId equals endPeriodId and end of mAdtoInsertInNextBreakVec
-  nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId3", "testAdBrkId3");
+  nextPlacementObj = mPrivateCDAIObjectMPD->UpdatePlacementObj("testAdBrkId3", "testAdBrkId3");
   // Verify the result
   EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
 }
@@ -332,7 +350,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 0;
-
+  AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
   // Call the function to test
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -343,8 +361,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   periodId = "testPeriodId1";
   adId = "testAdId1";
   url = "testAdUrl1";
-
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
   // Call the function to test when adbreak object doesn't exist and adId and url not empty
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -358,7 +375,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
  */
 TEST_F(AdManagerMPDTests, SetAlternateContentsTests_2)
 {
-    static const char *manifest =
+  static const char *manifest =
 R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="static" id="TSS_ICEJ010_010-LIN_c4_HD" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT0H0M1.000S" maxSegmentDuration="PT0H0M1S" mediaPresentationDuration="PT0H0M10.027S">
   <Period id="1" start="PT0H0M0.000S">
@@ -395,6 +412,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint32_t breakdur = 10000;
   bool timedout = false;
   bool threadStarted = false;
+  AAMPCDAIError adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -403,7 +421,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -417,13 +435,19 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(true));
+  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   t.join();
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -476,6 +500,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  AAMPCDAIError adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -486,13 +511,20 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest, true);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
+
+  std::string adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(true));
+  adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -524,7 +556,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -544,7 +576,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
 
   // Verify the result
   // mAdBreak updated and placementObj not created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -608,13 +640,19 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, eCDAI_ERROR_NONE)).Times(1);
+  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(true));
+  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
@@ -666,6 +704,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint64_t startMS = 0;
   uint32_t breakdur = 20000;
   uint32_t adDuration = 10000;
+  AAMPCDAIError adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -677,15 +716,21 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000)).Times(1);
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000, adErrorCode)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode)).Times(1);
+  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillRepeatedly(Return(true));
+  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillRepeatedly(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
   // Verify the result
   // mAdBreak updated and placementObj created
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 2);
@@ -699,6 +744,318 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).resolved);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).invalid);
+}
+
+/**
+ * @brief Test error scenario for SetAlternateContents when ad break is invalid.
+ *
+ * This test ensures that if an ad break is marked invalid, SetAlternateContents
+ * triggers SendAdResolvedEvent with eCDAI_ERROR_DECISION_TIMEOUT.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_7)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    uint64_t startMS = 0;
+    uint32_t breakdur = 1000;
+    AAMPCDAIError adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
+
+    // Create an ad break object and mark it invalid
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].invalid = true;
+
+    // Expect SendAdResolvedEvent to be called with the timeout error
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
+
+    // Try to set alternate contents for the invalid ad break
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, TEST_AD_MANIFEST_URL, startMS, breakdur);
+
+    // Optionally, verify that the ad was not cached
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 0);
+    // Also verify that the ad was not added to the mPlacementObj
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 0);
+}
+
+/**
+ * @brief Test error scenario for SetAlternateContents when ad break has no space left.
+ *
+ * This test ensures that if the ad break is full (adsDuration equals break duration),
+ * SetAlternateContents triggers SendAdResolvedEvent with eCDAI_ERROR_INVALID_SPECIFICATION.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_8)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIError errorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration = 10000; // Fill up the ad break
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, errorCode)).Times(1);
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, TEST_AD_MANIFEST_URL, startMS, breakdur);
+
+    // Ad should not be cached
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 0);
+    // Also verify that the ad was not added to the mPlacementObj
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 0);
+}
+
+/**
+ * @brief Test error scenario for SetAlternateContents when ad break does not exist.
+ *
+ * This test ensures that if SetAlternateContents is called for a non-existent ad break,
+ * it triggers SendAdResolvedEvent with eCDAI_ERROR_UNKNOWN.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_9)
+{
+    std::string periodId = "nonexistentPeriod";
+    std::string adId = "testAdId";
+    uint64_t startMS = 0;
+    uint32_t breakdur = 1000;
+    AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
+
+    // Do NOT create the ad break object
+
+    // Expect SendAdResolvedEvent to be called with the delivery error
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
+
+    // Try to set alternate contents for a non-existent ad break
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, TEST_AD_MANIFEST_URL, startMS, breakdur);
+
+    // Optionally, verify that the ad break was not created
+    EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+    // Also verify that the ad was not added to the mPlacementObj
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject with invalid ad manifest.
+ *
+ * This test ensures that when FulFillAdObject is called and the ad manifest is invalid,
+ * SendAdResolvedEvent is triggered with eCDAI_ERROR_INVALID_MANIFEST.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_10)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIError expectedError = eCDAI_ERROR_INVALID_MANIFEST;
+    const char* invalidManifest = "<MPD><Invalid></MPD>";
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+
+    InitializeAdMPD(invalidManifest);
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    // Now set the ad
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+    // wait for FulFillAdObject to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Verify the result
+    // mAdBreak updated and placementObj not created
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when manifest fetch fails and http_error < 100.
+ *
+ * This test ensures that if GetFile fails and http_error is less than 100,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_ERROR.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_11)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIError expectedError = eCDAI_ERROR_DELIVERY_ERROR;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    InitializeAdMPD(nullptr, false, false, 1, 28); // No manifest
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    // Now set the ad
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+    // wait for FulFillAdObject to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Verify the result
+    // mAdBreak updated and placementObj not created
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when manifest fetch fails and http_error >= 100.
+ *
+ * This test ensures that if GetFile fails and http_error is greater than or equal to 100,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_HTTP_ERROR.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_12)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIError expectedError = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    InitializeAdMPD(nullptr, false, false, 1, 404); // No manifest
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    // Now set the ad
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+    // wait for FulFillAdObject to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Verify the result
+    // mAdBreak updated and placementObj not created
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when AdNode is marked invalid.
+ *
+ * This test ensures that if an AdNode in the ad break is marked invalid,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_TIMEOUT.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
+{
+    // Arrange
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIError expectedError = eCDAI_ERROR_DELIVERY_TIMEOUT;
+    const char *manifest =
+         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+         "<MPD><Period id=\"1\"><AdaptationSet contentType=\"video\"><Representation><SegmentTemplate media=\"video.mp4\" initialization=\"video_init.mp4\"/></Representation></AdaptationSet>"
+         "<AdaptationSet contentType=\"audio\"><Representation><SegmentTemplate media=\"audio.mp4\" initialization=\"audio_init.mp4\"/></Representation></AdaptationSet></Period></MPD>";
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+  
+    // Set up GetFile expectations for video and audio init segments
+    std::string videoInitUrl = TEST_AD_MANIFEST_HOST + std::string("video_init.mp4");
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillOnce(Return(true));
+    std::string audioInitUrl = TEST_AD_MANIFEST_HOST + std::string("audio_init.mp4");
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(audioInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillOnce(Return(true));
+    // Set up the mock for GetFile before any SetAlternateContents calls
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+        {
+            buffer->Clear();
+            buffer->AppendBytes((char*)manifest, strlen(manifest));
+            *httpError = 200;
+            effectiveUrl = remoteUrl;
+            if (!this->mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->empty())
+            {
+              this->mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid = true;
+            }
+            return true;
+        })));
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1);
+    
+    // Create initial ad break
+    
+    // Try to add the ad that should fail with timeout
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+    
+    // Wait for async operations
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Verify the result
+    // mAdBreak updated and placementObj not created
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when manifest contains multiple periods.
+ * 
+ * This test ensures that if the ad manifest contains more than one period,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_INVALID_MEDIA.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
+{
+    // Arrange
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIError expectedError = eCDAI_ERROR_INVALID_MEDIA;
+
+    // Create an ad break object and add the test ad
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+ 
+    // Prepare manifest with multiple periods - should trigger error
+    const char *manifest =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<MPD type=\"static\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" minBufferTime=\"PT1.5S\">"
+        "<Period id=\"1\"><AdaptationSet contentType=\"video\"></AdaptationSet>"
+        "<AdaptationSet contentType=\"audio\"></AdaptationSet></Period>"
+        "<Period id=\"2\"><AdaptationSet contentType=\"video\"></AdaptationSet>"
+        "<AdaptationSet contentType=\"audio\"></AdaptationSet></Period>"
+        "</MPD>";
+
+    InitializeAdMPD(manifest);
+    
+    // Expect error event due to multiple periods
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+
+    // Act - Set alternate contents with the ad
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+    // Wait for FulFillAdObject to process
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Assert
+    // mAdBreak updated and placementObj not created 
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+    EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
 }
 
 /**
@@ -840,7 +1197,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   </Period>
 </MPD>
 )";
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
 }
 
@@ -881,7 +1238,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId = "testPeriodId1";
   // testPeriodId1 has 3 fragments added in the mock
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   // Set curEndNumber to 0
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
 
@@ -954,7 +1311,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
   std::string periodId = "testPeriodId1";
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   // Set curEndNumber to 13, adNextOffset = (13)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 13, 0, 26000, 0, false);
 
@@ -1034,7 +1391,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   // Set curEndNumber to 13, adNextOffset = (13)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 13, 0, 26000, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
@@ -1129,7 +1486,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   // Set curEndNumber to 15, adNextOffset = (15)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 15, 0, 30000, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
@@ -1253,7 +1610,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 14, adNextOffset = (14)*2000
   // Currently placing adId1
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 14, 0, 28000, 0, false);
@@ -1292,7 +1649,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodOffset, 30000); //60 Sec ad break - with 2 -30sec ads
 
   // next refresh and both ads to be completely placed
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
@@ -1342,7 +1699,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId = "testPeriodId0";
   // testPeriodId1 has 3 fragments added in the mock
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   // Set curEndNumber to 13, adNextOffset = (13)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 13, 0, 26000, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
@@ -1446,7 +1803,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
   std::string periodId = "testPeriodId0";
   // testPeriodId1 has 3 fragments added in the mock
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 9, adNextOffset = (9)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
@@ -1473,7 +1830,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak not placed
 
   // Update with same mpd again, and the params should not change
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId); // placement completed and ending in same period ID
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 20000); // placement completed and offset updated
@@ -1634,7 +1991,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId = "testPeriodId1";
   // testPeriodId1 has 1 fragment added in the mock
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 0, adNextOffset = (0)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
@@ -1660,7 +2017,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 2000); // in ms
 
   // Update with manifest2, and the duration in mPeriodMap should be updated correctly
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 2);
@@ -1669,7 +2026,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
   // Update with manifest3, and the duration in mPeriodMap should be updated correctly
   // And ad should be placed
-  InitializeAdMPDObject(manifest3);
+  ProcessSourceMPD(manifest3);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1); // ad is placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 10000); // in ms
@@ -1788,7 +2145,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
   std::string periodId = "testPeriodId1";
   // testPeriodId1 has 1 fragment added in the mock
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 0, adNextOffset = (0)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
@@ -1814,7 +2171,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 2000); // in ms
 
   // Update with manifest2, and the duration in mPeriodMap should be updated correctly
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 5);
@@ -1822,13 +2179,13 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 10000); // in ms
 
   // Update with manifest3, and the duration in mPeriodMap should be updated correctly
-  InitializeAdMPDObject(manifest3);
+  ProcessSourceMPD(manifest3);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 20000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->currentAdPeriodClosed, true); // ad is placed, validate this variable
 
   // Update with manifest4, and the duration in mPeriodMap should remain the same and ad should be placed
-  InitializeAdMPDObject(manifest4);
+  ProcessSourceMPD(manifest4);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1); // ad is placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 20000); // in ms
@@ -1954,7 +2311,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 8, adNextOffset = (7)*2000 + 1*1000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
   // placement object present for periodId2
@@ -2001,7 +2358,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000);
 
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
@@ -2122,7 +2479,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 8, adNextOffset = (7)*2000 + 1*1000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
 
@@ -2153,7 +2510,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 18000); // 3sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 15000); // ad starts from 15sec in periodId2
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).placed, true);
@@ -2279,7 +2636,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 4, adNextOffset = (4)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 4, 0, 8000, 0, false);
 
@@ -2305,7 +2662,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 5000); // 5sec from periodId1 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 0); // ad starts from 0sec in periodId1
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true); // in the PlaceAds call, periodDelta == 0
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
@@ -2439,7 +2796,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 7, adNextOffset = (7)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 7, 0, 14000, 0, false);
 
@@ -2464,7 +2821,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 15000); // ad1 is not placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 0); // ad1 starts from 0sec in periodId1
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true); // split period identified
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
@@ -2599,7 +2956,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 8, adNextOffset = (7)*2000 + (1)*1000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
 
@@ -2636,7 +2993,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 18000); // 3sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 15000); // ad starts from 15sec in periodId2
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
@@ -2818,7 +3175,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
   std::string periodId4 = "testPeriodId4";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 4, adNextOffset = (4)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 4, 0, 8000, 0, false);
 
@@ -2842,7 +3199,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 0); // ad starts from 0sec in periodId1
   // New periodMap is not created as periodDelta != 0.
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true); // split period is identified only once periodDelta becomes zero
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
@@ -2861,7 +3218,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 20000); // 10sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 10000); // ad starts from 10sec in periodId2
 
-  InitializeAdMPDObject(manifest3);
+  ProcessSourceMPD(manifest3);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 3); // periodId3 map created
   
@@ -2928,7 +3285,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
-  InitializeAdMPDObject(manifest);
+  ProcessSourceMPD(manifest);
   // Set curEndNumber to 13, adNextOffset = (13)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 13, 0, 26000, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
@@ -3139,7 +3496,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 8, adNextOffset = (7)*2000 + (1)*1000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 8, 0, 15000, 0, false);
 
@@ -3177,7 +3534,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 0); // ad starts from 0sec in periodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 2500); // 0.5sec from periodId2 placed
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   // periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration, 15000);
@@ -3189,7 +3546,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 14500); // 0.5sec from periodId2 placed for ad1
 
   // ad2 gets placed now in periodId2 and ends at periodId3
-  InitializeAdMPDObject(manifest3);
+  ProcessSourceMPD(manifest3);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).placed, true);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
@@ -3308,7 +3665,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId1 = "testPeriodId1";
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Add entries for periodId1 and periodId2 in placement
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 0, 0, 0, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false);
@@ -3339,7 +3696,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 200);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 200);
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper); // only in this placeAds call, periodId1 has a periodDelta==0 and places the break
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, false);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true); //ad is placed
@@ -3444,7 +3801,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId = "testPeriodId0";
   std::string endPeriodId = "testPeriodId2";
   // testPeriodId1 has 3 fragments added in the mock
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 12, adNextOffset = (12)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
@@ -3471,7 +3828,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak not placed
 
   // Update with the next mpd, where periodId1 is empty and periodId2 is valid
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, endPeriodId); // placement completed and ending in testPeriodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 0); // placement completed and offset updated
@@ -3604,7 +3961,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
   std::string periodId4 = "testPeriodId4";
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   // Set curEndNumber to 7, adNextOffset = (7)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 7, 0, 14000, 0, false);
 
@@ -3629,7 +3986,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 15000); // ad1 is not placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 0); // ad1 starts from 0sec in periodId1
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true); // split period identified
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId3 map created
@@ -3745,7 +4102,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   std::string periodId2 = "testPeriodId2";
   std::string periodId3 = "testPeriodId3";
 
-  InitializeAdMPDObject(manifest1);
+  ProcessSourceMPD(manifest1);
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 6, 0, 12000, 0, false);
 
   // Add ads to the adBreak
@@ -3767,7 +4124,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
 
-  InitializeAdMPDObject(manifest2);
+  ProcessSourceMPD(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,16000); //periodmap of periodid1 duration
@@ -3792,4 +4149,106 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 1000);
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved with no AdFulfillObj
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_NoAdFulfillObj)
+{
+  // Nothing set in mAdFulfillObj, should return false immediately
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50));
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved with an immediately resolved AdFulfillObj
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ResolvedImmediately)
+{
+  std::string periodId = "p1";
+  std::string adId = "ad1";
+
+  // Add ads to the adBreak
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+      {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+  // Create ad break and insert resolved ad
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, adId, "", 0, "", 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(100));
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved timing out
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_TimesOut)
+{
+    std::string periodId = "p1";
+    std::string adId = "ad1";
+
+      // Add ads to the adBreak
+    mPrivateCDAIObjectMPD->mAdBreaks = {
+      {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, false, adId, "", 0, "", 0, nullptr);
+    mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+    EXPECT_FALSE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50));
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved But the resolution is signalled before timeout
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_SignalledBeforeTimeout)
+{
+    std::string periodId = "p1";
+    std::string adId = "ad1";
+
+      // Add ads to the adBreak
+    mPrivateCDAIObjectMPD->mAdBreaks = {
+      {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, false, adId, "", 0, "", 0, nullptr);
+    mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+
+    // Run wait in a thread
+    bool completed = false;
+    std::thread waiter([&]{
+        completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(500);
+    });
+
+    // Give some time then resolve and notify
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    {
+        std::lock_guard<std::mutex> lock(mPrivateCDAIObjectMPD->mAdPlacementMtx);
+        mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved = true;
+        mPrivateCDAIObjectMPD->mAdPlacementCV.notify_one();
+    }
+
+    waiter.join();
+    EXPECT_TRUE(completed);
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved when the downloads are disabled
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_DisableDownloadsBeforeWait)
+{
+  std::string periodId = "p1";
+  std::string adId = "ad1";
+
+  // Add ads to the adBreak
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, false, adId, "", 0, "", 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+
+  // Abort before waiting
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP ,DownloadsAreEnabled()).WillRepeatedly(Return(false));
+
+  auto start = std::chrono::steady_clock::now();
+  bool result = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000);
+  auto end = std::chrono::steady_clock::now();
+  auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+  // Should return true as it aborted immediately, downloads are disabled
+  EXPECT_TRUE(result);
+  // Fail if it actually waited for more than 500ms (indicating it did not abort immediately)
+  EXPECT_LT(elapsedMs, 500) << "WaitForNextAdResolved did not abort immediately, waited for " << elapsedMs << " ms";
 }

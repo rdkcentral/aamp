@@ -200,7 +200,7 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
         // So we should handle this case.
         auto singleSegBase = repr->getSingleSegmentBase();
         if (singleSegBase) {
-            singleSegmentBases.push_back(singleSegBase);
+            singleSegmentBases.push_back(std::move(singleSegBase));
         }
 
         Url baseUrl(repr->getBaseUrl());
@@ -225,7 +225,7 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
                     seg->number = -1;
                     seg->scaledStart = -1;
                     seg->startTime = -1;
-                    segments.push_back(seg);
+                    segments.push_back(std::move(seg));
                 }
             }
         }
@@ -310,7 +310,7 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
                     seg->number = -1;
                     seg->scaledStart = -1;
                     seg->startTime = -1;
-                    segments.push_back(seg);
+                    segments.push_back(std::move(seg));
                 }
                 for (size_t i = k_begin; i < k_end; i++) {
                     auto segUrl = segUrls[i];
@@ -329,7 +329,7 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
                         seg->availabilityStartTime = segAvailStart(*seg);
                         seg->availabilityEndTime = segAvailEnd(*seg);
                     }
-                    segments.push_back(seg);
+                    segments.push_back(std::move(seg));
                 }
 
             } else if (base->getTag() == "SegmentTemplate") {
@@ -367,7 +367,7 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
                         seg->availabilityStartTime = segAvailStart(*seg);
                         seg->availabilityEndTime = segAvailEnd(*seg);
                     }
-                    segments.push_back(seg);
+                    segments.push_back(std::move(seg));
                 }
             }
         }

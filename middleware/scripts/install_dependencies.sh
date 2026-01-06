@@ -18,14 +18,14 @@
 # limitations under the License.
 #
 
-declare DEFAULT_OPENSSL_VERSION="openssl@3.4"
+declare DEFAULT_OPENSSL_VERSION="openssl@3"
 
-function install_pkgs_pkgconfig_darwin_fn() 
+function install_pkgs_pkgconfig_darwin_fn()
 {
     echo "`brew --prefix ${1}`/lib/pkgconfig"
 }
 
-function install_pkgs_darwin_fn() 
+function install_pkgs_darwin_fn()
 {
     # Check if brew package $1 is installed
     # http://stackoverflow.com/a/20802425/1573477
@@ -55,7 +55,7 @@ function install_pkgs_darwin_fn()
             if [ "$OPENSSL_CUR_PATH" != "{$OPENSSL_PATH}" ] ; then
                 sudo rm -f /usr/local/ssl || true
                 sudo ln -s $OPENSSL_PATH /usr/local/ssl
-            fi 
+            fi
         fi
         PKGDIR="`brew --prefix ${PKG}`/lib/pkgconfig:"
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
@@ -198,12 +198,12 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git json-glib cmake "openssl@3.4" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64
       if [[ $ARCH == "x86_64" ]]; then
-          
+
           # Workaround for making boost compatible with websocketpp (used for subtec)
 
           export BOOST_ROOT="/usr/local/opt/boost@1.85"
@@ -226,7 +226,7 @@ function install_pkgs_fn()
               esac
           fi
       elif [[ $ARCH == "arm64" ]]; then
-          
+
           # Workaround for making boost compatible with websocketpp (used for subtec)
           export BOOST_ROOT="/opt/homebrew/opt/boost@1.85"
           export CMAKE_PREFIX_PATH="/opt/homebrew/opt/boost@1.85"
@@ -247,7 +247,7 @@ function install_pkgs_fn()
       fi
 
 
-  elif [[ "$OSTYPE" == "linux"* ]]; then  
+  elif [[ "$OSTYPE" == "linux"* ]]; then
       install_pkgs_linux_fn
   fi
 }

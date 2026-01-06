@@ -75,7 +75,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 	std::string uri;	/**< URI Information */
 
 	// rarely present
-	long averageBandwidth;			/**< Average Bandwidth */
+	BitsPerSecond averageBandwidth;			/**< Average Bandwidth */
 	std::string closedCaptions;		/**< CC if present */
 	std::string subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
@@ -83,8 +83,8 @@ typedef struct HlsStreamInfo: public StreamInfo
 	HlsStreamInfo():program_id(),audio(),uri(),averageBandwidth(),closedCaptions(),subtitles(),audioFormat(){};
 
 	// Copy constructor
-    HlsStreamInfo(const HlsStreamInfo& other)
-        :
+	HlsStreamInfo(const HlsStreamInfo& other)
+		:
 		StreamInfo(other), // Initialize base class members
 		program_id(other.program_id),
 		audio(other.audio),
@@ -243,7 +243,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return void
 		 ***************************************************************************/
-		void RunFetchLoop();
+		virtual void RunFetchLoop();
 
 		/***************************************************************************
 		 * @fn FragmentCollector
@@ -448,7 +448,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return none
 		 ***************************************************************************/
-		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = url; }
+		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = std::move(url); }
 		/***************************************************************************
 		 * @fn GetLastPlaylistDownloadTime
 		 *
@@ -482,8 +482,8 @@ class TrackState : public MediaTrack
 		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
 
 		/**
-                 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
-                 */
+		 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
+		 */
 		bool IsExtXByteRange(lstring fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
 
 		/**
@@ -614,9 +614,10 @@ class TrackState : public MediaTrack
 		AampTime playlistPosition;				 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
 		AampTime playTarget;					 /**< initially relative seek time (seconds) based on playlist window, but updated as a play_target */
 		AampTime playTargetBufferCalc;
+		AampTime playlistCulledOffset;			 /**< When seeking, the position takes into account the culled seconds. This needs applying subsequently when adjusting playTargetBufferCalc */
 		AampTime lastDownloadedIFrameTarget;	 /**< stores last downloaded iframe segment target value for comparison */
 		AampTime targetDurationSeconds;			 /**< copy of \#EXT-X-TARGETDURATION to manage playlist refresh frequency */
-		int mDeferredDrmKeyMaxTime;			 /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
+		int mDeferredDrmKeyMaxTime;				 /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
 		StreamOutputFormat streamOutputFormat;	 /**< type of data encoded in each fragment */
 		AampTime startTimeForPlaylistSync;		 /**< used for time-based track synchronization when switching between playlists */
 		AampTime playTargetOffset;				 /**< For correcting timestamps of streams with audio and video tracks */
@@ -646,7 +647,6 @@ class TrackState : public MediaTrack
 		bool refreshPlaylist;					/**< bool flag to indicate if playlist refresh required or not */
 		bool isFirstFragmentAfterABR;			/**< bool flag to indicate whether the fragment is first fragment after ABR */
 		std::thread fragmentCollectorThreadID;	/**< Thread Id for Fragment  collector Thread */
-		bool fragmentCollectorThreadStarted;	/**< Flag indicating if fragment collector thread started or not*/
 		int manifestDLFailCount;		/**< Manifest Download fail count for retry*/
 		bool firstIndexDone;					/**< Indicates if first indexing is done*/
 		std::shared_ptr<HlsDrmBase> mDrm;		/**< DRM decrypt context*/
@@ -744,11 +744,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 * @param[out] primaryOutputFormat video format
 		 * @param[out] audioOutputFormat audio format
-		 * @param[out] auxOutputFormat auxiliary audio format
 		 * @param[out] subFormat subtitle format
 		 * @return void
 		 ***************************************************************************/
-		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subOutputFormat) override;
+		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat) override;
 		/***************************************************************************
 		 * @fn GetStreamPosition
 		 * @brief Function to return current playing position of stream
@@ -857,8 +856,17 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 *************************************************************************/
 		std::map<std::string,double> GetImageRangeString(double*, std::string, TileInfo*, double);
+		/***************************************************************************
+		 * @fn HandleImageData
+		 *
+		 * @param tStart start duration of thumbnail data.
+		 * @param tEnd end duration of thumbnail data.
+		 * @return void.
+		 ***************************************************************************/
+		void HandleSleThumbnailData(double tStart, double tEnd);
 		AampGrowableBuffer thumbnailManifest;	/**< Thumbnail manifest buffer holder */
 		std::vector<TileInfo> indexedTileInfo;	/**< Indexed Thumbnail information */
+		double indexedTileEndTime; /**< endTime received from player applications */
 		/***************************************************************************
 		 * @brief Function to get the total number of profiles
 		 *
@@ -924,11 +932,11 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @fn GetPlaylistURI
 		 *
 		 * @param[in] trackType Track type
-		 * @param[in] format stream output type
+		 * @param[in,out] format stream output type
 		 * @return string playlist URI
 		 ***************************************************************************/
-		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
-		int lastSelectedProfileIndex;	/**< Variable  to restore in case of playlist download failure */
+		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat &format);
+		std::string GetPlaylistURI(TrackType trackType);
 		/***************************************************************************
 		 * @fn StopInjection
 		 *
@@ -979,7 +987,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		StreamOutputFormat GetStreamOutputFormatForTrack(TrackType type);
 		/***************************************************************************
-		 * @brief  Function to get output format for audio/aux track
+		 * @brief  Function to get output format for audio track
 		 *
 		 *************************************************************************/
 		StreamOutputFormat GetStreamOutputFormatForAudio(void);
@@ -993,7 +1001,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 
 		/***************************************************************************
-		 * @brief  Function to get output format for audio/aux track
+		 * @brief  Function to get output format for audio track
 		 *
 		 *************************************************************************/
 		void InitiateDrmProcess();
@@ -1008,10 +1016,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
 
 		/***************************************************************************
-                 * @fn RefreshTrack
-                 *
-                 * @return void
-                 ***************************************************************************/
+		 * @fn RefreshTrack
+		 *
+		 * @return void
+		 ***************************************************************************/
 		void RefreshTrack(AampMediaType type) override;
 
 		/***************************************************************************
@@ -1020,6 +1028,15 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void PopulateAudioAndTextTracks();
+
+		/***************************************************************************
+		 * @fn NotifyTextTrackChanges
+		 * @brief Check for text track changes and send notification events
+		 *
+		 * @return void
+		 ***************************************************************************/
+		void NotifyTextTrackChanges();
+
 		/***************************************************************************
 		 * @fn ConfigureAudioTrack
 		 *
@@ -1027,12 +1044,27 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		void ConfigureAudioTrack();
 		/***************************************************************************
-                 * @fn SelectPreferredTextTrack
-                 * @param selectedTextTrack Current PreferredTextTrack Info
-                 * @return bool
-                 ***************************************************************************/
+		 * @fn SelectPreferredTextTrack
+		 * @param selectedTextTrack Current PreferredTextTrack Info
+		 * @return bool
+		 ***************************************************************************/
 		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
 
+		/***************************************************************************
+		 * @fn DoEarlyStreamSinkFlush
+		 *
+		 * @param[in] newTune true if new tune
+		 * @param[in] rate playback rate
+		 * @return bool true if stream should be flushed
+		 ***************************************************************************/
+		virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+
+		/***************************************************************************
+		 * @brief Should flush the stream sink on discontinuity or not.
+		 *
+		 * @return true if stream should be flushed, false otherwise
+		 ***************************************************************************/
+		virtual bool DoStreamSinkFlushOnDiscontinuity() override;
 	protected:
 		/***************************************************************************
 		 * @fn GetStreamInfo
@@ -1096,9 +1128,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 
-		std::mutex mMP_mutex;  // protects mMetadataProcessor
- 		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-             
+		std::mutex mMP_mutex; // protects mMetadataProcessor
+		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
 };
+
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

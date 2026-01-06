@@ -27,8 +27,6 @@
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
-
 static int PLAYERID_CNTR = 0;
 
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
@@ -91,13 +89,11 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	preferredTextTypeString(""),
 	preferredTextAccessibilityNode(),
 	mProgressReportOffset(-1),
-	mFirstFragmentTimeOffset(-1),
 	mScheduler(NULL),
 	mConfig(config),
 	mSubLanguage(),
 	mPlayerId(PLAYERID_CNTR++),
 	mIsWVKIDWorkaround(false),
-	mAuxAudioLanguage(),
 	mAbsoluteEndPosition(0),
 	mIsLive(false),
 	mIsLiveStream(false),
@@ -139,13 +135,23 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mVideoFormat(),
 	mAudioFormat(),
 	mPreviousAudioType(),
-	mAuxFormat(),
-	mCurlShared()
+	mCurlShared(),
+	mIsChunkMode(false)
 {
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+}
+
+double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
+{
+    double pts = 0.0;
+    if (g_mockPrivateInstanceAAMP != nullptr)
+    {
+        pts = g_mockPrivateInstanceAAMP->RecalculatePTS(mediaType, ptr, len);
+    }
+    return pts;
 }
 
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
@@ -187,7 +193,7 @@ AAMPPlayerState PrivateInstanceAAMP::GetState()
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
@@ -195,7 +201,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent)
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool sendStateChangeEvents )
+void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 }
 
@@ -247,12 +253,24 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
+void PrivateInstanceAAMP::enableEventProcessing()
+{
+}
+
+void PrivateInstanceAAMP::disableEventProcessing()
+{
+}
+
 void PrivateInstanceAAMP::detach()
 {
 }
 
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifySpeedChanged(rate, changeState);
+	}
 }
 
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
@@ -358,6 +376,10 @@ bool PrivateInstanceAAMP::TryStreamLock()
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetVideoMute(muted);
+	}
 }
 
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
@@ -368,11 +390,11 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
@@ -481,12 +503,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 	}else {
 		return "";
 	}
-
 }
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	std::string video = "videorectangel";
+	std::string video = "VideoRectangle";
 	return video;
 }
 
@@ -496,7 +517,7 @@ void PrivateInstanceAAMP::SetAppName(std::string name)
 
 std::string PrivateInstanceAAMP::GetAppName()
 {
-	std::string name = "appName";
+	std::string name = "AppName";
 	return name;
 }
 
@@ -520,7 +541,7 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 
 std::string PrivateInstanceAAMP::GetTextStyle()
 {
-	std::string result = "sampleStyle";
+	std::string result = "TextStyle";
 	return result;
 }
 
@@ -641,7 +662,7 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-	bool retVal = true;
+	bool retVal = false;//mDownloadsEnabled;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
@@ -651,6 +672,10 @@ bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 
 void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDownloadErrorEvent(tuneFailure, error_code);
+	}
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
@@ -791,6 +816,10 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->DisableDownloads();
+	}
 }
 
 int PrivateInstanceAAMP::GetInitialBufferDuration()
@@ -813,11 +842,6 @@ long long PrivateInstanceAAMP::GetPositionMs()
 	}
 
 	return positionMs;
-}
-
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-    return true;
 }
 
 bool PrivateInstanceAAMP::IsPlayEnabled()
@@ -1207,11 +1231,11 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	}
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs,errorCode);
 	}
 }
 
@@ -1276,11 +1300,11 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
 	return true;
 }
 
-void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat, auxFormat);
+		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat);
 	}
 }
 
@@ -1310,6 +1334,9 @@ void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMed
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		g_mockPrivateInstanceAAMP->SetVidTimeScale(vidTimeScale);
+	}
 }
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
@@ -1413,7 +1440,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 {
 }
 
@@ -1474,10 +1501,6 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 																	 long long trickStartUTCMS)
 {
 	return 0;
-}
-
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
 }
 
 void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
@@ -1579,7 +1602,7 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
     return "";
 }
 
-bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
 	return false;
 }
@@ -1623,10 +1646,22 @@ void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
 
-
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
-	mIsChunkMode = enable;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetLLDashChunkMode(enable);
+	}
+}
+
+bool PrivateInstanceAAMP::GetLLDashChunkMode()
+{
+	bool bIsChunkMode = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsChunkMode = g_mockPrivateInstanceAAMP->GetLLDashChunkMode();
+	}
+	return bIsChunkMode;
 }
 
 const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
@@ -1682,10 +1717,16 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 	return 0.0;
 }
 
-void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
 {
 }
 double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 {
 	return 0;
+}
+
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
 }

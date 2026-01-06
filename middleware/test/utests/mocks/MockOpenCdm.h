@@ -44,7 +44,7 @@ public:
 				 struct OpenCDMSession** session));
 	MOCK_METHOD(OpenCDMError, opencdm_session_update,
 				(struct OpenCDMSession * session, const uint8_t keyMessage[],
-				 const uint16_t keyLength));        
+				 const uint16_t keyLength));
 	MOCK_METHOD(OpenCDMError, opencdm_session_close, (struct OpenCDMSession* session));
 	MOCK_METHOD(OpenCDMError, opencdm_destruct_session, (struct OpenCDMSession* session));
 	MOCK_METHOD(KeyStatus, opencdm_session_status, (const struct OpenCDMSession* session, const uint8_t keyId[], const uint8_t length));

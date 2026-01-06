@@ -36,6 +36,35 @@
 
 extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtils.h; including that directly brings too many other dependencies
 
+#define AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS 20
+#define AAMPCLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
+
+/**
+ * @brief convenience macro for logging framework
+ *
+ * @param level gives priority for the logging, which drives filtering of whether it should be presented.
+ * This parameter also is used as indirection to get a human readable for log level name i.e. "INFO" "WARN"
+ *
+ * @param FORMAT is standard printf style format string followed by arguments
+ */
+#define AAMPLOG( LEVEL, FORMAT, ... ) \
+do { \
+if( (LEVEL) >= AampLogManager::aampLoglevel ) \
+{ \
+logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+} \
+} while(0)
+
+/**
+ * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
+ */
+#define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(eLOGLEVEL_TRACE, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(eLOGLEVEL_DEBUG, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_INFO(FORMAT, ...)  AAMPLOG(eLOGLEVEL_INFO, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_WARN(FORMAT, ...)  AAMPLOG(eLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_MIL(FORMAT, ...)   AAMPLOG(eLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_ERR(FORMAT, ...)   AAMPLOG(eLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
+
 /**
  * @brief maximum supported mediatype for latency logging
  */
@@ -85,9 +114,9 @@ struct AAMPAbrInfo
 	AAMPAbrType abrCalledFor;
 	int currentProfileIndex;
 	int desiredProfileIndex;
-	long currentBandwidth;
-	long desiredBandwidth;
-	long networkBandwidth;
+	BitsPerSecond currentBandwidth;
+	BitsPerSecond desiredBandwidth;
+	BitsPerSecond networkBandwidth;
 	AAMPNetworkErrorType errorType;
 	int errorCode;
 };
@@ -97,7 +126,7 @@ struct AAMPAbrInfo
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(AAMP_LogLevel level, const char* func, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
 
 extern thread_local int gPlayerId;
 
@@ -140,7 +169,7 @@ public:
 		/* loggerData is the playerId ... set it in case we are in a helper thread that the
 		** caller has spawned. */
 		UsingPlayerId playerId(loggerData);
-		logprintf(eLOGLEVEL_MIL , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+		logprintf(eLOGLEVEL_MIL, __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 	}
 	
 	/**
@@ -170,7 +199,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	static void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
+	static void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type )
 	{
 		std::string location;
 		std::string symptom;
@@ -189,13 +218,8 @@ public:
 				break; /*AAMPNetworkErrorHttp*/
 				
 			case AAMPNetworkErrorTimeout:
-			{
-				if(errorCode > 0)
-				{
-					logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
+				logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
 							  errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
-				}
-			}
 				break; /*AAMPNetworkErrorTimeout*/
 				
 			case AAMPNetworkErrorCurl:
@@ -329,9 +353,15 @@ public:
 				symptom += " (or) freeze/buffering";
 			}
 			
-			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__, "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%ld]->desiredBandwidth[%ld] nwBandwidth[%ld] reason='%s' symptom='%s'",
-					  profile.c_str(), pstAbrInfo->currentProfileIndex, pstAbrInfo->desiredProfileIndex, pstAbrInfo->currentBandwidth,
-					  pstAbrInfo->desiredBandwidth, pstAbrInfo->networkBandwidth, reason.c_str(), symptom.c_str());
+			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__,
+					  "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%" BITSPERSECOND_FORMAT "]->desiredBandwidth[%" BITSPERSECOND_FORMAT "] nwBandwidth[%" BITSPERSECOND_FORMAT "] reason='%s' symptom='%s'",
+					  profile.c_str(),
+					  pstAbrInfo->currentProfileIndex,
+					  pstAbrInfo->desiredProfileIndex,
+					  pstAbrInfo->currentBandwidth,
+					  pstAbrInfo->desiredBandwidth,
+					  pstAbrInfo->networkBandwidth,
+					  reason.c_str(), symptom.c_str());
 		}
 	}
 	
@@ -357,6 +387,7 @@ public:
 		if( !locked )
 		{
 			aampLoglevel = newLevel;
+			AAMPLOG_MIL("Log level set to %d", aampLoglevel);
 		}
 	}
 	
@@ -411,33 +442,5 @@ public:
  * @return void
  */
 void DumpBlob(const unsigned char *ptr, size_t len);
-
-#define AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS 20
-#define AAMPCLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
-
-/**
- * @brief convenience macro for logging framework
- *
- * @param level gives priority for the logging, which drives filtering of whether it should be presented.  This parameter also is used as indirection to get a human readable for log level name i.e. "INFO" "WARN"
- *
- * @param FORMAT is standard printf style format string followed by arguments
- */
-#define AAMPLOG( LEVEL, FORMAT, ... ) \
-do { \
-if( (LEVEL) >= AampLogManager::aampLoglevel ) \
-{ \
-logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
-} \
-} while(0)
-
-/**
- * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
- */
-#define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(eLOGLEVEL_TRACE, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(eLOGLEVEL_DEBUG, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_INFO(FORMAT, ...)  AAMPLOG(eLOGLEVEL_INFO, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_WARN(FORMAT, ...)  AAMPLOG(eLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_MIL(FORMAT, ...)   AAMPLOG(eLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_ERR(FORMAT, ...)   AAMPLOG(eLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
 
 #endif /* AAMPLOGMANAGER_H */

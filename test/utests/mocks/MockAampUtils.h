@@ -22,7 +22,7 @@
 
 #include <gmock/gmock.h>
 #include "main_aamp.h"
-#include "middleware/InterfacePlayerRDK.h"
+#include "InterfacePlayerRDK.h"
 class MockAampUtils
 {
 public:
@@ -37,8 +37,6 @@ public:
 	MOCK_METHOD(double, GetNetworkTime, (const std::string& remoteUrl, int *http_error , std::string NetworkProxy));
 
 	MOCK_METHOD(std::string, Getiso639map_NormalizeLanguageCode, (std::string, LangCodePreference));
-
-	MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp));
 };
 
 extern MockAampUtils *g_mockAampUtils;

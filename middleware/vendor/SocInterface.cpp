@@ -231,3 +231,20 @@ void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = status;
 }
+
+/**
+ * @brief Configure Capability Acceptance for GStreamer Transform
+ *
+ * Sets up the accept_caps function pointer for a GStreamer base transform class.
+ * This allows the transform element to decide whether it can accept a given set of capabilities (caps),
+ * which is essential for negotiating media formats during pipeline setup.
+ *
+ * @param base_transform_class Pointer to the GStreamer base transform class to configure.
+ * @param accept_caps_func Function used to determine if the transform accepts specific caps.
+ */
+void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
+													AcceptCapsFunc accept_caps_func) {
+    if (accept_caps_func) {
+        base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(accept_caps_func);
+    }
+}

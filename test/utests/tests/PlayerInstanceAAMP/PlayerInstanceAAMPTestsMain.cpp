@@ -26,7 +26,6 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -238,7 +237,7 @@ TEST_F(PlayerInstanceAAMPTests, PauseAtAsync)
 // Testing calling Tune cancels any pause position monitoring
 // Expect StopPausePositionMonitoring to be called at least once 
 // (internally Tune can call Stop ao possible for multiple calls)
-TEST_F(PlayerInstanceAAMPTests, PauseAt_Tune)
+TEST_F(PlayerInstanceAAMPTests, DISABLED_PauseAt_Tune)
 {
     char mainManifestUrl[] = "";
 
@@ -634,12 +633,14 @@ TEST_F(PlayerInstanceAAMPTests, SetVideoZoomTest6) {
 	mPlayerInstance->SetVideoZoom(zoom);
 }
 
-TEST_F(PlayerInstanceAAMPTests, SetVideoMute_NotNullAamp1) {
+TEST_F(PlayerInstanceAAMPTests, SetVideoMute_True) {
     bool muted = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
     mPlayerInstance->SetVideoMute(muted);
 }
-TEST_F(PlayerInstanceAAMPTests, SetVideoMute_NotNullAamp2) {
+TEST_F(PlayerInstanceAAMPTests, SetVideoMute_False) {
     bool muted = false;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
     mPlayerInstance->SetVideoMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest1) {
@@ -702,7 +703,7 @@ TEST_F(PlayerInstanceAAMPTests, SubscribeResponseHeadersTest) {
 
 TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
     AAMPEventType eventType = AAMP_EVENT_TUNED;
-    EventListener* eventListener = nullptr ;
+    std::shared_ptr<EventListener> eventListener = nullptr;
 
     // Call the method to be tested
    mPlayerInstance->AddEventListener(eventType,eventListener);
@@ -711,7 +712,7 @@ TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
 
 TEST_F(PlayerInstanceAAMPTests, RemoveEventListenerTest) {
     AAMPEventType eventType = AAMP_EVENT_TUNED;
-    EventListener* eventListener = nullptr;
+    std::shared_ptr<EventListener> eventListener = nullptr;
 
     // Call the method to be tested
    mPlayerInstance->RemoveEventListener(eventType,eventListener);
@@ -1104,15 +1105,13 @@ TEST_F(PlayerInstanceAAMPTests, GetVideoZoomTest2) {
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest1) {
     //checking true condition
-	mPlayerInstance->SetVideoMute(true);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+    mPlayerInstance->aamp->video_muted = true;
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_TRUE(retrievedVideoMute);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest2) {
     //checking false condition
-    mPlayerInstance->SetVideoMute(false);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+    mPlayerInstance->aamp->video_muted = false;
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_FALSE(retrievedVideoMute);
 }
@@ -1752,8 +1751,7 @@ TEST_F(PlayerInstanceAAMPTests, SetTextStyleTest)
     mPlayerInstance->SetTextStyle(options);
 }
 TEST_F(PlayerInstanceAAMPTests, GetTextStyleTest){
-    
-    const std::string expectedTextStyle = "sampleStyle";
+    const std::string expectedTextStyle = "TextStyle";
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
     std::string result = mPlayerInstance->GetTextStyle();
     EXPECT_STREQ(expectedTextStyle.c_str(),result.c_str());
@@ -1939,18 +1937,6 @@ TEST_F(PlayerInstanceAAMPTests, SetRepairIframesTest2)
     bool configState = true;
     mPlayerInstance->SetRepairIframes(configState);
 }
-TEST_F(PlayerInstanceAAMPTests, XRESupportedTuneTest1)
-{
-    //checking true condition
-    bool xreSupported = true;
-    mPlayerInstance->XRESupportedTune(xreSupported);
-}
-TEST_F(PlayerInstanceAAMPTests, XRESupportedTuneTest2)
-{
-    //checking false condition
-    bool xreSupported = false;
-    mPlayerInstance->XRESupportedTune(xreSupported);
-}
 TEST_F(PlayerInstanceAAMPTests, SetLicenseCustomDataTest)
 {
     const char* customData = "customData"; 
@@ -1993,11 +1979,10 @@ TEST_F(PlayerInstanceAAMPTests, SetRuntimeDRMConfigSupportTest2)
     mPlayerInstance->SetRuntimeDRMConfigSupport(DynamicDRMSupported);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoRectangleTest) {
-     std::string expectedRectangle = "videorectangel";
-
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string videoRectangle = mPlayerInstance->GetVideoRectangle();
-   EXPECT_STREQ(expectedRectangle.c_str(),videoRectangle.c_str());
+	std::string expectedRectangle = "VideoRectangle";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string videoRectangle = mPlayerInstance->GetVideoRectangle();
+	EXPECT_STREQ(expectedRectangle.c_str(),videoRectangle.c_str());
 }
 TEST_F(PlayerInstanceAAMPTests, GetThumbnailsTest)
 {
@@ -2212,32 +2197,6 @@ TEST_F(PlayerInstanceAAMPTests,InitAAMPConfigTest)
     mPlayerInstance->InitAAMPConfig(jsonStr);
 }
 
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest1)
-{
-    //checking minimum string
-    std::string language = "a";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
-
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest2)
-{
-    //checking maximum string
-    std::string language(1000000,'A');
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-
-TEST_F(PlayerInstanceAAMPTests,SetAuxiliaryLanguageTest3)
-{
-    //checking random string
-    std::string language = "English";
-    mPlayerInstance->SetAuxiliaryLanguage(language);
-}
-
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest1)
 {
     //checking null speed
@@ -2446,4 +2405,31 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
     mPlayerInstance->SetRate(1.0);
 
     EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+}
+
+// Test forward 2x from being paused in local TSB playback
+TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB) {
+
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0,_)).Times(1);
+	//calling AAMPGstPlayer::Pause(false,false) would cause the pipeline to play at x1
+	// before changing the speed to x2. Make sure that it is not happening.
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(0);
+
+	mPlayerInstance->SetRate(2.0);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
+
 }

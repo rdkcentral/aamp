@@ -697,7 +697,7 @@ Url &Url::scheme(const std::string& s) {
     std::string o(s);
     to_lower(o);
     if (o!=m_scheme) {
-        m_scheme=o;
+        m_scheme=std::move(o);
         m_built=false;
         if ((m_scheme=="http" && m_port=="80") || (m_scheme=="https" && m_port=="443"))
             m_port="";
@@ -773,7 +773,7 @@ Url &Url::host(const std::string& h, std::uint8_t ip_v) {
     }
     
     if (m_host!=o||m_ip_v!=ip_v) {
-        m_host=o;
+        m_host=std::move(o);
         m_ip_v=ip_v;
         m_built=false;
     }
@@ -797,7 +797,7 @@ Url &Url::port(const std::string& p) {
     if ((m_scheme=="http" && o=="80") || (m_scheme=="https" && o=="443"))
         o="";
     if (m_port!=o) {
-        m_port=o;
+        m_port=std::move(o);
         m_built=false;
     }
     return *this;
@@ -818,7 +818,7 @@ Url &Url::path(const std::string& p) {
     lazy_parse();
     std::string o(p);
     if (m_path!=o) {
-        m_path=o;
+        m_path=std::move(o);
         m_built=false;
     }
     return *this;
@@ -1053,14 +1053,14 @@ void Url::parse_url() const {
     if (fragment_b)
         _fragment=decode(fragment_b, fragment_e);
 
-    m_scheme=_scheme;
-    m_user=_user;
-    m_host=_host;
-    m_ip_v=ip_v;
-    m_port=_port;
-    m_path=_path;
-    m_query=query_v;
-    m_fragment=_fragment;
+    m_scheme= std::move(_scheme);
+    m_user= std::move(_user);
+    m_host= std::move(_host);
+    m_ip_v= ip_v;
+    m_port= std::move(_port);
+    m_path= std::move(_path);
+    m_query= std::move(query_v);
+    m_fragment= std::move(_fragment);
     m_parse=true;
     m_built=false;
 }
@@ -1241,7 +1241,7 @@ bool Url::operator==(const Url &other) const {
  */
 Url Url::resolveOrReplace(Url relativeOrAbs) {
     if (relativeOrAbs.isRelative()) {
-        return resolve(relativeOrAbs);
+        return resolve(std::move(relativeOrAbs));
     } else {
         return relativeOrAbs;
     }

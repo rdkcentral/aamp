@@ -13,8 +13,8 @@ function install_build_googletest_fn()
         if [ -d googletest ] ; then
             rm -rf googletest
             # uninstall?
-            #rm $LOCAL_DEPS_BUILD_DIR/lib/libgmock.a	
-            #rm $LOCAL_DEPS_BUILD_DIR/lib/libgmock_main.a	
+            #rm $LOCAL_DEPS_BUILD_DIR/lib/libgmock.a
+            #rm $LOCAL_DEPS_BUILD_DIR/lib/libgmock_main.a
             #rm $LOCAL_DEPS_BUILD_DIR/lib/libgtest.a
         fi
     fi
@@ -33,7 +33,7 @@ function install_build_googletest_fn()
         echo "Building googletest"
         mkdir -p build
         cd build
-        if [[ "$OSTYPE" == "darwin"* ]]; then    
+        if [[ "$OSTYPE" == "darwin"* ]]; then
             env PKG_CONFIG_PATH=${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR}
         elif [[ "$OSTYPE" == "linux"* ]]; then
             env PKG_CONFIG_PATH=${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig cmake .. -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR}
@@ -44,4 +44,3 @@ function install_build_googletest_fn()
         popd
     fi
 }
-

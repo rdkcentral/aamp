@@ -27,25 +27,14 @@ set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmOcdm)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/middleware/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/middleware/drm/ ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware/externals/playersecmanager)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 include_directories(${AAMP_ROOT}/middleware/play)
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${RFC_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${DRM_ROOT}/mocks)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/vendor)
-include_directories(${AAMP_ROOT}/test/utests/mocks)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
@@ -69,8 +58,8 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakeProcessProtectionHls.cpp
 				 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerSecInterface.cpp
-				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerSecManager.cpp
-				 ${AAMP_ROOT}/test/utests/fakes/FakeThunderAccessPlayer.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManager.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManagerSession.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeBase64.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp)
@@ -87,6 +76,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
 				 ${AAMP_ROOT}/AampProfiler.cpp
 				 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
+				 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp

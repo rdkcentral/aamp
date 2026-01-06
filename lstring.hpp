@@ -99,9 +99,8 @@ public:
 	
 	lstring mystrpbrk( void )
 	{ // extract next LF-delimited substring
-		lstring token;
-		size_t delim = find(CHAR_LF);
-		token = lstring(ptr,delim);
+        size_t delim = find(CHAR_LF);
+        lstring token = lstring(ptr,delim);
 		while( token.peekLastChar() == CHAR_CR)
 		{ // trim any final CR characters
 			token.len--;
@@ -239,7 +238,13 @@ public:
 			}
 			else if( c=='.' )
 			{
-				assert( afterDecimal == false );
+				if (afterDecimal)
+				{
+					throw std::runtime_error(
+						std::string("lstring::atof: multiple decimal points in string '") +
+						std::string(ptr, len) + "'"
+					);
+				}
 				afterDecimal = true;
 			}
 			else if( c==',' )
@@ -248,7 +253,10 @@ public:
 			}
 			else
 			{
-				assert(0);
+				throw std::runtime_error(
+					std::string("lstring::atof: unexpected character '") + c +
+					"' in string '" + std::string(ptr, len) + "'"
+				);
 			}
 		}
 		return ival/(double)precision;

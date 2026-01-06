@@ -27,7 +27,6 @@
 #define __PROCESS_HANDLER_H__
 
 #include <string>
-
 /**
  * @class ProcessHandler
  * @brief Class for controlling process from AAMP

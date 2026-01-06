@@ -23,7 +23,7 @@
  */
 #pragma once
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 class Command
 {

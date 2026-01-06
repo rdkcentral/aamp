@@ -30,6 +30,5 @@ index e1a6ebf..5750031 100644
          segment.duration = demux->segment.duration;
          segment.base = gst_segment_to_running_time (&demux->segment,
              GST_FORMAT_TIME, demux->segment.position);
--- 
+--
 2.14.2
-

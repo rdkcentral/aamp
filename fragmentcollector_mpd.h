@@ -42,7 +42,9 @@
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampMPDParseHelper.h"
-#include "AampTrackWorker.h"
+#include "AampTrackWorker.hpp"
+#include "AampTrackWorkerManager.hpp"
+#include "AampDownloadInfo.hpp"
 
 using namespace dash;
 using namespace std;
@@ -65,94 +67,36 @@ struct ProfileInfo
 	int representationIndex;
 };
 
-/**
- * @struct FragmentDescriptor
- * @brief Stores information of dash fragment
- */
-struct FragmentDescriptor
+class AampDashWorkerJob : public aamp::AampTrackWorkerJob
 {
-private :
-	std::string matchingBaseURL;
-public :
-	std::string manifestUrl;
-	uint32_t Bandwidth;
-	std::string RepresentationID;
-	uint64_t Number;
-	double Time;				//In units of timescale
-	bool bUseMatchingBaseUrl;
-	int64_t nextfragmentNum;
-	double nextfragmentTime;
-	uint32_t TimeScale;
-	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0), TimeScale(1)
-	{
-	}
+private:
+	std::function<void()> mJobFunction;
 
-	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime), TimeScale(p.TimeScale)
+public:
+	AampDashWorkerJob(std::function<void()> jobFunction) : mJobFunction(std::move(jobFunction)) {}
+	/**
+	 * @fn Execute
+	 * @brief Execute the job function
+	 */
+	void Execute() override
 	{
-	}
-
-	FragmentDescriptor& operator=(const FragmentDescriptor &p)
-	{
-		manifestUrl = p.manifestUrl;
-		RepresentationID.assign(p.RepresentationID);
-		Bandwidth = p.Bandwidth;
-		Number = p.Number;
-		Time = p.Time;
-		matchingBaseURL = p.matchingBaseURL;
-		nextfragmentNum = p.nextfragmentNum;
-		nextfragmentTime = p.nextfragmentTime;
-		TimeScale = p.TimeScale;
-		return *this;
-	}
-	std::string GetMatchingBaseUrl() const
-	{
-		return matchingBaseURL;
-	}
-
-	void ClearMatchingBaseUrl()
-	{
-		matchingBaseURL.clear();
-	}
-	void AppendMatchingBaseUrl( const std::vector<IBaseUrl *>*baseUrls )
-	{
-		if( baseUrls && baseUrls->size()>0 )
+		if (mJobFunction)
 		{
-			const std::string &url = baseUrls->at(0)->GetUrl();
-			if( url.empty() )
-			{
-			}
-			else if( aamp_IsAbsoluteURL(url) )
-			{
-				if(bUseMatchingBaseUrl)
-				{
-					std::string prefHost = aamp_getHostFromURL(manifestUrl);
-					for (auto & item : *baseUrls) {
-						std::string itemUrl = item->GetUrl();
-						std::string host  = aamp_getHostFromURL(itemUrl);
-						if(0 == prefHost.compare(host))
-						{
-							matchingBaseURL = item->GetUrl();
-							return;
-						}
-					}
-				}
-				matchingBaseURL = url;
-			}
-			else if( url.rfind("/",0)==0 )
-			{
-				matchingBaseURL = aamp_getHostFromURL(matchingBaseURL);
-				matchingBaseURL += url;
-				AAMPLOG_WARN( "baseURL with leading /" );
-			}
-			else
-			{
-				if( !matchingBaseURL.empty() && matchingBaseURL.back() != '/' )
-				{ // add '/' delimiter only if parent baseUrl doesn't already end with one
-					matchingBaseURL += "/";
-				}
-				matchingBaseURL += url;
-			}
+			mJobFunction(); // Call the provided job function
 		}
+		else
+		{
+			AAMPLOG_WARN("AampDashWorkerJob::Execute called with empty job function");
+		}
+	}
+	/**
+	 * @fn Clone
+	 * @brief Clone the job for worker pool
+	 * @return shared_ptr to cloned job
+	 */
+	aamp::AampTrackWorkerJobUniquePtr Clone() const override
+	{
+		return aamp_utils::make_unique<AampDashWorkerJob>(mJobFunction);
 	}
 };
 
@@ -214,10 +158,9 @@ public:
 	 * @fn GetStreamFormat
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
-	 * @param[out]  auxOutputFormat - format of aux audio track
 	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
 	/**
 	 * @fn GetStreamPosition
 	 */
@@ -232,8 +175,8 @@ public:
 	 */
 	double GetFirstPTS() override;
 	/**
-         * @fn GetMidSeekPosOffset
-         */
+	 * @fn GetMidSeekPosOffset
+	 */
 	double GetMidSeekPosOffset() override;
 	/**
 	 * @fn GetStartTimeOfFirstPTS
@@ -277,13 +220,13 @@ public:
 	/**
 	 * @fn GetAvailableAudioTracks
 	 * @param[in] tracks - available audio tracks in period
- 	 * @param[in] trackIndex - index of current audio track
+	 * @param[in] trackIndex - index of current audio track
 	 */
 	virtual std::vector<AudioTrackInfo> & GetAvailableAudioTracks(bool allTrack=false) override;
 	/**
-         * @brief Gets all/current available text tracks
-         * @retval vector of tracks
-         */
+		 * @brief Gets all/current available text tracks
+		 * @retval vector of tracks
+		 */
 	virtual std::vector<TextTrackInfo>& GetAvailableTextTracks(bool allTrack=false) override;
 
 	/**
@@ -295,11 +238,10 @@ public:
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
 
-
 	/**
-         * @fn GetProfileCount
-         *
-         */
+	 * @fn GetProfileCount
+	 *
+	 */
 	int GetProfileCount() override;
 	/**
 	 * @fn GetProfileIndexForBandwidth
@@ -350,11 +292,12 @@ public:
 	 * @param fragmentDuration duration of fragment in seconds
 	 * @param isInitializationSegment true if fragment is init fragment
 	 * @param curlInstance curl instance to be used to fetch
+	 * @param fcsContent true if content is inside FailOver tag
 	 * @param discontinuity true if fragment is discontinuous
 	 * @param pto presentation time offset in seconds
 	 * @param timeScale  denominator for fixed point math
 	 */
-	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
+	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool fscContent = false, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0, std::string range = "");
 	/**
 	 * @fn PushNextFragment
 	 * @param pMediaStreamContext Track object
@@ -368,7 +311,7 @@ public:
 	 * @param skipTime time to skip in seconds
 	 * @param updateFirstPTS true to update first pts state variable
 	 * @param skipToEnd true to skip to the end of content
- 	 */
+	 */
 	double SkipFragments( class MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS = false, bool skipToEnd = false);
 	/**
 	 * @fn GetFirstPeriodStartTime
@@ -388,7 +331,7 @@ public:
 	 * @param[in] adaptationSet Adaptation set object
 	 * @param[out] selectedRepIdx - Selected representation index
 	 * @param[out] selectedRepBandwidth - selected audio track bandwidth
- 	 */
+	  */
 	void GetPreferredTextRepresentation(IAdaptationSet *adaptationSet, int &selectedRepIdx,	uint32_t &selectedRepBandwidth, unsigned long long &score, std::string &name, std::string &codec);
 	static Accessibility getAccessibilityNode(void *adaptationSet);
 	static Accessibility getAccessibilityNode(AampJsonObject &accessNode);
@@ -410,45 +353,45 @@ public:
 	//Apis for sidecar caption support
 
 	/**
-         * @fn InitSubtitleParser
-         * @param[in] data - subtitle data from application
-         * @return void
-         */
+	 * @fn InitSubtitleParser
+	 * @param[in] data - subtitle data from application
+	 * @return void
+	 */
 	void InitSubtitleParser(char *data) override;
 
 	/**
-         * @fn ResetSubtitle
-         * @return void
-         */
+	 * @fn ResetSubtitle
+	 * @return void
+	 */
 	void ResetSubtitle() override;
 
 	/**
-         * @fn MuteSubtitleOnPause
-         * @return void
-         */
+	 * @fn MuteSubtitleOnPause
+	 * @return void
+	 */
 	void MuteSubtitleOnPause() override;
 
 	/**
-         * @fn ResumeSubtitleOnPlay
-         * @param[in] mute - mute status
-         * @param[in] data - subtitle data from application
-         * @return void
-         */
+	 * @fn ResumeSubtitleOnPlay
+	 * @param[in] mute - mute status
+	 * @param[in] data - subtitle data from application
+	 * @return void
+	 */
 	void ResumeSubtitleOnPlay(bool mute, char *data) override;
 
 	/**
-         * @fn MuteSidecarSubtitles
-         * @param[in] mute - mute/unmute
-         * @return void
-         */
+	 * @fn MuteSidecarSubtitles
+	 * @param[in] mute - mute/unmute
+	 * @return void
+	 */
 	void MuteSidecarSubtitles(bool mute) override;
 
 	/**
-         * @fn ResumeSubtitleAfterSeek
-         * @param[in] mute - mute status
-         * @param[in] data - subtitle data from application
-         * @return void
-         */
+	 * @fn ResumeSubtitleAfterSeek
+	 * @param[in] mute - mute status
+	 * @param[in] data - subtitle data from application
+	 * @return void
+	 */
 	void ResumeSubtitleAfterSeek(bool mute, char *data) override;
 
 	/**
@@ -478,7 +421,7 @@ public:
 
 	// CMCD Get nor and nrr fields
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType);
-	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType);
+	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType);
 
 	 /*
 	 * @fn NotifyFirstVideoPTS
@@ -488,12 +431,21 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 
-	 /**
+	/**
 	 * @fn GetAvailabilityStartTime
- 	 * @brief  Returns AvailabilityStartTime from the manifest
- 	 * @retval double . AvailabilityStartTime
+	 * @brief  Returns AvailabilityStartTime from the manifest
+	 * @retval double . AvailabilityStartTime
 	 */
 	double GetAvailabilityStartTime() override;
+
+	/**
+	 * @fn GenerateFragmentURLList
+	 * @param[out] urlList fragment url list, bitrate as key and url as value
+	 * @param[in] pMediaStreamContext MediaStreamContext object
+	 * @param[in] isInit true if init fragment
+	 * @return fragment url list
+	 */
+	void GenerateFragmentURLList(URLBitrateMap& urlList, MediaStreamContext *pMediaStreamContext, bool isInit);
 
 	/**
 	 * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
@@ -551,6 +503,30 @@ public:
 	 */
 	bool UseIframeTrack(void) override;
 
+	/*
+	 * @fn DoEarlyStreamSinkFlush
+	 * @brief Checks if the stream need to be flushed or not
+	 *
+	 * @param newTune true if this is a new tune, false otherwise
+	 * @param rate playback rate
+	 * @return true if stream should be flushed, false otherwise
+	 */
+	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+
+	/**
+	 * @brief Should flush the stream sink on discontinuity or not.
+	 * When segment timeline is enabled, media processor will be in pass-through mode
+	 * and will not do delayed flush.
+	 * @return true if stream should be flushed, false otherwise
+	 */
+	virtual bool DoStreamSinkFlushOnDiscontinuity() override;
+
+	/**
+	 * @fn clearFirstPTS
+	 * @brief Clears the mFirstPTS value to trigger update of first PTS
+	 */
+	void clearFirstPTS(void) override;
+
 protected:
 	/**
 	 * @fn StartFromAampLocalTsb
@@ -605,13 +581,10 @@ protected:
 	 * @fn AdvanceTrack
 	 * @param[in] trackIdx - track index
 	 * @param[in] trickPlay - flag indicates if its trickplay
-	 * @param[in/out] waitForFreeFrag - flag is updated if we are waiting for free fragment
-	 * @param[in/out] bCacheFullState - flag is updated if the cache is full for this track
-	 * @param[in] throttleAudio - flag indicates if we should throttle audio download
-	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
+	 * @param[in, out] delta - delta for skipping fragments
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double &delta);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
@@ -676,7 +649,7 @@ protected:
 	 * @fn TsbReader
 	 * @return void
 	 */
-	void TsbReader();
+	virtual void TsbReader();
 
 	/**
 	 * @fn GetStreamInfo
@@ -797,13 +770,7 @@ protected:
 	 * @param isInit true if its the first playlist download
 	 * @param reportBulkMeta true if bulk metadata is enabled
 	 */
-	void ProcessTrickModeRestriction(Node* node, const std::string& AdID, uint64_t startMS, bool isInit, bool reportBulkMeta);
-    	/**
-	 * @fn Fragment downloader thread
-	 * @param trackIdx track index
-	 * @param initialization Initialization string
-	 */
-    	void TrackDownloader(int trackIdx, std::string initialization);
+	void ProcessTrickModeRestriction(Node *node, const std::string &AdID, uint64_t startMS, bool isInit, bool reportBulkMeta);
 	/**
 	 * @fn FetchAndInjectInitFragments
 	 * @param discontinuity number of tracks and discontinuity true if discontinuous fragment
@@ -856,10 +823,15 @@ protected:
 	 */
 	bool GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
 	/**
+	 * @fn ExtractAndAddSubtitleMediaHeader
+	 * @return bool
+	 */
+	bool ExtractAndAddSubtitleMediaHeader();
+	/**
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIdxForBandwidthNotification(uint32_t bandwidth);
+	int GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth);
 	/**
 	 * @fn GetCurrentMimeType
 	 * @param AampMediaType type of media
@@ -869,11 +841,11 @@ protected:
 	/**
 	 * @fn UpdateTrackInfo
 	 */
-	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex=false);
+	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
- 	 */
+	 */
 	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
@@ -884,7 +856,7 @@ protected:
 	/**
 	 * @fn ApplyLiveOffsetWorkaroundForSAP
 	 * @param seekPositionSeconds seek position in seconds.
- 	 */
+	 */
 	void ApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds);
 	/**
 	 * @fn GetFirstValidCurrMPDPeriod
@@ -962,13 +934,7 @@ protected:
 	 * @param[out] representationIndex - representation within adaptation with matching params
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
-	/**
-	 * @fn ConstructFragmentURL
-	 * @param[out] fragmentUrl fragment url
-	 * @param fragmentDescriptor descriptor
-	 * @param media media information string
-	 */
-	void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
+
 	double GetEncoderDisplayLatency();
 	/**
 	 * @fn StartLatencyMonitorThread
@@ -984,22 +950,22 @@ protected:
 	 * @param[out] selectedRepBandwidth - selected audio track bandwidth
 	 * @param disableEC3 whether EC3 disabled by config
 	 * @param disableATMOS whether ATMOS audio disabled by config
- 	 */
+	  */
 	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
 
 	/**
-         * @brief Get the audio track information from all period
-         * updated member variable mAudioTracksAll
-         * @return void
-         */
+		 * @brief Get the audio track information from all period
+		 * updated member variable mAudioTracksAll
+		 * @return void
+		 */
 	void PopulateAudioTracks(void);
 
 	/**
-         * @brief Get the audio track information from all preselection node of the period
-         * @param period Node ans IMPDElement
-         * @return void
-         */
+		 * @brief Get the audio track information from all preselection node of the period
+		 * @param period Node ans IMPDElement
+		 * @return void
+		 */
 	void ParseAvailablePreselections(IMPDElement *period, std::vector<AudioTrackInfo> & audioAC4Tracks);
 
 	/**
@@ -1065,6 +1031,29 @@ protected:
 	 */
 	void InitializeWorkers();
 
+	/**
+	 * @fn ClearWorkers
+	 * @brief Remove each worker threads
+	 *
+	 * @return void
+	 */
+	void ClearWorkers();
+
+	/**
+	 * @fn OnFragmentDownloadComplete
+	 * @brief Callback function to be called after fragment download is complete
+	 * @param[in] status - download status, true if success
+	 * @param[in] downloadInfo - download information
+	 */
+	void OnFragmentDownloadComplete(bool status, DownloadInfoPtr downloadInfo);
+
+	/**
+	 * @fn OnFragmentDownloadFailed
+	 * @brief Callback function to be called after fragment download is failed
+	 * @param[in] downloadInfo - download information
+	 */
+	void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
+
 	uint64_t FindPositionInTimeline(class MediaStreamContext *pMediaStreamContext, const std::vector<ITimeline *>&timelines);
 
 	/**
@@ -1079,8 +1068,8 @@ protected:
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
 	 */
 	void SendAdPlacementEvent(AAMPEventType type, const std::string& adId,
-                             uint32_t position, AampTime absolutePosition, uint32_t offset,
-                             uint32_t duration, bool immediate);
+							 uint32_t position, AampTime absolutePosition, uint32_t offset,
+							 uint32_t duration, bool immediate);
 
 	/**
 	 * @brief Send ad reservation event to listeners
@@ -1092,16 +1081,19 @@ protected:
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-                               uint64_t position, AampTime absolutePosition, bool immediate);
+							   uint64_t position, AampTime absolutePosition, bool immediate);
+
+	/**
+	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
+	 */
+	void SendMediaHeaders(void);
 
 	std::mutex mStreamLock;
-	bool fragmentCollectorThreadStarted;
-	bool tsbReaderThreadStarted;
 	bool abortTsbReader;
 	std::set<std::string> mLangList;
 	double seekPosition;    // Seek offset from or position at time of tuning, in seconds.
 							// The same variable is used for offset (e.g. for HLS) and position (e.g. most of the time for DASH).
-	float rate;
+	float mPlayRate;
 	std::thread fragmentCollectorThreadID;
 	std::thread tsbReaderThreadID;
 	ManifestDownloadResponsePtr mManifestDnldRespPtr ;
@@ -1118,7 +1110,7 @@ protected:
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
 	bool mUpdateManifestState;
-	StreamInfo* mStreamInfo;
+	std::vector<StreamInfo> mStreamInfo;	/**< Stream information for all profiles */
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;
 	std::string mPrevLastSegurlMedia;
@@ -1136,10 +1128,8 @@ protected:
 	AudioType mAudioType;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
-	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
-	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
-
+	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
 	// that Adaptation Set. Hence we need a mapping from a profile to
@@ -1157,7 +1147,7 @@ protected:
 	// DASH does not use abr manager to store the supported bandwidth values,
 	// hence storing max TSB bandwidth in this variable which will be used for VideoEnd Metric data via
 	// StreamAbstractionAAMP::GetMaxBitrate function,
-	long mMaxTSBBandwidth;
+	BitsPerSecond mMaxTSBBandwidth;
 
 	double mLiveEndPosition;    // Live end absolute position
 	double mCulledSeconds;      // Culled absolute position
@@ -1174,6 +1164,7 @@ protected:
 	std::vector<IFCS *>mFcsSegments;
 	AampTime mAudioSurplus;
 	AampTime mVideoSurplus;
+	bool mSeekedInPeriod; /*< Flag to indicate if seeked in period */
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.
@@ -1186,7 +1177,7 @@ protected:
 	 */
 	bool onAdEvent(AdEvent evt);
 	bool onAdEvent(AdEvent evt, double &adOffset);
- 	/**
+	 /**
 	 * @fn SetAudioTrackInfo
 	 * @param[in] tracks - available audio tracks in period
 	 * @param[in] trackIndex - index of current audio track
@@ -1242,7 +1233,6 @@ protected:
 
 	LatencyStatus latencyStatus; 		 /**< Latency status of the playback*/
 	LatencyStatus prevLatencyStatus;	 /**< Previous latency status of the playback*/
-	bool latencyMonitorThreadStarted;	 /**< Monitor latency thread  status*/
 	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
@@ -1253,7 +1243,7 @@ protected:
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
-	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
+	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

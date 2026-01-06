@@ -146,7 +146,7 @@ typedef enum
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
-	eAAMPConfig_Fragmp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
+	eAAMPConfig_FragMp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
 	eAAMPConfig_ABRBufferCheckEnabled,					/**< Flag to enable/disable buffer based ABR handling*/
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
@@ -175,7 +175,6 @@ typedef enum
 	eAAMPConfig_UseSecManager,                                              /**< Enable/Disable secmanager instead of secclient for license acquisition */
 	eAAMPConfig_EnablePTO,								/**< Enable/Disable PTO Handling */
 	eAAMPConfig_EnableAampConfigToFog,                                      /**< Enable/Disable player config to Fog on every tune*/
-	eAAMPConfig_XRESupportedTune,						/**< Enable/Disable XRE supported tune*/
 	eAAMPConfig_GstSubtecEnabled,								/**< Force Gstreamer subtec */
 	eAAMPConfig_AllowPageHeaders,						/**< Allow page http headers*/
 	eAAMPConfig_PersistHighNetworkBandwidth,				/** Flag to enable Persist High Network Bandwidth across Tunes */
@@ -209,7 +208,11 @@ typedef enum
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
+	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
 	eAAMPConfig_UseMp4Demux,
+	eAAMPConfig_CurlThroughput,
+	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
+	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
@@ -287,6 +290,7 @@ typedef enum
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
 	eAAMPConfig_TimeBasedBufferSeconds,
+	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
 	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */
@@ -595,27 +599,27 @@ public:
      	 * @param[in] cfg - Configuration enum
      	 * @return true / false 
      	 */
-	bool IsConfigSet(AAMPConfigSettingBool cfg);
-	bool GetConfigValue( AAMPConfigSettingBool cfg );
-	int GetConfigValue( AAMPConfigSettingInt cfg );
-	double GetConfigValue( AAMPConfigSettingFloat cfg );
-	std::string GetConfigValue( AAMPConfigSettingString cfg );
+	bool IsConfigSet(AAMPConfigSettingBool cfg) const;
+	bool GetConfigValue( AAMPConfigSettingBool cfg ) const;
+	int GetConfigValue( AAMPConfigSettingInt cfg ) const;
+	double GetConfigValue( AAMPConfigSettingFloat cfg ) const;
+	std::string GetConfigValue( AAMPConfigSettingString cfg ) const;
 	
-	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg) const;
 	
  	/**
      	 * @fn GetChannelOverride
      	 * @param[in] chName - channel name to search
      	 */
-	const char * GetChannelOverride(const std::string chName);    
+	const char * GetChannelOverride(const std::string chName) const;
  	/**
      	 * @fn GetChannelLicenseOverride
      	 * @param[in] chName - channel Name to override
      	 */
- 	const char * GetChannelLicenseOverride(const std::string chName);
+ 	const char * GetChannelLicenseOverride(const std::string chName) const;
 
 	/**
          * @fn ProcessConfigJson
@@ -672,7 +676,7 @@ public:
      	 * @fn GetAampConfigJSONStr
      	 * @param[in] str  - input string where config json will be stored
      	 */
-	bool GetAampConfigJSONStr(std::string &str);
+	bool GetAampConfigJSONStr(std::string &str) const;
 	/**
      	 * @fn DoCustomSetting 
      	 *
@@ -689,7 +693,7 @@ public:
      	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
-	std::string GetUserAgentString();
+	std::string GetUserAgentString() const;
 private:
 
 	/**
@@ -718,10 +722,10 @@ private:
 		 */
 	void CustomArrayRead( cJSON *customArray,ConfigPriority owner );
 
-	const char * GetConfigName(AAMPConfigSettingBool cfg );
-	const char * GetConfigName(AAMPConfigSettingInt cfg );
-	const char * GetConfigName(AAMPConfigSettingFloat cfg );
-	const char * GetConfigName(AAMPConfigSettingString cfg );
+	const char * GetConfigName(AAMPConfigSettingBool cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingInt cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingFloat cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingString cfg ) const;
 	
 	std::vector<struct customJson>vCustom;
 	std::vector<struct customJson>::iterator vCustomIt;

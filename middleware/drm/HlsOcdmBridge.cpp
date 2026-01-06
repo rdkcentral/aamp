@@ -62,7 +62,6 @@ DrmReturn HlsOcdmBridge::SetDecryptInfo( const struct DrmInfo *drmInfo,  int acq
 
 DrmReturn HlsOcdmBridge::Decrypt( int bucketTypeIn, void *encryptedDataPtr, size_t encryptedDataLen,int timeInMs)
 {
-        //dn808DrmProfilerBucketType bucketType = (DrmProfilerBucketType)bucketTypeIn;
 
 	DrmReturn result = eDRM_ERROR;
 
