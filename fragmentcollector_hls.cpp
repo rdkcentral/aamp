@@ -5058,8 +5058,18 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 ***************************************************************************/
 void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat)
 {
-	primaryOutputFormat = trackState[eMEDIATYPE_VIDEO]->streamOutputFormat;
-	audioOutputFormat = trackState[eMEDIATYPE_AUDIO]->streamOutputFormat;
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
+		primaryOutputFormat = FORMAT_UNKNOWN;
+		audioOutputFormat = FORMAT_UNKNOWN;
+	}
+	else
+	{
+		primaryOutputFormat = trackState[eMEDIATYPE_VIDEO]->streamOutputFormat;
+		audioOutputFormat = trackState[eMEDIATYPE_AUDIO]->streamOutputFormat;
+	}
 	subOutputFormat = trackState[eMEDIATYPE_SUBTITLE]->streamOutputFormat;
 }
 /***************************************************************************

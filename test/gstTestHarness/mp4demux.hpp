@@ -73,8 +73,8 @@ private:
 		uint16_t height;
 		uint16_t frame_count;
 		uint16_t depth;
-		uint32_t horizresolution;
-		uint32_t vertresolution;
+		uint32_t horizontal_resolution;
+		uint32_t vertical_resolution;
 	} video;
 	
 	uint32_t stream_format;
@@ -381,7 +381,7 @@ private:
 	
 	// ISO/IEC 23001-7
 	void parseSampleAuxiliaryInformationOffsets( void )
-	{ // offsets to auxilliary information for samples or groups of samples
+	{ // offsets to auxiliary information for samples or groups of samples
 		// 00 00 00 01
 		// 63 65 6e 63 'cenc'
 		// 00 00 00 00
@@ -641,8 +641,8 @@ private:
 		SkipBytes(16); // always zero?
 		video.width = ReadU16();
 		video.height = ReadU16();
-		video.horizresolution = ReadU32();
-		video.vertresolution = ReadU32();
+		video.horizontal_resolution = ReadU32();
+		video.vertical_resolution = ReadU32();
 		SkipBytes(4);
 		video.frame_count = ReadU16();
 		SkipBytes(32); // compressor_name
@@ -852,7 +852,7 @@ private:
 					
 				case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
 				case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
-				case MultiChar_Constant("vmhd"): // Video Media Header (graphicsmode, opcolor)
+				case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
 				case MultiChar_Constant("smhd"): // Sound Media Header (balance)
 				case MultiChar_Constant("dref"): // Data Reference (url) (under dinf box)
 				case MultiChar_Constant("stts"): // Decoding Time To Sample (under stb boxl)

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2023 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "MockGstUtils.h"
-#include "GstUtils.h"
-MockGstUtils *g_mockGstUtils = nullptr;
-GstCaps *GetCaps(GstStreamOutputFormat format)
-{
-	if(g_mockGstUtils)
-	{
-		return g_mockGstUtils->GetCaps(format);
-	}
-	return nullptr;
-}
 
-GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
+#ifndef MOCK_MP4_DEMUX_H
+#define MOCK_MP4_DEMUX_H
+
+#include <gmock/gmock.h>
+#include <vector>
+#include "AampDemuxDataTypes.h"
+
+class MockMp4Demux
 {
-	if (g_mockGstUtils)
-	{
-		return g_mockGstUtils->CreateGstBufferWithData(data, size);
-	}
-	return nullptr;
-}
+public:
+    MOCK_METHOD(bool, Parse, (const void *ptr, size_t len));
+    MOCK_METHOD(uint32_t, GetTimeScale, (), (const));
+    MOCK_METHOD(MediaCodecInfo, GetCodecInfo, ());
+    MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
+    MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, ());
+    MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
+};
+
+extern MockMp4Demux *g_mockMp4Demux;
+
+#endif /* MOCK_MP4_DEMUX_H */
