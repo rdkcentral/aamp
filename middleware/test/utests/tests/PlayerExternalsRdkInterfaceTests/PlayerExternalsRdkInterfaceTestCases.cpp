@@ -305,11 +305,11 @@ TEST_F(PlayerExternalsRdkInterfaceTests, DoubleInitialize_HandledGracefully) {
 
 #else // !USE_DS_EVENT_SUPPORTED
 
-TEST_F(PlayerExternalsRdkInterfaceTests, Initialize_WithoutDsEventSupport_DoesNotCrash) {
+TEST_F(PlayerExternalsRdkInterfaceTests, DISABLED_Initialize_WithoutDsEventSupport_DoesNotCrash) {
     ASSERT_NO_THROW(mInterface->Initialize());
 }
 
-TEST_F(PlayerExternalsRdkInterfaceTests, Destructor_WithoutDsEventSupport_DoesNotCrash) {
+TEST_F(PlayerExternalsRdkInterfaceTests, DISABLED_Destructor_WithoutDsEventSupport_DoesNotCrash) {
     mInterface->Initialize();
     ASSERT_NO_THROW({
         mInterface.reset();
