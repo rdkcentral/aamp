@@ -117,7 +117,7 @@ GstElement* BrcmSocInterface::GetVideoSink(GstElement* sinkbin)
  * @param name Element name.
  * @return True if it's a video sink, false otherwise.
  */
-bool BrcmSocInterface::IsVideoSink(const char* name)
+bool BrcmSocInterface::IsVideoSink(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name, "brcmvideosink") ||
@@ -139,7 +139,7 @@ bool BrcmSocInterface::IsAudioSinkOrAudioDecoder(const char* name)
  * @param name Element name.
  * @return True if it's a video decoder, false otherwise.
  */
-bool BrcmSocInterface::IsVideoDecoder(const char* name)
+bool BrcmSocInterface::IsVideoDecoder(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name, "westerossink") ||
@@ -175,7 +175,7 @@ bool BrcmSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *sr
  * @param IsWesteros Westeros flag.
  * @return True if it's an audio or video decoder, false otherwise.
  */
-bool BrcmSocInterface::IsAudioOrVideoDecoder(const char* name)
+bool BrcmSocInterface::IsAudioOrVideoDecoder(const char* name, GstElement* element)
 {
 	return name && (
 					StartsWith(name, "brcmvideodecoder") ||
