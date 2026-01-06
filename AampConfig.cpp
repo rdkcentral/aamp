@@ -339,7 +339,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableCMCD", eAAMPConfig_EnableCMCD, true},
 	{true,"SlowMotion", eAAMPConfig_EnableSlowMotion, true},
 	{false,"enableSCTE35PresentationTime", eAAMPConfig_EnableSCTE35PresentationTime, false},
-	{false,"jsinfo",eAAMPConfig_JsInfoLogging,false},
+	{true,"jsinfo",eAAMPConfig_JsInfoLogging,false},
 	{false,"ignoreAppLiveOffset", eAAMPConfig_IgnoreAppLiveOffset, false},
 	{false,"useTCPServerSink",eAAMPConfig_useTCPServerSink,false},
 	{true,"enableDisconnectSignals", eAAMPConfig_enableDisconnectSignals, false},
@@ -852,7 +852,7 @@ void AampConfig::Initialize()
 void AampConfig::ApplyDeviceCapabilities()
 {
 	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
+	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
@@ -861,10 +861,10 @@ void AampConfig::ApplyDeviceCapabilities()
 
 	bool isSecMgr = isSecManagerEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
-	
+
 	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
-	
+
 }
 
 std::string AampConfig::GetUserAgentString() const
@@ -1586,7 +1586,7 @@ void AampConfig::ReadBase64TR181Param()
 		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		char * cloudConf = pInstance->GetTR181PlayerConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
 		if(NULL != cloudConf)
-		{	
+		{
 			ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
 			free(cloudConf); // allocated by base64_Decode in GetTR181PlayerConfig
 			ConfigureLogSettings();
@@ -1721,7 +1721,7 @@ void AampConfig::ReadOperatorConfiguration()
 {
 	// Tr181 doesn't work in container environment hence ignore it if it is container
 	// this will improve load time of aamp in container environment
-	
+
 	// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
 	ReadBase64TR181Param();
 
@@ -1730,7 +1730,7 @@ void AampConfig::ReadOperatorConfiguration()
 	ReadAllTR181Params();
 
 	// this required to set log settings based on configs either default or read from Tr181
-	ConfigureLogSettings();   
+	ConfigureLogSettings();
 	///////////// Read environment variables set specific to Operator ///////////////////
 	const char *env_aamp_force_aac = getenv("AAMP_FORCE_AAC");
 	if(env_aamp_force_aac)
