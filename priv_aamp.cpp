@@ -4270,9 +4270,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
-							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
-							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
@@ -4285,7 +4285,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
-						
+
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -11022,12 +11022,14 @@ int PrivateInstanceAAMP::GetTextTrack()
 				}
 			}
 		}
+		AAMPLOG_INFO("idx %d", idx);
 	}
 	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
 	ReleaseStreamLock();
+	AAMPLOG_INFO("idx %d", idx);
 	return idx;
 }
 
@@ -12259,17 +12261,17 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
  * @param[in] target Track to find
  * @return Index of track (0-based), or -1 if not found
  */
-int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks,
                                             const TextTrackInfo& target) const
 {
 	int index = -1;
 	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
-	
+
 	if (iter != tracks.cend())
 	{
 		index = static_cast<int>(std::distance(tracks.cbegin(), iter));
 	}
-	
+
 	return index;
 }
 
