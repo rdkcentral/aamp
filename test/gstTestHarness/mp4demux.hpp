@@ -53,7 +53,7 @@ struct Mp4Sample
 
 class Mp4Demux
 {
-private:
+public: // temp workaround - used directly in rialtoTest
 	struct
 	{
 		uint16_t channel_count;
