@@ -1434,7 +1434,6 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
 	// Track when createDrmSession completes
 	std::atomic<bool> drmSessionStarted{false};
 	std::atomic<bool> drmSessionCompleted{false};
-	std::atomic<bool> setLicenseFetcherCalled{false};
 
 	// Wrap the original license fetcher
 	auto mockLicenseFetcher = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
@@ -1519,10 +1518,6 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailure
 	allKeys[0] = keyIdVideo;
 
 	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
-
-	// Track execution flow
-	std::atomic<bool> notifyDrmFailureCalled{false};
-	std::atomic<bool> setLicenseFetcherCalled{false};
 
 	auto mockLicenseFetcher = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
 	mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher.get());

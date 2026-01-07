@@ -376,7 +376,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],std::move(licenseServerProxy)));
 				}
 
-				//check if license req is aborted. if yes, ignore the response.
+				//Check if license req is aborted. If yes, ignore the response.
 				if(licenseRequestAbort.load(std::memory_order_acquire))
 				{
 					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response. Resetting session slot %d", sessionSlot);
