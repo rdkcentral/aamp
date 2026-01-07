@@ -151,7 +151,7 @@ namespace aamp
 		void RescheduleActiveJob();
 		void StartWorker();
 		void StopWorker();
-		bool IsStopped();
+		bool IsStopped() const { return mStop; }
 		AampMediaType GetMediaType() const { return mMediaType; }
 
 	protected:

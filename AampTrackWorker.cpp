@@ -244,17 +244,6 @@ namespace aamp
 	}
 
 	/**
-	 * @brief Checks if the worker is stopped.
-	 *
-	 * @return true if the worker is stopped, false otherwise.
-	 */
-	bool AampTrackWorker::IsStopped() 
-	{
-		std::lock_guard<std::mutex> lock(mQueueMutex);
-		return mStop;
-	}
-
-	/**
 	 * @brief Submits a job to the worker thread.
 	 *
 	 * The job is a function that will be executed by the worker thread.
