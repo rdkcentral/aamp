@@ -145,7 +145,7 @@ void DeviceIARMInterface::Initialize()
 void triggerFakeTune()
 {
 	try { 
-        std::thread([this]() { 
+        std::thread([]() { 
             try { 
                 doFakeTune(); 
                 MW_LOG_INFO("Fake tune thread completed successfully"); 
