@@ -102,7 +102,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
-	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
 /*
@@ -678,8 +677,13 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
+ *  @param mediaType Type of media.
+ *  @param sample Media sample to be sent. Moved semantics is used to avoid unnecessary copy.
+ *  @param copy Indicates whether to copy the data.
+ *  @param initFragment Indicates if the fragment is an initialization fragment.
+ *  @param discontinuity Indicates if there is a discontinuity in the stream.
  */
-bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -700,6 +704,10 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	bool notifyFirstBufferProcessed = false;
 	bool resetTrickUTC = false;
 	bool firstBufferPushed = false;
+	// To be used in buffer control notification
+	double fpts = sample.mPts;
+	double fdts = sample.mDts;
+	double fDuration = sample.mDuration;
 
 	// This block checks if the data contain a valid ID3 header and if it is the case
 	// calls the callback function.
@@ -707,10 +715,10 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		namespace aih = aamp::id3_metadata::helpers;
 
 		if (aih::IsValidMediaType(mediaType) &&
-			aih::IsValidHeader(static_cast<const uint8_t*>(ptr), len))
+			aih::IsValidHeader(static_cast<const uint8_t*>(sample.mData), sample.mDataSize))
 		{
-			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(ptr), len,
-								 {fpts, fdts, fDuration}, nullptr);
+			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(sample.mData), sample.mDataSize,
+								 {sample.mPts, sample.mDts, sample.mDuration}, nullptr);
 		}
 	}
 
@@ -723,7 +731,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	{
 		sendNewSegmentEvent = true;
 	}
-	bool bPushBuffer = playerInstance->SendHelper(mediaType, ptr, len, fpts, fdts, fDuration, fragmentPTSoffset, copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
+	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
 	if(sendNewSegmentEvent)
 	{
 		aamp->mbNewSegmentEvtSent[mediaType] = true;
@@ -763,7 +771,14 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
  */
 bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, true /*copy*/, 0.0 );
+	MediaSample sample;
+	sample.mData = ptr;
+	sample.mDataSize = len;
+	sample.mPts = fpts;
+	sample.mDts = fdts;
+	sample.mDuration = fDuration;
+	sample.mPtsOffset = 0.0;
+	return SendHelper( mediaType, std::move(sample), true /*copy*/ );
 }
 
 /**
@@ -771,7 +786,14 @@ bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, const void *ptr, size_t le
  */
 bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, fragmentPTSoffset,  initFragment, discontinuity );
+	MediaSample sample;
+	sample.mData = ptr;
+	sample.mDataSize = len;
+	sample.mPts = fpts;
+	sample.mDts = fdts;
+	sample.mDuration = fDuration;
+	sample.mPtsOffset = fragmentPTSoffset;
+	return SendHelper( mediaType, std::move(sample), false /*transfer*/, initFragment, discontinuity );
 }
 
 /**
@@ -1311,4 +1333,48 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 		monitorAvTimerId = 0;
 		AAMPLOG_MIL("MonitorAvTimer stopped");
 	}
+}
+
+/**
+ * @brief Set stream capabilities based on codec info
+ *
+ * @param[in] type - Media type
+ * @param[in] codecInfo - Codec information
+ */
+void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
+{
+	playerInstance->SetStreamCaps(static_cast<GstMediaType>(type), std::move(codecInfo));
+}
+
+/**
+ * @brief Inject AampMediaSample to gstreamer pipeline
+ * 
+ * @param[in] mediaType - Media type
+ * @param[in,out] sample - Media sample to inject
+ * @return true if sample is successfully injected, false otherwise
+ */
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+{
+	MediaSample gstSample;
+
+	// Convert AampMediaSample to MediaSample
+	// This can be deprecated later once we get rid of AampGrowableBuffer and both data structures unified
+	gstSample.mData = sample.mData.GetPtr();
+	gstSample.mDataSize = sample.mData.GetLen();
+	gstSample.mPts = sample.mPts;
+	gstSample.mDts = sample.mDts;
+	gstSample.mDuration = sample.mDuration;
+	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
+
+	bool ret = SendHelper( mediaType, std::move(gstSample), false /*transfer*/);
+
+	if (ret)
+	{
+		sample.mData.Transfer();
+	}
+	else
+	{
+		sample.mData.Free();
+	}
+	return ret;
 }

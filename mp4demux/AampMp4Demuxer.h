@@ -1,0 +1,132 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2025 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file AampMp4Demuxer.h
+ * @brief Header file for MP4 Demuxer
+ */
+
+#ifndef __AAMPMP4DEMUXER_H__
+#define __AAMPMP4DEMUXER_H__
+
+#include "mediaprocessor.h"
+#include "MP4Demux.h"
+#include "priv_aamp.h"
+#include <memory>
+
+class AampMp4Demuxer : public MediaProcessor
+{
+
+public:
+    AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type);
+    ~AampMp4Demuxer();
+
+
+    AampMp4Demuxer(const AampMp4Demuxer&) = delete;
+	AampMp4Demuxer& operator=(const AampMp4Demuxer&) = delete;
+
+	/**
+	 * @brief given TS media segment (not yet injected), extract and report first PTS
+	 */
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override { return 0.0; };
+
+	/**
+	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
+	 */
+	void setPtsOffset( double ptsOffset ) override { };
+
+    /**
+	 * @fn sendSegment
+	 *
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] position - position of fragment
+	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - offset PTS of fragment
+	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[in] isInit - flag for buffer type (init, data)
+	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
+	 * @param[out] ptsError - flag indicates if any PTS error occurred
+	 * @return true if fragment was sent, false otherwise
+	 */
+	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+								bool isInit, process_fcn_t processor, bool &ptsError) override;
+
+	/**
+	 * @brief Set playback rate
+	 *
+	 * @param[in] rate - playback rate
+	 * @param[in] mode - playback mode
+	 * @return void
+	 */
+	void setRate(double rate, PlayMode mode) override { };
+
+    /**
+	 * @brief Enable or disable throttle
+	 *
+	 * @param[in] enable - throttle enable/disable
+	 * @return void
+	 */
+	void setThrottleEnable(bool enable) override { }
+
+	/**
+	 * @brief Set frame rate for trickmode
+	 *
+	 * @param[in] frameRate - rate per second
+	 * @return void
+	 */
+	void setFrameRateForTM (int frameRate) override { }
+
+    /**
+	 * @brief Abort all operations
+	 *
+	 * @return void
+	 */
+	void abort() override { }
+
+	/**
+	 * @brief Reset all variables
+	 *
+	 * @return void
+	 */
+	void reset() override { }
+
+    /**
+	 * @brief Function to abort wait for injecting the segment
+	 */
+	void abortInjectionWait() override { }
+
+	/**
+	 * @brief Function to enable/disable the processor
+	 * @param[in] enable true to enable, false otherwise
+	 */
+	void enable(bool enable) override { }
+
+	/**
+	 * @brief Function to set a track offset for restamping
+	 * @param[in] offset offset value in seconds
+	 */
+	void setTrackOffset(double offset) override { }
+
+private:
+    std::unique_ptr<Mp4Demux> mMp4Demux;
+    PrivateInstanceAAMP* mAamp;
+	AampMediaType mMediaType;
+};
+
+#endif /* __AAMPMP4DEMUXER_H__ */
