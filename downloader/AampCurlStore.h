@@ -266,7 +266,7 @@ struct CurlCallbackContext
 
 	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0),mTransferState(){}
 	
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1), mTransferState(){}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1), processDelay(0), mTransferState(){}
 
 	~CurlCallbackContext() {}
 

@@ -78,8 +78,6 @@
 #include "SocUtils.h"
 #include "AuthTokenErrors.h"
 
-#define LEVERAGE_CHUNK_TRANSFER_MODE
-
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
 #define AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS/10)
@@ -645,38 +643,38 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 // End of helper functions for loading configuration
 
 /**
-* @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
-*
-* This callback is invoked by the downloader whenever a new block of bytes is
-* received for a request that uses HTTP/1.1 chunked transfer encoding. It
-* implements an incremental parser driven by a state machine stored in
-* CurlCallbackContext::mTransferState. The parser consumes the input buffer,
-* interpreting chunk-size lines, chunk payload, and the required CR/LF
-* delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
-*
-* The state machine transitions between:
-* - eTRANSFER_STATE_READING_CHUNK_SIZE: parse the hexadecimal chunk size
-*   from the stream.
-* - eTRANSFER_STATE_PENDING_CHUNK_START_LF: wait for the LF that terminates
-*   the chunk-size line.
-* - eTRANSFER_STATE_READING_CHUNK_DATA: consume exactly the announced number
-*   of data bytes for the current chunk and deliver them to the underlying
-*   consumer.
-* - eTRANSFER_STATE_PENDING_CHUNK_END_CR: wait for the CR after a chunk's
-*   payload.
-* - eTRANSFER_STATE_PENDING_CHUNK_END_LF: wait for the LF that completes the
-*   CRLF sequence after a chunk.
-*
-* The function may be called multiple times with partial chunk boundaries; it
-* maintains parsing progress across invocations via the transfer-state fields
-* in the provided context.
-*
-* @param[in] ptr       Pointer to the buffer containing newly received data.
-* @param[in] numBytes  Number of valid bytes available in @p ptr.
-* @param[in] userdata  Pointer to the CurlCallbackContext or user data
-*                      associated with this transfer, used to track the
-*                      current chunked-transfer parsing state.
-*/
+ * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
+ *
+ * This callback is invoked by the downloader whenever a new block of bytes is
+ * received for a request that uses HTTP/1.1 chunked transfer encoding. It
+ * implements an incremental parser driven by a state machine stored in
+ * CurlCallbackContext::mTransferState. The parser consumes the input buffer,
+ * interpreting chunk-size lines, chunk payload, and the required CR/LF
+ * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
+ *
+ * The state machine transitions between:
+ * - eTRANSFER_STATE_READING_CHUNK_SIZE: parse the hexadecimal chunk size
+ *   from the stream.
+ * - eTRANSFER_STATE_PENDING_CHUNK_START_LF: wait for the LF that terminates
+ *   the chunk-size line.
+ * - eTRANSFER_STATE_READING_CHUNK_DATA: consume exactly the announced number
+ *   of data bytes for the current chunk and deliver them to the underlying
+ *   consumer.
+ * - eTRANSFER_STATE_PENDING_CHUNK_END_CR: wait for the CR after a chunk's
+ *   payload.
+ * - eTRANSFER_STATE_PENDING_CHUNK_END_LF: wait for the LF that completes the
+ *   CRLF sequence after a chunk.
+ *
+ * The function may be called multiple times with partial chunk boundaries; it
+ * maintains parsing progress across invocations via the transfer-state fields
+ * in the provided context.
+ *
+ * @param[in] ptr       Pointer to the buffer containing newly received data.
+ * @param[in] numBytes  Number of valid bytes available in @p ptr.
+ * @param[in] userdata  Pointer to the CurlCallbackContext or user data
+ *                      associated with this transfer, used to track the
+ *                      current chunked-transfer parsing state.
+ */
 void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
 { // HTTP/1.1 Chunked Transfer Protocol
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
@@ -852,15 +850,13 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		ret = numBytesForBlock;
 		if( ptr && numBytesForBlock > 0)
 		{
-#ifdef LEVERAGE_CHUNK_TRANSFER_MODE
-			if( context->chunkedDownload )
+			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
 				chunked_write_callback( ptr, numBytesForBlock, userdata );
 				ptr = context->buffer->GetPtr();
 				numBytesForBlock = context->buffer->GetLen();
 			}
 			else
-#endif
 			{
 				context->buffer->AppendBytes( ptr, numBytesForBlock );
 			}
@@ -888,13 +884,14 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 										 numBytesForBlock,context->remoteUrl,context->downloadStartTime);
 				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 				lock.lock();
-				
-#ifdef LEVERAGE_CHUNK_TRANSFER_MODE
-				if( context->chunkedDownload )
+		
+				if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
 				{
-					context->buffer->Clear();
+					if( context->chunkedDownload )
+					{
+						context->buffer->Clear();
+					}
 				}
-#endif
 			}
 		}
 	}
@@ -999,7 +996,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		}
 		else if (STARTS_WITH_IGNORE_CASE(ptr, TRANSFER_ENCODING_STRING ))
 		{
-			AAMPLOG_INFO( "chunkedDownload: '%.*s'\n", (int)len, ptr );
+			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
 		}
 		else if (0 == context->buffer->GetAvail() )
@@ -4186,10 +4183,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 			
 			//  by default libcurl handles chunked transfer encoding transparently
-			#ifdef LEVERAGE_CHUNK_TRANSFER_MODE
-			CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
-			#endif
-			
+			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
+			}
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
