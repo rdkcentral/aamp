@@ -697,7 +697,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						if(((remaining_time_sec*1000) <= firstChunkTimeout) || (elapsed_time_ms <= firstChunkTimeout))
 						{
 							AAMPLOG_WARN("It is ready to inject first chunk");
-							pushCacheFragment = true;
+							context->pushCacheFragment = true;
 							// Decision reached: mark this fragment's first-chunk logic handled
 							mCtx->firstChunkHandled.store(true);	
 						}
@@ -707,7 +707,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						if((elapsed_time_ms) >= firstChunkTimeout)
 						{
 							AAMPLOG_WARN("Not injecting first chunk ");
-							// Decision reached (abort): mark handled to avoid further parsing attempts
+							// Decision reached (abort): mark it as handled to avoid further parsing attempts
 							mCtx->firstChunkHandled.store(true);
 							context->aamp->mpStreamAbstractionAAMP->fragFailed = true;
 							if (context->buffer) context->buffer->Free();
@@ -721,7 +721,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			if (context->mediaType == eMEDIATYPE_VIDEO)
 			{
 				// First chunk: inject the entire accumulated buffer in one shot
-				if (pushCacheFragment)
+				if (context->pushCacheFragment)
 				{
 					size_t cachedSize = (context && context->buffer) ? context->buffer->GetLen() : 0;
 					char *cachedPtr = (context && context->buffer) ? context->buffer->GetPtr() : NULL;
@@ -733,12 +733,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						mCtx->CacheFragmentChunk(context->mediaType, cachedPtr, cachedSize, context->remoteUrl, context->downloadStartTime);
 						context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 						lock.lock();
-						pushCacheFragment = false;
-						startInjecting = true; // subsequent callbacks forward ptr directly
+						context->pushCacheFragment = false;
+						context->startInjecting = true; // subsequent callbacks forward ptr directly
 					}
 				}
 				// Subsequent chunks: forward whatever arrives
-				else if (startInjecting && ptr && (numBytesForBlock > 0))
+				else if (context->startInjecting && ptr && (numBytesForBlock > 0))
 				{
 					lock.unlock();
 					AAMPLOG_TRACE("[%d] Caching video chunk (streaming) size %zu", context->mediaType, numBytesForBlock);
@@ -1203,7 +1203,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
-	mTuneType(eTUNETYPE_NEW_NORMAL), mdatCounter(0), startInjecting(false), pushCacheFragment(false), httpErrorLLD(0), stallDetection(false)
+	mTuneType(eTUNETYPE_NEW_NORMAL), httpErrorLLD(0), stallDetection(false)
 	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)

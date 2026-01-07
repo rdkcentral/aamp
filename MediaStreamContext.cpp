@@ -142,12 +142,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 			if (ret)
 			{
-				if(ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling) && aamp->GetLLDashChunkMode())
-				{
-					aamp->mdatCounter = 0;
-					aamp->pushCacheFragment.store(false);
-					aamp->startInjecting.store(false);
-				}
 				cachedFragment->fragment = *mTempFragment;
 				mTempFragment->Free();
 			}
@@ -321,9 +315,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				if(context->fragFailed && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling)))
 				{
 					//If first chunk is rejected and not injecting
-					aamp->mdatCounter = 0;
-					aamp->pushCacheFragment.store(false);
-					aamp->startInjecting.store(false);
 					double bufferValue = GetBufferedDuration();
 					if(bufferValue >= 2)
 					{
@@ -349,9 +340,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				else if(((aamp->GetLLDashChunkMode()) && (httpErrorCode == CURLE_OPERATION_TIMEDOUT || httpErrorCode == CURLE_PARTIAL_FILE) && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling)) && firstChunkHandled.load()) || (aamp->GetLLDashChunkMode() && (aamp->stallDetection == true) && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling))))
 				{
 					//After first chunk injection if any other chunks get timedout or aborted after partial download
-					aamp->mdatCounter = 0;
-					aamp->pushCacheFragment.store(false);
-					aamp->startInjecting.store(false);
 					if(!initSegment)
 					{
 						aamp->httpErrorLLD = httpErrorCode;

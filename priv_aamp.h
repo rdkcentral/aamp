@@ -852,10 +852,7 @@ public:
 	double mLiveOffset;
 	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
 	int mNetworkTimeoutMs;
-	int mdatCounter;
-	std::atomic<bool>pushCacheFragment; 
 	int stallDetection;
-	std::atomic<bool> startInjecting;
 	int httpErrorLLD;
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
