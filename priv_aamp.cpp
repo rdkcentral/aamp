@@ -717,6 +717,22 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{
 					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF;
 				}
+				else if( c==';' )
+				{
+					// RFC 7230 allows optional chunk extensions after the size, starting with ';'.
+					// We do not interpret them; we simply skip until the end of the line (CR).
+					while( ptr < fin )
+					{
+						char extChar = *ptr++;
+						if( extChar=='\r' )
+						{
+							context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF;
+							break;
+						}
+					}
+					// If no '\r' was found before fin, remain in READING_CHUNK_SIZE and
+					// let the next callback continue consuming the extension.
+				}
 				else
 				{
 					int octet = aamp_hascii_char_to_number(c);
@@ -770,15 +786,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{
 					// here we will presumably be at the end of an 'mdat', suitable for injection
 					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
-					if( context->mTransferState.remaining!=0 )
-					{
-						AAMPLOG_ERR( "unexpected mTransferState.remaining=%d", context->mTransferState.state );
-						context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_ERROR;
-					}
-					else
-					{
-						context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
-					}
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
 				}
 				break;
 				
@@ -812,6 +820,8 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				break;
 				
 			case CurlCallbackContext::eTRANSFER_STATE_ERROR:
+				AAMPLOG_ERR( "Aborting chunked transfer parsing due to previous error" );
+				ptr = fin; // consume remaining bytes to exit loop
 				break;
 		}
 	}
@@ -853,6 +863,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
 				chunked_write_callback( ptr, numBytesForBlock, userdata );
+				if( context->mTransferState.state == ERROR )
+				{
+					AAMPLOG_ERR("Chunked transfer parser entered ERROR state; aborting write callback");
+					ret = 0;
+					return ret;
+				}
 				ptr = context->buffer->GetPtr();
 				numBytesForBlock = context->buffer->GetLen();
 			}

@@ -764,7 +764,7 @@ TEST(_AampUtils, strstr )
 	EXPECT_TRUE( mystrstr(haystack_ptr,&haystack_ptr[9],"is") == &haystack_ptr[4] );
 }
 
-TEST(_AampUtils, hascii_char_to_number )
+TEST(_AampUtils, hex_char_to_int )
 {
 	EXPECT_EQ( aamp_hascii_char_to_number('0'),0);
 	EXPECT_EQ( aamp_hascii_char_to_number('1'),1);
