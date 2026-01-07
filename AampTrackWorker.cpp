@@ -194,27 +194,27 @@ namespace aamp
 	 */
 	void AampTrackWorker::StartWorker()
 	{
-		std::lock_guard<std::mutex> lock(mQueueMutex);
-		if (mWorkerThread.joinable() || !mStop.load())
+		if (mWorkerThread.joinable() || !mStop)
 		{
 			AAMPLOG_WARN("Worker thread for media type %s is already running", GetMediaTypeName(mMediaType));
 			throw std::runtime_error("Worker thread is already running");
 		}
 
+		mStop = false;
+
 		try
 		{
-			mStop.store(false);
 			mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, shared_from_this(), std::weak_ptr<AampTrackWorker>(shared_from_this()));
 		}
 		catch (const std::exception &e)
 		{
 			AAMPLOG_ERR("Exception caught in AampTrackWorker %s", e.what());
-			mStop.store(true);
+			mStop = true;
 		}
 		catch (...)
 		{
 			AAMPLOG_ERR("Unknown exception caught in AampTrackWorker for media type %s", GetMediaTypeName(mMediaType));
-			mStop.store(true);
+			mStop = true;
 		}
 	}
 
@@ -230,7 +230,7 @@ namespace aamp
 		AAMPLOG_DEBUG("Stopping worker thread for media type %s", GetMediaTypeName(mMediaType));
 		{
 			std::lock_guard<std::mutex> lock(mQueueMutex);
-			mStop.store(true);
+			mStop = true;
 			mCondVar.notify_all();
 		}
 		
@@ -241,6 +241,17 @@ namespace aamp
 		ClearJobs();
 		std::lock_guard<std::mutex> queueLock(mQueueMutex);
 		mActiveJob = nullptr; // Clear active job
+	}
+
+	/**
+	 * @brief Checks if the worker is stopped.
+	 *
+	 * @return true if the worker is stopped, false otherwise.
+	 */
+	bool AampTrackWorker::IsStopped() const
+	{
+		std::lock_guard<std::mutex> lock(mQueueMutex);
+		return mStop;
 	}
 
 	/**
@@ -263,7 +274,7 @@ namespace aamp
 		auto future = job->GetFuture();
 		{
 			std::lock_guard<std::mutex> lock(mQueueMutex);
-			if (!mStop.load())
+			if (!mStop)
 			{
 				if (highPriority)
 				{
@@ -384,10 +395,10 @@ namespace aamp
 
 				// Wait while (queue is empty or paused) and not stopped
 				self->mCondVar.wait(lock, [&] {
-					return self->mStop.load() || (!self->mPaused && !self->mJobQueue.empty());
+					return self->mStop || (!self->mPaused && !self->mJobQueue.empty());
 				});
 
-				if (self->mStop.load())
+				if (self->mStop)
 				{
 					AAMPLOG_DEBUG("Worker thread stopped for media type %s", GetMediaTypeName(self->mMediaType));
 					break;
@@ -433,7 +444,7 @@ namespace aamp
 
 				lock.lock();
 				self->mActiveJob = nullptr;
-				if (self->mStop.load())
+				if (self->mStop)
 				{
 					break;
 				}
