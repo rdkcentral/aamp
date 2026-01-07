@@ -779,7 +779,6 @@ TEST_F(InterfacePlayerTests, InitializeSourceForPlayer_Video)
 	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
 	stream->format = GST_FORMAT_ISO_BMFF;
 	mPlayerConfigParams->videoBufBytes = 500;
-	mPlayerConfigParams->useMp4Demux = false;
 
 	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("need-data"), _, playerInstance)).WillOnce(Return(1));
 	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("enough-data"), _, playerInstance)).WillOnce(Return(1));
@@ -2472,4 +2471,72 @@ TEST_F(InterfacePlayerTests, SetVolumeOrMuteUnMute_UsingRialtoSink)
 	EXPECT_CALL(*g_mockGLib, g_object_set(&gst_element_audio_sink, StrEq("volume"), Matcher<double>(0.5)));
 
 	mInterfaceGstPlayer->SetVolumeOrMuteUnMute();
+}
+
+/**
+ * SetStreamCaps Tests with GetCaps returning nullptr
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_NullCaps)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, _)).Times(0);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO, std::move(codecInfo));
+
+	delete g_mockGstUtils;
+}
+
+/**
+ * SetStreamCaps Tests with valid video codec format
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_ValidVideoCodecFormat)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
+	GstCaps caps;
+	GstStructure s;
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
+	GstBuffer buffer;
+	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
+		.WillOnce(Return(&buffer));
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillOnce(Return(&s));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("stream-format"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO, std::move(codecInfo));
+
+	delete g_mockGstUtils;
+}
+
+/**
+ * SetStreamCaps Tests with encrypted audio codec format
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC_RAW;
+	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
+	codecInfo.mIsEncrypted = true;
+	GstCaps caps;
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
+	GstBuffer buffer;
+	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
+		.WillOnce(Return(&buffer));
+	GstStructure s;
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillRepeatedly(Return(&s));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("original-media-type"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("channels"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_AUDIO, std::move(codecInfo));
+
+	delete g_mockGstUtils;
 }

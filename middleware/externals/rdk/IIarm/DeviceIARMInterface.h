@@ -38,12 +38,9 @@ Remove the entire folder externals/rdk/IARM
 
 #include <string>
 
-class DeviceIARMInterface : public DeviceInterfaceBase {
-
-    
+class DeviceIARMInterface : public DeviceInterfaceBase{
     public:
-
-        DeviceIARMInterface(const DeviceIARMInterface&) = delete;
+	DeviceIARMInterface(const DeviceIARMInterface&) = delete;
         
         DeviceIARMInterface& operator=(const DeviceIARMInterface&) = delete;
 
