@@ -163,7 +163,7 @@ namespace aamp
 	 *
 	 */
 	AampTrackWorker::AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
-		: aamp(_aamp), mMediaType(_mediaType), mStop(false), mPaused(false), mActiveJob(nullptr), mWorkerThread(), mJobQueue(), mQueueMutex(), mCondVar(), mInitialized(false)
+		: aamp(_aamp), mMediaType(_mediaType), mStop(true), mPaused(false), mActiveJob(nullptr), mWorkerThread(), mJobQueue(), mQueueMutex(), mCondVar()
 	{
 		if (_aamp == nullptr)
 		{
@@ -194,7 +194,8 @@ namespace aamp
 	 */
 	void AampTrackWorker::StartWorker()
 	{
-		if (mWorkerThread.joinable() || mInitialized)
+		std::lock_guard<std::mutex> lock(mQueueMutex);
+		if (mWorkerThread.joinable() || !mStop.load())
 		{
 			AAMPLOG_WARN("Worker thread for media type %s is already running", GetMediaTypeName(mMediaType));
 			throw std::runtime_error("Worker thread is already running");
@@ -202,12 +203,8 @@ namespace aamp
 
 		try
 		{
-			if(!mInitialized)
-			{
-				mStop.store(false);
-				mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, shared_from_this(), std::weak_ptr<AampTrackWorker>(shared_from_this()));
-				mInitialized = true;
-			}
+			mStop.store(false);
+			mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, shared_from_this(), std::weak_ptr<AampTrackWorker>(shared_from_this()));
 		}
 		catch (const std::exception &e)
 		{
@@ -230,20 +227,20 @@ namespace aamp
 	 */
 	void AampTrackWorker::StopWorker()
 	{
-		mStop.store(true);
 		AAMPLOG_DEBUG("Stopping worker thread for media type %s", GetMediaTypeName(mMediaType));
-		if(mInitialized)
 		{
+			std::lock_guard<std::mutex> lock(mQueueMutex);
+			mStop.store(true);
 			mCondVar.notify_all();
-			if (mWorkerThread.joinable())
-			{
-				mWorkerThread.join();
-			}
-			ClearJobs();
-			std::lock_guard<std::mutex> queueLock(mQueueMutex);
-			mActiveJob = nullptr; // Clear active job
-			mInitialized = false;
 		}
+		
+		if (mWorkerThread.joinable())
+		{
+			mWorkerThread.join();
+		}
+		ClearJobs();
+		std::lock_guard<std::mutex> queueLock(mQueueMutex);
+		mActiveJob = nullptr; // Clear active job
 	}
 
 	/**

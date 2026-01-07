@@ -157,12 +157,11 @@ namespace aamp
 	protected:
 		AampMediaType mMediaType;
 		std::thread mWorkerThread;
-		std::mutex mQueueMutex; // Mutex to protect job queue
+		std::mutex mQueueMutex; // Mutex to protect job queue and mStop
 		std::condition_variable mCondVar; // Condition variable to notify worker thread
 		std::deque<AampTrackWorkerJobSharedPtr> mJobQueue; // Job queue
 		PrivateInstanceAAMP *aamp;
-		std::atomic<bool> mInitialized; // Flag to indicate if the worker is initialized
-		std::atomic<bool> mStop;
+		std::atomic<bool> mStop; // Flag to indicate if the worker should stop (protected by mQueueMutex)
 		bool mPaused; // Flag to pause the worker threads (protected by mQueueMutex)
 
 	private:
