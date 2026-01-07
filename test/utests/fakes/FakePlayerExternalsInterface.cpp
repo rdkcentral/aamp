@@ -120,3 +120,7 @@ void PlayerExternalsInterface::Initialize()
 void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
 }
+
+void PlayerExternalsInterface::SetPowerEvent(bool powerEvt)
+{
+}
