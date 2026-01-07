@@ -248,7 +248,7 @@ namespace aamp
 	 *
 	 * @return true if the worker is stopped, false otherwise.
 	 */
-	bool AampTrackWorker::IsStopped() const
+	bool AampTrackWorker::IsStopped() 
 	{
 		std::lock_guard<std::mutex> lock(mQueueMutex);
 		return mStop;
