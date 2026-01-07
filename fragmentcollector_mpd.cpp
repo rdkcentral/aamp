@@ -10452,9 +10452,16 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
+	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
+		format = FORMAT_UNKNOWN;
+	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = FORMAT_ISO_BMFF;
+		primaryOutputFormat = format;
 	}
 	else
 	{
@@ -10462,7 +10469,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = FORMAT_ISO_BMFF;
+		audioOutputFormat = format;
 	}
 	else
 	{
@@ -10491,6 +10498,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			else
 			{
 				AAMPLOG_INFO("mimeType empty");
+				// Mp4Demux is skipped for subtitles
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 			}
 		}

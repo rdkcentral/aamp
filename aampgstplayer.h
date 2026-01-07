@@ -91,18 +91,13 @@ class AAMPGstPlayer : public StreamSink
 {
 private:
 	/**
-		 * @fn SendHelper
-		 * @param[in] mediaType stream type
-		 * @param[in] ptr buffer pointer
-		 * @param[in] len length of buffer
-		 * @param[in] fpts PTS of buffer (in sec)
-		 * @param[in] fdts DTS of buffer (in sec)
-		 * @param[in] duration duration of buffer (in sec)
-		 * @param[in] fragmentPTSoffset PTS offset
-		 * @param[in] copy to map or transfer the buffer
-		 * @param[in] initFragment flag for buffer type (init, data)
-		 */
-	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
+	 * @fn SendHelper
+	 * @param[in] mediaType stream type
+	 * @param[in] sample media sample. Ownership is transferred
+	 * @param[in] copy to map or transfer the buffer
+	 * @param[in] initFragment flag for buffer type (init, data)
+	 */
+	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment = false, bool discontinuity = false);
 
 public:
 	class PrivateInstanceAAMP *aamp;
@@ -139,6 +134,14 @@ public:
 		 * @param[in] discontinuity flag for discontinuity
 		 */
 	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
+
+	/**
+	 * @fn SendSample
+	 * @param[in] mediaType stream type
+	 * @param[in] sample media sample
+	 */
+	bool SendSample(AampMediaType mediaType, AampMediaSample& sample) override;
+
 	/**
 		 * @fn PipelineConfiguredForMedia
 		 * @param[in] type stream type
@@ -422,6 +425,14 @@ public:
 	 * @brief Get the monitor AV interval in milliseconds
 	 */
 	int GetMonitorAVInterval() const { return mMonitorAVInterval; }
+
+	/**
+     * @brief Set stream capabilities based on codec info
+     *
+     * @param[in] type - Media type
+     * @param[in] codecInfo - Codec information
+     */
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) override;
 
 private:
 	std::mutex mBufferingLock;

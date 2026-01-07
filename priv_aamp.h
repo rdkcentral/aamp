@@ -73,10 +73,13 @@
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
+#include "AampDemuxDataTypes.h"
 
 #define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
 
+// forward declaration to avoid circular dependency
 class AampMPDDownloader;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -1785,6 +1788,15 @@ public:
 	 *   @return void
 	 */
 	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+
+	/**
+	 *   @fn SendStreamTransfer
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  sample - Media sample
+	 *   @return void
+	 */
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
 
 	/**
 	 * @fn IsLive
@@ -3988,6 +4000,15 @@ public:
 	 * @return Offset value in msecs
 	 */
 	double GetFormatPositionOffsetInMSecs();
+
+	/**
+	 * @fn SetStreamCaps
+	 * @brief Set stream capabilities based on codec info
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] codecInfo - Codec information
+	 */
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 protected:
 

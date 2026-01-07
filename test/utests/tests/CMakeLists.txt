@@ -17,6 +17,7 @@
 
 include(GoogleTest)
 
+add_subdirectory(NetworkBandwidthEstimator)
 add_subdirectory(JsBindingTests)
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
@@ -49,6 +50,8 @@ add_subdirectory(Scte35Tests)
 add_subdirectory(DashUtilsTests)
 add_subdirectory(AampSchedulerTests)
 add_subdirectory(AampProfilerTests)
+add_subdirectory(AampMp4DemuxTests)
+add_subdirectory(Mp4BoxParsingTests)
 add_subdirectory(DashUrl)
 add_subdirectory(MediaStreamContextTests)
 add_subdirectory(AampEventManagerTests)

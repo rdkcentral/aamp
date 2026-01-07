@@ -20,6 +20,7 @@
 #define GST_UTILS_H
 
 #include <gst/app/gstappsrc.h>
+#include <memory>
 
 typedef enum
 {
@@ -30,6 +31,7 @@ typedef enum
 
 extern bool gstutils_quiet;
 
+void gstutils_Init( void );
 const char *gstutils_GetMediaTypeName( MediaType mediaType );
 void gstutils_DumpFlags( GstElement * playbin );
 void gstutils_element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream);
@@ -37,6 +39,53 @@ void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *message
 void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *messageName );
 void gstutils_HandleGstMessageQOS( GstMessage * msg, const char *messageName );
 void gstutils_HandleGstMessageTag( GstMessage *msg, const char *messageName );
+
+struct GstObjectDeleter
+{
+	void operator()(GstObject* obj) const noexcept
+	{
+		if( obj )
+		{
+			gst_object_unref(GST_OBJECT(obj));
+		}
+	}
+};
+using ScopedGstObject = std::unique_ptr<GstObject, GstObjectDeleter>;
+
+struct GstElementDeleter
+{
+	void operator()(GstElement* e) const noexcept
+	{
+		if( e )
+		{
+			gst_object_unref(GST_OBJECT(e));
+		}
+	}
+};
+using ScopedGstElement = std::unique_ptr<GstElement, GstElementDeleter>;
+
+struct GstCapsDeleter
+{
+	void operator()(GstCaps* caps) const noexcept
+	{
+		if( caps )
+		{
+			gst_caps_unref(GST_CAPS(caps));
+		}
+	}
+};
+using ScopedGstCaps = std::unique_ptr<GstCaps, GstCapsDeleter>;
+
+struct GstPadDeleter {
+	void operator()(GstPad* pad) const noexcept
+	{
+		if( pad )
+		{
+			gst_object_unref(GST_OBJECT(pad));
+		}
+	}
+};
+using ScopedGstPad = std::unique_ptr<GstPad, GstPadDeleter>;
 
 #endif // GST_UTILS_H
 

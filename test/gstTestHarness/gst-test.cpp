@@ -35,8 +35,6 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
-#define STOP_NEVER 9999
-
 static std::mutex mCommandMutex;
 
 #define TIME_BASED_BUFFERING_THRESHOLD 4.0
@@ -284,7 +282,7 @@ public:
 					Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
 				}
 			}
-			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration, url.c_str() );
+			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );
 			ptr = NULL;
 		}
 		return true;
@@ -370,7 +368,7 @@ public:
 		gpointer ptr = LoadUrl(path,&len);
 		if( ptr )
 		{
-			context->pipeline->SendBufferMP4( mediaType, ptr, len, SEGMENT_DURATION_SECONDS, path );
+			context->pipeline->SendBufferMP4( mediaType, ptr, len, SEGMENT_DURATION_SECONDS );
 			segmentIndex++;
 			pts += SEGMENT_DURATION_SECONDS;
 			return false; // more
@@ -703,9 +701,9 @@ public:
 			double firstPts = periodInfo->startIndex*SEGMENT_DURATION_SECONDS;
 			double duration_s = periodInfo->segmentCount*SEGMENT_DURATION_SECONDS;
 			SeekParam seekParam;
-			seekParam.flags = GST_SEEK_FLAG_FLUSH;
-			seekParam.start_s = firstPts;
-			seekParam.stop_s = seekParam.start_s + duration_s;
+			seekParam.flush = true;
+			seekParam.start_seconds = firstPts;
+			seekParam.stop_seconds = seekParam.start_seconds + duration_s;
 			pipelineContext.pipeline->ScheduleSeek( seekParam );
 			
 			video.QueueVideoHeader( periodInfo->resolution );
@@ -747,9 +745,9 @@ public:
 			total_duration += duration_s;
 		}
 		SeekParam seekParam;
-		seekParam.flags = GST_SEEK_FLAG_FLUSH;
-		seekParam.start_s = 0;
-		seekParam.stop_s = total_duration;
+		seekParam.flush = true;
+		seekParam.start_seconds = 0;
+		seekParam.stop_seconds = total_duration;
 		pipelineContext.pipeline->ScheduleSeek(seekParam);
 		
 		total_duration = 0;
@@ -800,11 +798,11 @@ public:
 			double firstPts = periodInfo->startIndex*SEGMENT_DURATION_SECONDS;
 			double duration = periodInfo->segmentCount*SEGMENT_DURATION_SECONDS;
 			SeekParam seekParam;
-			seekParam.flags = GST_SEEK_FLAG_SEGMENT;
-			seekParam.start_s = total_duration;
-			seekParam.stop_s = total_duration + duration;
+			seekParam.segment = true;
+			seekParam.start_seconds = total_duration;
+			seekParam.stop_seconds = total_duration + duration;
 			double pts_offset = total_duration-firstPts;
-			printf( "period %d: start=%f stop=%f firstPts=%f\n", i, seekParam.start_s,seekParam.stop_s, firstPts );
+			printf( "period %d: start=%f stop=%f firstPts=%f\n", i, seekParam.start_seconds,seekParam.stop_seconds, firstPts );
 			total_duration += duration;
 			pipelineContext.pipeline->ScheduleSeek(seekParam);
 			video.QueueVideoHeader( periodInfo->resolution );
@@ -1015,9 +1013,9 @@ public:
 					continue;
 				}
 				SeekParam seekParam;
-				seekParam.flags = GST_SEEK_FLAG_FLUSH;
-				seekParam.start_s = pipelineContext.seekPos;
-				seekParam.stop_s = STOP_NEVER;
+				seekParam.flush = true;
+				seekParam.start_seconds = pipelineContext.seekPos;
+				seekParam.stop_seconds = pipelineContext.seekPos;
 				if( !inventory )
 				{
 					pipelineContext.pipeline->ScheduleSeek(seekParam);
@@ -1317,11 +1315,12 @@ public:
 		pipelineContext.pipeline->Reset();
 		pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
 		pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
-		SeekParam param;
-		param.flags = GST_SEEK_FLAG_FLUSH;
-		param.start_s = position_s;
-		param.stop_s = STOP_NEVER;
-		pipelineContext.pipeline->Seek( param );
+		SeekParam req;
+		req.playback_rate    = 1.0;
+		req.start_seconds = position_s;
+		req.stop_seconds  = position_s;
+		req.flush = true;
+		pipelineContext.pipeline->DoSeekNow(req);
 	}
 	
 	void ProcessCommand( const char *str )
