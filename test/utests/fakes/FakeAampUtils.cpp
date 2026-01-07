@@ -596,7 +596,7 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 	return NULL;
 }
 
-int aamp_hascii_char_to_number( char c )
+int aamp_hex_char_to_int( char c )
 {
 	return -1;
 }

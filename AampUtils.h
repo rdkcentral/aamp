@@ -419,7 +419,7 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
  * @param c '0'..'9', 'a'..'f', or 'A'..'F'
  * @retval corresponding number (0..15) for character or -1 if invalid
  */
-int aamp_hascii_char_to_number( char c );
+int aamp_hex_char_to_int( char c );
 
 /**
  * @fn isTuneScheme

@@ -228,6 +228,16 @@ public:
 	static CurlStore& GetCurlStoreInstance(PrivateInstanceAAMP *pAamp);
 };
 
+enum class ChunkedTransferState
+{
+	READING_CHUNK_SIZE,     // reading hexadecimal chunk size
+	PENDING_CHUNK_START_LF, // chunk size read, along with following CR delimiter - waiting for LF
+	READING_CHUNK_DATA,     // collecting binary payload for chunk
+	PENDING_CHUNK_END_CR,   // chunk payload has been read, next byte expected to be chunk-end CR
+	PENDING_CHUNK_END_LF,   // chunk payload and first CR delimiter read; waiting for LF
+	ERROR
+};
+
 /**
  * @struct CurlCallbackContext
  * @brief context during curl callbacks
@@ -235,20 +245,9 @@ public:
 struct CurlCallbackContext
 {
 	// HTTP/1.1 Chunked Transfer Protocol
-	typedef enum
-	{
-		eTRANSFER_STATE_READING_CHUNK_SIZE, // reading hexadecimal chunk size
-		eTRANSFER_STATE_PENDING_CHUNK_START_LF, // chunk size read, along with following CR delimiter - waiting for LF
-		eTRANSFER_STATE_READING_CHUNK_DATA, // collecting binary payload for chunk
-		eTRANSFER_STATE_PENDING_CHUNK_END_CR, // chunk payload has been read, next byte expected to be chunk-end CR
-		eTRANSFER_STATE_PENDING_CHUNK_END_LF, // chunk payload and first CR delimiter read; waiting for LF
-		eTRANSFER_STATE_ERROR
-	} TransferState;
-	struct
-	{
-		size_t remaining;
-		TransferState state;
-	} mTransferState;
+	
+	size_t m_ChunkedBytesRemaining;
+	ChunkedTransferState m_ChunkedTransferState;
 	
 	PrivateInstanceAAMP *aamp;
 	AampMediaType mediaType;
@@ -264,8 +263,8 @@ struct CurlCallbackContext
 	long long downloadStartTime;
 	long long processDelay; /**< Indicate the external process delay in curl operation; especially for lld*/
 
-	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0),mTransferState{0, eTRANSFER_STATE_READING_CHUNK_SIZE} {}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1), processDelay(0), mTransferState{0, eTRANSFER_STATE_READING_CHUNK_SIZE} {}
+	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0),m_ChunkedBytesRemaining(0), m_ChunkedTransferState(ChunkedTransferState::READING_CHUNK_SIZE) {}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1), processDelay(0), m_ChunkedBytesRemaining(0), m_ChunkedTransferState(ChunkedTransferState::READING_CHUNK_SIZE) {}
 
 	~CurlCallbackContext() {}
 

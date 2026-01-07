@@ -642,6 +642,33 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+static const char *ChunkedTransferStateToName( ChunkedTransferState state )
+{
+	const char *state_name = NULL;
+	switch( state )
+	{
+		case ChunkedTransferState::READING_CHUNK_SIZE:
+			state_name = "reading chunk size";
+			break;
+		case ChunkedTransferState::PENDING_CHUNK_START_LF:
+			state_name = "awaiting start LF";
+			break;
+		case ChunkedTransferState::READING_CHUNK_DATA:
+			state_name = "reading chunk data";
+			break;
+		case ChunkedTransferState::PENDING_CHUNK_END_CR:
+			state_name = "awaiting end CR";
+			break;
+		case ChunkedTransferState::PENDING_CHUNK_END_LF:
+			state_name = "awaiting end LF";
+			break;
+		case ChunkedTransferState::ERROR:
+			state_name = "error";
+			break;
+	}
+	return state_name;
+}
+
 /**
  * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
  *
@@ -653,49 +680,16 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
  * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
  *
  * The state machine transitions between:
- * - eTRANSFER_STATE_READING_CHUNK_SIZE: parse the hexadecimal chunk size
+ * - READING_CHUNK_SIZE: parse the hexadecimal chunk size
  *   from the stream.
- * - eTRANSFER_STATE_PENDING_CHUNK_START_LF: wait for the LF that terminates
+ * - PENDING_CHUNK_START_LF: wait for the LF that terminates
  *   the chunk-size line.
- * - eTRANSFER_STATE_READING_CHUNK_DATA: consume exactly the announced number
+ * - READING_CHUNK_DATA: consume exactly the announced number
  *   of data bytes for the current chunk and deliver them to the underlying
  *   consumer.
- * - eTRANSFER_STATE_PENDING_CHUNK_END_CR: wait for the CR after a chunk's
+ * - PENDING_CHUNK_END_CR: wait for the CR after a chunk's
  *   payload.
- * - eTRANSFER_STATE_PENDING_CHUNK_END_LF: wait for the LF that completes the
- *   CRLF sequence after a chunk.
- *
- * The function may be called multiple times with partial chunk boundaries; it
- * maintains parsing progress across invocations via the transfer-state fields
- * in the provided context.
- *
- * @param[in] ptr       Pointer to the buffer containing newly received data.
- * @param[in] numBytes  Number of valid bytes available in @p ptr.
- * @param[in] userdata  Pointer to the CurlCallbackContext or user data
- *                      associated with this transfer, used to track the
- *                      current chunked-transfer parsing state.
- */
-/**
- * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
- *
- * This callback is invoked by the downloader whenever a new block of bytes is
- * received for a request that uses HTTP/1.1 chunked transfer encoding. It
- * implements an incremental parser driven by a state machine stored in
- * CurlCallbackContext::mTransferState. The parser consumes the input buffer,
- * interpreting chunk-size lines, chunk payload, and the required CR/LF
- * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
- *
- * The state machine transitions between:
- * - eTRANSFER_STATE_READING_CHUNK_SIZE: parse the hexadecimal chunk size
- *   from the stream.
- * - eTRANSFER_STATE_PENDING_CHUNK_START_LF: wait for the LF that terminates
- *   the chunk-size line.
- * - eTRANSFER_STATE_READING_CHUNK_DATA: consume exactly the announced number
- *   of data bytes for the current chunk and deliver them to the underlying
- *   consumer.
- * - eTRANSFER_STATE_PENDING_CHUNK_END_CR: wait for the CR after a chunk's
- *   payload.
- * - eTRANSFER_STATE_PENDING_CHUNK_END_LF: wait for the LF that completes the
+ * - PENDING_CHUNK_END_LF: wait for the LF that completes the
  *   CRLF sequence after a chunk.
  *
  * The function may be called multiple times with partial chunk boundaries; it
@@ -714,41 +708,19 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 	const char *fin = &ptr[numBytes];
 	while( ptr<fin )
 	{
-		const char *state_name;
-		switch( context->mTransferState.state )
+		AAMPLOG_INFO(
+					 "%s (%s) remaining=%zu",
+					 GetMediaTypeName(context->mediaType),
+					 ChunkedTransferStateToName(context->m_ChunkedTransferState),
+					 context->m_ChunkedBytesRemaining );
+		switch( context->m_ChunkedTransferState )
 		{
-			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
-				state_name = "reading chunk size";
-				break;
-			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
-				state_name = "awaiting start LF";
-				break;
-			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA:
-				state_name = "reading chunk data";
-				break;
-			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
-				state_name = "awaiting end CR";
-				break;
-			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
-				state_name = "awaiting end LF";
-				break;
-			case CurlCallbackContext::eTRANSFER_STATE_ERROR:
-			default:
-				state_name = "error";
-				break;
-		}
-		AAMPLOG_INFO("%s (%s) remaining=%zu",
-				GetMediaTypeName(context->mediaType),
-				state_name,
-				context->mTransferState.remaining );
-		switch( context->mTransferState.state )
-		{
-			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
+			case ChunkedTransferState::READING_CHUNK_SIZE:
 			{
 				char c = *ptr++;
 				if( c=='\r' )
 				{
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF;
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
 				}
 				else if( c==';' )
 				{
@@ -759,7 +731,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 						char extChar = *ptr++;
 						if( extChar=='\r' )
 						{
-							context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF;
+							context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
 							break;
 						}
 					}
@@ -768,91 +740,91 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 				else
 				{
-					int octet = aamp_hascii_char_to_number(c);
+					int octet = aamp_hex_char_to_int(c);
 					if( octet<0 )
 					{
 						AAMPLOG_ERR( "unexpected char: 0x%02x", c );
-						context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_ERROR;
+						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					}
 					else
 					{
-						context->mTransferState.remaining <<= 4;
-						context->mTransferState.remaining += octet;
+						context->m_ChunkedBytesRemaining <<= 4;
+						context->m_ChunkedBytesRemaining += octet;
 					}
 				}
 			}
 				break;
 				
-			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
+			case ChunkedTransferState::PENDING_CHUNK_START_LF:
 				if( *ptr++ != '\n' )
 				{
 					AAMPLOG_ERR( "missing expected \\n" );
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_ERROR;
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 				}
 				else
 				{
-					if( context->mTransferState.remaining )
+					if( context->m_ChunkedBytesRemaining )
 					{
-						AAMPLOG_INFO( "CHUNK_START %zu %s", context->mTransferState.remaining, GetMediaTypeName(context->mediaType) );
+						AAMPLOG_INFO( "CHUNK_START %zu %s", context->m_ChunkedBytesRemaining, GetMediaTypeName(context->mediaType) );
 					}
 					else
 					{
 						AAMPLOG_INFO( "CHUNK_END %s", GetMediaTypeName(context->mediaType) );
 					}
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA;
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
 				}
 				break;
 				
-			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA:
-				if( context->mTransferState.remaining > 0 )
+			case ChunkedTransferState::READING_CHUNK_DATA:
+				if( context->m_ChunkedBytesRemaining > 0 )
 				{
 					size_t n = fin - ptr;
-					if( n > context->mTransferState.remaining )
+					if( n > context->m_ChunkedBytesRemaining )
 					{ // clamp - more bytes in write_callback than needed to complete current chunk
-						n = context->mTransferState.remaining;
+						n = context->m_ChunkedBytesRemaining;
 					}
 					context->buffer->AppendBytes( ptr, n );
 					ptr += n;
-					context->mTransferState.remaining -= n;
+					context->m_ChunkedBytesRemaining -= n;
 				}
 				else
 				{
 					// here we will presumably be at the end of an 'mdat', suitable for injection
 					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_END_CR;
 				}
 				break;
 				
-			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
+			case ChunkedTransferState::PENDING_CHUNK_END_CR:
 				if( *ptr++ != '\r' )
 				{
 					AAMPLOG_ERR( "missing expected \\r" );
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_ERROR;
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 				}
 				else
 				{
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF;
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_END_LF;
 				}
 				break;
 				
-			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
+			case ChunkedTransferState::PENDING_CHUNK_END_LF:
 				if( *ptr++ != '\n' )
 				{
 					AAMPLOG_ERR( "missing expected \\n" );
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_ERROR;
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 				}
 				else
 				{
-					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
-					if( context->mTransferState.remaining != 0 )
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
+					if( context->m_ChunkedBytesRemaining != 0 )
 					{
-						AAMPLOG_ERR( "unexpected mTransferState.remaining=%d", context->mTransferState.state );
-						context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_ERROR;
+						AAMPLOG_ERR( "unexpected m_ChunkedBytesRemaining=%zu", context->m_ChunkedBytesRemaining );
+						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					}
 				}
 				break;
 				
-			case CurlCallbackContext::eTRANSFER_STATE_ERROR:
+			case ChunkedTransferState::ERROR:
 				AAMPLOG_ERR( "Aborting chunked transfer parsing due to previous error" );
 				ptr = fin; // consume remaining bytes to exit loop
 				break;
@@ -896,7 +868,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
 				chunked_write_callback( ptr, numBytesForBlock, userdata );
-				if( context->mTransferState.state == CurlCallbackContext::eTRANSFER_STATE_ERROR )
+				if( context->m_ChunkedTransferState == ChunkedTransferState::ERROR )
 				{
 					AAMPLOG_ERR("Chunked transfer parser entered ERROR state; aborting write callback");
 					ret = 0;
@@ -4714,8 +4686,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if(!loopAgain)
 					break;
-				context.mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
-				context.mTransferState.remaining = 0;
+				context.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
+				context.m_ChunkedBytesRemaining = 0;
 			}
 		}
 
