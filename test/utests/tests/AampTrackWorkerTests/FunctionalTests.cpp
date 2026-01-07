@@ -41,16 +41,9 @@ protected:
 	class TestableAampTrackWorker : public aamp::AampTrackWorker
 	{
 	public:
-		using AampTrackWorker::mQueueMutex; // Expose protected member for testing
-
 		TestableAampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
 			: aamp::AampTrackWorker(_aamp, _mediaType)
 		{
-		}
-
-		void SetStopFlag(bool stop)
-		{
-			mStop.store(stop);
 		}
 
 		PrivateInstanceAAMP *GetAampInstance()
@@ -61,11 +54,6 @@ protected:
 		AampMediaType GetMediaType()
 		{
 			return mMediaType;
-		}
-
-		void NotifyConditionVariable()
-		{
-			mCondVar.notify_one();
 		}
 
 		size_t GetJobQueueSize()
