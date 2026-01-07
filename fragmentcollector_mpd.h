@@ -46,6 +46,9 @@
 #include "AampTrackWorkerManager.hpp"
 #include "AampDownloadInfo.hpp"
 
+// Sentinel for invalid base period offset in ad nodes
+constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
+
 using namespace dash;
 using namespace std;
 using namespace dash::mpd;
@@ -1244,6 +1247,7 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	double CalculateStartTimeOfFirstPTS();
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

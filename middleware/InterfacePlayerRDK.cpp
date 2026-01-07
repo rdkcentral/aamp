@@ -2619,7 +2619,6 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		return rc;
 	}
 	gst_media_stream* video = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
-	gst_media_stream* audio = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
 	// segment.start needs to be queried
 	if (interfacePlayerPriv->gstPrivateContext->segmentStart == -1)
 	{
@@ -2640,9 +2639,9 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		}
 		gst_query_unref(segmentQuery);
 	}
-	if (gst_element_query(audio->sinkbin,interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
+	if (gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,interfacePlayerPriv->gstPrivateContext->positionQuery) == TRUE)
 	{
-		MW_LOG_ERR("tanuj quering pos from audio sinkbin");
+		MW_LOG_ERR("tanuj quering pos from pipeline");
 		gint64 pos = 0;
 		int rate = interfacePlayerPriv->gstPrivateContext->rate;
 		gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
