@@ -863,7 +863,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
 				chunked_write_callback( ptr, numBytesForBlock, userdata );
-				if( context->mTransferState.state == ERROR )
+				if( context->mTransferState.state == CurlCallbackContext::eTRANSFER_STATE_ERROR )
 				{
 					AAMPLOG_ERR("Chunked transfer parser entered ERROR state; aborting write callback");
 					ret = 0;
