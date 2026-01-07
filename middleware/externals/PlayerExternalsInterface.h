@@ -95,6 +95,8 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override {}
 
 	void SetPowerEvent(bool powerEvt) override {}
+
+    bool GetPowerEvent() override { return false; }
         
         ~FakePlayerExternalsInterface(){}
 };
@@ -200,6 +202,16 @@ public:
 
     void SetPowerEvent(bool powerEvt);
 
+    bool GetPowerEvent();
+
+    /**
+     * @brief Checks if platform device properties are accessible.
+     *
+     * Device properties are only exposed via platform services when running
+     * with IARM manager in a native (non-container) environment. This helper
+     * therefore returns true if and only if those platform services are
+     * expected to be available.
+     */
     static bool IsDevicePropertiesPresent();
 };
 

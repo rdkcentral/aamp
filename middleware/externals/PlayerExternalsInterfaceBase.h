@@ -140,6 +140,8 @@ class PlayerExternalsInterfaceBase
 
 	virtual void SetPowerEvent(bool powerEvt) = 0;	
 
+    virtual bool GetPowerEvent() = 0;
+
 };
 
 #endif

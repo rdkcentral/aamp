@@ -154,6 +154,19 @@ void PlayerExternalsInterface::SetPowerEvent(bool powerEvt)
     m_pIarmInterface->SetPowerEvent(powerEvt);
 }
 
+bool PlayerExternalsInterface::GetPowerEvent()
+{
+    return m_pIarmInterface->GetPowerEvent();
+}
+
+/**
+ * @brief Checks if platform device properties are accessible.
+ *
+ * Device properties are only exposed via platform services when running
+ * with IARM manager in a native (non-container) environment. This helper
+ * therefore returns true if and only if those platform services are
+ * expected to be available.
+ */
 bool PlayerExternalsInterface::IsDevicePropertiesPresent()
 {
     bool bRet = false;

@@ -83,6 +83,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         InitState m_initialized = NOT_INITIALIZED;
         //remove-end
 
+        bool mPowerEvt = false;
+
         PlayerExternalsRdkInterface();
 
     public:
@@ -159,7 +161,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
 	void SetPowerEvent(bool powerEvt) override;
 
-	bool mPowerEvt = false;
+        bool GetPowerEvent() override;
 
         ~PlayerExternalsRdkInterface();
 

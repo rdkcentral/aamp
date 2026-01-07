@@ -69,6 +69,15 @@
  */
 
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
+
+/**
+ * @brief Performs a fake tune operation.
+ * 
+ * This function initiates a fake tune using a predefined manifest URL,
+ * primarily used for testing and validation scenarios.
+ * 
+ * @return void
+ */
 void doFakeTune();
 #define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
 
@@ -93,6 +102,7 @@ public:
 	 *
 	 *   @param  streamSink - custom stream sink, NULL for default.
 	 *   @param  exportFrames - callback function to export video frames
+	 *   @param  powerEvt - enable power event handling, false by default
 	 */
 	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr, bool powerEvt = false);
 

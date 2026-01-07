@@ -365,3 +365,8 @@ void PlayerExternalsRdkInterface::SetPowerEvent(bool powerEvt)
 {
     mPowerEvt = powerEvt;	
 }
+
+bool PlayerExternalsRdkInterface::GetPowerEvent()
+{
+    return mPowerEvt;	
+}
