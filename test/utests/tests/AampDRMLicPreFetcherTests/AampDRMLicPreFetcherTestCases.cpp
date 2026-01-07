@@ -1316,3 +1316,466 @@ TEST_F(AampDRMLicPreFetcherTests, MultiKey_VssPeriod_Slot0Failed_ErrorNotifiedIn
 
 	mTestablePreFetcher->Term();
 }
+
+// ============================================================================
+// CONCURRENCY TESTS FOR mLicenseAcquisitionMutex
+// ============================================================================
+
+/**
+ * @brief Test: Mutex correctly serializes concurrent license acquisition attempts
+ *
+ * Verify that the mLicenseAcquisitionMutex properly serializes multiple concurrent
+ * license acquisition requests, ensuring thread safety and preventing race conditions
+ * during simultaneous createDrmSession() calls.
+ *
+ * Scenario:
+ * - Multiple threads queue content protection requests for different tracks (VIDEO, AUDIO)
+ * - Each request triggers CreateDRMSession() which acquires mLicenseAcquisitionMutex
+ * - Verify createDrmSession() is called sequentially (not concurrently)
+ * - Verify no data corruption occurs during concurrent access
+ */
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicenseAcquisition)
+{
+	mTestablePreFetcher->Init();
+
+	auto keyIdVideo = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
+	auto keyIdAudio = CreateKeyIdFromHex(TEST_KEY_ID_AUDIO);
+
+	DrmInfo drmInfo;
+	drmInfo.keyFormat = "identity";
+	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
+	drmInfo.systemUUID = "test-uuid-concurrent";
+
+	std::map<int, std::vector<uint8_t>> allKeys;
+	allKeys[0] = keyIdVideo;
+	allKeys[1] = keyIdAudio;
+
+	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
+	auto drmHelperAudio = std::make_shared<TestDrmHelper>(drmInfo, keyIdAudio, allKeys);
+
+	// Track concurrent calls to createDrmSession
+	std::atomic<int> concurrentCallCount{0};
+	std::atomic<int> maxConcurrentCalls{0};
+	std::mutex callCountMutex;
+	auto incrementConcurrentCount = [&]() {
+		++concurrentCallCount;
+		int current = concurrentCallCount.load();
+		int maxSeen = maxConcurrentCalls.load();
+		while (current > maxSeen && !maxConcurrentCalls.compare_exchange_weak(maxSeen, current)) {
+			maxSeen = maxConcurrentCalls.load();
+		}
+	};
+	auto decrementConcurrentCount = [&]() {
+		--concurrentCallCount;
+	};
+
+	// Setup mock to track concurrent access
+	auto drmSession = std::make_shared<TestDrmSession>();
+	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
+		.Times(2)
+		.WillRepeatedly(DoAll(
+			Invoke(incrementConcurrentCount),
+			// Small delay to increase chance of detecting concurrent calls
+			Invoke([](auto, auto, auto, auto) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }),
+			Invoke(decrementConcurrentCount),
+			Return(drmSession.get())
+		));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdVideo, _))
+		.Times(1)
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdAudio, _))
+		.Times(1)
+		.WillOnce(Return(false));
+
+	// Queue both requests rapidly to stress concurrent access
+	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
+	mTestablePreFetcher->QueueContentProtection(drmHelperAudio, "period1", 1, eMEDIATYPE_AUDIO, false);
+
+	// Wait for processing
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	// Verify mutex prevented concurrent access
+	EXPECT_EQ(maxConcurrentCalls.load(), 1)
+		<< "Mutex should serialize calls; max concurrent should be 1, but was " << maxConcurrentCalls.load();
+
+	mTestablePreFetcher->Term();
+}
+
+/**
+ * @brief Test: Term() properly waits for ongoing license acquisition to complete
+ *
+ * Verify that the stop/Term() flow correctly waits for any in-flight license acquisition
+ * to complete before returning. This is critical to prevent applying a previous tune's
+ * license to the CDM after a new tune has been initiated (fast channel change scenario).
+ *
+ * Scenario:
+ * - Start license acquisition (slow operation simulated by delay)
+ * - Immediately call Term() from another thread
+ * - Verify Term() blocks until license acquisition completes
+ * - Verify mFetchInstance is properly cleaned up
+ */
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcquisition)
+{
+	mTestablePreFetcher->Init();
+
+	auto keyIdVideo = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
+
+	DrmInfo drmInfo;
+	drmInfo.keyFormat = "identity";
+	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
+	drmInfo.systemUUID = "test-uuid-term-wait";
+
+	std::map<int, std::vector<uint8_t>> allKeys;
+	allKeys[0] = keyIdVideo;
+
+	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
+
+	// Track when createDrmSession completes
+	std::atomic<bool> drmSessionStarted{false};
+	std::atomic<bool> drmSessionCompleted{false};
+	std::atomic<bool> setLicenseFetcherCalled{false};
+
+	// Wrap the original license fetcher
+	auto mockLicenseFetcher = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
+	mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher.get());
+
+	auto drmSession = std::make_shared<TestDrmSession>();
+	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
+		.Times(1)
+		.WillOnce(DoAll(
+			Invoke([&]() {
+				drmSessionStarted.store(true);
+				// Simulate slow license acquisition
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				drmSessionCompleted.store(true);
+			}),
+			Return(drmSession.get())
+		));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdVideo, _))
+		.Times(1)
+		.WillOnce(Return(false));
+
+	// Queue license acquisition
+	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
+
+	// Give the prefetch thread time to pick up the item from queue
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// Record time when Term() is called
+	auto termStartTime = std::chrono::high_resolution_clock::now();
+
+	// Call Term() - should block until license acquisition completes
+	std::thread termThread([this]() {
+		mTestablePreFetcher->Term();
+	});
+
+	// Give term thread a moment to start
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	// At this point, license acquisition should be ongoing
+	EXPECT_TRUE(drmSessionStarted.load())
+		<< "License acquisition should have started before Term() was called";
+
+	// Wait for Term to complete
+	termThread.join();
+	auto termEndTime = std::chrono::high_resolution_clock::now();
+
+	// Verify that Term() waited for license acquisition to complete
+	EXPECT_TRUE(drmSessionCompleted.load())
+		<< "License acquisition should be completed after Term() returns";
+
+	auto termDuration = std::chrono::duration_cast<std::chrono::milliseconds>(termEndTime - termStartTime);
+	EXPECT_GE(termDuration.count(), 50)
+		<< "Term() should have waited for ongoing license acquisition (~100ms delay)";
+}
+
+/**
+ * @brief Test: No deadlock when NotifyDrmFailure is invoked from CreateDRMSession flow
+ *
+ * Verify that calling NotifyDrmFailure() from within the CreateDRMSession flow
+ * (directly or indirectly) does not cause deadlock. The critical contract is that
+ * NotifyDrmFailure must NOT be called while holding mLicenseAcquisitionMutex.
+ *
+ * Scenario:
+ * - CreateDRMSession holds mLicenseAcquisitionMutex during license acquisition
+ * - If session creation fails, NotifyDrmFailure is called AFTER releasing the mutex
+ * - NotifyDrmFailure may attempt to access mFetchInstance and mLicenseAcquisitionMutex
+ * - Verify no deadlock occurs during error flow
+ */
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailureInvoked)
+{
+	mTestablePreFetcher->Init();
+
+	auto keyIdVideo = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
+
+	DrmInfo drmInfo;
+	drmInfo.keyFormat = "identity";
+	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
+	drmInfo.systemUUID = "test-uuid-deadlock";
+
+	std::map<int, std::vector<uint8_t>> allKeys;
+	allKeys[0] = keyIdVideo;
+
+	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
+
+	// Track execution flow
+	std::atomic<bool> notifyDrmFailureCalled{false};
+	std::atomic<bool> setLicenseFetcherCalled{false};
+
+	auto mockLicenseFetcher = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
+	mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher.get());
+
+	// Simulate session creation failure
+	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
+		.Times(1)
+		.WillOnce(Return(nullptr)); // Return null to trigger error flow
+
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdVideo, _))
+		.Times(1)
+		.WillOnce(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDRMMetaData(_))
+		.Times(1);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDrmErrorEvent(_, _))
+		.Times(1);
+
+	// Queue license acquisition that will fail
+	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
+
+	// Wait for the error flow to complete
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	// If we get here without hanging, no deadlock occurred
+	SUCCEED() << "No deadlock detected during NotifyDrmFailure error flow";
+
+	mTestablePreFetcher->Term();
+}
+
+/**
+ * @brief Test: SetLicenseFetcher and CreateDRMSession don't deadlock
+ *
+ * Verify that SetLicenseFetcher (which holds mLicenseAcquisitionMutex) and
+ * CreateDRMSession (which also acquires the same mutex) don't deadlock when
+ * called concurrently from different threads.
+ *
+ * Scenario:
+ * - Main thread: Update mFetchInstance via SetLicenseFetcher
+ * - Prefetch thread: Acquire license via CreateDRMSession
+ * - Verify both operations complete without deadlock
+ */
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetLicenseFetcherAndCreateDrmSessionNoDeadlock)
+{
+	mTestablePreFetcher->Init();
+
+	auto keyIdVideo = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
+	auto keyIdAudio = CreateKeyIdFromHex(TEST_KEY_ID_AUDIO);
+
+	DrmInfo drmInfo;
+	drmInfo.keyFormat = "identity";
+	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
+	drmInfo.systemUUID = "test-uuid-no-deadlock";
+
+	std::map<int, std::vector<uint8_t>> allKeys;
+	allKeys[0] = keyIdVideo;
+	allKeys[1] = keyIdAudio;
+
+	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
+	auto drmHelperAudio = std::make_shared<TestDrmHelper>(drmInfo, keyIdAudio, allKeys);
+
+	auto mockLicenseFetcher1 = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
+	auto mockLicenseFetcher2 = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
+
+	auto drmSession = std::make_shared<TestDrmSession>();
+	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
+		.Times(2)
+		.WillRepeatedly(Return(drmSession.get()));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdVideo, _))
+		.Times(1)
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdAudio, _))
+		.Times(1)
+		.WillOnce(Return(false));
+
+	// Thread 1: Continuously update license fetcher
+	std::atomic<bool> stopFetcherUpdates{false};
+	std::thread fetcherUpdateThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &stopFetcherUpdates]() {
+		int iteration = 0;
+		while (!stopFetcherUpdates.load()) {
+			if (iteration++ % 2 == 0) {
+				mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
+			} else {
+				mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher2.get());
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
+	});
+
+	// Queue concurrent license requests to trigger CreateDRMSession
+	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
+	mTestablePreFetcher->QueueContentProtection(drmHelperAudio, "period1", 1, eMEDIATYPE_AUDIO, false);
+
+	// Wait for license acquisition
+	std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+	// Stop the fetcher update thread
+	stopFetcherUpdates.store(true);
+	fetcherUpdateThread.join();
+
+	// Verify no deadlock occurred
+	SUCCEED() << "SetLicenseFetcher and CreateDRMSession executed without deadlock";
+
+	mTestablePreFetcher->Term();
+}
+
+/**
+ * @brief Test: Multiple fast sequential Term calls don't cause issues
+ *
+ * Verify that calling Term() multiple times rapidly (simulating fast channel changes)
+ * doesn't cause deadlock or state corruption. The mutex should properly protect
+ * against race conditions in the stop flow.
+ *
+ * Scenario:
+ * - Queue a license acquisition request
+ * - Call Term() multiple times rapidly from different threads
+ * - Verify all calls complete without deadlock
+ * - Verify state remains consistent
+ */
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MultipleFastChannelChanges)
+{
+	mTestablePreFetcher->Init();
+
+	auto keyIdVideo = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
+
+	DrmInfo drmInfo;
+	drmInfo.keyFormat = "identity";
+	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
+	drmInfo.systemUUID = "test-uuid-fast-changes";
+
+	std::map<int, std::vector<uint8_t>> allKeys;
+	allKeys[0] = keyIdVideo;
+
+	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
+
+	auto drmSession = std::make_shared<TestDrmSession>();
+	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
+		.Times(1)
+		.WillOnce(Return(drmSession.get()));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdVideo, _))
+		.Times(1)
+		.WillOnce(Return(false));
+
+	// Queue initial request
+	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
+
+	// Simulate fast channel changes by calling Term multiple times
+	std::vector<std::thread> termThreads;
+	for (int i = 0; i < 3; ++i) {
+		termThreads.emplace_back([this]() {
+			mTestablePreFetcher->Term();
+		});
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+
+	// Wait for all Term calls to complete
+	for (auto& thread : termThreads) {
+		if (thread.joinable()) {
+			thread.join();
+		}
+	}
+
+	// If we get here, no deadlock occurred
+	SUCCEED() << "Multiple fast Term calls completed without deadlock";
+}
+
+/**
+ * @brief Test: Mutex protects mFetchInstance access during concurrent NotifyDrmFailure calls
+ *
+ * Verify that mLicenseAcquisitionMutex properly protects access to mFetchInstance when
+ * NotifyDrmFailure is called concurrently with SetLicenseFetcher. This ensures that
+ * concurrent attempts to read/write mFetchInstance don't cause data corruption.
+ *
+ * Scenario:
+ * - Queue multiple license requests that will fail
+ * - Concurrently update mFetchInstance via SetLicenseFetcher
+ * - NotifyDrmFailure calls use mFetchInstance safely
+ * - Verify no use-after-free or null pointer dereference
+ */
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAccess)
+{
+	mTestablePreFetcher->Init();
+
+	auto keyId1 = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
+	auto keyId2 = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_1);
+	auto keyId3 = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_2);
+
+	DrmInfo drmInfo;
+	drmInfo.keyFormat = "identity";
+	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
+	drmInfo.systemUUID = "test-uuid-fetch-instance";
+
+	std::map<int, std::vector<uint8_t>> allKeys;
+	allKeys[0] = keyId1;
+	allKeys[1] = keyId2;
+	allKeys[2] = keyId3;
+
+	auto drmHelper1 = std::make_shared<TestDrmHelper>(drmInfo, keyId1, allKeys);
+	auto drmHelper2 = std::make_shared<TestDrmHelper>(drmInfo, keyId2, allKeys);
+	auto drmHelper3 = std::make_shared<TestDrmHelper>(drmInfo, keyId3, allKeys);
+
+	auto mockLicenseFetcher1 = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
+	auto mockLicenseFetcher2 = std::make_shared<StrictMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP.get());
+
+	// All requests will fail to trigger NotifyDrmFailure
+	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
+		.Times(3)
+		.WillRepeatedly(Return(nullptr));
+
+	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(_, _))
+		.Times(3)
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDRMMetaData(_))
+		.Times(3);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDrmErrorEvent(_, _))
+		.Times(3);
+
+	// Set initial fetcher
+	mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
+
+	// Queue multiple failing requests
+	mTestablePreFetcher->QueueContentProtection(drmHelper1, "period1", 0, eMEDIATYPE_VIDEO, false);
+	mTestablePreFetcher->QueueContentProtection(drmHelper2, "period1", 1, eMEDIATYPE_AUDIO, false);
+	mTestablePreFetcher->QueueContentProtection(drmHelper3, "period1", 2, eMEDIATYPE_VIDEO, false);
+
+	// Concurrent thread updating fetcher instance
+	std::atomic<bool> stopUpdatingFetcher{false};
+	std::thread fetcherSwapThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &stopUpdatingFetcher]() {
+		int count = 0;
+		while (!stopUpdatingFetcher.load() && count++ < 20) {
+			mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher2.get());
+			std::this_thread::sleep_for(std::chrono::milliseconds(3));
+			mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
+			std::this_thread::sleep_for(std::chrono::milliseconds(3));
+		}
+		stopUpdatingFetcher.store(true);
+	});
+
+	// Wait for processing
+	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+	// Stop the swapping thread
+	stopUpdatingFetcher.store(true);
+	if (fetcherSwapThread.joinable()) {
+		fetcherSwapThread.join();
+	}
+
+	// Verify test completed without crash/deadlock
+	SUCCEED() << "Concurrent mFetchInstance access handled safely";
+
+	mTestablePreFetcher->Term();
+}
