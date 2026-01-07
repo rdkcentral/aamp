@@ -161,7 +161,7 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
  */
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
-	MW_LOG_INFO("isAbort : %d ", isAbort);
+	MW_LOG_INFO("isAbort : %s ", isAbort ? "true" : "false");
 	licenseRequestAbort.store(isAbort, std::memory_order_release);
 }
 
@@ -379,7 +379,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				//check if license req is aborted. if yes, ignore the response.
 				if(licenseRequestAbort.load(std::memory_order_acquire))
 				{
-					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response.Resetting session slot %d", sessionSlot);
+					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response. Resetting session slot %d", sessionSlot);
 					eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 					eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
 					responseCode = int(CURLE_ABORTED_BY_CALLBACK);
