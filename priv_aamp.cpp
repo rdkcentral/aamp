@@ -675,6 +675,39 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
  *                      associated with this transfer, used to track the
  *                      current chunked-transfer parsing state.
  */
+/**
+ * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
+ *
+ * This callback is invoked by the downloader whenever a new block of bytes is
+ * received for a request that uses HTTP/1.1 chunked transfer encoding. It
+ * implements an incremental parser driven by a state machine stored in
+ * CurlCallbackContext::mTransferState. The parser consumes the input buffer,
+ * interpreting chunk-size lines, chunk payload, and the required CR/LF
+ * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
+ *
+ * The state machine transitions between:
+ * - eTRANSFER_STATE_READING_CHUNK_SIZE: parse the hexadecimal chunk size
+ *   from the stream.
+ * - eTRANSFER_STATE_PENDING_CHUNK_START_LF: wait for the LF that terminates
+ *   the chunk-size line.
+ * - eTRANSFER_STATE_READING_CHUNK_DATA: consume exactly the announced number
+ *   of data bytes for the current chunk and deliver them to the underlying
+ *   consumer.
+ * - eTRANSFER_STATE_PENDING_CHUNK_END_CR: wait for the CR after a chunk's
+ *   payload.
+ * - eTRANSFER_STATE_PENDING_CHUNK_END_LF: wait for the LF that completes the
+ *   CRLF sequence after a chunk.
+ *
+ * The function may be called multiple times with partial chunk boundaries; it
+ * maintains parsing progress across invocations via the transfer-state fields
+ * in the provided context.
+ *
+ * @param[in] ptr       Pointer to the buffer containing newly received data.
+ * @param[in] numBytes  Number of valid bytes available in @p ptr.
+ * @param[in] userdata  Pointer to the CurlCallbackContext or user data
+ *                      associated with this transfer, used to track the
+ *                      current chunked-transfer parsing state.
+ */
 void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
 { // HTTP/1.1 Chunked Transfer Protocol
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
