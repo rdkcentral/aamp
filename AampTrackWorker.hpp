@@ -165,7 +165,7 @@ namespace aamp
 		bool mPaused; // Flag to pause the worker threads (protected by mQueueMutex)
 
 	private:
-		void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
+		static void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
 		AampTrackWorkerJobSharedPtr mActiveJob; // Active job being processed
 	};
 } // namespace aamp

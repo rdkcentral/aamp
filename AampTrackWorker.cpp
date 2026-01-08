@@ -204,7 +204,7 @@ namespace aamp
 
 		try
 		{
-			mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, shared_from_this(), std::weak_ptr<AampTrackWorker>(shared_from_this()));
+			mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, std::weak_ptr<AampTrackWorker>(shared_from_this()));
 		}
 		catch (const std::exception &e)
 		{
@@ -380,36 +380,37 @@ namespace aamp
 
 			while (true)
 			{
-				std::unique_lock<std::mutex> lock(self->mQueueMutex);
-
-				// Wait while (queue is empty or paused) and not stopped
-				self->mCondVar.wait(lock, [&] {
-					return self->mStopped || (!self->mPaused && !self->mJobQueue.empty());
-				});
-
-				if (self->mStopped)
-				{
-					AAMPLOG_DEBUG("Worker thread stopped for media type %s", GetMediaTypeName(self->mMediaType));
-					break;
-				}
-
-				if (self->mPaused)
-				{
-					AAMPLOG_DEBUG("Worker thread paused for media type %s", GetMediaTypeName(self->mMediaType));
-					continue;
-				}
-
-				// Extract the job safely
 				AampTrackWorkerJobSharedPtr currentJob;
-				if (!self->mJobQueue.empty())
+
 				{
-					self->mActiveJob = std::move(self->mJobQueue.front());
-					self->mJobQueue.pop_front();
-					currentJob = self->mActiveJob;
+					std::unique_lock<std::mutex> lock(self->mQueueMutex);
+
+					// Wait while (queue is empty or paused) and not stopped
+					self->mCondVar.wait(lock, [&]
+										{ return self->mStopped || (!self->mPaused && !self->mJobQueue.empty()); });
+
+					if (self->mStopped)
+					{
+						AAMPLOG_DEBUG("Worker thread stopped for media type %s", GetMediaTypeName(self->mMediaType));
+						break;
+					}
+
+					if (self->mPaused)
+					{
+						AAMPLOG_DEBUG("Worker thread paused for media type %s", GetMediaTypeName(self->mMediaType));
+						continue;
+					}
+
+					// Extract the job safely
+					if (!self->mJobQueue.empty())
+					{
+						self->mActiveJob = std::move(self->mJobQueue.front());
+						self->mJobQueue.pop_front();
+						currentJob = self->mActiveJob;
+					}
 				}
 
-				lock.unlock(); // Release lock before executing the job
-
+				// Execute job without holding lock
 				if (currentJob)
 				{
 					try
@@ -431,11 +432,14 @@ namespace aamp
 					}
 				}
 
-				lock.lock();
-				self->mActiveJob = nullptr;
-				if (self->mStopped)
 				{
-					break;
+					std::unique_lock<std::mutex> lock(self->mQueueMutex);
+
+					self->mActiveJob = nullptr;
+					if (self->mStopped)
+					{
+						break;
+					}
 				}
 			}
 			AAMPLOG_INFO("Exiting for media type %s", GetMediaTypeName(self->mMediaType));

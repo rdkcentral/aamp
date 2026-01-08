@@ -58,6 +58,7 @@ protected:
 
 		size_t GetJobQueueSize()
 		{
+			std::lock_guard<std::mutex> lock(mQueueMutex);
 			return mJobQueue.size();
 		}
 
