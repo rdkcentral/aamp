@@ -4748,6 +4748,27 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					res = CURLE_OK;
 					http_code = 206; // Partial content
 				}
+				else if (mAampLLDashServiceData.lowLatencyMode &&
+						res == CURLE_WRITE_ERROR &&
+						context.abortReason == eCURL_ABORT_REASON_FIRST_CHUNK_SLOW)
+				{
+					// Handling this differently to avoid loopAgain logic for slow first chunk case
+					// Marking as timeout to trigger ABR ramp down and also update bandwidth metrics.
+					AAMPLOG_INFO("Curl download aborted due to slow first chunk detection");
+					res = CURLE_OPERATION_TIMEDOUT;
+					http_code = res;
+				}
+				else if (mAampLLDashServiceData.lowLatencyMode &&
+						context.bufferOffset > 0 &&
+						(res == CURLE_OPERATION_TIMEDOUT || res == CURLE_PARTIAL_FILE))
+				{
+					// Download timed out in low latency mode even with early abort.
+					// Here we have injected some chunks already, so treat it as success to avoid rampdown and also update bandwidth metrics.
+					// Rampdown in this case, will cause video looping due to duplicate mp4 chunks with same timestamps
+					AAMPLOG_INFO("Curl download timed out in low latency mode after receiving data, treating as success");
+					res = CURLE_OK;
+					http_code = 206; // Partial content
+				}
 				else
 				{
 					//abortReason for progress_callback exit scenarios
@@ -14402,14 +14423,6 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadStartTimeout);
 		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlStallTimeout);
 		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadLowBWTimeout);
-		mConfig->RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_NetworkTimeout);
-
-		mNetworkTimeoutMs  = (uint32_t) CONVERT_SEC_TO_MS(GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout));
-		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
-		{
-			SetCurlTimeout(mNetworkTimeoutMs, (AampCurlInstance)i);
-		}
-		AAMPLOG_INFO("Updated NetworkTimeout %d for Non Chunked", mNetworkTimeoutMs);
 		AAMPLOG_INFO("ChunkMode disabled");
 	}
 
