@@ -33,7 +33,6 @@ extern void AampGrowableBuffer_EnableMemoryCopying(bool enable);
 struct ChunkHarness {
 	PrivateInstanceAAMP aamp;
 	AampGrowableBuffer buffer;
-	//RecordingBuffer buffer;
 	CurlCallbackContext ctx;
 
 	ChunkHarness() {
@@ -51,7 +50,7 @@ struct ChunkHarness {
 		aamp.chunked_write_callback(bytes.data(), bytes.size(), &ctx);
 	}
 	
-	std::string getBufferAsString()
+	std::string GetBufferAsString()
 	{
 		return std::string( buffer.GetPtr(), buffer.GetLen() );
 	}
@@ -64,7 +63,7 @@ TEST(ChunkedWriteCallback, SingleChunk_ExactBuffer) {
 	// "A\r\n" size line; "abcdefghij" payload; "\r\n" chunk end
 	h.feed("A\r\nabcdefghij\r\n");
 
-	EXPECT_EQ(h.getBufferAsString(), "abcdefghij");
+	EXPECT_EQ(h.GetBufferAsString(), "abcdefghij");
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -79,7 +78,7 @@ TEST(ChunkedWriteCallback, SplitAcrossCallbacks_SizeLineBoundary) {
 
 	// Second callback: LF + data + CRLF
 	h.feed("\nabcdefghij\r\n");
-	EXPECT_EQ(h.getBufferAsString(), "abcdefghij");
+	EXPECT_EQ(h.GetBufferAsString(), "abcdefghij");
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -90,10 +89,10 @@ TEST(ChunkedWriteCallback, SplitAcrossCallbacks_DataBoundary) {
 	h.feed("A\r\nabc");  // 3 bytes of the 10
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_DATA);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 7u);
-	EXPECT_EQ(h.getBufferAsString(), "abc");
+	EXPECT_EQ(h.GetBufferAsString(), "abc");
 
 	h.feed("defghij\r\n"); // remaining 7 + CRLF
-	EXPECT_EQ(h.getBufferAsString(), "abcdefghij");
+	EXPECT_EQ(h.GetBufferAsString(), "abcdefghij");
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -105,7 +104,7 @@ TEST(ChunkedWriteCallback, MultipleChunksInOneBuffer_ClampsExtra) {
 	std::string payload = "3\r\nabc\r\n2\r\nde\r\n";
 	h.feed(payload);
 
-	EXPECT_EQ(h.getBufferAsString(), "abcde");
+	EXPECT_EQ(h.GetBufferAsString(), "abcde");
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -114,7 +113,7 @@ TEST(ChunkedWriteCallback, ChunkExtensions_SameCallback) {
 	ChunkHarness h;
 
 	h.feed("A;foo=bar\r\nabcdefghij\r\n");
-	EXPECT_EQ(h.getBufferAsString(), "abcdefghij");
+	EXPECT_EQ(h.GetBufferAsString(), "abcdefghij");
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -127,7 +126,7 @@ TEST(ChunkedWriteCallback, ChunkExtensions_SplitAcrossCallbacks) {
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 10u);  // accumulation of 'A' is done
 
 	h.feed("=bar\r\nabcdefghij\r\n");
-	EXPECT_EQ(h.getBufferAsString(), "abcdefghij");
+	EXPECT_EQ(h.GetBufferAsString(), "abcdefghij");
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -138,7 +137,7 @@ TEST(ChunkedWriteCallback, TerminalZeroLengthChunk) {
 	// Terminal chunk: "0\r\n" then end marker CRLF
 	h.feed("0\r\n\r\n");
 
-	EXPECT_TRUE(h.getBufferAsString().empty());
+	EXPECT_TRUE(h.GetBufferAsString().empty());
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::DONE);
 	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 0u);
 }
@@ -149,7 +148,7 @@ TEST(ChunkedWriteCallback, Error_InvalidHexCharInSize) {
 	h.feed("G\r\n"); // 'G' is invalid hex
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::ERROR);
 	// Ensure no payload appended
-	EXPECT_TRUE(h.getBufferAsString().empty());
+	EXPECT_TRUE(h.GetBufferAsString().empty());
 }
 
 TEST(ChunkedWriteCallback, Error_MissingLF_AfterSizeCR) {
@@ -158,7 +157,7 @@ TEST(ChunkedWriteCallback, Error_MissingLF_AfterSizeCR) {
 	// Expect immediate error when the next char after CR is not '\n'
 	h.feed("A\rX"); // 'X' not LF
 	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::ERROR);
-	EXPECT_TRUE(h.getBufferAsString().empty());
+	EXPECT_TRUE(h.GetBufferAsString().empty());
 }
 
 TEST(ChunkedWriteCallback, Error_MissingCR_AfterPayload) {
@@ -194,7 +193,7 @@ TEST(ChunkedWriteCallback, ClampWhenBufferHasMoreThanNeeded) {
 
 	// Supply chunk size 2, but then give 2 bytes payload plus immediate CRLF and next chunk size char
 	h.feed("2\r\nab\r\n3"); // the '3' at end should not be consumed as data
-	EXPECT_EQ(h.getBufferAsString(), "ab");
-	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE); // correct?
-	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 2u);
+	EXPECT_EQ(h.GetBufferAsString(), "ab");
+	EXPECT_EQ(h.ctx.m_ChunkedTransferState, ChunkedTransferState::READING_CHUNK_SIZE);
+	EXPECT_EQ(h.ctx.m_ChunkedBytesRemaining, 3u);
 }

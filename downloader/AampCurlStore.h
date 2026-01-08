@@ -237,7 +237,7 @@ enum class ChunkedTransferState
 	PENDING_CHUNK_END_LF,     // chunk payload and first CR delimiter read; waiting for LF
 	READING_EXTENSIONS,       // parsing extension data between ; and CR LF
 	PENDING_EXTENSION_END_LF, // extension data complete and first CR delimiter read; waiting for LF
-	DONE,					  // read final empty chunk
+	DONE,                     // download complete; final empty chunk has been received
 	ERROR
 };
 

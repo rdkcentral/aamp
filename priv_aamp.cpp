@@ -663,10 +663,10 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
 			state_name = "awaiting end LF";
 			break;
 		case ChunkedTransferState::READING_EXTENSIONS:
-			state_name = "awaiting extension end LF";
+			state_name = "awaiting extension end CR";
 			break;
 		case ChunkedTransferState::PENDING_EXTENSION_END_LF:
-			state_name = "awaiting extension end CR";
+			state_name = "awaiting extension end LF";
 			break;
 		case ChunkedTransferState::DONE:
 			state_name = "done";
@@ -684,7 +684,7 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
  * This callback is invoked by the downloader whenever a new block of bytes is
  * received for a request that uses HTTP/1.1 chunked transfer encoding. It
  * implements an incremental parser driven by a state machine stored in
- * CurlCallbackContext::mTransferState. The parser consumes the input buffer,
+ * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input buffer,
  * interpreting chunk-size lines, chunk payload, and the required CR/LF
  * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
  *
@@ -887,7 +887,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		}
 		size_t numBytesForBlock = size*nmemb;
 		ret = numBytesForBlock;
-		if( ptr && numBytesForBlock > 0)
+		if(ptr && numBytesForBlock > 0)
 		{
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
