@@ -97,6 +97,18 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
 	void SetPowerEvent(bool powerEvt) override {}
 
     bool GetPowerEvent() override { return false; }
+
+    /**
+     * @brief Set callback function for fake tune operations (stub implementation)
+     * @param[in] t_doFakeTuneCallback Function to call for fake tune operations
+     */
+    void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback) override {}
+
+    /**
+     * @brief Get callback function for fake tune operations (stub implementation)
+     * @return nullptr for fake implementation
+     */
+    std::function<void()> GetDoFakeTuneCallBack() override { return nullptr; }
         
         ~FakePlayerExternalsInterface(){}
 };
@@ -203,6 +215,12 @@ public:
     void SetPowerEvent(bool powerEvt);
 
     bool GetPowerEvent();
+
+    /**
+     * @brief Set callback function for fake tune operations
+     * @param[in] t_doFakeTuneCallback Function to call for fake tune operations
+     */
+    void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback);
 
     /**
      * @brief Checks if platform device properties are accessible.

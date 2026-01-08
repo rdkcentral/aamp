@@ -85,6 +85,9 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         bool mPowerEvt = false;
 
+        /**< Callback function for fake tune operations */
+        std::function<void()> m_doFakeTuneCallback = nullptr;
+
         PlayerExternalsRdkInterface();
 
     public:
@@ -162,6 +165,18 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 	void SetPowerEvent(bool powerEvt) override;
 
         bool GetPowerEvent() override;
+
+        /**
+         * @brief Set callback function for fake tune operations
+         * @param[in] t_doFakeTuneCallback Function to call when fake tune is triggered from power events
+         */
+        void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback) override;
+
+        /**
+         * @brief Get callback function for fake tune operations
+         * @return Function pointer for fake tune callback
+         */
+        std::function<void()> GetDoFakeTuneCallBack() override;
 
         ~PlayerExternalsRdkInterface();
 

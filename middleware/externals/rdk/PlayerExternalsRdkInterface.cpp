@@ -370,3 +370,13 @@ bool PlayerExternalsRdkInterface::GetPowerEvent()
 {
     return mPowerEvt;	
 }
+
+void PlayerExternalsRdkInterface::SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback)
+{
+    m_doFakeTuneCallback = t_doFakeTuneCallback;
+}
+
+std::function<void()> PlayerExternalsRdkInterface::GetDoFakeTuneCallBack()
+{
+    return m_doFakeTuneCallback;
+}

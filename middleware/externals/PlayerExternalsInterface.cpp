@@ -159,6 +159,11 @@ bool PlayerExternalsInterface::GetPowerEvent()
     return m_pIarmInterface->GetPowerEvent();
 }
 
+void PlayerExternalsInterface::SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback)
+{
+    m_pIarmInterface->SetDoFakeTuneCallBack(t_doFakeTuneCallback);
+}
+
 /**
  * @brief Checks if platform device properties are accessible.
  *

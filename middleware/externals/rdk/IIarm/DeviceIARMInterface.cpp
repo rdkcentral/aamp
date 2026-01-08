@@ -43,7 +43,6 @@ Remove the entire folder externals/rdk/IARM
 #include "tr181api.h"
 #include "_base64.h"
 #ifdef USE_PREINIT_DECODING
-#include "main_aamp.h"
 #include "power_controller.h"
 #include <thread>
 #include <system_error> // for std::system_error 
@@ -146,8 +145,18 @@ void triggerFakeTune()
 {
 	try { 
         std::thread([]() { 
-            try { 
-                doFakeTune(); 
+            try {
+                std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+                if(pInstance->GetDoFakeTuneCallBack())
+                {
+                    MW_LOG_INFO("Calling Fake tune callback"); 
+                    pInstance->GetDoFakeTuneCallBack()();
+                }
+                else
+                {
+                    MW_LOG_WARN("Fake tune callback not set"); 
+                }
+                
                 MW_LOG_INFO("Fake tune thread completed successfully"); 
             } 
             catch (const std::exception& e) { 

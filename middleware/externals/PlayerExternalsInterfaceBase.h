@@ -28,6 +28,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <functional>
 
 #include <gst/gst.h>
 
@@ -141,6 +142,18 @@ class PlayerExternalsInterfaceBase
 	virtual void SetPowerEvent(bool powerEvt) = 0;	
 
     virtual bool GetPowerEvent() = 0;
+
+    /**
+     * @brief Set callback function for fake tune operations
+     * @param[in] t_doFakeTuneCallback Function to call when fake tune is triggered
+     */
+    virtual void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback) = 0;
+
+    /**
+     * @brief Get callback function for fake tune operations
+     * @return Function pointer for fake tune callback
+     */
+    virtual std::function<void()> GetDoFakeTuneCallBack() = 0;
 
 };
 
