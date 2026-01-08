@@ -760,7 +760,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 				else
 				{
-					int octet = aamp_hex_char_to_int(c);
+					int octet = hexCharToInt(c);
 					if( octet<0 )
 					{
 						AAMPLOG_ERR( "unexpected octet char: 0x%02x", c );

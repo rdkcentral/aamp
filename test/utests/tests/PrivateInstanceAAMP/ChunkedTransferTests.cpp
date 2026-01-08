@@ -24,7 +24,7 @@
 
 #include "AampCurlStore.h"
 #include "priv_aamp.h"
-#include "AampUtils.h"  // aamp_hex_char_to_int
+#include "AampUtils.h"  // hexCharToInt
 
 extern void AampGrowableBuffer_EnableMemoryCopying(bool enable);
 

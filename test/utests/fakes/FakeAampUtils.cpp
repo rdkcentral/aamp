@@ -596,18 +596,15 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 	return NULL;
 }
 
-int aamp_hex_char_to_int(char c)
+int hexCharToInt(char c)
 {
 	// including a working implementation of this trivial here
 	// for convenience to avoid breaking ChunkTransferTests
-	if (c >= '0' && c <= '9')
+	if ( isdigit(c) )
 	{
 		return c - '0';
 	}
-	if (c >= 'a' && c <= 'f')
-	{
-		return 10 + (c - 'a');
-	}
+	c = toupper(c);
 	if (c >= 'A' && c <= 'F')
 	{
 		return 10 + (c - 'A');
