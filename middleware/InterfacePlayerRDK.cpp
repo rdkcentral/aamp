@@ -4683,20 +4683,19 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 	switch(GST_MESSAGE_TYPE(msg))
 	{
 		case GST_MESSAGE_STATE_CHANGED:
-			GstState old_state, new_state;
-			bool isPlaybinStateChangeEvent;
+			GstState old_state, new_state, pending_state;
+			gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
 
-			isPlaybinStateChangeEvent = (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline));
-
-			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
-
-			if(isPlaybinStateChangeEvent || (NULL != msg->src && pInterfacePlayerRDK->m_gstConfigParam->gstLogging))
+			if (NULL != msg->src &&
+				((GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline)) ||
+				pInterfacePlayerRDK->m_gstConfigParam->gstLogging))
 			{
-				/* Log Rialto sink state transitions for easier debugging */
-				MW_LOG_MIL("Element %s %s -> %s",
+				/* Log playbin state transitions and optionally all element state transitions when gst logging is enabled */
+				MW_LOG_MIL("%s %s -> %s (pending %s)",
 						   GST_OBJECT_NAME(msg->src),
 						   gst_element_state_get_name(old_state),
-						   gst_element_state_get_name(new_state));
+						   gst_element_state_get_name(new_state),
+						   gst_element_state_get_name(pending_state));
 			}
 
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))
