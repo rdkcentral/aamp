@@ -151,7 +151,7 @@ namespace aamp
 		void RescheduleActiveJob();
 		void StartWorker();
 		void StopWorker();
-		bool IsStopped() const { return mStop; }
+		bool IsStopped() const { return mStopped; }
 		AampMediaType GetMediaType() const { return mMediaType; }
 
 	protected:
@@ -161,7 +161,7 @@ namespace aamp
 		std::condition_variable mCondVar; // Condition variable to notify worker thread
 		std::deque<AampTrackWorkerJobSharedPtr> mJobQueue; // Job queue
 		PrivateInstanceAAMP *aamp;
-		bool mStop; // Flag to indicate if the worker should stop (protected by mQueueMutex)
+		bool mStopped; // Flag to indicate if the worker is stopped (protected by mQueueMutex)
 		bool mPaused; // Flag to pause the worker threads (protected by mQueueMutex)
 
 	private:

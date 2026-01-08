@@ -149,7 +149,7 @@ namespace aamp
 	 *
 	 */
 	AampTrackWorker::AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
-		: aamp(_aamp), mMediaType(_mediaType), mStop(false), mWorkerThread(), mJobQueue(), mQueueMutex(), mCondVar(), mPaused(false), mActiveJob(nullptr)
+		: aamp(_aamp), mMediaType(_mediaType), mStopped(false), mWorkerThread(), mJobQueue(), mQueueMutex(), mCondVar(), mPaused(false), mActiveJob(nullptr)
 	{
 	}
 
