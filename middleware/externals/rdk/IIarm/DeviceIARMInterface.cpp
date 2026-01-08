@@ -205,6 +205,7 @@ void initPowerController()
     // Get powercontroller thunder client interface in separate 
     try{
         std::thread pwrThread(getPwrContInterface);
+        pwrThread.detach();
         MW_LOG_INFO("[%s:%d]: created getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
     }
     catch (const std::system_error& e) {
