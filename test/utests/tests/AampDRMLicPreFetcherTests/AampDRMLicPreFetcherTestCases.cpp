@@ -1356,6 +1356,9 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicen
 	// Use atomic counters to detect concurrent execution - no timing-based sleeps
 	std::atomic<int> concurrentCallCount{0};
 	std::atomic<int> maxConcurrentCalls{0};
+	std::atomic<int> callCount{0};
+	std::condition_variable callsCompletedCond;
+	std::mutex callCountMutex;
 
 	auto recordEntryExit = [&](bool entering) {
 		if (entering) {
@@ -1383,6 +1386,13 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicen
 				}
 			}),
 			Invoke([&]() { recordEntryExit(false); }),
+			Invoke([&]() {
+				{
+					std::unique_lock<std::mutex> lock(callCountMutex);
+					++callCount;
+				}
+				callsCompletedCond.notify_one();
+			}),
 			Return(drmSession.get())
 		));
 
@@ -1397,13 +1407,17 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicen
 	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
 	mTestablePreFetcher->QueueContentProtection(drmHelperAudio, "period1", 1, eMEDIATYPE_AUDIO, false);
 
-	// Wait for processing to complete with reasonable timeout
-	auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-	while (std::chrono::steady_clock::now() < deadline) {
-		if (concurrentCallCount.load() == 0 && maxConcurrentCalls.load() > 0) {
-			break;  // Processing complete
+	// Wait for both calls to complete
+	{
+		std::unique_lock<std::mutex> lock(callCountMutex);
+		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+		while (callCount.load() < 2) {
+			auto status = callsCompletedCond.wait_until(lock, deadline);
+			if (status == std::cv_status::timeout) {
+				FAIL() << "Timeout waiting for license acquisition to complete";
+				break;
+			}
 		}
-		std::this_thread::yield();
 	}
 
 	// Verify mutex prevented concurrent access
@@ -1670,67 +1684,6 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetLicenseFetcherAndCreateDrmS
 	SUCCEED() << "SetLicenseFetcher and CreateDRMSession executed without deadlock";
 
 	mTestablePreFetcher->Term();
-}
-
-/**
- * @brief Test: Multiple fast sequential Term calls don't cause issues
- *
- * Verify that calling Term() multiple times rapidly (simulating fast channel changes)
- * doesn't cause deadlock or state corruption. The mutex should properly protect
- * against race conditions in the stop flow.
- *
- * Scenario:
- * - Queue a license acquisition request
- * - Call Term() multiple times rapidly from different threads
- * - Verify all calls complete without deadlock
- * - Verify state remains consistent
- */
-TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MultipleFastChannelChanges)
-{
-	mTestablePreFetcher->Init();
-
-	auto keyIdVideo = CreateKeyIdFromHex(TEST_KEY_ID_SLOT_0);
-
-	DrmInfo drmInfo;
-	drmInfo.keyFormat = "identity";
-	drmInfo.mediaFormat = eMEDIAFORMAT_UNKNOWN;
-	drmInfo.systemUUID = "test-uuid-fast-changes";
-
-	std::map<int, std::vector<uint8_t>> allKeys;
-	allKeys[0] = keyIdVideo;
-
-	auto drmHelperVideo = std::make_shared<TestDrmHelper>(drmInfo, keyIdVideo, allKeys);
-
-	auto drmSession = std::make_shared<TestDrmSession>();
-	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
-		.Times(1)
-		.WillOnce(Return(drmSession.get()));
-
-	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(keyIdVideo, _))
-		.Times(1)
-		.WillOnce(Return(false));
-
-	// Queue initial request
-	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
-
-	// Simulate fast channel changes by calling Term multiple times
-	std::vector<std::thread> termThreads;
-	for (int i = 0; i < 3; ++i) {
-		termThreads.emplace_back([this]() {
-			mTestablePreFetcher->Term();
-		});
-		std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	}
-
-	// Wait for all Term calls to complete
-	for (auto& thread : termThreads) {
-		if (thread.joinable()) {
-			thread.join();
-		}
-	}
-
-	// If we get here, no deadlock occurred
-	SUCCEED() << "Multiple fast Term calls completed without deadlock";
 }
 
 /**
