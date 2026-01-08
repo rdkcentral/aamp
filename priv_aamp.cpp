@@ -713,6 +713,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 		AAMPLOG_ERR("chunked_write_callback called with null context");
 		return;
 	}
+	// note - caller has context->aamp->mLock
 	const char *fin = &ptr[numBytes];
 	while( ptr<fin )
 	{
@@ -721,7 +722,6 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					 ChunkedTransferStateToName(context->m_ChunkedTransferState),
 					 context->m_ChunkedBytesRemaining );
 		char c;
-		
 		switch( context->m_ChunkedTransferState )
 		{
 			case ChunkedTransferState::READING_EXTENSIONS:
@@ -799,7 +799,6 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{ // clamp - more bytes in write_callback than needed to complete current chunk
 					n = context->m_ChunkedBytesRemaining;
 				}
-				std::lock_guard<std::recursive_mutex> guard(context->aamp->mLock);
 				context->buffer->AppendBytes( ptr, n );
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
