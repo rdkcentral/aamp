@@ -1434,11 +1434,14 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
  */
 int hexCharToInt(char c)
 {
-	if ( isdigit(c) )
+	if (c >= '0' && c <= '9')
 	{
 		return c - '0';
 	}
-	c = toupper(c);
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
 	if (c >= 'A' && c <= 'F')
 	{
 		return 10 + (c - 'A');

@@ -19,6 +19,7 @@
 
 #include "AampUtils.h"
 #include "MockAampUtils.h"
+#include <cctype>
 
 MockAampUtils *g_mockAampUtils = nullptr;
 
@@ -598,13 +599,16 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 
 int hexCharToInt(char c)
 {
-	// including a working implementation of this trivial here
-	// for convenience to avoid breaking ChunkTransferTests
-	if ( isdigit(c) )
+	// For convenience including working implementation of this trivial function.
+	// Avoids breaking ChunkTransferTests.
+	if (c >= '0' && c <= '9')
 	{
 		return c - '0';
 	}
-	c = toupper(c);
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
 	if (c >= 'A' && c <= 'F')
 	{
 		return 10 + (c - 'A');
