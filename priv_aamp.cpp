@@ -699,6 +699,11 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
 void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
 { // HTTP/1.1 Chunked Transfer Protocol
 	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(userdata);
+	if (context == nullptr)
+	{
+		AAMPLOG_ERR("chunked_write_callback called with null context");
+		return;
+	}
 	const char *fin = &ptr[numBytes];
 	while( ptr<fin )
 	{
@@ -854,8 +859,6 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		}
 		size_t numBytesForBlock = size*nmemb;
 		ret = numBytesForBlock;
-		assert( ptr );
-		assert( numBytesForBlock );
 		if( ptr && numBytesForBlock > 0)
 		{
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
@@ -898,14 +901,6 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock, context->remoteUrl, context->downloadStartTime);
 				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 				lock.lock();
-		
-				//if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
-				//{
-				//	if( context->chunkedDownload )
-				//	{
-				//		context->buffer->Clear();
-				//	}
-				//}
 			}
 		}
 	}
