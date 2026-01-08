@@ -760,15 +760,15 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 				else
 				{
-					int octet = hexCharToInt(c);
-					if( octet<0 )
+					int digit = hexCharToInt(c);
+					if( digit<0 )
 					{
-						AAMPLOG_ERR( "unexpected octet char: 0x%02x", c );
+						AAMPLOG_ERR( "unexpected digit: 0x%02x", c );
 						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					}
 					else
 					{
-						context->m_ChunkedBytesRemaining = context->m_ChunkedBytesRemaining*16 + octet;
+						context->m_ChunkedBytesRemaining = context->m_ChunkedBytesRemaining*16 + digit;
 					}
 				}
 			}
