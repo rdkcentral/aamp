@@ -680,17 +680,11 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
  * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
  *
  * The state machine transitions between:
- * - READING_CHUNK_SIZE: parse the hexadecimal chunk size
- *   from the stream.
- * - PENDING_CHUNK_START_LF: wait for the LF that terminates
- *   the chunk-size line.
- * - READING_CHUNK_DATA: consume exactly the announced number
- *   of data bytes for the current chunk and deliver them to the underlying
- *   consumer.
- * - PENDING_CHUNK_END_CR: wait for the CR after a chunk's
- *   payload.
- * - PENDING_CHUNK_END_LF: wait for the LF that completes the
- *   CRLF sequence after a chunk.
+ * - READING_CHUNK_SIZE: parse the hexadecimal chunk size from the stream.
+ * - PENDING_CHUNK_START_LF: wait for the LF that terminates the chunk-size line.
+ * - READING_CHUNK_DATA: consume exactly the announced number of data bytes for the current chunk and deliver them to the underlying consumer.
+ * - PENDING_CHUNK_END_CR: wait for the CR after a chunk's payload.
+ * - PENDING_CHUNK_END_LF: wait for the LF that completes the CRLF sequence after a chunk.
  *
  * The function may be called multiple times with partial chunk boundaries; it
  * maintains parsing progress across invocations via the transfer-state fields
@@ -708,8 +702,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 	const char *fin = &ptr[numBytes];
 	while( ptr<fin )
 	{
-		AAMPLOG_INFO(
-					 "%s (%s) remaining=%zu",
+		AAMPLOG_INFO( "%s (%s) remaining=%zu",
 					 GetMediaTypeName(context->mediaType),
 					 ChunkedTransferStateToName(context->m_ChunkedTransferState),
 					 context->m_ChunkedBytesRemaining );
@@ -741,6 +734,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				else
 				{
 					int octet = aamp_hex_char_to_int(c);
+					
 					if( octet<0 )
 					{
 						AAMPLOG_ERR( "unexpected char: 0x%02x", c );
@@ -842,12 +836,9 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	if(!context) return ret;
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu",
-					context->mediaType,
-					size*nmemb,
-					context->contentLength );
+		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu", context->mediaType, size*nmemb, context->contentLength );
 	}
-	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
+	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
 	if (context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
@@ -863,10 +854,13 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		}
 		size_t numBytesForBlock = size*nmemb;
 		ret = numBytesForBlock;
+		assert( ptr );
+		assert( numBytesForBlock );
 		if( ptr && numBytesForBlock > 0)
 		{
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
+				size_t prev_len = context->buffer->GetLen();
 				chunked_write_callback( ptr, numBytesForBlock, userdata );
 				if( context->m_ChunkedTransferState == ChunkedTransferState::ERROR )
 				{
@@ -874,9 +868,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 					ret = 0;
 					return ret;
 				}
-				// replace ptr and numBytesForBlock with the actual payload (after handling chunked transfer protocol)
-				ptr = context->buffer->GetPtr();
-				numBytesForBlock = context->buffer->GetLen();
+				ptr = context->buffer->GetPtr() + prev_len;
+				numBytesForBlock = context->buffer->GetLen() - prev_len;
 			}
 			else
 			{
@@ -902,18 +895,17 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				lock.unlock();
 				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
 				long long startTime = aamp_GetCurrentTimeMS();
-				mCtx->CacheFragmentChunk(context->mediaType, ptr,
-										 numBytesForBlock,context->remoteUrl,context->downloadStartTime);
+				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock, context->remoteUrl, context->downloadStartTime);
 				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 				lock.lock();
 		
-				if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
-				{
-					if( context->chunkedDownload )
-					{
-						context->buffer->Clear();
-					}
-				}
+				//if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
+				//{
+				//	if( context->chunkedDownload )
+				//	{
+				//		context->buffer->Clear();
+				//	}
+				//}
 			}
 		}
 	}
