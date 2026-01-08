@@ -222,25 +222,41 @@ namespace aamp
 	 * @brief Stops the worker thread.
 	 *
 	 * Signals the worker thread to stop and waits for it to finish.
+	 * This method is noexcept because it's called from the destructor.
+	 * Any errors are logged but do not propagate.
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::StopWorker()
+	void AampTrackWorker::StopWorker() noexcept
 	{
 		AAMPLOG_DEBUG("Stopping worker thread for media type %s", GetMediaTypeName(mMediaType));
-		{
-			std::lock_guard<std::mutex> lock(mQueueMutex);
-			mStopped = true;
-			mCondVar.notify_all();
-		}
 		
-		if (mWorkerThread.joinable())
+		try
 		{
-			mWorkerThread.join();
+			{
+				std::lock_guard<std::mutex> lock(mQueueMutex);
+				mStopped = true;
+				mCondVar.notify_all();
+			}
+			
+			if (mWorkerThread.joinable())
+			{
+				mWorkerThread.join();
+			}
+			
+			ClearJobs();
+			
+			std::lock_guard<std::mutex> queueLock(mQueueMutex);
+			mActiveJob = nullptr;
 		}
-		ClearJobs();
-		std::lock_guard<std::mutex> queueLock(mQueueMutex);
-		mActiveJob = nullptr; // Clear active job
+		catch (const std::exception &e)
+		{
+			AAMPLOG_ERR("Exception in StopWorker for media type %s: %s", GetMediaTypeName(mMediaType), e.what());
+		}
+		catch (...)
+		{
+			AAMPLOG_ERR("Unknown exception in StopWorker for media type %s", GetMediaTypeName(mMediaType));
+		}
 	}
 
 	/**
@@ -386,7 +402,7 @@ namespace aamp
 					std::unique_lock<std::mutex> lock(self->mQueueMutex);
 
 					// Wait while (queue is empty or paused) and not stopped
-					self->mCondVar.wait(lock, [&]
+					self->mCondVar.wait(lock, [self]() -> bool
 										{ return self->mStopped || (!self->mPaused && !self->mJobQueue.empty()); });
 
 					if (self->mStopped)
@@ -433,7 +449,7 @@ namespace aamp
 				}
 
 				{
-					std::unique_lock<std::mutex> lock(self->mQueueMutex);
+					std::lock_guard<std::mutex> lock(self->mQueueMutex);
 
 					self->mActiveJob = nullptr;
 					if (self->mStopped)

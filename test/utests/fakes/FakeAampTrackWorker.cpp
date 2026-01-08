@@ -264,7 +264,7 @@ namespace aamp
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::StopWorker()
+	void AampTrackWorker::StopWorker() noexcept
 	{
 	}
 
