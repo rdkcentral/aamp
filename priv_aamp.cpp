@@ -7260,7 +7260,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 		{
 			auto gstPosition = sink->GetPositionMilliseconds();
 
-			AAMPLOG_WARN("DEBUG2--> mState=%d , gstPosition=%lld", mState, gstPosition);
+			AAMPLOG_WARN("DEBUG2--> gstPosition=%lld",gstPosition);
 			/* Prevent spurious values being returned by this function during seek.
 			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
 			* note for this to work correctly mState and seek_pos_seconds must updated atomically otherwise
@@ -7269,6 +7269,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 			*/
 			if(mState == eSTATE_SEEKING)
 			{
+				AAMPLOG_WARN("DEBUG2--> In SEEKING state");
 				if(gstPosition!=0)
 				{
 					AAMPLOG_WARN("Ignoring gst position of %lld ms and using seek_pos_seconds only until seek completes.", gstPosition);
