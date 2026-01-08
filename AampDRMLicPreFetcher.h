@@ -242,7 +242,7 @@ private:
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
 	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
-	std::mutex mLicenseAcquisitionMutex;                /** Mutex for serialising start,stop and license acquisition flow and to protect the access to mFetchInstance*/
+	std::mutex mLicenseAcquisitionMutex;                /** Mutex for serializing license acquisition flow, coordinating start/stop operations, and protecting mFetchInstance access*/
 	std::condition_variable mQVssCond;                  /** Conditional variable to notify addition of an obj to mVssFetchQueue*/
 	bool mIsSecClientError;
 };

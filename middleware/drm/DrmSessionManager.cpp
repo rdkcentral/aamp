@@ -77,7 +77,6 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
  */
 DrmSessionManager::~DrmSessionManager()
 {
-	MW_LOG_INFO("~DrmSessionManager");
 	clearAccessToken();
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);

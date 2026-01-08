@@ -1546,7 +1546,7 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
  * Scenario:
  * - CreateDRMSession holds mLicenseAcquisitionMutex during license acquisition
  * - If session creation fails, NotifyDrmFailure is called AFTER releasing the mutex
- * - NotifyDrmFailure may attempt to access mFetchInstance and mLicenseAcquisitionMutex
+ * - NotifyDrmFailure will acquire mLicenseAcquisitionMutex (and may access mFetchInstance)
  * - Verify no deadlock occurs during error flow
  */
 TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailureInvoked)
