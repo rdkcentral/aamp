@@ -5501,13 +5501,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
 		GetStreamFormat(mVideoFormat, mAudioFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d", mVideoFormat, mAudioFormat);
+		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mSubtitleFormat %d", mVideoFormat, mAudioFormat, mSubtitleFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
 		{
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
+
 		StartRateCorrectionWorkerThread();
 
 		// Enable fragment initial caching. Retune not supported
@@ -7552,6 +7553,15 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowab
 	else
 	{
 		buffer->Free();
+	}
+}
+
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->SendSample(mediaType, sample);
 	}
 }
 
@@ -14021,5 +14031,33 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 		audioOutputFormat = FORMAT_INVALID;
 		subtitleOutputFormat = FORMAT_INVALID;
 		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
+	}
+}
+
+/**
+ * @fn SetStreamCaps
+ * @brief Set stream capabilities based on codec info
+ *
+ * @param[in] type - Media type
+ * @param[in] codecInfo - Codec information
+ */
+void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	switch (type)
+	{
+		case eMEDIATYPE_VIDEO:
+			mVideoFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+			break;
+		case eMEDIATYPE_AUDIO:
+			mAudioFormat = static_cast<StreamOutputFormat>(codecInfo.mCodecFormat);
+			break;
+		default:
+			break;
+	}
+	AAMPLOG_INFO("Updated format mVideoFormat=%d mAudioFormat=%d", mVideoFormat, mAudioFormat);
+	if (sink)
+	{
+		sink->SetStreamCaps(type, std::move(codecInfo));
 	}
 }
