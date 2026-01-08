@@ -7354,15 +7354,18 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 		else
 		{
+			AAMPLOG_WARN("DEBUG2--> Before correction positionMilliseconds=%lld",positionMilliseconds);
 			// Optimization, culledSeconds will be 0 for VOD
 			long long contentEndMs = 0;
 			if(IsLocalAAMPTsb())
 			{
 				contentEndMs = (mAbsoluteEndPosition * 1000);
+				AAMPLOG_WARN("DEBUG2-->Local AAMP TSB contentEndMs=%lld",contentEndMs);
 			}
 			else
 			{
 				contentEndMs = (GetDurationMs() + (culledSeconds * 1000));
+				AAMPLOG_WARN("DEBUG2-->contentEndMs=%lld GetDurationMs()=%lld culledSeconds=%f",contentEndMs, GetDurationMs(), culledSeconds);
 			}
 			if(positionMilliseconds > contentEndMs && GetDurationMs() > 0)
 			{
