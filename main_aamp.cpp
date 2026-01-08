@@ -89,6 +89,12 @@ void doFakeTune()
 					}).detach();
 	}
 }
+
+#else
+void doFakeTune()
+{
+	// No-op when preinit decoding is not enabled
+}
 #endif
 
 /**
