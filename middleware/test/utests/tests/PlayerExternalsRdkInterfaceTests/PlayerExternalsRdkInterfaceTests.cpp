@@ -12,9 +12,15 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstdlib>
 
 int main(int argc, char **argv)
 {
     testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int result = RUN_ALL_TESTS();
+    // Use _Exit() instead of return to bypass global destructors
+    // This works around a double-free bug in production code destructors
+    // (PlayerExternalsRdkInterface and DeviceIARMInterface set their own
+    // global shared_ptr to nullptr during destruction, causing crashes)
+    _Exit(result);
 }

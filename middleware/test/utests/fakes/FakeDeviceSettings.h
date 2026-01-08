@@ -71,44 +71,6 @@ public:
 class Manager;
 class Host;
 
-// Interface for Video Output Port Events
-class IVideoOutputPortEvents {
-public:
-    virtual ~IVideoOutputPortEvents() = default;
-    virtual void OnResolutionPreChange(const int width, const int height) = 0;
-    virtual void OnResolutionPostChange(const int width, const int height) = 0;
-    virtual void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus) = 0;
-};
-
-// Interface for Display Device Events
-class IDisplayDeviceEvents {
-public:
-    virtual ~IDisplayDeviceEvents() = default;
-    virtual void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent) = 0;
-};
-
-// Test helper to track and trigger events
-class DeviceSettingsTestHelper {
-public:
-    static DeviceSettingsTestHelper& getInstance();
-    
-    void setVideoOutputPortHandler(IVideoOutputPortEvents* handler);
-    void setDisplayDeviceHandler(IDisplayDeviceEvents* handler);
-    
-    void triggerResolutionPreChange(int width, int height);
-    void triggerResolutionPostChange(int width, int height);
-    void triggerHDCPStatusChange(dsHdcpStatus_t status);
-    void triggerHDMIHotPlug(dsDisplayEvent_t event);
-    
-    void reset();
-    bool hasVideoOutputPortHandler() const;
-    bool hasDisplayDeviceHandler() const;
-
-private:
-    IVideoOutputPortEvents* videoOutputHandler = nullptr;
-    IDisplayDeviceEvents* displayDeviceHandler = nullptr;
-};
-
 class Manager {
 public:
     static void Initialize();
@@ -121,6 +83,22 @@ private:
 
 class Host {
 public:
+    // Interface for Video Output Port Events - nested within Host
+    class IVideoOutputPortEvents {
+    public:
+        virtual ~IVideoOutputPortEvents() = default;
+        virtual void OnResolutionPreChange(const int width, const int height) = 0;
+        virtual void OnResolutionPostChange(const int width, const int height) = 0;
+        virtual void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus) = 0;
+    };
+
+    // Interface for Display Device Events - nested within Host
+    class IDisplayDeviceEvents {
+    public:
+        virtual ~IDisplayDeviceEvents() = default;
+        virtual void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent) = 0;
+    };
+
     static Host& getInstance();
     
     void Register(IVideoOutputPortEvents* handler, const std::string& name);
@@ -134,10 +112,31 @@ public:
     std::string getDefaultVideoPortName() const { return "HDMI0"; }
     VideoOutputPort& getVideoOutputPort(const std::string& name);
 
+    friend class DeviceSettingsTestHelper;
+
 private:
     int videoHandlerCount = 0;
     int displayHandlerCount = 0;
     VideoOutputPort videoPort;
+};
+
+// Test helper to track and trigger events
+class DeviceSettingsTestHelper {
+public:
+    static DeviceSettingsTestHelper& getInstance();
+    void setVideoOutputPortHandler(Host::IVideoOutputPortEvents* handler);
+    void setDisplayDeviceHandler(Host::IDisplayDeviceEvents* handler);
+    void triggerResolutionPreChange(int width, int height);
+    void triggerResolutionPostChange(int width, int height);
+    void triggerHDCPStatusChange(dsHdcpStatus_t status);
+    void triggerHDMIHotPlug(dsDisplayEvent_t event);
+    void reset();
+    bool hasVideoOutputPortHandler() const;
+    bool hasDisplayDeviceHandler() const;
+
+private:
+    Host::IVideoOutputPortEvents* videoOutputHandler = nullptr;
+    Host::IDisplayDeviceEvents* displayDeviceHandler = nullptr;
 };
 
 } // namespace device

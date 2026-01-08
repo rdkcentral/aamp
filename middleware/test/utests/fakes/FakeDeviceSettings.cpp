@@ -35,28 +35,28 @@ Host& Host::getInstance() {
     return instance;
 }
 
-void Host::Register(IVideoOutputPortEvents* handler, const std::string& name) {
+void Host::Register(Host::IVideoOutputPortEvents* handler, const std::string& name) {
     if (handler) {
         DeviceSettingsTestHelper::getInstance().setVideoOutputPortHandler(handler);
         videoHandlerCount++;
     }
 }
 
-void Host::Register(IDisplayDeviceEvents* handler, const std::string& name) {
+void Host::Register(Host::IDisplayDeviceEvents* handler, const std::string& name) {
     if (handler) {
         DeviceSettingsTestHelper::getInstance().setDisplayDeviceHandler(handler);
         displayHandlerCount++;
     }
 }
 
-void Host::UnRegister(IVideoOutputPortEvents* handler) {
+void Host::UnRegister(Host::IVideoOutputPortEvents* handler) {
     if (videoHandlerCount > 0) {
         DeviceSettingsTestHelper::getInstance().setVideoOutputPortHandler(nullptr);
         videoHandlerCount--;
     }
 }
 
-void Host::UnRegister(IDisplayDeviceEvents* handler) {
+void Host::UnRegister(Host::IDisplayDeviceEvents* handler) {
     if (displayHandlerCount > 0) {
         DeviceSettingsTestHelper::getInstance().setDisplayDeviceHandler(nullptr);
         displayHandlerCount--;
@@ -81,11 +81,11 @@ DeviceSettingsTestHelper& DeviceSettingsTestHelper::getInstance() {
     return instance;
 }
 
-void DeviceSettingsTestHelper::setVideoOutputPortHandler(IVideoOutputPortEvents* handler) {
+void DeviceSettingsTestHelper::setVideoOutputPortHandler(Host::IVideoOutputPortEvents* handler) {
     videoOutputHandler = handler;
 }
 
-void DeviceSettingsTestHelper::setDisplayDeviceHandler(IDisplayDeviceEvents* handler) {
+void DeviceSettingsTestHelper::setDisplayDeviceHandler(Host::IDisplayDeviceEvents* handler) {
     displayDeviceHandler = handler;
 }
 
