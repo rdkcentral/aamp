@@ -747,12 +747,12 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				
 			case ChunkedTransferState::READING_CHUNK_SIZE:
 			{
-				char c = *ptr++;
-				if( c == '\r' )
+				char code = *ptr++;
+				if( code == '\r' )
 				{
 					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
 				}
-				else if( c == ';' )
+				else if( code == ';' )
 				{
 					// RFC 7230 allows optional chunk extensions after the size, starting with ';'.
 					// we currently skip over them rather than interpret them
@@ -760,10 +760,10 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 				else
 				{
-					int digit = hexCharToInt(c);
+					int digit = hexCharToInt(code);
 					if( digit<0 )
 					{
-						AAMPLOG_ERR( "unexpected digit: 0x%02x", c );
+						AAMPLOG_ERR( "unexpected digit: 0x%02x", code );
 						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					}
 					else
