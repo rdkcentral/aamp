@@ -1360,15 +1360,20 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicen
 	std::condition_variable callsCompletedCond;
 	std::mutex callCountMutex;
 
-	auto recordEntryExit = [&](bool entering) {
-		if (entering) {
+	auto recordEntryExit = [&](bool entering)
+	{
+		if (entering)
+		{
 			++concurrentCallCount;
 			int current = concurrentCallCount.load();
 			int maxSeen = maxConcurrentCalls.load();
-			while (current > maxSeen && !maxConcurrentCalls.compare_exchange_weak(maxSeen, current)) {
+			while (current > maxSeen && !maxConcurrentCalls.compare_exchange_weak(maxSeen, current))
+			{
 				maxSeen = maxConcurrentCalls.load();
 			}
-		} else {
+		}
+		else
+		{
 			--concurrentCallCount;
 		}
 	};
@@ -1378,15 +1383,24 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicen
 	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
 		.Times(2)
 		.WillRepeatedly(DoAll(
-			Invoke([&]() { recordEntryExit(true); }),
+			Invoke([&]()
+			{
+				recordEntryExit(true);
+			}),
 			// Yield to allow other threads to attempt concurrent access
-			Invoke([](auto, auto, auto, auto) {
-				for (int i = 0; i < 10; ++i) {
+			Invoke([](auto, auto, auto, auto)
+			{
+				for (int i = 0; i < 10; ++i)
+				{
 					std::this_thread::yield();
 				}
 			}),
-			Invoke([&]() { recordEntryExit(false); }),
-			Invoke([&]() {
+			Invoke([&]()
+			{
+				recordEntryExit(false);
+			}),
+			Invoke([&]()
+			{
 				{
 					std::unique_lock<std::mutex> lock(callCountMutex);
 					++callCount;
@@ -1411,9 +1425,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicen
 	{
 		std::unique_lock<std::mutex> lock(callCountMutex);
 		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-		while (callCount.load() < 2) {
+		while (callCount.load() < 2)
+		{
 			auto status = callsCompletedCond.wait_until(lock, deadline);
-			if (status == std::cv_status::timeout) {
+			if (status == std::cv_status::timeout)
+			{
 				FAIL() << "Timeout waiting for license acquisition to complete";
 				break;
 			}
@@ -1468,28 +1484,41 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
 	std::condition_variable drmSessionStartedCond;
 	std::condition_variable termStartedCond;
 	bool drmSessionStarted = false;
+	bool licenseAquisitionInProgress = false;
+	bool licenseAquisitionStage1Completed = false;
 	bool termStartedFlag = false;
 
 	auto drmSession = std::make_shared<TestDrmSession>();
 	EXPECT_CALL(*g_mockAampLicenseManager, createDrmSession(_, _, _, _))
 		.Times(1)
 		.WillOnce(DoAll(
-			Invoke([&]() {
+			Invoke([&]()
+			{
 				std::unique_lock<std::mutex> lock(syncMutex);
 				drmSessionStarted = true;
 				drmSessionStartedCond.notify_all();
 			}),
-			// Wait for Term() to be called (instead of using fixed sleep)
-			Invoke([&]() {
+			// Wait for Term() to be called
+			Invoke([&]()
+			{
 				std::unique_lock<std::mutex> lock(syncMutex);
+				licenseAquisitionInProgress = true;
 				auto waitDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-				while (!termStartedFlag) {
+				while (!termStartedFlag)
+				{
 					auto status = termStartedCond.wait_until(lock, waitDeadline);
-					if (status == std::cv_status::timeout) {
+					if (status == std::cv_status::timeout)
+					{
 						FAIL() << "Timeout waiting for Term() to be called";
 						break;
 					}
 				}
+				//License acquisition is a lengthy process. So wait for 500ms and then mark 
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				licenseAquisitionStage1Completed = true;
+				//Wait for another 500ms
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				licenseAquisitionInProgress = false;
 			}),
 			Return(drmSession.get())
 		));
@@ -1505,9 +1534,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
 	{
 		std::unique_lock<std::mutex> lock(syncMutex);
 		auto waitDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-		while (!drmSessionStarted) {
+		while (!drmSessionStarted) 
+		{
 			auto status = drmSessionStartedCond.wait_until(lock, waitDeadline);
-			if (status == std::cv_status::timeout) {
+			if (status == std::cv_status::timeout)
+			{
 				FAIL() << "Timeout waiting for license acquisition to start";
 				break;
 			}
@@ -1516,18 +1547,26 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
 
 	// Now call Term() while license acquisition is ongoing
 	std::atomic<bool> termCompleted{false};
-	std::thread termThread([this, &syncMutex, &termStartedCond, &termStartedFlag, &termCompleted]() {
+	std::thread termThread([this, &syncMutex, &termStartedCond, &termStartedFlag, &termCompleted]()
+	{
 		{
 			std::unique_lock<std::mutex> lock(syncMutex);
 			termStartedFlag = true;
 			termStartedCond.notify_all();
 		}
 		mTestablePreFetcher->Term();
-		termCompleted.store(true);
+		termCompleted.store(true, std::memory_order_release);
 	});
 
-	// Optionally yield to allow Term() thread to start before joining
-	std::this_thread::yield();
+	while (!termStartedFlag || !licenseAquisitionStage1Completed)
+	{
+		// yield to allow Term() thread to start
+		std::this_thread::yield();
+	}
+
+	// Verify that Term() is still blocked (not completed) while acquisition is ongoing
+	EXPECT_TRUE(licenseAquisitionInProgress && !termCompleted.load(std::memory_order_acquire))
+		<< "Term() should be blocked on mutex while license acquisition is ongoing";
 
 	// Wait for Term to complete (will detect deadlock if it doesn't return)
 	auto joinStart = std::chrono::steady_clock::now();
@@ -1535,7 +1574,7 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
 	auto joinEnd = std::chrono::steady_clock::now();
 
 	// Verify that Term() completed
-	EXPECT_TRUE(termCompleted.load())
+	EXPECT_TRUE(termCompleted.load(std::memory_order_acquire))
 		<< "Term() should have completed";
 
 	// The join() completing without hanging is the real proof that no deadlock occurred
@@ -1594,7 +1633,8 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailure
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDrmErrorEvent(_, _))
 		.Times(1)
-		.WillOnce(Invoke([&]() {
+		.WillOnce(Invoke([&]()
+		{
 			std::unique_lock<std::mutex> lock(errorMutex);
 			++errorCount;
 			errorCompletedCond.notify_one();
@@ -1607,9 +1647,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailure
 	{
 		std::unique_lock<std::mutex> lock(errorMutex);
 		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-		while (errorCount == 0) {
+		while (errorCount == 0)
+		{
 			auto status = errorCompletedCond.wait_until(lock, deadline);
-			if (status == std::cv_status::timeout) {
+			if (status == std::cv_status::timeout)
+			{
 				FAIL() << "Timeout waiting for error event";
 				break;
 			}
@@ -1670,12 +1712,17 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetLicenseFetcherAndCreateDrmS
 
 	// Thread 1: Continuously update license fetcher
 	std::atomic<bool> stopFetcherUpdates{false};
-	std::thread fetcherUpdateThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &stopFetcherUpdates]() {
+	std::thread fetcherUpdateThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &stopFetcherUpdates]()
+	{
 		int iteration = 0;
-		while (!stopFetcherUpdates.load()) {
-			if (iteration++ % 2 == 0) {
+		while (!stopFetcherUpdates.load())
+		{
+			if (iteration++ % 2 == 0)
+			{
 				mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
-			} else {
+			}
+			else
+			{
 				mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher2.get());
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -1755,7 +1802,8 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDrmErrorEvent(_, _))
 		.Times(3)
-		.WillRepeatedly(Invoke([&]() {
+		.WillRepeatedly(Invoke([&]()
+		{
 			std::unique_lock<std::mutex> lock(errorMutex);
 			++errorCount;
 			errorCompletedCond.notify_one();
@@ -1774,9 +1822,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 	std::condition_variable swapCompleteCond;
 	std::mutex swapMutex;
 
-	std::thread fetcherSwapThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &swapCompleteCond, &swapMutex, &swapComplete]() {
+	std::thread fetcherSwapThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &swapCompleteCond, &swapMutex, &swapComplete]()
+	{
 		int count = 0;
-		while (count++ < 20) {
+		while (count++ < 20)
+		{
 			mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher2.get());
 			std::this_thread::yield();
 			mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
@@ -1793,9 +1843,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 	{
 		std::unique_lock<std::mutex> errorLock(errorMutex);
 		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-		while (errorCount < 3) {
+		while (errorCount < 3)
+		{
 			auto status = errorCompletedCond.wait_until(errorLock, deadline);
-			if (status == std::cv_status::timeout) {
+			if (status == std::cv_status::timeout)
+			{
 				FAIL() << "Timeout waiting for all error events to complete";
 				break;
 			}
@@ -1806,9 +1858,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 	{
 		std::unique_lock<std::mutex> swapLock(swapMutex);
 		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-		while (!swapComplete.load()) {
+		while (!swapComplete.load())
+		{
 			auto status = swapCompleteCond.wait_until(swapLock, deadline);
-			if (status == std::cv_status::timeout) {
+			if (status == std::cv_status::timeout)
+			{
 				FAIL() << "Timeout waiting for fetcher swap to complete";
 				break;
 			}
@@ -1816,7 +1870,8 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 	}
 
 	// Stop the swapping thread
-	if (fetcherSwapThread.joinable()) {
+	if (fetcherSwapThread.joinable())
+	{
 		fetcherSwapThread.join();
 	}
 
