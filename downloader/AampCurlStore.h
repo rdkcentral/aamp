@@ -249,25 +249,25 @@ struct CurlCallbackContext
 {
 	// HTTP/1.1 Chunked Transfer Protocol
 	
-	size_t m_ChunkedBytesRemaining;
-	ChunkedTransferState m_ChunkedTransferState;
+	size_t m_ChunkedBytesRemaining = 0;
+	ChunkedTransferState m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 	
-	PrivateInstanceAAMP *aamp;
-	AampMediaType mediaType;
-	std::vector<std::string> allResponseHeaders;
-	AampGrowableBuffer *buffer;
-	httpRespHeaderData *responseHeaderData;
-	BitsPerSecond bitrate;
-	bool downloadIsEncoded;
+	PrivateInstanceAAMP *aamp = NULL;
+	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
+	std::vector<std::string> allResponseHeaders = {};
+	AampGrowableBuffer *buffer = NULL;
+	httpRespHeaderData *responseHeaderData = NULL;
+	BitsPerSecond bitrate = 0;
+	bool downloadIsEncoded = false;
 	//represents transfer-encoding based download
-	bool chunkedDownload;
-	std::string remoteUrl;
-	size_t contentLength;
-	long long downloadStartTime;
-	long long processDelay; /**< Indicate the external process delay in curl operation; especially for lld*/
+	bool chunkedDownload = false;
+	std::string remoteUrl = {};
+	size_t contentLength = 0;
+	long long downloadStartTime = -1;
+	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
 
-	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0),m_ChunkedBytesRemaining(0), m_ChunkedTransferState(ChunkedTransferState::READING_CHUNK_SIZE) {}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1), processDelay(0), m_ChunkedBytesRemaining(0), m_ChunkedTransferState(ChunkedTransferState::READING_CHUNK_SIZE) {}
+	CurlCallbackContext(){}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}
 
 	~CurlCallbackContext() {}
 

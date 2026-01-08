@@ -42,8 +42,9 @@ struct ChunkHarness {
 		ctx.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 		ctx.m_ChunkedBytesRemaining = 0;
 		ctx.buffer = reinterpret_cast<decltype(ctx.buffer)>(&buffer); // adjust if exact type differs
-		// Initialize mediaType if required by your code
-		// ctx.mediaType = eMEDIATYPE_VIDEO;
+		ctx.aamp = &aamp;
+		// Initialize mediaType
+		ctx.mediaType = eMEDIATYPE_VIDEO;
 	}
 
 	void feed(const std::string& bytes) {

@@ -799,6 +799,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{ // clamp - more bytes in write_callback than needed to complete current chunk
 					n = context->m_ChunkedBytesRemaining;
 				}
+				std::lock_guard<std::recursive_mutex> guard(context->aamp->mLock);
 				context->buffer->AppendBytes( ptr, n );
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
@@ -871,7 +872,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	{
 		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu", context->mediaType, size*nmemb, context->contentLength );
 	}
-	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock
+	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
 	if (context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
@@ -4704,8 +4705,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if(!loopAgain)
 					break;
-				context.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
-				context.m_ChunkedBytesRemaining = 0;
 			}
 		}
 

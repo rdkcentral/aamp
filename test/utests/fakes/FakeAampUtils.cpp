@@ -597,7 +597,9 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 }
 
 int aamp_hex_char_to_int(char c)
-{ // working implementation for now - used with ChunkedTransferTests
+{
+	// including a working implementation of this trivial here
+	// for convenience to avoid breaking ChunkTransferTests
 	if (c >= '0' && c <= '9')
 	{
 		return c - '0';
