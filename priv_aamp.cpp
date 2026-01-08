@@ -644,38 +644,38 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 static const char *ChunkedTransferStateToName( ChunkedTransferState state )
 {
-	const char *state_name = NULL;
+	const char *stateName = NULL;
 	switch( state )
 	{
 		case ChunkedTransferState::READING_CHUNK_SIZE:
-			state_name = "reading chunk size";
+			stateName = "reading chunk size";
 			break;
 		case ChunkedTransferState::PENDING_CHUNK_START_LF:
-			state_name = "awaiting start LF";
+			stateName = "awaiting start LF";
 			break;
 		case ChunkedTransferState::READING_CHUNK_DATA:
-			state_name = "reading chunk data";
+			stateName = "reading chunk data";
 			break;
 		case ChunkedTransferState::PENDING_CHUNK_END_CR:
-			state_name = "awaiting end CR";
+			stateName = "awaiting end CR";
 			break;
 		case ChunkedTransferState::PENDING_CHUNK_END_LF:
-			state_name = "awaiting end LF";
+			stateName = "awaiting end LF";
 			break;
 		case ChunkedTransferState::READING_EXTENSIONS:
-			state_name = "awaiting extension end CR";
+			stateName = "awaiting extension end CR";
 			break;
 		case ChunkedTransferState::PENDING_EXTENSION_END_LF:
-			state_name = "awaiting extension end LF";
+			stateName = "awaiting extension end LF";
 			break;
 		case ChunkedTransferState::DONE:
-			state_name = "done";
+			stateName = "done";
 			break;
 		case ChunkedTransferState::ERROR:
-			state_name = "error";
+			stateName = "error";
 			break;
 	}
-	return state_name;
+	return stateName;
 }
 
 /**
@@ -721,15 +721,16 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					 GetMediaTypeName(context->mediaType),
 					 ChunkedTransferStateToName(context->m_ChunkedTransferState),
 					 context->m_ChunkedBytesRemaining );
-		char c;
 		switch( context->m_ChunkedTransferState )
 		{
 			case ChunkedTransferState::READING_EXTENSIONS:
-				c = *ptr++;
+			{
+				char c = *ptr++;
 				if( c == '\r' )
 				{
 					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_EXTENSION_END_LF;
 				}
+			}
 				break;
 				
 			case ChunkedTransferState::PENDING_EXTENSION_END_LF:
@@ -745,12 +746,13 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				break;
 				
 			case ChunkedTransferState::READING_CHUNK_SIZE:
-				c = *ptr++;
-				if( c=='\r' )
+			{
+				char c = *ptr++;
+				if( c == '\r' )
 				{
 					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
 				}
-				else if( c==';' )
+				else if( c == ';' )
 				{
 					// RFC 7230 allows optional chunk extensions after the size, starting with ';'.
 					// we currently skip over them rather than interpret them
@@ -761,7 +763,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					int octet = aamp_hex_char_to_int(c);
 					if( octet<0 )
 					{
-						AAMPLOG_ERR( "unexpected char: 0x%02x", c );
+						AAMPLOG_ERR( "unexpected octet char: 0x%02x", c );
 						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					}
 					else
@@ -769,6 +771,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 						context->m_ChunkedBytesRemaining = context->m_ChunkedBytesRemaining*16 + octet;
 					}
 				}
+			}
 				break;
 				
 			case ChunkedTransferState::PENDING_CHUNK_START_LF:
@@ -841,14 +844,15 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				break;
 				
 			case ChunkedTransferState::DONE:
-				c = *ptr++;
-				if( c=='\n' || c=='\r' )
+			{
+				char c = *ptr++;
+				if( c == '\n' || c == '\r' )
 				{ // end marker CRLF
 					continue;
 				}
 				AAMPLOG_ERR( "unexpected data after final chunk" );
 				context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
-				ptr = fin; // consume remaining bytes to exit loop
+			}
 				break;
 				
 			case ChunkedTransferState::ERROR:
@@ -6599,7 +6603,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 				rc = eMEDIAFORMAT_PROGRESSIVE; // default
 				const char *ptr = sniffedBytes.GetPtr();
 				const char *fin = ptr + sniffedBytes.GetLen();
-				while( ptr<fin )
+				while( ptr < fin )
 				{
 					char c = *ptr++;
 					if( c == '<' )

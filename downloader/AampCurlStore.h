@@ -252,11 +252,11 @@ struct CurlCallbackContext
 	size_t m_ChunkedBytesRemaining = 0;
 	ChunkedTransferState m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 	
-	PrivateInstanceAAMP *aamp = NULL;
+	PrivateInstanceAAMP *aamp = nullptr;
 	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	std::vector<std::string> allResponseHeaders = {};
-	AampGrowableBuffer *buffer = NULL;
-	httpRespHeaderData *responseHeaderData = NULL;
+	AampGrowableBuffer *buffer = nullptr;
+	httpRespHeaderData *responseHeaderData = nullptr;
 	BitsPerSecond bitrate = 0;
 	bool downloadIsEncoded = false;
 	//represents transfer-encoding based download

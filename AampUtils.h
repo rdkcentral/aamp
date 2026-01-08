@@ -415,7 +415,7 @@ void aamp_setThreadName(const char *name);
 int aamp_SetThreadSchedulingParameters(int policy, int priority);
 
 /**
- * @brief convert a single hexadecimal character its numeric value
+ * @brief Convert a single hexadecimal character to its numeric value
  * @param c '0'..'9', 'a'..'f', or 'A'..'F'
  * @retval corresponding number (0..15) for character or -1 if invalid
  */
