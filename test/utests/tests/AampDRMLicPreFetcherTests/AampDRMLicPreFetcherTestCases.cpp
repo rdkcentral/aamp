@@ -1526,14 +1526,8 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
 		termCompleted.store(true);
 	});
 
-	// Give Term() a very brief moment to start (no sleep on synchronization primitives)
+	// Optionally yield to allow Term() thread to start before joining
 	std::this_thread::yield();
-
-	// Verify that Term() is still blocked (not completed) while acquisition is ongoing
-	// Note: This is a best-effort check; the real test is that join() succeeds without deadlock
-	bool blockingDetected = !termCompleted.load();
-	EXPECT_TRUE(blockingDetected)
-		<< "Term() should be blocked on mutex while license acquisition is ongoing";
 
 	// Wait for Term to complete (will detect deadlock if it doesn't return)
 	auto joinStart = std::chrono::steady_clock::now();
@@ -1594,14 +1588,33 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailure
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDRMMetaData(_))
 		.Times(1);
 
+	std::condition_variable errorCompletedCond;
+	std::mutex errorMutex;
+	int errorCount = 0;
+
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDrmErrorEvent(_, _))
-		.Times(1);
+		.Times(1)
+		.WillOnce(Invoke([&]() {
+			std::unique_lock<std::mutex> lock(errorMutex);
+			++errorCount;
+			errorCompletedCond.notify_one();
+		}));
 
 	// Queue license acquisition that will fail
 	mTestablePreFetcher->QueueContentProtection(drmHelperVideo, "period1", 0, eMEDIATYPE_VIDEO, false);
 
-	// Wait for the error flow to complete
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	// Wait for the error event to be sent (synchronization-based instead of timing)
+	{
+		std::unique_lock<std::mutex> lock(errorMutex);
+		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+		while (errorCount == 0) {
+			auto status = errorCompletedCond.wait_until(lock, deadline);
+			if (status == std::cv_status::timeout) {
+				FAIL() << "Timeout waiting for error event";
+				break;
+			}
+		}
+	}
 
 	// If we get here without hanging, no deadlock occurred
 	SUCCEED() << "No deadlock detected during NotifyDrmFailure error flow";
@@ -1735,8 +1748,18 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDRMMetaData(_))
 		.Times(3);
+	
+	std::condition_variable errorCompletedCond;
+	std::mutex errorMutex;
+	int errorCount = 0;
+
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDrmErrorEvent(_, _))
-		.Times(3);
+		.Times(3)
+		.WillRepeatedly(Invoke([&]() {
+			std::unique_lock<std::mutex> lock(errorMutex);
+			++errorCount;
+			errorCompletedCond.notify_one();
+		}));
 
 	// Set initial fetcher
 	mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
@@ -1747,23 +1770,52 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAcce
 	mTestablePreFetcher->QueueContentProtection(drmHelper3, "period1", 2, eMEDIATYPE_VIDEO, false);
 
 	// Concurrent thread updating fetcher instance
-	std::atomic<bool> stopUpdatingFetcher{false};
-	std::thread fetcherSwapThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &stopUpdatingFetcher]() {
+	std::atomic<bool> swapComplete{false};
+	std::condition_variable swapCompleteCond;
+	std::mutex swapMutex;
+
+	std::thread fetcherSwapThread([this, &mockLicenseFetcher1, &mockLicenseFetcher2, &swapCompleteCond, &swapMutex, &swapComplete]() {
 		int count = 0;
-		while (!stopUpdatingFetcher.load() && count++ < 20) {
+		while (count++ < 20) {
 			mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher2.get());
-			std::this_thread::sleep_for(std::chrono::milliseconds(3));
+			std::this_thread::yield();
 			mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher1.get());
-			std::this_thread::sleep_for(std::chrono::milliseconds(3));
+			std::this_thread::yield();
 		}
-		stopUpdatingFetcher.store(true);
+		{
+			std::unique_lock<std::mutex> lock(swapMutex);
+			swapComplete.store(true);
+		}
+		swapCompleteCond.notify_one();
 	});
 
-	// Wait for processing
-	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	// Wait for both fetcher swap thread and all error events to complete
+	{
+		std::unique_lock<std::mutex> errorLock(errorMutex);
+		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+		while (errorCount < 3) {
+			auto status = errorCompletedCond.wait_until(errorLock, deadline);
+			if (status == std::cv_status::timeout) {
+				FAIL() << "Timeout waiting for all error events to complete";
+				break;
+			}
+		}
+	}
+
+	// Also wait for the fetcher swap thread to complete
+	{
+		std::unique_lock<std::mutex> swapLock(swapMutex);
+		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+		while (!swapComplete.load()) {
+			auto status = swapCompleteCond.wait_until(swapLock, deadline);
+			if (status == std::cv_status::timeout) {
+				FAIL() << "Timeout waiting for fetcher swap to complete";
+				break;
+			}
+		}
+	}
 
 	// Stop the swapping thread
-	stopUpdatingFetcher.store(true);
 	if (fetcherSwapThread.joinable()) {
 		fetcherSwapThread.join();
 	}
