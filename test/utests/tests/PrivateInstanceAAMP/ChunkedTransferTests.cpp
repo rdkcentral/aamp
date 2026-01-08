@@ -41,9 +41,8 @@ struct ChunkHarness {
 		// Initialize context as parser expects
 		ctx.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 		ctx.m_ChunkedBytesRemaining = 0;
-		ctx.buffer = reinterpret_cast<decltype(ctx.buffer)>(&buffer); // adjust if exact type differs
+		ctx.buffer = &buffer;
 		ctx.aamp = &aamp;
-		// Initialize mediaType
 		ctx.mediaType = eMEDIATYPE_VIDEO;
 	}
 
