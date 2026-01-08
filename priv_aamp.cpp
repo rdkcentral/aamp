@@ -10128,10 +10128,8 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 	{
 		std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks(allTrack);
 
-		std::vector<TextTrackInfo> textTracksCopy;
-		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-        std::vector<CCTrackInfo> updatedTextTracks;
-		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		std::vector<CCTrackInfo> updatedTextTracks;
+		UpdateCCTrackInfo(trackInfo,updatedTextTracks);
         PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
 		{
