@@ -23,6 +23,7 @@
  */
 
 #include "PlayerExternalsInterface.h"
+#include <functional>
 
 /**< Static local variables */
 std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP = NULL;
@@ -122,5 +123,9 @@ void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 }
 
 void PlayerExternalsInterface::SetPowerEvent(bool powerEvt)
+{
+}
+
+void PlayerExternalsInterface::SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback)
 {
 }
