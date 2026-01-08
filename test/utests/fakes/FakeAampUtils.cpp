@@ -596,19 +596,19 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 	return NULL;
 }
 
-int aamp_hex_char_to_int( char c )
-{
-	if( c>='0' && c<='9' )
+int aamp_hex_char_to_int(char c)
+{ // working implementation for now - used with ChunkedTransferTests
+	if (c >= '0' && c <= '9')
 	{
-		return c-'0';
+		return c - '0';
 	}
-	if( c>='A' && c<='F' )
+	if (c >= 'a' && c <= 'f')
 	{
-		return (c-'A')+10;
+		return 10 + (c - 'a');
 	}
-	if( c>='a' && c<='f' )
+	if (c >= 'A' && c <= 'F')
 	{
-		return (c-'a')+10;
+		return 10 + (c - 'A');
 	}
 	return -1;
 }

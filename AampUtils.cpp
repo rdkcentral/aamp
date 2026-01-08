@@ -1432,22 +1432,21 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
  * @return Numeric value in the range 0-15 on success, or -1 if the character
  *         is not a valid hexadecimal digit.
  */
-int aamp_hex_char_to_int( char c )
+int aamp_hex_char_to_int(char c)
 {
-	int rc = -1;
-	if( isdigit(c) )
+	if (c >= '0' && c <= '9')
 	{
-		rc = (c-'0');
+		return c - '0';
 	}
-	else
+	if (c >= 'a' && c <= 'f')
 	{
-		c = toupper(c);
-		if( c>='A' && c<='F' )
-		{
-			rc = 10 + (c-'A');
-		}
+		return 10 + (c - 'a');
 	}
-	return rc;
+	if (c >= 'A' && c <= 'F')
+	{
+		return 10 + (c - 'A');
+	}
+	return -1;
 }
 
 /*
