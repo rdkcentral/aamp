@@ -200,6 +200,7 @@ namespace aamp
 			throw std::runtime_error("Worker thread is already running");
 		}
 
+		// No lock needed here as this is called before the thread starts
 		mStopped = false;
 
 		try
