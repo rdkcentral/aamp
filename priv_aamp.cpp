@@ -739,7 +739,6 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				else
 				{
 					int octet = aamp_hex_char_to_int(c);
-					
 					if( octet<0 )
 					{
 						AAMPLOG_ERR( "unexpected char: 0x%02x", c );
@@ -747,8 +746,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					}
 					else
 					{
-						context->m_ChunkedBytesRemaining <<= 4;
-						context->m_ChunkedBytesRemaining += octet;
+						context->m_ChunkedBytesRemaining = context->m_ChunkedBytesRemaining*16 + octet;
 					}
 				}
 			}
