@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2023 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "MockGstUtils.h"
-#include "GstUtils.h"
-MockGstUtils *g_mockGstUtils = nullptr;
-GstCaps *GetCaps(GstStreamOutputFormat format)
-{
-	if(g_mockGstUtils)
-	{
-		return g_mockGstUtils->GetCaps(format);
-	}
-	return nullptr;
-}
 
-GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
+#include <gtest/gtest.h>
+
+int main(int argc, char** argv)
 {
-	if (g_mockGstUtils)
-	{
-		return g_mockGstUtils->CreateGstBufferWithData(data, size);
-	}
-	return nullptr;
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }
