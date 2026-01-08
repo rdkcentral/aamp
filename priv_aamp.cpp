@@ -10127,7 +10127,13 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 	if (mpStreamAbstractionAAMP)
 	{
 		std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks(allTrack);
-
+		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
+		{
+			for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
+			{
+				AAMPLOG_WARN("Text Track Before Filtering WebVTT - lang:%s, isCC:%d, name:%s, instreamID:%s, characteristics:%s, sub-type:%s", iter->language.c_str(), iter->isCC, iter->name.c_str(), iter->instreamId.c_str(), iter->characteristics.c_str(), iter->isCC?"CLOSED-CAPTIONS":"SUBTITLES");
+			}
+		}
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
         std::vector<CCTrackInfo> updatedTextTracks;
@@ -10137,6 +10143,10 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		{
 			trackInfo.clear();
 			std::copy(textTracksCopy.begin(), textTracksCopy.end(), std::back_inserter(trackInfo));
+			for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
+			{
+				AAMPLOG_WARN("Text Track After filtering WebVTT - lang:%s, isCC:%d, name:%s, instreamID:%s, characteristics:%s, sub-type:%s", iter->language.c_str(), iter->isCC, iter->name.c_str(), iter->instreamId.c_str(), iter->characteristics.c_str(), iter->isCC?"CLOSED-CAPTIONS":"SUBTITLES");
+			}
 			AAMPLOG_WARN("updated only Instream CC tracks");
 		}
 
