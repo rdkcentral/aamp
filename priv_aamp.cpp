@@ -662,6 +662,15 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
 		case ChunkedTransferState::PENDING_CHUNK_END_LF:
 			state_name = "awaiting end LF";
 			break;
+		case ChunkedTransferState::READING_EXTENSIONS:
+			state_name = "awaiting extension end LF";
+			break;
+		case ChunkedTransferState::PENDING_EXTENSION_END_LF:
+			state_name = "awaiting extension end CR";
+			break;
+		case ChunkedTransferState::DONE:
+			state_name = "done";
+			break;
 		case ChunkedTransferState::ERROR:
 			state_name = "error";
 			break;
@@ -711,11 +720,32 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					 GetMediaTypeName(context->mediaType),
 					 ChunkedTransferStateToName(context->m_ChunkedTransferState),
 					 context->m_ChunkedBytesRemaining );
+		char c;
+		
 		switch( context->m_ChunkedTransferState )
 		{
+			case ChunkedTransferState::READING_EXTENSIONS:
+				c = *ptr++;
+				if( c == '\r' )
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_EXTENSION_END_LF;
+				}
+				break;
+				
+			case ChunkedTransferState::PENDING_EXTENSION_END_LF:
+				if( *ptr++ != '\n' )
+				{
+					AAMPLOG_ERR( "missing expected \\n" );
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+				}
+				else
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
+				}
+				break;
+				
 			case ChunkedTransferState::READING_CHUNK_SIZE:
-			{
-				char c = *ptr++;
+				c = *ptr++;
 				if( c=='\r' )
 				{
 					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
@@ -723,18 +753,8 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				else if( c==';' )
 				{
 					// RFC 7230 allows optional chunk extensions after the size, starting with ';'.
-					// We do not interpret them; we simply skip until the end of the line (CR).
-					while( ptr < fin )
-					{
-						char extChar = *ptr++;
-						if( extChar=='\r' )
-						{
-							context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
-							break;
-						}
-					}
-					// If no '\r' was found before fin, remain in READING_CHUNK_SIZE and
-					// let the next callback continue consuming the extension.
+					// we currently skip over them rather than interpret them
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_EXTENSIONS;
 				}
 				else
 				{
@@ -749,7 +769,6 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 						context->m_ChunkedBytesRemaining = context->m_ChunkedBytesRemaining*16 + octet;
 					}
 				}
-			}
 				break;
 				
 			case ChunkedTransferState::PENDING_CHUNK_START_LF:
@@ -763,33 +782,33 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					if( context->m_ChunkedBytesRemaining )
 					{
 						AAMPLOG_INFO( "CHUNK_START %zu %s", context->m_ChunkedBytesRemaining, GetMediaTypeName(context->mediaType) );
+						context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
 					}
 					else
 					{
 						AAMPLOG_INFO( "CHUNK_END %s", GetMediaTypeName(context->mediaType) );
+						context->m_ChunkedTransferState = ChunkedTransferState::DONE;
 					}
-					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
 				}
 				break;
 				
 			case ChunkedTransferState::READING_CHUNK_DATA:
-				if( context->m_ChunkedBytesRemaining > 0 )
-				{
-					size_t n = fin - ptr;
-					if( n > context->m_ChunkedBytesRemaining )
-					{ // clamp - more bytes in write_callback than needed to complete current chunk
-						n = context->m_ChunkedBytesRemaining;
-					}
-					context->buffer->AppendBytes( ptr, n );
-					ptr += n;
-					context->m_ChunkedBytesRemaining -= n;
+			{
+				size_t n = fin - ptr;
+				if( n > context->m_ChunkedBytesRemaining )
+				{ // clamp - more bytes in write_callback than needed to complete current chunk
+					n = context->m_ChunkedBytesRemaining;
 				}
-				else
+				context->buffer->AppendBytes( ptr, n );
+				ptr += n;
+				context->m_ChunkedBytesRemaining -= n;
+				if( context->m_ChunkedBytesRemaining == 0 )
 				{
 					// here we will presumably be at the end of an 'mdat', suitable for injection
 					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
 					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_END_CR;
 				}
+			}
 				break;
 				
 			case ChunkedTransferState::PENDING_CHUNK_END_CR:
@@ -819,6 +838,17 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					}
 				}
+				break;
+				
+			case ChunkedTransferState::DONE:
+				c = *ptr++;
+				if( c=='\n' || c=='\r' )
+				{ // end marker CRLF
+					continue;
+				}
+				AAMPLOG_ERR( "unexpected data after final chunk" );
+				context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+				ptr = fin; // consume remaining bytes to exit loop
 				break;
 				
 			case ChunkedTransferState::ERROR:

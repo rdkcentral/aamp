@@ -230,11 +230,14 @@ public:
 
 enum class ChunkedTransferState
 {
-	READING_CHUNK_SIZE,     // reading hexadecimal chunk size
-	PENDING_CHUNK_START_LF, // chunk size read, along with following CR delimiter - waiting for LF
-	READING_CHUNK_DATA,     // collecting binary payload for chunk
-	PENDING_CHUNK_END_CR,   // chunk payload has been read, next byte expected to be chunk-end CR
-	PENDING_CHUNK_END_LF,   // chunk payload and first CR delimiter read; waiting for LF
+	READING_CHUNK_SIZE,       // reading hexadecimal chunk size
+	PENDING_CHUNK_START_LF,   // chunk size read, along with following CR delimiter - waiting for LF
+	READING_CHUNK_DATA,       // collecting binary payload for chunk
+	PENDING_CHUNK_END_CR,     // chunk payload has been read, next byte expected to be chunk-end CR
+	PENDING_CHUNK_END_LF,     // chunk payload and first CR delimiter read; waiting for LF
+	READING_EXTENSIONS,       // parsing extension data between ; and CR LF
+	PENDING_EXTENSION_END_LF, // extension data complete and first CR delimiter read; waiting for LF
+	DONE,					  // read final empty chunk
 	ERROR
 };
 
