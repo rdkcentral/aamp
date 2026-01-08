@@ -2047,7 +2047,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+		AAMPLOG_WARN("DEBUG2-->position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
@@ -2107,6 +2107,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		double offset = GetFormatPositionOffsetInMSecs();
 		/* Need to get the formatted position, start and end value */
+		AAMPLOG_WARN("DEBUG2-->offset=%f ms", offset);
 		double reportFormattedCurrPos = position - offset;
 		if (start != -1 && end != -1)
 		{
@@ -7253,11 +7254,13 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	//Audio only playback is un-tested. Hence disabled for now
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableGstPositionQuery) && !ISCONFIGSET_PRIV(eAAMPConfig_AudioOnlyPlayback) && !mAudioOnlyPb)
 	{
+		AAMPLOG_WARN("DEBUG2-->EnableGstPositionQuery is set");
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			auto gstPosition = sink->GetPositionMilliseconds();
 
+			AAMPLOG_WARN("DEBUG2--> mState=%d , gstPosition=%lld", mState, gstPosition);
 			/* Prevent spurious values being returned by this function during seek.
 			* PrivateInstanceAAMP::GetPositionMilliseconds() is called elsewhere e.g. setting seek_pos_seconds
 			* note for this to work correctly mState and seek_pos_seconds must updated atomically otherwise
@@ -7307,11 +7310,12 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 
 	//Local copy to avoid race. consider further improvements to the thread safety of this variable.
 	double seek_pos_seconds_copy = seek_pos_seconds;
+	AAMPLOG_WARN("DEBUG2--> seek_pos_seconds from GetPositionMilliseconds(): %f", seek_pos_seconds_copy);
 	long long positionMilliseconds = seek_pos_seconds_copy != -1 ? seek_pos_seconds_copy * 1000.0 : 0.0;
 
 	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
-	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
+	AAMPLOG_WARN("DEBUG2-->trickStartUTCMS=%lld , rate = %f", trickStartUTCMS_copy, rate);
 	if (trickStartUTCMS_copy >= 0)
 	{
 		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
