@@ -1746,3 +1746,8 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaS
 		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, sample);
 	}
 }
+
+bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
+{
+	return false;
+}
