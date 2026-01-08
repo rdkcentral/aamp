@@ -114,6 +114,14 @@ void PlayerCliGstTerm();
 GstCaps* GetCaps(GstStreamOutputFormat format);
 
 /**
+ * @brief Create GstBuffer with data copied from input data pointer
+ * @param data Pointer to the data to be copied into the GstBuffer
+ * @param size Size of the data to be copied
+ * @return GstBuffer* Pointer to the created GstBuffer containing the copied data
+ */
+GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size);
+
+/**
  * @fn GetCurrentTimeMS
  * @brief Get the current time in milliseconds
  *

@@ -33,6 +33,8 @@ public:
 
     MOCK_METHOD(bool, Discontinuity, (AampMediaType));
 
+    MOCK_METHOD(bool, SendSample, (AampMediaType, AampMediaSample&));
+
 };
 
 #endif /* AAMP_MOCK_STREAM_SINK_H */

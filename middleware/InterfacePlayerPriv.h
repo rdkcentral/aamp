@@ -226,6 +226,7 @@ struct GstPlayerPriv
 	bool firstAudioFrameReceived;                     /**< flag that denotes if first audio frame was notified */
 	int NumberOfTracks;                                               /**< Indicates the number of tracks */
 	GstPlaybackQualityStruct playbackQuality; /**< video playback quality info */
+	bool isMp4DemuxPlayback; /**< flag to denote mp4demux path needs BMFF-like semantics */
 	struct CallbackData
 	{
 		gpointer instance;
