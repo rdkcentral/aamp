@@ -311,6 +311,7 @@ typedef enum
 	eAAMPConfig_MonitorAVJumpThreshold,				/**< configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds*/
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
+	eAAMPConfig_MidChunkAbortStrategy,					/**< Strategy to handle mid-chunk aborts */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

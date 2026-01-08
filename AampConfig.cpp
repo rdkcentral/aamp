@@ -468,6 +468,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,true,eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD },
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
+	{0, "midChunkAbortStrategy", eAAMPConfig_MidChunkAbortStrategy, true},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

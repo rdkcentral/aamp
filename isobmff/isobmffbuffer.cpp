@@ -1214,3 +1214,43 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 	}
 	return retval;
 }
+
+/**
+ * @fn getMdatBoxInfo - Get mdat box info
+ *
+ * @param[in] index - index of mdat box
+ * @param[out] start - start offset of mdat box
+ * @param[out] size - size of mdat box
+ * @return bool - true if box found, false otherwise
+ */
+bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
+{
+	return getBoxInfoInternal(&boxes, Box::MDAT, index, start, size);
+}
+
+/**
+ * @fn getBoxInfoInternal - Get box info
+ *
+ * @param[in] boxes - ISOBMFF boxes
+ * @param[in] name - box name to get
+ * @param[in] index - index of box in a parsed buffer
+ * @param[out] start - start offset of box
+ * @param[out] size - size of box
+ * @return bool - true if box found, false otherwise
+ */
+bool IsoBmffBuffer::getBoxInfoInternal(const std::vector<Box*> *boxes, const char *name, size_t index, size_t &start, size_t &size)
+{
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i);
+		if (IS_TYPE(box->getType(), name) && index-- == 0)
+		{
+			// Calculate the start offset of the box data within the buffer
+			start = (size_t)(box->getBase() - buffer);
+			// Get the size of the box
+			size = box->getSize();
+			return true;
+		}
+	}
+	return false;
+}

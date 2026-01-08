@@ -899,6 +899,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	p_aamp->SetLLDashServiceData(llData);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	// Don't want mid-chunk aborts for this test
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MidChunkAbortStrategy)).WillRepeatedly(Return(-1));
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
@@ -913,7 +915,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 
 	// Create a buffer for the context
 	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	buffer.AppendBytes("dummy data", 12);
 
 	// Create a valid curl context
 	CurlCallbackContext context(p_aamp, &buffer);
@@ -921,6 +923,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = 0;
+	context.nextChunkBoundary = buffer.GetLen(); // Simulate end of chunk
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
@@ -4602,9 +4605,9 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeTrueTest)
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD));
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD));
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,_)).Times(0);
 
 	testp_aamp->SetLLDashChunkMode(true);
 }
@@ -4618,14 +4621,12 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeFalseTest)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlDownloadStartTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlStallTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigOwner(eAAMPConfig_NetworkTimeout)).WillRepeatedly(Return(AAMP_DEFAULT_SETTING));
 
 	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MinABRNWBufferRampDown)).Times(1);
 	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_MaxABRNWBufferRampUp)).Times(1);
 	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadStartTimeout)).Times(1);
 	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlStallTimeout)).Times(1);
 	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_CurlDownloadLowBWTimeout)).Times(1);
-	EXPECT_CALL(*g_mockAampConfig, RestoreConfiguration(AAMP_TUNE_SETTING, eAAMPConfig_NetworkTimeout)).Times(1);
 	testp_aamp->SetLLDashChunkMode(false);
 }
 

@@ -265,12 +265,24 @@ struct CurlCallbackContext
 	size_t contentLength = 0;
 	long long downloadStartTime = -1;
 	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
+	long long dataTransferStartTime = -1; /**< Indicate the time when data transfer starts */
+	size_t bufferOffset = 0; // Used for chunked download to keep track of current buffer offset
+	size_t nextChunkBoundary = 0; // Used for chunked download to identify next chunk boundary
+	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 
-	CurlCallbackContext(){}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}
+	// Default constructor
+	CurlCallbackContext() {}
+
+	/**
+	 * @brief Constructor to initialize CurlCallbackContext
+	 * @param[in] _aamp - PrivateInstanceAAMP pointer
+	 * @param[in] _buffer - AampGrowableBuffer pointer
+	 */
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer) {}
 
 	~CurlCallbackContext() {}
 
+	// Disabled copy constructor and copy assignment
 	CurlCallbackContext(const CurlCallbackContext &other) = delete;
 	CurlCallbackContext& operator=(const CurlCallbackContext& other) = delete;
 };

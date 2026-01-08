@@ -268,3 +268,8 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
         return false;
     }
 }
+
+bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
+{
+    return false;
+}
