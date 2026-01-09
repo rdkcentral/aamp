@@ -161,7 +161,7 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
  */
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
-	MW_LOG_INFO("isAbort : %s ", isAbort ? "true" : "false");
+	MW_LOG_INFO("isAbort : %s", isAbort ? "true" : "false");
 	licenseRequestAbort.store(isAbort, std::memory_order_release);
 }
 
