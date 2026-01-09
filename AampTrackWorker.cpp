@@ -163,7 +163,8 @@ namespace aamp
 	 *
 	 */
 	AampTrackWorker::AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
-		: aamp(_aamp), mMediaType(_mediaType), mStop(false), mPaused(false), mActiveJob(nullptr), mWorkerThread(), mJobQueue(), mQueueMutex(), mCondVar(), mInitialized(false)
+		: mMediaType(_mediaType), mWorkerThread(), mQueueMutex(), mCondVar(), mJobQueue(),
+		  aamp(_aamp), mStopped(true), mActiveJob(nullptr), mPaused(false)
 	{
 		if (_aamp == nullptr)
 		{
@@ -194,30 +195,28 @@ namespace aamp
 	 */
 	void AampTrackWorker::StartWorker()
 	{
-		if (mWorkerThread.joinable() || mInitialized)
+		if (mWorkerThread.joinable() || !mStopped)
 		{
 			AAMPLOG_WARN("Worker thread for media type %s is already running", GetMediaTypeName(mMediaType));
 			throw std::runtime_error("Worker thread is already running");
 		}
 
+		// No lock needed here as this is called before the thread starts
+		mStopped = false;
+
 		try
 		{
-			if(!mInitialized)
-			{
-				mStop.store(false);
-				mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, shared_from_this(), std::weak_ptr<AampTrackWorker>(shared_from_this()));
-				mInitialized = true;
-			}
+			mWorkerThread = std::thread(&AampTrackWorker::ProcessJob, std::weak_ptr<AampTrackWorker>(shared_from_this()));
 		}
 		catch (const std::exception &e)
 		{
 			AAMPLOG_ERR("Exception caught in AampTrackWorker %s", e.what());
-			mStop.store(true);
+			mStopped = true;
 		}
 		catch (...)
 		{
 			AAMPLOG_ERR("Unknown exception caught in AampTrackWorker for media type %s", GetMediaTypeName(mMediaType));
-			mStop.store(true);
+			mStopped = true;
 		}
 	}
 
@@ -225,24 +224,40 @@ namespace aamp
 	 * @brief Stops the worker thread.
 	 *
 	 * Signals the worker thread to stop and waits for it to finish.
+	 * This method is noexcept because it's called from the destructor.
+	 * Any errors are logged but do not propagate.
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::StopWorker()
+	void AampTrackWorker::StopWorker() noexcept
 	{
-		mStop.store(true);
 		AAMPLOG_DEBUG("Stopping worker thread for media type %s", GetMediaTypeName(mMediaType));
-		if(mInitialized)
+		
+		try
 		{
-			mCondVar.notify_all();
+			{
+				std::lock_guard<std::mutex> lock(mQueueMutex);
+				mStopped = true;
+				mCondVar.notify_all();
+			}
+			
 			if (mWorkerThread.joinable())
 			{
 				mWorkerThread.join();
 			}
+			
 			ClearJobs();
+			
 			std::lock_guard<std::mutex> queueLock(mQueueMutex);
-			mActiveJob = nullptr; // Clear active job
-			mInitialized = false;
+			mActiveJob = nullptr;
+		}
+		catch (const std::exception &e)
+		{
+			AAMPLOG_ERR("Exception in StopWorker for media type %s: %s", GetMediaTypeName(mMediaType), e.what());
+		}
+		catch (...)
+		{
+			AAMPLOG_ERR("Unknown exception in StopWorker for media type %s", GetMediaTypeName(mMediaType));
 		}
 	}
 
@@ -266,7 +281,7 @@ namespace aamp
 		auto future = job->GetFuture();
 		{
 			std::lock_guard<std::mutex> lock(mQueueMutex);
-			if (!mStop.load())
+			if (!mStopped)
 			{
 				if (highPriority)
 				{
@@ -297,7 +312,8 @@ namespace aamp
 	 */
 	void AampTrackWorker::Pause()
 	{
-		mPaused.store(true);
+		std::lock_guard<std::mutex> lock(mQueueMutex);
+		mPaused = true;
 		AAMPLOG_DEBUG("Pausing worker thread for media type %s", GetMediaTypeName(mMediaType));
 		mCondVar.notify_one(); // Wake up thread to pause
 	}
@@ -311,7 +327,8 @@ namespace aamp
 	 */
 	void AampTrackWorker::Resume()
 	{
-		mPaused.store(false);
+		std::lock_guard<std::mutex> lock(mQueueMutex);
+		mPaused = false;
 		AAMPLOG_DEBUG("Resuming worker thread for media type %s", GetMediaTypeName(mMediaType));
 		mCondVar.notify_one();
 	}
@@ -381,36 +398,37 @@ namespace aamp
 
 			while (true)
 			{
-				std::unique_lock<std::mutex> lock(self->mQueueMutex);
-
-				// Wait while (queue is empty or paused) and not stopped
-				self->mCondVar.wait(lock, [&] {
-					return self->mStop.load() || (!self->mPaused.load() && !self->mJobQueue.empty());
-				});
-
-				if (self->mStop.load())
-				{
-					AAMPLOG_DEBUG("Worker thread stopped for media type %s", GetMediaTypeName(self->mMediaType));
-					break;
-				}
-
-				if (self->mPaused.load())
-				{
-					AAMPLOG_DEBUG("Worker thread paused for media type %s", GetMediaTypeName(self->mMediaType));
-					continue;
-				}
-
-				// Extract the job safely
 				AampTrackWorkerJobSharedPtr currentJob;
-				if (!self->mJobQueue.empty())
+
 				{
-					self->mActiveJob = std::move(self->mJobQueue.front());
-					self->mJobQueue.pop_front();
-					currentJob = self->mActiveJob;
+					std::unique_lock<std::mutex> lock(self->mQueueMutex);
+
+					// Wait while (queue is empty or paused) and not stopped
+					self->mCondVar.wait(lock, [self]() -> bool
+										{ return self->mStopped || (!self->mPaused && !self->mJobQueue.empty()); });
+
+					if (self->mStopped)
+					{
+						AAMPLOG_DEBUG("Worker thread stopped for media type %s", GetMediaTypeName(self->mMediaType));
+						break;
+					}
+
+					if (self->mPaused)
+					{
+						AAMPLOG_DEBUG("Worker thread paused for media type %s", GetMediaTypeName(self->mMediaType));
+						continue;
+					}
+
+					// Extract the job safely
+					if (!self->mJobQueue.empty())
+					{
+						self->mActiveJob = std::move(self->mJobQueue.front());
+						self->mJobQueue.pop_front();
+						currentJob = self->mActiveJob;
+					}
 				}
 
-				lock.unlock(); // Release lock before executing the job
-
+				// Execute job without holding lock
 				if (currentJob)
 				{
 					try
@@ -432,11 +450,14 @@ namespace aamp
 					}
 				}
 
-				lock.lock();
-				self->mActiveJob = nullptr;
-				if (self->mStop.load())
 				{
-					break;
+					std::lock_guard<std::mutex> lock(self->mQueueMutex);
+
+					self->mActiveJob = nullptr;
+					if (self->mStopped)
+					{
+						break;
+					}
 				}
 			}
 			AAMPLOG_INFO("Exiting for media type %s", GetMediaTypeName(self->mMediaType));

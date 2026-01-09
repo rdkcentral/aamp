@@ -104,13 +104,6 @@ namespace aamp
 	 */
 	std::shared_future<void> AampTrackWorkerManager::SubmitJob(AampMediaType mediaType, aamp::AampTrackWorkerJobSharedPtr job, bool highPriority)
 	{
-		// If stopping, reject new submissions immediately (fast path, no lock)
-		if (mStopInProgress.load())
-		{
-			AAMPLOG_WARN("SubmitJob rejected: stop in progress for media type %s", GetMediaTypeName(mediaType));
-			return std::shared_future<void>(); // default future indicates failure
-		}
-
 		std::lock_guard<std::mutex> lock(mMutex);
 		// check again under lock to avoid race where stop started after first check
 		if (mStopInProgress.load())

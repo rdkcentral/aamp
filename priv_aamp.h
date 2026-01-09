@@ -73,8 +73,11 @@
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
+#include "AampDemuxDataTypes.h"
 
+// forward declaration to avoid circular dependency
 class AampMPDDownloader;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -1152,7 +1155,6 @@ public:
 	double mProgressReportOffset; 				/**< Offset time for progress reporting */
 	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
-	double mFirstFragmentTimeOffset;			/**< Offset time for first fragment injected */
 	AampConfig *mConfig;
 	long mDiscStartTime;					/**< start time of discontinuity */
 	bool mRateCorrectionDelay;				/**<Disable live latency correction when discontinuity is playing */
@@ -1784,6 +1786,15 @@ public:
 	 *   @return void
 	 */
 	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+
+	/**
+	 *   @fn SendStreamTransfer
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  sample - Media sample
+	 *   @return void
+	 */
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
 
 	/**
 	 * @fn IsLive
@@ -2577,12 +2588,12 @@ public:
 	std::string GetPreferredTextProperties();
 
 	/**
-	 *   @brief Set DRM type
+	 * @brief Set current DRM helper
 	 *
-	 *   @param[in] drm - New DRM type
-	 *   @return void
+	 * @param[in] drm - DRM helper instance
+	 * @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
+	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -3758,6 +3769,20 @@ public:
 	 * @retval size consumed or 0 if interrupted
 	 */
 	size_t HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata );
+	
+	/**
+	 * @fn chunked_write_callback
+	 *
+	 * @brief Handle write callback for data received using chunked transfer encoding.
+	 *
+	 * @param ptr pointer to buffer containing the received data
+	 * @param numBytes number of valid bytes in the buffer
+	 * @param userdata CurlCallbackContext pointer or user-defined data associated
+	 *        with this transfer
+	 *
+	 * @return None
+	 */
+	void chunked_write_callback( const char *ptr, size_t numBytes, void *userdata );
 
 	/**
 	 * @fn HandleSSLProgressCallback
@@ -3987,6 +4012,15 @@ public:
 	 * @return Offset value in msecs
 	 */
 	double GetFormatPositionOffsetInMSecs();
+
+	/**
+	 * @fn SetStreamCaps
+	 * @brief Set stream capabilities based on codec info
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] codecInfo - Codec information
+	 */
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 protected:
 

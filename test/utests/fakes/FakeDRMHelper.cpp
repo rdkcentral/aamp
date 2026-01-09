@@ -36,3 +36,8 @@ bool DrmHelperEngine::hasDRM(const struct DrmInfo& drmInfo) const
 {
 	return false;
 }
+
+bool DrmHelper::compare(DrmHelperPtr other)
+{
+	return false;
+}

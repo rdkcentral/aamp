@@ -326,9 +326,6 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 	char *temp = (char *)malloc(srcLen+3);
 	if( temp )
 	{
-		temp[srcLen+2] = '\0';
-		temp[srcLen+1] = '=';
-		temp[srcLen+0] = '=';
 		for( int iter = 0; iter < srcLen; iter++ )
 		{
 			char c = src[iter];
@@ -345,7 +342,10 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 			}
 			temp[iter] = c;
 		}
-		rc = base64_Decode(temp, len );
+		temp[srcLen++] = '=';
+		temp[srcLen++] = '=';
+		temp[srcLen] = '\0';
+		rc = base64_Decode(temp, len, srcLen );
 		free(temp);
 	}
 	else
@@ -1420,6 +1420,38 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
+
+/**
+ * @brief Convert a hexadecimal ASCII character to its numeric value.
+ *
+ * Converts the given character to its corresponding integer value if it
+ * represents a hexadecimal digit ('0'-'9', 'A'-'F', or 'a'-'f').
+ *
+ * @param[in] c Input ASCII character to convert.
+ *
+ * @return Numeric value in the range 0-15 on success, or -1 if the character
+ *         is not a valid hexadecimal digit.
+ */
+int hexCharToInt(char c)
+{
+	if (c >= '0' && c <= '9')
+	{
+		return c - '0';
+	}
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
+	if (c >= 'A' && c <= 'F')
+	{
+		return 10 + (c - 'A');
+	}
+	return -1;
+}
+
+/*
+ * EOF
+ */
 
 bool aamp_isTuneScheme( const char *cmdBuf )
 {
