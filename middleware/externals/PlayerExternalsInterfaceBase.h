@@ -147,7 +147,7 @@ class PlayerExternalsInterfaceBase
      * @brief Set callback function for fake tune operations
      * @param[in] t_doFakeTuneCallback Function to call when fake tune is triggered
      */
-    virtual void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback) = 0;
+    virtual void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback) = 0;
 
     /**
      * @brief Get callback function for fake tune operations

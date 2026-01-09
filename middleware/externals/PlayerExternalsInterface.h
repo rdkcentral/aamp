@@ -102,7 +102,7 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
      * @brief Set callback function for fake tune operations (stub implementation)
      * @param[in] t_doFakeTuneCallback Function to call for fake tune operations
      */
-    void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback) override {}
+    void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback) override {}
 
     /**
      * @brief Get callback function for fake tune operations (stub implementation)
@@ -220,7 +220,7 @@ public:
      * @brief Set callback function for fake tune operations
      * @param[in] t_doFakeTuneCallback Function to call for fake tune operations
      */
-    void SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback);
+    void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback);
 
     /**
      * @brief Checks if platform device properties are accessible.

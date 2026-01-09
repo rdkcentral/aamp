@@ -126,6 +126,6 @@ void PlayerExternalsInterface::SetPowerEvent(bool powerEvt)
 {
 }
 
-void PlayerExternalsInterface::SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback)
+void PlayerExternalsInterface::SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
 {
 }

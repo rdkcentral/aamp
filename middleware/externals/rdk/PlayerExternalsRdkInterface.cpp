@@ -27,6 +27,7 @@
 #include "DeviceIARMInterface.h"
 #include "DeviceFireboltInterface.h"
 #include "PlayerExternalsInterface.h"
+#include <utility>
 
 #include <cstdio>
 
@@ -371,7 +372,7 @@ bool PlayerExternalsRdkInterface::GetPowerEvent()
     return mPowerEvt;	
 }
 
-void PlayerExternalsRdkInterface::SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback)
+void PlayerExternalsRdkInterface::SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
 {
     m_doFakeTuneCallback = t_doFakeTuneCallback;
 }

@@ -24,6 +24,7 @@
 
 #include "PlayerExternalsInterface.h"
 #include "PlayerExternalUtils.h"
+#include <utility>
 
 #ifdef IARM_MGR
 #include "PlayerExternalsRdkInterface.h"
@@ -159,7 +160,7 @@ bool PlayerExternalsInterface::GetPowerEvent()
     return m_pIarmInterface->GetPowerEvent();
 }
 
-void PlayerExternalsInterface::SetDoFakeTuneCallBack(std::function<void()> t_doFakeTuneCallback)
+void PlayerExternalsInterface::SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
 {
     m_pIarmInterface->SetDoFakeTuneCallBack(t_doFakeTuneCallback);
 }
