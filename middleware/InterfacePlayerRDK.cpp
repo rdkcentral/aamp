@@ -1559,6 +1559,30 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
+
+	if (gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].source)
+	{
+		GstElement *videoSource = gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].source;
+		GstState current, pending;
+
+		// Wait up to 200ms for video pipeline to be ready
+		GstStateChangeReturn ret = gst_element_get_state(videoSource, &current, &pending,
+														 200 * GST_MSECOND);
+
+		if (ret == GST_STATE_CHANGE_FAILURE || ret == GST_STATE_CHANGE_ASYNC ||
+			(current != GST_STATE_PAUSED && current != GST_STATE_PLAYING))
+		{
+			MW_LOG_ERR("Flush rejected: Video pipeline not ready (state=%s, pending=%s, ret=%d) at position=%.2f rate=%d",
+					   gst_element_state_get_name(current),
+					   gst_element_state_get_name(pending),
+					   ret, position, rate);
+			return false;
+		}
+
+		MW_LOG_INFO("Video pipeline ready (state=%s), proceeding with flush at position=%.2f",
+					gst_element_state_get_name(current), position);
+	}
+
 	if (!gst_element_seek(gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
