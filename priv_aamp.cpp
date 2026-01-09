@@ -5353,6 +5353,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	bool shouldRestoreCC=false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5426,6 +5427,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
+	if( !newTune || eTUNETYPE_RETUNE == tuneType)
+	{
+		shouldRestoreCC = PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("shouldRestoreCC:%d isCCinBand:%d",shouldRestoreCC,mIsInbandCC);
+	}
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -5901,14 +5907,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(!mIsFakeTune)
 	{
 		AAMPLOG_INFO("mCCId: %d",mCCId);
-		// if mCCId has non zero value means it is same instance and cc release was not callee then don't get id. if zero then call getid.
+		// if mCCId has non zero value means it is same instance and cc release was not called then don't get id. if zero then call getid.
 		if(mCCId == 0 )
 		{
 			mCCId = PlayerCCManager::GetInstance()->GetId();
 		}
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
-			PlayerCCManager::GetInstance()->RestoreCC();
+		{
+			PlayerCCManager::GetInstance()->RestoreCC(shouldRestoreCC);
+		}
 	}
 
 	if (newTune && !mIsFakeTune)
