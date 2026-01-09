@@ -235,11 +235,10 @@ static void on_qtdemux_pad_added(GstElement * /*qtdemux*/, GstPad *new_pad, gpoi
 	}
 
 	if (caps) {
-		GstStructure *structure = gst_caps_get_structure(caps, 0);
-		const gchar *media_type = gst_structure_get_name(structure);
 		const gchar *pad_name = gst_pad_get_name(new_pad);
-
-		g_print("New pad created: %s with caps: %s\n", pad_name, media_type);
+		gchar* capsStr = gst_caps_to_string(caps);
+		g_print("New pad created: %s with caps: %s\n", pad_name, capsStr);
+		g_free(capsStr);
 
 		// Add protection metadata probe to this pad
 		gst_pad_add_probe(new_pad, GST_PAD_PROBE_TYPE_BUFFER, protection_metadata_probe, data, NULL);

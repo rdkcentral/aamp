@@ -22,6 +22,8 @@
 
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
+#include "AampDemuxDataTypes.h" // for AampMediaSample
+#include "DemuxDataTypes.h" // for MediaCodecInfo
 
 /**
  * @struct PlaybackQualityData
@@ -77,6 +79,15 @@ public:
      *   @return void
      */
     virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
+
+    /**
+     *   @brief  API to send audio/video sample into the sink.
+     *
+     *   @param[in]  mediaType - Type of the media.
+     *   @param[in]  sample - Media sample
+     *   @return void
+     */
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type
@@ -386,6 +397,14 @@ public:
      * @brief Notifies the injector to pause buffer pushing.
      */
     virtual void NotifyInjectorToPause() {};
+
+    /**
+     * @brief Set stream capabilities based on codec info
+     *
+     * @param[in] type - Media type
+     * @param[in] codecInfo - Codec information
+     */
+    virtual void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) {};
 
 };
 

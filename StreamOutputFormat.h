@@ -31,6 +31,7 @@ enum StreamOutputFormat
     FORMAT_ISO_BMFF,        /**< ISO Base Media File format */
     FORMAT_AUDIO_ES_MP3,    /**< MP3 Audio Elementary Stream */
     FORMAT_AUDIO_ES_AAC,    /**< AAC Audio Elementary Stream */
+    FORMAT_AUDIO_ES_AAC_RAW, /**< AAC Raw Audio Elementary Stream */
     FORMAT_AUDIO_ES_AC3,    /**< AC3 Audio Elementary Stream */
     FORMAT_AUDIO_ES_EC3,    /**< Dolby Digital Plus Elementary Stream */
     FORMAT_AUDIO_ES_ATMOS,  /**< ATMOS Audio stream */

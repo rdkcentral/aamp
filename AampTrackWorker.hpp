@@ -150,23 +150,22 @@ namespace aamp
 		void ClearJobs();
 		void RescheduleActiveJob();
 		void StartWorker();
-		void StopWorker();
-		bool IsStopped() const { return mStop.load(); }
-		AampMediaType GetMediaType() const { return mMediaType; }
+		void StopWorker() noexcept;
+		bool IsStopped() const noexcept { return mStopped; }
+		AampMediaType GetMediaType() const noexcept { return mMediaType; }
 
 	protected:
 		AampMediaType mMediaType;
 		std::thread mWorkerThread;
-		std::mutex mQueueMutex; // Mutex to protect job queue
+		std::mutex mQueueMutex; // Mutex to protect job queue and worker state
 		std::condition_variable mCondVar; // Condition variable to notify worker thread
 		std::deque<AampTrackWorkerJobSharedPtr> mJobQueue; // Job queue
 		PrivateInstanceAAMP *aamp;
-		std::atomic<bool> mInitialized; // Flag to indicate if the worker is initialized
-		std::atomic<bool> mStop;
-		std::atomic<bool> mPaused; // Flag to pause the worker threads
+		bool mStopped; // Flag to indicate if the worker is stopped (protected by mQueueMutex)
+		bool mPaused; // Flag to pause the worker threads (protected by mQueueMutex)
 
 	private:
-		void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
+		static void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
 		AampTrackWorkerJobSharedPtr mActiveJob; // Active job being processed
 	};
 } // namespace aamp
