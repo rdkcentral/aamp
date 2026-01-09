@@ -92,6 +92,12 @@ public:
 	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
 	virtual void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url, uint64_t startMS=0, uint32_t breakdur=0) override;
+
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	virtual void NotifyReservationComplete(const std::string& reservationId) override;
 };
 
 
@@ -400,6 +406,12 @@ public:
 	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
 	void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur=0);
+
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
 
 	/**
 	 * @fn FulFillAdObject

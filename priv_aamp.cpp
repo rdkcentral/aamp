@@ -9136,6 +9136,22 @@ void PrivateInstanceAAMP::UpdateProfileCappedStatus(void)
 }
 
 /**
+ * @brief Notify AAMP that ad reservation is complete for a given reservationId
+ * @param[in] reservationId The reservation identifier
+ */
+void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->NotifyReservationComplete(reservationId);
+	}
+	else
+	{
+		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot notify reservation complete for reservationId: %s ", reservationId.c_str());
+	}
+}
+
+/**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
