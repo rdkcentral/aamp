@@ -139,7 +139,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void RestoreCC();
+	void RestoreCC(bool shouldRestoreCC=false);
 
 	virtual ~PlayerCCManagerBase(){ };
 
