@@ -93,7 +93,10 @@ constexpr CodecMapping gCodecMappings[] = {
 	{ MultiChar_Constant("avcC"), GST_FORMAT_VIDEO_ES_H264 },
 	{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
 	{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
-	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 }
+	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
+	
+	// AC-4 decoder config box
+	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 }
 };
 
 /**
@@ -195,8 +198,8 @@ Mp4Demux::~Mp4Demux()
 uint64_t Mp4Demux::ReadBytes(int n)
 {
 	uint64_t rc = 0;
-	// Bounds check: never read beyond endPtr
-	if( !ptr || !endPtr || ptr+n > endPtr )
+	// Bounds check: never read beyond endPtr; also validate n in [1,8]
+	if (n <= 0 || n > 8 || !ptr || !endPtr || ptr + n > endPtr)
 	{
 		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
 		MP4_LOG_ERR("ReadBytes(%d) exceeded buffer", n);
@@ -273,8 +276,15 @@ void Mp4Demux::ReadHeader()
  */
 void Mp4Demux::SkipBytes(size_t len)
 {
-	// no bounds check needed as we don't actually read anything here
-	ptr += len;
+	if (!ptr || !endPtr || ptr + len > endPtr)
+    {
+        parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+        MP4_LOG_ERR("SkipBytes(%zu) exceeded buffer", len);
+    }
+	else
+	{
+		ptr += len;
+	}
 }
 
 /**
@@ -931,6 +941,7 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 
 		case MultiChar_Constant("mp4a"):
 		case MultiChar_Constant("ec-3"):
+		case MultiChar_Constant("ac-4"):
 		case MultiChar_Constant("enca"):
 			ParseAudioInformation();
 			break;
@@ -961,8 +972,14 @@ int Mp4Demux::ReadLen()
 	int rc = 0;
 	for (;;)
 	{
+		if (!ptr || !endPtr || ptr >= endPtr)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			MP4_LOG_ERR("ReadLen() exceeded buffer");
+			return 0;
+		}
 		unsigned char octet = *ptr++;
-		rc = (rc<<7) | (octet & 0x7f);
+		rc = (rc << 7) | (octet & 0x7f);  // accumulate variable length integer
 		if ((octet & 0x80) == 0) return rc;
 	}
 }
@@ -1060,6 +1077,13 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	else
 	{
 		size_t codecDataLen = next - ptr;
+		// Guard: ensure we don't run past the overall buffer even if next is sane
+		if (!endPtr || ptr + codecDataLen > endPtr)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			MP4_LOG_ERR("Codec configuration exceeds buffer");
+			return;
+		}
 		// No need to read this for dec3 box. Expand the filter later if needed.
 		if (type != MultiChar_Constant("dec3"))
 		{
@@ -1096,12 +1120,21 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			}
 			next = ptr + (size - 16);
 		}
+		else if( size == 0 )
+		{ // box extends to end of buffer  (common
+			next = fin;
+		}
 		else
 		{ // payload after size+type
+			if (size < 8)
+			{
+				parseError = MP4_PARSE_ERROR_INVALID_BOX;
+				MP4_LOG_ERR("Invalid box size: %" PRIu64, size);
+				return;
+			}
 			next = ptr + (size - 8);
 		}
 		MP4_LOG_DEBUG("Box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
-
 		// Validate that the box doesn't extend beyond buffer
 		if (next > fin)
 		{
@@ -1123,6 +1156,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				break;
 
 			case MultiChar_Constant("hvcC"):
+			case MultiChar_Constant("dac4"): // AC-4 DecoderSpecific box
 			case MultiChar_Constant("dec3"):
 			case MultiChar_Constant("avcC"):
 			case MultiChar_Constant("esds"): // Elementary Stream Descriptor
