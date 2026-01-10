@@ -27,6 +27,7 @@
 #include <inttypes.h>
 #include <cstdio>
 #include <cstring>
+#include <cstdint>
 #include <memory>
 #include <utility>
 
@@ -392,6 +393,13 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 				return;
 			}
 			uint32_t kidCount = ReadU32();
+			// Check for integer overflow before multiplication
+			if (kidCount > SIZE_MAX / 16)
+			{
+				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+				MP4_LOG_ERR("Invalid KID count %u would cause integer overflow", kidCount);
+				return;
+			}
 			size_t kidBytes = static_cast<size_t>(kidCount) * 16;
 			if (ptr + kidBytes > next)
 			{
