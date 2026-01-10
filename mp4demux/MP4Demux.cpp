@@ -164,10 +164,9 @@ Mp4Demux::Mp4Demux() :
 	samples(), defaultKid(), gotAuxiliaryInformationOffset(),
 	auxiliaryInformationOffset(), schemeType(CIPHER_TYPE_NONE),
 	originalMediaType(), cencAuxInfoSizes(), protectionData(),
-	moofPtr(), ptr(),
+	moofPtr(), ptr(), endPtr(nullptr),
 	version(), flags(), baseMediaDecodeTime(),
 	trackId(), baseDataOffset(),
-	endPtr(nullptr),
 	mdatStart(nullptr), mdatEnd(nullptr),
 	defaultSampleDescriptionIndex(), defaultSampleDuration(), defaultSampleSize(),
 	defaultSampleFlags(),
@@ -580,20 +579,35 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 	if (version == 0)
 	{
 		auxiliaryInformationOffset = ReadU32();
-		for (uint32_t i = 1; i < entryCount; ++i)
+		if( parseError == MP4_PARSE_OK )
 		{
-			(void)ReadU32();
+			for (uint32_t i = 1; i < entryCount; ++i)
+			{
+				(void)ReadU32();
+				if( parseError != MP4_PARSE_OK )
+				{
+					break;
+				}
+			}
+			gotAuxiliaryInformationOffset = true;
 		}
 	}
 	else
 	{
 		auxiliaryInformationOffset = ReadU64();
-		for (uint32_t i = 1; i < entryCount; ++i)
+		if( parseError == MP4_PARSE_OK )
 		{
-			(void)ReadU64();
+			for (uint32_t i = 1; i < entryCount; ++i)
+			{
+				(void)ReadU64();
+				if( parseError != MP4_PARSE_OK )
+				{
+					break;
+				}
+			}
+			gotAuxiliaryInformationOffset = true;
 		}
 	}
-	gotAuxiliaryInformationOffset = true;
 }
 
 /**
@@ -969,19 +983,22 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
  */
 int Mp4Demux::ReadLen()
 {
-	int rc = 0;
-	for (;;)
+	if( ptr && endPtr )
 	{
-		if (!ptr || !endPtr || ptr >= endPtr)
-		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("ReadLen() exceeded buffer");
-			return 0;
+		int rc = 0;
+		while( ptr<endPtr )
+		{ // accumulate variable length integer
+			unsigned char octet = *ptr++;
+			rc = (rc << 7) | (octet & 0x7f);
+			if ((octet & 0x80) == 0)
+			{
+				return rc;
+			}
 		}
-		unsigned char octet = *ptr++;
-		rc = (rc << 7) | (octet & 0x7f);  // accumulate variable length integer
-		if ((octet & 0x80) == 0) return rc;
 	}
+	parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+	MP4_LOG_ERR("ReadLen() exceeded buffer");
+	return 0;
 }
 
 /**
@@ -1124,14 +1141,14 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 		{ // box extends to end of buffer  (common
 			next = fin;
 		}
+		else if( size<8 )
+		{
+			parseError = MP4_PARSE_ERROR_INVALID_BOX;
+			MP4_LOG_ERR("Invalid box size: %" PRIu64, size);
+			return;
+		}
 		else
 		{ // payload after size+type
-			if (size < 8)
-			{
-				parseError = MP4_PARSE_ERROR_INVALID_BOX;
-				MP4_LOG_ERR("Invalid box size: %" PRIu64, size);
-				return;
-			}
 			next = ptr + (size - 8);
 		}
 		MP4_LOG_DEBUG("Box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
@@ -1284,11 +1301,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				
 			case MultiChar_Constant("mdat"): // Movie Data (under file box)
 				// Track mdat payload range for TRUN validation
-				if (type == MultiChar_Constant("mdat"))
-				{
-					mdatStart = ptr;   // start of payload (after header bytes)
-					mdatEnd   = next;  // end of payload
-				}
+				mdatStart = ptr;   // start of payload (after header bytes)
+				mdatEnd   = next;  // end of payload
 				ptr = next; // skip payload
 				break;
 
