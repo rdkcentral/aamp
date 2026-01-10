@@ -164,6 +164,8 @@ Mp4Demux::Mp4Demux() :
 	moofPtr(), ptr(),
 	version(), flags(), baseMediaDecodeTime(),
 	trackId(), baseDataOffset(),
+	endPtr(nullptr),
+	mdatStart(nullptr), mdatEnd(nullptr),
 	defaultSampleDescriptionIndex(), defaultSampleDuration(), defaultSampleSize(),
 	defaultSampleFlags(),
 	duration(),
@@ -193,10 +195,18 @@ Mp4Demux::~Mp4Demux()
 uint64_t Mp4Demux::ReadBytes(int n)
 {
 	uint64_t rc = 0;
-	for (int i = 0; i < n; i++)
+	// Bounds check: never read beyond endPtr
+	if( !ptr || !endPtr || ptr+n > endPtr )
 	{
-		rc <<= 8;
-		rc |= *ptr++;
+		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+		MP4_LOG_ERR("ReadBytes(%d) exceeded buffer", n);
+	}
+	else
+	{
+		for (int i = 0; i < n; i++)
+		{
+			rc = (rc<<8) | (*ptr++);
+		}
 	}
 	return rc;
 }
@@ -263,6 +273,7 @@ void Mp4Demux::ReadHeader()
  */
 void Mp4Demux::SkipBytes(size_t len)
 {
+	// no bounds check needed as we don't actually read anything here
 	ptr += len;
 }
 
@@ -343,7 +354,7 @@ void Mp4Demux::ParseTrackEncryptionBox()
 void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 {
 	ReadHeader();
-	// To prevent overflow, ensure box size is at least 16 bytes for system ID
+	// Must have at least systemID (16)
 	if (ptr + PSSH_SYSTEM_ID_SIZE > next)
 	{
 		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
@@ -354,18 +365,48 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 		// Add new entry into protection data vector
 		protectionData.emplace_back();
 		MediaProtectionInfo &psshData = protectionData.back();
-
-		// Format UUID to stack buffer, then assign to string (copies data)
+		
+		// Format UUID (systemID)
 		char systemIdBuffer[FORMATTED_SYSTEM_ID_LENGTH + 1]; // 36 chars + null terminator
 		snprintf(systemIdBuffer, sizeof(systemIdBuffer), "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-				ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
-				ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf]);
+				 ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
+				 ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf]);
 		psshData.systemID.assign(systemIdBuffer, FORMATTED_SYSTEM_ID_LENGTH); // Copy without null terminator
 		ptr += PSSH_SYSTEM_ID_SIZE;
-		size_t psshSize = next - ptr;
-		psshData.pssh = std::vector<uint8_t>(ptr, ptr + psshSize);
-		// Updates ptr to next box
-		SkipBytes(psshSize);
+
+		// Version-aware parsing:
+		if (version == 1) {
+			// KID_count (u32) + KIDs (count * 16)
+			if (ptr + 4 > next)
+			{
+				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+				return;
+			}
+			uint32_t kidCount = ReadU32();
+			size_t kidBytes = static_cast<size_t>(kidCount) * 16;
+			if (ptr + kidBytes > next)
+			{
+				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+				return;
+			}
+			// Optional: store KIDs in psshData if your MediaProtectionInfo supports it
+			ptr += kidBytes;
+		}
+		// data_size (u32) + data (blob)
+		if (ptr + 4 > next)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			return;
+		}
+		uint32_t dataSize = ReadU32();
+		if (ptr + dataSize > next)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			MP4_LOG_ERR("PSSH payload exceeds box: dataSize=%u remaining=%zu", dataSize, next - ptr);
+			return;
+		}
+		psshData.pssh.assign(ptr, ptr + dataSize);
+		SkipBytes(dataSize);
 	}
 }
 
@@ -512,15 +553,35 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 		ParseProtectionSchemeInfo();
 		SkipBytes(4); // aux_info_type_parameter
 	}
-	SkipBytes(4); // entry_count
-
-	if( version == 0 )
+	// entry_count
+	if (ptr + 4 > endPtr)
+	{
+		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+		return;
+	}
+	uint32_t entryCount = ReadU32();
+	if (entryCount == 0)
+	{
+		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+		MP4_LOG_ERR("SAIO entry_count == 0");
+		return;
+	}
+	// Read the first offset; if multiple, warn and consume others
+	if (version == 0)
 	{
 		auxiliaryInformationOffset = ReadU32();
+		for (uint32_t i = 1; i < entryCount; ++i)
+		{
+			(void)ReadU32();
+		}
 	}
 	else
 	{
 		auxiliaryInformationOffset = ReadU64();
+		for (uint32_t i = 1; i < entryCount; ++i)
+		{
+			(void)ReadU64();
+		}
 	}
 	gotAuxiliaryInformationOffset = true;
 }
@@ -596,6 +657,14 @@ void Mp4Demux::ParseTrackRun()
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
+	// If we tracked an mdat range, validate dataPtr lies within it
+	if (mdatStart && mdatEnd)
+	{
+		if (dataPtr < mdatStart || dataPtr > mdatEnd)
+		{
+			MP4_LOG_WARN("TRUN dataPtr outside mdat range");
+		}
+	}
 	else
 	{
 		// mandatory field? should never reach here
@@ -632,6 +701,15 @@ void Mp4Demux::ParseTrackRun()
 		if (flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
 		{ // for samples where pts and dts differ (overriding 'trex')
 			sampleCompositionTimeOffset = ReadI32();
+		}
+		// Guard: sample buffer must not overrun endPtr (or mdat)
+		const uint8_t* hardEnd = endPtr;
+		if (mdatEnd) hardEnd = mdatEnd;
+		if (dataPtr + sampleLen > hardEnd)
+		{
+			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			MP4_LOG_ERR("TRUN sample overruns buffer: need %u bytes", sampleLen);
+			return;
 		}
 		newSample.mData.AppendBytes(dataPtr, sampleLen);
 		dataPtr += sampleLen;
@@ -816,12 +894,17 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t count = ReadU32();
-	if (count != 1)
-	{
+	// Be tolerant: parse child boxes regardless of count; warn if 0 or >1
+	if (count == 0) {
 		parseError = MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT;
-		MP4_LOG_ERR("Unsupported sample description count: %u, expected 1", count);
+		MP4_LOG_ERR("stsd count == 0");
 		return;
 	}
+	if (count > 1)
+	{
+		MP4_LOG_WARN("stsd count=%u; parsing entries and using first supported one", count);
+	}
+	// Parse contained sample entries/config boxes
 	DemuxHelper(next);
 }
 
@@ -879,8 +962,7 @@ int Mp4Demux::ReadLen()
 	for (;;)
 	{
 		unsigned char octet = *ptr++;
-		rc <<= 7;
-		rc |= octet & 0x7f;
+		rc = (rc<<7) | (octet & 0x7f);
 		if ((octet & 0x80) == 0) return rc;
 	}
 }
@@ -1001,16 +1083,30 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 {
 	while (ptr < fin)
 	{
-		uint32_t size = ReadU32();
-		const uint8_t *next = ptr + size - 4;
+		uint64_t size = ReadU32();
 		uint32_t type = ReadU32();
-		MP4_LOG_DEBUG("Box type: %s, size: %u", FourCCToString(type).c_str(), size);
+		const uint8_t *next = nullptr;
+		if( size==1 )
+		{ // size includes size(4)+type(4)+large_size(8)
+			size = ReadU64();
+			if (size < 16)
+			{
+				parseError = MP4_PARSE_ERROR_INVALID_BOX;
+				return;
+			}
+			next = ptr + (size - 16);
+		}
+		else
+		{ // payload after size+type
+			next = ptr + (size - 8);
+		}
+		MP4_LOG_DEBUG("Box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
 
 		// Validate that the box doesn't extend beyond buffer
 		if (next > fin)
 		{
 			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("Box type %s size %u extends beyond buffer boundary", FourCCToString(type).c_str(), size);
+			MP4_LOG_ERR("Box type %s size %" PRIu64 " extends beyond buffer boundary", FourCCToString(type).c_str(), size);
 			return;
 		}
 
@@ -1149,9 +1245,17 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("styp"): // Segment Type (under file box)
 			case MultiChar_Constant("sidx"): // Segment Index
 			case MultiChar_Constant("udta"): // User Data (can appear under moov, trak, moof, traf)
-			case MultiChar_Constant("mdat"): // Movie Data (under file box)
-				// Skip these boxes for now
 				ptr = next;
+				break;
+				
+			case MultiChar_Constant("mdat"): // Movie Data (under file box)
+				// Track mdat payload range for TRUN validation
+				if (type == MultiChar_Constant("mdat"))
+				{
+					mdatStart = ptr;   // start of payload (after header bytes)
+					mdatEnd   = next;  // end of payload
+				}
+				ptr = next; // skip payload
 				break;
 
 			default:
@@ -1196,7 +1300,9 @@ bool Mp4Demux::Parse(const void *ptr, size_t len)
 		protectionData.clear();
 		gotAuxiliaryInformationOffset = false;
 		moofPtr = NULL;
-
+		endPtr  = &((const uint8_t*)ptr)[len];
+		mdatStart = nullptr;
+		mdatEnd   = nullptr;
 		this->ptr = (const uint8_t *)ptr;
 		DemuxHelper(&this->ptr[len]);
 		if (parseError == MP4_PARSE_OK)

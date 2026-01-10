@@ -119,6 +119,7 @@ class Mp4Demux
 private:
 	// Stream format and configuration
 	uint32_t streamFormat;                         /**< Stream format identifier */
+	const uint8_t* endPtr;                         /**< Absolute end of current parse buffer */
 	
 	// Encryption parameters
 	uint8_t ivSize;                               /**< Initialization vector size */
@@ -143,10 +144,14 @@ private:
 	// Parser state
 	const uint8_t *moofPtr;                       /**< Base address for sample data */
 	const uint8_t *ptr;                           /**< Current parser position */
+	// MDAT range tracking (for sample data validation)
+	const uint8_t *mdatStart;                     /**< Start of current/last mdat payload */
+	const uint8_t *mdatEnd;                       /**< End of current/last mdat payload */
 	
 	// Box header fields
 	uint8_t version;                              /**< Box version */
 	uint32_t flags;                               /**< Box flags */
+	
 	
 	// Track fragment fields
 	uint64_t baseMediaDecodeTime;                 /**< Base media decode time */
@@ -383,6 +388,7 @@ public:
 	 * @brief Parse MP4 data
 	 * @param ptr Pointer to MP4 data
 	 * @param len Length of data
+	 * endPtr is set to &((const uint8_t*)ptr)[len] for uniform bounds checking
 	 * @return true if parsing succeeded, false on error
 	 */
 	bool Parse(const void *ptr, size_t len);
