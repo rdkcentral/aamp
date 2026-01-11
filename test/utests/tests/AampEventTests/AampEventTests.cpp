@@ -24,6 +24,8 @@
 using namespace testing;
 
 #define EFFECTIVE_URL "http://manifest.mpd"
+#define TUNE_FAILURE_UNKNOWN_CODE 100
+#define TUNE_FAILURE_UNKNOWN_SUBCODE 1
 
 class AAMPEventTests : public ::testing::Test {
 protected:
@@ -82,7 +84,7 @@ class MediaErrorEventTest : public testing::Test{
 protected:
     
     void SetUp() override {
-        errorEvent = new MediaErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,1,"Test",false,0,0,0,"", session_id);
+        errorEvent = new MediaErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,TUNE_FAILURE_UNKNOWN_CODE,TUNE_FAILURE_UNKNOWN_SUBCODE,"Test",false,0,0,0,"", session_id);
     }
     void TearDown() override {
         delete errorEvent;
@@ -93,7 +95,8 @@ protected:
 TEST_F(MediaErrorEventTest, MediaErrorEventMethodsTest) {
     MediaErrorEvent errorEvent(
         AAMPTuneFailure::AAMP_TUNE_INIT_FAILED,
-        0, 
+        10,
+        1, 
         "Tune failure due to initialization error",
         true, 
         456, 
@@ -104,7 +107,8 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsTest) {
     );
 
     EXPECT_EQ(errorEvent.getFailure(), AAMPTuneFailure::AAMP_TUNE_INIT_FAILED);
-    EXPECT_EQ(errorEvent.getCode(), 0);
+    EXPECT_EQ(errorEvent.getCode(), 10);
+    EXPECT_EQ(errorEvent.getSubCode(), 1);
     EXPECT_EQ(errorEvent.getDescription(), "Tune failure due to initialization error");
     EXPECT_EQ(errorEvent.getResponseData(), "response data");
     EXPECT_TRUE(errorEvent.shouldRetry());
@@ -117,7 +121,8 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsTest) {
 TEST_F(MediaErrorEventTest, MediaErrorEventMethodsanotherTest) {
 
     EXPECT_EQ(errorEvent->getFailure(), AAMPTuneFailure::AAMP_TUNE_FAILURE_UNKNOWN);
-    EXPECT_EQ(errorEvent->getCode(), 1);
+    EXPECT_EQ(errorEvent->getCode(), 100);
+    EXPECT_EQ(errorEvent->getSubCode(), 1);
     EXPECT_EQ(errorEvent->getDescription(), "Test");
     EXPECT_EQ(errorEvent->getResponseData(), "");
     EXPECT_FALSE(errorEvent->shouldRetry());
@@ -126,8 +131,6 @@ TEST_F(MediaErrorEventTest, MediaErrorEventMethodsanotherTest) {
     EXPECT_EQ(errorEvent->getBusinessStatus(), 0);
     EXPECT_EQ(errorEvent->GetSessionId(), session_id);
 }
-
-
 // Test fixture for SpeedChangedEvent
 class SpeedChangedEventTest : public testing::Test {
 protected:
