@@ -1225,7 +1225,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 		switch (type)
 		{
 			case MultiChar_Constant("free"):
-				// ISO BMFF padding box containing unused space
+			case MultiChar_Constant("skip"):
+				// free and skip are ISO BMFF padding boxes containing unused space
 				ptr = next;
 				break;
 				
