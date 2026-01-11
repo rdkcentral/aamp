@@ -94,9 +94,7 @@ constexpr CodecMapping gCodecMappings[] = {
 	{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
 	{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
 	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
-	
-	// AC-4 decoder config box
-	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 }
+	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 } // AC-4 decoder config box
 };
 
 /**
@@ -201,7 +199,8 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 		"UNSUPPORTED_STREAM_FORMAT",
 		"INVALID_ESDS_TAG",
 		"DATA_BOUNDARY_MISMATCH",
-		"INVALID_INPUT"
+		"INVALID_INPUT",
+		"INVALID_KID"
 	};
 	MP4_LOG_ERR( "%s", text[err] );
 }
@@ -226,8 +225,8 @@ uint64_t Mp4Demux::ReadBytes(int n)
 	else
 	{
 		for (int i = 0; i < n; i++)
-		{
-			rc = (rc<<8) | (*ptr++);
+		{ // accumulate bytes
+			rc = (rc<<8) + (*ptr++);
 		}
 	}
 	return rc;
@@ -339,32 +338,61 @@ void Mp4Demux::ParseSchemeManagementBox()
 void Mp4Demux::ParseTrackEncryptionBox()
 {
 	ReadHeader();
-
-	// Skip: reserved
-	ptr++;
-	uint8_t pattern = *ptr++;
-	if (schemeType == CIPHER_TYPE_CBCS)
-	{
-		cryptByteBlock = (pattern >> 4) & 0xf;
-		skipByteBlock = pattern & 0xf;
+	// Be robust to both layouts:
+	// 1) Standard CENC tenc (common): [reserved(2)] [isEncrypted(1)] [ivSize(1)] [KID(16)] [v1: constIV]
+	// 2) Legacy/variant with a "pattern" byte after one reserved byte (older cbcs flows)
+	const uint8_t* save = ptr;
+	
+	// Try STANDARD layout first
+	bool ok = true;
+	if (ptr + 2 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
+	ptr += 2; // reserved(2)
+	if (ptr + 2 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
+	uint8_t isEncrypted = *ptr++;
+	uint8_t ivSz = *ptr++;
+	if (ivSz != 8 && ivSz != 16) {
+		ok = false; // fall back to pattern layout below
+	} else if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {
+		setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+		return;
 	}
-	codecInfo.mIsEncrypted = *ptr++;
-	// This is used to ensure encrypted caps are persisted even if its clear samples
-	handledEncryptedSamples = true;
-	ivSize = *ptr++;
-
-	defaultKid = std::vector<uint8_t>(ptr, ptr + TENC_BOX_KEY_ID_SIZE);
+	
+	if (!ok) {
+		// Fallback: one reserved + pattern + isEncrypted + ivSize + KID [ + const IV for v1 ]
+		ptr = save;
+		if (ptr + 1 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
+		ptr++; // reserved(1)
+		if (ptr + 1 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
+		uint8_t pattern = *ptr++;
+		if (schemeType == CIPHER_TYPE_CBCS) {
+			cryptByteBlock = (pattern >> 4) & 0xF;
+			skipByteBlock = pattern & 0xF;
+		}
+		if (ptr + 2 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
+		isEncrypted = *ptr++;
+		ivSz = *ptr++;
+		if (ivSz != 8 && ivSz != 16) {
+			setParseError(MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE); // best available error code
+			return;
+		}
+		if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
+	}
+	
+	codecInfo.mIsEncrypted = isEncrypted;
+	handledEncryptedSamples = true; // keep encrypted caps if any encrypted samples were seen
+	ivSize = ivSz;
+	defaultKid.assign(ptr, ptr + TENC_BOX_KEY_ID_SIZE);
 	ptr += TENC_BOX_KEY_ID_SIZE;
-	// Version 1 adds constant IV
-	if (version == 1)
-	{
+	
+	if (version == 1) {
+		if (ptr + 1 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
 		constantIvSize = *ptr++;
-		if (constantIvSize != 8 && constantIvSize != 16)
-		{
+		if (constantIvSize != 8 && constantIvSize != 16) {
 			setParseError( MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE );
 			return;
 		}
-		constantIv = std::vector<uint8_t>(ptr, ptr + constantIvSize);
+		if (ptr + constantIvSize > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);return; }
+		constantIv.assign(ptr, ptr + constantIvSize);
 		ptr += constantIvSize;
 	}
 }
@@ -409,6 +437,11 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 				return;
 			}
 			uint32_t kidCount = ReadU32();
+			if( kidCount > SIZE_MAX / 16 )
+			{
+				setParseError( MP4_PARSE_ERROR_INVALID_KID );
+				return;
+			}
 			size_t kidBytes = static_cast<size_t>(kidCount) * 16;
 			if (ptr + kidBytes > next)
 			{
@@ -983,7 +1016,7 @@ int Mp4Demux::ReadLen()
 		while( ptr<endPtr )
 		{ // accumulate variable length integer
 			unsigned char octet = *ptr++;
-			rc = (rc << 7) | (octet & 0x7f);
+			rc = (rc << 7) + (octet & 0x7f);
 			if ((octet & 0x80) == 0)
 			{
 				return rc;
@@ -1085,12 +1118,6 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	else
 	{
 		size_t codecDataLen = next - ptr;
-		// Guard: ensure we don't run past the overall buffer even if next is sane
-		if (!endPtr || ptr + codecDataLen > endPtr)
-		{
-			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
-			return;
-		}
 		// No need to read this for dec3 box. Expand the filter later if needed.
 		if (type != MultiChar_Constant("dec3"))
 		{
@@ -1155,6 +1182,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("avc1"):
 			case MultiChar_Constant("mp4a"):
 			case MultiChar_Constant("ec-3"):
+			case MultiChar_Constant("ac-4"):
 			case MultiChar_Constant("enca"):
 			case MultiChar_Constant("encv"):
 				ParseStreamFormatBox(type, next);

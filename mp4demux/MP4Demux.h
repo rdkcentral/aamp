@@ -89,7 +89,8 @@ enum Mp4ParseError
 	MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT,     /**< Unsupported stream format */
 	MP4_PARSE_ERROR_INVALID_ESDS_TAG,              /**< Invalid ESDS tag */
 	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH,        /**< Data boundary mismatch - referencing invalid memory */
-	MP4_PARSE_ERROR_INVALID_INPUT                  /**< Invalid input to parse function;  nullptr or zero length*/
+	MP4_PARSE_ERROR_INVALID_INPUT,                 /**< Invalid input to parse function;  nullptr or zero length */
+	MP4_PARSE_ERROR_INVALID_KID                   /**< Invalid (huge) kidCount  */
 };
 
 /**
