@@ -81,7 +81,7 @@ enum Mp4ParseError
 {
 	MP4_PARSE_OK,                                  /**< No error */
 	MP4_PARSE_ERROR_INVALID_BOX,                   /**< Invalid box header size */
-	MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE,      /**< Invalid constant IV size (expected 8 or 16) */
+	MP4_PARSE_ERROR_INVALID_IV_SIZE,               /**< Invalid  IV size (expected 8 or 16) */
 	MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH,         /**< Explicit sample count doesn't match implicit sample count */
 	MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME, /**< Expected cenc or cbcs */
 	MP4_PARSE_ERROR_INVALID_PADDING,               /**< Unexpected Video Padding field (should be 0xffff) */

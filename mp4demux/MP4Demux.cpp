@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@
 #define SENC_SUBSAMPLE_ENCRYPTION_PRESENT 0x2
 
 // Video sample entry padding marker
-#define VIDEO_PADDING_MARKER 0xffff
+#define VIDEO_PREDEFINED_PADDING_MARKER 0xffff
 
 // Elementary Stream Descriptor (ESDS) tag values
 #define ESDS_TAG_ES_DESCRIPTOR 0x03
@@ -199,8 +199,8 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 		case MP4_PARSE_ERROR_INVALID_BOX:
 			text = "INVALID_BOX";
 			break;
-		case MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE:
-			text = "INVALID_CONSTANT_IV_SIZE";
+		case MP4_PARSE_ERROR_INVALID_IV_SIZE:
+			text = "INVALID_IV_SIZE";
 			break;
 		case MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH:
 			text = "SAMPLE_COUNT_MISMATCH";
@@ -406,7 +406,7 @@ void Mp4Demux::ParseTrackEncryptionBox()
 		isEncrypted = *ptr++;
 		ivSz = *ptr++;
 		if (ivSz != 8 && ivSz != 16) {
-			setParseError(MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE); // best available error code
+			setParseError(MP4_PARSE_ERROR_INVALID_IV_SIZE); // best available error code
 			return;
 		}
 		if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
@@ -422,7 +422,7 @@ void Mp4Demux::ParseTrackEncryptionBox()
 		if (ptr + 1 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
 		constantIvSize = *ptr++;
 		if (constantIvSize != 8 && constantIvSize != 16) {
-			setParseError( MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE );
+			setParseError( MP4_PARSE_ERROR_INVALID_IV_SIZE );
 			return;
 		}
 		if (ptr + constantIvSize > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);return; }
@@ -471,12 +471,15 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 				return;
 			}
 			uint32_t kidCount = ReadU32();
+#if SIZE_MAX <= 0xffffffff
+			// if size_t is 64 bit, check below will never happen
 			if( kidCount > SIZE_MAX / 16 )
-			{
+			{ // sanity in case kidCount*16 would overflow size_t
 				setParseError( MP4_PARSE_ERROR_INVALID_KID );
 				return;
 			}
-			size_t kidBytes = static_cast<size_t>(kidCount) * 16;
+#endif
+			size_t kidBytes = 16*static_cast<size_t>(kidCount);
 			if (ptr + kidBytes > next)
 			{
 				setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
@@ -873,7 +876,7 @@ void Mp4Demux::ParseVideoInformation()
 	// Skip: horizontal_resolution (4) + vertical_resolution (4) + reserved (4) + frame_count (2) + compressor_name (32) + depth (2)
 	SkipBytes(48);
 	int pad = ReadU16();
-	if (pad != VIDEO_PADDING_MARKER)
+	if (pad != VIDEO_PREDEFINED_PADDING_MARKER)
 	{
 		setParseError( MP4_PARSE_ERROR_INVALID_PADDING );
 		return;
@@ -1057,7 +1060,7 @@ uint32_t Mp4Demux::ReadLen()
 			if( bits > 32 )
 			{
 				setParseError( MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW );
-				return;
+				return 0;
 			}
 			if ((octet & 0x80) == 0)
 			{
@@ -1221,6 +1224,11 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 
 		switch (type)
 		{
+			case MultiChar_Constant("free"):
+				// ISO BMFF padding box containing unused space
+				ptr = next;
+				break;
+				
 			case MultiChar_Constant("hev1"):
 			case MultiChar_Constant("hvc1"):
 			case MultiChar_Constant("avc1"):
@@ -1406,7 +1414,7 @@ bool Mp4Demux::Parse(const void *ptr, size_t len)
 		cencAuxInfoSizes.clear();
 		protectionData.clear();
 		gotAuxiliaryInformationOffset = false;
-		moofPtr = NULL;
+		moofPtr = nullptr;
 		endPtr  = &((const uint8_t*)ptr)[len];
 		mdatStart = nullptr;
 		mdatEnd   = nullptr;
