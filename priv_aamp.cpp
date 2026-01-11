@@ -3073,7 +3073,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 		}
 		else
 		{
-			AAMPLOG_ERR("%s PLAYER[%d] Sending error %s code [%d:%d]",(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, e->getDescription().c_str(),code, subCode);
+			AAMPLOG_ERR("%s PLAYER[%d] Sending error %s code [%d:%d]",(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, e->getDescription().c_str(), code, subCode);
 		}
 
 		if (rate != AAMP_NORMAL_PLAY_RATE)
