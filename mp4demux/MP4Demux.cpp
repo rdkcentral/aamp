@@ -187,22 +187,56 @@ Mp4Demux::~Mp4Demux()
 void Mp4Demux::setParseError( Mp4ParseError err )
 {
 	parseError = err;
-	const char *text[] =
+	const char *text = nullptr;
+	switch( err )
 	{
-		"OK",
-		"INVALID_BOX",
-		"INVALID_CONSTANT_IV_SIZE",
-		"SAMPLE_COUNT_MISMATCH",
-		"UNSUPPORTED_ENCRYPTION_SCHEME",
-		"INVALID_PADDING",
-		"UNSUPPORTED_SAMPLE_ENTRY_COUNT",
-		"UNSUPPORTED_STREAM_FORMAT",
-		"INVALID_ESDS_TAG",
-		"DATA_BOUNDARY_MISMATCH",
-		"INVALID_INPUT",
-		"INVALID_KID"
-	};
-	MP4_LOG_ERR( "%s", text[err] );
+		default:
+			text = "unknown parse error";
+			break;
+		case MP4_PARSE_OK:
+			text = "unexpected setParseError(PARSE_OK)";
+			break;
+		case MP4_PARSE_ERROR_INVALID_BOX:
+			text = "INVALID_BOX";
+			break;
+		case MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE:
+			text = "INVALID_CONSTANT_IV_SIZE";
+			break;
+		case MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH:
+			text = "SAMPLE_COUNT_MISMATCH";
+			break;
+		case MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME:
+			text = "UNSUPPORTED_ENCRYPTION_SCHEME";
+			break;
+		case MP4_PARSE_ERROR_INVALID_PADDING:
+			text = "INVALID_PADDING";
+			break;
+		case MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT:
+			text = "UNSUPPORTED_SAMPLE_ENTRY_COUNT";
+			break;
+		case MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT:
+			text = "UNSUPPORTED_STREAM_FORMAT";
+			break;
+		case MP4_PARSE_ERROR_INVALID_ESDS_TAG:
+			text = "INVALID_ESDS_TAG";
+			break;
+		case MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH:
+			text = "DATA_BOUNDARY_MISMATCH";
+			break;
+		case MP4_PARSE_ERROR_INVALID_INPUT:
+			text = "INVALID_INPUT";
+			break;
+		case MP4_PARSE_ERROR_INVALID_KID:
+			text = "INVALID_KID";
+			break;
+		case MP4_PARSE_ERROR_INVALID_ENTRY_COUNT:
+			text = "INVALID_ENTRY_COUNT";
+			break;
+		case MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW:
+			text = "VARIABLE_LENGTH_OVERFLOW";
+			break;
+	}
+	MP4_LOG_ERR( "%s", text );
 }
 
 /**
@@ -618,7 +652,7 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 	uint32_t entryCount = ReadU32();
 	if (entryCount == 0)
 	{
-		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
+		setParseError( MP4_PARSE_ERROR_INVALID_ENTRY_COUNT );
 		return;
 	}
 	// Read the first offset; if multiple, warn and consume others
@@ -947,14 +981,15 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t count = ReadU32();
-	// Be tolerant: parse child boxes regardless of count; warn if 0 or >1
+	if( parseError != MP4_PARSE_OK ) return;
+	// warn if 0 or >1
 	if (count == 0) {
 		setParseError( MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT );
 		return;
 	}
 	if (count > 1)
 	{
-		MP4_LOG_WARN("stsd count=%u; parsing entries and using first supported one", count);
+		MP4_LOG_WARN("unexpected stsd count=%u", count );
 	}
 	// Parse contained sample entries/config boxes
 	DemuxHelper(next);
@@ -1008,15 +1043,22 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
  * 
  * @return Length value decoded from variable-length encoding
  */
-int Mp4Demux::ReadLen()
+uint32_t Mp4Demux::ReadLen()
 {
 	if( ptr && endPtr )
 	{
-		int rc = 0;
+		uint32_t rc = 0;
+		int bits = 0;
 		while( ptr<endPtr )
 		{ // accumulate variable length integer
 			unsigned char octet = *ptr++;
 			rc = (rc << 7) + (octet & 0x7f);
+			bits += 7;
+			if( bits > 32 )
+			{
+				setParseError( MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW );
+				return;
+			}
 			if ((octet & 0x80) == 0)
 			{
 				return rc;
@@ -1143,11 +1185,13 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 	{
 		uint64_t size = ReadU32();
 		uint32_t type = ReadU32();
+		if( parseError !=MP4_PARSE_OK ) return;
 		const uint8_t *next = nullptr;
 		if( size==1 )
 		{ // size includes size(4)+type(4)+large_size(8)
 			size = ReadU64();
-			if (size < 16)
+			if( parseError !=MP4_PARSE_OK ) return;
+			if ( size < 16)
 			{
 				setParseError( MP4_PARSE_ERROR_INVALID_BOX );
 				return;
@@ -1155,7 +1199,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			next = ptr + (size - 16);
 		}
 		else if( size == 0 )
-		{ // box extends to end of buffer  (common
+		{ // box extends to end of buffer
 			next = fin;
 		}
 		else if( size<8 )

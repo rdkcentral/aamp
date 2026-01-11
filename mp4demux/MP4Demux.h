@@ -90,7 +90,9 @@ enum Mp4ParseError
 	MP4_PARSE_ERROR_INVALID_ESDS_TAG,              /**< Invalid ESDS tag */
 	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH,        /**< Data boundary mismatch - referencing invalid memory */
 	MP4_PARSE_ERROR_INVALID_INPUT,                 /**< Invalid input to parse function;  nullptr or zero length */
-	MP4_PARSE_ERROR_INVALID_KID                   /**< Invalid (huge) kidCount  */
+	MP4_PARSE_ERROR_INVALID_KID,                   /**< Invalid (huge) kidCount  */
+	MP4_PARSE_ERROR_INVALID_ENTRY_COUNT,           /**< Entry count is zero */
+	MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW       /**< Value encoded using octets exceed 32 bits */
 };
 
 /**
@@ -331,7 +333,7 @@ private:
 	 * @brief Read length field with variable encoding
 	 * @return Length value
 	 */
-	int ReadLen();
+	uint32_t ReadLen();
 	
 	/**
 	 * @brief Parse codec configuration helper
