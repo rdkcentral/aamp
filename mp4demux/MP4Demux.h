@@ -79,18 +79,17 @@ enum mp4LogLevel
  */
 enum Mp4ParseError
 {
-	MP4_PARSE_OK = 0,                              /**< No error */
-	MP4_PARSE_ERROR_INVALID_BOX,                   /**< Invalid box encountered */
-	MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE,      /**< Invalid constant IV size */
-	MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH,         /**< Sample count mismatch */
-	MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME, /**< Invalid auxiliary info type */
-	MP4_PARSE_ERROR_MISSING_DATA_OFFSET,           /**< Missing data offset in TRUN */
-	MP4_PARSE_ERROR_INVALID_PADDING,               /**< Invalid padding value */
-	MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT,/**< Unsupported sample entry count */
+	MP4_PARSE_OK,                                  /**< No error */
+	MP4_PARSE_ERROR_INVALID_BOX,                   /**< Invalid box header size */
+	MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE,      /**< Invalid constant IV size (expected 8 or 16) */
+	MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH,         /**< Explicit sample count doesn't match implicit sample count */
+	MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME, /**< Expected cenc or cbcs */
+	MP4_PARSE_ERROR_INVALID_PADDING,               /**< Unexpected Video Padding field (should be 0xffff) */
+	MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT,/**< Zero sample entry count */
 	MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT,     /**< Unsupported stream format */
 	MP4_PARSE_ERROR_INVALID_ESDS_TAG,              /**< Invalid ESDS tag */
-	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH,        /**< Data boundary mismatch */
-	MP4_PARSE_ERROR_INVALID_INPUT                 /**< Invalid input to parse function */
+	MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH,        /**< Data boundary mismatch - referencing invalid memory */
+	MP4_PARSE_ERROR_INVALID_INPUT                  /**< Invalid input to parse function;  nullptr or zero length*/
 };
 
 /**
@@ -171,6 +170,12 @@ private:
 	MediaCodecInfo codecInfo;                     /**< Codec information */
 	Mp4ParseError parseError;                     /**< Current parse error state */
 
+	/**
+	 * @brief log human readable parse error and update state
+	 * @param parseError one of Mp4ParseError
+	 */
+	void setParseError( Mp4ParseError );
+	
 	/**
 	 * @brief Read n bytes from current position in big-endian format
 	 * @param n Number of bytes to read

@@ -172,20 +172,23 @@ TEST_F(Mp4DemuxFunctionalTests, ParseEncryptedFragmentWithSencBox)
 	
 	auto samples = mDemuxer->GetSamples();
 	EXPECT_EQ(samples.size(), 2) << "Should have exactly 2 samples";
-	// Validate DRM metadata for each sample
-	EXPECT_TRUE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
-	EXPECT_FALSE(samples[0].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
-	EXPECT_FALSE(samples[0].mDrmMetadata.mIV.empty()) << "Sample should have IV";
-	EXPECT_FALSE(samples[0].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
-	EXPECT_EQ(samples[0].mDrmMetadata.mSubSamples.size(), 6) << "Sample should have subsample encryption data";
-	EXPECT_EQ(samples[0].mDrmMetadata.mNumSubSamples, 1) << "Sample should have 1 subsamples";
-
-	EXPECT_TRUE(samples[1].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
-	EXPECT_FALSE(samples[1].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
-	EXPECT_FALSE(samples[1].mDrmMetadata.mIV.empty()) << "Sample should have IV";
-	EXPECT_FALSE(samples[1].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
-	EXPECT_EQ(samples[1].mDrmMetadata.mSubSamples.size(), 12) << "Sample should have subsample encryption data";
-	EXPECT_EQ(samples[1].mDrmMetadata.mNumSubSamples, 2) << "Sample should have 2 subsamples";
+	if( samples.size() == 2 )
+	{
+		// Validate DRM metadata for each sample
+		EXPECT_TRUE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
+		EXPECT_FALSE(samples[0].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
+		EXPECT_FALSE(samples[0].mDrmMetadata.mIV.empty()) << "Sample should have IV";
+		EXPECT_FALSE(samples[0].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
+		EXPECT_EQ(samples[0].mDrmMetadata.mSubSamples.size(), 6) << "Sample should have subsample encryption data";
+		EXPECT_EQ(samples[0].mDrmMetadata.mNumSubSamples, 1) << "Sample should have 1 subsamples";
+		
+		EXPECT_TRUE(samples[1].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
+		EXPECT_FALSE(samples[1].mDrmMetadata.mKeyId.empty()) << "Sample should have Key ID";
+		EXPECT_FALSE(samples[1].mDrmMetadata.mIV.empty()) << "Sample should have IV";
+		EXPECT_FALSE(samples[1].mDrmMetadata.mCipher == CIPHER_TYPE_NONE) << "Sample should have cipher type";
+		EXPECT_EQ(samples[1].mDrmMetadata.mSubSamples.size(), 12) << "Sample should have subsample encryption data";
+		EXPECT_EQ(samples[1].mDrmMetadata.mNumSubSamples, 2) << "Sample should have 2 subsamples";
+	}
 }
 
 /**
@@ -259,4 +262,171 @@ TEST_F(Mp4DemuxFunctionalTests, HandleTruncatedBox)
 	// Either should succeed (graceful handling) or fail with error
 	EXPECT_FALSE(result) << "Truncated box should be handled with error";
 	EXPECT_NE(mDemuxer->GetLastError(), MP4_PARSE_OK) << "Should report error for truncated data";
+}
+
+/*
+#include <gtest/gtest.h>
+#include <vector>
+#include <cstdint>
+#include <cstring>
+#include "MP4Demux.h"
+#include "DemuxDataTypes.h"
+*/
+
+// ---- helpers (local) ----
+static void write32be(std::vector<uint8_t>& b, uint32_t v) {
+	b.push_back((v >> 24) & 0xFF);
+	b.push_back((v >> 16) & 0xFF);
+	b.push_back((v >> 8)  & 0xFF);
+	b.push_back((v >> 0)  & 0xFF);
+}
+static void write64be(std::vector<uint8_t>& b, uint64_t v) {
+	for (int i = 7; i >= 0; --i) b.push_back(uint8_t((v >> (8*i)) & 0xFF));
+}
+static void write4cc(std::vector<uint8_t>& b, const char t[4]) {
+	b.insert(b.end(), t, t+4);
+}
+struct Box {
+	std::vector<uint8_t>& buf; size_t start{}; bool extended{};
+	Box(std::vector<uint8_t>& b, const char type[4], bool forceExtended=false)
+		: buf(b) {
+		start = buf.size();
+		write32be(buf, 0); write4cc(buf, type);
+		extended = forceExtended;
+		if (extended) { buf[start+3] = 1; write64be(buf, 0); }
+	}
+	void close() {
+		uint64_t total = buf.size() - start;
+		if (extended) {
+			size_t p = start + 8;
+			for (int i = 7; i >= 0; --i) buf[p + (7-i)] = uint8_t((total >> (8*i)) & 0xFF);
+		} else {
+			uint32_t t32 = static_cast<uint32_t>(total);
+			buf[start+0] = (t32 >> 24) & 0xFF; buf[start+1] = (t32 >> 16) & 0xFF;
+			buf[start+2] = (t32 >> 8) & 0xFF;  buf[start+3] = (t32 >> 0) & 0xFF;
+		}
+	}
+};
+static void writeFullBoxHeader(std::vector<uint8_t>& b, uint8_t v, uint32_t f) {
+	b.push_back(v); b.push_back(uint8_t((f>>16)&0xFF)); b.push_back(uint8_t((f>>8)&0xFF)); b.push_back(uint8_t(f&0xFF));
+}
+
+// A) Extended-size box (size==1)
+TEST(Mp4Demux_Gaps, ExtendedSizeBox) {
+	std::vector<uint8_t> buf;
+	{ Box ftyp(buf, "ftyp"); write4cc(buf,"isom"); write32be(buf,0); write4cc(buf,"isom"); write4cc(buf,"iso2"); ftyp.close(); }
+	{ Box freeBox(buf, "free", /*forceExtended=*/true); freeBox.close(); }
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(buf.data(), buf.size())) << "Extended-size box should parse cleanly";  // exercises size==1 path in DemuxHelper
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// B) size==0 mdat (extends to EOF)
+TEST(Mp4Demux_Gaps, SizeZeroMdatToEOF) {
+	std::vector<uint8_t> buf;
+	{ Box ftyp(buf, "ftyp"); write4cc(buf,"isom"); write32be(buf,0); write4cc(buf,"isom"); write4cc(buf,"iso2"); ftyp.close(); }
+	write32be(buf, 0); write4cc(buf, "mdat");   // size == 0
+	for (int i=0;i<32;++i) buf.push_back(uint8_t(i)); // payload
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(buf.data(), buf.size()));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// C) ESDS varint (via minimal mp4a+esds)
+TEST(Mp4Demux_Gaps, EsdsVarintDecode) {
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+	  { Box stsd(buf, "stsd"); writeFullBoxHeader(buf,0,0); write32be(buf,1);
+		{ Box mp4a(buf, "mp4a");
+		  for (int i=0;i<16;++i) buf.push_back(0);
+		  write32be(buf, 0x00020000u); buf.insert(buf.end(), 6, 0); write32be(buf, 0xAC440000u);
+		  { Box esds(buf, "esds"); writeFullBoxHeader(buf,0,0);
+			buf.push_back(0x03); buf.push_back(0x81); buf.push_back(0x00); // len = 128 (varint)
+			buf.insert(buf.end(), 3, 0x00);           // ES_ID + flags
+			buf.push_back(0x04); buf.push_back(0x0D); // dec cfg len = 13
+			buf.insert(buf.end(), 13, 0);
+			buf.push_back(0x05); buf.push_back(0x04); // DecoderSpecificInfo len = 4
+			buf.push_back(0x11); buf.push_back(0x22); buf.push_back(0x33); buf.push_back(0x44);
+			buf.push_back(0x06); buf.push_back(0x01); buf.push_back(0x00);
+			esds.close();
+		  }			
+		  mp4a.close();
+		}
+		stsd.close();
+	  }
+	  moov.close();
+	}
+	Mp4Demux d;
+	
+	ASSERT_TRUE(d.Parse(buf.data(), buf.size()));
+	auto info = d.GetCodecInfo();
+	ASSERT_EQ(info.mCodecData.size(), 4u);
+	EXPECT_EQ(info.mCodecData[0], 0x11);
+	EXPECT_EQ(info.mCodecData[3], 0x44);
+}
+
+// D) AC-4 init: ac-4 + dac4
+TEST(Mp4Demux_Gaps, AC4InitHasCodecData) {
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+	  { Box stsd(buf, "stsd"); writeFullBoxHeader(buf,0,0); write32be(buf,1);
+		{ Box ac4(buf, "ac-4");
+		  for (int i=0;i<16;++i) buf.push_back(0);
+		  write32be(buf, 0x00020000u); buf.insert(buf.end(), 6, 0); write32be(buf, 0xAC440000u);
+		  { Box dac4(buf, "dac4");
+			for (int i=0;i<5;++i) buf.push_back(uint8_t(0x10 + i));
+			dac4.close();
+		  }
+		  ac4.close();
+		}
+		stsd.close();
+	  }
+	  moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(buf.data(), buf.size()));
+	auto info = d.GetCodecInfo();
+	EXPECT_EQ(info.mCodecFormat, GST_FORMAT_AUDIO_ES_AC4);
+	ASSERT_EQ(info.mCodecData.size(), 5u);
+	EXPECT_EQ(info.mCodecData[0], 0x10);
+	EXPECT_EQ(info.mCodecData[4], 0x14);
+}
+
+// E) TRUN overrun detection (negative)
+TEST(Mp4Demux_Gaps, TrunOverrunDetection) {
+	std::vector<uint8_t> buf;
+	size_t moofStartIdx;
+	{ Box moof(buf, "moof"); moofStartIdx = moof.start;
+	  { Box traf(buf, "traf");
+		{ Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf,0, 0x00008 | 0x00010); // default dur+size present
+		  write32be(buf, 1); write32be(buf, 90000/30); write32be(buf, 10); tfhd.close();
+		}
+		{ Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf,0,0); write32be(buf,0); tfdt.close(); }
+		{ Box trun(buf, "trun"); writeFullBoxHeader(buf,0, 0x0001 | 0x0200); // data_offset + sample_size
+		  write32be(buf, 1); write32be(buf, 0);             // placeholder data_offset
+		  write32be(buf, 12);                                // sample size larger than payload
+		  trun.close();
+		}
+		traf.close();
+	  }
+	  moof.close();
+	}
+	// small mdat
+	size_t mdatHdr = buf.size();
+	write32be(buf, 16); write4cc(buf, "mdat"); // 8 header + 8 payload
+	size_t mdatPayload = buf.size(); for (int i=0;i<8;++i) buf.push_back(uint8_t(i));
+	// patch trun data_offset to point into mdat payload
+	size_t trunPos=0; for (size_t i=0;i+3<buf.size(); ++i) if (buf[i]=='t'&&buf[i+1]=='r'&&buf[i+2]=='u'&&buf[i+3]=='n'){ trunPos=i-4; break; }
+	ASSERT_NE(trunPos, 0u);
+	size_t dataOffsetPos = trunPos + 4 + 4 + 4 + 4;
+	int32_t dataOffset = int32_t(mdatPayload - moofStartIdx);
+	buf[dataOffsetPos+0] = uint8_t((dataOffset>>24)&0xFF);
+	buf[dataOffsetPos+1] = uint8_t((dataOffset>>16)&0xFF);
+	buf[dataOffsetPos+2] = uint8_t((dataOffset>>8)&0xFF);
+	buf[dataOffsetPos+3] = uint8_t((dataOffset>>0)&0xFF);
+
+	Mp4Demux d;
+	bool ok = d.Parse(buf.data(), buf.size());
+	EXPECT_FALSE(ok);
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
 }

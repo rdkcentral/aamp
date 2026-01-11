@@ -164,7 +164,8 @@ Mp4Demux::Mp4Demux() :
 	samples(), defaultKid(), gotAuxiliaryInformationOffset(),
 	auxiliaryInformationOffset(), schemeType(CIPHER_TYPE_NONE),
 	originalMediaType(), cencAuxInfoSizes(), protectionData(),
-	moofPtr(), ptr(), endPtr(nullptr),
+	moofPtr(),
+	ptr(), endPtr(nullptr),
 	version(), flags(), baseMediaDecodeTime(),
 	trackId(), baseDataOffset(),
 	mdatStart(nullptr), mdatEnd(nullptr),
@@ -185,6 +186,26 @@ Mp4Demux::~Mp4Demux()
 {
 }
 
+void Mp4Demux::setParseError( Mp4ParseError err )
+{
+	parseError = err;
+	const char *text[] =
+	{
+		"OK",
+		"INVALID_BOX",
+		"INVALID_CONSTANT_IV_SIZE",
+		"SAMPLE_COUNT_MISMATCH",
+		"UNSUPPORTED_ENCRYPTION_SCHEME",
+		"INVALID_PADDING",
+		"UNSUPPORTED_SAMPLE_ENTRY_COUNT",
+		"UNSUPPORTED_STREAM_FORMAT",
+		"INVALID_ESDS_TAG",
+		"DATA_BOUNDARY_MISMATCH",
+		"INVALID_INPUT"
+	};
+	MP4_LOG_ERR( "%s", text[err] );
+}
+
 /**
  * @brief Read n bytes from current position in big-endian format
  * Reads bytes from the current parser position and converts from
@@ -200,8 +221,7 @@ uint64_t Mp4Demux::ReadBytes(int n)
 	// Bounds check: never read beyond endPtr; also validate n in [1,8]
 	if (n <= 0 || n > 8 || !ptr || !endPtr || ptr + n > endPtr)
 	{
-		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-		MP4_LOG_ERR("ReadBytes(%d) exceeded buffer", n);
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 	}
 	else
 	{
@@ -276,10 +296,9 @@ void Mp4Demux::ReadHeader()
 void Mp4Demux::SkipBytes(size_t len)
 {
 	if (!ptr || !endPtr || ptr + len > endPtr)
-    {
-        parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-        MP4_LOG_ERR("SkipBytes(%zu) exceeded buffer", len);
-    }
+	{
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
+	}
 	else
 	{
 		ptr += len;
@@ -342,8 +361,7 @@ void Mp4Demux::ParseTrackEncryptionBox()
 		constantIvSize = *ptr++;
 		if (constantIvSize != 8 && constantIvSize != 16)
 		{
-			parseError = MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE;
-			MP4_LOG_ERR("Invalid constant IV size: %u, expected 8 or 16", constantIvSize);
+			setParseError( MP4_PARSE_ERROR_INVALID_CONSTANT_IV_SIZE );
 			return;
 		}
 		constantIv = std::vector<uint8_t>(ptr, ptr + constantIvSize);
@@ -366,8 +384,7 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 	// Must have at least systemID (16)
 	if (ptr + PSSH_SYSTEM_ID_SIZE > next)
 	{
-		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-		MP4_LOG_ERR("Invalid PSSH box size, remaining %zu, expected at least %d bytes for system ID", next - ptr, PSSH_SYSTEM_ID_SIZE);
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 	}
 	else
 	{
@@ -388,14 +405,14 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 			// KID_count (u32) + KIDs (count * 16)
 			if (ptr + 4 > next)
 			{
-				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+				setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 				return;
 			}
 			uint32_t kidCount = ReadU32();
 			size_t kidBytes = static_cast<size_t>(kidCount) * 16;
 			if (ptr + kidBytes > next)
 			{
-				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+				setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 				return;
 			}
 			// Optional: store KIDs in psshData if your MediaProtectionInfo supports it
@@ -404,14 +421,13 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 		// data_size (u32) + data (blob)
 		if (ptr + 4 > next)
 		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
 		uint32_t dataSize = ReadU32();
 		if (ptr + dataSize > next)
 		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("PSSH payload exceeds box: dataSize=%u remaining=%zu", dataSize, next - ptr);
+			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
 		psshData.pssh.assign(ptr, ptr + dataSize);
@@ -436,8 +452,7 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 		uint64_t maxSampleCount = sampleOffset + sampleCount;
 		if (samples.size() != maxSampleCount)
 		{
-			parseError = MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH;
-			MP4_LOG_ERR("Sample count mismatch: expected %" PRIu64 ", got %zu", maxSampleCount, samples.size());
+			setParseError( MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH );
 			return;
 		}
 		for (auto i = sampleOffset; i < maxSampleCount; i++)
@@ -535,8 +550,7 @@ void Mp4Demux::ParseProtectionSchemeInfo()
 	auto cipher = GetCipherTypeFromFourCC(type);
 	if (cipher == CIPHER_TYPE_NONE)
 	{
-		parseError = MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME;
-		MP4_LOG_ERR("Unsupported encryption scheme type: %s, expected 'cenc' or 'cbcs'", FourCCToString(type).c_str());
+		setParseError( MP4_PARSE_ERROR_UNSUPPORTED_ENCRYPTION_SCHEME );
 		return;
 	}
 	schemeType = cipher;
@@ -565,14 +579,13 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 	// entry_count
 	if (ptr + 4 > endPtr)
 	{
-		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 		return;
 	}
 	uint32_t entryCount = ReadU32();
 	if (entryCount == 0)
 	{
-		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-		MP4_LOG_ERR("SAIO entry_count == 0");
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 		return;
 	}
 	// Read the first offset; if multiple, warn and consume others
@@ -625,8 +638,7 @@ void Mp4Demux::ParseSampleEncryption()
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
 	if (samples.size() != maxSampleCount)
 	{
-		parseError = MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH;
-		MP4_LOG_ERR("Sample count mismatch in SENC: expected %" PRIu64 ", got %zu", maxSampleCount, samples.size());
+		setParseError( MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH );
 		return;
 	}
 	for (auto iSample = sampleOffset; iSample < maxSampleCount; iSample++)
@@ -674,26 +686,14 @@ void Mp4Demux::ParseTrackRun()
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	const uint8_t *dataPtr = moofPtr;
-	//0xE01
 	if (flags & TRUN_DATA_OFFSET_PRESENT)
-	{
-		// offset from start of Moof box field
+	{ // offset from start of Moof box field
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
-	// If we tracked an mdat range, validate dataPtr lies within it
-	if (mdatStart && mdatEnd)
+	if( mdatStart && (dataPtr < mdatStart || dataPtr >= mdatEnd) )
 	{
-		if (dataPtr < mdatStart || dataPtr > mdatEnd)
-		{
-			MP4_LOG_WARN("TRUN dataPtr outside mdat range");
-		}
-	}
-	else
-	{
-		// mandatory field? should never reach here
-		parseError = MP4_PARSE_ERROR_MISSING_DATA_OFFSET;
-		MP4_LOG_ERR("Missing data offset in TRUN box");
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 		return;
 	}
 	uint32_t sampleFlags = 0;
@@ -727,12 +727,10 @@ void Mp4Demux::ParseTrackRun()
 			sampleCompositionTimeOffset = ReadI32();
 		}
 		// Guard: sample buffer must not overrun endPtr (or mdat)
-		const uint8_t* hardEnd = endPtr;
-		if (mdatEnd) hardEnd = mdatEnd;
-		if (dataPtr + sampleLen > hardEnd)
+		const uint8_t* hardEnd = mdatEnd?mdatEnd:endPtr;
+		if ( dataPtr + sampleLen > hardEnd )
 		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("TRUN sample overruns buffer: need %u bytes", sampleLen);
+			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
 		newSample.mData.AppendBytes(dataPtr, sampleLen);
@@ -810,9 +808,7 @@ void Mp4Demux::ParseVideoInformation()
 	int pad = ReadU16();
 	if (pad != VIDEO_PADDING_MARKER)
 	{
-		// TODO: Is it a critical error?
-		parseError = MP4_PARSE_ERROR_INVALID_PADDING;
-		MP4_LOG_ERR("Invalid padding value: 0x%04x, expected 0xffff", pad);
+		setParseError( MP4_PARSE_ERROR_INVALID_PADDING );
 		return;
 	}
 }
@@ -920,8 +916,7 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 	uint32_t count = ReadU32();
 	// Be tolerant: parse child boxes regardless of count; warn if 0 or >1
 	if (count == 0) {
-		parseError = MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT;
-		MP4_LOG_ERR("stsd count == 0");
+		setParseError( MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT );
 		return;
 	}
 	if (count > 1)
@@ -961,8 +956,7 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 			break;
 
 		default:
-			parseError = MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT;
-			MP4_LOG_ERR("Unsupported stream format: 0x%08x", streamFormat);
+			setParseError( MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT );
 			break;
 	}
 	// No need to continue if error occurred
@@ -996,8 +990,7 @@ int Mp4Demux::ReadLen()
 			}
 		}
 	}
-	parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-	MP4_LOG_ERR("ReadLen() exceeded buffer");
+	setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 	return 0;
 }
 
@@ -1053,8 +1046,7 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 				break;
 
 			default:
-				parseError = MP4_PARSE_ERROR_INVALID_ESDS_TAG;
-				MP4_LOG_ERR("Invalid ESDS tag: 0x%02x", tag);
+				setParseError( MP4_PARSE_ERROR_INVALID_ESDS_TAG );
 				break;
 		}
 
@@ -1065,8 +1057,7 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 	}
 	if (ptr != next)
 	{
-		parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-		MP4_LOG_ERR("ESDS size mismatch: expected end at %p, current ptr at %p", next, ptr);
+		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 	}
 }
 
@@ -1097,8 +1088,7 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 		// Guard: ensure we don't run past the overall buffer even if next is sane
 		if (!endPtr || ptr + codecDataLen > endPtr)
 		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("Codec configuration exceeds buffer");
+			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
 		// No need to read this for dec3 box. Expand the filter later if needed.
@@ -1132,7 +1122,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			size = ReadU64();
 			if (size < 16)
 			{
-				parseError = MP4_PARSE_ERROR_INVALID_BOX;
+				setParseError( MP4_PARSE_ERROR_INVALID_BOX );
 				return;
 			}
 			next = ptr + (size - 16);
@@ -1143,8 +1133,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 		}
 		else if( size<8 )
 		{
-			parseError = MP4_PARSE_ERROR_INVALID_BOX;
-			MP4_LOG_ERR("Invalid box size: %" PRIu64, size);
+			setParseError( MP4_PARSE_ERROR_INVALID_BOX );
 			return;
 		}
 		else
@@ -1155,8 +1144,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 		// Validate that the box doesn't extend beyond buffer
 		if (next > fin)
 		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("Box type %s size %" PRIu64 " extends beyond buffer boundary", FourCCToString(type).c_str(), size);
+			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
 
@@ -1315,8 +1303,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 		}
 		if (ptr != next)
 		{
-			parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
-			MP4_LOG_ERR("Box type %s data boundary mismatch, ptr offset: %td", FourCCToString(type).c_str(), ptr - next);
+			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
 	}
@@ -1368,8 +1355,7 @@ bool Mp4Demux::Parse(const void *ptr, size_t len)
 	}
 	else
 	{
-		parseError = MP4_PARSE_ERROR_INVALID_INPUT;
-		MP4_LOG_ERR("Invalid input to Parse: ptr=%p, len=%zu", ptr, len);
+		setParseError( MP4_PARSE_ERROR_INVALID_INPUT );
 	}
 	return ret;
 }
