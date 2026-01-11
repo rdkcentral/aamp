@@ -667,20 +667,238 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+static const char *ChunkedTransferStateToName( ChunkedTransferState state )
+{
+	const char *stateName = NULL;
+	switch( state )
+	{
+		case ChunkedTransferState::READING_CHUNK_SIZE:
+			stateName = "reading chunk size";
+			break;
+		case ChunkedTransferState::PENDING_CHUNK_START_LF:
+			stateName = "awaiting start LF";
+			break;
+		case ChunkedTransferState::READING_CHUNK_DATA:
+			stateName = "reading chunk data";
+			break;
+		case ChunkedTransferState::PENDING_CHUNK_END_CR:
+			stateName = "awaiting end CR";
+			break;
+		case ChunkedTransferState::PENDING_CHUNK_END_LF:
+			stateName = "awaiting end LF";
+			break;
+		case ChunkedTransferState::READING_EXTENSIONS:
+			stateName = "awaiting extension end CR";
+			break;
+		case ChunkedTransferState::PENDING_EXTENSION_END_LF:
+			stateName = "awaiting extension end LF";
+			break;
+		case ChunkedTransferState::DONE:
+			stateName = "done";
+			break;
+		case ChunkedTransferState::ERROR:
+			stateName = "error";
+			break;
+	}
+	return stateName;
+}
+
+/**
+ * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
+ *
+ * This callback is invoked by the downloader whenever a new block of bytes is
+ * received for a request that uses HTTP/1.1 chunked transfer encoding. It
+ * implements an incremental parser driven by a state machine stored in
+ * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input buffer,
+ * interpreting chunk-size lines, chunk payload, and the required CR/LF
+ * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
+ *
+ * The state machine transitions between:
+ * - READING_CHUNK_SIZE: parse the hexadecimal chunk size from the stream.
+ * - PENDING_CHUNK_START_LF: wait for the LF that terminates the chunk-size line.
+ * - READING_CHUNK_DATA: consume exactly the announced number of data bytes for the current chunk and deliver them to the underlying consumer.
+ * - PENDING_CHUNK_END_CR: wait for the CR after a chunk's payload.
+ * - PENDING_CHUNK_END_LF: wait for the LF that completes the CRLF sequence after a chunk.
+ *
+ * The function may be called multiple times with partial chunk boundaries; it
+ * maintains parsing progress across invocations via the transfer-state fields
+ * in the provided context.
+ *
+ * @param[in] ptr       Pointer to the buffer containing newly received data.
+ * @param[in] numBytes  Number of valid bytes available in @p ptr.
+ * @param[in] userdata  Pointer to the CurlCallbackContext or user data
+ *                      associated with this transfer, used to track the
+ *                      current chunked-transfer parsing state.
+ */
+void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
+{ // HTTP/1.1 Chunked Transfer Protocol
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(userdata);
+	if (context == nullptr)
+	{
+		AAMPLOG_ERR("chunked_write_callback called with null context");
+		return;
+	}
+	// note - caller has context->aamp->mLock
+	const char *fin = &ptr[numBytes];
+	while( ptr<fin )
+	{
+		AAMPLOG_INFO( "%s (%s) remaining=%zu",
+					 GetMediaTypeName(context->mediaType),
+					 ChunkedTransferStateToName(context->m_ChunkedTransferState),
+					 context->m_ChunkedBytesRemaining );
+		switch( context->m_ChunkedTransferState )
+		{
+			case ChunkedTransferState::READING_EXTENSIONS:
+			{
+				char c = *ptr++;
+				if( c == '\r' )
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_EXTENSION_END_LF;
+				}
+			}
+				break;
+				
+			case ChunkedTransferState::PENDING_EXTENSION_END_LF:
+				if( *ptr++ != '\n' )
+				{
+					AAMPLOG_ERR( "missing expected \\n" );
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+				}
+				else
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
+				}
+				break;
+				
+			case ChunkedTransferState::READING_CHUNK_SIZE:
+			{
+				char code = *ptr++;
+				if( code == '\r' )
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_START_LF;
+				}
+				else if( code == ';' )
+				{
+					// RFC 7230 allows optional chunk extensions after the size, starting with ';'.
+					// we currently skip over them rather than interpret them
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_EXTENSIONS;
+				}
+				else
+				{
+					int digit = hexCharToInt(code);
+					if( digit<0 )
+					{
+						AAMPLOG_ERR( "unexpected digit: 0x%02x", code );
+						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+					}
+					else
+					{
+						context->m_ChunkedBytesRemaining = context->m_ChunkedBytesRemaining*16 + digit;
+					}
+				}
+			}
+				break;
+				
+			case ChunkedTransferState::PENDING_CHUNK_START_LF:
+				if( *ptr++ != '\n' )
+				{
+					AAMPLOG_ERR( "missing expected \\n" );
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+				}
+				else
+				{
+					if( context->m_ChunkedBytesRemaining )
+					{
+						AAMPLOG_INFO( "CHUNK_START %zu %s", context->m_ChunkedBytesRemaining, GetMediaTypeName(context->mediaType) );
+						context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
+					}
+					else
+					{
+						AAMPLOG_INFO( "CHUNK_END %s", GetMediaTypeName(context->mediaType) );
+						context->m_ChunkedTransferState = ChunkedTransferState::DONE;
+					}
+				}
+				break;
+				
+			case ChunkedTransferState::READING_CHUNK_DATA:
+			{
+				size_t n = fin - ptr;
+				if( n > context->m_ChunkedBytesRemaining )
+				{ // clamp - more bytes in write_callback than needed to complete current chunk
+					n = context->m_ChunkedBytesRemaining;
+				}
+				context->buffer->AppendBytes( ptr, n );
+				ptr += n;
+				context->m_ChunkedBytesRemaining -= n;
+				if( context->m_ChunkedBytesRemaining == 0 )
+				{
+					// here we will presumably be at the end of an 'mdat', suitable for injection
+					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_END_CR;
+				}
+			}
+				break;
+				
+			case ChunkedTransferState::PENDING_CHUNK_END_CR:
+				if( *ptr++ != '\r' )
+				{
+					AAMPLOG_ERR( "missing expected \\r" );
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+				}
+				else
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_END_LF;
+				}
+				break;
+				
+			case ChunkedTransferState::PENDING_CHUNK_END_LF:
+				if( *ptr++ != '\n' )
+				{
+					AAMPLOG_ERR( "missing expected \\n" );
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+				}
+				else
+				{
+					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
+					if( context->m_ChunkedBytesRemaining != 0 )
+					{
+						AAMPLOG_ERR( "unexpected m_ChunkedBytesRemaining=%zu", context->m_ChunkedBytesRemaining );
+						context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+					}
+				}
+				break;
+				
+			case ChunkedTransferState::DONE:
+			{
+				char c = *ptr++;
+				if( c == '\n' || c == '\r' )
+				{ // end marker CRLF
+					continue;
+				}
+				AAMPLOG_ERR( "unexpected data after final chunk" );
+				context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+			}
+				break;
+				
+			case ChunkedTransferState::ERROR:
+				AAMPLOG_ERR( "Aborting chunked transfer parsing due to previous error" );
+				ptr = fin; // consume remaining bytes to exit loop
+				break;
+		}
+	}
+}
+
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
 {
 	size_t ret = 0;
-	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(userdata);
 	if(!context) return ret;
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu",
-					context->mediaType,
-					size*nmemb,
-					context->contentLength );
+		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu", context->mediaType, size*nmemb, context->contentLength );
 	}
 	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
@@ -697,11 +915,27 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			context->buffer->ReserveBytes(len);
 		}
 		size_t numBytesForBlock = size*nmemb;
+		ret = numBytesForBlock;
 		if(ptr && numBytesForBlock > 0)
 		{
-			context->buffer->AppendBytes( ptr, numBytesForBlock );
+			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
+			{
+				size_t prev_len = context->buffer->GetLen();
+				chunked_write_callback( ptr, numBytesForBlock, userdata );
+				if( context->m_ChunkedTransferState == ChunkedTransferState::ERROR )
+				{
+					AAMPLOG_ERR("Chunked transfer parser entered ERROR state; aborting write callback");
+					ret = 0;
+					return ret;
+				}
+				ptr = context->buffer->GetPtr() + prev_len;
+				numBytesForBlock = context->buffer->GetLen() - prev_len;
+			}
+			else
+			{
+				context->buffer->AppendBytes( ptr, numBytesForBlock );
+			}
 		}
-		ret = numBytesForBlock;
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
 
 		if(mCtx)
@@ -721,7 +955,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				lock.unlock();
 				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
 				long long startTime = aamp_GetCurrentTimeMS();
-				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock,context->remoteUrl,context->downloadStartTime);
+				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock, context->remoteUrl, context->downloadStartTime);
 				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 				lock.lock();
 			}
@@ -828,6 +1062,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		}
 		else if (STARTS_WITH_IGNORE_CASE(ptr, TRANSFER_ENCODING_STRING ))
 		{
+			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
 		}
 		else if (0 == context->buffer->GetAvail() )
@@ -4014,6 +4249,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		if (curl)
 		{
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
+			
+			//  by default libcurl handles chunked transfer encoding transparently
+			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
+			}
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
@@ -4128,6 +4369,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
+				context.chunkedDownload = false;
+				context.m_ChunkedBytesRemaining = 0; // reset
+				context.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE; // reset
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
 				if(this->mAampLLDashServiceData.lowLatencyMode)
@@ -6386,7 +6630,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 				rc = eMEDIAFORMAT_PROGRESSIVE; // default
 				const char *ptr = sniffedBytes.GetPtr();
 				const char *fin = ptr + sniffedBytes.GetLen();
-				while( ptr<fin )
+				while( ptr < fin )
 				{
 					char c = *ptr++;
 					if( c == '<' )

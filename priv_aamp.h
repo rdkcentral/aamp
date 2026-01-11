@@ -3769,6 +3769,20 @@ public:
 	 * @retval size consumed or 0 if interrupted
 	 */
 	size_t HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata );
+	
+	/**
+	 * @fn chunked_write_callback
+	 *
+	 * @brief Handle write callback for data received using chunked transfer encoding.
+	 *
+	 * @param ptr pointer to buffer containing the received data
+	 * @param numBytes number of valid bytes in the buffer
+	 * @param userdata CurlCallbackContext pointer or user-defined data associated
+	 *        with this transfer
+	 *
+	 * @return None
+	 */
+	void chunked_write_callback( const char *ptr, size_t numBytes, void *userdata );
 
 	/**
 	 * @fn HandleSSLProgressCallback
