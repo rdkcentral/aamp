@@ -372,44 +372,22 @@ void Mp4Demux::ParseSchemeManagementBox()
 void Mp4Demux::ParseTrackEncryptionBox()
 {
 	ReadHeader();
-	// Be robust to both layouts:
-	// 1) Standard CENC tenc (common): [reserved(2)] [isEncrypted(1)] [ivSize(1)] [KID(16)] [v1: constIV]
-	// 2) Legacy/variant with a "pattern" byte after one reserved byte (older cbcs flows)
-	const uint8_t* save = ptr;
 	
-	// Try STANDARD layout first
-	bool ok = true;
+	// Two layouts:
+	// 1) Standard CENC tenc (common): [reserved(2)] [isEncrypted(1)] [ivSize(1)] [KID(16)] [v1: constIV] - supported
+	// 2) Legacy/variant with a "pattern" byte after one reserved byte (older cbcs flows) - not supported
+	
 	if (ptr + 2 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
 	ptr += 2; // reserved(2)
 	if (ptr + 2 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
 	uint8_t isEncrypted = *ptr++;
 	uint8_t ivSz = *ptr++;
 	if (ivSz != 8 && ivSz != 16) {
-		ok = false; // fall back to pattern layout below
+		setParseError(MP4_PARSE_ERROR_INVALID_IV_SIZE);
+		return;
 	} else if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {
 		setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
 		return;
-	}
-	
-	if (!ok) {
-		// Fallback: one reserved + pattern + isEncrypted + ivSize + KID [ + const IV for v1 ]
-		ptr = save;
-		if (ptr + 1 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
-		ptr++; // reserved(1)
-		if (ptr + 1 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
-		uint8_t pattern = *ptr++;
-		if (schemeType == CIPHER_TYPE_CBCS) {
-			cryptByteBlock = (pattern >> 4) & 0xF;
-			skipByteBlock = pattern & 0xF;
-		}
-		if (ptr + 2 > endPtr) { setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
-		isEncrypted = *ptr++;
-		ivSz = *ptr++;
-		if (ivSz != 8 && ivSz != 16) {
-			setParseError(MP4_PARSE_ERROR_INVALID_IV_SIZE); // best available error code
-			return;
-		}
-		if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {setParseError(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH); return; }
 	}
 	
 	codecInfo.mIsEncrypted = isEncrypted;
@@ -472,7 +450,7 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 			}
 			uint32_t kidCount = ReadU32();
 #if SIZE_MAX <= 0xffffffff
-			// if size_t is 64 bit, check below will never happen
+			// if size_t is 32-bit or smaller, perform overflow check
 			if( kidCount > SIZE_MAX / 16 )
 			{ // sanity in case kidCount*16 would overflow size_t
 				setParseError( MP4_PARSE_ERROR_INVALID_KID );
@@ -1058,13 +1036,13 @@ uint32_t Mp4Demux::ReadLen()
 		while( ptr<endPtr )
 		{ // accumulate variable length integer
 			unsigned char octet = *ptr++;
-			rc = (rc << 7) + (octet & 0x7f);
 			bits += 7;
 			if( bits > 32 )
 			{
 				setParseError( MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW );
 				return 0;
 			}
+			rc = (rc << 7) + (octet & 0x7f);
 			if ((octet & 0x80) == 0)
 			{
 				return rc;
@@ -1191,7 +1169,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 	{
 		uint64_t size = ReadU32();
 		uint32_t type = ReadU32();
-		if( parseError !=MP4_PARSE_OK ) return;
+		if( parseError != MP4_PARSE_OK ) return;
 		const uint8_t *next = nullptr;
 		if( size==0 )
 		{ // box extends to end of buffer
@@ -1202,7 +1180,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			if( size==1 )
 			{ // format: size(4)+type(4)+large_size(8)+payload
 				size = ReadU64();
-				if( parseError !=MP4_PARSE_OK ) return;
+				if( parseError != MP4_PARSE_OK ) return;
 				if ( size < 16)
 				{
 					setParseError( MP4_PARSE_ERROR_INVALID_BOX );
