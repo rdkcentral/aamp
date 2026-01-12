@@ -676,15 +676,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				return;
 			}
 
-			/*
-						if ( AAMP_SLOWMOTION_RATE != rate && rate > 0 && aamp->IsLive() && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint() && aamp->rate >= AAMP_NORMAL_PLAY_RATE && !aamp->mbDetached)
-						{
-							AAMPLOG_WARN("Already at logical live point, hence skipping operation");
-							aamp->NotifyOnEnteringLive();
-							return;
-						}
-			*/				
-
 			// If input rate is same as current playback rate, skip duplicate operation
 			// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
 			if ((!aamp->pipeline_paused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused))
