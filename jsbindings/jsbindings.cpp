@@ -928,12 +928,16 @@ public:
 	void setEventProperties(const AAMPEventPtr& e, JSContextRef context, JSObjectRef eventObj)
 	{
 		MediaErrorEventPtr evt = std::dynamic_pointer_cast<MediaErrorEvent>(e);
-
 		int code = evt->getCode();
+		int subCode = evt->getSubCode();
 		const char* description = evt->getDescription().c_str();
 
 		JSStringRef name = JSStringCreateWithUTF8CString("code");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, code), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("subCode");
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, subCode), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("description");
