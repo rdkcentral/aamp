@@ -1,5 +1,5 @@
-#ifndef GST_MEDIA_PIPELINE_H
-#define GST_MEDIA_PIPELINE_H
+#ifndef GST_MEDIA_PIPELINE_H3
+#define GST_MEDIA_PIPELINE_H3
 
 #include "IMediaPipeline.h"
 #include <memory>
@@ -100,4 +100,4 @@ public:
     bool setTextTrackIdentifier(const std::string &) override;
 };
 
-#endif
+#endif // GST_MEDIA_PIPELINE_H3
