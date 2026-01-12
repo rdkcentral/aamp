@@ -278,28 +278,32 @@ void Mp4Demux::ParseSchemeManagementBox()
 void Mp4Demux::ParseTrackEncryptionBox()
 {
 	ReadHeader();
-	// Two layouts:
-	// 1) Standard CENC tenc (common): [reserved(2)] [isEncrypted(1)] [ivSize(1)] [KID(16)] [v1: constIV] - supported
-	// 2) Legacy/variant with a "pattern" byte after one reserved byte (older cbcs flows) - not supported
-	SkipBytes(2); // reserved(2)
-	uint8_t isEncrypted = static_cast<uint8_t>(ReadBytes(1));
-	uint8_t ivSz        = static_cast<uint8_t>(ReadBytes(1));
-	if (ivSz != 8 && ivSz != 16) {
-		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_IV_SIZE, "tenc: invalid IV size");
+	SkipBytes(1); // skip reserved
+	uint8_t pattern = static_cast<uint8_t>(ReadBytes(1));
+	if (schemeType == CIPHER_TYPE_CBCS)
+	{
+		cryptByteBlock = (pattern >> 4) & 0xf;
+		skipByteBlock = pattern & 0xf;
 	}
+	codecInfo.mIsEncrypted = static_cast<uint8_t>(ReadBytes(1));
+	// This is used to ensure encrypted caps are persisted even if its clear samples
+	handledEncryptedSamples = true;
+	ivSize = static_cast<uint8_t>(ReadBytes(1));;
+	
 	if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {
 		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "tenc: missing KID");
 	}
-	codecInfo.mIsEncrypted = isEncrypted;
-	handledEncryptedSamples = true; // keep encrypted caps if any encrypted samples were seen
-	ivSize = ivSz;
 	defaultKid.assign(ptr, ptr + TENC_BOX_KEY_ID_SIZE);
 	ptr += TENC_BOX_KEY_ID_SIZE;
-	if (version == 1) {
-		constantIvSize = static_cast<uint8_t>(ReadBytes(1));
-		if (constantIvSize != 8 && constantIvSize != 16) {
-			throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_IV_SIZE, "tenc[v1]: invalid constant IV size");
+	
+	if (version == 1)
+	{ // Version 1 adds constant IV
+		constantIvSize = static_cast<uint8_t>(ReadBytes(1));;
+		if (constantIvSize != 8 && constantIvSize != 16)
+		{
+			throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_IV_SIZE, "tenc: invalid IV size");
 		}
+		
 		if (ptr + constantIvSize > endPtr) {
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "tenc[v1]: constant IV OOB");
 		}
