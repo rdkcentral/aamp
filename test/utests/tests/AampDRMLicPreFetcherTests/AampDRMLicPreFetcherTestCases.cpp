@@ -1739,6 +1739,8 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 	std::condition_variable drmInProgressCond;
 	std::condition_variable allowDrmToCompleteCond;
 	std::condition_variable setFetcherAttemptedCond;
+	std::condition_variable setFetcherCompletedCond;
+	std::condition_variable drmSessionsCompletedCond;
 	std::mutex syncMutex;
 	bool drmSessionInProgress = false;
 	bool allowDrmToRelease = false;
@@ -1771,17 +1773,23 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 			}),
 			// Increment completion counter
 			Invoke([&]() {
-				std::unique_lock<std::mutex> lock(syncMutex);
-				++drmSessionsCompleted;
-				AAMPLOG_INFO("Test:mockAampLicenseManager: DRM session completed");
+				{
+					std::unique_lock<std::mutex> lock(syncMutex);
+					++drmSessionsCompleted;
+					AAMPLOG_INFO("Test:mockAampLicenseManager: DRM session completed");
+				}
+				drmSessionsCompletedCond.notify_one();
 			}),
 			Return(drmSession.get())
 		))
 		.WillOnce(DoAll(
 			// Second DRM session - just complete quickly to allow test to finish
 			Invoke([&]() {
-				std::unique_lock<std::mutex> lock(syncMutex);
-				++drmSessionsCompleted;
+				{
+					std::unique_lock<std::mutex> lock(syncMutex);
+					++drmSessionsCompleted;
+				}
+				drmSessionsCompletedCond.notify_one();
 			}),
 			Return(drmSession.get())
 		));
@@ -1817,7 +1825,7 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 	// SetLicenseFetcher will BLOCK on mLicenseAcquisitionMutex acquisition (by design)
 	std::atomic<bool> setFetcherAttempted{false};
 	std::atomic<bool> setFetcherCompleted{false};
-	std::thread setFetcherThread([this, &mockLicenseFetcher2, &setFetcherAttempted, &setFetcherCompleted, &syncMutex, &setFetcherAttemptedCond]() {
+	std::thread setFetcherThread([this, &mockLicenseFetcher2, &setFetcherAttempted, &setFetcherCompleted, &syncMutex, &setFetcherAttemptedCond, &setFetcherCompletedCond]() {
 		// Signal that we're about to attempt SetLicenseFetcher
 		{
 			std::unique_lock<std::mutex> lock(syncMutex);
@@ -1827,6 +1835,10 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 		// This call will block on mLicenseAcquisitionMutex until createDrmSession releases it
 		mTestablePreFetcher->SetLicenseFetcher(mockLicenseFetcher2.get());
 		setFetcherCompleted.store(true);
+		{
+			std::unique_lock<std::mutex> lock(syncMutex);
+		setFetcherCompletedCond.notify_one();//anj
+		}
 	});
 
 	// Wait for SetLicenseFetcher thread to signal that it has attempted to acquire the mutex
@@ -1866,9 +1878,11 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 	// Wait for SetLicenseFetcher to complete (it should now acquire the released mutex)
 	// Set a shorter timeout to catch issues where mutex lock is missing
 	{
+		std::unique_lock<std::mutex> lock(syncMutex);
 		auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(2000);
 		while (!setFetcherCompleted.load()) {
-			if (std::chrono::steady_clock::now() > deadline) {
+			auto status = setFetcherCompletedCond.wait_until(lock, deadline);
+			if (status == std::cv_status::timeout) {
 				// Check if SetLicenseFetcher attempted at all
 				if (!setFetcherAttempted.load()) {
 					FAIL() << "SetLicenseFetcher thread never attempted to acquire mutex - thread may be hung or not started";
@@ -1880,7 +1894,6 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 				}
 				break;
 			}
-			std::this_thread::yield();
 		}
 	}
 
@@ -1891,22 +1904,17 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadl
 		setFetcherThread.join();
 	}
 
-	auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-	while (true)
+	// Wait for DRM sessions to complete
 	{
-		{
-			std::unique_lock<std::mutex> lock(syncMutex);
-			if (drmSessionsCompleted >= 2)
-			{
+		std::unique_lock<std::mutex> lock(syncMutex);
+		auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+		while (drmSessionsCompleted < 2) {
+			auto status = drmSessionsCompletedCond.wait_until(lock, deadline);
+			if (status == std::cv_status::timeout) {
+				FAIL() << "Timeout waiting for DRM sessions to complete";
 				break;
 			}
 		}
-		if (std::chrono::steady_clock::now() > deadline)
-		{
-			FAIL() << "Timeout waiting for DRM sessions to complete";
-			break;
-		}
-		std::this_thread::yield();
 	}
 
 	// Verify no deadlock occurred
