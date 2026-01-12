@@ -448,7 +448,10 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 				setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 				return;
 			}
+			
 			uint32_t kidCount = ReadU32();
+			if( parseError != MP4_PARSE_OK ) return;
+			
 #if SIZE_MAX <= 0xffffffff
 			// if size_t is 32-bit or smaller, perform overflow check
 			if( kidCount > SIZE_MAX / 16 )
@@ -472,11 +475,10 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 			return;
 		}
+		
 		uint32_t dataSize = ReadU32();
-		if( parseError != MP4_PARSE_OK )
-		{
-			return;
-		}
+		if( parseError != MP4_PARSE_OK ) return;
+
 		if (ptr + dataSize > next)
 		{
 			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
@@ -577,7 +579,10 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 		SkipBytes(4); // aux_info_type_parameter
 	}
 	uint8_t defaultInfoSize = *ptr++;
+	
 	uint32_t sampleCount = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	if (defaultInfoSize)
 	{
 		for (auto i = 0u; i < sampleCount; i++ )
@@ -603,6 +608,8 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 void Mp4Demux::ParseProtectionSchemeInfo()
 {
 	uint32_t type = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	auto cipher = GetCipherTypeFromFourCC(type);
 	if (cipher == CIPHER_TYPE_NONE)
 	{
@@ -638,7 +645,10 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 		setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
 		return;
 	}
+	
 	uint32_t entryCount = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	if (entryCount == 0)
 	{
 		setParseError( MP4_PARSE_ERROR_INVALID_ENTRY_COUNT );
@@ -648,15 +658,14 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 	if (version == 0)
 	{
 		auxiliaryInformationOffset = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
+		
 		if( parseError == MP4_PARSE_OK )
 		{
 			for (uint32_t i = 1; i < entryCount; ++i)
 			{
 				(void)ReadU32();
-				if( parseError != MP4_PARSE_OK )
-				{
-					break;
-				}
+				if( parseError != MP4_PARSE_OK ) return;
 			}
 			gotAuxiliaryInformationOffset = true;
 		}
@@ -669,10 +678,7 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 			for (uint32_t i = 1; i < entryCount; ++i)
 			{
 				(void)ReadU64();
-				if( parseError != MP4_PARSE_OK )
-				{
-					break;
-				}
+				if( parseError != MP4_PARSE_OK ) return;
 			}
 			gotAuxiliaryInformationOffset = true;
 		}
@@ -690,7 +696,10 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 void Mp4Demux::ParseSampleEncryption()
 {
 	ReadHeader();
+	
 	uint32_t sampleCount = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
 	if (samples.size() != maxSampleCount)
 	{
@@ -740,7 +749,10 @@ void Mp4Demux::ParseSampleEncryption()
 void Mp4Demux::ParseTrackRun()
 {
 	ReadHeader();
+	
 	uint32_t sampleCount = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	const uint8_t *dataPtr = moofPtr;
 	if (flags & TRUN_DATA_OFFSET_PRESENT)
 	{ // offset from start of Moof box field
@@ -756,6 +768,7 @@ void Mp4Demux::ParseTrackRun()
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
 		sampleFlags = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
 	}
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
@@ -768,14 +781,17 @@ void Mp4Demux::ParseTrackRun()
 		if (flags & TRUN_SAMPLE_DURATION_PRESENT)
 		{
 			sampleDuration = ReadU32();
+			if( parseError != MP4_PARSE_OK ) return;
 		}
 		if (flags & TRUN_SAMPLE_SIZE_PRESENT)
 		{
 			sampleLen = ReadU32();
+			if( parseError != MP4_PARSE_OK ) return;
 		}
 		if (flags & TRUN_SAMPLE_FLAGS_PRESENT)
 		{ // rarely present?
 			sampleFlags = ReadU32();
+			if( parseError != MP4_PARSE_OK ) return;
 		}
 		int32_t sampleCompositionTimeOffset = 0;
 		if (flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
@@ -810,7 +826,10 @@ void Mp4Demux::ParseTrackRun()
 void Mp4Demux::ParseTrackFragmentHeader()
 {
 	ReadHeader();
+	
 	trackId = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	if (flags & TFHD_BASE_DATA_OFFSET_PRESENT)
 	{
 		baseDataOffset = ReadU64();
@@ -818,18 +837,22 @@ void Mp4Demux::ParseTrackFragmentHeader()
 	if (flags & TFHD_SAMPLE_DESCRIPTION_INDEX_PRESENT)
 	{
 		defaultSampleDescriptionIndex = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
 	}
 	if (flags & TFHD_DEFAULT_SAMPLE_DURATION_PRESENT)
 	{
 		defaultSampleDuration = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
 	}
 	if (flags & TFHD_DEFAULT_SAMPLE_SIZE_PRESENT)
 	{
 		defaultSampleSize = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
 	}
 	if (flags & TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT)
 	{
 		defaultSampleFlags = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
 	}
 }
 
@@ -898,7 +921,10 @@ void Mp4Demux::ParseMovieHeader()
 	int sz = (version == 1) ? 8 : 4;
 	SkipBytes(sz); // creation_time
 	SkipBytes(sz); // modification_time
+	
 	timeScale = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	duration = ReadBytes(sz);
 	// Skip: rate (fixed-point 16.16) (4) + volume (fixed-point 8.8) (2) + reserved (10)
 	SkipBytes(16);
@@ -917,7 +943,10 @@ void Mp4Demux::ParseTrackHeader()
 	int sz = (version == 1) ? 8 : 4;
 	SkipBytes(sz); // creation_time
 	SkipBytes(sz); // modification_time
+	
 	trackId = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	//Skip: reserved (4) + duration (sz) + reserved[2] (8) + layer (2) + alternate_group (2) + volume (2) + reserved (2)
 	SkipBytes(20 + sz);
 	//Skip: matrix (36) + width_fixed (4) + height (4)
@@ -935,7 +964,10 @@ void Mp4Demux::ParseMediaHeader()
 	int sz = (version == 1) ? 8 : 4;
 	SkipBytes(sz); // creation_time
 	SkipBytes(sz); // modification_time
+	
 	timeScale = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	duration = ReadBytes(sz);
 	// Skip: 1 bit reserved + 3 x 5 bits language code (2) + pre_defined (2)
 	SkipBytes(4);
@@ -952,11 +984,21 @@ void Mp4Demux::ParseMediaHeader()
 void Mp4Demux::ParseTrackExtendsBox()
 {
 	ReadHeader();
+	
 	trackId = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	defaultSampleDescriptionIndex = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	defaultSampleDuration = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	defaultSampleSize = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
+	
 	defaultSampleFlags = ReadU32();
+	if( parseError != MP4_PARSE_OK ) return;
 }
 
 /**
@@ -969,8 +1011,10 @@ void Mp4Demux::ParseTrackExtendsBox()
 void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 {
 	ReadHeader();
+	
 	uint32_t count = ReadU32();
 	if( parseError != MP4_PARSE_OK ) return;
+
 	if (count != 1) {
 		setParseError( MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT );
 		return;
@@ -1168,8 +1212,11 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 	while (ptr < fin)
 	{
 		uint64_t size = ReadU32();
+		if( parseError != MP4_PARSE_OK ) return;
+		
 		uint32_t type = ReadU32();
 		if( parseError != MP4_PARSE_OK ) return;
+
 		const uint8_t *next = nullptr;
 		if( size==0 )
 		{ // box extends to end of buffer
