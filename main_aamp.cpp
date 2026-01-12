@@ -667,7 +667,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			bool retValue = true;
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
-				aamp->IsLive() &&
 				aamp->IsAtLivePoint() &&
 				!aamp->mbDetached)
 			{
@@ -685,7 +684,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 
 			// Any other rate change (including resume to 1.0) = not at live
-			aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint(false); // DJH maybe new method to just set to false as we know its no longer live ?
+			aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint(); 
 
 			//-- Get the trick play to a closer position
 			//Logic adapted
