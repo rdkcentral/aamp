@@ -74,6 +74,7 @@ struct CodecMapping
 	uint32_t fourCC;
 	GstStreamOutputFormat format;
 };
+
 /**
  * @brief Mapping structure for FourCC to cipher type conversion
  */
@@ -82,6 +83,7 @@ struct CipherMapping
 	uint32_t fourCC;
 	CipherType cipher;
 };
+
 /**
  * @brief Mapping of FourCC codes to GstStreamOutputFormat
  */
@@ -92,6 +94,7 @@ constexpr CodecMapping gCodecMappings[] = {
 	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
 	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 } // AC-4 decoder config box
 };
+
 /**
  * @brief Mapping of FourCC codes to CipherType
  */
@@ -99,8 +102,16 @@ constexpr CipherMapping gCipherMappings[] = {
 	{ MultiChar_Constant("cenc"), CIPHER_TYPE_CENC },
 	{ MultiChar_Constant("cbcs"), CIPHER_TYPE_CBCS }
 };
+
 /**
  * @brief Convert FourCC code to stream output format
+ * - avcC: H.264 video
+ * - hvcC: HEVC video
+ * - esds: AAC audio (raw)
+ * - dec3: Enhanced AC3 audio
+ *
+ * @param fourCC Four character code from MP4 container
+ * @return StreamOutputFormat corresponding to the codec type
  */
 GstStreamOutputFormat GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC)
 {
@@ -113,8 +124,15 @@ GstStreamOutputFormat GetGstStreamOutputFormatFromFourCC(const uint32_t fourCC)
 	}
 	return GST_FORMAT_UNKNOWN;
 }
+
 /**
  * @brief Convert FourCC code to cipher type
+ * Maps MP4 encryption scheme FourCC codes to CipherType:
+ * - cenc: AES-CTR encryption
+ * - cbcs: AES-CBC encryption with pattern
+ *
+ * @param fourCC Four character code from MP4 container
+ * @return CipherType corresponding to the encryption scheme
  */
 CipherType GetCipherTypeFromFourCC(const uint32_t fourCC)
 {
@@ -127,8 +145,11 @@ CipherType GetCipherTypeFromFourCC(const uint32_t fourCC)
 	}
 	return CIPHER_TYPE_NONE;
 }
+
 /**
  * @brief Constructor for Mp4Demux
+ * Initializes all member variables to their default values and sets up
+ * the demuxer for MP4 parsing operations.
  */
 Mp4Demux::Mp4Demux() :
 	streamFormat(),
@@ -151,8 +172,10 @@ Mp4Demux::Mp4Demux() :
 	codecInfo(GST_FORMAT_INVALID), parseError(MP4_PARSE_OK)
 {
 }
+
 /**
  * @brief Destructor for Mp4Demux
+ * Cleans up resources and performs any necessary cleanup operations.
  */
 Mp4Demux::~Mp4Demux()
 {
@@ -209,12 +232,22 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 		case MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW:
 			text = "VARIABLE_LENGTH_OVERFLOW";
 			break;
+		case MP4_PARSE_ERROR_UNEXPECTED_IS_ENCRYPTED_FIELD:
+			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
+			break;
 	}
 	MP4_LOG_ERR( "%s", text );
 }
 
-// === Throwing low-level helpers ===
-
+/**
+ * @brief Read n bytes from current position in big-endian format
+ * Reads bytes from the current parser position and converts from
+ * big-endian (network byte order) to host byte order. Advances
+ * the parser position by n bytes.
+ *
+ * @param n Number of bytes to read (1-8)
+ * @return Value read as uint64_t in host byte order
+ */
 uint64_t Mp4Demux::ReadBytes(int n)
 {
 	if (n <= 0 || n > 8 || !ptr || !endPtr || ptr + n > endPtr) {
@@ -225,26 +258,53 @@ uint64_t Mp4Demux::ReadBytes(int n)
 	return rc;
 }
 
+/**
+ * @brief Read 16-bit unsigned integer in big-endian format
+ *
+ * @return 16-bit unsigned integer value
+ */
 uint16_t Mp4Demux::ReadU16()
 {
 	return static_cast<uint16_t>(ReadBytes(2));
 }
 
+/**
+ * @brief Read 32-bit unsigned integer in big-endian format
+ *
+ * @return 32-bit unsigned integer value
+ */
 uint32_t Mp4Demux::ReadU32()
 {
 	return static_cast<uint32_t>(ReadBytes(4));
 }
 
+/**
+ * @brief Read 32-bit signed integer in big-endian format
+ *
+ * @return 32-bit signed integer value
+ */
 int32_t Mp4Demux::ReadI32()
 {
 	return static_cast<int32_t>(ReadBytes(4));
 }
 
+/**
+ * @brief Read 64-bit unsigned integer in big-endian format
+ *
+ * @return 64-bit unsigned integer value
+ */
 uint64_t Mp4Demux::ReadU64()
 {
 	return ReadBytes(8);
 }
 
+/**
+ * @brief Read MP4 box header (version and flags)
+ * Reads the standard MP4 box header consisting of:
+ * - 1 byte version
+ * - 3 bytes flags
+ * Updates the parser state with these values.
+ */
 void Mp4Demux::ReadHeader()
 {
 	if (!ptr || !endPtr || ptr + 1 > endPtr)
@@ -253,6 +313,13 @@ void Mp4Demux::ReadHeader()
 	flags = static_cast<uint32_t>(ReadBytes(3));
 }
 
+/**
+ * @brief Skip specified number of bytes
+ * Advances the parser position by len bytes without reading the data.
+ * Used to skip over unused or reserved fields in MP4 boxes.
+ *
+ * @param len Number of bytes to skip
+ */
 void Mp4Demux::SkipBytes(size_t len)
 {
 	if (!ptr || !endPtr || ptr + len > endPtr) {
@@ -263,11 +330,22 @@ void Mp4Demux::SkipBytes(size_t len)
 
 // === Parsing functions (representative ones simplified to rely on throws) ===
 
+/**
+ * @brief Parse original format box for encrypted media
+ * Extracts the original media format from encrypted content (encv/enca).
+ * The original format is stored before encryption was applied and is
+ * used to determine the actual codec type for encrypted streams.
+ */
 void Mp4Demux::ParseOriginalFormat()
 {
 	originalMediaType = ReadU32();
 }
 
+/**
+ * @brief Parse scheme management box for DRM information
+ * Extracts DRM scheme information including:
+ * - schemeType: 'cenc' (AES-CTR) or 'cbcs' (AES-CBC with pattern)
+ */
 void Mp4Demux::ParseSchemeManagementBox()
 {
 	ReadHeader();
@@ -275,6 +353,14 @@ void Mp4Demux::ParseSchemeManagementBox()
 	SkipBytes(4); // scheme_type_parameter
 }
 
+/**
+ * @brief Parse track encryption box
+ * Extracts encryption parameters for the track:
+ * - Pattern encryption settings for CBCS
+ * - Encryption flag and IV size
+ * - Default key identifier (KID)
+ * - Constant IV for CBCS scheme
+ */
 void Mp4Demux::ParseTrackEncryptionBox()
 {
 	ReadHeader();
@@ -285,7 +371,20 @@ void Mp4Demux::ParseTrackEncryptionBox()
 		cryptByteBlock = (pattern >> 4) & 0xf;
 		skipByteBlock = pattern & 0xf;
 	}
-	codecInfo.mIsEncrypted = static_cast<uint8_t>(ReadBytes(1));
+	
+	switch( ReadBytes(1) )
+	{
+		case 0:
+			codecInfo.mIsEncrypted = false;
+			break;
+		case 1:
+			codecInfo.mIsEncrypted = true;
+			break;
+		default:
+			throw Mp4ParseException(MP4_PARSE_ERROR_UNEXPECTED_IS_ENCRYPTED_FIELD, "invalid isEncrypted value (neither 0 or 1)");
+			break;
+	}
+	
 	// This is used to ensure encrypted caps are persisted even if its clear samples
 	handledEncryptedSamples = true;
 	ivSize = static_cast<uint8_t>(ReadBytes(1));;
@@ -312,6 +411,15 @@ void Mp4Demux::ParseTrackEncryptionBox()
 	}
 }
 
+/**
+ * @brief Parse protection system specific header box (PSSH)
+ * Extracts DRM protection system data including:
+ * - System ID (formatted as UUID string)
+ * - PSSH data blob for DRM license acquisition
+ * The parsed data is stored for later DRM initialization.
+ *
+ * @param next Pointer to next box boundary
+ */
 void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 {
 	ReadHeader();
@@ -355,6 +463,12 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 	SkipBytes(dataSize);
 }
 
+/**
+ * @brief Process auxiliary information for encrypted samples
+ * Reads encryption metadata from auxiliary information when no SENC box
+ * is present. Processes initialization vectors and subsample encryption
+ * data for each sample, applying the appropriate cipher mode (CENC/CBCS).
+ */
 void Mp4Demux::ProcessAuxiliaryInformation()
 {
 	//Backup the ptr value
@@ -412,6 +526,12 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 	ptr = bptr;
 }
 
+/**
+ * @brief Parse sample auxiliary information sizes box (SAIZ)
+ * Reads the sizes of auxiliary information entries for encrypted samples.
+ * Each entry corresponds to the size of encryption metadata (IV + subsample info)
+ * for one sample. Supports both default size and individual size modes.
+ */
 void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 {
 	ReadHeader();
@@ -439,6 +559,11 @@ void Mp4Demux::ParseSampleAuxiliaryInformationSizes()
 	}
 }
 
+/**
+ * @brief Parse protection scheme information
+ * Extracts the encryption scheme type from the box
+ * Supports 'cenc' (AES-CTR) and 'cbcs' (AES-CBC with pattern).
+ */
 void Mp4Demux::ParseProtectionSchemeInfo()
 {
 	uint32_t type = ReadU32();
@@ -450,6 +575,12 @@ void Mp4Demux::ParseProtectionSchemeInfo()
 	schemeType = cipher;
 }
 
+/**
+ * @brief Parse sample auxiliary information offsets box (SAIO)
+ * Reads the offset to auxiliary information data within the movie fragment.
+ * This offset points to where encryption metadata (IVs, subsample info) is
+ * stored for encrypted samples. Supports both 32-bit and 64-bit offsets.
+ */
 void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 {
 	// offsets to auxiliary information for samples or groups of samples
@@ -479,6 +610,14 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
 	}
 }
 
+/**
+ * @brief Parse sample encryption box (SENC)
+ * Processes encryption metadata directly embedded in the SENC box.
+ * For each encrypted sample, extracts:
+ * - Initialization vector (IV)
+ * - Subsample encryption information (clear/encrypted byte pairs)
+ * - Cipher mode and pattern encryption settings
+ */
 void Mp4Demux::ParseSampleEncryption()
 {
 	ReadHeader();
@@ -519,6 +658,14 @@ void Mp4Demux::ParseSampleEncryption()
 	sencPresent = true;
 }
 
+/**
+ * @brief Parse track run box (TRUN)
+ * Extracts sample information from the track run including:
+ * - Sample data offsets and sizes
+ * - Sample durations and composition time offsets
+ * - Sample flags and media timing information
+ * Creates AampMediaSample objects with proper PTS/DTS timing.
+ */
 void Mp4Demux::ParseTrackRun()
 {
 	ReadHeader();
@@ -537,6 +684,7 @@ void Mp4Demux::ParseTrackRun()
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
 		sampleFlags = ReadU32();
+		(void)sampleFlags;
 	}
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
@@ -557,6 +705,7 @@ void Mp4Demux::ParseTrackRun()
 		if (flags & TRUN_SAMPLE_FLAGS_PRESENT)
 		{ // rarely present?
 			sampleFlags = ReadU32();
+			(void)sampleFlags;
 		}
 		int32_t sampleCompositionTimeOffset = 0;
 		if (flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
@@ -578,6 +727,15 @@ void Mp4Demux::ParseTrackRun()
 	}
 }
 
+/**
+ * @brief Parse track fragment header box (TFHD)
+ * Extracts track fragment header information including:
+ * - Track ID
+ * - Base data offset for media data
+ * - Default sample description index
+ * - Default sample duration and size
+ * - Default sample flags
+ */
 void Mp4Demux::ParseTrackFragmentHeader()
 {
 	ReadHeader();
@@ -604,6 +762,11 @@ void Mp4Demux::ParseTrackFragmentHeader()
 	}
 }
 
+/**
+ * @brief Parse track fragment decode time box (TFDT)
+ * Extracts the base media decode time for the track fragment.
+ * This value is used to calculate sample DTS values within the fragment.
+ */
 void Mp4Demux::ParseTrackFragmentDecodeTime()
 {
 	ReadHeader();
@@ -611,6 +774,14 @@ void Mp4Demux::ParseTrackFragmentDecodeTime()
 	baseMediaDecodeTime = ReadBytes(sz);
 }
 
+/**
+ * @brief Parse video information from sample entry
+ * Extracts video-specific properties from the sample description:
+ * - Video dimensions (width, height)
+ * - Display resolution information
+ * - Frame count and color depth
+ * - Data reference index for media data location
+ */
 void Mp4Demux::ParseVideoInformation()
 {
 	// Skip: reserved[6] (4) + data_reference_index (4) + reserved/pre_defined fields (16)
@@ -626,6 +797,13 @@ void Mp4Demux::ParseVideoInformation()
 	}
 }
 
+/**
+ * @brief Parse audio information from sample entry
+ * Extracts audio-specific properties from the sample description:
+ * - Channel count and sample size
+ * - Sample rate information
+ * - Data reference index for media data location
+ */
 void Mp4Demux::ParseAudioInformation()
 {
 	// Skip: reserved[6] (4) + data_reference_index (4) + reserved[2] (8)
@@ -637,6 +815,11 @@ void Mp4Demux::ParseAudioInformation()
 	SkipBytes(2); // Lower 16 bits of sample_rate (typically 0)
 }
 
+/**
+ * @brief Parse movie header box (MVHD)
+ * Extracts global movie properties including:
+ * - Time scale and duration
+ */
 void Mp4Demux::ParseMovieHeader()
 {
 	ReadHeader();
@@ -651,6 +834,11 @@ void Mp4Demux::ParseMovieHeader()
 	SkipBytes(64);
 }
 
+/**
+ * @brief Parse track header box (TKHD)
+ * Extracts track-specific properties including:
+ * - Track ID and duration
+ */
 void Mp4Demux::ParseTrackHeader()
 {
 	ReadHeader();
@@ -664,6 +852,11 @@ void Mp4Demux::ParseTrackHeader()
 	SkipBytes(44);
 }
 
+/**
+ * @brief Parse media header box (MDHD)
+ * Extracts media-specific properties including:
+ * - Time scale and duration
+ */
 void Mp4Demux::ParseMediaHeader()
 {
 	ReadHeader();
@@ -676,6 +869,14 @@ void Mp4Demux::ParseMediaHeader()
 	SkipBytes(4);
 }
 
+/**
+ * @brief Parse track extends box (TREX)
+ * Extracts default sample properties for the track:
+ * - Track ID
+ * - Default sample description index
+ * - Default sample duration and size
+ * - Default sample flags
+ */
 void Mp4Demux::ParseTrackExtendsBox()
 {
 	ReadHeader();
@@ -686,6 +887,13 @@ void Mp4Demux::ParseTrackExtendsBox()
 	defaultSampleFlags = ReadU32();
 }
 
+/**
+ * @brief Parse sample description box (STSD)
+ * Extracts the number of sample descriptions and processes them.
+ * Currently only supports a single sample description.
+ *
+ * @param next Pointer to next box
+ */
 void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 {
 	ReadHeader();
@@ -697,6 +905,15 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 	DemuxHelper(next);
 }
 
+/**
+ * @brief Parse stream format box
+ * Determines the codec type from the FourCC and
+ * invokes the appropriate parsing function for
+ * video or audio information extraction.
+ *
+ * @param type FourCC type
+ * @param next Pointer to next box
+ */
 void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 {
 	streamFormat = type;
@@ -720,6 +937,14 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 	DemuxHelper(next);
 }
 
+/**
+ * @brief Read length field with variable encoding
+ * Reads a variable-length encoded integer used in Elementary Stream
+ * Descriptor (ESDS) boxes. Each byte contains 7 bits of data and
+ * 1 continuation bit. Used for AAC codec configuration parsing.
+ *
+ * @return Length value decoded from variable-length encoding
+ */
 uint32_t Mp4Demux::ReadLen()
 {
 	if (!ptr || !endPtr) {
@@ -741,6 +966,16 @@ uint32_t Mp4Demux::ReadLen()
 	throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "ReadLen: unterminated var int");
 }
 
+/**
+ * @brief Parse ESDS codec configuration helper
+ * Iteratively parses Elementary Stream Descriptor structure for AAC audio:
+ * - Tag 0x03: ES descriptor (container)
+ * - Tag 0x04: Decoder config descriptor (object type, stream type, bitrates)
+ * - Tag 0x05: Decoder specific info (actual codec configuration data)
+ * - Tag 0x06: SL config descriptor
+ *
+ * @param next Pointer to end of data
+ */
 void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 {
 	while (ptr < next)
@@ -787,6 +1022,17 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 	}
 }
 
+/**
+ * @brief Parse codec configuration box
+ * Handles codec-specific configuration data:
+ * - ESDS: AAC Elementary Stream Descriptor (complex structure)
+ * - avcC: H.264 configuration (SPS/PPS data)
+ * - hvcC: HEVC configuration (VPS/SPS/PPS data)
+ * - dec3: Enhanced AC3 configuration (skipped for now)
+ *
+ * @param type FourCC type identifier
+ * @param next Pointer to next box boundary
+ */
 void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 {
 	codecInfo.mCodecFormat = GetGstStreamOutputFormatFromFourCC(type);
@@ -810,6 +1056,15 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	}
 }
 
+/**
+ * @brief Main demux helper function
+ * Core MP4 parsing engine that recursively processes MP4 boxes.
+ * Handles box size calculation, type identification, and dispatches
+ * to appropriate parsing functions based on box type (FourCC).
+ * Supports both standard and encrypted MP4 container formats.
+ *
+ * @param fin Pointer to end of data to parse
+ */
 void Mp4Demux::ParseMovieExtendsHeader()
 {
 	// Currently not used
@@ -992,6 +1247,17 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 	}
 }
 
+/**
+ * @brief Parse MP4 data segment
+ * Main entry point for MP4 parsing. Resets sample data from previous
+ * segments while preserving metadata, then initiates recursive parsing
+ * of the MP4 container structure. Handles both initialization segments
+ * and media fragments.
+ *
+ * @param ptr Pointer to MP4 data buffer
+ * @param len Length of data buffer in bytes
+ * @return true if parsing succeeded, false on error
+ */
 bool Mp4Demux::Parse(const void *data, size_t len)
 {
 	bool ret = false;
@@ -1035,6 +1301,7 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 	return ret;
 }
 
+
 void Mp4Demux::ParseOrThrow(const void *data, size_t len)
 {
 	if (!Parse(data, len)) {
@@ -1042,16 +1309,37 @@ void Mp4Demux::ParseOrThrow(const void *data, size_t len)
 	}
 }
 
+/**
+ * @brief Get last parser error
+ * Returns the last error that occurred during parsing.
+ *
+ * @return Mp4ParseError indicating the last error
+ */
 Mp4ParseError Mp4Demux::GetLastError() const
 {
 	return parseError;
 }
 
+/**
+ * @brief Get media timescale value
+ * Returns the timescale used for media timing calculations.
+ * Used to convert media time units to seconds for PTS/DTS values.
+ *
+ * @return Media timescale in units per second
+ */
 uint32_t Mp4Demux::GetTimeScale() const
 {
 	return timeScale;
 }
 
+/**
+ * @brief Get codec information
+ * Returns comprehensive codec information including format,
+ * media type, and codec-specific parameters extracted from
+ * the MP4 sample description.
+ *
+ * @return Codec information with ownership transferred to caller
+ */
 MediaCodecInfo Mp4Demux::GetCodecInfo()
 {
 	// std::move is required here because codecInfo is a member variable.
@@ -1061,12 +1349,26 @@ MediaCodecInfo Mp4Demux::GetCodecInfo()
 	return std::move(codecInfo);
 }
 
+/**
+ * @brief Get DRM protection system data
+ * Returns all PSSH (Protection System Specific Header) data
+ * extracted from the MP4 container for DRM license acquisition.
+ *
+ * @return Protection data vector with ownership transferred to caller
+ */
 std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 {
 	// std::move is required here because codecInfo is a member variable.
 	return std::move(protectionData);
 }
 
+/**
+ * @brief Get parsed media samples
+ * Returns all media samples extracted from the current MP4 fragment,
+ * including sample data, timing information, and encryption metadata.
+ *
+ * @return Media samples vector with ownership transferred to caller
+ */
 std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
 	// std::move is required here because codecInfo is a member variable.

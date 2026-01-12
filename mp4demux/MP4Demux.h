@@ -88,7 +88,8 @@ enum Mp4ParseError
 	MP4_PARSE_ERROR_INVALID_INPUT, /**< Invalid input to parse function; nullptr or zero length */
 	MP4_PARSE_ERROR_INVALID_KID, /**< Invalid (huge) kidCount */
 	MP4_PARSE_ERROR_INVALID_ENTRY_COUNT, /**< Entry count is zero */
-	MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW /**< Value encoded using octets exceed 32 bits */
+	MP4_PARSE_ERROR_VARIABLE_LENGTH_OVERFLOW, /**< Value encoded using octets exceed 32 bits */
+	MP4_PARSE_ERROR_UNEXPECTED_IS_ENCRYPTED_FIELD /**< is_encrypted not 0 or 1 */
 };
 
 /**
