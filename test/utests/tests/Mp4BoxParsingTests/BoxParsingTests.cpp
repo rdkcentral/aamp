@@ -438,7 +438,6 @@ TEST(Mp4Demux_Gaps, TrunOverrunDetection) {
 		moof.close();
 	}
 	// small mdat
-	//size_t mdatHdr = buf.size();
 	write32be(buf, 16); write4cc(buf, "mdat"); // 8 header + 8 payload
 	size_t mdatPayload = buf.size(); for (int i=0;i<8;++i) buf.push_back(uint8_t(i));
 	// patch trun data_offset to point into mdat payload

@@ -145,10 +145,10 @@ private:
 	// Parser state
 	const uint8_t *moofPtr;                       /**< Base address for sample data */
 	const uint8_t *ptr;                           /**< Current parser position */
-	const uint8_t* endPtr;                        /**< Absolute end of current parse buffer */
+	const uint8_t *endPtr;                        /**< Absolute end boundary of the current parse buffer */
 	// MDAT range tracking (for sample data validation)
-	const uint8_t *mdatStart;                     /**< Start of current/last mdat payload */
-	const uint8_t *mdatEnd;                       /**< End of current/last mdat payload */
+	const uint8_t *mdatStart;                     /**< Pointer to the first byte of the payload of the current or most recently parsed 'mdat' box. Set when an 'mdat' box is parsed and used as the lower bound when validating that computed sample data offsets and sizes remain within the available payload range. */
+	const uint8_t *mdatEnd;                        /**< Pointer to one past the last byte of the payload of the current or most recently parsed 'mdat' box. Set together with mdatStart during 'mdat' parsing and used as the upper bound during sample data bounds checking to ensure no read extends beyond the validated 'mdat' payload. */
 	
 	// Box header fields
 	uint8_t version;                              /**< Box version */
@@ -395,7 +395,14 @@ public:
 	 * @brief Parse MP4 data
 	 * @param ptr Pointer to MP4 data
 	 * @param len Length of data
-	 * @note endPtr is set to &((const uint8_t*)ptr)[len] for uniform bounds checking
+	 *
+	 * @note Internally, an end-of-buffer pointer (endPtr) is computed as
+	 *       &((const uint8_t*)ptr)[len]. All parsing routines use this
+	 *       endPtr for uniform bounds checking, ensuring that every read
+	 *       and pointer increment is validated against the end of the
+	 *       input buffer to prevent buffer overruns and out-of-bounds
+	 *       memory access.
+	 *
 	 * @return true if parsing succeeded, false on error
 	 */
 	bool Parse(const void *ptr, size_t len);
