@@ -1004,6 +1004,10 @@ void Mp4Demux::ParseEsdsCodecConfigHelper(const uint8_t *next)
 				break;
 			case ESDS_TAG_DECODER_SPECIFIC_INFO:
 				// Leaf descriptor - contains actual codec configuration data
+				if( ptr+len > endPtr )
+				{
+					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "esds: malformed config data");
+				}
 				codecInfo.mCodecData = std::vector<uint8_t>(ptr, ptr + len);
 				ptr += len;
 				break;
