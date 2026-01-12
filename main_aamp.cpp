@@ -626,7 +626,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
-
 			// Special case where playback has not started due to autoplay being false and
 			// first rate is paused, set to pause with first frame shown
 			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
@@ -666,12 +665,24 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 			}
 			bool retValue = true;
+			if ( AAMP_SLOWMOTION_RATE != rate && rate > 0 && aamp->IsLive() && aamp->mpStreamAbstractionAAMP->IsAtLivePoint() && aamp->rate >= AAMP_NORMAL_PLAY_RATE && !aamp->mbDetached)
+			{
+				AAMPLOG_WARN("Already at logical live point, hence skipping operation");
+				aamp->NotifyOnEnteringLive();
+				return;
+			}
+			else
+			{
+				aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint()
+			}
+/*
 			if ( AAMP_SLOWMOTION_RATE != rate && rate > 0 && aamp->IsLive() && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint() && aamp->rate >= AAMP_NORMAL_PLAY_RATE && !aamp->mbDetached)
 			{
 				AAMPLOG_WARN("Already at logical live point, hence skipping operation");
 				aamp->NotifyOnEnteringLive();
 				return;
 			}
+*/				
 
 			// If input rate is same as current playback rate, skip duplicate operation
 			// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
@@ -680,6 +691,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused, rate);
 				return;
 			}
+
+			aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint()
 
 			//-- Get the trick play to a closer position
 			//Logic adapted
