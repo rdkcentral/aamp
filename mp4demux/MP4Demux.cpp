@@ -495,6 +495,10 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 			return;
 		}
 		uint32_t dataSize = ReadU32();
+		if( parseError != MP4_PARSE_OK )
+		{
+			return;
+		}
 		if (ptr + dataSize > next)
 		{
 			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
@@ -502,6 +506,10 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 		}
 		psshData.pssh.assign(ptr, ptr + dataSize);
 		SkipBytes(dataSize);
+		if( parseError != MP4_PARSE_OK )
+		{
+			return;
+		}
 	}
 }
 
@@ -797,7 +805,7 @@ void Mp4Demux::ParseTrackRun()
 			sampleCompositionTimeOffset = ReadI32();
 		}
 		// Guard: sample buffer must not overrun endPtr (or mdat)
-		const uint8_t* hardEnd = mdatEnd?mdatEnd:endPtr;
+		const uint8_t* hardEnd = mdatEnd ? mdatEnd : endPtr;
 		if ( dataPtr + sampleLen > hardEnd )
 		{
 			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
@@ -985,14 +993,9 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 	ReadHeader();
 	uint32_t count = ReadU32();
 	if( parseError != MP4_PARSE_OK ) return;
-	// warn if 0 or >1
-	if (count == 0) {
+	if (count != 1) {
 		setParseError( MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT );
 		return;
-	}
-	if (count > 1)
-	{
-		MP4_LOG_WARN("unexpected stsd count=%u", count );
 	}
 	// Parse contained sample entries/config boxes
 	DemuxHelper(next);

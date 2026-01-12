@@ -79,7 +79,7 @@ enum mp4LogLevel
  */
 enum Mp4ParseError
 {
-	MP4_PARSE_OK,                                  /**< No error */
+	MP4_PARSE_OK = 0,                              /**< No error */
 	MP4_PARSE_ERROR_INVALID_BOX,                   /**< Invalid box header size */
 	MP4_PARSE_ERROR_INVALID_IV_SIZE,               /**< Invalid  IV size (expected 8 or 16) */
 	MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH,         /**< Explicit sample count doesn't match implicit sample count */
