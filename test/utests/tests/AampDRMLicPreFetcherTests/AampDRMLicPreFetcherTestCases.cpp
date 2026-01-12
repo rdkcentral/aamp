@@ -1334,7 +1334,7 @@ TEST_F(AampDRMLicPreFetcherTests, MultiKey_VssPeriod_Slot0Failed_ErrorNotifiedIn
  * - Verify createDrmSession() is called sequentially (not concurrently)
  * - Verify no data corruption occurs during concurrent access
  */
-TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesConcurrentLicenseAcquisition)
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexSerializesLicenseAcquisition)
 {
 	mTestablePreFetcher->Init();
 
@@ -1633,7 +1633,7 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_TermWaitsForOngoingLicenseAcqu
  * - NotifyDrmFailure will acquire mLicenseAcquisitionMutex (and may access mFetchInstance)
  * - Verify no deadlock occurs during error flow
  */
-TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailureInvoked)
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NotifyDrmFailureNoDeadlock)
 {
 	mTestablePreFetcher->Init();
 
@@ -1713,7 +1713,7 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_NoDeadlockWhenNotifyDrmFailure
  * - Prefetch thread: Acquire license via CreateDRMSession
  * - Verify both operations complete without deadlock
  */
-TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetLicenseFetcherAndCreateDrmSessionNoDeadlock)
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetFetcherCreateSessionNoDeadlock)
 {
 	mTestablePreFetcher->Init();
 
@@ -1928,7 +1928,7 @@ TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_SetLicenseFetcherAndCreateDrmS
  * - NotifyDrmFailure calls use mFetchInstance safely
  * - Verify no use-after-free or null pointer dereference
  */
-TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_MutexProtectsFetchInstanceAccess)
+TEST_F(AampDRMLicPreFetcherTests, ConcurrencyTest_ProtectsFetchInstanceAccess)
 {
 	mTestablePreFetcher->Init();
 

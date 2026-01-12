@@ -225,7 +225,8 @@ bool AampLicensePreFetcher::Term()
  *
  * Sets the license fetcher instance used by the prefetcher.
  * This method is thread-safe and uses a mutex (mLicenseAcquisitionMutex)
- * to protect mFetchInstance from concurrent access.
+ * to protect mFetchInstance from concurrent access. This helps to Serialize
+ * license acquisition with start/stop and failure flows.
  *
  * @param fetcherInstance Pointer to the AampLicenseFetcher instance to set.
  * @note Thread-safe: uses mutual exclusion to protect mFetchInstance.
@@ -499,8 +500,8 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation,  no helper");
 		/*
-		 * mLicenseAcquisitionMutex shouldn't be locked before calling
-		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
+		 * Do not hold mLicenseAcquisitionMutex when calling NotifyDrmFailure,
+		 * as NotifyDrmFailure acquires mLicenseAcquisitionMutex internally.
 		 */
 		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 		return ret;
