@@ -55,7 +55,7 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
  */
 void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
-if(src)
+	if(src)
 	{
 		g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 	}
