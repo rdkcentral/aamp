@@ -1,4 +1,3 @@
-
 /*
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
@@ -387,7 +386,7 @@ void Mp4Demux::ParseTrackEncryptionBox()
 	
 	// This is used to ensure encrypted caps are persisted even if its clear samples
 	handledEncryptedSamples = true;
-	ivSize = static_cast<uint8_t>(ReadBytes(1));;
+	ivSize = static_cast<uint8_t>(ReadBytes(1));
 	
 	if (ptr + TENC_BOX_KEY_ID_SIZE > endPtr) {
 		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "tenc: missing KID");
@@ -397,7 +396,7 @@ void Mp4Demux::ParseTrackEncryptionBox()
 	
 	if (version == 1)
 	{ // Version 1 adds constant IV
-		constantIvSize = static_cast<uint8_t>(ReadBytes(1));;
+		constantIvSize = static_cast<uint8_t>(ReadBytes(1));
 		if (constantIvSize != 8 && constantIvSize != 16)
 		{
 			throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_IV_SIZE, "tenc: invalid IV size");
