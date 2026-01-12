@@ -52,8 +52,8 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
  * @param trackId Track ID.
  */
 void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
-{
-	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
+{ // fake - do we even need implementation?
+	// g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 }
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {

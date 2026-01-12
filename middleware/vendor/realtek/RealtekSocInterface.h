@@ -113,14 +113,7 @@ class RealtekSocInterface : public SocInterface
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
 		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
-
-		/**
-		 * @brief Set AC4 tracks.
-		 * @param src Source element.
-		 * @param trackId Track ID.
-		 */
-		void SetAC4Tracks(GstElement *src, int trackId) override;
-
+	
 		/**
 		 * @brief Set platform playback rate.
 		 * @return True on success, false otherwise.
