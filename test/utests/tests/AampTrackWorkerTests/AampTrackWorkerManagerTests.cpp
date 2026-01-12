@@ -119,13 +119,11 @@ TEST_F(AampTrackWorkerManagerTest, WaitForCompletionWorks)
 		std::this_thread::sleep_for(std::chrono::milliseconds(200)); // Simulate a long-running job
 	});
 
-	// Submit the job to the worker
-	auto future = worker->SubmitJob(job, false);
-	EXPECT_TRUE(future.valid());
-
 	bool timeoutOccurred = false;
-	// Wait for completion with a timeout
 	mTrackWorkerManager->StartWorkers();
+	auto future = worker->SubmitJob(job, false); 
+	EXPECT_TRUE(future.valid());
+	// Wait for completion with a timeout of 50ms, which should trigger the timeout as job takes 200ms
 	mTrackWorkerManager->WaitForCompletionWithTimeout(50, [&]() { timeoutOccurred = true; mTrackWorkerManager->StopWorkers(); });
 	EXPECT_TRUE(timeoutOccurred);
 	EXPECT_TRUE(worker->IsStopped());
@@ -147,14 +145,15 @@ TEST_F(AampTrackWorkerManagerTest, WaitForCompletionSkipsNonCriticalWorkers)
 	auto textJob = std::make_shared<MediaSegmentDownloadJob>(nullptr, []() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Simulate
 	});
-	// Submit the job to the worker
+
+	bool timeoutOccurred = false;
+	mTrackWorkerManager->StartWorkers();
 	auto videoFuture = videoWorker->SubmitJob(videoJob, false);
 	auto textFuture = textWorker->SubmitJob(textJob, false);
 	EXPECT_TRUE(videoFuture.valid());
 	EXPECT_TRUE(textFuture.valid());
-	bool timeoutOccurred = false;
-	// Wait for completion with a timeout
-	mTrackWorkerManager->StartWorkers();
+
+	// Wait for completion with a timeout of 50ms, which should trigger the timeout as jobs take 100ms
 	mTrackWorkerManager->WaitForCompletionWithTimeout(50, [&]() { timeoutOccurred = true; mTrackWorkerManager->StopWorkers(); });
 	EXPECT_TRUE(timeoutOccurred);
 	EXPECT_TRUE(videoWorker->IsStopped());

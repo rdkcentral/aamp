@@ -19,6 +19,7 @@
 
 #include "AampUtils.h"
 #include "MockAampUtils.h"
+#include <cctype>
 
 MockAampUtils *g_mockAampUtils = nullptr;
 
@@ -594,6 +595,25 @@ std::string convertTimeToHHMMSS( long long t )
 const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr)
 {
 	return NULL;
+}
+
+int hexCharToInt(char c)
+{
+	// For convenience including working implementation of this trivial function.
+	// Avoids breaking ChunkTransferTests.
+	if (c >= '0' && c <= '9')
+	{
+		return c - '0';
+	}
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
+	if (c >= 'A' && c <= 'F')
+	{
+		return 10 + (c - 'A');
+	}
+	return -1;
 }
 
 void aamp_setThreadName(const char *name)
