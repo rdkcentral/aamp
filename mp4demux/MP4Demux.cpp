@@ -1190,45 +1190,41 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 		uint32_t type = ReadU32();
 		if( parseError !=MP4_PARSE_OK ) return;
 		const uint8_t *next = nullptr;
-		if( size==1 )
-		{ // size includes size(4)+type(4)+large_size(8)
-			size = ReadU64();
-			if( parseError !=MP4_PARSE_OK ) return;
-			if ( size < 16)
+		if( size==0 )
+		{ // box extends to end of buffer
+			next = fin;
+		}
+		else
+		{
+			if( size==1 )
+			{ // format: size(4)+type(4)+large_size(8)+payload
+				size = ReadU64();
+				if( parseError !=MP4_PARSE_OK ) return;
+				if ( size < 16)
+				{
+					setParseError( MP4_PARSE_ERROR_INVALID_BOX );
+					return;
+				}
+				size -= 16;
+			}
+			else if( size>=8 )
+			{ // format: size(4)+type(4)+payload
+				size -= 8;
+			}
+			else
 			{
 				setParseError( MP4_PARSE_ERROR_INVALID_BOX );
 				return;
 			}
-			//next = ptr + (size - 16);
-			const uint64_t payloadSize = size - 16;
 			const uint64_t remaining = static_cast<uint64_t>(fin - ptr);
-			if (payloadSize > remaining)
+			if( size > remaining )
 			{
 				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
 				return;
 			}
-			next = ptr + payloadSize;
-		}
-		else if( size == 0 )
-		{ // box extends to end of buffer
-			next = fin;
-		}
-		else if( size<8 )
-		{
-			setParseError( MP4_PARSE_ERROR_INVALID_BOX );
-			return;
-		}
-		else
-		{ // payload after size+type
-			next = ptr + (size - 8);
+			next = ptr + size;
 		}
 		MP4_LOG_DEBUG("Box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
-		// Validate that the box doesn't extend beyond buffer
-		if (next > fin)
-		{
-			setParseError( MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH );
-			return;
-		}
 
 		switch (type)
 		{
