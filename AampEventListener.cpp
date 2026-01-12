@@ -42,6 +42,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			MediaErrorEventPtr ev = std::dynamic_pointer_cast<MediaErrorEvent>(e);
 			event.data.mediaError.failure = ev->getFailure();
 			event.data.mediaError.code = ev->getCode();
+			event.data.mediaError.subCode = ev->getSubCode();
 			event.data.mediaError.description = ev->getDescription().c_str();
 			event.data.mediaError.shouldRetry = ev->shouldRetry();
 			if(-1 != ev->getClass()) //Only send the verbose logging for DRM failure due to secclient/secmanager
