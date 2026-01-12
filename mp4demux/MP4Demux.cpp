@@ -1199,7 +1199,15 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				setParseError( MP4_PARSE_ERROR_INVALID_BOX );
 				return;
 			}
-			next = ptr + (size - 16);
+			//next = ptr + (size - 16);
+			const uint64_t payloadSize = size - 16;
+			const uint64_t remaining = static_cast<uint64_t>(fin - ptr);
+			if (payloadSize > remaining)
+			{
+				parseError = MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH;
+				return;
+			}
+			next = ptr + payloadSize;
 		}
 		else if( size == 0 )
 		{ // box extends to end of buffer
