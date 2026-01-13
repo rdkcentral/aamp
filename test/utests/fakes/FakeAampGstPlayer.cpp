@@ -42,15 +42,13 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	}
 }
 
-bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double duration)
+bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double duration)
 {
-	delete buffer; // Clean up the buffer since fake doesn't use it
 	return true;
 }
 
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	delete buffer; // Clean up the buffer since fake doesn't use it
 	return true;
 }
 

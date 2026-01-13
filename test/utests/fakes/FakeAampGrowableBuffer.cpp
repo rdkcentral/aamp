@@ -189,7 +189,7 @@ void AampGrowableBuffer::Transfer( void )
 	buffer.shrink_to_fit();
 }
 
-std::vector<uint8_t>* AampGrowableBuffer::ExtractVector( void )
+std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
 	if (g_enableMemoryCopying)
 	{
@@ -204,9 +204,9 @@ std::vector<uint8_t>* AampGrowableBuffer::ExtractVector( void )
 		}
 	}
 	
-	auto* extracted = new std::vector<uint8_t>(std::move(buffer));
+	std::vector<uint8_t> extracted(std::move(buffer));
 	buffer.clear();
 	buffer.shrink_to_fit();
 	
-	return extracted;
+	return extracted; // RVO/NRVO will optimize this
 }

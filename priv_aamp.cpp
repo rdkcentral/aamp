@@ -7912,47 +7912,27 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
  */
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	bool rc = false;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-	if (sink)
+	if (sink && ptr && len > 0)
 	{
-
-		// Create a temporary vector and copy the data into it
-		auto *tempBuffer = new std::vector<uint8_t>(static_cast<const uint8_t *>(ptr), static_cast<const uint8_t *>(ptr) + len);
-
-		// Pass vector to sink which will take ownership
-		rc = sink->SendCopy(mediaType, tempBuffer, fpts, fdts, fDuration);
-
-		if (!rc)
-		{
-			// Sink didn't take ownership - clean up
-			delete tempBuffer;
-		}
+		return sink->SendCopy(mediaType,
+							  std::vector<uint8_t>(static_cast<const uint8_t *>(ptr),
+												   static_cast<const uint8_t *>(ptr) + len),
+							  fpts, fdts, fDuration);
 	}
-	return rc;
+	return false;
 }
 
 /**
  * @brief  API to send audio/video stream into the sink.
  */
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		// Get buffer state for diagnostics BEFORE extraction
-		size_t len = buffer->GetLen();
-		size_t avail = buffer->GetAvail();
-		char *ptr = buffer->GetPtr();
-
-		// Use ExtractVector to get ownership of the internal vector
-		auto *tempBuffer = buffer->ExtractVector();
-
-		if (!sink->SendTransfer(mediaType, tempBuffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity))
-		{
-			// unable to transfer - free up the vector
-			delete tempBuffer;
-		}
+		// The temporary vector returned by ExtractVector is automatically moved into SendTransfer.
+		sink->SendTransfer(mediaType, buffer->ExtractVector(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
 	else
 	{

@@ -74,10 +74,10 @@ public:
 	
 	/**
 	 * @brief Extract the internal vector for ownership transfer
-	 * @return pointer to new vector that caller must delete
-	 * @note The internal buffer is cleared after extraction
+	 * @return vector object (moved, not copied) containing the buffer data
+	 * @note The internal buffer is cleared after extraction. Uses move semantics for zero-copy transfer.
 	 */
-	std::vector<uint8_t>* ExtractVector( void );
+	std::vector<uint8_t> ExtractVector( void );
 	
 	char *GetPtr( void ) { return reinterpret_cast<char*>(buffer.data()); } // accessor function for current growable buffer binary payload
 	const char *GetPtr( void ) const { return reinterpret_cast<const char*>(buffer.data()); } // accessor function for current growable buffer binary payload

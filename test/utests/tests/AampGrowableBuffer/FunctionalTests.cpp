@@ -184,16 +184,14 @@ TEST_F(FunctionalTests, ExtractNonEmptyTest)
     EXPECT_NE(dataPtr, nullptr);
     EXPECT_EQ(dataLen, 9);
     
-    // Extract the internal vector and take ownership
-    auto vec = buffer.ExtractVector();
+    // Extract the internal vector and take ownership (returned by value, moved)
+    std::vector<uint8_t> vec = buffer.ExtractVector();
 
     // Validate the returned vector contains the same data
-    ASSERT_NE(vec, nullptr);
-    EXPECT_EQ(vec->size(), dataLen);
-    EXPECT_EQ(memcmp(vec->data(), dataPtr, dataLen), 0);
+    EXPECT_EQ(vec.size(), dataLen);
+    EXPECT_EQ(memcmp(vec.data(), dataPtr, dataLen), 0);
 
-    // Clean up the extracted vector (caller owns it)
-    delete vec;
+    // No need to delete - vector is automatically cleaned up (RAII)
 
     // Assert: Check that the properties are reset after extraction
     EXPECT_EQ(buffer.GetPtr(), nullptr); // Check if the pointer is null

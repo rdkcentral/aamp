@@ -65,13 +65,13 @@ public:
      *   @param[in]  fDuration - Buffer duration.
      *   @return true if successful
      */
-    virtual bool SendCopy( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration)= 0;
+    virtual bool SendCopy( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration)= 0;
 
     /**
      *   @brief  API to send audio/video buffer into the sink.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  buffer - Pointer to std::vector; ownership is taken by the sink
+     *   @param[in]  buffer - Vector data (moved into sink, zero-copy)
      *   @param[in]  fpts - Presentation Time Stamp.
      *   @param[in]  fdts - Decode Time Stamp
      *   @param[in]  fDuration - Buffer duration.
@@ -79,7 +79,7 @@ public:
      *   @param[in]  initFragment - flag for buffer type (init, data)
      *   @return void
      */
-    virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
+    virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
 
     /**
      *   @brief  API to send audio/video sample into the sink.

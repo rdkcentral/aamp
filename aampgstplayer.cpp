@@ -771,23 +771,21 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 /**
  *  @brief inject HLS/ts elementary stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration)
+bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration)
 {
-	// Data was already copied into the vector by priv_aamp.cpp
-	// Use move constructor to take ownership without additional copying
-	MediaSample sample(std::move(*buffer), fpts, fdts, fDuration, 0.0);
-	delete buffer; // Clean up the now-empty vector object
-	return SendHelper(mediaType, std::move(sample), false /*copy parameter is now unused*/);
+	// Data already in vector, just move it into MediaSample (zero-copy)
+	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, 0.0);
+	return SendHelper(mediaType, std::move(sample), false);
 }
 
 /**
  *  @brief inject mp4 segment to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t> *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	// Create MediaSample from raw pointer (copy data into vector)
-	MediaSample sample(std::move(*buffer), fpts, fdts, fDuration, fragmentPTSoffset);
-	return SendHelper(mediaType, std::move(sample), false /*transfer*/, initFragment, discontinuity);
+	// Data already in vector, just move it into MediaSample (zero-copy)
+	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset);
+	return SendHelper(mediaType, std::move(sample), false, initFragment, discontinuity);
 }
 
 /**
@@ -1351,11 +1349,7 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 {
 	// Convert AampMediaSample (with AampGrowableBuffer) to MediaSample (with std::vector)
 	// Use ExtractVector to move data without copying (zero-copy transfer)
-	auto* tempBuffer = sample.mData.ExtractVector();
-	
-	// Construct MediaSample from moved vector (no copy - just moves ownership)
-	MediaSample gstSample(std::move(*tempBuffer), sample.mPts, sample.mDts, sample.mDuration, 0.0);
-	delete tempBuffer; // Delete the now-empty vector wrapper
+	MediaSample gstSample(sample.mData.ExtractVector(), sample.mPts, sample.mDts, sample.mDuration, 0.0);
 	
 	// Move the DRM metadata (avoids copy)
 	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);

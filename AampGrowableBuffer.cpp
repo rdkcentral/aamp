@@ -162,10 +162,10 @@ void AampGrowableBuffer::Transfer( void )
 
 /**
  * @brief Extract the internal vector for ownership transfer to external code (e.g., GStreamer)
- * @return pointer to new vector that caller must delete
+ * @return vector object (moved) containing the buffer data
  * @note The internal buffer is moved out and the AampGrowableBuffer is reset to known empty state
  */
-std::vector<uint8_t>* AampGrowableBuffer::ExtractVector( void )
+std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
 	assert( !buffer.empty() );
 
@@ -178,12 +178,12 @@ std::vector<uint8_t>* AampGrowableBuffer::ExtractVector( void )
 		}
 	}
 
-	// Create new vector and move our data into it
-	auto* extracted = new std::vector<uint8_t>(std::move(buffer));
+	// Move our data into a temporary vector for return
+	std::vector<uint8_t> extracted(std::move(buffer));
 
 	// Explicitly clear to ensure known empty state (not just moved-from state)
 	buffer.clear();
 	buffer.shrink_to_fit();
 
-	return extracted;
+	return extracted; // RVO/NRVO will optimize this - no copy
 }
