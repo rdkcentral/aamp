@@ -5353,7 +5353,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
-	bool shouldRestoreCC = false;
+	bool previousCCEnabled = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
