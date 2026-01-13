@@ -5427,7 +5427,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	if (!newTune || eTUNETYPE_RETUNE == tuneType)
+	// Capture CC state for operations that aren't new tunes (seek, retune, etc.)
+	// newTune is false for eTUNETYPE_SEEK, eTUNETYPE_RETUNE, eTUNETYPE_SEEKTOLIVE, etc.
+	if (!newTune)
 	{
 		bool wasCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
 		AAMPLOG_WARN("wasCCEnabled:%d isCCinBand:%d", wasCCEnabled, mIsInbandCC);
