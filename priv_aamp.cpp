@@ -5148,6 +5148,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	bool previousCCEnabled = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5225,6 +5226,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
+	if (!newTune)
+	{
+		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
+	}
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -5723,7 +5729,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
-			PlayerCCManager::GetInstance()->RestoreCC();
+		{
+			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
+		}
 	}
 
 	if (newTune && !mIsFakeTune)
