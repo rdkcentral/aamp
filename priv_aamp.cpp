@@ -5353,7 +5353,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
-	bool shouldRestoreCC = false;
+	bool wasCCEnabled = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5429,8 +5429,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
 	if (!newTune || eTUNETYPE_RETUNE == tuneType)
 	{
-		shouldRestoreCC = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("shouldRestoreCC:%d isCCinBand:%d",shouldRestoreCC,mIsInbandCC);
+		wasCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("wasCCEnabled:%d isCCinBand:%d",wasCCEnabled,mIsInbandCC);
 	}
 	if(SocUtils::ResetNewSegmentEvent())
 	{
@@ -5915,7 +5915,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
-			PlayerCCManager::GetInstance()->RestoreCC(shouldRestoreCC);
+			PlayerCCManager::GetInstance()->RestoreCC(wasCCEnabled);
 		}
 	}
 

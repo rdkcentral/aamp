@@ -729,9 +729,9 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 /**
  *  @brief To restore cc state after new tune
  */
-void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
+void PlayerCCManagerBase::RestoreCC(bool wasCCEnabled)
 {
-	mEnabled = shouldRestoreCC;
+	mEnabled = wasCCEnabled;
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 
