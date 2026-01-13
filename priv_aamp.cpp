@@ -5353,7 +5353,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
-	bool shouldRestoreCC=false;
+	bool shouldRestoreCC = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5427,7 +5427,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	if( !newTune || eTUNETYPE_RETUNE == tuneType)
+	if (!newTune || eTUNETYPE_RETUNE == tuneType)
 	{
 		shouldRestoreCC = PlayerCCManager::GetInstance()->GetStatus();
 		AAMPLOG_WARN("shouldRestoreCC:%d isCCinBand:%d",shouldRestoreCC,mIsInbandCC);

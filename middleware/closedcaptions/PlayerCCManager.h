@@ -137,9 +137,10 @@ public:
 	/**
 	 * @fn RestoreCC 
 	 *
+	 * @param[in] shouldRestoreCC - flag indicating whether CC should be forcibly restored if currently disabled
 	 * @return void
 	 */
-	void RestoreCC(bool shouldRestoreCC=false);
+	void RestoreCC(bool shouldRestoreCC = false);
 
 	virtual ~PlayerCCManagerBase(){ };
 
