@@ -48,18 +48,6 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
 	isSinkBinVolume = true;
 #endif
 }
-/**
- * @brief Set AC4 tracks.
- * @param src Source element.
- * @param trackId Track ID.
- */
-void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
-{
-	if(src)
-	{
-		g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
-	}
-}
 
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {
