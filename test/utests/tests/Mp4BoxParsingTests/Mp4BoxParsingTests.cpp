@@ -17,9 +17,14 @@
  * limitations under the License.
  */
 
+/**
+ * @file Mp4BoxParsingTestsMain.cpp
+ * @brief Main entry point for MP4 Box Parsing Tests
+ */
+
 #include <gtest/gtest.h>
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();

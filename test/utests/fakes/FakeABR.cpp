@@ -18,12 +18,19 @@
 */
 
 #include "abr.h"
+#include "MockABRManager.h"
 
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 
+MockABRManager *g_mockABRManager = nullptr;
+
 int ABRManager::getProfileCount()
 {
+	if (g_mockABRManager)
+	{
+		return g_mockABRManager->getProfileCount();
+	}
 	return 0;
 }
 
@@ -58,6 +65,10 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 
 int ABRManager::getUserDataOfProfile(int currentProfileIndex)
 {
+	if (g_mockABRManager)
+	{
+		return g_mockABRManager->getUserDataOfProfile(currentProfileIndex);
+	}
 	return 0;
 }
 

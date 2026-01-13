@@ -20,6 +20,10 @@
 
 bool gstutils_quiet = true;
 
+// Logging category for utilities
+GST_DEBUG_CATEGORY_STATIC(gstutils_cat);
+#define GST_CAT_DEFAULT gstutils_cat
+
 const char *gstutils_GetMediaTypeName( MediaType mediaType )
 {
 	switch( mediaType )
@@ -52,12 +56,12 @@ void gstutils_DumpFlags( GstElement *playbin )
 	int numFlags = sizeof(mGetPlayFlagName)/sizeof(mGetPlayFlagName[0]);
 	gint flags;
 	g_object_get( playbin, "flags", &flags, NULL);
-	g_print( "GST_PLAY_FLAG:\n" );
+	GST_INFO( "GST_PLAY_FLAG:" );
 	for( int i=0; i<numFlags; i++ )
 	{
 		if( flags&(1<<i) )
 		{
-			g_print( "\t%s\n", mGetPlayFlagName[i] );
+			GST_INFO( "\t%s", mGetPlayFlagName[i] );
 		}
 	}
 }
@@ -65,42 +69,51 @@ void gstutils_DumpFlags( GstElement *playbin )
 void gstutils_element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream)
 {
 	gchar* elemName = gst_element_get_name(element);
-	g_print( "MediaStream::element_setup : %s\n", elemName ? elemName : "NULL");
+	GST_INFO( "element_setup : %s", elemName ? elemName : "NULL");
 	g_free(elemName);
 }
 
 static void buffer_underflow_callback_cb(GstElement* object, guint arg0, gpointer arg1, class Pipeline *pipeline )
 {
-	g_print( "%s\n", __FUNCTION__ );
+	GST_WARNING_OBJECT(object, "%s", __FUNCTION__ );
 }
 static void pts_error_callback_cb( GstElement* object, guint arg0, gpointer arg1, class Pipeline *pipeline )
 {
-	g_print( "%s\n", __FUNCTION__ );
+	GST_WARNING_OBJECT(object, "%s", __FUNCTION__ );
 }
 static void decode_error_callback_cb( GstElement* object, guint arg0, gpointer arg1, class Pipeline *pipeline )
 {
-	g_print( "%s\n", __FUNCTION__ );
+	GST_WARNING_OBJECT(object, "%s", __FUNCTION__ );
 }
 
 #define BUFFER_UNDERFLOW_CALLBACK "buffer-underflow-callback"
 #define PTS_ERROR_CALLBACK "pts-error-callback"
 #define DECODE_ERROR_CALLBACK "decode-error-callback"
 
+void gstutils_Init( void )
+{
+	GST_DEBUG_CATEGORY_INIT(gstutils_cat, "gstutils", 0, "GStreamer utility logs");
+}
+
 void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *messageName )
 {
+//	static gsize once = 0;
+//	if (g_once_init_enter(&once)) {
+//		GST_DEBUG_CATEGORY_INIT(gstutils_cat, "gstutils", 0, "GStreamer utility logs");
+//		g_once_init_leave(&once, 1);
+//	}
 	void *userData = NULL;
-	
-	if( !gstutils_quiet )// || strcmp( GST_OBJECT_NAME(msg->src), MY_PIPELINE_NAME ) == 0 )
+	if( !gstutils_quiet )
 	{
 		GstState old_state, new_state, pending_state;
 		gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
 		const char *name = GST_OBJECT_NAME(msg->src);
-		g_print("%s: %s %s -> %s (pending %s)\n",
-				messageName,
-				name,
-				gst_element_state_get_name(old_state),
-				gst_element_state_get_name(new_state),
-				gst_element_state_get_name(pending_state));
+		GST_INFO("%s: %s %s -> %s (pending %s)",
+				 messageName,
+				 name,
+				 gst_element_state_get_name(old_state),
+				 gst_element_state_get_name(new_state),
+				 gst_element_state_get_name(pending_state));
 		if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 		{
 			if(
@@ -109,21 +122,21 @@ void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *message
 			   strstr(name,"videodecoder") || strstr(name,"audiodecoder") || // brcmvideodecoder, brcmaudiodecoder
 			   strstr(name,"omx") || strstr(name,"rtkv1sink") )
 			{
-				g_print( "found sink: %s\n", name );
+				GST_INFO( "found sink: %s", name );
 				auto obj = G_OBJECT_GET_CLASS(msg->src);
 				if( g_object_class_find_property( obj, BUFFER_UNDERFLOW_CALLBACK)!=NULL)
 				{
-					g_print( "g_signal_connect: %s\n", BUFFER_UNDERFLOW_CALLBACK );
+					GST_DEBUG( "g_signal_connect: %s", BUFFER_UNDERFLOW_CALLBACK );
 					g_signal_connect(msg->src, BUFFER_UNDERFLOW_CALLBACK, G_CALLBACK(buffer_underflow_callback_cb), userData );
 				}
 				if( g_object_class_find_property( obj,PTS_ERROR_CALLBACK)!=NULL)
 				{
-					g_print( "g_signal_connect: %s\n", PTS_ERROR_CALLBACK );
+					GST_DEBUG( "g_signal_connect: %s", PTS_ERROR_CALLBACK );
 					g_signal_connect(msg->src, PTS_ERROR_CALLBACK, G_CALLBACK(pts_error_callback_cb), userData );
 				}
 				if( g_object_class_find_property( obj,DECODE_ERROR_CALLBACK)!=NULL)
 				{
-					g_print( "g_signal_connect: %s\n", DECODE_ERROR_CALLBACK );
+					GST_DEBUG( "g_signal_connect: %s", DECODE_ERROR_CALLBACK );
 					g_signal_connect(msg->src, DECODE_ERROR_CALLBACK, G_CALLBACK(decode_error_callback_cb), userData );
 				}
 			}
@@ -137,18 +150,17 @@ void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *mes
 	{
 		GstStreamStatusType type;
 		GstElement *owner;
-		g_print( "%s\n", messageName );
+		GST_DEBUG( "%s", messageName );
 		gst_message_parse_stream_status(message, &type, &owner);
 		const GValue *val = gst_message_get_stream_status_object (message);
-		
-		g_print( "type: %d\n", type );
+		GST_DEBUG( "type: %d", type );
 		gchar *path = gst_object_get_path_string (GST_MESSAGE_SRC (message));
-		g_print( "source: %s\n", path );
+		GST_DEBUG( "source: %s", path );
 		g_free(path);
 		path = gst_object_get_path_string (GST_OBJECT (owner));
-		g_print( "owner: %s\n", path );
+		GST_DEBUG( "owner: %s", path );
 		g_free (path);
-		g_print( "object: type %s, value %p\n", G_VALUE_TYPE_NAME(val), g_value_get_object(val) );
+		GST_DEBUG( "object: type %s, value %p", G_VALUE_TYPE_NAME(val), g_value_get_object(val) );
 		GstTask *task = NULL;
 		if( G_VALUE_TYPE(val) == GST_TYPE_TASK )
 		{
@@ -157,7 +169,7 @@ void gstutils_HandleGstMessageStreamStatus( GstMessage *message, const char *mes
 		switch( type )
 		{
 			case GST_STREAM_STATUS_TYPE_CREATE:
-				g_print( "GST_STREAM_STATUS_TYPE_CREATE %p\n", task);
+				GST_DEBUG( "GST_STREAM_STATUS_TYPE_CREATE %p", task);
 				break;
 			case GST_STREAM_STATUS_TYPE_ENTER:
 				break;
@@ -179,15 +191,13 @@ void gstutils_HandleGstMessageQOS( GstMessage * msg, const char *messageName )
 		guint64 timestamp;
 		guint64 duration;
 		gst_message_parse_qos(msg, &live, &running_time, &stream_time, &timestamp, &duration);
-		g_print(
-				"%s: tlive=%d"
-				" running_time=%" G_GUINT64_FORMAT
-				" stream_time=%" G_GUINT64_FORMAT
-				" timestamp=%" G_GUINT64_FORMAT
-				" duration=%" G_GUINT64_FORMAT
-				"\n",
-				messageName,
-				live, running_time, stream_time, timestamp, duration );
+		GST_DEBUG(
+				  "%s: tlive=%d"
+				  " running_time=%" G_GUINT64_FORMAT
+				  " stream_time=%" G_GUINT64_FORMAT
+				  " timestamp=%" G_GUINT64_FORMAT
+				  " duration=%" G_GUINT64_FORMAT,
+				  messageName, live, running_time, stream_time, timestamp, duration );
 	}
 }
 
@@ -207,7 +217,7 @@ void gstutils_HandleGstMessageTag( GstMessage *msg, const char *messageName )
 {
 	if( !gstutils_quiet )
 	{
-		g_print( "%s\n", messageName );
+		GST_INFO( "%s", messageName );
 		GstTagList *list = NULL;
 		gst_message_parse_tag( msg, &list );
 		if( list )

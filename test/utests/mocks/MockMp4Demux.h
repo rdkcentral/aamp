@@ -17,28 +17,24 @@
  * limitations under the License.
  */
 
-/**
- * @file FakeDrmSessionFactory.cpp
- * @brief Fake implementation for DrmSessionFactory with mock support
- */
+#ifndef MOCK_MP4_DEMUX_H
+#define MOCK_MP4_DEMUX_H
 
-#include "DrmSessionFactory.h"
-#include "MockDrmSessionFactory.h"
+#include <gmock/gmock.h>
+#include <vector>
+#include "AampDemuxDataTypes.h"
 
-// Global pointer to the mock DrmSessionFactory instance
-MockDrmSessionFactory* g_MockDrmSessionFactory = nullptr;
-
-/**
- * @brief Fake implementation of GetDrmSession
- * 
- * If g_MockDrmSessionFactory is set, delegates to the mock.
- * Otherwise returns nullptr.
- */
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks)
+class MockMp4Demux
 {
-	if (g_MockDrmSessionFactory)
-	{
-		return g_MockDrmSessionFactory->GetDrmSession(drmHelper, drmCallbacks);
-	}
-	return nullptr;
-}
+public:
+    MOCK_METHOD(bool, Parse, (const void *ptr, size_t len));
+    MOCK_METHOD(uint32_t, GetTimeScale, (), (const));
+    MOCK_METHOD(MediaCodecInfo, GetCodecInfo, ());
+    MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
+    MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, ());
+    MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
+};
+
+extern MockMp4Demux *g_mockMp4Demux;
+
+#endif /* MOCK_MP4_DEMUX_H */

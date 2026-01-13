@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2024 RDK Management
+* Copyright 2026 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,22 +17,10 @@
 * limitations under the License.
 */
 
-#ifndef GST_MOCK_DRM_SESSION_FACTORY_H
-#define GST_MOCK_DRM_SESSION_FACTORY_H
+#include <gtest/gtest.h>
 
-#include <gmock/gmock.h>
-#include "DrmSessionFactory.h"
-
-/**
- * @class MockDrmSessionFactory
- * @brief Mock class for DrmSessionFactory to enable testing
- */
-class MockDrmSessionFactory
+int main(int argc, char** argv)
 {
-public:
-	MOCK_METHOD(DrmSession*, GetDrmSession, (DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks), ());
-};
-
-extern MockDrmSessionFactory *g_mockDrmSessionFactory;
-
-#endif // GST_MOCK_DRM_SESSION_FACTORY_H
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}

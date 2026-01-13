@@ -1421,6 +1421,38 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	return result; // Success
 }
 
+/**
+ * @brief Convert a hexadecimal ASCII character to its numeric value.
+ *
+ * Converts the given character to its corresponding integer value if it
+ * represents a hexadecimal digit ('0'-'9', 'A'-'F', or 'a'-'f').
+ *
+ * @param[in] c Input ASCII character to convert.
+ *
+ * @return Numeric value in the range 0-15 on success, or -1 if the character
+ *         is not a valid hexadecimal digit.
+ */
+int hexCharToInt(char c)
+{
+	if (c >= '0' && c <= '9')
+	{
+		return c - '0';
+	}
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
+	if (c >= 'A' && c <= 'F')
+	{
+		return 10 + (c - 'A');
+	}
+	return -1;
+}
+
+/*
+ * EOF
+ */
+
 bool aamp_isTuneScheme( const char *cmdBuf )
 {
     size_t cmdLen = strlen(cmdBuf);

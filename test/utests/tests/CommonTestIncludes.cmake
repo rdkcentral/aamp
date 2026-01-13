@@ -28,7 +28,8 @@ include_directories(${AAMP_ROOT}
                     ${AAMP_ROOT}/tsb/api
                     ${AAMP_ROOT}/isobmff
                     ${AAMP_ROOT}/subtec/subtecparser
-                    ${AAMP_ROOT}/abr)
+                    ${AAMP_ROOT}/abr
+                    ${AAMP_ROOT}/mp4demux)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

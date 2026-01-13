@@ -89,7 +89,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	preferredTextTypeString(""),
 	preferredTextAccessibilityNode(),
 	mProgressReportOffset(-1),
-	mFirstFragmentTimeOffset(-1),
 	mScheduler(NULL),
 	mConfig(config),
 	mSubLanguage(),
@@ -1730,4 +1729,20 @@ const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void )
 {
 	static std::vector<TimedMetadata> rc;
 	return rc;
+}
+
+void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetStreamCaps(type, std::move(codecInfo));
+	}
+}
+
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, sample);
+	}
 }
