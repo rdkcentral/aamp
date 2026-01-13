@@ -5430,7 +5430,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (!newTune || eTUNETYPE_RETUNE == tuneType)
 	{
 		wasCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("wasCCEnabled:%d isCCinBand:%d",wasCCEnabled,mIsInbandCC);
+		AAMPLOG_WARN("wasCCEnabled:%d isCCinBand:%d", wasCCEnabled, mIsInbandCC);
 	}
 	if(SocUtils::ResetNewSegmentEvent())
 	{
