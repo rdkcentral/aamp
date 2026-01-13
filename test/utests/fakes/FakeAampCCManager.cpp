@@ -61,8 +61,17 @@ int PlayerCCManagerBase::Init(void *handle)
 {
 	return 0;
 }
-void PlayerCCManagerBase::RestoreCC()
+void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
+	if (g_mockPlayerCCManager)
+	{
+		g_mockPlayerCCManager->RestoreCC(shouldRestoreCC);
+	}
+	// Update mEnabled state as the real implementation does
+	if (!mEnabled && shouldRestoreCC)
+	{
+		mEnabled = shouldRestoreCC;
+	}
 }
 void PlayerCCManagerBase::Release(int iID)
 {
