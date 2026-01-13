@@ -58,6 +58,13 @@ public:
 	void SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)override;
 	
 	/**
+	 * @brief Set AC4 tracks.
+	 * @param src Source element.
+	 * @param trackId Track ID.
+	 */
+	void SetAC4Tracks(GstElement *src, int trackId);
+
+	/**
 	 * @brief Sets the playback rate for the given GStreamer elements.
 	 *
 	 * @param sources A vector of GStreamer source elements.

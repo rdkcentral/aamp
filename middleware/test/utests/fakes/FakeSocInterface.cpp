@@ -22,7 +22,6 @@
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
 
-
 DefaultSocInterface::DefaultSocInterface()
 {
 }
