@@ -17,7 +17,7 @@
 # Boston, MA 02110-1301, USA.
 #########################################################################
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.5)
 project (GST-PLUGINS)
 
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
