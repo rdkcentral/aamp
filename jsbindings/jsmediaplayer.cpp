@@ -1195,7 +1195,7 @@ JSValueRef AAMPMediaPlayerJS_setThumbnailTrack (JSContextRef ctx, JSObjectRef fu
 		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeBoolean(ctx, false);;
+	return JSValueMakeBoolean(ctx, false);
 }
 
 /**

@@ -19,7 +19,7 @@
 
 #include "MockAampTsbAdReservationMetaData.h"
 
-MockAampTsbAdReservationMetaData* g_mockAampTsbAdReservationMetaData = nullptr;;
+MockAampTsbAdReservationMetaData* g_mockAampTsbAdReservationMetaData = nullptr;
 
 // Constructor for AampTsbAdReservationMetaData
 AampTsbAdReservationMetaData::AampTsbAdReservationMetaData(

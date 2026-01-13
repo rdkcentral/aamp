@@ -161,8 +161,10 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
  */
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
-	licenseRequestAbort = isAbort;
+	MW_LOG_INFO("isAbort : %s", isAbort ? "true" : "false");
+	licenseRequestAbort.store(isAbort, std::memory_order_release);
 }
+
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
 {
 	bool isSecClientError = false;
@@ -301,7 +303,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 					AAMPLOG_WARN("failed to get access token, Anonymous request not enabled");
 					eventHandle->setFailure(AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN);
 				 	eventHandle->setResponseCode(tokenError);
-					if(!licenseRequestAbort)
+					if(!licenseRequestAbort.load(std::memory_order_acquire))
 					{
 						// report error
 						return KEY_ERROR;
@@ -313,7 +315,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 					challengeInfo.accessToken = std::move(sessionToken);
 				}
 			}
-			if(licenseRequestAbort)
+			if(licenseRequestAbort.load(std::memory_order_acquire))
 			{
 				AAMPLOG_ERR("Error!! License request was aborted. Resetting session slot %d", sessionSlot);
 				eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
@@ -378,6 +380,16 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 					
 				      eventHandle->setSecclientError(false);
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],std::move(licenseServerProxy)));
+				}
+
+				//Check if license req is aborted. If yes, ignore the response.
+				if(licenseRequestAbort.load(std::memory_order_acquire))
+				{
+					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response. Resetting session slot %d", sessionSlot);
+					eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
+					eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
+					responseCode = int(CURLE_ABORTED_BY_CALLBACK);
+					return KEY_ERROR;
 				}
 			}
 		}
@@ -946,7 +958,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
 	/* Check whether stopped or not before looping - download will be disabled */
-	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort)
+	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort.load(std::memory_order_acquire))
 	{
 		bool loopAgain = false;
 		attemptCount++;
@@ -957,7 +969,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		long long downloadTimeMS = tEndTime - tStartTime;
 		
 		/** Restrict further processing license if stop called in between  */
-		if(licenseRequestAbort)
+		if(licenseRequestAbort.load(std::memory_order_acquire))
 		{
 			AAMPLOG_ERR(" Aborting License acquisition");
 			// Update httpCode as 42-curl abort, so that DRM error event will not be sent by upper layer
