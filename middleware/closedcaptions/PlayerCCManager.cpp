@@ -731,10 +731,7 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
  */
 void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
-	if (!mEnabled && shouldRestoreCC)
-	{
-		mEnabled = true;
-	}
+	mEnabled = shouldRestoreCC;
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 
