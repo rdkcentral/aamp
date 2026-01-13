@@ -72,7 +72,7 @@ mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
 	interfacePlayerPriv = new InterfacePlayerPriv();
-	MW_LOG_ERR("InterfacePlayerRDK constructed using inbuilt library");
+	MW_LOG_MIL("InterfacePlayerRDK constructed using inbuilt library");
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);

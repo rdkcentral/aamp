@@ -22,7 +22,7 @@
 #include "DrmSession.h"
 #include "MockOpenCdmSessionAdapter.h"
 
-MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter = nullptr;
+std::unique_ptr<MockOpenCdmSessionAdapter> g_mockOpenCdmSessionAdapter = nullptr;
 std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
 const std::vector<std::vector<uint8_t>> g_emptyUsableKeys;
 

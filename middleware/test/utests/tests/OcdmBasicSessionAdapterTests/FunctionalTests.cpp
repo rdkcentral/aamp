@@ -53,7 +53,7 @@ MATCHER_P2(MemBufEq, buffer, elementCount, "")
 	}
 	// Cast buffer to const uint8_t* to avoid compiler warnings with nullptr
 	const uint8_t* bufPtr = static_cast<const uint8_t*>(buffer);
-	return std::memcmp(arg, bufPtr, elementCount * sizeof(uint8_t)) == 0;
+	return std::equal(arg, arg + elementCount, bufPtr);
 }
 
 std::shared_ptr<MockDrmHelper> drmHelper;
@@ -77,7 +77,7 @@ protected:
 		ON_CALL(*drmHelper, getMemorySystem()).WillByDefault(Return(nullptr));
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
 		m_ocdmbasicsessionadapter = new OCDMBasicSessionAdapter(drmHelper,nullptr);
-		g_mockOpenCdmSessionAdapter = new NiceMock<MockOpenCdmSessionAdapter>();
+		g_mockOpenCdmSessionAdapter = std::make_unique<NiceMock<MockOpenCdmSessionAdapter>>();
 		// Set default return value for getUsableKeys() to return an empty vector
 		ON_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys()).WillByDefault(testing::ReturnRef(g_emptyKeys));
 		g_mockMemorySystem = new NiceMock<MockDrmMemorySystem>();
@@ -88,8 +88,7 @@ protected:
 		delete m_ocdmbasicsessionadapter;
 		m_ocdmbasicsessionadapter = nullptr;
 
-		delete g_mockOpenCdmSessionAdapter;
-		g_mockOpenCdmSessionAdapter = nullptr;
+		g_mockOpenCdmSessionAdapter.reset();
 
 		delete g_mockopencdm;
 		g_mockopencdm = nullptr;
