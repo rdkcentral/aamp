@@ -8359,6 +8359,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
 	{
+		if(mMPDDownloaderInstance != nullptr)
+		{
+			mMPDDownloaderInstance->SetFogTsbDeleted(true);
+		}
 		std::string remoteUrl = "127.0.0.1:9080/tsb";
 		AampCurlDownloader T1;
 		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();

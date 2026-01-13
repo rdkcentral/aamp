@@ -167,7 +167,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
+	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mFogTsbDeleted(false)
 {
 }
 
@@ -396,6 +396,12 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 			else
 			{
+				if(mFogTsbDeleted.load())
+				{
+					//TODO: Deprecate when Fog tsb is removed. Ignore the manifest request from AAMP after the TSB deleted in fog when the stop called.
+					AAMPLOG_INFO("Fog tsb deleted. Ignoring MPD request and exiting");
+					break;
+				}
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}

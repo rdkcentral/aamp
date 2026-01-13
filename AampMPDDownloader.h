@@ -312,6 +312,12 @@ public:
 	 */
 	uint64_t GetPublishTime() { return mPublishTime;}
 
+	/**
+	*	@fn SetFogTsbDeleted
+	*	@brief Function to Set if Fog TSB is deleted
+	*/
+	void SetFogTsbDeleted(bool bDeleted) {mFogTsbDeleted.store(bDeleted);}
+
 private:
 
 	/**
@@ -439,6 +445,7 @@ private:
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::string()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
+	std::atomic<bool> mFogTsbDeleted{false};  /**< Flag indicating whether fog tsb is deleted or not.*/
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */
