@@ -5429,8 +5429,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
 	if (!newTune || eTUNETYPE_RETUNE == tuneType)
 	{
-		shouldRestoreCC = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("shouldRestoreCC:%d isCCinBand:%d",shouldRestoreCC,mIsInbandCC);
+		bool wasCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("wasCCEnabled:%d isCCinBand:%d", wasCCEnabled, mIsInbandCC);
+		shouldRestoreCC = wasCCEnabled;
 	}
 	if(SocUtils::ResetNewSegmentEvent())
 	{
