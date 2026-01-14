@@ -1596,6 +1596,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
+	, mApplyCachedCCStatus(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -5949,6 +5950,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				else
 				{
 					sink->SetVideoMute(video_muted.load());
+				}				
+				if (mApplyCachedCCStatus)
+				{
+					AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted.load(), mApplyCachedCCStatus);
+					mApplyCachedCCStatus = false;
 				}
 				SetCCStatusInternal();
 				sink->SetAudioVolume(volume);
@@ -6559,6 +6565,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 		}
+	}
+	if (mApplyCachedCCStatus)
+	{
+		AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted.load(), mApplyCachedCCStatus);
+		mApplyCachedCCStatus = false;
+		SetCCStatusInternal();
 	}
 	ReleaseStreamLock();
 
@@ -7986,6 +7998,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -11433,11 +11446,43 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
-	// Set subtitles_muted flag to the value requested by the app
+
+	auto playerState=GetState();
+	bool streamLockTaken=false;
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication = ((playerState == eSTATE_IDLE)         ||
+					 (playerState == eSTATE_INITIALIZING) ||
+					 (playerState == eSTATE_INITIALIZED)  ||
+					 (playerState == eSTATE_PREPARING)    ||
+					 (playerState == eSTATE_PREPARED)
+					);
+
 	subtitles_muted = !enabled;
-	SetCCStatusInternal();
-	ReleaseStreamLock();
+
+	if(allowDeferredApplication)
+	{
+		streamLockTaken=TryStreamLock();
+	}
+	else
+	{
+		AcquireStreamLock();
+		streamLockTaken=true;
+	}
+
+	if (streamLockTaken)
+	{
+		// Set subtitles_muted flag to the value requested by the app
+		SetCCStatusInternal();
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d", subtitles_muted.load());
+		mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+	}
 }
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
