@@ -4468,8 +4468,7 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 	}
 }
 
-TimeSyncClient::TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false)
-{};
+TimeSyncClient::TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false) {}
 
 /**
  * @brief Read UTCTiming _element_
@@ -4528,7 +4527,14 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							}
 							else
 							{
-								AAMPLOG_WARN("Failed to read timeServer [%s] RetCode[%d]",ServerUrl.c_str(),http_error);
+								if (!mTimeSyncClient.hasSynced)
+								{
+									AAMPLOG_ERR("Failed initial read of timeServer [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+								}
+								else
+								{
+									AAMPLOG_WARN("Failed to refresh timeServer [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+								}
 							}
 						}
 						else if(mTimeSyncClient.hasSynced)
