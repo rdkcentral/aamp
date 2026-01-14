@@ -1192,6 +1192,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
+	, mApplyCachedCCStatus(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -5518,6 +5519,20 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					mApplyCachedVideoMute = false;
 					CacheAndApplySubtitleMute(video_muted);
 				}
+				if (mApplyCachedCCStatus)
+				{
+					AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted, mApplyCachedCCStatus);
+					mApplyCachedCCStatus = false;
+					if (mpStreamAbstractionAAMP)
+					{
+						mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+						if (HasSidecarData())
+						{ // has sidecar data
+							mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+						}
+					}
+					SetSubtitleMute(subtitles_muted);
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6112,7 +6127,22 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			CacheAndApplySubtitleMute(video_muted);
 		}
 	}
+	if (mApplyCachedCCStatus)
+	{
+		AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted, mApplyCachedCCStatus);
+		mApplyCachedCCStatus = false;
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			}
+		}
+		SetSubtitleMute(subtitles_muted);
+	}
 	ReleaseStreamLock();
+        AAMPLOG_WARN("** Released stream lock (delete this debug later!) ");
 
 	// To check and apply stored video rectangle properties
 	if (mApplyVideoRect)
@@ -7448,6 +7478,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop()
 {
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
+	mApplyCachedCCStatus = false;
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
 	{
@@ -10873,18 +10904,50 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
-	AcquireStreamLock();
+
+	auto playerState=GetState();
+	bool streamLockTaken=false;
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication = ((playerState == eSTATE_IDLE)         ||
+					 (playerState == eSTATE_INITIALIZING) ||
+					 (playerState == eSTATE_INITIALIZED)  ||
+					 (playerState == eSTATE_PREPARING)    ||
+					 (playerState == eSTATE_PREPARED)
+					);
+
 	subtitles_muted = !enabled;
-	if (mpStreamAbstractionAAMP)
+
+	if(allowDeferredApplication)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
-		}
+		streamLockTaken=TryStreamLock();
 	}
-	SetSubtitleMute(subtitles_muted);
-	ReleaseStreamLock();
+	else
+	{
+		AcquireStreamLock();
+		streamLockTaken=true;
+	}
+
+	if (streamLockTaken)
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			}
+		}
+		SetSubtitleMute(subtitles_muted);
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d, playerState=%d", subtitles_muted, playerState);
+		mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+	}
 }
 
 /**
