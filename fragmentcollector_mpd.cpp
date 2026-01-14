@@ -4506,7 +4506,9 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 						}
 
 						double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
-						if ((!mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup)) || (elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec)))
+						bool shouldSyncOnStartup = !mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
+						bool intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
+						if (shouldSyncOnStartup || intervalElapsed)
 						{
 							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
 							if(mLocalUtcTime > 0)

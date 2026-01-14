@@ -471,7 +471,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
 	{DEFAULT_UTC_SYNC_MIN_INTERVAL,"utcSyncMinIntervalSec",eAAMPConfig_UTCSyncMinIntervalSec,true },
 	// add new entries here
-	
+
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true }

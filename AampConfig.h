@@ -214,7 +214,7 @@ typedef enum
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
 	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
-	eAAMPConfig_UTCSyncOnStartup,					/** Perform sync at startup */
+	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

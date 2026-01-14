@@ -73,7 +73,7 @@ struct ProfileInfo
  */
 struct TimeSyncClient
 {
-	long long lastSync; // utcms time at which time was last synchronized with time server
+	long long lastSync; // UTC time in milliseconds since epoch when time was last synchronized with time server
 	double lastOffset; // current delta (seconds) between local and server time
 	bool hasSynced; // true if time has been synchronized at least once
 	TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false)
