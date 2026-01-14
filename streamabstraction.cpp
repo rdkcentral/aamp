@@ -24,6 +24,7 @@
 #include "AampStreamSinkManager.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampUtils.h"
+#include "AampBufferMonitor.h"
 #include "isobmffprocessor.h"
 #include "ElementaryProcessor.h"
 #include "isobmffbuffer.h"
@@ -200,11 +201,20 @@ void MediaTrack::MonitorBufferHealth()
 							 GetBufferHealthStatusString(bufferStatus));
 				aamp->profiler.IncrementChangeCount(Count_BufferChange);
 				prevBufferStatus = bufferStatus;
+				// Drive portable underflow handling on state changes
+				aamp::AampBufferMonitor::HandleStatus(aamp, (AampMediaType)type, bufferStatus);
 			}
 			else
 			{
 				AAMPLOG_DEBUG(" track[%s] No Change [%s]",  name,
 							  GetBufferHealthStatusString(bufferStatus));
+				// Also check for recovery periodically to avoid missing GREEN transitions
+				aamp::AampBufferMonitor::HandleStatus(aamp, (AampMediaType)type, bufferStatus);
+			}
+			// Portable underflow monitor: use player-derived buffer status to control pipeline
+			{
+				AampMediaType mt = TrackTypeToMediaType(type);
+				aamp::AampBufferMonitor::HandleStatus(aamp, mt, bufferStatus);
 			}
 			lock.unlock();
 

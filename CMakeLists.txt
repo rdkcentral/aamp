@@ -366,6 +366,7 @@ set(LIBAAMP_SOURCES
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
+	AampBufferMonitor.cpp AampBufferMonitor.h
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
