@@ -134,7 +134,7 @@ TEST(_AampUtils, aamp_IsAbsoluteURL)
 	url = "file://aaa.bbb.com";
 	result = aamp_IsAbsoluteURL(url);
 	EXPECT_TRUE(result);
-	
+
 	url = "";
 	result = aamp_IsAbsoluteURL(url);
 	EXPECT_FALSE(result);
