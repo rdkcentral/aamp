@@ -21,7 +21,6 @@
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
-
 DefaultSocInterface::DefaultSocInterface()
 {
 }
@@ -47,7 +46,15 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
 	isSinkBinVolume = true;
 #endif
 }
-
+/**
+ * @brief Set AC4 tracks.
+ * @param src Source element.
+ * @param trackId Track ID.
+ */
+void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
+}
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {
 	return name && (
