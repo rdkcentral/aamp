@@ -70,15 +70,39 @@ struct ProfileInfo
 /**
  * @struct TimeSyncClient
  *
- * @brief this class defines state associated with periodic time server synchronization.  it is used in accordance with configuration after a manifest has been refreshed to determine if elapsed time is sufficient to merit requesting updated time from server.
+ * @brief Maintains state for periodic synchronization of the local clock
+ * with a remote UTC time server, used in DASH manifest processing.
  *
- * The constructor is used to initialize lastSync with current time.
-*/
+ * This struct tracks the last successful synchronization time and the
+ * cached offset between the local system clock and the server's UTC time.
+ * It supports logic to determine when a new synchronization request should
+ * be made based on elapsed time and configuration.
+ *
+ * Members:
+ * - lastSync: Timestamp (milliseconds since epoch) of the last successful sync.
+ * - lastOffset: Cached time delta (in seconds) between local and server time.
+ * - hasSynced: Flag indicating whether at least one successful sync has occurred.
+ */
 struct TimeSyncClient
 {
-	long long lastSync; /**< UTC time in milliseconds since epoch when time was last synchronized with time server */
-	double lastOffset; /**< current delta (seconds) between local and server time */
-	bool hasSynced; /**< true if time has been synchronized at least once */
+	/**
+	 * @brief UTC time in milliseconds since epoch when time was last synchronized with time server.
+	 */
+	long long lastSync;
+	
+	/**
+	 * @brief Current delta (seconds) between local and server time.
+	 */
+	double lastOffset;
+	
+	/**
+	 * @brief True if time has been synchronized at least once.
+	 */
+	bool hasSynced;
+	
+	/**
+	 * @brief Constructor initializes lastSync with current time and resets other members.
+	 */
 	TimeSyncClient();
 };
 

@@ -4508,9 +4508,13 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
 
-						double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
 						bool shouldSyncOnStartup = !mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
-						bool intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
+						bool intervalElapsed = false;
+						if( !shouldSyncOnStartup )
+						{
+							const double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
+							intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
+						}
 						if (shouldSyncOnStartup || intervalElapsed)
 						{
 							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
