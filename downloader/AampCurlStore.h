@@ -265,6 +265,8 @@ struct CurlCallbackContext
 	size_t contentLength = 0;
 	long long downloadStartTime = -1;
 	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
+	size_t bufferOffset = 0; // Used for chunked download to keep track of current buffer offset
+	size_t chunkBoundary = 0; // Used for chunked download to store the current chunk boundary
 
 	CurlCallbackContext(){}
 	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}

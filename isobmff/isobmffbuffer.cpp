@@ -1170,6 +1170,11 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 	return retval;
 }
 
+/**
+ * @brief Find the MDHD box and set the duration
+ * @param[in] duration - duration to set
+ * @return true if successful, false otherwise
+ */
 bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 {
 	bool retval{false};
@@ -1213,4 +1218,55 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 		AAMPLOG_WARN("No MOOV box within buffer");
 	}
 	return retval;
+}
+
+/**
+ * @fn getMdatBoxInfo - Get mdat box info
+ *
+ * @param[in] index - index of mdat box
+ * @param[out] start - start offset of mdat box
+ * @param[out] size - size of mdat box
+ * @return bool - true if box found, false otherwise
+ */
+bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
+{
+	return getBoxInfoInternal(&boxes, Box::MDAT, index, start, size);
+}
+
+/**
+ * @fn getBoxInfoInternal - Get box info
+ *
+ * @param[in] boxes - ISOBMFF boxes
+ * @param[in] name - box name to get
+ * @param[in] index - index of box in a parsed buffer
+ * @param[out] start - start offset of box
+ * @param[out] size - size of box
+ * @return bool - true if box found, false otherwise
+ */
+bool IsoBmffBuffer::getBoxInfoInternal(const std::vector<Box*> *boxes, const char *name, size_t index, size_t &start, size_t &size)
+{
+	bool ret = false;
+	size_t matchCount = 0;
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i);
+		if (IS_TYPE(box->getType(), name))
+		{
+			if (matchCount == index)
+			{
+				// Calculate the start offset of the box data within the buffer
+				start = static_cast<size_t>(box->getBase() - buffer);
+				// Get the size of the box
+				size = box->getSize();
+				ret = true;
+				break;
+			}
+			matchCount++;
+		}
+	}
+	if (matchCount == 0 || index >= matchCount)
+	{
+		AAMPLOG_WARN("Box of type %s with index %zu not found, only %zu available", name, index, matchCount);
+	}
+	return ret;
 }
