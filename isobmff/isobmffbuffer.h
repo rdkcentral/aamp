@@ -136,6 +136,18 @@ private:
 	 */
 	bool updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd);
 
+	/**
+	 * @fn getBoxInfoInternal
+	 *
+	 * @param[in] boxes - ISOBMFF boxes
+	 * @param[in] name - box name to get
+	 * @param[in] index - index of box in a parsed buffer
+	 * @param[out] start - start offset of box
+	 * @param[out] size - size of box
+	 * @return bool true if box found at index, false otherwise
+	 */
+	bool getBoxInfoInternal(const char *name, size_t index, size_t &start, size_t &size);
+
 public:
 	/**
 	 * @brief IsoBmffBuffer constructor
@@ -489,5 +501,15 @@ public:
 	 * @return true if sample duration set. false otherwise
 	 */
 	bool setMediaHeaderDuration(uint64_t duration);
+
+	/**
+	 * @fn getMdatBoxInfo
+	 *
+	 * @param[in] index - index of mdat box
+	 * @param[out] start - start offset of mdat box
+	 * @param[out] size - size of mdat box
+	 * @return bool if box found. false otherwise
+	 */
+	bool getMdatBoxInfo(size_t index, size_t &start, size_t &size);
 };
 #endif /* __ISOBMFFBUFFER_H__ */

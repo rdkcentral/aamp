@@ -664,6 +664,58 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 	return ret;
 }
 
+/**
+ * @brief Identify mp4 chunk boundary in buffer
+ * @param[in] buffer - buffer to scan
+ * @param[in] bufferOffset - offset in buffer to start scanning from
+ * @param[out] chunkBoundaryOffset - offset of chunk boundary if found
+ * @retval true if chunk boundary found
+ */
+static bool IdentifyMp4ChunkBoundary(AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset)
+{
+	bool found = false;
+	chunkBoundaryOffset = 0;
+
+	IsoBmffBuffer isobmffBuffer;
+	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->GetLen() - bufferOffset);
+
+	try
+	{
+		if (isobmffBuffer.parseBuffer(false))
+		{
+			// Check for 'mdat' box which indicates the end of mp4 chunk
+			// Specified in the ISO Base Media File Format (ISO/IEC 14496-12) specification that in fragmented MP4 files,
+			// a moof (Movie Fragment) box precedes the corresponding mdat (Media Data) box
+			size_t count = 0;
+			// Get number of mdat boxes
+			if (isobmffBuffer.getMdatBoxCount(count))
+			{
+				if (count > 0)
+				{
+					size_t start = 0;
+					size_t size = 0;
+					// Get the last mdat box info
+					if (isobmffBuffer.getMdatBoxInfo(count - 1, start, size))
+					{
+						// Calculate chunk boundary offset
+						chunkBoundaryOffset = bufferOffset + start + size;
+						found = true;
+					}
+				}
+				AAMPLOG_DEBUG("IdentifyMp4ChunkBoundary: mdat box count=%zu and chunkBoundaryOffset=%zu", count, chunkBoundaryOffset);
+			}
+		}
+	}
+	catch (std::bad_alloc& ba)
+	{
+		AAMPLOG_ERR("Bad allocation: %s", ba.what());
+	}
+	catch (std::exception& e)
+	{
+		AAMPLOG_ERR("Unhandled exception: %s", e.what());
+	}
+	return found;
+}
 
 // End of helper functions for loading configuration
 
@@ -951,13 +1003,57 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				context->mediaType ==  eMEDIATYPE_AUDIO ||
 				context->mediaType ==  eMEDIATYPE_SUBTITLE))
 			{
-				// Release PrivateInstanceAAMP mutex to unblock async APIs
-				lock.unlock();
-				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
-				long long startTime = aamp_GetCurrentTimeMS();
-				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock, context->remoteUrl, context->downloadStartTime);
-				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
-				lock.lock();
+				// We are trying to identify a mdat box boundary in the received buffer
+				if (context->chunkBoundary == 0)
+				{
+					size_t chunkBoundaryOffset = 0;
+					if (IdentifyMp4ChunkBoundary(context->buffer, context->bufferOffset, chunkBoundaryOffset))
+					{
+						context->chunkBoundary = chunkBoundaryOffset;
+						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu", context->mediaType, context->chunkBoundary);
+					}
+				}
+				if (context->chunkBoundary > 0)
+				{
+					if (context->buffer->GetLen() >= context->chunkBoundary)
+					{
+						const char *bufferPtr = context->buffer->GetPtr() + context->bufferOffset;
+						size_t bufferLen = 0;
+						if (context->chunkBoundary > context->bufferOffset)
+						{
+							bufferLen = context->chunkBoundary - context->bufferOffset;
+						}
+						else
+						{
+							AAMPLOG_ERR("Invalid chunk boundary offset %zu buffer offset %zu", context->chunkBoundary, context->bufferOffset);
+							ret = 0; // abort download
+						}
+						if (bufferLen > 0)
+						{
+							// Release PrivateInstanceAAMP mutex to unblock async APIs
+							lock.unlock();
+							AAMPLOG_DEBUG("[%d] Caching chunk with size %zu", context->mediaType, bufferLen);
+							long long startTime = aamp_GetCurrentTimeMS();
+							mCtx->CacheFragmentChunk(context->mediaType,
+													bufferPtr,
+													bufferLen,
+													context->remoteUrl,
+													context->downloadStartTime);
+							context->processDelay += aamp_GetCurrentTimeMS() - startTime;
+							lock.lock();
+							// Update buffer offset and reset chunkBoundary
+							// Note: bufferOffset = chunkBoundary (not +1) because CacheFragmentChunk
+							// processes bytes [bufferOffset, chunkBoundary), so chunkBoundary
+							// is the first byte of the next chunk (not yet processed)
+							context->bufferOffset = context->chunkBoundary;
+							context->chunkBoundary = 0;
+						}
+					}
+					else
+					{
+						AAMPLOG_TRACE("[%d] Waiting for more data to reach chunk boundary at offset %zu (current buffer len %zu)", context->mediaType, context->chunkBoundary, context->buffer->GetLen());
+					}
+				}
 			}
 		}
 	}
@@ -4374,13 +4470,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				context.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE; // reset
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
-				if(this->mAampLLDashServiceData.lowLatencyMode)
-				{
-					context.downloadStartTime = progressCtx.downloadStartTime;
-				}
 				progressCtx.downloadUpdatedTime = -1;
 				progressCtx.downloadSize = -1;
 				progressCtx.abortReason = eCURL_ABORT_REASON_NONE;
+				// Note: downloadStartTime is now set for all downloads (not just LL-DASH)
+				// so that timing/monitoring logic has a valid start timestamp in every case.
+				context.downloadStartTime = progressCtx.downloadStartTime;
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
 				if(buffer->GetPtr() != NULL)
 				{
@@ -4514,6 +4609,17 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// Use CURLE_PARTIAL_FILE to avoid bandwidth recalculation
 						res = CURLE_PARTIAL_FILE;
 						http_code = res;
+					}
+
+					if (mAampLLDashServiceData.lowLatencyMode &&
+						(http_code == 200 || http_code == 204 || http_code == 206) &&
+						(context.chunkBoundary > 0) &&
+						(context.chunkBoundary < buffer->GetLen()))
+					{
+						// This is not expected.
+						// Buffer is already cached through CURL write callback for low latency and there is no course correction.
+						// Let's log here for awareness, as it not clear if we should cache the extra data beyond chunk boundary.
+						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer->GetLen(), buffer->GetLen() - context.chunkBoundary);
 					}
 				}
 				else
