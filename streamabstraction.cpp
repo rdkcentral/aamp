@@ -810,7 +810,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
 
-	if(cachedFragment->fragment.GetLen() > 0)
+	if(cachedFragment->fragment.GetPtr())
 	{
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
@@ -942,7 +942,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	class StreamAbstractionAAMP* pContext = GetContext();
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
-	if(cachedFragment != NULL && cachedFragment->fragment.GetLen() == 0)
+	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
 	{
 		if(!SignalIfEOSReached())
 		{
@@ -987,7 +987,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		cachedFragment->initFragment = false;
 		return true;
 	}
-	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetLen() > 0))
+	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
 	{
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
 		unparsedBufferChunk.Free();
@@ -1029,7 +1029,6 @@ bool MediaTrack::ProcessFragmentChunk()
 		AAMPLOG_INFO("[%s] No Box available in cache chunk: fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
 		return true;
 	}
-
 	//Print box details
 	//isobuf.printBoxes();
 	uint32_t timeScale = 0;
@@ -1526,7 +1525,7 @@ bool MediaTrack::InjectFragment()
 		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
 					 name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
 
-		if (cachedFragment->fragment.GetLen() > 0)
+		if (cachedFragment->fragment.GetPtr())
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
 			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
@@ -1838,7 +1837,7 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
 	if(initialize)
 	{
-		if (cachedFragment->fragment.GetLen() > 0)
+		if (cachedFragment->fragment.GetPtr() )
 		{
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
@@ -1866,7 +1865,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 
 	if(initialize && cachedFragment)
 	{
-		if (cachedFragment->fragment.GetLen() > 0)
+		if (cachedFragment->fragment.GetPtr() )
 		{
 			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->fragment.GetAvail() );
 		}
