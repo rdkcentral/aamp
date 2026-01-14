@@ -1,0 +1,51 @@
+name: L1 tests
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ['**/*.c', '**/*.cpp', '**/*.cc', '**/*.cxx', '**/*.h', '**/*.hpp', '**/*.sh']
+
+jobs:
+  execute-unit-tests-on-pr:
+    name: Runs all unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: native build
+        run: yes | ./install-middleware.sh -s subtec
+
+      # Run L1 tests
+      - name: Run unit tests with coverage
+        working-directory: ./test/utests
+        run: ./run.sh -c
+
+      # Publish test results
+      - name: Publish L1 test results
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unit Test Results
+          path: test/utests/build/ctest-results.xml
+          reporter: java-junit
+            
+      # Upload artifact (test/utests/build/ctest-results.xml)
+      - name: Upload test result file (test/utests)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-results-middleware-utests-${{ github.run_id }}
+          path: test/utests/build/ctest-results.xml
+
+      - name: Upload CombinedCoverage report
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CombinedCoverage-report
+          path: test/utests/build/CombinedCoverage/
+          if-no-files-found: warn
+
+      # Show failure
+      - name: Show failure details (if any)
+        # if: failure()
+        run: tail -n 50 test/utests/build/ctest-results.xml || true
