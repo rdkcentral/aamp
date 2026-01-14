@@ -94,11 +94,10 @@ private:
 	 * @fn SendHelper
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample. Ownership is transferred
-	 * @param[in] copy to map or transfer the buffer
 	 * @param[in] initFragment flag for buffer type (init, data)
 	 * @param[in] discontinuity flag for discontinuity
 	 */
-	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment = false, bool discontinuity = false);
+	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment = false, bool discontinuity = false);
 
 public:
 	class PrivateInstanceAAMP *aamp;

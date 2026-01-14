@@ -680,11 +680,10 @@ void AAMPGstPlayer::NotifyInjectorToResume()
  *  @brief Inject stream buffer to gstreamer pipeline
  *  @param mediaType Type of media.
  *  @param sample Media sample to be sent. Moved semantics is used to avoid unnecessary copy.
- *  @param copy Indicates whether to copy the data.
  *  @param initFragment Indicates if the fragment is an initialization fragment.
  *  @param discontinuity Indicates if there is a discontinuity in the stream.
  */
-bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool copy, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -733,7 +732,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 	{
 		sendNewSegmentEvent = true;
 	}
-	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
+	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
 	if(sendNewSegmentEvent)
 	{
 		aamp->mbNewSegmentEvtSent[mediaType] = true;
@@ -775,7 +774,7 @@ bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, std::vector<uint8_t>&& buf
 {
 	// Data already in vector, just move it into MediaSample (zero-copy)
 	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, 0.0);
-	return SendHelper(mediaType, std::move(sample), false);
+	return SendHelper(mediaType, std::move(sample));
 }
 
 /**
@@ -785,7 +784,7 @@ bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&&
 {
 	// Data already in vector, just move it into MediaSample (zero-copy)
 	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset);
-	return SendHelper(mediaType, std::move(sample), false, initFragment, discontinuity);
+	return SendHelper(mediaType, std::move(sample), initFragment, discontinuity);
 }
 
 /**
@@ -1356,5 +1355,5 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 
 	// Send the sample (transfers ownership of vector to GStreamer)
 	// Note: No need to call Transfer() or Free() - ExtractVector already handled cleanup
-	return SendHelper(mediaType, std::move(gstSample), false /*transfer*/);
+	return SendHelper(mediaType, std::move(gstSample));
 }
