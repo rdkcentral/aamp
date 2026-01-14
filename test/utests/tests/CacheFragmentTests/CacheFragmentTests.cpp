@@ -37,7 +37,7 @@
 #include "MockTSBReader.h"
 
 using ::testing::_;
-using ::testing::NiceMock;;
+using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
