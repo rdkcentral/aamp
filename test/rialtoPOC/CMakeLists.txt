@@ -17,7 +17,7 @@
 
 set(TEST_ROOT "../")
 
-if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAKE_BUILD_RIALTO_POC)
+# if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAKE_BUILD_RIALTO_POC)
 	# Rialto POC 2
 	set(RIALTOPOC2_SOURCES
 		${TEST_ROOT}/gstTestHarness/mp4demux.hpp
@@ -56,7 +56,7 @@ if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAK
 	add_executable(rialtoPOC2 ${RIALTOPOC2_SOURCES})
 	target_link_libraries(rialtoPOC2 ${RIALTO_LIBRARIES} "-lreadline" Rialto::RialtoClient)
     install(TARGETS rialtoPOC2
-		DESTINATION lib
+		DESTINATION bin
     )
 
 	# Rialto POC 3
@@ -97,6 +97,6 @@ if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAK
 	add_executable(rialtoPOC3 ${RIALTOPOC3_SOURCES})
 	target_link_libraries(rialtoPOC3 ${RIALTO_LIBRARIES} "-lreadline" Rialto::RialtoClient)
     install(TARGETS rialtoPOC3
-		DESTINATION lib
+		DESTINATION bin
     )
-endif()
+# endif()
