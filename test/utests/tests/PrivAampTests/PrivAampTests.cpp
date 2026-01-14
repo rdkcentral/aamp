@@ -3901,7 +3901,7 @@ TEST_F(PrivAampTests,ID3MetadataHandlerTest)
 {
 	AampMediaType mediaType = eMEDIATYPE_AUDIO;
 	const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
-	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));;
+	size_t pkt_len = strlen(reinterpret_cast<const char*>(ptr));
 	SegmentInfo_t info(100.0,90.0,5.0);
 
 	const char * scheme_uri = "";

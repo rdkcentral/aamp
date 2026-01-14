@@ -710,7 +710,7 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 				// Timed out
 				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
 
-				CURL *curlHandle = mDownloader1.GetCurlHandle();;
+				CURL *curlHandle = mDownloader1.GetCurlHandle();
 
 				// Optionally, log or use the handle
 				if (curlHandle)

@@ -3500,7 +3500,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				liveAdjust = true;
 				notifyEnteringLive = true;
 			}
-			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (currentRate != AAMP_RATE_PAUSE))
+			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (currentRate > AAMP_RATE_PAUSE))
 			{
 				double seekWindowEnd = duration - aamp->mLiveOffset;
 				// check if seek beyond live point
@@ -13410,7 +13410,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			if(attributeMapRate.find("min") == attributeMapRate.end())
 			{
 				AAMPLOG_TRACE("Latency min attribute not available");
-				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);;
+				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
 			}
 			else
 			{
@@ -13686,7 +13686,7 @@ int StreamAbstractionAAMP_MPD::GetValidPeriodIdx(int periodIdx)
 				bvalidperiodfound = true;
 				break;
 			}
-			periodIter += direction;;
+			periodIter += direction;
 		}
 		if(!bvalidperiodfound)
 		{
