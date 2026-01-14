@@ -996,140 +996,40 @@ bool MediaTrack::ProcessFragmentChunk()
 	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.GetLen(), unparsedBufferChunk.GetLen(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] About to AppendBytes from cachedFragment: cachedFragment=%p fragment.ptr=%p fragment.len=%zu unparsedBufferChunk=%p",
-		name, cachedFragment, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), &unparsedBufferChunk);
-	
-	// Save first 32 bytes of source buffer before copy
-	uint8_t srcBytes[32];
-	size_t srcLen = cachedFragment->fragment.GetLen();
-	if (srcLen >= 32)
-	{
-		memcpy(srcBytes, cachedFragment->fragment.GetPtr(), 32);
-		AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] Source buffer first 32 bytes BEFORE AppendBytes: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-			name,
-			srcBytes[0], srcBytes[1], srcBytes[2], srcBytes[3], srcBytes[4], srcBytes[5], srcBytes[6], srcBytes[7],
-			srcBytes[8], srcBytes[9], srcBytes[10], srcBytes[11], srcBytes[12], srcBytes[13], srcBytes[14], srcBytes[15],
-			srcBytes[16], srcBytes[17], srcBytes[18], srcBytes[19], srcBytes[20], srcBytes[21], srcBytes[22], srcBytes[23],
-			srcBytes[24], srcBytes[25], srcBytes[26], srcBytes[27], srcBytes[28], srcBytes[29], srcBytes[30], srcBytes[31]);
-	}
-	
 	unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
-	
-	AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] After AppendBytes: unparsedBufferChunk.ptr=%p unparsedBufferChunk.len=%zu",
-		name, unparsedBufferChunk.GetPtr(), unparsedBufferChunk.GetLen());
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
-	
-	// Get pointer multiple times to detect if it changes
-	char *ptr1 = unparsedBufferChunk.GetPtr();
-	char *ptr2 = unparsedBufferChunk.GetPtr();
-	char *ptr3 = unparsedBufferChunk.GetPtr();
-	
-	if (ptr1 != ptr2 || ptr2 != ptr3)
-	{
-		AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] CRITICAL: GetPtr() returning different values! ptr1=%p ptr2=%p ptr3=%p", 
-			name, ptr1, ptr2, ptr3);
-	}
-	
 	unParsedBuffer = unparsedBufferChunk.GetPtr();
 	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.GetLen();
 	isobuf.setBuffer(reinterpret_cast<uint8_t *>(unparsedBufferChunk.GetPtr()), unparsedBufferChunk.GetLen() );
 	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.GetLen() );
 
-	// Validate buffer and compute checksum
-	char *bufPtr = unparsedBufferChunk.GetPtr();
-	size_t bufLen = unparsedBufferChunk.GetLen();
-	if (bufPtr == nullptr)
-	{
-		AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] CRITICAL: unparsedBufferChunk.GetPtr() returned nullptr! bufLen=%zu fragmentChunkIdxToInject=%d", 
-			name, bufLen, fragmentChunkIdxToInject);
-		return true;
-	}
-	
-	// Save first 32 bytes BEFORE any logging to detect if logging causes corruption
-	uint8_t savedBytes[32];
-	if (bufLen >= 32)
-	{
-		memcpy(savedBytes, bufPtr, 32);
-	}
-	
-	// Compute CRC32 checksum for validation
-	uint32_t crc = aamp_ComputeCRC32(reinterpret_cast<const uint8_t*>(bufPtr), bufLen);
-	
-	// Verify buffer wasn't corrupted during CRC32 calculation
-	uint8_t currentBytes[32];
-	bool corruptedDuringCRC = false;
-	if (bufLen >= 32)
-	{
-		memcpy(currentBytes, bufPtr, 32);
-		corruptedDuringCRC = (memcmp(savedBytes, currentBytes, 32) != 0);
-	}
-	
-	AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] BEFORE parseBuffer: ptr=%p len=%zu crc32=0x%08x fragmentChunkIdxToInject=%d corruptedDuringCRC=%d", 
-		name, bufPtr, bufLen, crc, fragmentChunkIdxToInject, corruptedDuringCRC);
-	
-	// Dump first 32 bytes for box structure validation
-	if (bufLen >= 32)
-	{
-		// Check if buffer got corrupted between CRC and now
-		uint8_t hexDumpBytes[32];
-		memcpy(hexDumpBytes, bufPtr, 32);
-		bool corruptedBeforeHexDump = (memcmp(currentBytes, hexDumpBytes, 32) != 0);
-		
-		AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] Saved bytes (before CRC): %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-			name,
-			savedBytes[0], savedBytes[1], savedBytes[2], savedBytes[3], savedBytes[4], savedBytes[5], savedBytes[6], savedBytes[7],
-			savedBytes[8], savedBytes[9], savedBytes[10], savedBytes[11], savedBytes[12], savedBytes[13], savedBytes[14], savedBytes[15],
-			savedBytes[16], savedBytes[17], savedBytes[18], savedBytes[19], savedBytes[20], savedBytes[21], savedBytes[22], savedBytes[23],
-			savedBytes[24], savedBytes[25], savedBytes[26], savedBytes[27], savedBytes[28], savedBytes[29], savedBytes[30], savedBytes[31]);
-		
-		AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] Current bytes (for hex dump): %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x corruptedBeforeHexDump=%d",
-			name,
-			hexDumpBytes[0], hexDumpBytes[1], hexDumpBytes[2], hexDumpBytes[3], hexDumpBytes[4], hexDumpBytes[5], hexDumpBytes[6], hexDumpBytes[7],
-			hexDumpBytes[8], hexDumpBytes[9], hexDumpBytes[10], hexDumpBytes[11], hexDumpBytes[12], hexDumpBytes[13], hexDumpBytes[14], hexDumpBytes[15],
-			hexDumpBytes[16], hexDumpBytes[17], hexDumpBytes[18], hexDumpBytes[19], hexDumpBytes[20], hexDumpBytes[21], hexDumpBytes[22], hexDumpBytes[23],
-			hexDumpBytes[24], hexDumpBytes[25], hexDumpBytes[26], hexDumpBytes[27], hexDumpBytes[28], hexDumpBytes[29], hexDumpBytes[30], hexDumpBytes[31],
-			corruptedBeforeHexDump);
-		
-		// Also recompute CRC32 to see if entire buffer was corrupted
-		uint32_t crc2 = aamp_ComputeCRC32(reinterpret_cast<const uint8_t*>(bufPtr), bufLen);
-		if (crc != crc2)
-		{
-			AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] CORRUPTION DETECTED! CRC changed from 0x%08x to 0x%08x between calculations!", 
-				name, crc, crc2);
-		}
-	}
-
 	bool bParse = false;
 	try
 	{
-		AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] CALLING parseBuffer() now...", name);
 		bParse = isobuf.parseBuffer();
-		AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] parseBuffer() returned: %d", name, bParse);
 	}
 	catch( std::bad_alloc& ba)
 	{
-		AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] parseBuffer() threw bad_alloc: %s", name, ba.what() );
+		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
 	}
 	catch( std::exception &e)
 	{
-		AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] parseBuffer() threw exception: %s", name, e.what() );
+		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
 	}
 	catch( ... )
 	{
-		AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] parseBuffer() threw unknown exception", name);
+		AAMPLOG_ERR("Unknown exception");
 	}
 	if(!bParse)
 	{
-		AAMPLOG_ERR("[%s][DIAGNOSTIC-VEC] parseBuffer() FAILED or returned false: fragmentChunkIdxToInject=%d bufLen=%zu crc32=0x%08x", 
-			name, fragmentChunkIdxToInject, bufLen, crc);
+		AAMPLOG_INFO("[%s] No Box available in cache chunk: fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
 		return true;
 	}
-	
-	AAMPLOG_WARN("[%s][DIAGNOSTIC-VEC] parseBuffer() SUCCESS, continuing to ParseChunkData...", name);
+
 	//Print box details
 	//isobuf.printBoxes();
 	uint32_t timeScale = 0;
