@@ -478,18 +478,18 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(fragment->fragment.GetLen() > 0 && WaitForCachedFragmentChunkInjected())
+	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-		if(cachedFragment->fragment.GetLen() > 0)
+		if(cachedFragment->fragment.GetPtr())
 		{
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
 		cachedFragment->fragment.Clear();
 		cachedFragment->Copy(fragment.get(), fragment->fragment.GetLen());
-		if(cachedFragment->fragment.GetLen() > 0)
+		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.GetLen() > 0)
 		{
 			ret = true;
 			UpdateTSAfterChunkFetch();

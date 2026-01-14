@@ -79,8 +79,8 @@ public:
 	 */
 	std::vector<uint8_t> ExtractVector( void );
 	
-	char *GetPtr( void ) { return reinterpret_cast<char*>(buffer.data()); } // accessor function for current growable buffer binary payload
-	const char *GetPtr( void ) const { return reinterpret_cast<const char*>(buffer.data()); } // accessor function for current growable buffer binary payload
+	char *GetPtr( void ) { return buffer.empty() ? nullptr : reinterpret_cast<char*>(buffer.data()); }
+	const char *GetPtr( void ) const { return buffer.empty() ? nullptr : reinterpret_cast<const char*>(buffer.data()); }
 	size_t GetLen( void ) const { return buffer.size(); } // accessor function for current logical growable buffer size
 	size_t GetAvail( void ) const { return buffer.capacity(); } // should be opaque, but used in logging
 	void SetLen( size_t l ) { assert(l<=buffer.capacity()); buffer.resize(l); }

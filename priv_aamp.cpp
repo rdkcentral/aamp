@@ -4477,7 +4477,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				// so that timing/monitoring logic has a valid start timestamp in every case.
 				context.downloadStartTime = progressCtx.downloadStartTime;
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-				if(buffer->GetLen() > 0)
+				if(buffer->GetPtr() != NULL)
 				{
 					buffer->Clear();
 				}
@@ -4593,7 +4593,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 
 					// Do the empty buffer check only for successful downloads
-					if ((http_code == 200 || http_code == 204 || http_code == 206) && buffer->GetLen() == 0)
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->GetLen() == 0))
 					{
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
