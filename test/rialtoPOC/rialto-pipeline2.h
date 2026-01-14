@@ -75,6 +75,7 @@ public:
 	bool switchSource(const std::unique_ptr<MediaSource> &source){ return false; };
 	bool getVolume(double &currentVolume){ return false; }
 	bool setMute(int32_t sourceId, bool mute){ return false; }
+	bool setSubtitleOffset(int32_t, int64_t) override;
 	bool getMute(int32_t sourceId, bool &mute){ return false; }
 	bool setTextTrackIdentifier(const std::string &textTrackIdentifier){ return false; }
 

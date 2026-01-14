@@ -102,11 +102,11 @@ public:
     bool setSync(bool) override;
     bool getSync(bool &) override;
     bool setSyncOff(bool) override;
+    bool setSubtitleOffset(int32_t, int64_t) override;
     bool setStreamSyncMode(int32_t, int32_t) override;
     bool getStreamSyncMode(int32_t &) override;
     bool flush(int32_t, bool, bool &) override;
     bool setSourcePosition(int32_t, int64_t, bool, double, uint64_t) override;
-    bool setSubtitleOffset(int32_t, int64_t) override;
     bool processAudioGap(int64_t, uint32_t, int64_t, bool) override;
     bool setBufferingLimit(uint32_t) override;
     bool getBufferingLimit(uint32_t &) override;
