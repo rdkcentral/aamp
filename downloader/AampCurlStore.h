@@ -242,11 +242,13 @@ struct CurlCallbackContext
 	long bitrate;
 	bool downloadIsEncoded;
 	//represents transfer-encoding based download
-	bool chunkedDownload;
-	std::string remoteUrl;
-	size_t contentLength;
-	long long downloadStartTime;
-	long long processDelay; /**< Indicate the external process delay in curl operation; especially for lld*/
+	bool chunkedDownload = false;
+	std::string remoteUrl = {};
+	size_t contentLength = 0;
+	long long downloadStartTime = -1;
+	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
+	size_t bufferOffset = 0; // Used for chunked download to keep track of current buffer offset
+	size_t chunkBoundary = 0; // Used for chunked download to store the current chunk boundary
 
 	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0)
 	{
