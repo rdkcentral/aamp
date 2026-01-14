@@ -69,15 +69,17 @@ struct ProfileInfo
 
 /**
  * @struct TimeSyncClient
- * @brief UTC time sync client state
- */
+ *
+ * @brief this class defines state associated with periodic time server synchronization.  it is used in accordance with configuration after a manifest has been refreshed to determine if elapsed time is sufficient to merit requesting updated time from server.
+ *
+ * The constructor is used to initialize lastSync with current time.
+*/
 struct TimeSyncClient
 {
-	long long lastSync; // UTC time in milliseconds since epoch when time was last synchronized with time server
-	double lastOffset; // current delta (seconds) between local and server time
-	bool hasSynced; // true if time has been synchronized at least once
-	TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false)
-	{}
+	long long lastSync; /**< UTC time in milliseconds since epoch when time was last synchronized with time server */
+	double lastOffset; /**< current delta (seconds) between local and server time */
+	bool hasSynced; /**< true if time has been synchronized at least once */
+	TimeSyncClient();
 };
 
 class AampDashWorkerJob : public aamp::AampTrackWorkerJob

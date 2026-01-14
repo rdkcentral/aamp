@@ -4468,11 +4468,14 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 	}
 }
 
+TimeSyncClient::TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false)
+{};
+
 /**
  * @brief Read UTCTiming _element_
  * @retval Return true if UTCTiming _element_ is available in the manifest
  */
-bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
+bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 {
 	bool hasServerUtcTime = false;
 	if( root )
