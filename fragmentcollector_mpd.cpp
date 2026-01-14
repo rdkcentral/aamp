@@ -4505,16 +4505,27 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
 
-						mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
-						if(mLocalUtcTime > 0 )
+						double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
+						if ((!mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup)) || (elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec)))
 						{
-							double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
-							mDeltaTime =  mLocalUtcTime - currentTime;
-							hasServerUtcTime = true;
+							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
+							if(mLocalUtcTime > 0)
+							{
+								mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+								mDeltaTime =  mLocalUtcTime - (double)mTimeSyncClient.lastSync / 1000;
+								mTimeSyncClient.lastOffset = mDeltaTime;
+								mTimeSyncClient.hasSynced = true;
+								hasServerUtcTime = true;
+							}
+							else
+							{
+								AAMPLOG_WARN("Failed to read timeServer [%s] RetCode[%d]",ServerUrl.c_str(),http_error);
+							}
 						}
-						else
+						else if(mTimeSyncClient.hasSynced)
 						{
-							AAMPLOG_ERR("Failed to read timeServer [%s] RetCode[%d]",ServerUrl.c_str(),http_error);
+							mDeltaTime = mTimeSyncClient.lastOffset;
+							hasServerUtcTime = true;
 						}
 						break;
 					}

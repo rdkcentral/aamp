@@ -67,6 +67,19 @@ struct ProfileInfo
 	int representationIndex;
 };
 
+/**
+ * @struct TimeSyncClient
+ * @brief UTC time sync info
+ */
+struct TimeSyncClient
+{
+	long long lastSync;
+	double lastOffset;
+	bool hasSynced;
+	TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false)
+	{}
+};
+
 class AampDashWorkerJob : public aamp::AampTrackWorkerJob
 {
 private:
@@ -1244,6 +1257,7 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	TimeSyncClient mTimeSyncClient;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_
