@@ -62,6 +62,7 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
  */
 void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
+	MW_LOG_ERR("Inside AC4Tracks function");
 	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
 	if(src)
 	{
