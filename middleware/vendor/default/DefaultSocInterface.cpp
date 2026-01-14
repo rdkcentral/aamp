@@ -62,6 +62,7 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
  */
 void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
+	MW_LOG_ERR("DefaultSocInterface::SetAC4Tracks called");
 	#if defined(__APPLE__) || defined(UBUNTU)
 		return false;
     #else

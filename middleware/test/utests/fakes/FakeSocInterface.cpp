@@ -248,3 +248,11 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
 {
 	return true;
 }
+
+void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+}
+
+void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+}

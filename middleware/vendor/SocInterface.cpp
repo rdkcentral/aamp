@@ -256,6 +256,7 @@ void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_cla
  */
 void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
+	MW_LOG_ERR("SocInterface::SetAC4Tracks called");
 	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
 	if(src)
 	{
