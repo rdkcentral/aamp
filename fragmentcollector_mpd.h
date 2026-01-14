@@ -69,13 +69,13 @@ struct ProfileInfo
 
 /**
  * @struct TimeSyncClient
- * @brief UTC time sync info
+ * @brief UTC time sync client state
  */
 struct TimeSyncClient
 {
-	long long lastSync;
-	double lastOffset;
-	bool hasSynced;
+	long long lastSync; // utcms time at which time was last synchronized with time server
+	double lastOffset; // current delta (seconds) between local and server time
+	bool hasSynced; // true if time has been synchronized at least once
 	TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false)
 	{}
 };

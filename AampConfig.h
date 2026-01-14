@@ -313,7 +313,6 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
-	eAAMPConfig_UTCSyncOnErrorRetrySec,				/**<  Backoff after error */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
