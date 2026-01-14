@@ -77,28 +77,12 @@ struct ProfileInfo
  * cached offset between the local system clock and the server's UTC time.
  * It supports logic to determine when a new synchronization request should
  * be made based on elapsed time and configuration.
- *
- * Members:
- * - lastSync: Timestamp (milliseconds since epoch) of the last successful sync.
- * - lastOffset: Cached time delta (in seconds) between local and server time.
- * - hasSynced: Flag indicating whether at least one successful sync has occurred.
  */
 struct TimeSyncClient
 {
-	/**
-	 * @brief UTC time in milliseconds since epoch when time was last synchronized with time server.
-	 */
-	long long lastSync;
-	
-	/**
-	 * @brief Current delta (seconds) between local and server time.
-	 */
-	double lastOffset;
-	
-	/**
-	 * @brief True if time has been synchronized at least once.
-	 */
-	bool hasSynced;
+	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync.. */
+	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
+	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
 	
 	/**
 	 * @brief Constructor initializes lastSync with current time and resets other members.

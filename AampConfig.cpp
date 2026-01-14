@@ -369,7 +369,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
 	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true},
 	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false},
-	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true}
+	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -469,13 +469,13 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,true,eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD },
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
-	{DEFAULT_UTC_SYNC_MIN_INTERVAL,"utcSyncMinIntervalSec",eAAMPConfig_UTCSyncMinIntervalSec,true },
+	{DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC,"utcSyncMinIntervalSec",eAAMPConfig_UTCSyncMinIntervalSec,true },
 
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
-	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true }
+	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
 };
 
 /**
