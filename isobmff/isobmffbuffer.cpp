@@ -1230,41 +1230,46 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
  */
 bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
 {
-	return getBoxInfoInternal(&boxes, Box::MDAT, index, start, size);
+	return getBoxInfoInternal(Box::MDAT, index, start, size);
 }
 
 /**
  * @fn getBoxInfoInternal - Get box info
  *
- * @param[in] boxes - ISOBMFF boxes
  * @param[in] name - box name to get
  * @param[in] index - index of box in a parsed buffer
  * @param[out] start - start offset of box
  * @param[out] size - size of box
  * @return bool - true if box found, false otherwise
  */
-bool IsoBmffBuffer::getBoxInfoInternal(const std::vector<Box*> *boxes, const char *name, size_t index, size_t &start, size_t &size)
+bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &start, size_t &size)
 {
 	bool ret = false;
 	size_t matchCount = 0;
-	for (size_t i = 0; i < boxes->size(); i++)
+	for (const auto& box : boxes)
 	{
-		Box *box = boxes->at(i);
 		if (IS_TYPE(box->getType(), name))
 		{
 			if (matchCount == index)
 			{
-				// Calculate the start offset of the box data within the buffer
-				start = static_cast<size_t>(box->getBase() - buffer);
-				// Get the size of the box
-				size = box->getSize();
-				ret = true;
+				if (box->getBase() >= buffer)
+				{
+					// Calculate the start offset of the box data within the buffer
+					start = static_cast<size_t>(box->getBase() - buffer);
+					// Get the size of the box
+					size = box->getSize();
+					ret = true;
+				}
+				else
+				{
+					AAMPLOG_ERR("Box of type %s has invalid base address:%p and buffer address:%p", name, box->getBase(), buffer);
+				}
 				break;
 			}
 			matchCount++;
 		}
 	}
-	if (matchCount == 0 || index >= matchCount)
+	if (!ret)
 	{
 		AAMPLOG_WARN("Box of type %s with index %zu not found, only %zu available", name, index, matchCount);
 	}

@@ -146,7 +146,7 @@ private:
 	 * @param[out] size - size of box
 	 * @return bool true if box found at index, false otherwise
 	 */
-	bool getBoxInfoInternal(const std::vector<Box*> *boxes, const char *name, size_t index, size_t &start, size_t &size);
+	bool getBoxInfoInternal(const char *name, size_t index, size_t &start, size_t &size);
 
 public:
 	/**
