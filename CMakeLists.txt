@@ -51,11 +51,14 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
-pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
-pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
-pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
-pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
-pkg_check_modules(SUBTEC REQUIRED libsubtec)
+if(NOT CMAKE_INBUILT_PLAYER_INTERFACE_DEPENDENCIES)
+	message("Building Player Interface Dependencies")
+	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+	pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
+	pkg_check_modules(SUBTEC REQUIRED libsubtec)
+endif()
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -160,36 +163,62 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/abr)
 
 # Locally built/installed dependencies are here
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.libs/include)
-
-set(LIBAAMP_DEPENDS
-	${OS_LD_FLAGS}
-	${UUID_LINK_LIBRARIES}
-	${LIBCJSON_LINK_LIBRARIES}
-	${GSTREAMERBASE_LINK_LIBRARIES}
-	${GSTREAMER_LINK_LIBRARIES}
-	${CURL_LINK_LIBRARIES}
-	${LIBDASH_LINK_LIBRARIES}
-	${LIBXML2_LIBRARIES}
-	${CMAKE_THREAD_LIBS_INIT}
-	${OPENSSL_LIBRARIES}
-	${GL_DEPENDS}
-	${AAMP_CLI_LD_FLAGS}
-	${PLAYERFBINTERFACE_LINK_LIBRARIES}
-	${BASECONVERSION_LINK_LIBRARIES}
-	${PLAYERLOGMANAGER_LINK_LIBRARIES}
-	${PLAYERGSTINTERFACE_LINK_LIBRARIES}
-	${SUBTEC_LINK_LIBRARIES}
-	-ldl
-)
+if(CMAKE_INBUILT_PLAYER_INTERFACE_DEPENDENCIES)
+	set(LIBAAMP_DEPENDS
+        ${OS_LD_FLAGS}
+        ${UUID_LINK_LIBRARIES}
+        ${LIBCJSON_LINK_LIBRARIES}
+        ${GSTREAMERBASE_LINK_LIBRARIES}
+        ${GSTREAMER_LINK_LIBRARIES}
+        ${CURL_LINK_LIBRARIES}
+        ${LIBDASH_LINK_LIBRARIES}
+        ${LIBXML2_LIBRARIES}
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${OPENSSL_LIBRARIES}
+        ${GL_DEPENDS}
+        ${AAMP_CLI_LD_FLAGS}
+	-ldl)
+else()
+	set(LIBAAMP_DEPENDS
+		${OS_LD_FLAGS}
+		${UUID_LINK_LIBRARIES}
+		${LIBCJSON_LINK_LIBRARIES}
+		${GSTREAMERBASE_LINK_LIBRARIES}
+		${GSTREAMER_LINK_LIBRARIES}
+		${CURL_LINK_LIBRARIES}
+		${LIBDASH_LINK_LIBRARIES}
+		${LIBXML2_LIBRARIES}
+		${CMAKE_THREAD_LIBS_INIT}
+		${OPENSSL_LIBRARIES}
+		${GL_DEPENDS}
+		${AAMP_CLI_LD_FLAGS}
+		${PLAYERFBINTERFACE_LINK_LIBRARIES}
+		${BASECONVERSION_LINK_LIBRARIES}
+		${PLAYERLOGMANAGER_LINK_LIBRARIES}
+		${PLAYERGSTINTERFACE_LINK_LIBRARIES}
+		${SUBTEC_LINK_LIBRARIES}
+		-ldl
+	)
+endif()
 
 # TDB needs to bring back for UT.
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
-
-include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
-include_directories(${BASECONVERSION_INCLUDE_DIRS})
-include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
-include_directories(${PLAYERGSTINTERFACE_INCLUDE_DIRS})
-include_directories(${SUBTEC_INCLUDE_DIRS})
+if(CMAKE_INBUILT_PLAYER_INTERFACE_DEPENDENCIES)
+	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
+	add_subdirectory(middleware)
+else()
+	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+	include_directories(${BASECONVERSION_INCLUDE_DIRS})
+	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+	include_directories(${PLAYERGSTINTERFACE_INCLUDE_DIRS})
+	include_directories(${SUBTEC_INCLUDE_DIRS})
+endif()
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
@@ -473,7 +502,12 @@ endif()
 
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
-target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+if(CMAKE_INBUILT_PLAYER_INTERFACE_DEPENDENCIES)
+        target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+else()
+        target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+endif()
+
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
@@ -495,13 +529,18 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-target_link_libraries(aamp-cli aamp tsb 
-${PLAYERFBINTERFACE_LINK_LIBRARIES}
-${BASECONVERSION_LINK_LIBRARIES}
-${PLAYERLOGMANAGER_LINK_LIBRARIES}
-${PLAYERGSTINTERFACE_LINK_LIBRARIES}
-${SUBTEC_LINK_LIBRARIES}
-${AAMP_CLI_LD_FLAGS} "-lreadline")
+if(CMAKE_INBUILT_PLAYER_INTERFACE_DEPENDENCIES)
+	target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
+else()
+	target_link_libraries(aamp-cli aamp tsb 
+			${PLAYERFBINTERFACE_LINK_LIBRARIES}
+			${BASECONVERSION_LINK_LIBRARIES}
+			${PLAYERLOGMANAGER_LINK_LIBRARIES}
+			${PLAYERGSTINTERFACE_LINK_LIBRARIES}
+			${SUBTEC_LINK_LIBRARIES}
+			${AAMP_CLI_LD_FLAGS} "-lreadline")
+endif()
+
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
