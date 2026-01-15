@@ -55,6 +55,7 @@
 #include "MediaSegmentDownloadJob.hpp"
 //#define DEBUG_TIMELINE
 #include "PlayerCCManager.h"
+#include "rdk_otlp_instrumentation.h"
 
 /**
  * @addtogroup AAMP_COMMON_TYPES
