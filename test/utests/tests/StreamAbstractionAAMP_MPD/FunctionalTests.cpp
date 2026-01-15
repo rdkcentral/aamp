@@ -3031,8 +3031,6 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config for startup sync enabled
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3083,8 +3081,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3142,8 +3138,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3204,8 +3198,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config - startup sync disabled after first sync
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3263,8 +3255,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisabled)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config - startup sync disabled
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(false));

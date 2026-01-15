@@ -4548,7 +4548,10 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 			}
 		}
 	}
-	mMPDParseHelper->SetLocalTimeDelta(mDeltaTime);
+	if (mMPDParseHelper)
+	{
+		mMPDParseHelper->SetLocalTimeDelta(mDeltaTime);
+	}
 	return hasServerUtcTime;
 }
 
