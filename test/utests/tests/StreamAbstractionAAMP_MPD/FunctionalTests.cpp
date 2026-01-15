@@ -104,6 +104,7 @@ protected:
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
+		{eAAMPConfig_UTCSyncOnStartup, true},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -121,7 +122,8 @@ protected:
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK},
+		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
 	};
 
 	IntConfigSettings mIntConfigSettings;
