@@ -4537,7 +4537,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 								}
 							}
 						}
-						else if(mTimeSyncClient.hasSynced)
+						else if (mTimeSyncClient.hasSynced)
 						{
 							mDeltaTime = mTimeSyncClient.lastOffset;
 							hasServerUtcTime = true;
