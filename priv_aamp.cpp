@@ -5162,6 +5162,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	// Start child span for teardown
 	AAMPLOG_INFO("OTLP before child span start teardown");
 	rdk_otlp_start_child_span("teardown_stream", "cleanup");
+	auto teardown_start = std::chrono::steady_clock::now();
 	AAMPLOG_INFO("OTLP after child span start teardown");
 	
 	std::unique_lock<std::recursive_mutex> lock(mLock);
@@ -5304,6 +5305,12 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		std::lock_guard<std::mutex> lock(mAdEventQMtx);
 		std::swap( mAdEventsQ, emptyEvQ );
 	}
+	// Record teardown duration metric
+	auto teardown_end = std::chrono::steady_clock::now();
+	auto teardown_duration = std::chrono::duration_cast<std::chrono::milliseconds>(teardown_end - teardown_start).count();
+	AAMPLOG_INFO("OTLP before metrics start teardown");
+	rdk_otlp_metrics_record_parameter_operation("teardown_stream", "cleanup", teardown_duration);
+	AAMPLOG_INFO("OTLP after metrics start teardown");
 }
 
 /**
@@ -5506,6 +5513,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	// Start child span for tune helper
 	AAMPLOG_INFO("OTLP Before child span start in TuneHelper");
 	rdk_otlp_start_child_span("tune_helper", "process");
+	auto tune_helper_start = std::chrono::steady_clock::now();
 	AAMPLOG_INFO("OTLP After child span start in TuneHelper");
 	
 	bool newTune;
@@ -6089,6 +6097,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SendMediaMetadataEvent();
 		}
 	}
+
+	// Record tune helper duration metric
+	auto tune_helper_end = std::chrono::steady_clock::now();
+	auto tune_helper_duration = std::chrono::duration_cast<std::chrono::milliseconds>(tune_helper_end - tune_helper_start).count();
+	AAMPLOG_INFO("OTLP before metrics start tuner");
+	rdk_otlp_metrics_record_parameter_operation("tune_helper", "process", tune_helper_duration);
+	AAMPLOG_INFO("OTLP after metrics start tuner");
 }
 
 /**
