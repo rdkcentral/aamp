@@ -461,9 +461,9 @@ protected:
 		{
 		}
 
-		void SetMPDParseHelper( AampMPDParseHelperPtr parseHelper )
+		void SetMPDParseHelper( AampMPDParseHelperPtr mpdParseHelperPtr )
 		{
-			this->mMPDParseHelper = parseHelper;
+			this->mMPDParseHelper = mpdParseHelperPtr;
 		}
 		
 		void CallPrintSelectedTrack(const std::string &trackIndex, AampMediaType media)
@@ -3272,7 +3272,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	// No network call should occur
 	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
 		.Times(0);
-
+	
 	// Create manifest XML
 	const char *manifestXml =
 		R"(<?xml version="1.0" encoding="utf-8"?>
@@ -3287,7 +3287,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	mStreamAbstractionAAMP_MPD->mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+	mStreamAbstractionAAMP_MPD->ReconstructTimeSyncClient();
 	
 	// Call should not sync and return false (no sync occurred)
 	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
