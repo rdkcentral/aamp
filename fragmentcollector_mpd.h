@@ -1275,6 +1275,8 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	
+public:
 	/**
 	 * @brief Client used for server time synchronization.
 	 *

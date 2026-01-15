@@ -3048,7 +3048,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 	const double serverTime = 1000000.5; // Server UTC time
 	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
 		.WillOnce(Return(serverTime));
-
+	
 	// Create manifest XML with UTCTiming
 	const char *manifestXml =
 		R"(<?xml version="1.0" encoding="utf-8"?>
@@ -3282,6 +3282,8 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
+	mStreamAbstractionAAMP_MPD->mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+	
 	// Call should not sync and return false (no sync occurred)
 	bool result = mStreamAbstractionAAMP_MPD->FindServerUTCTime(rootNode);
 	EXPECT_FALSE(result);
