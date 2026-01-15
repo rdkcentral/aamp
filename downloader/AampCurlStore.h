@@ -247,8 +247,8 @@ struct CurlCallbackContext
 	size_t contentLength = 0;
 	long long downloadStartTime = -1;
 	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
-	size_t bufferOffset = 0; // Used for chunked download to keep track of current buffer offset
-	size_t chunkBoundary = 0; // Used for chunked download to store the current chunk boundary
+	size_t bufferOffset = 0; // Used for chunked injection to keep track of start offset of the last mp4 chunk in buffer
+	size_t chunkBoundary = 0; // Used for chunked injection to store the end offset of the last mp4 chunk in buffer
 
 	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0)
 	{

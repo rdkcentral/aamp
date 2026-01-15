@@ -4369,7 +4369,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					{
 						// This is not expected.
 						// Buffer is already cached through CURL write callback for low latency and there is no course correction.
-						// Let's log here for awareness, as it not clear if we should cache the extra data beyond chunk boundary.
+						// Let's log here for awareness, as it's not clear if we should cache the extra data beyond chunk boundary.
 						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer->GetLen(), buffer->GetLen() - context.chunkBoundary);
 					}
 				}
