@@ -711,12 +711,14 @@ protected:
 	 * @param init retrievePlaylistFromCache true to try to get from cache
 	 */
 	AAMPStatusType UpdateMPD(bool init = false);
+
 	/**
 	 * @fn FindServerUTCTime
 	 * @param mpd:  MPD top level element
 	 * @param root: XML root node
 	 */
 	bool FindServerUTCTime(Node* root);
+	
 	/**
 	 * @fn FetchDashManifest
 	 */
@@ -1267,6 +1269,8 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	
+public:
 	/**
 	 * @brief Client used for server time synchronization.
 	 *
