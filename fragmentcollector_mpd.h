@@ -80,7 +80,7 @@ struct ProfileInfo
  */
 struct TimeSyncClient
 {
-	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync.. */
+	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
 	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
 	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
 	
