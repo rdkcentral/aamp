@@ -128,7 +128,7 @@ protected:
 	};
 
 	IntConfigSettings mIntConfigSettings;
-
+	
 	void SetUp()
 	{
 		if(gpGlobalConfig == nullptr)
@@ -695,7 +695,7 @@ protected:
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
-
+	
 	void SetUp() override
 	{
 		// Set up your objects before each test case
@@ -704,13 +704,15 @@ protected:
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
 
+		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
+		mStreamAbstractionAAMP_MPD->mMPDParseHelper = std::make_shared<AampMPDParseHelper>();
+		
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
 
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampUtils = new StrictMock<MockAampUtils>();
 		g_mockABRManager = new NiceMock<MockABRManager>();
-
 	}
 
 	void TearDown() override
@@ -3031,8 +3033,6 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config for startup sync enabled
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3083,8 +3083,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3099,7 +3097,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 		.WillOnce(Return(startTimeMS))       // First call: initial check
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
 		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
 
 	// Expect network call only on first sync
@@ -3142,8 +3139,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3158,7 +3153,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 		.WillOnce(Return(startTimeMS))       // First call: initial check
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
 		.WillOnce(Return(secondCallTimeMS))  // Second call: elapsed time check
 		.WillOnce(Return(secondCallTimeMS)); // Second call: record sync time
 
@@ -3204,8 +3198,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config - startup sync disabled after first sync
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(true));
@@ -3220,7 +3212,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 		.WillOnce(Return(startTimeMS))       // First call: initial check
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
 		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
 
 	// Only first call should trigger network sync
@@ -3263,8 +3254,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
  */
 TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisabled)
 {
-	GTEST_SKIP();
-	
 	// Setup mock config - startup sync disabled
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
 		.WillRepeatedly(Return(false));
@@ -3294,7 +3283,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	ASSERT_NE(rootNode, nullptr);
 
 	// Call should not sync and return false (no sync occurred)
-	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	bool result = mStreamAbstractionAAMP_MPD->FindServerUTCTime(rootNode);
 	EXPECT_FALSE(result);
 
 	// Cleanup

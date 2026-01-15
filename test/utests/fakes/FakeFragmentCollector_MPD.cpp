@@ -20,7 +20,9 @@
 #include "fragmentcollector_mpd.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 
-TimeSyncClient::TimeSyncClient(){}
+TimeSyncClient::TimeSyncClient()
+{
+}
 
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
