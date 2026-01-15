@@ -1655,6 +1655,18 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mLastSleThumbnailInfo()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
+
+		
+	// Initialize RDK OpenTelemetry instrumentation (one-time init)
+	AAMPLOG_MIL("OTLP AAMP Instance INIT begin");
+	static bool otlp_initialized = false;
+	if (!otlp_initialized) {
+		rdk_otlp_init("aamp", "1.0.0");
+		rdk_otlp_metrics_init();
+		otlp_initialized = true;
+	}
+	AAMPLOG_MIL("OTLP AAMP Instance INIT End");
+	
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mPlayerId);
@@ -6117,6 +6129,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								std::string sid,
 								const char *manifestData )
 {
+	AAMPLOG_INFO("OTLP Start parent dist trace before");
+	// Start distributed trace for the tune operation
+	rdk_otlp_start_distributed_trace("channel_tune", "tune");
+	AAMPLOG_INFO("OTLP Start parent dist trace after");
+	
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
 	int intTmpVar=0;
