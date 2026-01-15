@@ -726,8 +726,9 @@ BitsPerSecond ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeM
 	BitsPerSecond downloadbps = currentProfilebps;
 	if( downloadTimeMs )
 	{
-		downloadbps = (bufferlen*8000L)/downloadTimeMs;
-		
+		// The order here is important to avoid integer overflow
+		downloadbps = ((BitsPerSecond)(bufferlen / downloadTimeMs)*8000);
+
 		// extra coding to avoid picking lower profile
 		// Avoid this reset for Low bandwidth timeout cases
 		if(
