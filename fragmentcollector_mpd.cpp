@@ -3970,6 +3970,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	auto manifest_init_duration = std::chrono::duration_cast<std::chrono::milliseconds>(manifest_init_end - manifest_init_start).count();
     AAMPLOG_INFO("OTLP before metrics op manifest");
     rdk_otlp_metrics_record_parameter_operation("manifest_init", "parse", manifest_init_duration);
+	rdk_otlp_finish_child_span();
 	AAMPLOG_INFO("OTLP after metrics op manifest");
 	
 	return retval;
