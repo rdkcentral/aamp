@@ -461,6 +461,11 @@ protected:
 		{
 		}
 
+		void SetMPDParseHelper( AampMPDParseHelperPtr parseHelper )
+		{
+			this->mMPDParseHelper = parseHelper;
+		}
+		
 		void CallPrintSelectedTrack(const std::string &trackIndex, AampMediaType media)
 		{
 			printSelectedTrack(trackIndex, media);
@@ -705,7 +710,7 @@ protected:
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
 
 		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
-		mStreamAbstractionAAMP_MPD->mMPDParseHelper = std::make_shared<AampMPDParseHelper>();
+		mStreamAbstractionAAMP_MPD->SetMPDParseHelper( std::make_shared<AampMPDParseHelper>() );
 		
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
@@ -3096,7 +3101,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: initial check
+		.WillOnce(Return(startTimeMS))       // First call: record sync time
 		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
 
 	// Expect network call only on first sync
@@ -3152,7 +3157,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: initial check
+		.WillOnce(Return(startTimeMS))       // First call: record sync time
 		.WillOnce(Return(secondCallTimeMS))  // Second call: elapsed time check
 		.WillOnce(Return(secondCallTimeMS)); // Second call: record sync time
 
@@ -3211,7 +3216,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: initial check
+		.WillOnce(Return(startTimeMS))       // First call: record sync time
 		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
 
 	// Only first call should trigger network sync
@@ -3285,7 +3290,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	mStreamAbstractionAAMP_MPD->mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
 	
 	// Call should not sync and return false (no sync occurred)
-	bool result = mStreamAbstractionAAMP_MPD->FindServerUTCTime(rootNode);
+	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_FALSE(result);
 
 	// Cleanup

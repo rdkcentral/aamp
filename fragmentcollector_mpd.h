@@ -711,16 +711,13 @@ protected:
 	 * @param init retrievePlaylistFromCache true to try to get from cache
 	 */
 	AAMPStatusType UpdateMPD(bool init = false);
-	
-public:
-	// workaround for FindServerUTCTime_NoSyncWhenStartupDisabled
+
 	/**
 	 * @fn FindServerUTCTime
 	 * @param mpd:  MPD top level element
 	 * @param root: XML root node
 	 */
 	bool FindServerUTCTime(Node* root);
-protected:
 	
 	/**
 	 * @fn FetchDashManifest
@@ -1126,10 +1123,7 @@ protected:
 	std::thread tsbReaderThreadID;
 	ManifestDownloadResponsePtr mManifestDnldRespPtr ;
 	bool    mManifestUpdateHandleFlag;
-public:
-	// workaround for StreamAbstractionAAMP_MPDTest::SetUp()
 	AampMPDParseHelperPtr	mMPDParseHelper;
-protected:
 	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
