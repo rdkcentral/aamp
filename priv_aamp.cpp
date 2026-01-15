@@ -5310,6 +5310,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	auto teardown_duration = std::chrono::duration_cast<std::chrono::milliseconds>(teardown_end - teardown_start).count();
 	AAMPLOG_INFO("OTLP before metrics start teardown");
 	rdk_otlp_metrics_record_parameter_operation("teardown_stream", "cleanup", teardown_duration);
+	rdk_otlp_finish_child_span();
 	AAMPLOG_INFO("OTLP after metrics start teardown");
 }
 
@@ -6103,6 +6104,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	auto tune_helper_duration = std::chrono::duration_cast<std::chrono::milliseconds>(tune_helper_end - tune_helper_start).count();
 	AAMPLOG_INFO("OTLP before metrics start tuner");
 	rdk_otlp_metrics_record_parameter_operation("tune_helper", "process", tune_helper_duration);
+	rdk_otlp_finish_child_span();
 	AAMPLOG_INFO("OTLP after metrics start tuner");
 }
 
@@ -6636,6 +6638,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// do not change location of this set, it should be done after sending previous VideoEnd data which
 	// is done in TuneHelper->SendVideoEndEvent function.
 	this->mTraceUUID = std::move(sTraceId);
+	rdk_otlp_finish_distributed_trace();
 }
 
 /**
