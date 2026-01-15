@@ -3191,6 +3191,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
+	// Start child span for manifest initialization
+	AAMPLOG_INFO("OTLP before child span start manifest init");
+	rdk_otlp_start_child_span("manifest_init", "parse");
+	AAMPLOG_INFO("OTLP after child span start manifest init");
+	
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
 	float currentRate = aamp->rate;
