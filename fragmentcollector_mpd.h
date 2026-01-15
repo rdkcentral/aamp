@@ -1267,6 +1267,18 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	/**
+	 * @brief Client used for server time synchronization.
+	 *
+	 * @note TimeSyncClient maintains internal mutable state (e.g. lastSync,
+	 *       lastOffset, hasSynced) and is not internally thread-safe.
+	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
+	 *       in the implementation) are expected to be serialized by the
+	 *       caller. By design, this member is accessed only from the
+	 *       manifest-processing thread and MUST NOT be used concurrently
+	 *       from multiple threads without additional external
+	 *       synchronization.
+	 */
 	TimeSyncClient mTimeSyncClient;
 };
 
