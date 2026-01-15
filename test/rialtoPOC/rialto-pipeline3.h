@@ -59,6 +59,7 @@ public:
     // IMediaPipelineClient Implementation (All required pure virtuals)
     void notifyNetworkState(NetworkState state) override;
     void notifyPlaybackState(PlaybackState state) override;
+    void notifyPlaybackInfo(const firebolt::rialto::PlaybackInfo &playbackInfo) override {}
     void notifyPosition(int64_t position) override;
     void notifyNeedMediaData(int32_t sourceId, size_t frameCount, 
                              uint32_t needDataRequestId, 

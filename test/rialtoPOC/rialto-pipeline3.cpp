@@ -130,6 +130,7 @@ bool GstMediaPipeline::setTextTrackIdentifier(const std::string &textTrackIdenti
 
 void GstMediaPipeline::notifyPlaybackState(PlaybackState state) { }
 void GstMediaPipeline::notifyPlaybackError(int32_t sourceId, PlaybackError error) { }
+void GstMediaPipeline::notifyPlaybackInfo(const firebolt::rialto::PlaybackInfo &playbackInfo){}
 void GstMediaPipeline::notifyPosition(int64_t position) {}
 void GstMediaPipeline::notifyNetworkState(NetworkState state) {}
 void GstMediaPipeline::notifyQos(int32_t sourceId, const QosInfo &qosInfo) {}
