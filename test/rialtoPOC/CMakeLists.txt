@@ -15,6 +15,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+find_package(Threads REQUIRED)
+pkg_check_modules(CURL REQUIRED libcurl)
+pkg_check_modules(LIBDASH REQUIRED libdash)
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18)
+pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-base-1.0)
+pkg_check_modules(GSTAPP REQUIRED gstreamer-app-1.0)
+pkg_check_modules(GSTVIDEO REQUIRED gstreamer-video-1.0)
+pkg_check_modules(GLIB REQUIRED glib-2.0)
+
+include_directories(
+    ${CURL_INCLUDE_DIRS}
+    ${LIBDASH_INCLUDE_DIRS}
+    ${GSTREAMER_INCLUDE_DIRS}
+    ${GSTREAMERBASE_INCLUDE_DIRS}
+    ${GSTAPP_INCLUDE_DIRS}
+    ${GSTVIDEO_INCLUDE_DIRS}
+    ${GLIB_INCLUDE_DIRS}
+)
+
+set(rialtoPOC_DEPENDS
+	${OS_LD_FLAGS}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${CURL_LIBRARIES}
+    ${LIBDASH_LIBRARIES}
+    ${GSTREAMER_LIBRARIES}
+    ${GSTREAMERBASE_LIBRARIES}
+    ${GSTAPP_LIBRARIES}
+    ${GSTVIDEO_LIBRARIES}
+    ${GLIB_LIBRARIES}
+)
+
 set(TEST_ROOT "../")
 
 # if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAKE_BUILD_RIALTO_POC)
@@ -54,7 +85,7 @@ set(TEST_ROOT "../")
 	endif()
 
 	add_executable(rialtoPOC2 ${RIALTOPOC2_SOURCES})
-	target_link_libraries(rialtoPOC2 ${RIALTO_LIBRARIES} "-lreadline" Rialto::RialtoClient)
+	target_link_libraries(rialtoPOC2 ${RIALTO_LIBRARIES} ${rialtoPOC_DEPENDS} "-lreadline" Rialto::RialtoClient)
     install(TARGETS rialtoPOC2
 		DESTINATION bin
     )
@@ -95,7 +126,7 @@ set(TEST_ROOT "../")
 	endif()
 
 	add_executable(rialtoPOC3 ${RIALTOPOC3_SOURCES})
-	target_link_libraries(rialtoPOC3 ${RIALTO_LIBRARIES} "-lreadline" Rialto::RialtoClient)
+	target_link_libraries(rialtoPOC3 ${RIALTO_LIBRARIES} ${rialtoPOC_DEPENDS} "-lreadline" Rialto::RialtoClient)
     install(TARGETS rialtoPOC3
 		DESTINATION bin
     )
