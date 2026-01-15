@@ -77,6 +77,7 @@
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
 #include "AuthTokenErrors.h"
+#include "rdk_otlp_instrumentation.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
