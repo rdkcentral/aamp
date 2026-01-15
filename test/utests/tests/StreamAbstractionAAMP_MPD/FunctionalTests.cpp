@@ -26,6 +26,7 @@
 #include "AampLogManager.h"
 #include "fragmentcollector_mpd.h"
 #include "MediaStreamContext.h"
+#include "AampMPDUtils.h"
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
@@ -700,6 +701,7 @@ protected:
 		// Set up your objects before each test case
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
 
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
@@ -738,6 +740,9 @@ protected:
 
 		delete g_mockABRManager;
 		g_mockABRManager = nullptr;
+
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
 	}
 };
 
@@ -3016,6 +3021,275 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 
 	AAMPStatusType status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}
+
+/**
+ * @brief Test UTC sync on first call (startup behavior)
+ * 
+ * Verifies that FindServerUTCTime performs network sync on the first call
+ * when UTCSyncOnStartup is enabled and no previous sync has occurred.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
+{
+	// Setup mock config for startup sync enabled
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
+		.WillRepeatedly(Return(DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC));
+
+	// Setup time mocks
+	const long long startTimeMS = 1000000000LL; // Arbitrary start time
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillRepeatedly(Return(startTimeMS));
+
+	// Expect network call on first sync
+	const double serverTime = 1000000.5; // Server UTC time
+	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
+		.WillOnce(Return(serverTime));
+
+	// Create manifest XML with UTCTiming
+	const char *manifestXml = 
+		R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
+		</MPD>)";
+
+	// Parse manifest to get root node
+	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
+	ASSERT_NE(reader, nullptr);
+	ASSERT_TRUE(xmlTextReaderRead(reader));
+	
+	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
+	ASSERT_NE(rootNode, nullptr);
+
+	// Call FindServerUTCTime - should perform network sync
+	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	
+	// Verify sync occurred
+	EXPECT_TRUE(result);
+
+	// Cleanup
+	delete rootNode;
+	xmlFreeTextReader(reader);
+}
+
+/**
+ * @brief Test UTC sync is skipped when minimum interval hasn't elapsed
+ * 
+ * Verifies that FindServerUTCTime skips network sync when called again
+ * before the minimum interval has elapsed, and uses cached offset instead.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
+{
+	// Setup mock config
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
+		.WillRepeatedly(Return(true));
+	const int minIntervalSec = 60; // 60 seconds minimum interval
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
+		.WillRepeatedly(Return(minIntervalSec));
+
+	// Setup time progression
+	const long long startTimeMS = 1000000000LL;
+	const long long secondCallTimeMS = startTimeMS + 30000LL; // 30 seconds later (less than interval)
+	
+	// Mock time calls in sequence
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillOnce(Return(startTimeMS))       // First call: initial check
+		.WillOnce(Return(startTimeMS))       // First call: record sync time
+		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
+
+	// Expect network call only on first sync
+	const double serverTime = 1000000.5;
+	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
+		.WillOnce(Return(serverTime)); // First call only
+
+	// Create manifest XML
+	const char *manifestXml = 
+		R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
+		</MPD>)";
+
+	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
+	ASSERT_NE(reader, nullptr);
+	ASSERT_TRUE(xmlTextReaderRead(reader));
+	
+	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
+	ASSERT_NE(rootNode, nullptr);
+
+	// First call - should sync
+	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_TRUE(result1);
+
+	// Second call before interval - should use cached value, not sync
+	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_TRUE(result2); // Should still return true using cached offset
+
+	// Cleanup
+	delete rootNode;
+	xmlFreeTextReader(reader);
+}
+
+/**
+ * @brief Test UTC sync occurs when minimum interval has elapsed
+ * 
+ * Verifies that FindServerUTCTime performs a new network sync when called
+ * after the minimum interval has elapsed since the last sync.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
+{
+	// Setup mock config
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
+		.WillRepeatedly(Return(true));
+	const int minIntervalSec = 60; // 60 seconds minimum interval
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
+		.WillRepeatedly(Return(minIntervalSec));
+
+	// Setup time progression
+	const long long startTimeMS = 1000000000LL;
+	const long long secondCallTimeMS = startTimeMS + 61000LL; // 61 seconds later (more than interval)
+	
+	// Mock time calls in sequence
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillOnce(Return(startTimeMS))       // First call: initial check
+		.WillOnce(Return(startTimeMS))       // First call: record sync time
+		.WillOnce(Return(secondCallTimeMS))  // Second call: elapsed time check
+		.WillOnce(Return(secondCallTimeMS)); // Second call: record sync time
+
+	// Expect network call on both syncs
+	const double serverTime1 = 1000000.5;
+	const double serverTime2 = 1000061.5;
+	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
+		.WillOnce(Return(serverTime1)) // First sync
+		.WillOnce(Return(serverTime2)); // Second sync after interval
+
+	// Create manifest XML
+	const char *manifestXml = 
+		R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
+		</MPD>)";
+
+	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
+	ASSERT_NE(reader, nullptr);
+	ASSERT_TRUE(xmlTextReaderRead(reader));
+	
+	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
+	ASSERT_NE(rootNode, nullptr);
+
+	// First call - should sync
+	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_TRUE(result1);
+
+	// Second call after interval - should sync again
+	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_TRUE(result2);
+
+	// Cleanup
+	delete rootNode;
+	xmlFreeTextReader(reader);
+}
+
+/**
+ * @brief Test UTC sync with cached offset when sync is skipped
+ * 
+ * Verifies that when sync is skipped due to interval not elapsed,
+ * the cached offset value is used and the function still returns true.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
+{
+	// Setup mock config - startup sync disabled after first sync
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
+		.WillRepeatedly(Return(true));
+	const int minIntervalSec = 300; // 5 minutes
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
+		.WillRepeatedly(Return(minIntervalSec));
+
+	// Setup time - second call is well before interval
+	const long long startTimeMS = 1000000000LL;
+	const long long secondCallTimeMS = startTimeMS + 10000LL; // 10 seconds later
+	
+	// Mock time calls in sequence
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillOnce(Return(startTimeMS))       // First call: initial check
+		.WillOnce(Return(startTimeMS))       // First call: record sync time
+		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
+
+	// Only first call should trigger network sync
+	const double serverTime = 1000000.5;
+	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
+		.WillOnce(Return(serverTime));
+
+	// Create manifest XML
+	const char *manifestXml = 
+		R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
+		</MPD>)";
+
+	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
+	ASSERT_NE(reader, nullptr);
+	ASSERT_TRUE(xmlTextReaderRead(reader));
+	
+	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
+	ASSERT_NE(rootNode, nullptr);
+
+	// First call - performs sync
+	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_TRUE(result1);
+
+	// Second call - uses cached offset, still returns true
+	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_TRUE(result2);
+
+	// Cleanup
+	delete rootNode;
+	xmlFreeTextReader(reader);
+}
+
+/**
+ * @brief Test UTC sync behavior with UTCSyncOnStartup disabled
+ * 
+ * Verifies that when UTCSyncOnStartup is disabled and no previous sync
+ * has occurred, the function does not perform sync and returns false.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisabled)
+{
+	// Setup mock config - startup sync disabled
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
+		.WillRepeatedly(Return(DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC));
+
+	const long long startTimeMS = 1000000000LL;
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillRepeatedly(Return(startTimeMS));
+
+	// No network call should occur
+	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
+		.Times(0);
+
+	// Create manifest XML
+	const char *manifestXml = 
+		R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
+		</MPD>)";
+
+	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
+	ASSERT_NE(reader, nullptr);
+	ASSERT_TRUE(xmlTextReaderRead(reader));
+	
+	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
+	ASSERT_NE(rootNode, nullptr);
+
+	// Call should not sync and return false (no sync occurred)
+	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+	EXPECT_FALSE(result);
+
+	// Cleanup
+	delete rootNode;
+	xmlFreeTextReader(reader);
 }
 
 TEST_F(FunctionalTests, GetFirstPTS)
