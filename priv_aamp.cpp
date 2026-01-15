@@ -5159,6 +5159,11 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
  */
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
+	// Start child span for teardown
+	AAMPLOG_INFO("OTLP before child span start teardown");
+	rdk_otlp_start_child_span("teardown_stream", "cleanup");
+	AAMPLOG_INFO("OTLP after child span start teardown");
+	
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_MIL(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
@@ -5498,6 +5503,11 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
  */
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
+	// Start child span for tune helper
+	AAMPLOG_INFO("OTLP Before child span start in TuneHelper");
+	rdk_otlp_start_child_span("tune_helper", "process");
+	AAMPLOG_INFO("OTLP After child span start in TuneHelper");
+	
 	bool newTune;
 	bool previousCCEnabled = false;
 
