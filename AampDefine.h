@@ -144,8 +144,6 @@
 #define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 #define DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC	60	/**< Minimum interval between sync attempts */
-
-
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE
