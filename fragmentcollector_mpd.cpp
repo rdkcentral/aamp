@@ -4529,7 +4529,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							{
 								if (!mTimeSyncClient.hasSynced)
 								{
-									AAMPLOG_ERR("Failed initial read of timeServer [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+									AAMPLOG_ERR("Failed timeServer sync on startup [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
 								}
 								else
 								{
