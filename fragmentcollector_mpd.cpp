@@ -3195,6 +3195,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	AAMPLOG_INFO("OTLP before child span start manifest init");
 	rdk_otlp_start_child_span("manifest_init", "parse");
 	AAMPLOG_INFO("OTLP after child span start manifest init");
+
+	auto manifest_init_start = std::chrono::steady_clock::now();
 	
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
@@ -3963,7 +3965,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		UpdatePtsOffset(true);
 		FetchAndInjectInitFragments();
 	}
-
+	// Record manifest init duration metric
+	auto manifest_init_end = std::chrono::steady_clock::now();
+	auto manifest_init_duration = std::chrono::duration_cast<std::chrono::milliseconds>(manifest_init_end - manifest_init_start).count();
+    AAMPLOG_INFO("OTLP before metrics op manifest");
+    rdk_otlp_metrics_record_parameter_operation("manifest_init", "parse", manifest_init_duration);
+	AAMPLOG_INFO("OTLP after metrics op manifest");
+	
 	return retval;
 }
 
