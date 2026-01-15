@@ -54,8 +54,8 @@ void AampGrowableBuffer::Free( void )
 			printf("AampGrowableBuffer::%s(%s:%d)\n", "Free",name,gNetMemoryCount);
 		}
 		buffer.clear();
-		buffer.shrink_to_fit();  // Release the allocated memory
 	}
+	buffer.shrink_to_fit();  // Release the allocated memory
 }
 
 void AampGrowableBuffer::ReserveBytes( size_t numBytes )
@@ -68,7 +68,13 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 		{
 			printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
 		}
-		buffer.reserve(numBytes);
+		try {
+			buffer.reserve(numBytes);
+		}
+		catch (const std::bad_alloc&)
+		{
+			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu", numBytes);
+		}
 	}
 }
 
@@ -76,10 +82,11 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if( srcLen == 0 )
 	{
+		AAMPLOG_WARN("No data to append (srcLen=0)");
 		return;
 	}
 
-	bool isFirstAllocation = buffer.empty() && buffer.capacity() == 0;
+	bool isFirstAllocation = buffer.empty() && (buffer.capacity() == 0);
 	size_t required = buffer.size() + srcLen;
 
 	if( buffer.capacity() < required )
@@ -136,28 +143,6 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 	// Ensure source is in known empty state (not just moved-from)
 	src->buffer.clear();
 	src->buffer.shrink_to_fit();
-}
-
-/**
- * @brief called when internal memory is transferred (i.e. as part of GStreamer injection)
- * @note Returns the buffer data and size via GetPtr/GetLen before calling this.
- *       This method prepares the buffer for external ownership transfer.
- */
-void AampGrowableBuffer::Transfer( void )
-{
-	assert( !buffer.empty() );
-
-	if( !buffer.empty() )
-	{
-		NETMEMORY_MINUS();
-		if( gbEnableLogging )
-		{
-			printf("AampGrowableBuffer::%s(%s:%d)\n", "Transfer",name,gNetMemoryCount);
-		}
-	}
-	// Clear the buffer - ownership has been transferred
-	buffer.clear();
-	buffer.shrink_to_fit();
 }
 
 /**

@@ -42,20 +42,12 @@
 
 #define MAX_FIRST_PTS_OFFSET (uint33_t{45000}) /*500 ms*/
 
-/**
- * @brief std::exchange for pre-c++14 compiler
- * @param obj	-	object whose value to replace
- * @param new_value	-	the value to assign to obj
- * @return The old value of obj
- */
-template<class T, class U = T>
-T exchange(T& obj, U&& new_value)
-{
-	T old_value = std::move(obj);
-	obj = std::forward<U>(new_value);
-	return old_value;
-}
-
+// Use exchange from DemuxDataTypes.h (via priv_aamp.h → StreamSink.h → AampDemuxDataTypes.h → DemuxDataTypes.h)
+#if __cplusplus < 201402L
+using detail::exchange;
+#else
+using std::exchange;
+#endif
 
 namespace {
 	/**

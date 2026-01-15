@@ -169,26 +169,6 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 	src->buffer.shrink_to_fit();
 }
 
-void AampGrowableBuffer::Transfer( void )
-{
-	if (g_enableMemoryCopying)
-	{
-		// Realistic mode: track memory
-		if( !buffer.empty() )
-		{
-			NETMEMORY_MINUS();
-			if( gbEnableLogging )
-			{
-				printf("AampGrowableBuffer::%s(%s:%d)\n", "Transfer", name, gNetMemoryCount);
-			}
-		}
-	}
-	
-	// Always clear buffer
-	buffer.clear();
-	buffer.shrink_to_fit();
-}
-
 std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
 	if (g_enableMemoryCopying)

@@ -23,7 +23,25 @@
 #include <string>
 #include <vector>
 #include <cstring> // for std::memset
+#include <utility> // for std::exchange
 #include "GstUtils.h" // for GstStreamOutputFormat
+
+// C++11/14 compatible exchange utility (std::exchange is C++14)
+// This atomically replaces old_val with new_val and returns the old value
+#if __cplusplus < 201402L
+namespace detail {
+	template<typename T, typename U = T>
+	T exchange(T& obj, U&& new_value) noexcept
+	{
+		T old_value = std::move(obj);
+		obj = std::forward<U>(new_value);
+		return old_value;
+	}
+}
+using detail::exchange;
+#else
+using std::exchange;
+#endif
 
 /*
  * @enum CipherType
@@ -58,6 +76,8 @@ struct MediaProtectionInfo
 	}
 
 	// Move constructor and move assignment (allow efficient transfers)
+	// Using = default is fine here as both members are standard containers
+	// that properly handle move semantics with guaranteed empty state
 	MediaProtectionInfo(MediaProtectionInfo&&) = default;
 	MediaProtectionInfo& operator=(MediaProtectionInfo&&) = default;
 
@@ -93,18 +113,16 @@ struct MediaCodecInfo
 	/**
 	 * @brief Constructor for MediaCodecInfo
 	 */
-	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData()
+	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mInfo{}
 	{
-		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
 
 	/**
 	 * @brief Constructor for MediaCodecInfo with format
 	 * @param format Stream output format
 	 */
-	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData()
+	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mInfo{}
 	{
-		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
 
 	// Delete copy constructor and copy assignment to prevent accidental copies
@@ -116,32 +134,23 @@ struct MediaCodecInfo
 	 * @param other Source MediaCodecInfo to move from
 	 */
 	MediaCodecInfo(MediaCodecInfo&& other) noexcept
-        : mCodecFormat(std::move(other.mCodecFormat))
-        , mCodecData(std::move(other.mCodecData))
-        , mIsEncrypted(other.mIsEncrypted)
-        , mInfo(std::move(other.mInfo))
+        : mCodecFormat(exchange(other.mCodecFormat, GST_FORMAT_INVALID))
+        , mCodecData(exchange(other.mCodecData, {}))
+        , mIsEncrypted(exchange(other.mIsEncrypted, false))
+        , mInfo(exchange(other.mInfo, {})) // POD union - exchange with zero-initialized union
     {
-        // Explicitly reset the source object to default state after move
-        other.mCodecFormat = GST_FORMAT_INVALID;
-        other.mIsEncrypted = false;
     }
 
-	/** Move assignment operator for MediaCodecInfo
+	/** Move assignment operator for MediaCodecInfo (uses copy-and-swap idiom)
 	 * @param other Source MediaCodecInfo to move from
 	 */
 	MediaCodecInfo& operator=(MediaCodecInfo&& other) noexcept
 	{
-		if (this != &other)
-		{
-			mCodecFormat = std::move(other.mCodecFormat);
-			mCodecData = std::move(other.mCodecData);
-			mIsEncrypted = other.mIsEncrypted;
-			mInfo = std::move(other.mInfo);
-
-			// Explicitly reset the source object to default state after move
-			other.mCodecFormat = GST_FORMAT_INVALID;
-			other.mIsEncrypted = false;
-		}
+		using std::swap;
+		swap(mCodecFormat, other.mCodecFormat);
+		swap(mCodecData, other.mCodecData);
+		swap(mIsEncrypted, other.mIsEncrypted);
+		swap(mInfo, other.mInfo);
 		return *this;
 	}
 };
@@ -174,17 +183,15 @@ struct MediaDrmMetadata
 	 * @param other Source MediaDrmMetadata to move from
 	 */
 	MediaDrmMetadata(MediaDrmMetadata&& other) noexcept
-		: mIsEncrypted(other.mIsEncrypted),
-		  mKeyId(std::move(other.mKeyId)),
-		  mIV(std::move(other.mIV)),
-		  mCipher(other.mCipher),
-		  mSubSamples(std::move(other.mSubSamples)),
-		  mNumSubSamples(other.mNumSubSamples),
-		  mCryptByteBlock(other.mCryptByteBlock),
-		  mSkipByteBlock(other.mSkipByteBlock)
+		: mIsEncrypted(exchange(other.mIsEncrypted, false))
+		, mKeyId(exchange(other.mKeyId, {}))
+		, mIV(exchange(other.mIV, {}))
+		, mCipher(exchange(other.mCipher, CIPHER_TYPE_NONE))
+		, mSubSamples(exchange(other.mSubSamples, {}))
+		, mNumSubSamples(exchange(other.mNumSubSamples, 0))
+		, mCryptByteBlock(exchange(other.mCryptByteBlock, 0))
+		, mSkipByteBlock(exchange(other.mSkipByteBlock, 0))
 	{
-		// Reset source object to default state after move
-		other.mIsEncrypted = false;
 	}
 
 	/**
@@ -194,20 +201,15 @@ struct MediaDrmMetadata
 	 */
 	MediaDrmMetadata& operator=(MediaDrmMetadata&& other) noexcept
 	{
-		if (this != &other)
-		{
-			mIsEncrypted = other.mIsEncrypted;
-			mKeyId = std::move(other.mKeyId);
-			mIV = std::move(other.mIV);
-			mCipher = other.mCipher;
-			mSubSamples = std::move(other.mSubSamples);
-			mNumSubSamples = other.mNumSubSamples;
-			mCryptByteBlock = other.mCryptByteBlock;
-			mSkipByteBlock = other.mSkipByteBlock;
-
-			// Reset source object to default state after move
-			other.mIsEncrypted = false;
-		}
+		using std::swap;
+		swap(mIsEncrypted, other.mIsEncrypted);
+		swap(mKeyId, other.mKeyId);
+		swap(mIV, other.mIV);
+		swap(mCipher, other.mCipher);
+		swap(mSubSamples, other.mSubSamples);
+		swap(mNumSubSamples, other.mNumSubSamples);
+		swap(mCryptByteBlock, other.mCryptByteBlock);
+		swap(mSkipByteBlock, other.mSkipByteBlock);
 		return *this;
 	}
 
@@ -284,18 +286,13 @@ struct MediaSample
 	 * @param other Source MediaSample to move from
 	 */
 	MediaSample(MediaSample&& other) noexcept
-		: mData(std::move(other.mData))
-		, mPts(other.mPts)
-		, mDts(other.mDts)
-		, mDuration(other.mDuration)
-		, mPtsOffset(other.mPtsOffset)
-		, mDrmMetadata(std::move(other.mDrmMetadata))
+		: mData(exchange(other.mData, {}))
+		, mPts(exchange(other.mPts, 0.0))
+		, mDts(exchange(other.mDts, 0.0))
+		, mDuration(exchange(other.mDuration, 0.0))
+		, mPtsOffset(exchange(other.mPtsOffset, 0.0))
+		, mDrmMetadata(exchange(other.mDrmMetadata, {}))
 	{
-		// Vector is already moved, just reset scalars
-		other.mPts = 0.0;
-		other.mDts = 0.0;
-		other.mDuration = 0.0;
-		other.mPtsOffset = 0.0;
 	}
 
 	/**
@@ -305,21 +302,13 @@ struct MediaSample
 	 */
 	MediaSample& operator=(MediaSample&& other) noexcept
 	{
-		if (this != &other)
-		{
-			mData = std::move(other.mData);
-			mPts = other.mPts;
-			mDts = other.mDts;
-			mDuration = other.mDuration;
-			mPtsOffset = other.mPtsOffset;
-			mDrmMetadata = std::move(other.mDrmMetadata);
-
-			// Reset source scalars
-			other.mPts = 0.0;
-			other.mDts = 0.0;
-			other.mDuration = 0.0;
-			other.mPtsOffset = 0.0;
-		}
+		using std::swap;
+		swap(mData, other.mData);
+		swap(mPts, other.mPts);
+		swap(mDts, other.mDts);
+		swap(mDuration, other.mDuration);
+		swap(mPtsOffset, other.mPtsOffset);
+		swap(mDrmMetadata, other.mDrmMetadata);
 		return *this;
 	}
 

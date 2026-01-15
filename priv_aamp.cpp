@@ -7920,6 +7920,10 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
 												   static_cast<const uint8_t *>(ptr) + len),
 							  fpts, fdts, fDuration);
 	}
+	else
+	{
+		AAMPLOG_WARN("SendStreamCopy: Invalid parameters or Sink not available ptr=%p len=%zu", ptr, len);
+	}
 	return false;
 }
 

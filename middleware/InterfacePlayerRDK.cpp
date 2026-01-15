@@ -2957,11 +2957,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
 	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
-	
-	// Extract ptr and len from MediaSample for use with GStreamer APIs
-	size_t len = sample.size();
-	const void* ptr = sample.data();
-	
+
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
 	{
 		MW_LOG_WARN( "[%d] Discontinuity detected - setting subtitle clock to %" GST_TIME_FORMAT " dAR %d rP %d init %d sC %d",
