@@ -97,8 +97,8 @@ TEST_F(FunctionalTests, ReserveBytesTest)
     // No g_free expectation needed - std::vector RAII handles cleanup
 
     // Assert: Check the effects of the ReserveBytes function
-    // After reserve(), vector.data() returns pointer to allocated memory
-    EXPECT_EQ(buffer.GetPtr(), nullptr);       // Memory is allocated (capacity > 0)
+    // Buffer has reserved capacity but is still empty (size == 0)
+    EXPECT_EQ(buffer.GetPtr(), nullptr);       // Buffer is empty, so pointer is null
     EXPECT_EQ(buffer.GetLen(), 0);             // Check if length remains 0
     EXPECT_GE(buffer.GetAvail(), numBytesToReserve); // Capacity should be at least what we reserved
 }
