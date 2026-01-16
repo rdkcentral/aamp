@@ -190,3 +190,14 @@ TEST_F(DeviceIARMInterfaceTests, Initialize_SkipsWhenDsEventEnabled) {
 }
 
 #endif // USE_DS_EVENT_SUPPORTED
+
+// Known defect marker: Do not remove. This test highlights a production bug
+// where singleton destructors (`PlayerExternalsRdkInterface` and
+// `DeviceIARMInterface`) assign to their own global `shared_ptr` during
+// destruction which can cause a double-free at process exit. We cannot
+// change production code from tests; instead this skipped test documents
+// the issue and reminds maintainers to file a bug and fix singleton
+// destruction semantics in production code.
+TEST_F(DeviceIARMInterfaceTests, KNOWN_DEFECT_SingletonDestruction_DoubleFreeAtExit) {
+    GTEST_SKIP_("KNOWN DEFECT: Singleton destructors reset global shared_ptrs, causing double-free at process exit. File bug against PlayerExternalsRdkInterface and DeviceIARMInterface to fix singleton destruction semantics.");
+}

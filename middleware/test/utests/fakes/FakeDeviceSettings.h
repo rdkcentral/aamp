@@ -133,6 +133,9 @@ public:
     void reset();
     bool hasVideoOutputPortHandler() const;
     bool hasDisplayDeviceHandler() const;
+    // Expose current registered handlers for validation in UnRegister
+    Host::IVideoOutputPortEvents* getVideoOutputPortHandler() const;
+    Host::IDisplayDeviceEvents* getDisplayDeviceHandler() const;
 
 private:
     Host::IVideoOutputPortEvents* videoOutputHandler = nullptr;

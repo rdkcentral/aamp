@@ -37,28 +37,38 @@ Host& Host::getInstance() {
 
 void Host::Register(Host::IVideoOutputPortEvents* handler, const std::string& name) {
     if (handler) {
+        // Only increment count if we're replacing nullptr (no handler was registered before)
+        if (!DeviceSettingsTestHelper::getInstance().hasVideoOutputPortHandler()) {
+            videoHandlerCount++;
+        }
         DeviceSettingsTestHelper::getInstance().setVideoOutputPortHandler(handler);
-        videoHandlerCount++;
     }
 }
 
 void Host::Register(Host::IDisplayDeviceEvents* handler, const std::string& name) {
     if (handler) {
+        // Only increment count if we're replacing nullptr (no handler was registered before)
+        if (!DeviceSettingsTestHelper::getInstance().hasDisplayDeviceHandler()) {
+            displayHandlerCount++;
+        }
         DeviceSettingsTestHelper::getInstance().setDisplayDeviceHandler(handler);
-        displayHandlerCount++;
     }
 }
 
 void Host::UnRegister(Host::IVideoOutputPortEvents* handler) {
-    if (videoHandlerCount > 0) {
-        DeviceSettingsTestHelper::getInstance().setVideoOutputPortHandler(nullptr);
+    DeviceSettingsTestHelper& helper = DeviceSettingsTestHelper::getInstance();
+    // Only unregister if the handler matches the currently registered handler
+    if (handler != nullptr && helper.getVideoOutputPortHandler() == handler && videoHandlerCount > 0) {
+        helper.setVideoOutputPortHandler(nullptr);
         videoHandlerCount--;
     }
 }
 
 void Host::UnRegister(Host::IDisplayDeviceEvents* handler) {
-    if (displayHandlerCount > 0) {
-        DeviceSettingsTestHelper::getInstance().setDisplayDeviceHandler(nullptr);
+    DeviceSettingsTestHelper& helper = DeviceSettingsTestHelper::getInstance();
+    // Only unregister if the handler matches the currently registered handler
+    if (handler != nullptr && helper.getDisplayDeviceHandler() == handler && displayHandlerCount > 0) {
+        helper.setDisplayDeviceHandler(nullptr);
         displayHandlerCount--;
     }
 }
@@ -87,6 +97,14 @@ void DeviceSettingsTestHelper::setVideoOutputPortHandler(Host::IVideoOutputPortE
 
 void DeviceSettingsTestHelper::setDisplayDeviceHandler(Host::IDisplayDeviceEvents* handler) {
     displayDeviceHandler = handler;
+}
+
+Host::IVideoOutputPortEvents* DeviceSettingsTestHelper::getVideoOutputPortHandler() const {
+    return videoOutputHandler;
+}
+
+Host::IDisplayDeviceEvents* DeviceSettingsTestHelper::getDisplayDeviceHandler() const {
+    return displayDeviceHandler;
 }
 
 void DeviceSettingsTestHelper::triggerResolutionPreChange(int width, int height) {

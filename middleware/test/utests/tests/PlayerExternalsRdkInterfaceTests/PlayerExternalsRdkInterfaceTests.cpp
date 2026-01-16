@@ -18,9 +18,12 @@ int main(int argc, char **argv)
 {
     testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();
-    // Use _Exit() instead of return to bypass global destructors
-    // This works around a double-free bug in production code destructors
-    // (PlayerExternalsRdkInterface and DeviceIARMInterface set their own
-    // global shared_ptr to nullptr during destruction, causing crashes)
+
+    // Known defect in production code: `PlayerExternalsRdkInterface` and
+    // `DeviceIARMInterface` singletons have flawed destruction that causes
+    // a double-free at process exit. The issue stems from improper singleton
+    // lifetime management. Use _Exit() to skip global destructors.
+    // TODO: File bug and fix singleton destruction semantics in production code.
+
     _Exit(result);
 }
