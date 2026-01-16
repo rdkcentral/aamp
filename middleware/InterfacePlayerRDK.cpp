@@ -3053,6 +3053,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		}
 		else
 		{
+			delete heapVector;
 			bPushBuffer = false;
 		}
 
