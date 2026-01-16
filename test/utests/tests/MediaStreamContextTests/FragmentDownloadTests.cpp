@@ -331,6 +331,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 	dlInfo->isInitSegment = false;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
 
 	auto cachedFragment = std::make_shared<CachedFragment>();
@@ -341,4 +342,210 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 		bool result = mMediaStreamContext->DownloadFragment(dlInfo);
 		EXPECT_TRUE(result);
 	});
+}
+
+/**
+ * @brief Verify DownloadFragment never caches when track downloads are disabled in low latency mode
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNotCache)
+{
+	// This test validates that in Low Latency DASH mode, when track downloads
+	// are disabled, DownloadFragment should not attempt to cache/download the
+	// fragment (i.e., it should not call GetFetchBuffer/GetFile). The function
+	// should still return true because the "download loop" can exit cleanly.
+	int maxCache = 5;
+
+	// Enable low-latency mode so the wait loop path is exercised.
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
+
+	// Ensure there is cache capacity so only the "track downloads disabled"
+	// condition prevents caching.
+	mMediaStreamContext->numberOfFragmentsCached = 0;
+
+	// Configure the max fragment cache size (not full).
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(maxCache));
+
+	// Simulate that track downloads are disabled for the video track.
+	// This should prevent any caching attempt in the LLD path.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+
+	// Ensure we are not injecting from local TSB; otherwise the wait loop is
+	// skipped and caching could proceed.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+
+	// Verify no caching/download is attempted.
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.Times(0);
+
+	// Force the low-latency wait loop to execute once and then stop:
+	// - The function checks DownloadsAreEnabled() before entering the loop.
+	// - WaitForLowLatencyDashDownloads() typically checks DownloadsAreEnabled()
+	//   while waiting.
+	// - We return false after the first iteration to stop the loop and prevent
+	//   any caching work from continuing.
+	{
+		InSequence seq;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+			.WillRepeatedly(Return(false));
+	}
+
+	// Build a minimal valid download request.
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/fragment";
+	dlInfo->url = "http://example.com/fragment";
+	dlInfo->isInitSegment = false;
+
+	// Expect success (clean early-exit behavior) and no caching side effects.
+	const bool result = mMediaStreamContext->DownloadFragment(dlInfo);
+	EXPECT_TRUE(result);
+}
+
+/**
+ * @brief Verify DownloadFragment never caches when fragment cache is full
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
+{
+	// This test validates that when the fragment cache is already full,
+	// DownloadFragment returns without attempting to cache/download.
+	int maxCache = 1;
+
+	// Simulate cache already at capacity.
+	mMediaStreamContext->numberOfFragmentsCached = maxCache;
+
+	// Configure the cache size so "full" condition is true.
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(maxCache));
+
+	// Verify no caching/download is attempted because cache is full.
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.Times(0);
+
+	// Allow the initial entry check to proceed, then disable downloads to
+	// ensure we do not loop and accidentally attempt any caching path.
+	{
+		InSequence seq;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+			.WillRepeatedly(Return(false));
+	}
+
+	// Build a minimal valid download request.
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/fragment";
+	dlInfo->url = "http://example.com/fragment";
+	dlInfo->isInitSegment = false;
+
+	// Expect success (clean early-exit) and no caching.
+	const bool result = mMediaStreamContext->DownloadFragment(dlInfo);
+	EXPECT_TRUE(result);
+}
+
+/**
+ * @brief Verify low-latency mode skips the wait loop when injecting from local TSB
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
+{
+	// This test validates that in Low Latency DASH mode, if we are injecting
+	// from a local TSB, the wait loop is skipped and the fragment can be
+	// cached even if TrackDownloadsAreEnabled() is false.
+	int maxCache = 5;
+
+	// Enable low-latency mode and leave cache capacity available.
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
+
+	// Simulate local TSB injection; this should bypass the LLD wait loop.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(true));
+
+	// Configure cache size so caching is allowed.
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(maxCache));
+
+	// Even with track downloads disabled, local injection should allow caching.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(false));
+
+	// Downloads enabled so the function proceeds through its normal flow.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+
+	// Expect exactly one cache buffer allocation and one successful "download".
+	auto cachedFragment = std::make_shared<CachedFragment>();
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
+		.WillOnce(Return(cachedFragment.get()));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	// Build a minimal valid download request.
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/fragment";
+	dlInfo->url = "http://example.com/fragment";
+	dlInfo->isInitSegment = false;
+
+	// Expect caching to occur and the call to succeed.
+	EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+}
+
+/**
+ * @brief Verify DownloadFragment caches when not blocked
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
+{
+	// This test validates the "happy path" in Low Latency DASH mode:
+	// - Track downloads enabled
+	// - Downloads enabled
+	// - Not local TSB injection (so LLD logic is active)
+	// Expect caching/download to be attempted for each call.
+	int maxCache = 5;
+	int numCalls = 5;
+
+	// Enable low-latency mode and ensure cache has room.
+	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
+
+	// Configure cache size to permit caching.
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(maxCache));
+
+	// Allow track downloads and global downloads so caching can proceed.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+
+	// Not local injection, so the non-TSB path is used.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+
+	// Expect one buffer request and one "download" per call.
+	auto cachedFragment = std::make_shared<CachedFragment>();
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
+		.Times(numCalls)
+		.WillRepeatedly(Return(cachedFragment.get()));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.Times(numCalls)
+		.WillRepeatedly(Return(true));
+
+	// Build a minimal valid download request.
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/fragment";
+	dlInfo->url = "http://example.com/fragment";
+	dlInfo->isInitSegment = false;
+
+	// Repeated calls should succeed and perform caching each time.
+	for (int i = 0; i < numCalls; ++i)
+	{
+		EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
+	}
 }
