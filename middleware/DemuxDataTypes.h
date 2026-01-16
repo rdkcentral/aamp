@@ -112,6 +112,10 @@ struct MediaCodecInfo
 
 	/**
 	 * @brief Constructor for MediaCodecInfo
+	 * 
+	 * @note Uses uniform initialization (mInfo{}) instead of std::memset for zero-initialization.
+	 *       Uniform initialization is preferred for C++ types as it's type-safe, clearer in intent,
+	 *       and works correctly with all C++ types including those with constructors.
 	 */
 	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mInfo{0}
 	{
@@ -120,6 +124,10 @@ struct MediaCodecInfo
 	/**
 	 * @brief Constructor for MediaCodecInfo with format
 	 * @param format Stream output format
+	 * 
+	 * @note Uses uniform initialization (mInfo{}) instead of std::memset for zero-initialization.
+	 *       Uniform initialization is preferred for C++ types as it's type-safe, clearer in intent,
+	 *       and works correctly with all C++ types including those with constructors.
 	 */
 	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mInfo{0}
 	{
