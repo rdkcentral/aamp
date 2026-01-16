@@ -701,7 +701,7 @@ printf( "ANJ: IN: MonitorAV");
 			{
 				case 0:
 					description = "eos";
-					/break;
+					break;
 				case 1:
 					description = "trickplay";
 					break;
