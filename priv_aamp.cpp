@@ -8151,10 +8151,33 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
 		waitforplaystart.notify_all();
+		AAMPLOG_WARN("HariPriya Stop: notified PreCache thread, isDestructing=%d", isDestructing);
 	}
 	if(mPreCachePlaylistThreadId.joinable())
 	{
-		mPreCachePlaylistThreadId.join();
+		auto joinStartTime = NOW_STEADY_TS_MS;
+		AAMPLOG_WARN("HariPriya Stop: About to join PreCache thread, isDestructing=%d", isDestructing);
+		
+		// Fix for GC deadlock: During GC finalization (isDestructing=true), the PreCache thread
+		// may be blocked in network I/O (curl_easy_perform). Using join() would block the main
+		// thread indefinitely, causing freeze/crash. Instead, use detach() to let the thread
+		// clean up itself. The thread will exit safely once network I/O completes.
+		if (isDestructing)
+		{
+			AAMPLOG_WARN("HariPriya Stop: Detaching PreCache thread (GC path) to avoid blocking, isDestructing=%d", isDestructing);
+			mPreCachePlaylistThreadId.detach();
+		}
+		else
+		{
+			// Normal stop path - wait for thread to complete
+			mPreCachePlaylistThreadId.join();
+			auto joinDuration = NOW_STEADY_TS_MS - joinStartTime;
+			AAMPLOG_WARN("HariPriya Stop: PreCache thread joined after %lld ms, isDestructing=%d", joinDuration, isDestructing);
+		}
+	}
+	else
+	{
+		AAMPLOG_INFO("HariPriya Stop: PreCache thread not joinable, isDestructing=%d", isDestructing);
 	}
 
 	if (mAampCacheHandler)
@@ -10271,6 +10294,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 {
 	// This is the thread function to download all the HLS Playlist in a
 	// differed manner
+	AAMPLOG_WARN("PreCachePlaylistDownloadTask: Thread started");
 	int maxWindowForDownload = mPreCacheDnldTimeWindow * 60; // convert to seconds
 	int szPlaylistCount = (int)mPreCacheDnldList.size();
 	if(szPlaylistCount)
@@ -10278,7 +10302,9 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		// First wait for Tune to complete to start this functionality
 		{
 			std::unique_lock<std::mutex> lock(mMutexPlaystart);
+			AAMPLOG_WARN("PreCachePlaylistDownloadTask: Waiting for playstart notification");
 			waitforplaystart.wait(lock);
+			AAMPLOG_WARN("PreCachePlaylistDownloadTask: Received playstart notification, proceeding");
 		}
 		// May be Stop is called to release all resources .
 		// Before download , check the state
@@ -10312,7 +10338,25 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						bool ret = false;
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
 						AcquireStreamLock();
+						auto getFileStartTime = NOW_STEADY_TS_MS;
+						AAMPLOG_WARN("HariPriya PreCachePlaylistDownloadTask: About to call GetFile (network I/O), state=%d", GetState());
+						
+						// DEBUG: Simulate slow network to reproduce GC deadlock issue
+						// Set AAMP_SIMULATE_SLOW_PRECACHE_MS env var to inject delay (e.g., export AAMP_SIMULATE_SLOW_PRECACHE_MS=5000)
+						const char* delayEnv = getenv("AAMP_SIMULATE_SLOW_PRECACHE_MS");
+						if (delayEnv)
+						{
+							int delayMs = atoi(delayEnv);
+							if (delayMs > 0)
+							{
+								AAMPLOG_WARN("HariPriya PreCachePlaylistDownloadTask: DEBUG - Simulating slow network with %d ms delay", delayMs);
+								std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+							}
+						}
+						
 						ret = GetFile(newelem.url, newelem.type, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
+						auto getFileDuration = NOW_STEADY_TS_MS - getFileStartTime;
+						AAMPLOG_WARN("HariPriya PreCachePlaylistDownloadTask: GetFile returned after %lld ms, ret=%d, state=%d", getFileDuration, ret, GetState());
 						ReleaseStreamLock();
 						if(ret != false)
 						{
@@ -10337,11 +10381,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 					}
 				}
 			}while (idx < mPreCacheDnldList.size() && state != eSTATE_STOPPING && state != eSTATE_IDLE && state != eSTATE_ERROR);
+			AAMPLOG_WARN("HariPriya PreCachePlaylistDownloadTask: Exiting loop, state=%d, idx=%d, size=%zu", state, idx, mPreCacheDnldList.size());
 			mPreCacheDnldList.clear();
 			CurlTerm(eCURLINSTANCE_PLAYLISTPRECACHE);
 		}
 	}
-	AAMPLOG_WARN("End of PreCachePlaylistDownloadTask ");
+	AAMPLOG_WARN("PreCachePlaylistDownloadTask: Thread exiting, state=%d", GetState());
 }
 
 /**
@@ -14448,5 +14493,3 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
-	}
-}
