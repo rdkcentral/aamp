@@ -5487,15 +5487,23 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 	bool previousCCEnabled = false;
-	std::string TestUrl = "////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// ////////// //////////";
-
+	std::string TestUrl;
+	
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 
 
 	AAMPLOG_INFO("Neil start");
 
-	AAMPLOG_INFO("%s %s %s",TestUrl.c_str(), TestUrl.c_str(),TestUrl.c_str());
+	for (int i = 0; i < 1000; i++)
+	{
+		TestUrl += ': ' + std::to_string(i);
+	}
 
+	for (int i = 0; i < 1000; i++)
+	{
+		AAMPLOG_INFO("%s",TestUrl.c_str());
+	}
+	
 	AAMPLOG_INFO("Neil end");
 
 
