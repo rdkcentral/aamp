@@ -56,10 +56,15 @@ public:
      */
     virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
     /**
-     *   @brief  API to send audio/video buffer into the sink (copy mode).
+     *   @brief  API to send audio/video buffer into the sink.
+     *
+     *   This function accepts a temporary vector via rvalue reference and transfers
+     *   ownership to the sink using move semantics (zero-copy transfer). The name
+     *   "SendCopy" reflects the historical usage where callers copy data from raw
+     *   pointers into a vector before calling this function.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  buffer - Pointer to std::vector; buffer ownership is transferred to sink
+     *   @param[in]  buffer - Temporary vector (rvalue reference); ownership transferred to sink via move
      *   @param[in]  fpts - Presentation Time Stamp.
      *   @param[in]  fdts - Decode Time Stamp
      *   @param[in]  fDuration - Buffer duration.
