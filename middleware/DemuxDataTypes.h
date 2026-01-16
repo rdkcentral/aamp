@@ -201,15 +201,17 @@ struct MediaDrmMetadata
 	 */
 	MediaDrmMetadata& operator=(MediaDrmMetadata&& other) noexcept
 	{
-		using std::swap;
-		swap(mIsEncrypted, other.mIsEncrypted);
-		swap(mKeyId, other.mKeyId);
-		swap(mIV, other.mIV);
-		swap(mCipher, other.mCipher);
-		swap(mSubSamples, other.mSubSamples);
-		swap(mNumSubSamples, other.mNumSubSamples);
-		swap(mCryptByteBlock, other.mCryptByteBlock);
-		swap(mSkipByteBlock, other.mSkipByteBlock);
+		if (this != &other)
+		{
+			mIsEncrypted = exchange(other.mIsEncrypted, false);
+			mKeyId = exchange(other.mKeyId, {});
+			mIV = exchange(other.mIV, {});
+			mCipher = exchange(other.mCipher, CIPHER_TYPE_NONE);
+			mSubSamples = exchange(other.mSubSamples, {});
+			mNumSubSamples = exchange(other.mNumSubSamples, 0);
+			mCryptByteBlock = exchange(other.mCryptByteBlock, 0);
+			mSkipByteBlock = exchange(other.mSkipByteBlock, 0);
+		}
 		return *this;
 	}
 
