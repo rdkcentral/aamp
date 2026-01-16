@@ -5494,12 +5494,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	AAMPLOG_INFO("Neil start");
 
-	for (int i = 0; i < 1000; i++)
-	{
-		TestUrl += ': ' + std::to_string(i);
-	}
+	TestUrl.clear();
 
 	for (int i = 0; i < 1000; i++)
+	{
+		TestUrl += ": " + std::to_string(i);
+	}
+
+	for (int i = 0; i < 5; i++)
 	{
 		AAMPLOG_INFO("%s",TestUrl.c_str());
 	}
