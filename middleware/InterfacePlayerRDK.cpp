@@ -20,7 +20,6 @@
 #include <iostream>
 #include "InterfacePlayerRDK.h"
 #include "InterfacePlayerPriv.h"
-#include "AampGrowableBuffer.h"
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -3045,7 +3044,9 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 				DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
 			}
 			if (mediaType == eGST_MEDIATYPE_SUBTITLE)
+			{
 				GST_BUFFER_OFFSET(buffer) = pts_offset;
+			}
 
 			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
 						mediaType, pts, dts, heapVector->size(), initFragment, discontinuity, duration, pts_offset);
