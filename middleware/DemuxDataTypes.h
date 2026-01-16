@@ -113,7 +113,7 @@ struct MediaCodecInfo
 	/**
 	 * @brief Constructor for MediaCodecInfo
 	 */
-	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mInfo{}
+	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mInfo{0}
 	{
 	}
 
@@ -121,7 +121,7 @@ struct MediaCodecInfo
 	 * @brief Constructor for MediaCodecInfo with format
 	 * @param format Stream output format
 	 */
-	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mInfo{}
+	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mInfo{0}
 	{
 	}
 
