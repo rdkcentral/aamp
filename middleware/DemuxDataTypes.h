@@ -141,16 +141,20 @@ struct MediaCodecInfo
     {
     }
 
-	/** Move assignment operator for MediaCodecInfo (uses copy-and-swap idiom)
+	/**
+	 * @brief Move assignment operator for MediaCodecInfo
 	 * @param other Source MediaCodecInfo to move from
+	 * @return Reference to this object
 	 */
 	MediaCodecInfo& operator=(MediaCodecInfo&& other) noexcept
 	{
-		using std::swap;
-		swap(mCodecFormat, other.mCodecFormat);
-		swap(mCodecData, other.mCodecData);
-		swap(mIsEncrypted, other.mIsEncrypted);
-		swap(mInfo, other.mInfo);
+		if (this != &other)
+		{
+			mCodecFormat = exchange(other.mCodecFormat, GST_FORMAT_INVALID);
+			mCodecData = exchange(other.mCodecData, {});
+			mIsEncrypted = exchange(other.mIsEncrypted, false);
+			mInfo = exchange(other.mInfo, {}); // POD union - exchange with zero-initialized union
+		}
 		return *this;
 	}
 };
