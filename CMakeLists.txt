@@ -500,7 +500,7 @@ install(TARGETS aamp-cli
 # XCode schema target
 xcode_define_schema(aamp-cli)
 
-if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
+if ((CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin) AND CMAKE_BUILD_KOTLIN_ENABLED)
 	set(AAMP_KOTLIN_SRC
 		${AAMP_CLI_SOURCES}
 		test/aampcli/aampcli_kmp.cpp
