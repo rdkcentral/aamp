@@ -82,7 +82,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if( srcLen == 0 )
 	{
-		AAMPLOG_WARN("No data to append (srcLen=0)");
 		return;
 	}
 
