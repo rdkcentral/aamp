@@ -304,13 +304,15 @@ struct MediaSample
 	 */
 	MediaSample& operator=(MediaSample&& other) noexcept
 	{
-		using std::swap;
-		swap(mData, other.mData);
-		swap(mPts, other.mPts);
-		swap(mDts, other.mDts);
-		swap(mDuration, other.mDuration);
-		swap(mPtsOffset, other.mPtsOffset);
-		swap(mDrmMetadata, other.mDrmMetadata);
+		if (this != &other)
+		{
+			mData = exchange(other.mData, {});
+			mPts = exchange(other.mPts, 0.0);
+			mDts = exchange(other.mDts, 0.0);
+			mDuration = exchange(other.mDuration, 0.0);
+			mPtsOffset = exchange(other.mPtsOffset, 0.0);
+			mDrmMetadata = exchange(other.mDrmMetadata, {});
+		}
 		return *this;
 	}
 
