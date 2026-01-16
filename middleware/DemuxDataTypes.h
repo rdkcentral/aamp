@@ -201,15 +201,17 @@ struct MediaDrmMetadata
 	 */
 	MediaDrmMetadata& operator=(MediaDrmMetadata&& other) noexcept
 	{
-		using std::swap;
-		swap(mIsEncrypted, other.mIsEncrypted);
-		swap(mKeyId, other.mKeyId);
-		swap(mIV, other.mIV);
-		swap(mCipher, other.mCipher);
-		swap(mSubSamples, other.mSubSamples);
-		swap(mNumSubSamples, other.mNumSubSamples);
-		swap(mCryptByteBlock, other.mCryptByteBlock);
-		swap(mSkipByteBlock, other.mSkipByteBlock);
+		if (this != &other)
+		{
+			mIsEncrypted = exchange(other.mIsEncrypted, false);
+			mKeyId = exchange(other.mKeyId, {});
+			mIV = exchange(other.mIV, {});
+			mCipher = exchange(other.mCipher, CIPHER_TYPE_NONE);
+			mSubSamples = exchange(other.mSubSamples, {});
+			mNumSubSamples = exchange(other.mNumSubSamples, 0);
+			mCryptByteBlock = exchange(other.mCryptByteBlock, 0);
+			mSkipByteBlock = exchange(other.mSkipByteBlock, 0);
+		}
 		return *this;
 	}
 
@@ -302,13 +304,15 @@ struct MediaSample
 	 */
 	MediaSample& operator=(MediaSample&& other) noexcept
 	{
-		using std::swap;
-		swap(mData, other.mData);
-		swap(mPts, other.mPts);
-		swap(mDts, other.mDts);
-		swap(mDuration, other.mDuration);
-		swap(mPtsOffset, other.mPtsOffset);
-		swap(mDrmMetadata, other.mDrmMetadata);
+		if (this != &other)
+		{
+			mData = exchange(other.mData, {});
+			mPts = exchange(other.mPts, 0.0);
+			mDts = exchange(other.mDts, 0.0);
+			mDuration = exchange(other.mDuration, 0.0);
+			mPtsOffset = exchange(other.mPtsOffset, 0.0);
+			mDrmMetadata = exchange(other.mDrmMetadata, {});
+		}
 		return *this;
 	}
 

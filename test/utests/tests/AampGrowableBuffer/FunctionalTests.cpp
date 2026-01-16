@@ -168,7 +168,7 @@ TEST_F(FunctionalTests, ReplaceTest)
     EXPECT_EQ(sourceBuffer.GetLen(), 0);       // Check if source length is reset
 }
 
-TEST_F(FunctionalTests, ExtractNonEmptyTest)
+TEST_F(FunctionalTests, ExtractVectorNonEmptyTest)
 {
     // Create a new buffer for this test
     AampGrowableBuffer buffer("buffer");
