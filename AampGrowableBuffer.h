@@ -30,7 +30,6 @@
 #include <utility>
 #include <assert.h>
 #include <stdio.h>
-#include <mutex>
 #include <vector>
 
 class AampGrowableBuffer
