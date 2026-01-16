@@ -296,6 +296,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 
 	bool newClosedCaptionsControl = false;
+	MW_LOG_MIL("ANJ: IN: ConfigurePipeline");
 
 	if(isSubEnable)
 	{
@@ -436,6 +437,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 				//Don't kill the tune for subtitles
 				if (eGST_MEDIATYPE_SUBTITLE != (GstMediaType)i)
 				{
+	MW_LOG_MIL("ANJ: OUT1: ConfigurePipeline");
 					return;
 				}
 			}
@@ -524,6 +526,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
 	}
+	MW_LOG_MIL("ANJ: OUT: ConfigurePipeline");
 }
 
 /**
@@ -636,6 +639,8 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	const int AVSYNC_NEGATIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdNegativeMs;
 	const int JUMP_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvJumpThresholdMs;
 
+MW_LOG_MIL( "ANJ: IN: MonitorAV");
+printf( "ANJ: IN: MonitorAV");
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
@@ -696,7 +701,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{
 				case 0:
 					description = "eos";
-					break;
+					/break;
 				case 1:
 					description = "trickplay";
 					break;
@@ -751,6 +756,8 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	{
 		MW_LOG_WARN( "gst_element_get_state %d", state );
 	}
+MW_LOG_MIL( "ANJ: OUT: MonitorAV");
+printf( "ANJ: OUT: MonitorAV");
 }
 
 /**
