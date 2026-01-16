@@ -21,6 +21,7 @@
 
 #include "priv_aamp.h"
 #include "AampLogManager.h"
+#include "DemuxDataTypes.h"  // for exchange utility
 
 // TS Demuxing defines
 
@@ -42,7 +43,7 @@
 
 #define MAX_FIRST_PTS_OFFSET (uint33_t{45000}) /*500 ms*/
 
-// Use exchange from DemuxDataTypes.h (via priv_aamp.h → StreamSink.h → AampDemuxDataTypes.h → DemuxDataTypes.h)
+// Use exchange from DemuxDataTypes.h
 #if __cplusplus < 201402L
 using detail::exchange;
 #else
