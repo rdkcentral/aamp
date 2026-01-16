@@ -374,7 +374,6 @@ void TSProcessor::insertPCR(unsigned char *packet, int pid)
 void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	unsigned int dataDescTags[MAX_PIDS] = {};
 	int streamType = 0, pid = 0, len = 0;
 	char work[32] = {};
 	StreamOutputFormat videoFormat = FORMAT_INVALID;

@@ -16,6 +16,7 @@ public:
     virtual void PlayerCliGstTerm() = 0;
     virtual GstCaps* GetCaps(GstStreamOutputFormat format) = 0;
     virtual long long GetCurrentTimeMS() = 0;
+    virtual GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size) = 0;
 };
 
 // Google Mock implementation
@@ -26,6 +27,7 @@ public:
     MOCK_METHOD(void, PlayerCliGstTerm, (), (override));
     MOCK_METHOD(GstCaps*, GetCaps, (GstStreamOutputFormat format), (override));
     MOCK_METHOD(long long, GetCurrentTimeMS, (), (override));
+    MOCK_METHOD(GstBuffer*, CreateGstBufferWithData, (gconstpointer data, gsize size), (override));
 };
 extern MockGstUtils *g_mockGstUtils;
 #endif // MOCK_GST_UTILS_H

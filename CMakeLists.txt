@@ -148,7 +148,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings/PersistentWatermark)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtitle)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/mp4demux)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/abr)
 
@@ -383,7 +383,7 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
-	abr/abr.cpp abr/abr.h
+	abr/abr.cpp abr/abr.h abr/NetworkBandwidthEstimator.cpp abr/NetworkBandwidthEstimator.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
@@ -415,10 +415,12 @@ set(LIBAAMP_SOURCES
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp AampTrackWorker.h
 	LangCodePreference.h
-	test/gstTestHarness/mp4demux.hpp
 	AampTrackWorkerManager.cpp
 	AampFragmentDescriptor.cpp
 	AampTimeBasedBufferManager.cpp
+	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
+	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
+	AampDemuxDataTypes.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -576,6 +578,7 @@ install(FILES
 	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
+	AampDemuxDataTypes.h
 	abr/abr.h
 	DESTINATION include
 )

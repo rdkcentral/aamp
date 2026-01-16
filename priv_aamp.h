@@ -73,8 +73,11 @@
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
+#include "AampDemuxDataTypes.h"
 
+// forward declaration to avoid circular dependency
 class AampMPDDownloader;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -1736,8 +1739,8 @@ public:
 	void UnlockGetPositionMilliseconds();
 
 	long long GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS);
-	long long GetPositionRelativeToSeekMilliseconds(void){return GetPositionRelativeToSeekMilliseconds(rate, trickStartUTCMS);;}
-	double GetPositionRelativeToSeekSeconds(void){return static_cast<double>(GetPositionRelativeToSeekMilliseconds())/1000.0;;}
+	long long GetPositionRelativeToSeekMilliseconds(void){return GetPositionRelativeToSeekMilliseconds(rate, trickStartUTCMS);}
+	double GetPositionRelativeToSeekSeconds(void){return static_cast<double>(GetPositionRelativeToSeekMilliseconds())/1000.0;}
 
 	/**
 	 *   @fn GetPositionMilliseconds
@@ -1783,6 +1786,15 @@ public:
 	 *   @return void
 	 */
 	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+
+	/**
+	 *   @fn SendStreamTransfer
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  sample - Media sample
+	 *   @return void
+	 */
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
 
 	/**
 	 * @fn IsLive
@@ -3757,6 +3769,20 @@ public:
 	 * @retval size consumed or 0 if interrupted
 	 */
 	size_t HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata );
+	
+	/**
+	 * @fn chunked_write_callback
+	 *
+	 * @brief Handle write callback for data received using chunked transfer encoding.
+	 *
+	 * @param ptr pointer to buffer containing the received data
+	 * @param numBytes number of valid bytes in the buffer
+	 * @param userdata CurlCallbackContext pointer or user-defined data associated
+	 *        with this transfer
+	 *
+	 * @return None
+	 */
+	void chunked_write_callback( const char *ptr, size_t numBytes, void *userdata );
 
 	/**
 	 * @fn HandleSSLProgressCallback
@@ -3986,6 +4012,15 @@ public:
 	 * @return Offset value in msecs
 	 */
 	double GetFormatPositionOffsetInMSecs();
+
+	/**
+	 * @fn SetStreamCaps
+	 * @brief Set stream capabilities based on codec info
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] codecInfo - Codec information
+	 */
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 protected:
 
