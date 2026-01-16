@@ -59,9 +59,13 @@ public:
      *   @brief  API to send audio/video buffer into the sink.
      *
      *   This function accepts a temporary vector via rvalue reference and transfers
-     *   ownership to the sink using move semantics (zero-copy transfer). The name
-     *   "SendCopy" reflects the historical usage where callers copy data from raw
-     *   pointers into a vector before calling this function.
+     *   ownership to the sink using move semantics. The name "SendCopy" reflects
+     *   that the send path typically involves copying data from raw byte buffers
+     *   into a std::vector (for example, by constructing the vector from a raw
+     *   pointer range) before invoking this method. A copy from raw memory into
+     *   the vector is therefore expected as part of this API's semantics, even
+     *   though this method itself operates on, and takes ownership of, the
+     *   already-constructed vector.
      *
      *   @param[in]  mediaType - Type of the media.
      *   @param[in]  buffer - Temporary vector (rvalue reference); ownership transferred to sink via move
