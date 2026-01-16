@@ -125,7 +125,6 @@ function aampcli_install_build_darwin_fn()
 
     if [ "${OPTION_AAMPCLIKOTLIN_SKIP}" != true ]; then
         echo "Making aamp-cli on kotlin..."
-        # exit 1
         xcodebuild -scheme aampKotlin  build
     fi
 
