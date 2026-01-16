@@ -22,6 +22,7 @@ jobs:
       - name: Run unit tests
         working-directory: ./test/utests
         run: |
+          set -o pipefail
           ./run.sh 2>&1 | tee utest_run.log
 
       # Generate pretty test run output
@@ -62,6 +63,7 @@ jobs:
       - name: Run Middleware L1 unit tests
         working-directory: ./middleware/test/utests
         run: |
+          set -o pipefail
           ./run.sh 2>&1 | tee utest_run.log
           
       # Publish Middleware test results
