@@ -169,5 +169,5 @@ std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 	buffer.clear();
 	buffer.shrink_to_fit();
 
-	return extracted; // RVO/NRVO will optimize this - no copy
+	return extracted; // Move constructor will be used for efficient return
 }
