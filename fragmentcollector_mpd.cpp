@@ -10909,7 +10909,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}
 		}
-		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 		if(tsbReaderThreadID.joinable())
 		{
 			abortTsbReader = true;
