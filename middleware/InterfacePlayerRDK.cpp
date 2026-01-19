@@ -3293,6 +3293,7 @@ static GstState validateStateWithMsTimeout( InterfacePlayerRDK *pInterfacePlayer
  */
 bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 {
+	MW_LOG_INFO("Interface pause varshnnni");
 	bool retValue = true;
 	if (interfacePlayerPriv->gstPrivateContext->pipeline != NULL)
 	{
@@ -3311,6 +3312,8 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		}
 
 		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
+		MW_LOG_INFO("InterfacePlayerRDK_Pause varshni - gst_element_set_state to %s returned rc %d",
+					gst_element_state_get_name(nextState), rc);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
 			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronizing pipeline state.
@@ -3996,6 +3999,7 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		}
 		else
 		{
+			
 			MW_LOG_WARN("## WARNING!! Underflow message from %s not handled, unmapped underflow!", GST_ELEMENT_NAME(object));
 			return;
 		}

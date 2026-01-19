@@ -3087,7 +3087,48 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 			pipeline_paused = pause;
 		}
 	}
+	AAMPLOG_INFO("pipeline pasued: %d", pipeline_paused);
 	return ret_val;
+}
+
+void PrivateInstanceAAMP::SetBufferedTime(AampMediaType mediaType, double seconds)
+{
+	switch (mediaType)
+	{
+		case eMEDIATYPE_VIDEO:
+		case eMEDIATYPE_PLAYLIST_VIDEO:
+		case eMEDIATYPE_INIT_VIDEO:
+		case eMEDIATYPE_IFRAME:
+		case eMEDIATYPE_INIT_IFRAME:
+			mBufferedTimeVideoSec.store(seconds);
+			break;
+		case eMEDIATYPE_AUDIO:
+		case eMEDIATYPE_PLAYLIST_AUDIO:
+		case eMEDIATYPE_INIT_AUDIO:
+			mBufferedTimeAudioSec.store(seconds);
+			break;
+		default:
+			break;
+	}
+}
+
+double PrivateInstanceAAMP::GetBufferedTime(AampMediaType mediaType) const
+{
+	switch (mediaType)
+	{
+		case eMEDIATYPE_VIDEO:
+		case eMEDIATYPE_PLAYLIST_VIDEO:
+		case eMEDIATYPE_INIT_VIDEO:
+		case eMEDIATYPE_IFRAME:
+		case eMEDIATYPE_INIT_IFRAME:
+			return mBufferedTimeVideoSec.load();
+		case eMEDIATYPE_AUDIO:
+		case eMEDIATYPE_PLAYLIST_AUDIO:
+		case eMEDIATYPE_INIT_AUDIO:
+			return mBufferedTimeAudioSec.load();
+		default:
+			return 0.0;
+	}
 }
 
 

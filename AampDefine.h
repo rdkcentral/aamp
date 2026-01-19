@@ -57,7 +57,7 @@
 #define DEFAULT_ABR_SKIP_DURATION 6          		        /**< Initial skip duration of ABR - 6 sec */
 #define DEFAULT_ABR_NW_CONSISTENCY_CNT 2            		/**< ABR network consistency count */
 #define DEFAULT_BUFFER_HEALTH_MONITOR_DELAY 10
-#define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 5
+#define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 1
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */

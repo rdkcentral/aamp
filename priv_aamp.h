@@ -1539,6 +1539,25 @@ public:
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus = false;}
 
 	/**
+	 * @fn SetBufferedTime
+	 * @brief Store last computed buffered time for a media type
+	 *
+	 * @param[in] mediaType - media type (audio/video)
+	 * @param[in] seconds - buffered time in seconds
+	 * @return void
+	 */
+	void SetBufferedTime(AampMediaType mediaType, double seconds);
+
+	/**
+	 * @fn GetBufferedTime
+	 * @brief Get last stored buffered time for a media type
+	 *
+	 * @param[in] mediaType - media type (audio/video)
+	 * @return buffered time in seconds
+	 */
+	double GetBufferedTime(AampMediaType mediaType) const;
+
+	/**
 	 * @fn SendEvent
 	 *
 	 * @param[in] eventData - Event data
@@ -4292,5 +4311,9 @@ private:
 	 *          video_muted and subtitle_muted.
 	 */
 	void SetCCStatusInternal(void);
+
+	// Cached buffered time per media type for underflow control
+	std::atomic<double> mBufferedTimeVideoSec{0.0};
+	std::atomic<double> mBufferedTimeAudioSec{0.0};
 };
 #endif // PRIVAAMP_H

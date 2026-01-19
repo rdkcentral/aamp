@@ -149,8 +149,19 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	}
 	else if (pContext)
 	{
+		AAMPLOG_INFO("Track[%s] injectedDuration %f elapsed time %f",
+				 name, injectedDuration, pContext->GetElapsedTime());
 		bufferedTime 	    = injectedDuration - pContext->GetElapsedTime();
 		CachedFragmentsOrChunks = numberOfFragmentsCached ;
+	}
+	AAMPLOG_INFO("Track[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
+			 name, bufferedTime, injectedDuration, pContext?pContext->GetElapsedTime():0.0);
+	// Update the player-level buffered time for this track
+	{
+		AampMediaType mt = (type == eTRACK_VIDEO) ? eMEDIATYPE_VIDEO :
+						 (type == eTRACK_AUDIO) ? eMEDIATYPE_AUDIO :
+						 eMEDIATYPE_SUBTITLE;
+		aamp->SetBufferedTime(mt, bufferedTime);
 	}
 
 	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
@@ -201,19 +212,17 @@ void MediaTrack::MonitorBufferHealth()
 							 GetBufferHealthStatusString(bufferStatus));
 				aamp->profiler.IncrementChangeCount(Count_BufferChange);
 				prevBufferStatus = bufferStatus;
-				// Drive portable underflow handling on state changes
-				aamp::AampBufferMonitor::HandleStatus(aamp, (AampMediaType)type, bufferStatus);
 			}
 			else
 			{
 				AAMPLOG_DEBUG(" track[%s] No Change [%s]",  name,
 							  GetBufferHealthStatusString(bufferStatus));
-				// Also check for recovery periodically to avoid missing GREEN transitions
-				aamp::AampBufferMonitor::HandleStatus(aamp, (AampMediaType)type, bufferStatus);
 			}
-			// Portable underflow monitor: use player-derived buffer status to control pipeline
+			// Drive portable underflow handling based on latest status and buffered time
 			{
-				AampMediaType mt = TrackTypeToMediaType(type);
+				AampMediaType mt = (type == eTRACK_VIDEO) ? eMEDIATYPE_VIDEO :
+								 (type == eTRACK_AUDIO) ? eMEDIATYPE_AUDIO :
+								 eMEDIATYPE_SUBTITLE;
 				aamp::AampBufferMonitor::HandleStatus(aamp, mt, bufferStatus);
 			}
 			lock.unlock();
