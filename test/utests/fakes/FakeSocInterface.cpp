@@ -35,16 +35,19 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
 #endif
 }
 
-/**
- * @brief Set AC4 tracks.
- * @param src Source element.
- * @param trackId Track ID.
- */
-void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
-{
-	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
-}
 
+void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
+		if(src)
+		{
+			g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
+		}
+		else
+		{
+			MW_LOG_ERR("No valid src to set ac4-presentation-group-index");
+		}
+}
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {
 	return false;

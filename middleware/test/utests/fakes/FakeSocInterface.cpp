@@ -249,10 +249,15 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink)
 	return true;
 }
 
-void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
-{
-}
-
 void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
+	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
+		if(src)
+		{
+			g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
+		}
+		else
+		{
+			MW_LOG_ERR("No valid src to set ac4-presentation-group-index");
+		}
 }
