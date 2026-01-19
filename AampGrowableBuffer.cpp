@@ -135,27 +135,9 @@ void AampGrowableBuffer::Clear( void )
  */
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
-	// Decrement for destination if it has capacity
-	if( buffer.capacity() > 0 )
-	{
-		NETMEMORY_MINUS();
-	}
-
 	buffer = std::move(src->buffer);
-
-	// Decrement for source since we're clearing it
-	if( src->buffer.capacity() > 0 )  // check capacity after move
-	{
-		NETMEMORY_MINUS();
-	}
 	src->buffer.clear();
 	src->buffer.shrink_to_fit();
-
-	// Increment for destination which now has the moved buffer
-	if( buffer.capacity() > 0 )
-	{
-		NETMEMORY_PLUS();
-	}
 }
 
 /**
