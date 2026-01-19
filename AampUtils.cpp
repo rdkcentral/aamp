@@ -208,12 +208,15 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 /**
  * @brief distinguish between absolute and relative urls
  *
- * @return true iff url starts with http:// or https://
- */
+ * @return true iff url starts with http:// or https:// or file://
+*/
 bool aamp_IsAbsoluteURL( const std::string &url )
 {
-	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
-	// note: above slightly faster than equivalent url.rfind("http://",0)==0 || url.rfind("https://",0)==0;
+	return
+	url.compare(0, 7, "http://")==0 ||
+	url.compare(0, 8, "https://")==0 ||
+	url.compare(0, 7, "file://") == 0;
+	// note: above slightly faster than equivalent url.rfind("http://",0)==0 || url.rfind("https://",0)==0 || url.rfind("file://",0)==0
 }
 
 /**
