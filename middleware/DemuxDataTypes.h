@@ -23,7 +23,25 @@
 #include <string>
 #include <vector>
 #include <cstring> // for std::memset
+#include <utility> // for std::exchange
 #include "GstUtils.h" // for GstStreamOutputFormat
+
+// C++11/14 compatible exchange utility (std::exchange is C++14)
+// This atomically replaces old_val with new_val and returns the old value
+#if __cplusplus < 201402L
+namespace detail {
+	template<typename T, typename U = T>
+	T exchange(T& obj, U&& new_value) noexcept
+	{
+		T old_value = std::move(obj);
+		obj = std::forward<U>(new_value);
+		return old_value;
+	}
+}
+using detail::exchange;
+#else
+using std::exchange;
+#endif
 
 /*
  * @enum CipherType
@@ -58,6 +76,8 @@ struct MediaProtectionInfo
 	}
 
 	// Move constructor and move assignment (allow efficient transfers)
+	// Using = default is fine here as both members are standard containers
+	// that properly handle move semantics with guaranteed empty state
 	MediaProtectionInfo(MediaProtectionInfo&&) = default;
 	MediaProtectionInfo& operator=(MediaProtectionInfo&&) = default;
 
@@ -92,19 +112,25 @@ struct MediaCodecInfo
 
 	/**
 	 * @brief Constructor for MediaCodecInfo
+	 * 
+	 * @note Uses uniform initialization (mInfo{}) instead of std::memset for zero-initialization.
+	 *       Uniform initialization is preferred for C++ types as it's type-safe, clearer in intent,
+	 *       and works correctly with all C++ types including those with constructors.
 	 */
-	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData()
+	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mInfo{0}
 	{
-		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
 
 	/**
 	 * @brief Constructor for MediaCodecInfo with format
 	 * @param format Stream output format
+	 * 
+	 * @note Uses uniform initialization (mInfo{}) instead of std::memset for zero-initialization.
+	 *       Uniform initialization is preferred for C++ types as it's type-safe, clearer in intent,
+	 *       and works correctly with all C++ types including those with constructors.
 	 */
-	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData()
+	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mInfo{0}
 	{
-		std::memset(&mInfo, 0, sizeof(mInfo));
 	}
 
 	// Delete copy constructor and copy assignment to prevent accidental copies
@@ -116,31 +142,26 @@ struct MediaCodecInfo
 	 * @param other Source MediaCodecInfo to move from
 	 */
 	MediaCodecInfo(MediaCodecInfo&& other) noexcept
-        : mCodecFormat(std::move(other.mCodecFormat))
-        , mCodecData(std::move(other.mCodecData))
-        , mIsEncrypted(other.mIsEncrypted)
-        , mInfo(std::move(other.mInfo))
+        : mCodecFormat(exchange(other.mCodecFormat, GST_FORMAT_INVALID))
+        , mCodecData(exchange(other.mCodecData, {}))
+        , mIsEncrypted(exchange(other.mIsEncrypted, false))
+        , mInfo(exchange(other.mInfo, {})) // POD union - exchange with zero-initialized union
     {
-        // Explicitly reset the source object to default state after move
-        other.mCodecFormat = GST_FORMAT_INVALID;
-        other.mIsEncrypted = false;
     }
 
-	/** Move assignment operator for MediaCodecInfo
+	/**
+	 * @brief Move assignment operator for MediaCodecInfo
 	 * @param other Source MediaCodecInfo to move from
+	 * @return Reference to this object
 	 */
 	MediaCodecInfo& operator=(MediaCodecInfo&& other) noexcept
 	{
 		if (this != &other)
 		{
-			mCodecFormat = std::move(other.mCodecFormat);
-			mCodecData = std::move(other.mCodecData);
-			mIsEncrypted = other.mIsEncrypted;
-			mInfo = std::move(other.mInfo);
-
-			// Explicitly reset the source object to default state after move
-			other.mCodecFormat = GST_FORMAT_INVALID;
-			other.mIsEncrypted = false;
+			mCodecFormat = exchange(other.mCodecFormat, GST_FORMAT_INVALID);
+			mCodecData = exchange(other.mCodecData, {});
+			mIsEncrypted = exchange(other.mIsEncrypted, false);
+			mInfo = exchange(other.mInfo, {}); // POD union - exchange with zero-initialized union
 		}
 		return *this;
 	}
@@ -174,17 +195,15 @@ struct MediaDrmMetadata
 	 * @param other Source MediaDrmMetadata to move from
 	 */
 	MediaDrmMetadata(MediaDrmMetadata&& other) noexcept
-		: mIsEncrypted(other.mIsEncrypted),
-		  mKeyId(std::move(other.mKeyId)),
-		  mIV(std::move(other.mIV)),
-		  mCipher(other.mCipher),
-		  mSubSamples(std::move(other.mSubSamples)),
-		  mNumSubSamples(other.mNumSubSamples),
-		  mCryptByteBlock(other.mCryptByteBlock),
-		  mSkipByteBlock(other.mSkipByteBlock)
+		: mIsEncrypted(exchange(other.mIsEncrypted, false))
+		, mKeyId(exchange(other.mKeyId, {}))
+		, mIV(exchange(other.mIV, {}))
+		, mCipher(exchange(other.mCipher, CIPHER_TYPE_NONE))
+		, mSubSamples(exchange(other.mSubSamples, {}))
+		, mNumSubSamples(exchange(other.mNumSubSamples, 0))
+		, mCryptByteBlock(exchange(other.mCryptByteBlock, 0))
+		, mSkipByteBlock(exchange(other.mSkipByteBlock, 0))
 	{
-		// Reset source object to default state after move
-		other.mIsEncrypted = false;
 	}
 
 	/**
@@ -196,17 +215,14 @@ struct MediaDrmMetadata
 	{
 		if (this != &other)
 		{
-			mIsEncrypted = other.mIsEncrypted;
-			mKeyId = std::move(other.mKeyId);
-			mIV = std::move(other.mIV);
-			mCipher = other.mCipher;
-			mSubSamples = std::move(other.mSubSamples);
-			mNumSubSamples = other.mNumSubSamples;
-			mCryptByteBlock = other.mCryptByteBlock;
-			mSkipByteBlock = other.mSkipByteBlock;
-
-			// Reset source object to default state after move
-			other.mIsEncrypted = false;
+			mIsEncrypted = exchange(other.mIsEncrypted, false);
+			mKeyId = exchange(other.mKeyId, {});
+			mIV = exchange(other.mIV, {});
+			mCipher = exchange(other.mCipher, CIPHER_TYPE_NONE);
+			mSubSamples = exchange(other.mSubSamples, {});
+			mNumSubSamples = exchange(other.mNumSubSamples, 0);
+			mCryptByteBlock = exchange(other.mCryptByteBlock, 0);
+			mSkipByteBlock = exchange(other.mSkipByteBlock, 0);
 		}
 		return *this;
 	}
@@ -222,44 +238,79 @@ struct MediaDrmMetadata
  */
 struct MediaSample
 {
-	const void* mData;
-	size_t mDataSize;
+	std::vector<uint8_t> mData; // Media data buffer (replaces raw pointer + size)
 	double mPts;
 	double mDts;
 	double mDuration;
 	double mPtsOffset;
+	MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
 
-    MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
 	/**
-	 * @brief Constructor for MediaSample
+	 * @brief Default constructor for MediaSample
 	 */
 	MediaSample()
-		: mData(nullptr)
-		, mDataSize(0)
-		, mPts(0)
-		, mDts(0)
-		, mDuration(0)
-		, mPtsOffset(0)
+		: mData()
+		, mPts(0.0)
+		, mDts(0.0)
+		, mDuration(0.0)
+		, mPtsOffset(0.0)
 		, mDrmMetadata()
 	{
 	}
 
-	/* @brief Move constructor for MediaSample
+	/**
+	 * @brief Constructor with data from vector (move semantics)
+	 * @param data Vector of data (moved into sample)
+	 * @param pts Presentation timestamp
+	 * @param dts Decode timestamp
+	 * @param duration Sample duration
+	 * @param ptsOffset PTS offset
+	 */
+	MediaSample(std::vector<uint8_t>&& data, double pts, double dts, double duration, double ptsOffset = 0.0)
+		: mData(std::move(data))
+		, mPts(pts)
+		, mDts(dts)
+		, mDuration(duration)
+		, mPtsOffset(ptsOffset)
+		, mDrmMetadata()
+	{
+	}
+
+	/**
+	 * @brief Constructor from raw pointer (takes ownership via copy)
+	 * @param ptr Pointer to data to copy
+	 * @param size Size of data
+	 * @param pts Presentation timestamp
+	 * @param dts Decode timestamp
+	 * @param duration Sample duration
+	 * @param ptsOffset PTS offset
+	 */
+	MediaSample(const void* ptr, size_t size, double pts, double dts, double duration, double ptsOffset = 0.0)
+		: mData(static_cast<const uint8_t*>(ptr), static_cast<const uint8_t*>(ptr) + size)
+		, mPts(pts)
+		, mDts(dts)
+		, mDuration(duration)
+		, mPtsOffset(ptsOffset)
+		, mDrmMetadata()
+	{
+	}
+
+	/**
+	 * @brief Move constructor for MediaSample
 	 * @param other Source MediaSample to move from
 	 */
 	MediaSample(MediaSample&& other) noexcept
-		: mData(other.mData)
-		, mDataSize(other.mDataSize)
-		, mPts(other.mPts)
-		, mDts(other.mDts)
-		, mDuration(other.mDuration)
-		, mDrmMetadata(std::move(other.mDrmMetadata))
+		: mData(exchange(other.mData, {}))
+		, mPts(exchange(other.mPts, 0.0))
+		, mDts(exchange(other.mDts, 0.0))
+		, mDuration(exchange(other.mDuration, 0.0))
+		, mPtsOffset(exchange(other.mPtsOffset, 0.0))
+		, mDrmMetadata(exchange(other.mDrmMetadata, {}))
 	{
-		// Reset source object to default state after move
-		other.mData = nullptr;
-		other.mDataSize = 0;
 	}
-	/* @brief Move assignment operator for MediaSample
+
+	/**
+	 * @brief Move assignment operator for MediaSample
 	 * @param other Source MediaSample to move from
 	 * @return Reference to this object
 	 */
@@ -267,16 +318,12 @@ struct MediaSample
 	{
 		if (this != &other)
 		{
-			mData = other.mData;
-			mDataSize = other.mDataSize;
-			mPts = other.mPts;
-			mDts = other.mDts;
-			mDuration = other.mDuration;
-			mDrmMetadata = std::move(other.mDrmMetadata);
-
-			// Reset source object to default state after move
-			other.mData = nullptr;
-			other.mDataSize = 0;
+			mData = exchange(other.mData, {});
+			mPts = exchange(other.mPts, 0.0);
+			mDts = exchange(other.mDts, 0.0);
+			mDuration = exchange(other.mDuration, 0.0);
+			mPtsOffset = exchange(other.mPtsOffset, 0.0);
+			mDrmMetadata = exchange(other.mDrmMetadata, {});
 		}
 		return *this;
 	}
@@ -284,6 +331,25 @@ struct MediaSample
 	// Delete copy constructor and copy assignment to prevent accidental copies
 	MediaSample(const MediaSample&) = delete;
 	MediaSample& operator=(const MediaSample&) = delete;
+
+	/**
+	 * @brief Get pointer to data (for compatibility with legacy APIs)
+	 * @return Pointer to data or nullptr if empty
+	 */
+	const uint8_t* data() const { return mData.empty() ? nullptr : mData.data(); }
+	uint8_t* data() { return mData.empty() ? nullptr : mData.data(); }
+
+	/**
+	 * @brief Get size of data
+	 * @return Size in bytes
+	 */
+	size_t size() const { return mData.size(); }
+
+	/**
+	 * @brief Check if sample is empty
+	 * @return true if no data
+	 */
+	bool empty() const { return mData.empty(); }
 };
 
 #endif /* __DEMUX_DATA_TYPES_H__ */

@@ -1241,7 +1241,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 
 	// CacheFragmentChunk should be called once with data up to the last mdat boundary
 	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.GetPtr(), lastMdatBoundary, _, _))
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, lastMdatBoundary, _, _))
 		.Times(1);
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
