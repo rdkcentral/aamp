@@ -6072,6 +6072,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
 
+	if (mpStreamAbstractionAAMP)
+	{
+		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor))
+		{
+			mpStreamAbstractionAAMP->StartUnderflowMonitor();
+			if (!mpStreamAbstractionAAMP->IsUnderflowMonitorRunning())
+			{
+				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+			}
+		}
+	}
 	// Validate tune type
 	// (need to find a better way to do this)
 	if (tuneType == eTUNETYPE_NEW_NORMAL) // either no offset (mIsDefaultOffset = true) or -1 was specified
