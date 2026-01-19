@@ -87,7 +87,11 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
     printf("loading rialtotest %s\n", fullpath);
 
     FILE *f = fopen(fullpath, "rb");
-    assert(f);
+	if( !f )
+	{
+		printf( "fopen failure\n" );
+		exit(1);
+	}
     if (f)
     {
         fseek(f, 0, SEEK_END);
@@ -95,12 +99,20 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
         if (len > 0)
         {
             unsigned char *ptr = (unsigned char *)malloc(len);
-            assert(ptr);
-            if (ptr)
+			if( !ptr )
+			{
+				printf( "malloc failure\n" );
+				exit(1);
+			}
+			if (ptr)
             {
                 fseek(f, 0, SEEK_SET);
                 size_t n = fread(ptr, 1, len, f);
-                assert(n == len);
+				if( n!=len )
+				{
+					printf( "fread failure\n" );
+					exit(1);
+				}
                 if (n == len)
                 {
                     mp4Demux.Parse(ptr, (uint32_t)len);
@@ -138,7 +150,8 @@ void ConfigureAudio()
 			streamFormat = StreamFormat::UNDEFINED;
 			break;
 		default:
-			assert(0);
+			printf( "unknown trackAudio.codec_type\n" );
+			exit(1);
 			break;
 	}
     
@@ -179,7 +192,8 @@ void ConfigureVideo()
 			streamFormat = StreamFormat::AVC;
 			break;
 		default:
-			assert(0);
+			printf( "unknown trackVideo.codec_type\n" );
+			exit(1);
 			break;
 	}
 	CodecData codecData;
@@ -229,7 +243,11 @@ void InjectAudio(int32_t needDataId)
         audioSegment->setData((uint32_t)len, data);
 
         AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, audioSegment);
-        assert(status == AddSegmentStatus::OK);
+        if( status != AddSegmentStatus::OK )
+		{
+			printf( "gstMediaPipeline->addSegment failure\n" );
+			exit(1);
+		}
     }
 
     gstMediaPipeline->haveData(MediaSourceStatus::OK, needDataId);
@@ -263,7 +281,11 @@ void InjectVideo(int32_t needDataId)
         videoSegment->setData((uint32_t)len, data);
 
         AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, videoSegment);
-        assert(status == AddSegmentStatus::OK);
+		if( status != AddSegmentStatus::OK )
+		{
+			printf( "gstMediaPipeline->addSegment failure\n" );
+			exit(1);
+		}
     }
 
     gstMediaPipeline->haveData(MediaSourceStatus::OK, needDataId);

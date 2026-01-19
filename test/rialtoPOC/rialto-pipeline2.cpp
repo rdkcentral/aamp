@@ -18,7 +18,6 @@
 */
 
 #include "rialto-pipeline2.h"
-#include <assert.h>
 #include <inttypes.h>
 #include <gst/app/gstappsrc.h>
 
@@ -109,7 +108,8 @@ bool GstMediaPipeline::attachSource(const std::unique_ptr<MediaSource> &source, 
 			}
 			else
 			{
-				assert(0);
+				printf( "unknown sourceType\n" );
+				exit(1);
 			}
 			
 			gchar *caps_string = gst_caps_to_string(caps);
@@ -166,25 +166,40 @@ GstMediaPipeline::GstMediaPipeline()
         printf("creating playbin for track#%d\n", i);
 
         GstElement* playbin = gst_element_factory_make("playbin", nullptr);
-        assert(playbin);
-
+		if( !playbin )
+		{
+			printf( "gst_element_factory_make failure\n" );
+			exit(1);
+		}
         track[i].playbin = playbin;
         track[i].appsrc = nullptr;
 
         gboolean rc = gst_bin_add(GST_BIN(pipeline), playbin);
-        assert(rc);
+		if( !rc )
+		{
+			printf( "gst_bin_add failure\n" );
+			exit(1);
+		}
 
         g_object_set(playbin, "uri", "appsrc://", nullptr);
 
         if (i == TRACK_VIDEO) {
             GstElement* videoSink = gst_element_factory_make("rialtomsevideosink", "video-sink");
-            assert(videoSink);
+			if( !videoSink )
+			{
+				printf( "videoSink gst_element_factory_make failure\n" );
+				exit(1);
+			}
             g_object_set(playbin, "video-sink", videoSink, nullptr);
             g_signal_connect(playbin, "deep-notify::source",
                              G_CALLBACK(found_video_source_cb), this);
         } else {
             GstElement* audioSink = gst_element_factory_make("rialtomseaudiosink", "audio-sink");
-            assert(audioSink);
+			if( !audioSink )
+			{
+				printf( "audioSink gst_element_factory_make failure\n" );
+				exit(1);
+			}
             g_object_set(playbin, "audio-sink", audioSink, nullptr);
             g_signal_connect(playbin, "deep-notify::source",
                              G_CALLBACK(found_audio_source_cb), this);

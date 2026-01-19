@@ -35,7 +35,11 @@ void LoadAndDemuxSegment( Mp4Demux &mp4Demux, const char *path )
 	snprintf(fullpath, sizeof(fullpath), "/tmp/data/bipbop-gen/%s", path);
 	printf( "loading rialtotest %s\n", fullpath );
 	FILE *f = fopen(fullpath, "rb");
-	assert( f );
+	if( !f )
+	{
+		printf( "fopen failure\n" );
+		exit(1);
+	}
 	if( f )
 	{
 		fseek( f,0,SEEK_END );
@@ -43,12 +47,20 @@ void LoadAndDemuxSegment( Mp4Demux &mp4Demux, const char *path )
 		if( len>0 )
 		{
 			unsigned char *ptr = (unsigned char *)malloc(len);
-			assert( ptr );
+			if( !ptr )
+			{
+				printf( "malloc failure\n" );
+				exit(1);
+			}
 			if( ptr )
 			{
 				fseek( f, 0, SEEK_SET );
 				size_t n = fread( ptr, 1, len, f );
-				assert( n == len );
+				if( n!=len )
+				{
+					printf( "fread failure\n" );
+					exit(1);
+				}
 				if( n==len )
 				{
 					mp4Demux.Parse( ptr, len );
@@ -81,7 +93,8 @@ void ConfigureAudio( void )
 			streamFormat = StreamFormat::UNDEFINED;
 			break;
 		default:
-			assert(0);
+			printf( "unknown trackAudio.codec_type\n" );
+			exit(1);
 			break;
 	}
 	std::unique_ptr<IMediaPipeline::MediaSourceAudio> sourceAudio = std::make_unique<IMediaPipeline::MediaSourceAudio>(
@@ -116,7 +129,8 @@ void ConfigureVideo( void )
 			streamFormat = StreamFormat::AVC;
 			break;
 		default:
-			assert(0);
+			printf( "unknown trackVideo.codec_type\n" );
+			exit(1);
 			break;
 	}
 	CodecData codecData;
@@ -161,7 +175,11 @@ void InjectAudio( void )
 		audioSegment->setData( (uint32_t)len, data );
 		std::unique_ptr<IMediaPipeline::MediaSegment> segment = std::move(audioSegment);
 		AddSegmentStatus status = gstMediaPipeline->addSegment(0,segment);
-		assert( status == AddSegmentStatus::OK );
+		if( status != AddSegmentStatus::OK )
+		{
+			printf( "gstMediaPipeline->addSegment failure\n" );
+			exit(1);
+		}
 	}
 }
 
@@ -187,7 +205,11 @@ void InjectVideo( void )
 		videoSegment->setData( (uint32_t)len, data );
 		std::unique_ptr<IMediaPipeline::MediaSegment> segment = std::move(videoSegment);
 		AddSegmentStatus status = gstMediaPipeline->addSegment(0,segment);
-		assert( status == AddSegmentStatus::OK );
+		if( status != AddSegmentStatus::OK )
+		{
+			printf( "gstMediaPipeline->addSegment failure\n" );
+			exit(1);
+		}
 	}
 }
 
@@ -197,9 +219,7 @@ int my_main(int argc, char **argv)
 	const char *prefix = "/Users/";
 	size_t prefixLen = strlen(prefix);
 	gUserPathPtr = strstr(executablePath,prefix);
-	// assert( gUserPathPtr );
 	const char *delim = strchr( &gUserPathPtr[prefixLen],'/' );
-	// assert( delim );
 	gUserPathLen = (int)(delim - gUserPathPtr);
 	
 	gst_init(&argc, &argv);
