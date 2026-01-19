@@ -265,6 +265,8 @@ struct CurlCallbackContext
 	size_t contentLength = 0;
 	long long downloadStartTime = -1;
 	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
+	size_t bufferOffset = 0; // Used for chunked injection to keep track of start offset of the last mp4 chunk in buffer
+	size_t chunkBoundary = 0; // Used for chunked injection to store the end offset of the last mp4 chunk in buffer
 
 	CurlCallbackContext(){}
 	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}
