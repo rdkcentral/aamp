@@ -148,7 +148,7 @@ void ConfigureVideo( void )
 	gstMediaPipeline->attachSource( std::move(sourceVideo), sourceIdVideo );
 }
 
-void ConfigurenComplete()
+void ConfigureComplete()
 {
 	gstMediaPipeline->allSourcesAttached();
 }
@@ -228,7 +228,7 @@ int my_main(int argc, char **argv)
 	gstMediaPipeline->play();
 	ConfigureAudio();
 	ConfigureVideo();
-	ConfigurenComplete();
+	ConfigureComplete();
 	InjectAudio();
 	InjectVideo();
 	
