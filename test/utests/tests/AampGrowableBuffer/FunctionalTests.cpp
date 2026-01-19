@@ -54,18 +54,6 @@ public:
 	std::function<void (gpointer)>callFree;
 };
 
-TEST_F(FunctionalTests, DestructorFunctionalTests)
-{
-	GTEST_SKIP(); // invalid test - methods called after destructing
-	
-    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
-    // Act: Call the Free function
-    buffer.~AampGrowableBuffer();
-    // Assert: Check that properties are reset and memory is freed
-    EXPECT_EQ(buffer.GetPtr(), nullptr); // Check if pointer is null
-    EXPECT_EQ(buffer.GetLen(), 0);       // Check if length is reset
-}
-
 TEST_F(FunctionalTests, FreeTest)
 {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test

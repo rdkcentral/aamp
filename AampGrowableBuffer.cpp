@@ -46,7 +46,7 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	if( !buffer.empty() )
+	if( buffer.capacity() > 0 )
 	{
 		NETMEMORY_MINUS();
 		if( gbEnableLogging )
@@ -63,13 +63,13 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 	assert( buffer.empty() && buffer.capacity() == 0 );
 	if( numBytes > 0 )
 	{
-		NETMEMORY_PLUS();
-		if( gbEnableLogging )
-		{
-			printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
-		}
 		try {
 			buffer.reserve(numBytes);
+			NETMEMORY_PLUS();
+			if( gbEnableLogging )
+			{
+				printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
+			}
 		}
 		catch (const std::bad_alloc&)
 		{
@@ -135,13 +135,27 @@ void AampGrowableBuffer::Clear( void )
  */
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
-	assert( buffer.empty() ); // only replace if empty!
+	// Decrement for destination if it has capacity
+	if( buffer.capacity() > 0 )
+	{
+		NETMEMORY_MINUS();
+	}
 
 	buffer = std::move(src->buffer);
 
-	// Ensure source is in known empty state (not just moved-from)
+	// Decrement for source since we're clearing it
+	if( src->buffer.capacity() > 0 )  // check capacity after move
+	{
+		NETMEMORY_MINUS();
+	}
 	src->buffer.clear();
 	src->buffer.shrink_to_fit();
+
+	// Increment for destination which now has the moved buffer
+	if( buffer.capacity() > 0 )
+	{
+		NETMEMORY_PLUS();
+	}
 }
 
 /**
@@ -153,7 +167,7 @@ std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
 	assert( !buffer.empty() );
 
-	if( !buffer.empty() )
+	if( buffer.capacity() > 0 )
 	{
 		NETMEMORY_MINUS();
 		if( gbEnableLogging )
