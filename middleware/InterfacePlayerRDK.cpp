@@ -2715,14 +2715,18 @@ long InterfacePlayerRDK::GetDurationMilliseconds(void)
 		if( interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PLAYING || // playing
 		   (interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) ) // paused by user
 		{
+			MW_LOG_WARN( "GetDurationMilliseconds: Creating duration query" );
 			interfacePlayerPriv->gstPrivateContext->durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
 			if( interfacePlayerPriv->gstPrivateContext->durationQuery )
 			{
+				MW_LOG_WARN( "GetDurationMilliseconds: Query object address: %p", static_cast<void*>(interfacePlayerPriv->gstPrivateContext->durationQuery) );
 				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,interfacePlayerPriv->gstPrivateContext->durationQuery);
+				MW_LOG_WARN( "gst_element_query Completed" );
 				if( res )
 				{
 					gint64 duration;
 					gst_query_parse_duration(interfacePlayerPriv->gstPrivateContext->durationQuery, NULL, &duration); /* parses the value into duration */
+					MW_LOG_WARN( "GetDurationMilliseconds: Duration parsed: %" G_GINT64_FORMAT, duration );
 					rc = GST_TIME_AS_MSECONDS(duration);
 				}
 				else
