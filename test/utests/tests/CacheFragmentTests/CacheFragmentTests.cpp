@@ -37,7 +37,7 @@
 #include "MockTSBReader.h"
 
 using ::testing::_;
-using ::testing::NiceMock;;
+using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
@@ -151,6 +151,8 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_useRialtoSink, false},
+			{eAAMPConfig_UseMp4Demux, false},
 			{eAAMPConfig_EnableABR, true},
 		};
 

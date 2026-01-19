@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "mp4demux.hpp" 
+
 #include <iostream>
 #include "InterfacePlayerRDK.h"
 #include "InterfacePlayerPriv.h"
@@ -65,6 +65,26 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
+
+std::pair <CipherType, const char *> CipherToStringMap[] = {
+	{CIPHER_TYPE_CENC, "cenc"},
+	{CIPHER_TYPE_CBC1, "cbc1"},
+	{CIPHER_TYPE_CENS, "cens"},
+	{CIPHER_TYPE_CBCS, "cbcs"},
+	{CIPHER_TYPE_NONE, "none"}
+};
+
+const char * CipherTypeToString(CipherType type)
+{
+	for (const auto& pair : CipherToStringMap)
+	{
+		if (pair.first == type)
+		{
+			return pair.second;
+		}
+	}
+	return "unknown";
+}
 
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
@@ -133,7 +153,7 @@ firstTuneWithWesterosSinkOff(false),
 decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
-filterAudioDemuxBuffers(false),
+filterAudioDemuxBuffers(false), isMp4DemuxPlayback(false),
 aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
@@ -241,6 +261,14 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
+
+/**
+ * @brief Decorate a GstBuffer with DRM metadata
+ * @param[in] buffer The GstBuffer to decorate
+ * @param[in] drmMetadata The DRM metadata
+ */
+static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata);
+
 /**
  * @brief Configures the GStreamer pipeline.
  * @param format Video format.
@@ -351,11 +379,17 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
 		if(stream->format != newFormat[i])
 		{
-			if (newFormat[i] != GST_FORMAT_INVALID)
+			bool isInitialSetup = (stream->format == GST_FORMAT_INVALID || stream->format == GST_FORMAT_UNKNOWN);
+			bool isValidNewFormat = (newFormat[i] != GST_FORMAT_INVALID && newFormat[i] != GST_FORMAT_UNKNOWN);
+			if (isValidNewFormat || isInitialSetup)
 			{
 				MW_LOG_MIL("Closing stream %d old format = %d, new format = %d",i, stream->format, newFormat[i]);
 				configureStream[i] = true;
 				interfacePlayerPriv->gstPrivateContext->NumberOfTracks++;
+			}
+			else
+			{
+				MW_LOG_MIL("Skipping reconfiguration for stream %d - both format invalid/unknown",i);
 			}
 		}
 		if(interfacePlayerPriv->socInterface->ShouldTearDownForTrickplay())
@@ -1453,6 +1487,9 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
 	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
+
+	// Reset mp4demux playback semantic shim on pipeline event reset
+	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = false;
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -1465,7 +1502,6 @@ void InterfacePlayerRDK::ResetGstEvents()
 		interfacePlayerPriv->gstPrivateContext->stream[i].eosReached = false;
 		interfacePlayerPriv->gstPrivateContext->stream[i].firstBufferProcessed = false;
 	}
-
 }
 
 void InterfacePlayerRDK::SetPendingSeek(bool state)
@@ -1626,7 +1662,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		playRate = rate;
 	}
 
-	if ((stream->format == GST_FORMAT_ISO_BMFF) && (eGST_MEDIAFORMAT_PROGRESSIVE != static_cast<GstMediaFormat>(m_gstConfigParam->media)))
+	if ((stream->format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback) && (eGST_MEDIAFORMAT_PROGRESSIVE != static_cast<GstMediaFormat>(m_gstConfigParam->media)))
 	{
 		if ((interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
@@ -1811,17 +1847,16 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	{
 		caps = gst_caps_new_simple("application/x-subtitle-cc", NULL, NULL);
 	}
-	else if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
-	{
-		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
-	}
 	else
 	{
-		MW_LOG_MIL("Skipping caps for now, will be set from mp4Demux later");
+		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
 	}
 
 	if (caps != NULL)
 	{
+		gchar *capsStr = gst_caps_to_string(caps);
+		MW_LOG_MIL("Setting caps for source[type:%d]: %s", mediaType, capsStr);
+		g_free(capsStr);
 		gst_app_src_set_caps(GST_APP_SRC(source), caps);
 		gst_caps_unref(caps);
 	}
@@ -1830,6 +1865,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		/* If capabilities can not be established, set typefind TRUE. typefind determines the media-type of a stream and once type has been
 		 * detected it sets its src pad caps to the found media type
 		 */
+		MW_LOG_WARN("Caps could not be established for source[type:%d], enabling typefind", mediaType);
 		g_object_set(source, "typefind", TRUE, NULL);
 	}
 	stream->sourceConfigured = true;
@@ -2417,8 +2453,11 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		}
 		stream->pendingSeek = false;
 	}
-
-	enableOverride = SendQtDemuxOverrideEvent(mediaType, pts, enablePTSReStamp, vodTrickModeFPS); //need to change to priv
+	// For mp4 demux playback, there is no qtdemux element in the pipeline, so no need to send override event
+	if (!gstPrivateContext->isMp4DemuxPlayback)
+	{
+		enableOverride = SendQtDemuxOverrideEvent(mediaType, pts, enablePTSReStamp, vodTrickModeFPS); //need to change to priv
+	}
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
 	if (type == eGST_MEDIATYPE_VIDEO)
@@ -2441,7 +2480,8 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 		}
 	}
 
-	if (stream->format == GST_FORMAT_ISO_BMFF)
+	// isMp4DemuxPlayback might have protection events as it was originally ISO BMFF format
+	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->isMp4DemuxPlayback)
 	{
 		// There is a possibility that only single protection event is queued for multiple type
 		// since they are encrypted using same id. Hence check if protection event is queued for
@@ -2909,12 +2949,12 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
-	GstClockTime pts = (GstClockTime)(fpts * GST_SECOND);
-	GstClockTime dts = (GstClockTime)(fdts * GST_SECOND);
-	GstClockTime duration = (GstClockTime)(fDuration * 1000000000LL);
+	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
+	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
+	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
 	{
@@ -2973,7 +3013,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		if (m_gstConfigParam->enablePTSReStamp)
 		{
-			pts_offset = -(gint64)(fragmentPTSoffset * 1000L);
+			pts_offset = -(gint64)(sample.mPtsOffset * 1000L);
 		}
 		else
 		{
@@ -2982,14 +3022,10 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		if(copy)
 		{
-			buffer = gst_buffer_new_and_alloc((guint)len);
+			buffer = CreateGstBufferWithData(sample.mData, sample.mDataSize);
 
 			if (buffer)
 			{
-				GstMapInfo map;
-				gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-				memcpy(map.data, ptr, len);
-				gst_buffer_unmap(buffer, &map);
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
@@ -3006,18 +3042,25 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 		}
 		else
 		{ // transfer
-			buffer = gst_buffer_new_wrapped((gpointer)ptr,(gsize)len);
+			buffer = gst_buffer_new_wrapped((gpointer)sample.mData,(gsize)sample.mDataSize);
 
 			if (buffer)
 			{
 				GST_BUFFER_PTS(buffer) = pts;
 				GST_BUFFER_DTS(buffer) = dts;
 				GST_BUFFER_DURATION(buffer) = duration;
+				if (sample.mDrmMetadata.mIsEncrypted)
+				{
+					// Set DRM metadata to buffer
+					// Skipped for copy as that path is not used for demuxed content
+					// TODO: Handle copy path also if required in future
+					DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
+				}
 				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 					GST_BUFFER_OFFSET(buffer) = pts_offset;
 
 				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
-							mediaType, pts, dts, len, initFragment, discontinuity,duration);
+							mediaType, pts, dts, sample.mDataSize, initFragment, discontinuity, duration);
 
 			}
 			else
@@ -3028,99 +3071,42 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		if (bPushBuffer)
 		{
-			if( mediaType<2 && m_gstConfigParam->useMp4Demux &&
-			   !copy /* avoid using this path for hls/ts */ )
+
+			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
+			
+			if (ret != GST_FLOW_OK)
 			{
-				static Mp4Demux *m_mp4Demux[2];
-				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
-				if( !mp4Demux )
-				{
-					mp4Demux = new Mp4Demux();
-					m_mp4Demux[mediaType] = mp4Demux;
-				}
-				mp4Demux->Parse(ptr,len);
-				int count = mp4Demux->count();
-				if( count>0 )
-				{ // media segment
-					for( int i=0; i<count; i++ )
-					{
-						size_t sampleLen = mp4Demux->getLen(i);
-						double pts = mp4Demux->getPts(i);
-						double dts = mp4Demux->getDts(i);
-						double dur = mp4Demux->getDuration(i);
-						GstStructure *drm = mp4Demux->getDrmMetadata(i);
-						gpointer data = g_malloc(sampleLen);
-						if( data )
+				MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
+				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
+				{ // an unexpected error has occurred
+					if (mediaType == eGST_MEDIATYPE_SUBTITLE)
+					{ // occurs sometimes when injecting subtitle fragments
+						if (!stream->source)
 						{
-							memcpy( data, mp4Demux->getPtr(i), sampleLen );
-							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, sampleLen);
-							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
-							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
-							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);
-							if (drm)
-							{
-								gst_buffer_add_protection_meta(gstBuffer, drm);
-							}
-							GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source),gstBuffer);
-							if( ret == GST_FLOW_OK )
-							{
-								stream->bufferUnderrun = false;
-								if( isFirstBuffer )
-								{
-									firstBufferPushed = true;
-									stream->firstBufferProcessed = true;
-								}
-							}
+							MW_LOG_ERR("subtitle appsrc is NULL");
+						}
+						else if (!GST_IS_APP_SRC(stream->source))
+						{
+							MW_LOG_ERR("subtitle appsrc is invalid");
 						}
 					}
-				}
-				else
-				{ // init header
-					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
-				}
-				if( !copy )
-				{
-					g_free((gpointer)ptr);
+					else
+					{ // if we get here, something has gone terribly wrong
+						assert(0);
+					}
 				}
 			}
-			else
+			else if (stream->bufferUnderrun)
 			{
-				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-				
-				if (ret != GST_FLOW_OK)
-				{
-					MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
-					if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
-					{ // an unexpected error has occurred
-						if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-						{ // occurs sometimes when injecting subtitle fragments
-							if (!stream->source)
-							{
-								MW_LOG_ERR("subtitle appsrc is NULL");
-							}
-							else if (!GST_IS_APP_SRC(stream->source))
-							{
-								MW_LOG_ERR("subtitle appsrc is invalid");
-							}
-						}
-						else
-						{ // if we get here, something has gone terribly wrong
-							assert(0);
-						}
-					}
-				}
-				else if (stream->bufferUnderrun)
-				{
-					stream->bufferUnderrun = false;
-				}
-				
-				// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
-				if (isFirstBuffer == true && ret == GST_FLOW_OK)
-					firstBufferPushed = true;
-				if (!stream->firstBufferProcessed && !initFragment)
-				{
-					stream->firstBufferProcessed = true;
-				}
+				stream->bufferUnderrun = false;
+			}
+			
+			// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
+			if (isFirstBuffer == true && ret == GST_FLOW_OK)
+				firstBufferPushed = true;
+			if (!stream->firstBufferProcessed && !initFragment)
+			{
+				stream->firstBufferProcessed = true;
 			}
 		}
 	}
@@ -3161,7 +3147,8 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	if (stream->format == GST_FORMAT_ISO_BMFF)
+	// isMp4DemuxPlayback is originally ISO BMFF format, but demuxed
+	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->isMp4DemuxPlayback)
 	{
 		GstSegment segment;
 		gst_segment_init(&segment, GST_FORMAT_TIME);
@@ -3538,7 +3525,7 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 	else
 	{
 		MW_LOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d", stream->format , stream->firstBufferProcessed);
-		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF) && ( !codecChange ))
+		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF || interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback) && ( !codecChange ))
 		{
 			unblockDiscProcess = true;
 			ret = true;
@@ -4174,109 +4161,100 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
-
-			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
+			
+			if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 			{
-				MW_LOG_MIL("%s %s -> %s (pending %s)",
-						   GST_OBJECT_NAME(msg->src),
-						   gst_element_state_get_name(old_state),
-						   gst_element_state_get_name(new_state),
-						   gst_element_state_get_name(pending_state));
+				GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
+				const char *frame_step_on_preroll_prop = "frame-step-on-preroll";
+				privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
 
-				if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
+				if(video_sink && (g_object_class_find_property(G_OBJECT_GET_CLASS(video_sink), frame_step_on_preroll_prop) != NULL))
 				{
-					GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
-					const char *frame_step_on_preroll_prop = "frame-step-on-preroll";
-					privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+					MW_LOG_INFO("Setting %s property and sending step", frame_step_on_preroll_prop);
+					g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,1, NULL);
 
-					if(video_sink && (g_object_class_find_property(G_OBJECT_GET_CLASS(video_sink), frame_step_on_preroll_prop) != NULL))
+					if(!gst_element_send_event(video_sink, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1.0, FALSE, FALSE)))
 					{
-						MW_LOG_INFO("Setting %s property and sending step", frame_step_on_preroll_prop);
-						g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,1, NULL);
-
-						if(!gst_element_send_event(video_sink, gst_event_new_step(GST_FORMAT_BUFFERS, 1, 1.0, FALSE, FALSE)))
-						{
-							MW_LOG_ERR("error sending step event");
-						}
-						g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,0, NULL);
-
-						if(privatePlayer->gstPrivateContext->usingRialtoSink)
-						{
-							privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-							pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
-						}
+						MW_LOG_ERR("error sending step event");
 					}
-					else
-					{
-						MW_LOG_WARN("%s property not present on video_sink", frame_step_on_preroll_prop);
-						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
-					}
-				}
-				if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
-				{
-					privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+					g_object_set(G_OBJECT(video_sink), frame_step_on_preroll_prop,0, NULL);
 
-					busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
-					if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !privatePlayer->gstPrivateContext->firstAudioFrameReceived && privatePlayer->gstPrivateContext->NumberOfTracks==1)
-					{
-						gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
-						bool ret = privatePlayer->socInterface->AudioOnlyMode(stream->sinkbin);
-						if(ret)
-						{
-							MW_LOG_MIL("Audio only playback detected, hence notify first frame");
-							privatePlayer->gstPrivateContext->firstAudioFrameReceived = ret;
-							pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_AUDIO);
-						}
-					}
-					if(pInterfacePlayerRDK->m_gstConfigParam->media == eGST_MEDIAFORMAT_PROGRESSIVE)
-					{
-						pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
-						// application needs to NotifyFirstBufferProcessed
-						busEvent.firstBufferProcessed = true;
-
-					}
 					if(privatePlayer->gstPrivateContext->usingRialtoSink)
 					{
 						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-						privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
-					else if(privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff && privatePlayer->socInterface->NotifyVideoFirstFrame())
+				}
+				else
+				{
+					MW_LOG_WARN("%s property not present on video_sink", frame_step_on_preroll_prop);
+					privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
+					pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+				}
+			}
+			if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
+			{
+				privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+
+				busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
+				if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !privatePlayer->gstPrivateContext->firstAudioFrameReceived && privatePlayer->gstPrivateContext->NumberOfTracks==1)
+				{
+					gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO];
+					bool ret = privatePlayer->socInterface->AudioOnlyMode(stream->sinkbin);
+					if(ret)
 					{
-						privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff = false;
-						privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
-						privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
-						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+						MW_LOG_MIL("Audio only playback detected, hence notify first frame");
+						privatePlayer->gstPrivateContext->firstAudioFrameReceived = ret;
+						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_AUDIO);
 					}
-					else if(privatePlayer->socInterface->IsSimulatorFirstFrame())
-					{
-						if(!privatePlayer->gstPrivateContext->firstFrameReceived)
-						{
-							privatePlayer->gstPrivateContext->firstFrameReceived = true;
-							busEvent.receivedFirstFrame = true;
-						}
-						pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
-						//Note: Progress event should be sent after the decoderAvailable event only.
-						//BRCM platform sends progress event after InterfacePlayerRDK_OnFirstVideoFrameCallback.
-						pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
-					}
-					if (pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
-					{
-						GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)privatePlayer->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
-						// output graph to .dot format which can be visualized with Graphviz tool if:
-						// gstreamer is configured with --gst-enable-gst-debug
-						// and "gst" is enabled in player cfg
-						// and environment variable GST_DEBUG_DUMP_DOT_DIR is set to a basepath(e.g. /opt).
-					}
-					// First Video Frame Displayed callback for westeros-sink is initialized
-					// via OnFirstVideoFrameCallback()->NotifyFirstFrame() which is more accurate
-					if((!privatePlayer->gstPrivateContext->using_westerossink) && pInterfacePlayerRDK->mFirstFrameRequired)
-					{
-						pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
-					}
+				}
+				if(pInterfacePlayerRDK->m_gstConfigParam->media == eGST_MEDIAFORMAT_PROGRESSIVE)
+				{
+					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
+					// application needs to NotifyFirstBufferProcessed
+					busEvent.firstBufferProcessed = true;
 
 				}
+				if(privatePlayer->gstPrivateContext->usingRialtoSink)
+				{
+					privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
+					privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
+					pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+				}
+				else if(privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff && privatePlayer->socInterface->NotifyVideoFirstFrame())
+				{
+					privatePlayer->gstPrivateContext->firstTuneWithWesterosSinkOff = false;
+					privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
+					privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
+					pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
+				}
+				else if(privatePlayer->socInterface->IsSimulatorFirstFrame())
+				{
+					if(!privatePlayer->gstPrivateContext->firstFrameReceived)
+					{
+						privatePlayer->gstPrivateContext->firstFrameReceived = true;
+						busEvent.receivedFirstFrame = true;
+					}
+					pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
+					//Note: Progress event should be sent after the decoderAvailable event only.
+					//BRCM platform sends progress event after InterfacePlayerRDK_OnFirstVideoFrameCallback.
+					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask, pInterfacePlayerRDK->IdleCallback);
+				}
+				if (pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
+				{
+					GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)privatePlayer->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
+					// output graph to .dot format which can be visualized with Graphviz tool if:
+					// gstreamer is configured with --gst-enable-gst-debug
+					// and "gst" is enabled in player cfg
+					// and environment variable GST_DEBUG_DUMP_DOT_DIR is set to a basepath(e.g. /opt).
+				}
+				// First Video Frame Displayed callback for westeros-sink is initialized
+				// via OnFirstVideoFrameCallback()->NotifyFirstFrame() which is more accurate
+				if((!privatePlayer->gstPrivateContext->using_westerossink) && pInterfacePlayerRDK->mFirstFrameRequired)
+				{
+					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
+				}
+
 			}
 			//this code should be handled as part of IARM modification
 			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
@@ -4701,11 +4679,24 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER( privatePlayer->gstPrivateContext->syncControl, GST_BUS_PASS);
+
 	switch(GST_MESSAGE_TYPE(msg))
 	{
 		case GST_MESSAGE_STATE_CHANGED:
-			GstState old_state, new_state;
-			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
+			GstState old_state, new_state, pending_state;
+			gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+
+			if (NULL != msg->src &&
+				((GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline)) ||
+				pInterfacePlayerRDK->m_gstConfigParam->gstLogging))
+			{
+				/* Log playbin state transitions and optionally all element state transitions when gst logging is enabled */
+				MW_LOG_MIL("%s %s -> %s (pending %s)",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state),
+						   gst_element_state_get_name(pending_state));
+			}
 
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))
 			{
@@ -5247,4 +5238,190 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
+}
+
+/**
+ * @brief Add a buffer field to a GstStructure
+ * @param[in] structure The GstStructure to add the field to
+ * @param[in] fieldName The name of the field
+ * @param[in] data The data to add
+ */
+void AddBufferFieldToStructure(GstStructure *structure, const char *fieldName, const std::vector<uint8_t> &data)
+{
+	if (!structure || !fieldName || data.empty())
+	{
+		MW_LOG_ERR("Invalid GstStructure pointer[%p] or field name[%s] or empty data", structure, fieldName ? fieldName : "null");
+		return;
+	}
+	GstBuffer *buffer = CreateGstBufferWithData((gpointer)data.data(), (gsize)data.size());
+	if (buffer)
+	{
+		gst_structure_set(structure,
+						fieldName, GST_TYPE_BUFFER, buffer,
+						NULL);
+		gst_buffer_unref(buffer);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to allocate buffer for %s structure", fieldName);
+	}
+}
+
+/**
+ * @brief Sets the stream capabilities.
+ * @param[in] type The media type.
+ * @param[in] codecInfo The codec information.
+ */
+void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo)
+{
+	GstCaps *caps = GetCaps(codecInfo.mCodecFormat);
+	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
+	stream->format = codecInfo.mCodecFormat;
+	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = true;
+	if (caps)
+	{
+		// Append some additional info to caps
+		if (!codecInfo.mCodecData.empty())
+		{
+			AddBufferFieldToStructure(gst_caps_get_structure (caps, 0), "codec_data", codecInfo.mCodecData);
+		}
+		if (type == eGST_MEDIATYPE_VIDEO)
+		{
+			if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_H264)
+			{
+				gst_caps_set_simple(caps,
+									"stream-format", G_TYPE_STRING, "avc",
+									"alignment", G_TYPE_STRING, "au",
+									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+									NULL);
+			}
+			else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
+			{
+				gst_caps_set_simple(caps,
+									"stream-format", G_TYPE_STRING, "hvc1",
+									"alignment", G_TYPE_STRING, "au",
+									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+									NULL);
+			}
+		}
+		else if (type == eGST_MEDIATYPE_AUDIO)
+		{
+			if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_AAC_RAW)
+			{
+				gst_caps_set_simple(caps,
+									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+									NULL);
+			}
+			else if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_EC3)
+			{
+				gst_caps_set_simple(caps,
+									"framed", G_TYPE_BOOLEAN, TRUE,
+									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+									NULL);
+			}
+		}
+		if (codecInfo.mIsEncrypted)
+		{
+			GstStructure *s = gst_caps_get_structure (caps, 0);
+			if (s)
+			{
+				gst_structure_set (s,
+					"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
+					NULL);
+				if (mDrmSystem != NULL)
+				{
+					gst_structure_set (s,
+						GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
+						NULL);
+				}
+				// Same for both cenc and cbcs
+				gst_structure_set_name (s, "application/x-cenc");
+			}
+		}
+		gchar* capsStr = gst_caps_to_string(caps);
+		MW_LOG_MIL("Setting stream caps for type[%d] format[%d]: %s", type, codecInfo.mCodecFormat, capsStr);
+		g_free(capsStr);
+		gst_app_src_set_caps(GST_APP_SRC(stream->source), caps);
+		gst_caps_unref(caps);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to get caps for type[%d] format[%d]", type, codecInfo.mCodecFormat);
+	}
+}
+
+/**
+ * @brief Decorate a GstBuffer with DRM metadata
+ * @param[in] buffer The GstBuffer to decorate
+ * @param[in] drmMetadata The DRM metadata
+ */
+static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
+{
+	GstStructure *metadata = NULL;
+	if (drmMetadata.mIsEncrypted)
+	{
+		metadata = gst_structure_new(
+									"application/x-cenc",
+									"encrypted", G_TYPE_BOOLEAN, TRUE,
+									// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
+									"cipher-mode", G_TYPE_STRING, CipherTypeToString(drmMetadata.mCipher),
+									NULL);
+
+		if (!metadata)
+		{
+			MW_LOG_ERR("Failed to create DRM metadata structure");
+			return;
+		}
+
+		if (!drmMetadata.mKeyId.empty())
+		{
+			AddBufferFieldToStructure(metadata, "kid", drmMetadata.mKeyId);
+		}
+
+		if (!drmMetadata.mIV.empty())
+		{
+			AddBufferFieldToStructure(metadata, "iv", drmMetadata.mIV);
+			gst_structure_set(metadata,
+							"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
+							NULL);
+		}
+
+		if (!drmMetadata.mSubSamples.empty())
+		{
+			AddBufferFieldToStructure(metadata, "subsamples", drmMetadata.mSubSamples);
+			gst_structure_set(metadata,
+							"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
+							NULL);
+		}
+		else
+		{
+			gst_structure_set(metadata,
+							"subsample_count", G_TYPE_UINT, 0,
+							NULL);
+		}
+
+		if (drmMetadata.mCipher == CIPHER_TYPE_CBCS)
+		{
+			gst_structure_set(metadata,
+							"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
+							"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
+							NULL );
+		}
+	}
+
+	if (metadata)
+	{
+		// serialize and print the metadata
+		gchar *metaStr = gst_structure_to_string(metadata);
+		MW_LOG_DEBUG("Added drm metadata: %s", metaStr);
+		g_free(metaStr);
+
+		gst_buffer_add_protection_meta(buffer, metadata);
+	}
 }

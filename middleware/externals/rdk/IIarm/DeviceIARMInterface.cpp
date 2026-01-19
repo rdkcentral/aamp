@@ -74,8 +74,10 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
 std::shared_ptr<DeviceIARMInterface> s_pDeviceIARMInterface = nullptr;
 
+#ifndef USE_DS_EVENT_SUPPORTED
 static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
+#endif
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
 
@@ -143,16 +145,20 @@ void DeviceIARMInterface::IARMInit()
 
 void DeviceIARMInterface::RegisterDsMgrEventHandler()
 {
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#ifndef USE_DS_EVENT_SUPPORTED
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#endif
 }
 
 void DeviceIARMInterface::RemoveEventHandlers()
 {
+#ifndef USE_DS_EVENT_SUPPORTED
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#endif
     IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
 }
 
@@ -249,6 +255,7 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	
 }
 
+#ifndef USE_DS_EVENT_SUPPORTED
 /**
  * @brief IARM event handler for HDCP and HDMI hot plug events
  */
@@ -317,3 +324,4 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
             break;
     }
 }
+#endif

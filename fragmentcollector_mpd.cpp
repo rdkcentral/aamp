@@ -4468,11 +4468,13 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 	}
 }
 
+TimeSyncClient::TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false) {}
+
 /**
  * @brief Read UTCTiming _element_
  * @retval Return true if UTCTiming _element_ is available in the manifest
  */
-bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
+bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 {
 	bool hasServerUtcTime = false;
 	if( root )
@@ -4505,16 +4507,40 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
 
-						mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
-						if(mLocalUtcTime > 0 )
+						bool shouldSyncOnStartup = !mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
+						bool intervalElapsed = false;
+						if( !shouldSyncOnStartup )
 						{
-							double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
-							mDeltaTime =  mLocalUtcTime - currentTime;
-							hasServerUtcTime = true;
+							const double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
+							intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
 						}
-						else
+						if (shouldSyncOnStartup || intervalElapsed)
 						{
-							AAMPLOG_ERR("Failed to read timeServer [%s] RetCode[%d]",ServerUrl.c_str(),http_error);
+							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
+							if(mLocalUtcTime > 0)
+							{
+								mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+								mDeltaTime =  mLocalUtcTime - (double)mTimeSyncClient.lastSync / 1000;
+								mTimeSyncClient.lastOffset = mDeltaTime;
+								mTimeSyncClient.hasSynced = true;
+								hasServerUtcTime = true;
+							}
+							else
+							{
+								if (!mTimeSyncClient.hasSynced)
+								{
+									AAMPLOG_ERR("Failed timeServer sync on startup [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+								}
+								else
+								{
+									AAMPLOG_WARN("Failed to refresh timeServer [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+								}
+							}
+						}
+						else if (mTimeSyncClient.hasSynced)
+						{
+							mDeltaTime = mTimeSyncClient.lastOffset;
+							hasServerUtcTime = true;
 						}
 						break;
 					}
@@ -10452,9 +10478,16 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
+	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
+		format = FORMAT_UNKNOWN;
+	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = FORMAT_ISO_BMFF;
+		primaryOutputFormat = format;
 	}
 	else
 	{
@@ -10462,7 +10495,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = FORMAT_ISO_BMFF;
+		audioOutputFormat = format;
 	}
 	else
 	{
@@ -10491,6 +10524,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			else
 			{
 				AAMPLOG_INFO("mimeType empty");
+				// Mp4Demux is skipped for subtitles
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 			}
 		}
@@ -13403,7 +13437,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			if(attributeMapRate.find("min") == attributeMapRate.end())
 			{
 				AAMPLOG_TRACE("Latency min attribute not available");
-				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);;
+				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
 			}
 			else
 			{
@@ -13679,7 +13713,7 @@ int StreamAbstractionAAMP_MPD::GetValidPeriodIdx(int periodIdx)
 				bvalidperiodfound = true;
 				break;
 			}
-			periodIter += direction;;
+			periodIter += direction;
 		}
 		if(!bvalidperiodfound)
 		{

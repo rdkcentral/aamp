@@ -208,12 +208,15 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 /**
  * @brief distinguish between absolute and relative urls
  *
- * @return true iff url starts with http:// or https://
- */
+ * @return true iff url starts with http:// or https:// or file://
+*/
 bool aamp_IsAbsoluteURL( const std::string &url )
 {
-	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
-	// note: above slightly faster than equivalent url.rfind("http://",0)==0 || url.rfind("https://",0)==0;
+	return
+	url.compare(0, 7, "http://")==0 ||
+	url.compare(0, 8, "https://")==0 ||
+	url.compare(0, 7, "file://") == 0;
+	// note: above slightly faster than equivalent url.rfind("http://",0)==0 || url.rfind("https://",0)==0 || url.rfind("file://",0)==0
 }
 
 /**
@@ -1420,6 +1423,38 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
+
+/**
+ * @brief Convert a hexadecimal ASCII character to its numeric value.
+ *
+ * Converts the given character to its corresponding integer value if it
+ * represents a hexadecimal digit ('0'-'9', 'A'-'F', or 'a'-'f').
+ *
+ * @param[in] c Input ASCII character to convert.
+ *
+ * @return Numeric value in the range 0-15 on success, or -1 if the character
+ *         is not a valid hexadecimal digit.
+ */
+int hexCharToInt(char c)
+{
+	if (c >= '0' && c <= '9')
+	{
+		return c - '0';
+	}
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
+	if (c >= 'A' && c <= 'F')
+	{
+		return 10 + (c - 'A');
+	}
+	return -1;
+}
+
+/*
+ * EOF
+ */
 
 bool aamp_isTuneScheme( const char *cmdBuf )
 {

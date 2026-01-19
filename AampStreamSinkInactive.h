@@ -70,6 +70,15 @@ public:
 		return false;
 	}
 	/**
+	 *   @fn SendSample
+	 *   @brief stub implementation for Inactive aamp instance
+	 */
+	virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample)
+	{
+		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
+		return false;
+	}
+	/**
      *   @fn EndOfStreamReached
 	 *   @brief stub implementation for Inactive aamp instance
 	 */

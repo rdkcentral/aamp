@@ -39,6 +39,7 @@
 #include "AampConfig.h"
 #include "SubtecFactory.hpp"
 #include "AampUtils.h"
+#include "AampMp4Demuxer.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -4079,43 +4080,57 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
 		if(track && track->enabled && track->playContext == nullptr)
 		{
-			AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
-
-			if(eMEDIATYPE_SUBTITLE != i)
+			if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 			{
-				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
-																passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
-				track->SourceFormat(FORMAT_ISO_BMFF);
-				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
-				track->playContext->setRate(aamp->rate, PlayMode_normal);
-				if(eMEDIATYPE_AUDIO == i)
+				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
+				if(eMEDIATYPE_SUBTITLE != i)
 				{
-					peerAudioProcessor = std::move(processor);
+					std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
+																	passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
+					track->SourceFormat(FORMAT_ISO_BMFF);
+					track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					if(eMEDIATYPE_AUDIO == i)
+					{
+						peerAudioProcessor = std::move(processor);
+					}
+					else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
+					{
+						processor->addPeerListener(subtitleESProcessor.get());
+					}
 				}
-				else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
+				else
 				{
-					processor->addPeerListener(subtitleESProcessor.get());
+					if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
+					{
+						peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
+						track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
+						track->playContext->setRate(aamp->rate, PlayMode_normal);
+					}
+					else
+					{
+						subtitleESProcessor = std::make_shared<ElementaryProcessor>(aamp);
+						track->playContext = subtitleESProcessor;
+					}
+
+					// If video playcontext is already created, attach subtitle processor to it.
+					MediaTrack *videoTrack = GetMediaTrack(eTRACK_VIDEO);
+					if (videoTrack && videoTrack->enabled && videoTrack->playContext)
+					{
+						std::static_pointer_cast<IsoBmffProcessor> (videoTrack->playContext)->setPeerSubtitleProcessor(peerSubtitleProcessor.get());
+					}
 				}
 			}
 			else
 			{
-				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
+				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
+				if (i != eMEDIATYPE_SUBTITLE)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
-					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
-					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i);
 				}
 				else
 				{
-					subtitleESProcessor = std::make_shared<ElementaryProcessor>(aamp);
-					track->playContext = subtitleESProcessor;
-				}
-
-				// If video playcontext is already created, attach subtitle processor to it.
-				MediaTrack *videoTrack = GetMediaTrack(eTRACK_VIDEO);
-				if (videoTrack && videoTrack->enabled && videoTrack->playContext)
-				{
-					std::static_pointer_cast<IsoBmffProcessor> (videoTrack->playContext)->setPeerSubtitleProcessor(peerSubtitleProcessor.get());
+					track->playContext = nullptr;
 				}
 			}
 		}

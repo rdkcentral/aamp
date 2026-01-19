@@ -314,7 +314,7 @@ MPDSegmenter::SegmentVec MPDSegmenter::getSegments(double startTime, double endT
                 }
                 for (size_t i = k_begin; i < k_end; i++) {
                     auto segUrl = segUrls[i];
-                    auto seg = make_shared<MPDSegment>(baseSeg);; // copy
+                    auto seg = make_shared<MPDSegment>(baseSeg); // copy
                     auto scaledDuration = segmentDuration(i);
                     seg->scaledStart = segmentStartTime(i);
                     seg->number = (long long) i;
