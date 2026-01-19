@@ -207,6 +207,11 @@ void DumpBlob(const unsigned char *ptr, size_t len)
 {
 }
 
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	(void)buffering;
+}
+
 void PrivateInstanceAAMP::UpdateUseSinglePipeline(void)
 {
 }

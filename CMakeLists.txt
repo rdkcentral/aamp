@@ -366,6 +366,7 @@ set(LIBAAMP_SOURCES
 	fragmentcollector_hls.cpp fragmentcollector_hls.h
 	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
 	admanager_mpd.cpp admanager_mpd.h
+	AampUnderflowMonitor.cpp AampUnderflowMonitor.h
 	streamabstraction.cpp
 	priv_aamp.cpp priv_aamp.h
 	main_aamp.cpp main_aamp.h

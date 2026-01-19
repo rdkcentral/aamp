@@ -3168,6 +3168,33 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 }
 
 /**
+ * @brief API to set buffering state and coordinate pipeline state + events.
+ */
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	if (buffering)
+	{
+		SendBufferChangeEvent(true);
+		if (!pipeline_paused)
+		{
+			if (!PausePipeline(true, true))
+			{
+				AAMPLOG_ERR("Failed to pause the Pipeline");
+			}
+		}
+	}
+	else
+	{
+		if (pipeline_paused)
+		{
+			(void)PausePipeline(false, false);
+		}
+		UpdateSubtitleTimestamp();
+		SendBufferChangeEvent(false);
+	}
+}
+
+/**
  * @brief To change the the gstreamer pipeline to pause/play
  */
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
@@ -5344,6 +5371,8 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
+		mpStreamAbstractionAAMP->StopUnderflowMonitor();
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
@@ -5907,6 +5936,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
 
+	if (mpStreamAbstractionAAMP)
+	{
+		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor))
+		{
+			mpStreamAbstractionAAMP->StartUnderflowMonitor();
+			if (!mpStreamAbstractionAAMP->IsUnderflowMonitorRunning())
+			{
+				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+			}
+		}
+	}
 	// Validate tune type
 	// (need to find a better way to do this)
 	if (tuneType == eTUNETYPE_NEW_NORMAL) // either no offset (mIsDefaultOffset = true) or -1 was specified
@@ -8899,6 +8939,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	}
 
 	mScheduler->SetState(mState);
+
 	if (mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 	{
 		if (mState == eSTATE_PREPARING)
