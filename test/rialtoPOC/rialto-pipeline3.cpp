@@ -20,7 +20,6 @@
 #include "rialto-pipeline3.h"
 #include <iostream>
 #include <vector>
-#include <cassert>
 #include <cstring>
 #include <mutex>
 #include <condition_variable>
@@ -74,17 +73,16 @@ bool GstMediaPipeline::attachSource(std::unique_ptr<MediaSource> &&source, int32
         return false;
     }
     
-    bool ok = attachSource(std::move(source));  
-
-    if (ok)
-    {
-        sourceId = source->getId();
-    }
-    else
-    {
-        sourceId = 0;
-    }
-    
+	const int32_t id = source->getId();
+	bool ok = attachSource(std::move(source));
+	if (ok)
+	{
+		sourceId = id;
+	}
+	else
+	{
+		sourceId = 0;
+	}
     return ok;
 }
 

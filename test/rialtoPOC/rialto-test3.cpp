@@ -18,7 +18,6 @@
 */
 
 #include <stdio.h>
-#include <cassert>
 #include <thread>
 #include <chrono>
 #include <cstring>
@@ -42,6 +41,27 @@ static int32_t sourceIdVideo;
 
 using namespace firebolt::rialto; 
 
+/**
+ * @brief Waits for a need-data request for a specific source.
+ *
+ * This helper blocks the caller until a matching NeedDataRequestEvent
+ * for the given source ID is present in the global need-data queue, or
+ * until the specified timeout elapses.
+ *
+ * On success, the corresponding request is removed from the queue and
+ * its requestId is returned. If no matching request is received within
+ * the timeout, an error message is printed to stderr and UINT32_MAX is
+ * returned.
+ *
+ * @param sourceId   The media source identifier to match against
+ *                   queued NeedDataRequestEvent objects.
+ * @param timeoutMs  Maximum time to wait, in milliseconds. Defaults to
+ *                   5000 ms.
+ *
+ * @return The requestId of the first matching need-data request found,
+ *         or UINT32_MAX if the wait timed out or no matching event was
+ *         available.
+ */
 uint32_t WaitForNeedDataRequest(int32_t sourceId, int timeoutMs = 5000)
 {
     std::unique_lock<std::mutex> lock(g_needDataMutex);
