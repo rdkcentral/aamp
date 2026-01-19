@@ -39,6 +39,34 @@ public:
 	AampGrowableBuffer( const char *name="?" ):buffer(),name(name){}
 	~AampGrowableBuffer();
 	
+	// Copy constructor
+	AampGrowableBuffer(const AampGrowableBuffer & other)
+	: buffer(other.buffer),
+	name{other.name}
+	{ // never reached/used?
+	}
+	
+	// Copy assignment
+	AampGrowableBuffer& operator=(const AampGrowableBuffer & other)
+	{ // never reached/used?
+		buffer = other.buffer;
+		return *this;
+	}
+	
+	// Move constructor
+	AampGrowableBuffer(AampGrowableBuffer && other) noexcept
+	: buffer(std::move(other.buffer)),
+	name{other.name}
+	{ // never reached/used
+	}
+	
+	// Move assignment
+	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
+	{ // never reached/used
+		buffer = std::move(other.buffer);
+		return *this;
+	}
+	
 	void Free( void );
 	void ReserveBytes( size_t len );
 	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
