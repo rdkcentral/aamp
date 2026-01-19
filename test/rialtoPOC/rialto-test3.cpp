@@ -18,7 +18,6 @@
 */
 
 #include <stdio.h>
-#include <cassert>
 #include <thread>
 #include <chrono>
 #include <cstring>
@@ -42,6 +41,27 @@ static int32_t sourceIdVideo;
 
 using namespace firebolt::rialto; 
 
+/**
+ * @brief Waits for a need-data request for a specific source.
+ *
+ * This helper blocks the caller until a matching NeedDataRequestEvent
+ * for the given source ID is present in the global need-data queue, or
+ * until the specified timeout elapses.
+ *
+ * On success, the corresponding request is removed from the queue and
+ * its requestId is returned. If no matching request is received within
+ * the timeout, an error message is printed to stderr and UINT32_MAX is
+ * returned.
+ *
+ * @param sourceId   The media source identifier to match against
+ *                   queued NeedDataRequestEvent objects.
+ * @param timeoutMs  Maximum time to wait, in milliseconds. Defaults to
+ *                   5000 ms.
+ *
+ * @return The requestId of the first matching need-data request found,
+ *         or UINT32_MAX if the wait timed out or no matching event was
+ *         available.
+ */
 uint32_t WaitForNeedDataRequest(int32_t sourceId, int timeoutMs = 5000)
 {
     std::unique_lock<std::mutex> lock(g_needDataMutex);
@@ -87,7 +107,11 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
     printf("loading rialtotest %s\n", fullpath);
 
     FILE *f = fopen(fullpath, "rb");
-    assert(f);
+	if( !f )
+	{
+		printf( "fopen failure\n" );
+		exit(1);
+	}
     if (f)
     {
         fseek(f, 0, SEEK_END);
@@ -95,12 +119,20 @@ void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
         if (len > 0)
         {
             unsigned char *ptr = (unsigned char *)malloc(len);
-            assert(ptr);
-            if (ptr)
+			if( !ptr )
+			{
+				printf( "malloc failure\n" );
+				exit(1);
+			}
+			if (ptr)
             {
                 fseek(f, 0, SEEK_SET);
                 size_t n = fread(ptr, 1, len, f);
-                assert(n == len);
+				if( n!=len )
+				{
+					printf( "fread failure\n" );
+					exit(1);
+				}
                 if (n == len)
                 {
                     mp4Demux.Parse(ptr, (uint32_t)len);
@@ -138,7 +170,8 @@ void ConfigureAudio()
 			streamFormat = StreamFormat::UNDEFINED;
 			break;
 		default:
-			assert(0);
+			printf( "unknown trackAudio.codec_type\n" );
+			exit(1);
 			break;
 	}
     
@@ -179,7 +212,8 @@ void ConfigureVideo()
 			streamFormat = StreamFormat::AVC;
 			break;
 		default:
-			assert(0);
+			printf( "unknown trackVideo.codec_type\n" );
+			exit(1);
 			break;
 	}
 	CodecData codecData;
@@ -229,7 +263,11 @@ void InjectAudio(int32_t needDataId)
         audioSegment->setData((uint32_t)len, data);
 
         AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, audioSegment);
-        assert(status == AddSegmentStatus::OK);
+        if( status != AddSegmentStatus::OK )
+		{
+			printf( "gstMediaPipeline->addSegment failure\n" );
+			exit(1);
+		}
     }
 
     gstMediaPipeline->haveData(MediaSourceStatus::OK, needDataId);
@@ -263,7 +301,11 @@ void InjectVideo(int32_t needDataId)
         videoSegment->setData((uint32_t)len, data);
 
         AddSegmentStatus status = gstMediaPipeline->addSegment(needDataId, videoSegment);
-        assert(status == AddSegmentStatus::OK);
+		if( status != AddSegmentStatus::OK )
+		{
+			printf( "gstMediaPipeline->addSegment failure\n" );
+			exit(1);
+		}
     }
 
     gstMediaPipeline->haveData(MediaSourceStatus::OK, needDataId);

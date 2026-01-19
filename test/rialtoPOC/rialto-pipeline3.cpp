@@ -20,7 +20,6 @@
 #include "rialto-pipeline3.h"
 #include <iostream>
 #include <vector>
-#include <cassert>
 #include <cstring>
 #include <mutex>
 #include <condition_variable>
@@ -74,17 +73,16 @@ bool GstMediaPipeline::attachSource(std::unique_ptr<MediaSource> &&source, int32
         return false;
     }
     
-    bool ok = attachSource(std::move(source));  
-
-    if (ok)
-    {
-        sourceId = source->getId();
-    }
-    else
-    {
-        sourceId = 0;
-    }
-    
+	const int32_t id = source->getId();
+	bool ok = attachSource(std::move(source));
+	if (ok)
+	{
+		sourceId = id;
+	}
+	else
+	{
+		sourceId = 0;
+	}
     return ok;
 }
 
@@ -120,7 +118,7 @@ bool GstMediaPipeline::setBufferingLimit(uint32_t limitBufferingMs) { return m_p
 bool GstMediaPipeline::getBufferingLimit(uint32_t &limitBufferingMs) { return m_pipeline ? m_pipeline->getBufferingLimit(limitBufferingMs) : false; }
 bool GstMediaPipeline::setUseBuffering(bool useBuffering) { return m_pipeline ? m_pipeline->setUseBuffering(useBuffering) : false; }
 bool GstMediaPipeline::getUseBuffering(bool &useBuffering) { return m_pipeline ? m_pipeline->getUseBuffering(useBuffering) : false; }
-bool GstMediaPipeline::switchSource(const std::unique_ptr<MediaSource> &source) { return m_pipeline ? m_pipeline->switchSource(source->copy()) : false; }
+bool GstMediaPipeline::switchSource(const std::unique_ptr<MediaSource> &source) { return (m_pipeline && source) ? m_pipeline->switchSource(source->copy()) : false; }
 bool GstMediaPipeline::getVolume(double &currentVolume) { return m_pipeline ? m_pipeline->getVolume(currentVolume) : false; }
 bool GstMediaPipeline::setMute(int32_t sourceId, bool mute) { return m_pipeline ? m_pipeline->setMute(sourceId, mute) : false; }
 bool GstMediaPipeline::getMute(int32_t sourceId, bool &mute) { return m_pipeline ? m_pipeline->getMute(sourceId, mute) : false; }
