@@ -3042,9 +3042,7 @@ void StreamAbstractionAAMP::StartUnderflowMonitor()
 		}
 		catch (const std::exception &e)
 		{
-			AAMPLOG_ERR("Failed to start existing AampUnderflowMonitor: %s", e.what());
-			// Reset to allow recreation on next call
-			mUnderflowMonitor.reset();
+			AAMPLOG_ERR("Exception caught for while starting %s", e.what());
 		}
 	}
 }

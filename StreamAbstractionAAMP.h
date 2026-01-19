@@ -1722,7 +1722,7 @@ public:
 	 * @return true if running, false otherwise
 	 */
 	bool IsUnderflowMonitorRunning() const;
-
+	
 	/**
 	 *   @fn GetBufferedAudioDurationSec
 	 *

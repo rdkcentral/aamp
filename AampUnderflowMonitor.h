@@ -91,8 +91,8 @@ private:
      */
     void Run();
 
-    StreamAbstractionAAMP* mStream; /** Stream abstraction used to query buffered duration and playback state. */
-    PrivateInstanceAAMP* mAamp; /** AAMP instance used to emit events, control downloads, and query state. */
+    StreamAbstractionAAMP* mStream; /** Stream abstraction used to query video state. */
+    PrivateInstanceAAMP* mAamp; /** AAMP instance used to emit events and query state. */
     std::thread mThread;    /** Background thread that performs underflow monitoring. */
     std::atomic<bool> mRunning{false};   /** Atomic running flag indicating thread active state. */
     std::mutex mMutex; /** Protects pointer access in Run() and serializes Start/Stop. */
