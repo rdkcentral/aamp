@@ -3017,6 +3017,7 @@ TEST_F(PrivAampTests,DISABLED_stopTest)
 
 TEST_F(PrivAampTests,stopTest_1)
 {
+	EXPECT_CALL(*g_mockAampLicenseManager, setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE));
 	p_aamp->Stop();
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 	EXPECT_FALSE(p_aamp->IsFogTSBSupported());

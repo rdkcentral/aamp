@@ -8170,6 +8170,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMLicenseManager->Stop();
+
+		// Set Session Manager State to Inactive after StreamSink has been stopped
+		// to avoid any race condition between data still being streamed and DRM session manager
+		mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 	}
 
 	SAFE_DELETE(mCdaiObject);
