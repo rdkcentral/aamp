@@ -20,29 +20,29 @@ IARMTestHelper& IARMTestHelper::getInstance() {
 }
 
 void IARMTestHelper::registerHandler(const std::string& owner, IARM_EventId_t eventId, IARM_EventHandler_t handler) {
-    handlers[owner][eventId] = handler;
+    mHandlers[owner][eventId] = handler;
 }
 
 void IARMTestHelper::removeHandler(const std::string& owner, IARM_EventId_t eventId) {
-    if (handlers.find(owner) != handlers.end()) {
-        handlers[owner].erase(eventId);
+    if (mHandlers.find(owner) != mHandlers.end()) {
+        mHandlers[owner].erase(eventId);
     }
 }
 
 void IARMTestHelper::triggerEvent(const std::string& owner, IARM_EventId_t eventId, void* data, size_t len) {
-    if (handlers.find(owner) != handlers.end() && 
-        handlers[owner].find(eventId) != handlers[owner].end()) {
-        handlers[owner][eventId](owner.c_str(), eventId, data, len);
+    if (mHandlers.find(owner) != mHandlers.end() && 
+        mHandlers[owner].find(eventId) != mHandlers[owner].end()) {
+        mHandlers[owner][eventId](owner.c_str(), eventId, data, len);
     }
 }
 
 void IARMTestHelper::reset() {
-    handlers.clear();
+    mHandlers.clear();
 }
 
 int IARMTestHelper::getHandlerCount(const std::string& owner, IARM_EventId_t eventId) {
-    if (handlers.find(owner) != handlers.end() && 
-        handlers[owner].find(eventId) != handlers[owner].end()) {
+    if (mHandlers.find(owner) != mHandlers.end() && 
+        mHandlers[owner].find(eventId) != mHandlers[owner].end()) {
         return 1;
     }
     return 0;

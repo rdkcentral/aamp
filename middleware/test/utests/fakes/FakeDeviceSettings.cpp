@@ -16,18 +16,18 @@
 
 namespace device {
 
-bool Manager::initialized = false;
+bool Manager::sInitialized = false;
 
 void Manager::Initialize() {
-    initialized = true;
+    sInitialized = true;
 }
 
 void Manager::DeInitialize() {
-    initialized = false;
+    sInitialized = false;
 }
 
 bool Manager::isInitialized() {
-    return initialized;
+    return sInitialized;
 }
 
 Host& Host::getInstance() {
@@ -39,7 +39,7 @@ void Host::Register(Host::IVideoOutputPortEvents* handler, const std::string& na
     if (handler) {
         // Only increment count if we're replacing nullptr (no handler was registered before)
         if (!DeviceSettingsTestHelper::getInstance().hasVideoOutputPortHandler()) {
-            videoHandlerCount++;
+            mVideoHandlerCount++;
         }
         DeviceSettingsTestHelper::getInstance().setVideoOutputPortHandler(handler);
     }
@@ -49,7 +49,7 @@ void Host::Register(Host::IDisplayDeviceEvents* handler, const std::string& name
     if (handler) {
         // Only increment count if we're replacing nullptr (no handler was registered before)
         if (!DeviceSettingsTestHelper::getInstance().hasDisplayDeviceHandler()) {
-            displayHandlerCount++;
+            mDisplayHandlerCount++;
         }
         DeviceSettingsTestHelper::getInstance().setDisplayDeviceHandler(handler);
     }
@@ -58,31 +58,31 @@ void Host::Register(Host::IDisplayDeviceEvents* handler, const std::string& name
 void Host::UnRegister(Host::IVideoOutputPortEvents* handler) {
     DeviceSettingsTestHelper& helper = DeviceSettingsTestHelper::getInstance();
     // Only unregister if the handler matches the currently registered handler
-    if (handler != nullptr && helper.getVideoOutputPortHandler() == handler && videoHandlerCount > 0) {
+    if (handler != nullptr && helper.getVideoOutputPortHandler() == handler && mVideoHandlerCount > 0) {
         helper.setVideoOutputPortHandler(nullptr);
-        videoHandlerCount--;
+        mVideoHandlerCount--;
     }
 }
 
 void Host::UnRegister(Host::IDisplayDeviceEvents* handler) {
     DeviceSettingsTestHelper& helper = DeviceSettingsTestHelper::getInstance();
     // Only unregister if the handler matches the currently registered handler
-    if (handler != nullptr && helper.getDisplayDeviceHandler() == handler && displayHandlerCount > 0) {
+    if (handler != nullptr && helper.getDisplayDeviceHandler() == handler && mDisplayHandlerCount > 0) {
         helper.setDisplayDeviceHandler(nullptr);
-        displayHandlerCount--;
+        mDisplayHandlerCount--;
     }
 }
 
 int Host::getRegisteredVideoHandlerCount() const {
-    return videoHandlerCount;
+    return mVideoHandlerCount;
 }
 
 int Host::getRegisteredDisplayHandlerCount() const {
-    return displayHandlerCount;
+    return mDisplayHandlerCount;
 }
 
 VideoOutputPort& Host::getVideoOutputPort(const std::string& name) {
-    return videoPort;
+    return mVideoPort;
 }
 
 // Test Helper Implementation
@@ -92,56 +92,56 @@ DeviceSettingsTestHelper& DeviceSettingsTestHelper::getInstance() {
 }
 
 void DeviceSettingsTestHelper::setVideoOutputPortHandler(Host::IVideoOutputPortEvents* handler) {
-    videoOutputHandler = handler;
+    mVideoOutputHandler = handler;
 }
 
 void DeviceSettingsTestHelper::setDisplayDeviceHandler(Host::IDisplayDeviceEvents* handler) {
-    displayDeviceHandler = handler;
+    mDisplayDeviceHandler = handler;
 }
 
 Host::IVideoOutputPortEvents* DeviceSettingsTestHelper::getVideoOutputPortHandler() const {
-    return videoOutputHandler;
+    return mVideoOutputHandler;
 }
 
 Host::IDisplayDeviceEvents* DeviceSettingsTestHelper::getDisplayDeviceHandler() const {
-    return displayDeviceHandler;
+    return mDisplayDeviceHandler;
 }
 
 void DeviceSettingsTestHelper::triggerResolutionPreChange(int width, int height) {
-    if (videoOutputHandler) {
-        videoOutputHandler->OnResolutionPreChange(width, height);
+    if (mVideoOutputHandler) {
+        mVideoOutputHandler->OnResolutionPreChange(width, height);
     }
 }
 
 void DeviceSettingsTestHelper::triggerResolutionPostChange(int width, int height) {
-    if (videoOutputHandler) {
-        videoOutputHandler->OnResolutionPostChange(width, height);
+    if (mVideoOutputHandler) {
+        mVideoOutputHandler->OnResolutionPostChange(width, height);
     }
 }
 
 void DeviceSettingsTestHelper::triggerHDCPStatusChange(dsHdcpStatus_t status) {
-    if (videoOutputHandler) {
-        videoOutputHandler->OnHDCPStatusChange(status);
+    if (mVideoOutputHandler) {
+        mVideoOutputHandler->OnHDCPStatusChange(status);
     }
 }
 
 void DeviceSettingsTestHelper::triggerHDMIHotPlug(dsDisplayEvent_t event) {
-    if (displayDeviceHandler) {
-        displayDeviceHandler->OnDisplayHDMIHotPlug(event);
+    if (mDisplayDeviceHandler) {
+        mDisplayDeviceHandler->OnDisplayHDMIHotPlug(event);
     }
 }
 
 void DeviceSettingsTestHelper::reset() {
-    videoOutputHandler = nullptr;
-    displayDeviceHandler = nullptr;
+    mVideoOutputHandler = nullptr;
+    mDisplayDeviceHandler = nullptr;
 }
 
 bool DeviceSettingsTestHelper::hasVideoOutputPortHandler() const {
-    return videoOutputHandler != nullptr;
+    return mVideoOutputHandler != nullptr;
 }
 
 bool DeviceSettingsTestHelper::hasDisplayDeviceHandler() const {
-    return displayDeviceHandler != nullptr;
+    return mDisplayDeviceHandler != nullptr;
 }
 
 } // namespace device

@@ -22,9 +22,23 @@
  * @class PlayerExternalsRdkInterfaceTests
  * @brief Test fixture validating PlayerExternalsRdkInterface initialization
  *        and event handling behavior.
+ * 
+ * @details This fixture manages a singleton instance of PlayerExternalsRdkInterface.
+ *          The singleton persists across all tests in the suite due to its global
+ *          lifetime management. Tests are designed to work with this persistent
+ *          singleton rather than attempting full cleanup between tests.
  */
 class PlayerExternalsRdkInterfaceTests : public ::testing::Test {
 protected:
+    /**
+     * @brief Shared pointer to the singleton PlayerExternalsRdkInterface instance.
+     * 
+     * @details This is a local reference to the global singleton instance managed by
+     *          PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance().
+     *          The underlying singleton (s_pPlayerIarmRdkOP) persists across all tests
+     *          in the process lifetime. This local pointer is reset in TearDown() but
+     *          does not destroy the singleton itself.
+     */
     std::shared_ptr<PlayerExternalsRdkInterface> mInterface;
     
     void SetUp() override {
@@ -240,7 +254,7 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_1080p_DoesNotCra
 // the issue and reminds maintainers to file a bug and fix singleton
 // destruction semantics in production code.
 TEST_F(PlayerExternalsRdkInterfaceTests, KNOWN_DEFECT_SingletonDestruction_DoubleFreeAtExit) {
-    GTEST_SKIP_("KNOWN DEFECT: Singleton destructors reset global shared_ptrs, causing double-free at process exit. File bug against PlayerExternalsRdkInterface and DeviceIARMInterface to fix singleton destruction semantics.");
+    GTEST_SKIP() << "KNOWN DEFECT: Singleton destructors reset global shared_ptrs, causing double-free at process exit. File bug against PlayerExternalsRdkInterface and DeviceIARMInterface to fix singleton destruction semantics.";
 }
 
 TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_4K_DoesNotCrash) {

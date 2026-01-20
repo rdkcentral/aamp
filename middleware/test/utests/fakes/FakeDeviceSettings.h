@@ -43,10 +43,10 @@ public:
     static constexpr int k3840x2160 = 4;
     static constexpr int k4096x2160 = 5;
     
-    int getId() const { return id; }
+    int getId() const { return mId; }
     std::string getName() const { return "1920x1080"; }
 private:
-    int id = k1920x1080;
+    int mId = k1920x1080;
 };
 
 class Resolution {
@@ -78,7 +78,7 @@ public:
     static bool isInitialized();
 
 private:
-    static bool initialized;
+    static bool sInitialized;
 };
 
 class Host {
@@ -115,9 +115,9 @@ public:
     friend class DeviceSettingsTestHelper;
 
 private:
-    int videoHandlerCount = 0;
-    int displayHandlerCount = 0;
-    VideoOutputPort videoPort;
+    int mVideoHandlerCount = 0;
+    int mDisplayHandlerCount = 0;
+    VideoOutputPort mVideoPort;
 };
 
 // Test helper to track and trigger events
@@ -138,8 +138,8 @@ public:
     Host::IDisplayDeviceEvents* getDisplayDeviceHandler() const;
 
 private:
-    Host::IVideoOutputPortEvents* videoOutputHandler = nullptr;
-    Host::IDisplayDeviceEvents* displayDeviceHandler = nullptr;
+    Host::IVideoOutputPortEvents* mVideoOutputHandler = nullptr;
+    Host::IDisplayDeviceEvents* mDisplayDeviceHandler = nullptr;
 };
 
 } // namespace device

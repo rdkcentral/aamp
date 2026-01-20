@@ -83,7 +83,7 @@ public:
     int getHandlerCount(const std::string& owner, IARM_EventId_t eventId);
 
 private:
-    std::map<std::string, std::map<IARM_EventId_t, IARM_EventHandler_t>> handlers;
+    std::map<std::string, std::map<IARM_EventId_t, IARM_EventHandler_t>> mHandlers;
 };
 
 // IARM API functions
