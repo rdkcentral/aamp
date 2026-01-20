@@ -97,7 +97,7 @@ public:
 	 * Storing aamp instance */
 	PrivateInstanceAAMP* mpAamp;
 	/**Storing AampGrowableBuffer */
-	AampGrowableBuffer mAesKeyBuf;
+	std::vector<uint8_t> mAesKeyBuf;
 
 	/** 
 	 * @fn GetAccessKey 

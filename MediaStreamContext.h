@@ -46,10 +46,10 @@ public:
             MediaTrack(type, aamp, name),
             mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
-            eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
+            eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX(),
 	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
             adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
-            mDownloadedFragment("downloaded-fragment"), discontinuity(false), mSkipSegmentOnError(true),
+            mDownloadedFragment(), discontinuity(false), mSkipSegmentOnError(true),
             lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
@@ -61,7 +61,7 @@ public:
             GetMediaTypeName(mediaType));
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-        mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
+        mTempFragment = std::make_shared<std::vector<uint8_t>>();
         mTimeBasedBufferManager = std::make_shared<aamp::AampTimeBasedBufferManager>(GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer), std::abs(aamp->rate), mediaType);
     }
 
@@ -70,7 +70,8 @@ public:
      */
     ~MediaStreamContext()
     {
-        mDownloadedFragment.Free();
+        mDownloadedFragment.clear();
+		mDownloadedFragment.shrink_to_fit();
         mTempFragment.reset();
         mTimeBasedBufferManager.reset();
     }
@@ -227,7 +228,7 @@ public:
      * @param[in] http error code
      * @return void
      */
-	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override {};
+	void ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_error) override {};
     /**
      * @fn resetAbort
      * @param[in] bool value
@@ -292,14 +293,14 @@ public:
     bool eos;
     bool profileChanged;
     bool discontinuity;
-    AampGrowableBuffer mDownloadedFragment;
-    std::shared_ptr<AampGrowableBuffer> mTempFragment;
+    std::vector<uint8_t> mDownloadedFragment;
+    std::shared_ptr<std::vector<uint8_t>> mTempFragment;
 
     double fragmentTime; // Absolute Fragment time from Availability start
     std::atomic<double> lastDownloadedPosition;
     double periodStartOffset;
     uint64_t timeStampOffset;
-	AampGrowableBuffer IDX;
+	std::vector<uint8_t> IDX;
     uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
     uint64_t lastSegmentNumber;
     uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment

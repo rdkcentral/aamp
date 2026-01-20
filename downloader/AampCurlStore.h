@@ -255,7 +255,7 @@ struct CurlCallbackContext
 	PrivateInstanceAAMP *aamp = nullptr;
 	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	std::vector<std::string> allResponseHeaders = {};
-	AampGrowableBuffer *buffer = nullptr;
+	std::vector<uint8_t> *buffer = nullptr;
 	httpRespHeaderData *responseHeaderData = nullptr;
 	BitsPerSecond bitrate = 0;
 	bool downloadIsEncoded = false;
@@ -269,7 +269,7 @@ struct CurlCallbackContext
 	size_t chunkBoundary = 0; // Used for chunked injection to store the end offset of the last mp4 chunk in buffer
 
 	CurlCallbackContext(){}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, std::vector<uint8_t> *_buffer) : aamp(_aamp), buffer(_buffer){}
 
 	~CurlCallbackContext() {}
 

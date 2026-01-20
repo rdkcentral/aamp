@@ -44,7 +44,7 @@ public:
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override { return 0.0; };
+	double getFirstPts( std::vector<uint8_t>* pBuffer ) override { return 0.0; };
 
 	/**
 	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
@@ -54,7 +54,7 @@ public:
     /**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the buffer vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -64,7 +64,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**

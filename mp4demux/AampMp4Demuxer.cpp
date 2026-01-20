@@ -49,7 +49,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
 /**
  * @fn sendSegment
  *
- * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+ * @param[in] pBuffer - Pointer to the buffer vector
  * @param[in] position - position of fragment
  * @param[in] duration - duration of fragment
  * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -59,15 +59,15 @@ AampMp4Demuxer::~AampMp4Demuxer()
  * @param[out] ptsError - flag indicates if any PTS error occurred
  * @return true if fragment was sent, false otherwise
  */
-bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool ret = true;
 	(void) processor;
-	if (mMp4Demux.get() && pBuffer && pBuffer->GetPtr() && pBuffer->GetLen())
+	if (mMp4Demux.get() && pBuffer && !pBuffer->empty())
 	{
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-		ret = mMp4Demux->Parse(pBuffer->GetPtr(), pBuffer->GetLen());
+		ret = mMp4Demux->Parse(reinterpret_cast<char*>(pBuffer->data()), pBuffer->size());
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
@@ -102,7 +102,7 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
 	}
 	else
 	{
-		AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer invalid (%p, %p, %zu)", mMp4Demux.get(), pBuffer, pBuffer ? pBuffer->GetPtr() : nullptr, pBuffer ? pBuffer->GetLen() : 0);
+		AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer invalid (%p, %p, %zu)", mMp4Demux.get(), pBuffer, pBuffer ? pBuffer->data() : nullptr, pBuffer ? pBuffer->size() : 0);
 		ret = false;
 	}
 	ptsError = false;

@@ -118,13 +118,13 @@ class TSProcessor : public MediaProcessor
       ~TSProcessor();
 
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override;
+	double getFirstPts( std::vector<uint8_t>* pBuffer ) override;
 	void setPtsOffset( double ptsOffset ) override;
 
 	  /**
        * @fn sendSegment
        *
-       * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+       * @param[in] pBuffer - Pointer to the buffer vector
        * @param[in] position - position of fragment
        * @param[in] duration - duration of fragment
        * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -134,7 +134,7 @@ class TSProcessor : public MediaProcessor
        * @param[out] ptsError - flag indicates if any PTS error occurred
        * @return true if fragment was sent, false otherwise
        */
-      bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+      bool sendSegment(std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
                            bool isInit, process_fcn_t processor, bool &ptsError) override;
       /**
        * @fn setRate

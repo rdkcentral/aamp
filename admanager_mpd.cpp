@@ -885,7 +885,7 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
 MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &errorCode, bool tryFog)
 {
 	MPD* adMpd = NULL;
-	AampGrowableBuffer manifest("adMPD_CDN");
+	std::vector<uint8_t> manifest;
 	bool gotManifest = false;
 	std::string effectiveUrl;
 	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
@@ -908,7 +908,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			finalManifest = true;
 		}
-		std::string manifestStr(manifest.GetPtr(), manifest.GetLen());
+		std::string manifestStr(reinterpret_cast<const char*>(manifest.data()), manifest.size());
 		xmlTextReaderPtr reader = xmlReaderForMemory(manifestStr.c_str(), (int) manifestStr.size(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
@@ -932,7 +932,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			effectiveUrl.append("/adrec?clientId=FOG_AAMP&recordedUrl=");
 			effectiveUrl.append(encodedUrl.c_str());
 
-			AampGrowableBuffer fogManifest("adMPD_FOG");
+			std::vector<uint8_t> fogManifest;
 			http_error = 0;
 			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
@@ -942,10 +942,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.GetLen(), NULL, NULL, 0);
-					manifestStr.assign(fogManifest.GetPtr(), fogManifest.GetLen());
-					manifest.Free();
-					manifest.Replace(&fogManifest);
+					reader = xmlReaderForMemory(reinterpret_cast<const char*>(fogManifest.data()), (int) fogManifest.size(), NULL, NULL, 0);
+					manifestStr.assign(reinterpret_cast<const char*>(fogManifest.data()), fogManifest.size());
 				}
 				else
 				{
@@ -958,9 +956,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				// Optionally, return early or handle as needed
 			}
 
-			if(fogManifest.GetPtr())
+			if(!fogManifest.empty())
 			{
-				fogManifest.Free();
+				fogManifest.clear(); fogManifest.shrink_to_fit();
 			}
 		}
 		if (reader != NULL)
@@ -1045,9 +1043,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.GetLen(), manifest.GetPtr() );
+			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.size(), reinterpret_cast<const char*>(manifest.data()) );
 		}
-		manifest.Free();
+		manifest.clear(); manifest.shrink_to_fit();
 	}
 	else
 	{
@@ -1814,7 +1812,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						{
 							continue;
 						}
-						std::shared_ptr<AampGrowableBuffer> adInit = std::make_shared<AampGrowableBuffer>("adInit");
+						std::shared_ptr<std::vector<uint8_t>> adInit = std::make_shared<std::vector<uint8_t>>();
 						int segment_http_error = 0;
 						double segment_downloadTime = 0;
 						AAMPLOG_INFO("Fetching init header %s for %s adId:%s periodId:%s", fragmentUrl.c_str(), GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
@@ -1828,7 +1826,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						{
 							AAMPLOG_INFO("Init header fetched successfully for %s adId:%s periodId:%s", GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
 							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit.get(), fragmentUrl, actualMediaType);
-							adInit->Free();
+							adInit->clear(); adInit->shrink_to_fit();
 							initFragmentFetched = true;
 							break;
 						}

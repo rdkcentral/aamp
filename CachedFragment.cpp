@@ -30,7 +30,7 @@
  *        Initializes all members to default values.
  */
 CachedFragment::CachedFragment() 
-	: fragment(AampGrowableBuffer("cached-fragment"))
+	: fragment()
 	, position(0.0)
 	, duration(0.0)
 	, initFragment(false)
@@ -54,7 +54,8 @@ CachedFragment::CachedFragment()
 void CachedFragment::Copy(CachedFragment* other, size_t len)
 {
 	// Clear existing data first
-	this->fragment.Free();
+	this->fragment.clear();
+	this->fragment.shrink_to_fit();
 	
 	// Copy all member variables
 	this->position = other->position;
@@ -73,8 +74,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	this->discontinuityIndex = other->discontinuityIndex;
 	
 	// Copy fragment data up to specified length
-	if (other && other->fragment.GetPtr() && len > 0) {
-		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
+	if (other && !other->fragment.empty() && len > 0) {
+		this->fragment.insert(this->fragment.end(), other->fragment.begin(), other->fragment.begin() + len);
 	}
 }
 
@@ -84,7 +85,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
  */
 void CachedFragment::Clear()
 {
-	fragment.Free();
+	fragment.clear();
+	fragment.shrink_to_fit();
 	position = 0.0;
 	duration = 0.0;
 	initFragment = false;
@@ -229,10 +231,8 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 {
 	using std::swap;
 	
-	// For AampGrowableBuffer, we need to use assignment since it doesn't have swap
-	AampGrowableBuffer tempFragment = std::move(fragment);
-	fragment = std::move(other.fragment);
-	other.fragment = std::move(tempFragment);
+	// std::vector has efficient swap
+	swap(fragment, other.fragment);
 	
 	swap(position, other.position);
 	swap(duration, other.duration);

@@ -22,8 +22,7 @@
 
 #include <string>
 #include <vector>
-#include <cstring> // for std::memset
-#include "AampGrowableBuffer.h" // for AampGrowableBuffer
+#include <cstdint>
 #include "DemuxDataTypes.h" // for MediaDrmMetadata
 
 /*
@@ -33,8 +32,8 @@
  */
 struct AampMediaSample
 {
-	// For lifetime management of sample data, we are using AampGrowableBuffer
-	AampGrowableBuffer mData;
+	// For lifetime management of sample data, we are using std::vector
+	std::vector<uint8_t> mData;
 	double mPts;
 	double mDts;
 	double mDuration;
@@ -44,7 +43,7 @@ struct AampMediaSample
 	/**
 	 * @brief Constructor for AampMediaSample
 	 */
-	AampMediaSample() : mData("AampMediaSample"), mPts(0), mDts(0), mDuration(0), mDrmMetadata()
+	AampMediaSample() : mData(), mPts(0), mDts(0), mDuration(0), mDrmMetadata()
 	{
 	}
 

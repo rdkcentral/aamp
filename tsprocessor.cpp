@@ -1778,10 +1778,10 @@ void TSProcessor::setBasePTS(double position, long long pts)
 /**
  * @brief given TS media segment (not yet injected), extract and report first PTS
  */
-double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+double TSProcessor::getFirstPts( std::vector<uint8_t>* pBuffer )
 {
 	double firstPts = 0.0;
-	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->GetLen(), true );
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->data(), pBuffer->size(), true );
 	if( tsDemux )
 	{
 		firstPts = tsDemux->getPts(0);
@@ -1809,13 +1809,13 @@ void TSProcessor::setPtsOffset( double ptsOffset )
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool TSProcessor::sendSegment(std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
-	char *segment = pBuffer->GetPtr();
-	int len = (int)(pBuffer->GetLen());
+	char *segment = reinterpret_cast<char*>(pBuffer->data());
+	int len = static_cast<int>(pBuffer->size());
 	bool ret = false;
 	ptsError = false;
 	{
@@ -1854,7 +1854,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			AAMPLOG_ERR("No valid ts packet found near the start of the segment");
 			packetStart = (unsigned char *)segment;
-			len = (int)(pBuffer->GetLen());
+			len = (int)(pBuffer->size());
 			break;
 		}
 	}

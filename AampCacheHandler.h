@@ -30,7 +30,9 @@
 #include <exception>
 #include <mutex>
 #include <condition_variable>
-#include "AampGrowableBuffer.h"
+#include <vector>
+#include <cstdint>
+#include <cassert>
 #include "AampMediaType.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
@@ -48,7 +50,7 @@ class AampCachedData
 {
 public:
 	std::string effectiveUrl;
-	std::shared_ptr<AampGrowableBuffer> buffer;
+	std::shared_ptr<std::vector<uint8_t>> buffer;
 	AampMediaType mediaType;
 	long seqNo;
 
@@ -65,7 +67,7 @@ public:
 	 * @param mediaType type of cache entry
 	 * @param seqNo bigger for more recent usage; used to drive LRU purging heuristic
 	 */
-	AampCachedData(const std::string &effectiveUrl, std::shared_ptr<AampGrowableBuffer> buffer, AampMediaType mediaType)
+	AampCachedData(const std::string &effectiveUrl, std::shared_ptr<std::vector<uint8_t>> buffer, AampMediaType mediaType)
 		: effectiveUrl(effectiveUrl)
 		, buffer(buffer)
 		, mediaType(mediaType)
@@ -110,7 +112,7 @@ private:
 			{
 				if( !cachedData->effectiveUrl.empty() )
 				{ // not alias; reclaim space
-					totalCachedBytes -= cachedData->buffer->GetLen();
+					totalCachedBytes -= cachedData->buffer->size();
 				}
 				SAFE_DELETE(cachedData);
 				iter = cache.erase(iter);
@@ -133,7 +135,7 @@ private:
 				{
 					if( !cachedData->effectiveUrl.empty() )
 					{
-						totalCachedBytes -= cachedData->buffer->GetLen();
+						totalCachedBytes -= cachedData->buffer->size();
 					}
 					SAFE_DELETE(cachedData);
 					iter = cache.erase(iter);
@@ -218,9 +220,9 @@ public:
 	}
 
 public:
-	void Insert( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
+	void Insert( const std::string &url, const std::vector<uint8_t>* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
 	{
-		if( buffer->GetLen()==0 )
+		if( buffer->size()==0 )
 		{
 			AAMPLOG_ERR( "empty buffer" );
 		}
@@ -237,16 +239,16 @@ public:
 					ok = makeRoomForInitFragment( mediaType );
 					break;
 				case eCACHE_TYPE_PLAYLIST:
-					ok = makeRoomForPlaylist( mediaType, buffer->GetLen() );
+					ok = makeRoomForPlaylist( mediaType, buffer->size() );
 					break;
 				default:
 					break;
 			}
 			if( ok )
 			{
-				size_t len = buffer->GetLen();
-				AampCachedData *cachedData = new AampCachedData( effectiveUrl, std::make_shared<AampGrowableBuffer>("cached-data"), mediaType );
-				cachedData->buffer->AppendBytes( buffer->GetPtr(), len );
+				size_t len = buffer->size();
+				AampCachedData *cachedData = new AampCachedData( effectiveUrl, std::make_shared<std::vector<uint8_t>>(), mediaType );
+				cachedData->buffer->insert(cachedData->buffer->end(), buffer->data(), buffer->data() + len );
 
 				cache[url] = cachedData;
 				cachedData->seqNo = ++seqNo;
@@ -276,7 +278,7 @@ public:
 		auto iter = cache.find(url);
 		assert( iter != cache.end() );
 		AampCachedData *cachedData = iter->second;
-		totalCachedBytes -= cachedData->buffer->GetLen();
+		totalCachedBytes -= cachedData->buffer->size();
 		assert( !cachedData->effectiveUrl.empty() );
 		if(( url != cachedData->effectiveUrl ) &&
 			(countReferencesToEffectiveUrl(cachedData->effectiveUrl) == 1))
@@ -438,7 +440,7 @@ public:
 	 *
 	 *   @return void
 	 */
-	void InsertToPlaylistCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
+	void InsertToPlaylistCache( const std::string &url, const std::vector<uint8_t>* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
 
 	/**
 	 *   @brief Find playlist in cache
@@ -447,7 +449,7 @@ public:
 	 *   @param[out] effectiveUrl - Final URL
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromPlaylistCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType);
+	bool RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t>* buffer, std::string& effectiveUrl, AampMediaType mediaType);
 
 	/**
 	 * @brief Remove playlist from cache
@@ -482,7 +484,7 @@ public:
 	 *
 	 *   @return void
 	 */
-	void InsertToInitFragCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType );
+	void InsertToInitFragCache( const std::string &url, const std::vector<uint8_t>* buffer, const std::string &effectiveUrl, AampMediaType mediaType );
 
 	/**
 	 *   @brief Find initialization fragment in cache
@@ -493,7 +495,7 @@ public:
 	 *
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromInitFragmentCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
+	bool RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t>* buffer, std::string& effectiveUrl);
 
 	/**
 	*   @brief set max initialization fragments allowed in cache (per track)

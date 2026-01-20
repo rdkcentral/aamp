@@ -27,9 +27,9 @@
 
 #include "AampMediaType.h"
 #include "AampSegmentInfo.hpp"
-#include "AampGrowableBuffer.h"
 
 #include <stddef.h>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -81,7 +81,7 @@ public:
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
-	virtual double getFirstPts( AampGrowableBuffer* pBuffer ) = 0;
+	virtual double getFirstPts( std::vector<uint8_t>* pBuffer ) = 0;
 
 	/**
 	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
@@ -91,7 +91,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the buffer vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -101,7 +101,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	virtual bool sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
+	virtual bool sendSegment(std::vector<uint8_t>* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError) = 0;
 
 	/**
@@ -132,20 +132,20 @@ public:
 	/**
 	 * @brief Reset PTS on subtitleSwitch
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the buffer vector
 	 * @param[in] position - position of fragment
 	 * @return void
 	 */
-	virtual void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) {};
+	virtual void resetPTSOnSubtitleSwitch(std::vector<uint8_t> *pBuffer, double position) {};
 
 	/**
 	 * @brief Reset PTS on audioSwitch
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the buffer vector
 	 * @param[in] position - position of fragment
 	 * @return void
 	 */
-	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) {};
+	virtual void resetPTSOnAudioSwitch(std::vector<uint8_t> *pBuffer, double position) {};
 
 	/**
 	 * @brief Abort all operations

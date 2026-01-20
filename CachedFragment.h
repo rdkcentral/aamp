@@ -68,7 +68,7 @@ struct StreamInfo
 class CachedFragment
 {
 public:
-	AampGrowableBuffer fragment;		/**< Buffer to keep fragment content */
+	std::vector<uint8_t> fragment;		/**< Buffer to keep fragment content */
 	double position;					/**< Position in the playlist, in seconds */
 	double duration;					/**< Duration of the fragment, in seconds; as specified in the manifest */
 	bool initFragment;					/**< Flag indicating whether this fragment is an initialization fragment */

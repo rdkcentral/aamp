@@ -71,7 +71,7 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	double getFirstPts( std::vector<uint8_t>* pBuffer ) override
 	{
 		return 0;
 	}
@@ -83,7 +83,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the buffer vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - PTS offset
@@ -93,7 +93,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -154,7 +154,7 @@ private:
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous,bool isInit);
+	void sendStream(std::vector<uint8_t> *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous,bool isInit);
 
     /**
 	 * @fn setTuneTimePTS

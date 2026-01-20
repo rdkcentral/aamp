@@ -1211,7 +1211,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							return retval; /* Incase of fragment download fail, no need to increase the fragment number to download next fragment,
 									 * instead check the same fragment in lower profile. */
 						}
-						else if((mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling))) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL))
+						else if((mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling))) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.data() == NULL))
 						{
 							// Mark fragment fetched and save last segment time to avoid reattempt.
 							if(pMediaStreamContext->freshManifest)
@@ -1574,7 +1574,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
-			if (!pMediaStreamContext->IDX.GetPtr() )
+			if (!pMediaStreamContext->IDX.data() )
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
 				uint64_t start;
@@ -1612,19 +1612,19 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
 				pMediaStreamContext->fragmentOffset++; // first byte following packed index
-				if (pMediaStreamContext->IDX.GetPtr() )
+				if (pMediaStreamContext->IDX.data() )
 				{
 					unsigned int firstOffset;
 					ParseSegmentIndexBox(
-										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 reinterpret_cast<const char*>(pMediaStreamContext->IDX.data()),
+										 pMediaStreamContext->IDX.size(),
 										 0,
 										 NULL,
 										 NULL,
 										 &firstOffset);
 					pMediaStreamContext->fragmentOffset += firstOffset;
 				}
-				if (pMediaStreamContext->fragmentIndex != 0 && pMediaStreamContext->IDX.GetPtr() )
+				if (pMediaStreamContext->fragmentIndex != 0 && pMediaStreamContext->IDX.data() )
 				{
 					unsigned int referenced_size;
 					float fragmentDuration;
@@ -1633,8 +1633,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 					{
 						if (ParseSegmentIndexBox(
-												 pMediaStreamContext->IDX.GetPtr(),
-												 pMediaStreamContext->IDX.GetLen(),
+												 reinterpret_cast<const char*>(pMediaStreamContext->IDX.data()),
+												 pMediaStreamContext->IDX.size(),
 												 i,
 												 &referenced_size,
 												 &fragmentDuration,
@@ -1645,13 +1645,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					}
 				}
 			}
-			if (pMediaStreamContext->IDX.GetPtr() )
+			if (pMediaStreamContext->IDX.data() )
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(
-										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 reinterpret_cast<const char*>(pMediaStreamContext->IDX.data()),
+										 pMediaStreamContext->IDX.size(),
 										 pMediaStreamContext->fragmentIndex++,
 										 &referenced_size,
 										 &fragmentDuration,
@@ -1664,8 +1664,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					float nextfragmentDuration;
 					uint64_t nextfragmentOffset;
 					if (ParseSegmentIndexBox(
-							pMediaStreamContext->IDX.GetPtr(),
-							pMediaStreamContext->IDX.GetLen(),
+							reinterpret_cast<const char*>(pMediaStreamContext->IDX.data()),
+							pMediaStreamContext->IDX.size(),
 							pMediaStreamContext->fragmentIndex,
 							&nextReferencedSize,
 							&nextfragmentDuration,
@@ -1686,7 +1686,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				}
 				else
 				{ // done with index
-					pMediaStreamContext->IDX.Free();
+					pMediaStreamContext->IDX.clear();
+					pMediaStreamContext->IDX.shrink_to_fit();
 					pMediaStreamContext->eos = true;
 				}
 			}
@@ -2406,7 +2407,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			// Disable parallel fragment download for segment base streams as there is a sidx box dependency for live contents
 			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
-			if (!pMediaStreamContext->IDX.GetPtr() )
+			if (!pMediaStreamContext->IDX.data() )
 			{   // lazily load index
 				std::string fragmentUrl;
 				ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
@@ -2424,7 +2425,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, &pMediaStreamContext->IDX, curlInstance, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
 				aamp->CurlTerm(curlInstance);
 			}
-			if (pMediaStreamContext->IDX.GetPtr() )
+			if (pMediaStreamContext->IDX.data() )
 			{
 				unsigned int referenced_size = 0;
 				float fragmentDuration = 0.00;
@@ -2446,8 +2447,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				while ((fragmentTime < skipTime + presentationTimeOffsetSec ) || skipToEnd)
 				{
 					if (ParseSegmentIndexBox(
-											 pMediaStreamContext->IDX.GetPtr(),
-											 pMediaStreamContext->IDX.GetLen(),
+											 reinterpret_cast<const char*>(pMediaStreamContext->IDX.data()),
+											 pMediaStreamContext->IDX.size(),
 											 fragmentIndex++,
 											 &referenced_size,
 											 &fragmentDuration,
@@ -2469,7 +2470,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					else
 					{
 						// done with index
-						pMediaStreamContext->IDX.Free();
+						pMediaStreamContext->IDX.clear();
+								pMediaStreamContext->IDX.shrink_to_fit();
 						pMediaStreamContext->eos = true;
 						break;
 					}
@@ -8249,7 +8251,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					if (segmentBase)
 					{
 						pMediaStreamContext->fragmentOffset = 0;
-						pMediaStreamContext->IDX.Free();
+						pMediaStreamContext->IDX.clear();
+								pMediaStreamContext->IDX.shrink_to_fit();
 						std::string range;
 						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
@@ -8266,13 +8269,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							char temp[MAX_RANGE_STRING_CHARS];
 							snprintf( temp, sizeof(temp), "0-%" PRIu64 , s1-1 );
 							range = temp;
-							if (pMediaStreamContext->IDX.GetPtr())
+							if (pMediaStreamContext->IDX.data())
 							{
 								unsigned int referenced_size;
 								float fragmentDuration;
 								if (ParseSegmentIndexBox(
-										pMediaStreamContext->IDX.GetPtr(),
-										pMediaStreamContext->IDX.GetLen(),
+										reinterpret_cast<const char*>(pMediaStreamContext->IDX.data()),
+										pMediaStreamContext->IDX.size(),
 										pMediaStreamContext->fragmentIndex,
 										&referenced_size,
 										&fragmentDuration,
@@ -8762,7 +8765,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		if (!pMediaStreamContext->eos)
 		{
-			if (trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
+			if (trickPlay && pMediaStreamContext->mDownloadedFragment.data() == NULL && !pMediaStreamContext->freshManifest)
 			{
 				double skipTime = 0;
 				skipTime = delta;
@@ -10410,7 +10413,8 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				track->SetLocalTSBInjection(false);
 			}
-			track->IDX.Free();
+			track->IDX.clear();
+			track->IDX.shrink_to_fit();
 		}
 	}
 
@@ -11246,7 +11250,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 			if(header)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
-				AampGrowableBuffer buffer("init-buffer");
+				std::vector<uint8_t> buffer;
 				std::string effectiveUrl;
 				int http_error{};
 				if (aamp->GetFile(header->url, (AampMediaType) iTrack, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
@@ -13899,7 +13903,7 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 	auto pMediaStreamContext = mMediaStreamContext[downloadInfo->mediaType];
 	if (pMediaStreamContext)
 	{
-		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr())
+		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.data())
 		{
 			pMediaStreamContext->profileChanged = true;
 			profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);

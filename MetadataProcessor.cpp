@@ -49,8 +49,8 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 	AAMPLOG_INFO(" [metadata][%p] Processing metadata.", this);
 	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
 
-	char * data_ptr = const_cast<char *>(cachedFragment->fragment.GetPtr());
-	auto data_len = cachedFragment->fragment.GetLen();
+	char * data_ptr = reinterpret_cast<char *>(const_cast<uint8_t*>(cachedFragment->fragment.data()));
+	auto data_len = cachedFragment->fragment.size();
 
 	if (discontinuity_pending && mPtsOffsetUpdate)
 	{
@@ -262,7 +262,7 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		}
 	};
 
-	const AampGrowableBuffer & frag_ptr = cachedFragment->fragment;
+	const std::vector<uint8_t> & frag_ptr = cachedFragment->fragment;
 	mProcessor->ProcessFragment(frag_ptr,
 		proc_position,
 		cachedFragment->duration,

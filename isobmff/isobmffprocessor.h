@@ -51,7 +51,7 @@ enum IsoBmffProcessorType
 typedef struct
 {
 	AampMediaType type;
-	AampGrowableBuffer *buffer;
+	std::vector<uint8_t> *buffer;
 	double position;
 	double duration;
 	bool isDiscontinuity;
@@ -147,7 +147,7 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) override;
+	void resetPTSOnSubtitleSwitch(std::vector<uint8_t> *pBuffer, double position) override;
 
 	/**
 	 * @brief Reset PTS on audioSwitch
@@ -155,9 +155,9 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
+	void resetPTSOnAudioSwitch(std::vector<uint8_t> *pBuffer, double position) override;
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	double getFirstPts( std::vector<uint8_t>* pBuffer ) override
 	{
 		return 0;
 	}
@@ -169,7 +169,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the buffer vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS value
@@ -179,7 +179,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit,process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -310,7 +310,7 @@ private:
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
+	void sendStream(std::vector<uint8_t> *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
 
 	/**
 	 * @brief Set peer instance of IsoBmffProcessor
@@ -361,7 +361,7 @@ private:
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return false if base was set, true otherwise
 	 */
-	bool setTuneTimePTS(AampGrowableBuffer *pBuffer, double position, double duration, bool discontinuous, bool isInit);
+	bool setTuneTimePTS(std::vector<uint8_t> *pBuffer, double position, double duration, bool discontinuous, bool isInit);
 
 	/**
 	 * @fn restampPTSAndSendSegment
@@ -373,7 +373,7 @@ private:
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void restampPTSAndSendSegment(AampGrowableBuffer *pBuffer, double position, double duration,bool isDiscontinuity,bool isInit);
+	void restampPTSAndSendSegment(std::vector<uint8_t> *pBuffer, double position, double duration,bool isDiscontinuity,bool isInit);
 
 	/**
 	 * @fn cacheInitBufferForRestampingPTS
@@ -488,7 +488,7 @@ private:
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @return true if PTS and time scale read successfully, false otherwise
 	 */
-	bool updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer);
+	bool updatePTSAndTimeScaleFromBuffer(std::vector<uint8_t> *pBuffer);
 
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
@@ -522,7 +522,7 @@ private:
 	bool ptsDiscontinuity;
 	bool passThroughMode; // flag to indicate if the processor is in pass through mode
 
-	std::vector<AampGrowableBuffer *> initSegment;
+	std::vector<std::vector<uint8_t> *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;
 	std::vector<MediaProcessor *> peerListeners;
 	std::mutex initSegmentTransferMutex;

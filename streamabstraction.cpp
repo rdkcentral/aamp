@@ -367,8 +367,9 @@ void MediaTrack::UpdateTSAfterInject()
 {
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
-				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	mCachedFragment[fragmentIdxToInject].fragment.Free();
+			  name, fragmentIdxToInject, numberOfFragmentsCached);
+	mCachedFragment[fragmentIdxToInject].fragment.clear();
+	mCachedFragment[fragmentIdxToInject].fragment.shrink_to_fit();
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -376,9 +377,7 @@ void MediaTrack::UpdateTSAfterInject()
 	}
 	numberOfFragmentsCached--;
 	fragmentInjected.notify_one();
-}
-
-/**
+}/**
  * @brief Update segment cache and inject buffer to gstreamer
  */
 void MediaTrack::UpdateTSAfterChunkInject()
@@ -386,9 +385,11 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
+	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.clear();
+	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.shrink_to_fit();
 
-	parsedBufferChunk.Free();
+	parsedBufferChunk.clear();
+	parsedBufferChunk.shrink_to_fit();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 
 	//increment Inject Index
@@ -415,7 +416,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @param[in] discontinuity - true if there is a discontinuity, false otherwise
  * @return void
  */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
 	if (playContext)
 	{
@@ -424,7 +425,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 			// No-op processor for chunk injection
 		};
 		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
-			type, fpts, fDuration, fragmentPTSOffset, init, buffer->GetLen());
+			type, fpts, fDuration, fragmentPTSOffset, init, buffer->size());
 		bool ptsError = false;
 		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
 		{
@@ -433,7 +434,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(buffer->GetPtr(), buffer->GetLen(), mediaType);
+		aamp->ProcessID3Metadata(reinterpret_cast<char*>(buffer->data()), buffer->size(), mediaType);
 		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
 		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
 	}
@@ -445,7 +446,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
 	IsoBmffBuffer buffer;
-	buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
+	buffer.setBuffer((uint8_t *)cachedFragment->fragment.data(), cachedFragment->fragment.size());
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
@@ -462,7 +463,7 @@ void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cached
 void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
 	IsoBmffBuffer buffer;
-	buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
+	buffer.setBuffer((uint8_t *)cachedFragment->fragment.data(), cachedFragment->fragment.size());
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
@@ -810,7 +811,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
 
-	if(cachedFragment->fragment.GetPtr())
+	if(cachedFragment->fragment.data())
 	{
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
@@ -942,11 +943,11 @@ bool MediaTrack::ProcessFragmentChunk()
 	class StreamAbstractionAAMP* pContext = GetContext();
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
-	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
+	if(cachedFragment != NULL && NULL == cachedFragment->fragment.data())
 	{
 		if(!SignalIfEOSReached())
 		{
-			AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragment->fragment.len %zu", name, cachedFragment->fragment.GetLen());
+			AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragment->fragment.len %zu", name, cachedFragment->fragment.size());
 		}
 		return false;
 	}
@@ -973,7 +974,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
+			mSubtitleParser->processData(reinterpret_cast<const char*>(cachedFragment->fragment.data()), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
@@ -987,25 +988,26 @@ bool MediaTrack::ProcessFragmentChunk()
 		cachedFragment->initFragment = false;
 		return true;
 	}
-	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
+	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.data() != NULL))
 	{
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
-		unparsedBufferChunk.Free();
+		unparsedBufferChunk.clear();
+		unparsedBufferChunk.shrink_to_fit();
 	}
-	size_t requiredLength = cachedFragment->fragment.GetLen() + unparsedBufferChunk.GetLen();
-	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.GetLen(), unparsedBufferChunk.GetLen(), requiredLength);
+	size_t requiredLength = cachedFragment->fragment.size() + unparsedBufferChunk.size();
+	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.size(), unparsedBufferChunk.size(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
+	unparsedBufferChunk.insert(unparsedBufferChunk.end(), cachedFragment->fragment.data(), cachedFragment->fragment.data() + cachedFragment->fragment.size() );
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
-	unParsedBuffer = unparsedBufferChunk.GetPtr();
-	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.GetLen();
-	isobuf.setBuffer(reinterpret_cast<uint8_t *>(unparsedBufferChunk.GetPtr()), unparsedBufferChunk.GetLen() );
-	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.GetLen() );
+	unParsedBuffer = reinterpret_cast<char*>(unparsedBufferChunk.data());
+	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.size();
+	isobuf.setBuffer(reinterpret_cast<uint8_t *>(unparsedBufferChunk.data()), unparsedBufferChunk.size() );
+	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.size() );
 
 	bool bParse = false;
 	try
@@ -1078,7 +1080,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(parsedBufferSize)
 	{
 		//Prepare parsed buffer
-		parsedBufferChunk.AppendBytes( unparsedBufferChunk.GetPtr(), parsedBufferSize);
+		parsedBufferChunk.insert(parsedBufferChunk.end(), unparsedBufferChunk.data(), unparsedBufferChunk.data() + parsedBufferSize);
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			if (pContext && pContext->trickplayMode)
@@ -1098,7 +1100,7 @@ bool MediaTrack::ProcessFragmentChunk()
 
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.GetLen(), fpts, fduration);
+			mSubtitleParser->processData(reinterpret_cast<const char*>(parsedBufferChunk.data()), parsedBufferChunk.size(), fpts, fduration);
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
@@ -1106,7 +1108,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			{
 				AAMPLOG_MIL( "curl-inject type=%d", type );
 			}
-			AAMPLOG_INFO("Injecting chunk for %s br=%" BITSPERSECOND_FORMAT ",chunksize=%zu fpts=%f fduration=%f", name, bandwidthBitsPerSecond, parsedBufferChunk.GetLen(), fpts, fduration);
+			AAMPLOG_INFO("Injecting chunk for %s br=%" BITSPERSECOND_FORMAT ",chunksize=%zu fpts=%f fduration=%f", name, bandwidthBitsPerSecond, parsedBufferChunk.size(), fpts, fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
 		}
@@ -1117,19 +1119,23 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(unParsedBufferSize)
 	{
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
-		AampGrowableBuffer tempBuffer("tempBuffer");
-		tempBuffer.AppendBytes(unParsedBuffer,unParsedBufferSize);
-		unparsedBufferChunk.Free();
-		unparsedBufferChunk.AppendBytes(tempBuffer.GetPtr(),tempBuffer.GetLen());
-		tempBuffer.Free();
+		std::vector<uint8_t> tempBuffer;
+		tempBuffer.insert(tempBuffer.end(), unParsedBuffer, unParsedBuffer + unParsedBufferSize);
+		unparsedBufferChunk.clear();
+		unparsedBufferChunk.shrink_to_fit();
+		unparsedBufferChunk.insert(unparsedBufferChunk.end(), tempBuffer.data(), tempBuffer.data() + tempBuffer.size());
+		tempBuffer.clear();
+		tempBuffer.shrink_to_fit();
 	}
 	else
 	{
 		AAMPLOG_TRACE("[%s] Set Unparsed Buffer chunk Empty...", name);
-		unparsedBufferChunk.Free();
+		unparsedBufferChunk.clear();
+		unparsedBufferChunk.shrink_to_fit();
 		//memset(&unparsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 	}
-	parsedBufferChunk.Free();
+	parsedBufferChunk.clear();
+		parsedBufferChunk.shrink_to_fit();
 	return true;
 }
 
@@ -1151,7 +1157,7 @@ void MediaTrack::ResetTrickModePtsRestamping(void)
 	mRestampedPts = 0.0;
 }
 
-void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
 									 bool initFragment, bool  discontinuity)
 {
 	// Trick mode PTS restamping is supported for fast-forward and rewind
@@ -1398,8 +1404,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
-			auto ptr = cachedFragment->fragment.GetPtr();
-			auto len = cachedFragment->fragment.GetLen();
+			auto ptr = cachedFragment->fragment.data();
+			auto len = cachedFragment->fragment.size();
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{
 				while( aamp->mDownloadsEnabled )
@@ -1414,15 +1420,15 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 						auto firstElement = *pContext->mPtsOffsetMap.begin();
 						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
 						std::string str = RestampSubtitle(
-														  ptr,len,
+														  reinterpret_cast<const char*>(ptr),len,
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.Clear();
-						cachedFragment->fragment.AppendBytes(str.data(),str.size());
+						cachedFragment->fragment.clear();
+						cachedFragment->fragment.insert(cachedFragment->fragment.end(), str.data(), str.data() + str.size());
 						if(mSubtitleParser)
 						{
-							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
+							mSubtitleParser->processData(reinterpret_cast<const char*>(str.data()), str.size(), cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}
@@ -1430,7 +1436,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 			else if(mSubtitleParser)
 			{ // no restamping
-				mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
+				mSubtitleParser->processData( reinterpret_cast<const char*>(ptr), len, cachedFragment->position, cachedFragment->duration);
 			}
 		}
 		if (!cachedFragment->isDummy && (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled())))
@@ -1523,9 +1529,9 @@ bool MediaTrack::InjectFragment()
 		}
 
 		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
-					 name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
+					 name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());
 
-		if (cachedFragment->fragment.GetPtr())
+		if (cachedFragment->fragment.data())
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
 			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
@@ -1837,11 +1843,11 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
 	if(initialize)
 	{
-		if (cachedFragment->fragment.GetPtr() )
+		if (cachedFragment->fragment.data() )
 		{
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
-		cachedFragment->fragment.Clear();
+		cachedFragment->fragment.clear();
 		//memset(&cachedFragment->fragment, 0x00, sizeof(AampGrowableBuffer));
 	}
 	return cachedFragment;
@@ -1865,11 +1871,11 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 
 	if(initialize && cachedFragment)
 	{
-		if (cachedFragment->fragment.GetPtr() )
+		if (cachedFragment->fragment.data() )
 		{
-			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->fragment.GetAvail() );
+			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.data(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
 		}
-		cachedFragment->fragment.Clear();
+		cachedFragment->fragment.clear();
 	}
 	return cachedFragment;
 }
@@ -1975,8 +1981,10 @@ void MediaTrack::FlushFragments()
 		{
 			mCachedFragmentChunks[i].Clear();
 		}
-		unparsedBufferChunk.Free();
-		parsedBufferChunk.Free();
+		unparsedBufferChunk.clear();
+		unparsedBufferChunk.shrink_to_fit();
+		parsedBufferChunk.clear();
+		parsedBufferChunk.shrink_to_fit();
 		fragmentChunkIdxToInject = 0;
 		fragmentChunkIdxToFetch = 0;
 		std::lock_guard<std::mutex> guard(mutex);
@@ -2036,7 +2044,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		discontinuityProcessed(false), ptsError(false), mCachedFragment(NULL), name(name), type(type), aamp(aamp),
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
-		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
+		mCachedFragmentChunks{}, unparsedBufferChunk{}, parsedBufferChunk{}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
@@ -4352,7 +4360,7 @@ void MediaTrack::PlaylistDownloader()
 		 */
 		if(aamp->DownloadsAreEnabled())
 		{
-			AampGrowableBuffer manifest("download-PlaylistManifest");
+			std::vector<uint8_t> manifest;
 			// reset quickPlaylistDownload for live playlist
 			quickPlaylistDownload = false;
 			std::string manifestUrl = GetPlaylistUrl();
@@ -4361,7 +4369,7 @@ void MediaTrack::PlaylistDownloader()
 			bool gotManifest = false;
 			int http_error = 0;
 			double downloadTime;
-			manifest.Clear();
+			manifest.clear();
 
 			/*
 			 *

@@ -44,12 +44,12 @@ ElementaryProcessor::~ElementaryProcessor()
 /**
  *  @brief Process and send Elementary fragment
  */
-bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
+bool ElementaryProcessor::sendSegment(std::vector<uint8_t>* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
 											bool isInit,process_fcn_t processor, bool &ptsError)
 {
 	ptsError = false;
 	bool ret = true;
-	ret = setTuneTimePTS(pBuffer->GetPtr(), pBuffer->GetLen(), position, duration, discontinuous, ptsError);
+	ret = setTuneTimePTS(reinterpret_cast<char*>(pBuffer->data()), pBuffer->size(), position, duration, discontinuous, ptsError);
 	if (ret)
 	{
 		AAMPLOG_INFO("IsoBmffProcessor:: eMEDIATYPE_SUBTITLE sending segment at pos:%f dur:%f", position, duration);
@@ -61,7 +61,7 @@ bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer,double positio
 /**
  *  @brief send stream based on media format
  */
-void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset,bool discontinuous,bool isInit)
+void ElementaryProcessor::sendStream(std::vector<uint8_t> *pBuffer,double position, double duration, double fragmentPTSoffset,bool discontinuous,bool isInit)
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
@@ -69,7 +69,7 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
+		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->data(), pBuffer->size(), position, position, duration);
 	}
 }
 
