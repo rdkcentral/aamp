@@ -203,15 +203,17 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url), initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{
 			cachedFragment->fragment.ReserveBytes(len);
+			cachedFragment->fragment.SetLen(len);
+
 			UnlockReadMutex();
 			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
-			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
+
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
@@ -276,11 +278,12 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		}
 
 		cachedFragment->fragment.ReserveBytes(len);
-		UnlockReadMutex();
-
-		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
 		cachedFragment->fragment.SetLen(len);
+
+		UnlockReadMutex();
+		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
 		LockReadMutex();
+
 		if (status == TSB::Status::OK)
 		{
 			return cachedFragment;
@@ -404,6 +407,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 
 				// Call TSBHandler Write operation
 				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.GetLen());
+
 				if (status == TSB::Status::OK)
 				{
 					writeSucceeded = true;

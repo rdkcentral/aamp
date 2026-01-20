@@ -122,12 +122,19 @@ TEST(_AampUtils, aamp_IsAbsoluteURL)
 {
 	bool result;
 	std::string url;
+
 	url = "http://aaa.bbb.com";
 	result = aamp_IsAbsoluteURL(url);
 	EXPECT_TRUE(result);
+
 	url = "https://aaa.bbb.com";
 	result = aamp_IsAbsoluteURL(url);
 	EXPECT_TRUE(result);
+
+	url = "file://aaa.bbb.com";
+	result = aamp_IsAbsoluteURL(url);
+	EXPECT_TRUE(result);
+
 	url = "";
 	result = aamp_IsAbsoluteURL(url);
 	EXPECT_FALSE(result);
@@ -764,3 +771,32 @@ TEST(_AampUtils, strstr )
 	EXPECT_TRUE( mystrstr(haystack_ptr,&haystack_ptr[9],"is") == &haystack_ptr[4] );
 }
 
+TEST(_AampUtils, hex_char_to_int )
+{
+	EXPECT_EQ( hexCharToInt('0'),0);
+	EXPECT_EQ( hexCharToInt('1'),1);
+	EXPECT_EQ( hexCharToInt('2'),2);
+	EXPECT_EQ( hexCharToInt('3'),3);
+	EXPECT_EQ( hexCharToInt('4'),4);
+	EXPECT_EQ( hexCharToInt('5'),5);
+	EXPECT_EQ( hexCharToInt('6'),6);
+	EXPECT_EQ( hexCharToInt('7'),7);
+	EXPECT_EQ( hexCharToInt('8'),8);
+	EXPECT_EQ( hexCharToInt('9'),9);
+	EXPECT_EQ( hexCharToInt('a'),10);
+	EXPECT_EQ( hexCharToInt('b'),11);
+	EXPECT_EQ( hexCharToInt('c'),12);
+	EXPECT_EQ( hexCharToInt('d'),13);
+	EXPECT_EQ( hexCharToInt('e'),14);
+	EXPECT_EQ( hexCharToInt('f'),15);
+	EXPECT_EQ( hexCharToInt('A'),10);
+	EXPECT_EQ( hexCharToInt('B'),11);
+	EXPECT_EQ( hexCharToInt('C'),12);
+	EXPECT_EQ( hexCharToInt('D'),13);
+	EXPECT_EQ( hexCharToInt('E'),14);
+	EXPECT_EQ( hexCharToInt('F'),15);
+	EXPECT_EQ( hexCharToInt(' '),-1);
+	EXPECT_EQ( hexCharToInt('x'),-1);
+	EXPECT_EQ( hexCharToInt((char)0x00),-1);
+	EXPECT_EQ( hexCharToInt((char)0xff),-1);
+}

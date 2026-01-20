@@ -2947,15 +2947,16 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 }
 
 /**
- *  @brief Inject stream buffer to gstreamer pipeline
+ *  @brief Inject stream buffer to gstreamer pipeline with transfer ownership (zero-copy)
  */
-bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
 	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
 	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
+
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
 	{
 		MW_LOG_WARN( "[%d] Discontinuity detected - setting subtitle clock to %" GST_TIME_FORMAT " dAR %d rP %d init %d sC %d",
@@ -3020,53 +3021,40 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 			pts_offset = 0;
 		}
 
-		if(copy)
+		std::vector<uint8_t>* heapVector = new std::vector<uint8_t>(std::move(sample.mData));
+		
+		buffer = gst_buffer_new_wrapped_full(
+			GST_MEMORY_FLAG_READONLY,
+			(gpointer)heapVector->data(), heapVector->size(),
+			0, heapVector->size(),
+			heapVector,
+			[](gpointer user_data) {
+				delete static_cast<std::vector<uint8_t>*>(user_data);
+			}
+		);
+
+		if (buffer)
 		{
-			buffer = CreateGstBufferWithData(sample.mData, sample.mDataSize);
-
-			if (buffer)
+			GST_BUFFER_PTS(buffer) = pts;
+			GST_BUFFER_DTS(buffer) = dts;
+			GST_BUFFER_DURATION(buffer) = duration;
+			if (sample.mDrmMetadata.mIsEncrypted)
 			{
-				GST_BUFFER_PTS(buffer) = pts;
-				GST_BUFFER_DTS(buffer) = dts;
-				GST_BUFFER_DURATION(buffer) = duration;
-				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-					GST_BUFFER_OFFSET(buffer) = pts_offset;
-
-				MW_LOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT, mediaType, pts, dts);
-				MW_LOG_DEBUG(" fragmentPTSoffset %" G_GINT64_FORMAT, pts_offset);
+				// Set DRM metadata to buffer
+				DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
 			}
-			else
+			if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 			{
-				bPushBuffer = false;
+				GST_BUFFER_OFFSET(buffer) = pts_offset;
 			}
+
+			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
+						mediaType, pts, dts, heapVector->size(), initFragment, discontinuity, duration, pts_offset);
 		}
 		else
-		{ // transfer
-			buffer = gst_buffer_new_wrapped((gpointer)sample.mData,(gsize)sample.mDataSize);
-
-			if (buffer)
-			{
-				GST_BUFFER_PTS(buffer) = pts;
-				GST_BUFFER_DTS(buffer) = dts;
-				GST_BUFFER_DURATION(buffer) = duration;
-				if (sample.mDrmMetadata.mIsEncrypted)
-				{
-					// Set DRM metadata to buffer
-					// Skipped for copy as that path is not used for demuxed content
-					// TODO: Handle copy path also if required in future
-					DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
-				}
-				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-					GST_BUFFER_OFFSET(buffer) = pts_offset;
-
-				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
-							mediaType, pts, dts, sample.mDataSize, initFragment, discontinuity, duration);
-
-			}
-			else
-			{
-				bPushBuffer = false;
-			}
+		{
+			delete heapVector;
+			bPushBuffer = false;
 		}
 
 		if (bPushBuffer)
@@ -4683,20 +4671,19 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 	switch(GST_MESSAGE_TYPE(msg))
 	{
 		case GST_MESSAGE_STATE_CHANGED:
-			GstState old_state, new_state;
-			bool isPlaybinStateChangeEvent;
+			GstState old_state, new_state, pending_state;
+			gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
 
-			isPlaybinStateChangeEvent = (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline));
-
-			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
-
-			if(isPlaybinStateChangeEvent || (NULL != msg->src && pInterfacePlayerRDK->m_gstConfigParam->gstLogging))
+			if (NULL != msg->src &&
+				((GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline)) ||
+				pInterfacePlayerRDK->m_gstConfigParam->gstLogging))
 			{
-				/* Log Rialto sink state transitions for easier debugging */
-				MW_LOG_MIL("Element %s %s -> %s",
+				/* Log playbin state transitions and optionally all element state transitions when gst logging is enabled */
+				MW_LOG_MIL("%s %s -> %s (pending %s)",
 						   GST_OBJECT_NAME(msg->src),
 						   gst_element_state_get_name(old_state),
-						   gst_element_state_get_name(new_state));
+						   gst_element_state_get_name(new_state),
+						   gst_element_state_get_name(pending_state));
 			}
 
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))

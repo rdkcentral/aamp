@@ -228,31 +228,48 @@ public:
 	static CurlStore& GetCurlStoreInstance(PrivateInstanceAAMP *pAamp);
 };
 
+enum class ChunkedTransferState
+{
+	READING_CHUNK_SIZE,       // reading hexadecimal chunk size
+	PENDING_CHUNK_START_LF,   // chunk size read, along with following CR delimiter - waiting for LF
+	READING_CHUNK_DATA,       // collecting binary payload for chunk
+	PENDING_CHUNK_END_CR,     // chunk payload has been read, next byte expected to be chunk-end CR
+	PENDING_CHUNK_END_LF,     // chunk payload and first CR delimiter read; waiting for LF
+	READING_EXTENSIONS,       // parsing extension data between ; and CR LF
+	PENDING_EXTENSION_END_LF, // extension data complete and first CR delimiter read; waiting for LF
+	DONE,                     // download complete; final empty chunk has been received
+	ERROR
+};
+
 /**
  * @struct CurlCallbackContext
  * @brief context during curl callbacks
  */
 struct CurlCallbackContext
 {
-	PrivateInstanceAAMP *aamp;
-	AampMediaType mediaType;
-	std::vector<std::string> allResponseHeaders;
-	AampGrowableBuffer *buffer;
-	httpRespHeaderData *responseHeaderData;
-	BitsPerSecond bitrate;
-	bool downloadIsEncoded;
+	// HTTP/1.1 Chunked Transfer Protocol
+	
+	size_t m_ChunkedBytesRemaining = 0;
+	ChunkedTransferState m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
+	
+	PrivateInstanceAAMP *aamp = nullptr;
+	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
+	std::vector<std::string> allResponseHeaders = {};
+	AampGrowableBuffer *buffer = nullptr;
+	httpRespHeaderData *responseHeaderData = nullptr;
+	BitsPerSecond bitrate = 0;
+	bool downloadIsEncoded = false;
 	//represents transfer-encoding based download
-	bool chunkedDownload;
-	std::string remoteUrl;
-	size_t contentLength;
-	long long downloadStartTime;
-	long long processDelay; /**< Indicate the external process delay in curl operation; especially for lld*/
+	bool chunkedDownload = false;
+	std::string remoteUrl = {};
+	size_t contentLength = 0;
+	long long downloadStartTime = -1;
+	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
+	size_t bufferOffset = 0; // Used for chunked injection to keep track of start offset of the last mp4 chunk in buffer
+	size_t chunkBoundary = 0; // Used for chunked injection to store the end offset of the last mp4 chunk in buffer
 
-	CurlCallbackContext() : aamp(NULL), buffer(NULL), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false), chunkedDownload(false),  mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""}, contentLength(0),downloadStartTime(-1), processDelay(0)
-	{
-
-	}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1){}
+	CurlCallbackContext(){}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}
 
 	~CurlCallbackContext() {}
 

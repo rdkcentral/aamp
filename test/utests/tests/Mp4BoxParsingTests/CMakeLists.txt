@@ -23,6 +23,7 @@ set(TEST_SOURCES
 	BoxParsingTests.cpp
 	Mp4BoxParsingTests.cpp
 	FourCCMappingTest.cpp
+	EsdsReadLenTests.cpp
 )
 
 set(AAMP_SOURCES

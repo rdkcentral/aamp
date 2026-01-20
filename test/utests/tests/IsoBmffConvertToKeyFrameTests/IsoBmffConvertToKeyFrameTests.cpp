@@ -147,7 +147,8 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 		dumpBytes(res, to_display);
 	}
 
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
+	// Note: No longer expecting g_free() since AampGrowableBuffer now uses std::vector
+	// which manages its own memory via RAII
 }
 
 INSTANTIATE_TEST_SUITE_P(IsoBmffConvertToKeyFrameTests, IsoBmffConvertToKeyFrameTestsP, testing::ValuesIn(test_data), IsoBmffConvertToKeyFrameTestsP::PrintToStringParamName());

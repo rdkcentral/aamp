@@ -213,6 +213,8 @@ typedef enum
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
+	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
+	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
@@ -310,6 +312,7 @@ typedef enum
 	eAAMPConfig_MonitorAVJumpThreshold,				/**< configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds*/
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
+	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

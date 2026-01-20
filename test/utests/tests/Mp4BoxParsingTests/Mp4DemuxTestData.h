@@ -798,7 +798,9 @@ static const uint8_t encryptedFragmentWithSenc[] = {
 	0x00,                    // version = 0
 	0x00, 0x03, 0x01,        // flags = 0x000301 (data-offset, sample-duration, sample-size present)
 	0x00, 0x00, 0x00, 0x02,  // sample_count = 2
-	0x00, 0x00, 0x02, 0xD5,  // data_offset = 725 (from start of moof: 555 moov + 170 moof + 8 mdat header - 8 moof header)
+	
+	0x00,0x00,0x00,0xB2, // data_offset = 178 (from start of moof)
+	
 	// Sample 0
 	0x00, 0x00, 0x03, 0xE8,  // sample_duration = 1000
 	0x00, 0x00, 0x00, 0x40,  // sample_size = 64
