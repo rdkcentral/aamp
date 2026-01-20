@@ -61,6 +61,7 @@
 
 #include <iomanip>
 #include <unordered_set>
+#include <algorithm>
 
 #include <sys/time.h>
 #include <cmath>
@@ -3496,13 +3497,19 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 	AudioTrackInfo currentAudioTrack;
 
 	/** Only select track Id for setting gstplayer in case of muxed ac4 stream */
-	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack) && (currentAudioTrack.codec.find("ac4") != std::string::npos))
+	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
 	{
-		AAMPLOG_INFO("Found AC4 track as current Audio track  index = %s language - %s role - %s codec %s type %s bandwidth = %" BITSPERSECOND_FORMAT,
-		currentAudioTrack.index.c_str(), currentAudioTrack.language.c_str(), currentAudioTrack.rendition.c_str(),
-		currentAudioTrack.codec.c_str(), currentAudioTrack.contentType.c_str(), currentAudioTrack.bandwidth);
-		trackId = std::stoi( currentAudioTrack.index );
-
+		AAMPLOG_INFO("***********Current audio codec: %s***************", currentAudioTrack.codec.c_str());
+		std::string codecLower = currentAudioTrack.codec;
+		std::transform(codecLower.begin(), codecLower.end(), codecLower.begin(), ::tolower);
+		
+		if (codecLower.find("ac-4") != std::string::npos || codecLower.find("ac4") != std::string::npos)
+		{
+			AAMPLOG_INFO("***************Found AC4 track as current Audio track  index = %s language - %s role - %s codec %s type %s bandwidth = %" BITSPERSECOND_FORMAT,
+			currentAudioTrack.index.c_str(), currentAudioTrack.language.c_str(), currentAudioTrack.rendition.c_str(),
+			currentAudioTrack.codec.c_str(), currentAudioTrack.contentType.c_str(), currentAudioTrack.bandwidth);
+			trackId = std::stoi( currentAudioTrack.index );
+		}
 	}
 	AAMPLOG_INFO("***********Track ID is: %d***************",trackId);
 	return trackId;

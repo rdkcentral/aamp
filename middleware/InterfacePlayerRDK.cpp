@@ -428,6 +428,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 			TearDownStream((int)i);
 			stream->format = newFormat[i];
 			stream->trackId = trackId;
+			MW_LOG_WARN("************ConfigurePipeline: Setting trackId=%d for stream type=%d", trackId, i);
 
 			/* Sets up the stream for the given MediaType */
 			if(0 != InterfacePlayer_SetupStream((GstMediaType)i, manifestUrl))
@@ -4767,9 +4768,12 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			}
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
+				MW_LOG_WARN("*************bus_sync_handler: State change NULL->READY for element: %s", msg->src ? GST_OBJECT_NAME(msg->src) : "NULL");
 				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
-					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+					bool isVideo = GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK);
+					MW_LOG_WARN("******************bus_sync_handler: Element is %s decoder", isVideo ? "VIDEO" : "AUDIO");
+					if (isVideo)
 					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
@@ -4788,9 +4792,15 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 															   G_CALLBACK(GstPlayer_OnAudioFirstFrameAudDecoder), pInterfacePlayerRDK);
 						}
 						int trackId = privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].trackId;
+						MW_LOG_WARN("*****************bus_sync_handler: Audio decoder NULL->READY, trackId=%d element=%s", trackId, GST_OBJECT_NAME(msg->src));
 						if (trackId >= 0) /** AC4 track selected **/
 						{
+							MW_LOG_WARN("****************8bus_sync_handler: Calling SetAC4Tracks with trackId=%d", trackId);
 							privatePlayer->socInterface->SetAC4Tracks(GST_ELEMENT(msg->src), trackId);
+						}
+						else
+						{
+							MW_LOG_WARN("*************bus_sync_handler: Skipping SetAC4Tracks - trackId is negative (%d)", trackId);
 						}
 
 					}
