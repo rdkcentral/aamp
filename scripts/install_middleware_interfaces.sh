@@ -39,7 +39,7 @@ function install_build_middleware_interface_fn()
         do_clone_fn  https://github.com/rdkcentral/middleware-player-interface.git
 
         cd middleware-player-interface
-        git checkout feature/RDKEMW-11639
+        git checkout feature/RDKEMW-11881
         mkdir -p build
         cd build
         cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=ON || return 1
