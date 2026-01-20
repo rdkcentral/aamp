@@ -234,6 +234,8 @@
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
+#define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
+
 #define PLAYER_NAME "aamp" 
 
 /**

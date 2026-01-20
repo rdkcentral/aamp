@@ -27,6 +27,7 @@
 #include "DeviceIARMInterface.h"
 #include "DeviceFireboltInterface.h"
 #include "PlayerExternalsInterface.h"
+#include <utility>
 
 #include <cstdio>
 
@@ -292,4 +293,24 @@ void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 
     }
     
+}
+
+void PlayerExternalsRdkInterface::SetPowerEvent(bool powerEvt)
+{
+    mPowerEvt = powerEvt;	
+}
+
+bool PlayerExternalsRdkInterface::GetPowerEvent()
+{
+    return mPowerEvt;	
+}
+
+void PlayerExternalsRdkInterface::SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
+{
+    m_doFakeTuneCallback = t_doFakeTuneCallback;
+}
+
+std::function<void()> PlayerExternalsRdkInterface::GetDoFakeTuneCallBack()
+{
+    return m_doFakeTuneCallback;
 }
