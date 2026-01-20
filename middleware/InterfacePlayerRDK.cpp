@@ -4797,9 +4797,9 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				{
 					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 					{ // video
-						MW_LOG_MIL("ANJ: bus_sync_handler. Before gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
+						//MW_LOG_MIL("ANJ: bus_sync_handler. Before gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
-						MW_LOG_MIL("ANJ: bus_sync_handler. After gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
+						//MW_LOG_MIL("ANJ: bus_sync_handler. After gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(GstPlayer_OnFirstVideoFrameCallback), pInterfacePlayerRDK);
