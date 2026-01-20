@@ -16,7 +16,7 @@ jobs:
       
       # Install AAMP
       - name: Install AAMP
-        run: yes | ./install-aamp.sh -s -k file
+        run: yes | ./install-aamp.sh -s file
       
       # Run L1 tests
       - name: Run unit tests
