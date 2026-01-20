@@ -2621,7 +2621,7 @@ ret = gst_element_get_state(pipeline, &current, &pending, 100 * GST_MSECOND);if 
     ret = gst_element_get_state(pipeline, &current, &pending, 2 * GST_SECOND);
 }
 #endif//anj
-		MW_LOG_MIL("ANJ: calling g_object_get - stats");
+		MW_LOG_MIL("ANJ: calling g_object_get - stats : element(video_sink) =%p", element);
 		g_object_get( G_OBJECT(element), "stats", &stats, NULL );
 		MW_LOG_MIL("ANJ: after calling g_object_get - stats");
 		if ( stats )
@@ -4794,7 +4794,9 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				{
 					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 					{ // video
+			MW_LOG_MIL("ANJ: in bus_sync_handler. Before gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
+			MW_LOG_MIL("ANJ: in bus_sync_handler. After gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(GstPlayer_OnFirstVideoFrameCallback), pInterfacePlayerRDK);
@@ -4874,6 +4876,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 		case GST_MESSAGE_ASYNC_DONE:
 
 			MW_LOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
+			MW_LOG_MIL("ANJ: Received GST_MESSAGE_ASYNC_DONE message");
 			if (privatePlayer->gstPrivateContext->buffering_in_progress)
 			{
 				privatePlayer->gstPrivateContext->bufferingTimeoutTimerId = g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS, buffering_timeout, pInterfacePlayerRDK, NULL);
