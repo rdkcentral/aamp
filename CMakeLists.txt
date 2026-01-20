@@ -185,6 +185,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
 
 add_subdirectory(middleware)
+add_subdirectory(test/rialtoPOC)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
