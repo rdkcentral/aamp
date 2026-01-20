@@ -41,7 +41,7 @@ function install_build_googletest_fn()
         INSTALL_STATUS_ARR+=("googletest was already installed.")
     else
         echo "Installing googletest..."
-        do_clone_fn https://github.com/google/googletest
+        git clone https://github.com/google/googletest
         pushd googletest
         echo "Checkout googletest '$GOOGLETEST_REFERENCE'"
         git checkout $GOOGLETEST_REFERENCE
