@@ -60,6 +60,31 @@ Click [here](#setup-reference-player) for Reference player setup for RDK
 
 <div style="page-break-after: always;"></div>
 
+# Table of Contents
+
+## Quick Links
+- [Getting Started](#minimal-sample-player)
+- [Architecture & Setup](ARCHITECTURE.md)
+- [Configuration Guide](CONFIGURATION.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+
+## Core Sections
+1. [Configuration](#configuration)
+2. [API Methods](#methods)
+3. [Events](#uve-events)
+4. [Errors & Status](#universal-video-engine-player-errors)
+5. [Advanced Features](#advanced-features)
+6. [Setup & Reference](#setup-reference-player)
+
+## Advanced Features
+- [Client DAI](#client-dai-feature-support)
+- [ATSC Support](#atsc---unified-video-engine-features)
+- [TSB (Time Shift Buffer)](#tsb-feature)
+- [Thumbnails & Watermarking](#thumbnails)
+- [Captions](#captions-support)
+
+---
+
 # Universal Video Engine
 
 * [Configuration](#configuration)

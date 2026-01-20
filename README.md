@@ -1,20 +1,33 @@
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
 
-
 ### Advanced Adaptive Media Player (AAMP)
 AAMP is an open source native video engine that is built on top of GStreamer and optimized for performance, memory use, and code size.  
 
+## Quick Start
 
-Index 
+### For Users & Integrators
+- **[Getting Started](BUILD.md)** - Build and installation instructions
+- **[API Reference](AAMP-UVE-API.md)** - Complete UVE API documentation
+- **[Configuration Guide](CONFIGURATION.md)** - All configuration options explained
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Solutions for common issues
+
+### For Contributors
+- **[Contributing Guide](CONTRIBUTING.md)** - How to submit code changes
+- **[Architecture](ARCHITECTURE.md)** - System design and components
+- **[Testing Strategy](TESTING.md)** - Unit test requirements and patterns
+- **[Development Instructions](.github/instructions/)** - Language-specific guidelines
+
 ---
+
+## Documentation Index
+
 1. [AAMP Source Overview](#aamp-source-overview)
-2. [AAMP Configuration](#aamp-configuration)
+2. [AAMP Configuration](#aamp-configuration-legacy)
 3. [Channel Override Settings](#channel-override-settings)
 4. [Westeros Settings](#westeros-settings)
 5. [AAMP Tunetime](#aamp-tunetime) 
-6. [VideoEnd (Session Statistics) Event](#videoend-session-statistics-event) 
-7. [UVE Reference Document](AAMP-UVE-API.md)
-8. [AAMP Simulator Installation](#aamp-simulator-installation)
+6. [VideoEnd (Session Statistics) Event](#videoend-session-statistics-event)
+
 ---
 
 # AAMP Source Overview:
@@ -41,7 +54,9 @@ drm
 - digital rights management support and plugins
 
 ---
-# AAMP Configuration
+# AAMP Configuration (Legacy)
+
+**Note**: For complete configuration reference, see [CONFIGURATION.md](CONFIGURATION.md).
 
 AAMP Configuration can be set with different method . Below is the list (from 
 lowest priority to highest priority override ownership).
