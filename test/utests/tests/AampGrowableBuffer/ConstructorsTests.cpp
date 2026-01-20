@@ -47,10 +47,10 @@ protected:
 	{
 		g_mockGLib = new NiceMock<MockGLib>();
 
-		data_buf.reserve(data_len);
-		for (auto & data : data_buf)
+		// Fill data_buf with random data (vector already sized to data_len in constructor)
+		for (size_t i = 0; i < data_buf.size(); ++i)
 		{
-			data = (char)rand();
+			data_buf[i] = (char)rand();
 		}
 	}
 
@@ -68,41 +68,46 @@ public:
 	std::function<void (gpointer)>callFree;
 };
 
+// Out-of-class definition required for C++11 when ODR-used
+constexpr uint16_t ConstructorsTests::data_len;
+
 TEST_F(ConstructorsTests, Copy)
 {
 	AampGrowableBuffer buf("buf-copyctor");
 
-	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
+	// Reserve space and append data - no g_malloc expectations needed with std::vector
 	buf.ReserveBytes(data_len);
-
-	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
 	buf.AppendBytes(data_buf.data(), data_buf.size());
 
+	// Tester validates that copy is independent and contains correct data
 	auto tester = [this, &buf](AampGrowableBuffer & test_buf)
 	{
 		const auto * buf_ptr = buf.GetPtr();
 		char * bufcopy_ptr = test_buf.GetPtr();
 
+		// Verify the copy has valid data and correct length
 		EXPECT_NE(bufcopy_ptr, nullptr);
-		EXPECT_NE(buf_ptr, bufcopy_ptr);
 		EXPECT_EQ(buf.GetLen(), test_buf.GetLen());
 
+		// Modify first byte of copy to verify independence
+		const char original_first_byte = bufcopy_ptr[0];
 		bufcopy_ptr[0] = (buf_ptr[0] + 1) & 0xff;
 
-		EXPECT_NE(*bufcopy_ptr++, data_buf[0]);
-		for (uint16_t idx = 1; idx < test_buf.GetLen(); idx++)
-		{
-			EXPECT_EQ(*bufcopy_ptr++, data_buf[idx]);
-		}
+		// Verify original is unchanged (proves independence)
+		EXPECT_EQ(buf_ptr[0], static_cast<char>(data_buf[0]));
+		
+		// Verify copy was modified
+		EXPECT_NE(bufcopy_ptr[0], static_cast<char>(data_buf[0]));
+		
+		// Verify rest of data matches
+		EXPECT_EQ(memcmp(bufcopy_ptr + 1, data_buf.data() + 1, test_buf.GetLen() - 1), 0);
 	};
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
-	// Copy constructor
+	// Copy constructor - std::vector RAII handles cleanup
 	{
 		AampGrowableBuffer buf_ctor{buf};
 		tester(buf_ctor);
 	}
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
 	// Copy assignment
 	{
@@ -110,7 +115,6 @@ TEST_F(ConstructorsTests, Copy)
 		buf_assign = buf;
 		tester(buf_assign);
 	}
-	EXPECT_CALL(*g_mockGLib, g_free(_)).Times(2).WillRepeatedly(callFree);
 
 	// Copy assignment with replacement
 	{
@@ -120,43 +124,40 @@ TEST_F(ConstructorsTests, Copy)
 		buf_assign = buf;
 		tester(buf_assign);
 	}
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 }
 
 TEST_F(ConstructorsTests, Move)
 {
 	AampGrowableBuffer buf("buf-move-ctor");
 
-	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
+	// Reserve space and append data - no g_malloc expectations needed
 	buf.ReserveBytes(data_len);
-
-	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
 	buf.AppendBytes(&data_buf[0], data_buf.size());
 
+	// Tester validates that move leaves source empty and transfers data correctly
 	auto tester = [this](const AampGrowableBuffer & src_buf, AampGrowableBuffer & test_buf)
 	{
 		const auto * buf_ptr = src_buf.GetPtr();
 		char * bufcopy_ptr = test_buf.GetPtr();
 
+		// After move, source should be empty
 		EXPECT_EQ(buf_ptr, nullptr);
 		EXPECT_EQ(src_buf.GetLen(), 0);
-		EXPECT_NE(buf_ptr, bufcopy_ptr);
-		EXPECT_NE(src_buf.GetLen(), test_buf.GetLen());
+		
+		// Destination should have the data
+		EXPECT_NE(bufcopy_ptr, nullptr);
+		EXPECT_EQ(test_buf.GetLen(), data_len);
 
-		for (uint16_t idx = 0; idx < test_buf.GetLen(); idx++)
-		{
-			EXPECT_EQ(*bufcopy_ptr++, data_buf[idx]);
-		}
+		// Verify data was transferred correctly
+		EXPECT_EQ(memcmp(bufcopy_ptr, data_buf.data(), test_buf.GetLen()), 0);
 	};
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
-	// Move constructor
+	// Move constructor - std::vector RAII handles cleanup
 	{
 		AampGrowableBuffer buf_copy{buf};
 		AampGrowableBuffer buf_ctor{std::move(buf_copy)};
 		tester(buf_copy, buf_ctor);
 	}
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 
 	// Move assignment
 	{
@@ -166,7 +167,6 @@ TEST_F(ConstructorsTests, Move)
 		buf_assign = std::move(buf_copy);
 		tester(buf_copy, buf_assign);
 	}
-	EXPECT_CALL(*g_mockGLib, g_free(_)).Times(2).WillRepeatedly(callFree);
 
 	// Move assignment with replacement
 	{
@@ -179,5 +179,4 @@ TEST_F(ConstructorsTests, Move)
 		buf_assign = std::move(buf_copy);
 		tester(buf_copy, buf_assign);
 	}
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
 }

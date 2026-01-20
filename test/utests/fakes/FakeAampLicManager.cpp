@@ -118,6 +118,10 @@ void AampDRMLicenseManager::clearFailedKeyIds()
 
 void AampDRMLicenseManager::setSessionMgrState(SessionMgrState state)
 {
+    if(g_mockAampLicenseManager)
+    {
+        g_mockAampLicenseManager->setSessionMgrState(state);
+    }
 }
 
 void AampDRMLicenseManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
