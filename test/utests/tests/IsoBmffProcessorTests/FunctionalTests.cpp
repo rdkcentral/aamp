@@ -755,13 +755,15 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,ProcessID3Metadata(_,_,_,_))
+			.Times(3);
 	bool ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
 	// Expecting the base PTS to be read
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
-
+	
 	ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
