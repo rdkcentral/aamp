@@ -2617,42 +2617,57 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 	}
 	if( element )
 	{
+		GstState current = GST_STATE_VOID_PENDING;
+		GstState pending = GST_STATE_VOID_PENDING;
+		GstClockTime timeout = 0;
 #if 0//anj
-ret = gst_element_get_state(pipeline, &current, &pending, 100 * GST_MSECOND);if (pending != GST_STATE_VOID_PENDING && ret == GST_STATE_CHANGE_ASYNC)
-{
-    ret = gst_element_get_state(pipeline, &current, &pending, 2 * GST_SECOND);
-}
-#endif//anj
-		//MW_LOG_MIL("ANJ: calling g_object_get - stats : element(video_sink) =%p", element);
-		MW_LOG_MIL("ANJ: calling g_object_get - stats");
-		g_object_get( G_OBJECT(element), "stats", &stats, NULL );
-		MW_LOG_MIL("ANJ: after calling g_object_get - stats");
-		if ( stats )
+		gint ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
+		if (pending != GST_STATE_VOID_PENDING && ret == GST_STATE_CHANGE_ASYNC)
 		{
-			const GValue *value;
-			MW_LOG_MIL("ANJ: calling gst_structure_get_value - rendered");
-			value= gst_structure_get_value( stats, "rendered" );
-			MW_LOG_MIL("ANJ: after calling gst_structure_get_value - rendered");
-			if ( value )
+		    ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 2 * GST_SECOND);
+		}
+#endif//anj
+		gint ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+		if( (ret == GST_STATE_CHANGE_SUCCESS) && ( (current == GST_STATE_PLAYING) || (current == GST_STATE_PAUSED)) )
+		{
+			//MW_LOG_MIL("ANJ: calling g_object_get - stats : element(video_sink) =%p", element);
+			MW_LOG_MIL("ANJ: calling g_object_get - stats");
+			g_object_get( G_OBJECT(element), "stats", &stats, NULL );
+			MW_LOG_MIL("ANJ: after calling g_object_get - stats");
+			if ( stats )
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+				const GValue *value;
+				MW_LOG_MIL("ANJ: calling gst_structure_get_value - rendered");
+				value= gst_structure_get_value( stats, "rendered" );
+				MW_LOG_MIL("ANJ: after calling gst_structure_get_value - rendered");
+				if ( value )
+				{
+					interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+				}
+				MW_LOG_MIL("ANJ: calling gst_structure_get_value - dropped");
+				value= gst_structure_get_value( stats, "dropped" );
+				MW_LOG_MIL("ANJ: after calling gst_structure_get_value - dropped");
+				if ( value )
+				{
+					interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+				}
+				MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
+				gst_structure_free( stats );
+				MW_LOG_MIL("ANJ: OUT1: GetVideoPlaybackQuality");
+				return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
 			}
-			MW_LOG_MIL("ANJ: calling gst_structure_get_value - dropped");
-			value= gst_structure_get_value( stats, "dropped" );
-			MW_LOG_MIL("ANJ: after calling gst_structure_get_value - dropped");
-			if ( value )
+			else
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+				MW_LOG_ERR("Failed to get sink stats");
 			}
-			MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
-			gst_structure_free( stats );
-			MW_LOG_MIL("ANJ: OUT1: GetVideoPlaybackQuality");
-			return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
 		}
 		else
 		{
-			MW_LOG_ERR("Failed to get sink stats");
+			MW_LOG_WARN( "gst_element_get_state current state=%d, pending=%d, ret=%d", current, pending, ret );
+			MW_LOG_WARN( "ANJ: Incorrect state! gst_element_get_state current state=%d, pending=%d, ret=%d", current, pending, ret );
+			return NULL;//anj??
 		}
+#endif//anj
 	}
 	MW_LOG_MIL("ANJ: OUT: GetVideoPlaybackQuality");
 	return NULL;
