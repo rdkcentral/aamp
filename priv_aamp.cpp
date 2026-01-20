@@ -3491,11 +3491,12 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
  */
 int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 {
+	AAMPLOG_INFO("*********Inside PrivateInstanceAAMP::GetCurrentAudioTrackId**************");
 	int trackId = -1;
 	AudioTrackInfo currentAudioTrack;
 
 	/** Only select track Id for setting gstplayer in case of muxed ac4 stream */
-	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack) && (currentAudioTrack.codec.find("ac4") != std::string::npos) && currentAudioTrack.isMuxed )
+	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack) && (currentAudioTrack.codec.find("ac4") != std::string::npos))
 	{
 		AAMPLOG_INFO("Found AC4 track as current Audio track  index = %s language - %s role - %s codec %s type %s bandwidth = %" BITSPERSECOND_FORMAT,
 		currentAudioTrack.index.c_str(), currentAudioTrack.language.c_str(), currentAudioTrack.rendition.c_str(),
@@ -3503,7 +3504,7 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 		trackId = std::stoi( currentAudioTrack.index );
 
 	}
-
+	AAMPLOG_INFO("***********Track ID is: %d***************",trackId);
 	return trackId;
 }
 
