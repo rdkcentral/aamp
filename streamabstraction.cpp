@@ -4021,6 +4021,16 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 }
 
 /**
+ * @brief Set whether we are playing at live point or not.
+ *
+ * @param[in] - isAtLivePoint - true if at live point, false otherwise.
+ */
+void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
+{
+	mIsAtLivePoint = isAtLivePoint;
+}
+
+/**
  * @brief Whether we seeked to live offset range or not.
  *
  * @param[in] - seekPosition - seek position in seconds

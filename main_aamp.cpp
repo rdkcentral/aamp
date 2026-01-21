@@ -747,7 +747,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 
 			// Not at live edge, so clear the flag
-			static_cast<void>(aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint()); 
+			aamp->mpStreamAbstractionAAMP->SetIsAtLivePoint(false);
 
 			//-- Get the trick play to a closer position
 			//Logic adapted

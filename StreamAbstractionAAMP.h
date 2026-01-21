@@ -1282,6 +1282,13 @@ public:
 	bool IsStreamerAtLivePoint(double seekPosition = 0 );
 
 	/**
+	 *   @brief Set whether we are playing at live point or not.
+	 *
+	 *   @param[in] isAtLivePoint - true if at live point, false otherwise.
+	 */
+	void SetIsAtLivePoint(bool isAtLivePoint);
+
+	/**
 	 *   @brief Whether we seeked to live offset range or not.
 	 *
 	 *   @return true if we seeked to live.
