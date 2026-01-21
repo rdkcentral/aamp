@@ -238,7 +238,7 @@ No special setup required. If failing:
 Adjust timeout values based on network conditions:
 
 ```javascript
-// Create custom timeout (check API for timeout methods)
+// Configure fragment download timeout (in milliseconds)
 config.fragmentDownloadTimeout = 15000;  // Adjust as needed
 ```
 
