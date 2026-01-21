@@ -271,7 +271,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | dnsCacheTimeout | Number | 180 | Lifetime for DNS cache entries. Name resolve results are cached for manifest and used for this number of seconds. |
 | tsbType | String | - | Use the "tsbType" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbType" is not provided, default to "none," means play as-is. For detailed behavior, see [TSB Feature](#tsb-feature). |
 | telemetryInterval | Number | 300 | Telemetry log interval (seconds). Default of 300 seconds. Set to 0 to disable telemetry logging. |
-| sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
+| sendUserAgentInLicense | Boolean | false | Optional field to enable sending User Agent string in license request also |
 | useSinglePipeline | Boolean | false | Enable single pipeline while switching between multiple player instances (Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage. |
 | mpdStichingSupport | Boolean | true | Enable/disable DASH MPD stitching functionality with dual manifest (one manifest used during tune and another manifest during refresh). |
 | enablePTSReStamp | Boolean | false | Enable/disable PTS re-stamping functionality across discontinuity while moving from content to ads or vice-versa. Currently only applicable to DASH content. |
