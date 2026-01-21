@@ -230,10 +230,6 @@ public:
 	* @param[in] dnldCfg - configuration for download
 	*/	
 	void Release();
-	/**
-	* @brief CleanupCurlHeaderResources - function to cleanup headers after thread join
-	*/
-	void CleanupCurlHeaderResources();
 	void Clear();
 	/**
 	* @brief Download - function to start  download 
