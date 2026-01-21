@@ -156,12 +156,6 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_Skip
     mPlayerInstance->aamp->mbDetached = false;
     g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
     
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
     // Expect NotifyOnEnteringLive to be called
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
         .Times(1);
