@@ -257,13 +257,15 @@ void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_cla
 void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
 	MW_LOG_ERR("SocInterface::SetAC4Tracks called");
-	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
+	MW_LOG_ERR("Selecting AC4 Track Id : %d", trackId);
 	if(src)
 	{
+		MW_LOG_ERR("Setting property");
 		g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 	}
 	else
 	{
 		MW_LOG_ERR("No valid src to set ac4-presentation-group-index");
 	}
+	MW_LOG_ERR("Exiting SetAC4Tracks()");
 }
