@@ -187,7 +187,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preplayBuffercount | Number | 1 | Count of segments to download until reaching play state. |
 | ptsErrorThreshold | Number | 4 | Maximum number of back-to-back PTS errors before triggering a retune. |
 | seekMidFragment | Boolean | false | Enable/disable mid-fragment seek. |
-| segmentInjectFailThreshold | Number | 10 | Segment injection failure threshold count. |
+| segmentInjectFailThreshold | Number | 10 | Maximum number of consecutive segment injection failures allowed before the player triggers its segment error-handling logic. |
 | sendUserAgentInLicense | Boolean | false | Enable/disable sending user agent in the DRM license request header. |
 | stallTimeout | Number | 10000 | Stall detection timeout (milliseconds). |
 | thresholdSizeABR | Number | 6000 | ABR threshold size (bytes). |
