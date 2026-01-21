@@ -33,6 +33,9 @@ using ::testing::SetArgReferee;
 using ::testing::AtLeast;
 using ::testing::NiceMock;
 
+// Test constants
+constexpr int TEST_OVERSHOOT_CORRECTION = 10;
+
 class PlayerInstanceAAMPTests : public ::testing::Test
 {
 protected:
@@ -132,7 +135,7 @@ TEST_F(PlayerInstanceAAMPTests,SeekInternalTest1)
 TEST_F(PlayerInstanceAAMPTests,SetRateInternalTest)
 {
     float rate = 2.2f;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
         .WillOnce(Return(true));
     mplayer->SetRate_Internal(rate,overshootcorrection);
@@ -147,7 +150,7 @@ TEST_F(PlayerInstanceAAMPTests,SetRateInternalTest)
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_SkipsOperation)
 {
     float rate = 2.0f;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player is at live point
     mPlayerInstance->aamp->mbDetached = false;
@@ -179,7 +182,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_Skip
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_NormalPlayRate_SkipsOperation)
 {
     float rate = AAMP_NORMAL_PLAY_RATE;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player is at live point
     mPlayerInstance->aamp->mbDetached = false;
@@ -211,7 +214,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_NormalPlayRate_Skips
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_AllowsOperation)
 {
     float rate = 2.0f;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player is NOT at live point
     mPlayerInstance->aamp->mbDetached = false;
@@ -248,7 +251,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_A
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_SlowMotionRate_AllowsOperation)
 {
     float rate = AAMP_SLOWMOTION_RATE;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player is at live point but with slowmotion rate
     mPlayerInstance->aamp->mbDetached = false;
@@ -285,7 +288,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_SlowMotionRate_Allow
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOperation)
 {
     float rate = -2.0f; // Rewind
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player is at live point but with rewind rate
     mPlayerInstance->aamp->mbDetached = false;
@@ -321,7 +324,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOpe
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOperation)
 {
     float rate = 2.0f;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player is at live point but detached
     mPlayerInstance->aamp->mbDetached = true;
@@ -358,7 +361,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOpera
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
 {
     float rate = 2.0f;
-    int overshootcorrection = 10;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
     
     // Setup: Player starts NOT at live point
     mPlayerInstance->aamp->mbDetached = false;
