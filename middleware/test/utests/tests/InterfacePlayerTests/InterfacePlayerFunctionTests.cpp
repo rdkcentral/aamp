@@ -119,13 +119,6 @@ public:
 
 };
 
-TEST_F(InterfacePlayerTests, ConfigurePipeline_WithAudioForwardToAux)
-{
-	g_mockGStreamer = nullptr;
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, true, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
-	EXPECT_EQ(mPlayerContext->forwardAudioBuffers, true);
-}
-
 TEST_F(InterfacePlayerTests, ConfigurePipeline_WithWesterosAndRealtoSink)
 {
 	g_mockGStreamer = nullptr;
@@ -135,7 +128,7 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_WithWesterosAndRealtoSink)
 	mPlayerConfigParams->useRialtoSink = true;
 	EXPECT_EQ(mPlayerContext->usingRialtoSink, false);
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 	EXPECT_EQ(mPlayerContext->using_westerossink, true);
 	EXPECT_EQ(mPlayerContext->usingRialtoSink, true);
 
@@ -144,7 +137,7 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_WithWesterosAndRealtoSink)
 TEST_F(InterfacePlayerTests, ConfigurePipeline_WithSubtitlesEnabled)
 {
 	g_mockGStreamer = nullptr;
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, true, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, true, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
 	EXPECT_EQ(mPlayerContext->stream[eGST_MEDIATYPE_SUBTITLE].format, GST_FORMAT_INVALID);
 }
@@ -155,7 +148,7 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_WithBufferingEnabled)
 	mPlayerContext->buffering_enabled = true;
 	mPlayerContext->rate = GST_NORMAL_PLAY_RATE;
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_MPEGTS, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_MPEGTS, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
 	EXPECT_EQ(mPlayerContext->buffering_in_progress, true);
 	EXPECT_EQ(mPlayerContext->buffering_target_state, GST_STATE_PLAYING);
@@ -170,9 +163,9 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_StreamConfiguration)
 
 	EXPECT_EQ(mPlayerContext->NumberOfTracks, 0);
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, false, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
-	EXPECT_EQ(mPlayerContext->NumberOfTracks, 3);
+	EXPECT_EQ(mPlayerContext->NumberOfTracks, 2);
 	EXPECT_EQ(cbResponse, 5); //callback was called
 }
 
@@ -185,9 +178,9 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_ESChange)
 
 	EXPECT_EQ(mPlayerContext->NumberOfTracks, 0);
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, true, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, true, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
-	EXPECT_EQ(mPlayerContext->NumberOfTracks, 2);
+	EXPECT_EQ(mPlayerContext->NumberOfTracks, 1);
 	EXPECT_EQ(cbResponse, 5);
 }
 
@@ -786,7 +779,6 @@ TEST_F(InterfacePlayerTests, InitializeSourceForPlayer_Video)
 	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
 	stream->format = GST_FORMAT_ISO_BMFF;
 	mPlayerConfigParams->videoBufBytes = 500;
-	mPlayerConfigParams->useMp4Demux = false;
 
 	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("need-data"), _, playerInstance)).WillOnce(Return(1));
 	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("enough-data"), _, playerInstance)).WillOnce(Return(1));
@@ -972,24 +964,6 @@ TEST_F(InterfacePlayerTests, SendQtDemuxOverrideEvent_EnablePTSReStampTrue)
 	gboolean result = mInterfacePrivatePlayer->SendQtDemuxOverrideEvent(mediaType, pts, mPlayerConfigParams->enablePTSReStamp , mPlayerConfigParams->vodTrickModeFPS , ptr, len);
 
 	EXPECT_FALSE(result);
-}
-
-TEST_F(InterfacePlayerTests, ForwardAudioBuffersToAux_True)
-{
-	mPlayerContext->forwardAudioBuffers = true;
-	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_ISO_BMFF;
-
-	EXPECT_TRUE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
-
-	mPlayerContext->forwardAudioBuffers = false;
-	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_ISO_BMFF;
-
-	EXPECT_FALSE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
-
-	mPlayerContext->forwardAudioBuffers = true;
-	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_INVALID;
-
-	EXPECT_FALSE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
 }
 
 TEST_F(InterfacePlayerTests, GetVideoRectangle)
@@ -1369,41 +1343,6 @@ TEST_F(InterfacePlayerTests, WaitForSourceSetup_PauseInjector)
 
 	EXPECT_FALSE(result);
 	EXPECT_FALSE(stream->sourceConfigured);
-}
-
-TEST_F(InterfacePlayerTests, ForwardBuffersToAuxPipeline_WaitForSourceSetupFailed)
-{
-	GstBuffer buffer = {};
-    gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
-    stream->format = GST_FORMAT_ISO_BMFF;
-    stream->sourceConfigured = false;
-
-	EXPECT_CALL(*g_mockGStreamer, gst_buffer_copy_into(_, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_buffer(_, _)).Times(0);
-
-    // Run the method
-    mInterfacePrivatePlayer->ForwardBuffersToAuxPipeline(&buffer, true, mInterfaceGstPlayer);
-}
-
-TEST_F(InterfacePlayerTests, ForwardBuffersToAuxPipeline_PushBufferFailed)
-{
-	GstBuffer buffer = {};
-	gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
-	stream->sourceConfigured = true;
-	stream->format = GST_FORMAT_ISO_BMFF;
-	stream->source = &gst_element_pipeline;
-
-	GstBuffer fwdBuffer = {};
-	//assert(false) in source code causes premature exit which causes expect_call to fail
-	ON_CALL(*g_mockGStreamer, gst_buffer_new())
-		.WillByDefault(Return(&fwdBuffer));
-	ON_CALL(*g_mockGStreamer, gst_buffer_copy_into(_,_,_,_,_))
-		.WillByDefault(Return(TRUE));
-	ON_CALL(*g_mockGStreamer, gst_app_src_push_buffer(_,_))
-		.WillByDefault(Return(GST_FLOW_ERROR));
-
-	//catches the assert(false) in the function
-	EXPECT_DEATH(mInterfacePrivatePlayer->ForwardBuffersToAuxPipeline(&buffer,true,mInterfaceGstPlayer), "Assertion");
 }
 
 TEST_F(InterfacePlayerTests, HandleVideoBufferSent_SubsequentBuffer)
@@ -2532,4 +2471,72 @@ TEST_F(InterfacePlayerTests, SetVolumeOrMuteUnMute_UsingRialtoSink)
 	EXPECT_CALL(*g_mockGLib, g_object_set(&gst_element_audio_sink, StrEq("volume"), Matcher<double>(0.5)));
 
 	mInterfaceGstPlayer->SetVolumeOrMuteUnMute();
+}
+
+/**
+ * SetStreamCaps Tests with GetCaps returning nullptr
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_NullCaps)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, _)).Times(0);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO, std::move(codecInfo));
+
+	delete g_mockGstUtils;
+}
+
+/**
+ * SetStreamCaps Tests with valid video codec format
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_ValidVideoCodecFormat)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
+	GstCaps caps;
+	GstStructure s;
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
+	GstBuffer buffer;
+	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
+		.WillOnce(Return(&buffer));
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillOnce(Return(&s));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("stream-format"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO, std::move(codecInfo));
+
+	delete g_mockGstUtils;
+}
+
+/**
+ * SetStreamCaps Tests with encrypted audio codec format
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC_RAW;
+	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
+	codecInfo.mIsEncrypted = true;
+	GstCaps caps;
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
+	GstBuffer buffer;
+	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
+		.WillOnce(Return(&buffer));
+	GstStructure s;
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillRepeatedly(Return(&s));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("original-media-type"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("channels"))).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_AUDIO, std::move(codecInfo));
+
+	delete g_mockGstUtils;
 }

@@ -117,7 +117,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	: StreamAbstractionAAMP(aamp, std::move(id3Handler)),
 	mLangList(), seekPosition(seek_pos), mPlayRate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
-	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
+	mStreamInfo(), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
 	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false),
@@ -532,8 +532,6 @@ static AampMediaType MediaTypeToPlaylist( AampMediaType mediaType )
 			return eMEDIATYPE_PLAYLIST_AUDIO;
 		case eMEDIATYPE_SUBTITLE:
 			return eMEDIATYPE_PLAYLIST_SUBTITLE;
-		case eMEDIATYPE_AUX_AUDIO:
-			return eMEDIATYPE_PLAYLIST_AUX_AUDIO;
 		case eMEDIATYPE_IFRAME:
 			return eMEDIATYPE_PLAYLIST_IFRAME;
 		default:
@@ -565,7 +563,6 @@ static AampCurlInstance getCurlInstanceByMediaType(AampMediaType type)
 	default:
 		instance = eCURLINSTANCE_VIDEO;
 		break;
-	// what about eMEDIATYPE_AUX_AUDIO?
 	}
 
 	return instance;
@@ -601,7 +598,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	bool retval = true;
 
 	URLBitrateMap uriList;
-	if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+	if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 	{
 		GenerateFragmentURLList(uriList, pMediaStreamContext, isInitializationSegment);
 	}
@@ -622,7 +619,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	for (const auto& url : uriList)
 	{
 		// All the possible URLs for the fragment are logged with trace level
-		AAMPLOG_TRACE("[%" PRIu32 "] : %s,",url.first, url.second.url.c_str());
+		AAMPLOG_TRACE("[%" BITSPERSECOND_FORMAT "] : %s,",url.first, url.second.url.c_str());
 	}
 
 	double scaledPts = static_cast<double>(pMediaStreamContext->fragmentDescriptor.Time) / static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale);
@@ -1765,7 +1762,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								*/
 								if(eMEDIATYPE_VIDEO == pMediaStreamContext->mediaType)
 								{
-									uint32_t bitrate = 0;
+									BitsPerSecond bitrate = 0;
 									std::map<string,string> rawAttributes =  segmentURL->GetRawAttributes();
 									if(rawAttributes.find("bitrate") == rawAttributes.end()){
 										bitrate = pMediaStreamContext->fragmentDescriptor.Bandwidth;
@@ -2885,7 +2882,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 				if (tagName.find("pssh") != std::string::npos)
 				{
 					string psshData = node.at(i)->GetText();
-					data = base64_Decode(psshData.c_str(), &dataLength);
+					data = base64_Decode( psshData.c_str(), &dataLength, psshData.length() );
 					if (0 == dataLength)
 					{
 						AAMPLOG_WARN("base64_Decode of pssh resulted in 0 length");
@@ -4471,11 +4468,13 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 	}
 }
 
+TimeSyncClient::TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false) {}
+
 /**
  * @brief Read UTCTiming _element_
  * @retval Return true if UTCTiming _element_ is available in the manifest
  */
-bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
+bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 {
 	bool hasServerUtcTime = false;
 	if( root )
@@ -4508,16 +4507,40 @@ bool  StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
 
-						mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
-						if(mLocalUtcTime > 0 )
+						bool shouldSyncOnStartup = !mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
+						bool intervalElapsed = false;
+						if( !shouldSyncOnStartup )
 						{
-							double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
-							mDeltaTime =  mLocalUtcTime - currentTime;
-							hasServerUtcTime = true;
+							const double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
+							intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
 						}
-						else
+						if (shouldSyncOnStartup || intervalElapsed)
 						{
-							AAMPLOG_ERR("Failed to read timeServer [%s] RetCode[%d]",ServerUrl.c_str(),http_error);
+							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
+							if(mLocalUtcTime > 0)
+							{
+								mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+								mDeltaTime =  mLocalUtcTime - (double)mTimeSyncClient.lastSync / 1000;
+								mTimeSyncClient.lastOffset = mDeltaTime;
+								mTimeSyncClient.hasSynced = true;
+								hasServerUtcTime = true;
+							}
+							else
+							{
+								if (!mTimeSyncClient.hasSynced)
+								{
+									AAMPLOG_ERR("Failed timeServer sync on startup [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+								}
+								else
+								{
+									AAMPLOG_WARN("Failed to refresh timeServer [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
+								}
+							}
+						}
+						else if (mTimeSyncClient.hasSynced)
+						{
+							mDeltaTime = mTimeSyncClient.lastOffset;
+							hasServerUtcTime = true;
 						}
 						break;
 					}
@@ -5868,7 +5891,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 				std::string index = std::to_string(iAdaptationIndex) + "-" + std::to_string(representationIndex);
 				const dash::mpd::IRepresentation *rep = representation.at(representationIndex);
 				std::string name = rep->GetId();
-				long bandwidth = rep->GetBandwidth();
+				BitsPerSecond bandwidth = rep->GetBandwidth();
 				const std::vector<std::string> repCodecs = rep->GetCodecs();
 				bool isAvailable = !mMPDParseHelper->IsEmptyAdaptation(adaptationSet);
 				// check if Representation includes codec
@@ -5896,7 +5919,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 					}
 					else
 					{
-						AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Audio Track - lang:%s, group:%s, name:%s, codec:%s, bandwidth:%ld, AccessibilityType:%s label:%s type:%s availability:%d",
+						AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Audio Track - lang:%s, group:%s, name:%s, codec:%s, bandwidth:%" BITSPERSECOND_FORMAT ", AccessibilityType:%s label:%s type:%s availability:%d",
 						lang.c_str(), group.c_str(), name.c_str(), codec.c_str(), bandwidth, accessibilityType.c_str(), label.c_str(), type.c_str(), isAvailable);
 						aTracks.push_back(AudioTrackInfo(std::move(index), lang, group, std::move(name), codec, bandwidth, accessibilityType, false, label, type, accessibilityNode, isAvailable));
 					}
@@ -6786,7 +6809,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	AAMPLOG_INFO("Selected Period index %d, id %s", mCurrentPeriodIdx, period->GetId().c_str());
 	for( int i = 0; i < mMaxTracks; i++ )
 	{
-		mMediaStreamContext[i]->enabled = false;
+		if( mMediaStreamContext[i] )
+		{
+			mMediaStreamContext[i]->enabled = false;
+		}
 	}
 
 	mMultiVideoAdaptationPresent = false;
@@ -6827,20 +6853,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 									//if isFrstAvailableTxtTrackSelected is true, we should look for the best option (aamp->mSubLanguage) among all the tracks
 					if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 					{
-						if (eMEDIATYPE_AUX_AUDIO == i && aamp->IsAuxiliaryAudioEnabled())
-						{
-							if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
-							{
-								AAMPLOG_WARN("PrivateStreamAbstractionMPD: auxiliary audio same as primary audio, set forward audio flag");
-								SetAudioFwdToAuxStatus(true);
-								break;
-							}
-							else if (IsMatchingLanguageAndMimeType((AampMediaType)i, aamp->GetAuxiliaryAudioLanguage(), adaptationSet, selRepresentationIndex) == true)
-							{
-								selAdaptationSetIndex = iAdaptationSet;
-							}
-						}
-						else if (eMEDIATYPE_AUDIO == i)
+						if (eMEDIATYPE_AUDIO == i)
 						{
 							selAdaptationSetIndex = audioAdaptationSetIndex;
 							selRepresentationIndex = audioRepresentationIndex;
@@ -6950,18 +6963,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Media[%s] %s",
 				GetMediaTypeName(AampMediaType(i)), pMediaStreamContext->enabled?"enabled":"disabled");
-			//This is for cases where subtitle is not enabled, but auxiliary audio track is enabled
-			if (eMEDIATYPE_AUX_AUDIO == i && pMediaStreamContext->enabled && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
-			{
-				AAMPLOG_WARN("PrivateStreamAbstractionMPD: Auxiliary enabled, but subtitle disabled, swap MediaStreamContext of both");
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->adaptationSetIdx;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->representationIndex;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->mediaType = eMEDIATYPE_AUX_AUDIO;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type = eTRACK_AUX_AUDIO;
-				mMediaStreamContext[eMEDIATYPE_SUBTITLE]->profileChanged = true;
-				mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled = false;
-			}
 
 			if( aamp->IsLocalAAMPTsbFromConfig() && aamp->IsIframeExtractionEnabled())
 			{
@@ -7026,7 +7027,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
-			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth((int)audioTrack.bandwidth);
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
@@ -7038,7 +7039,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
  * @brief Get profile index for bandwidth notification
  * @retval profile index of the current bandwidth
  */
-int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t bandwidth)
+int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth)
 {
 	int profileIndex = 0; // Keep default index as 0
 
@@ -7108,11 +7109,11 @@ static bool IsWebmVideoCodec(const std::string &codec )
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
-	long defaultBitrate = aamp->GetDefaultBitrate();
-	long iframeBitrate = aamp->GetIframeBitrate();
+	BitsPerSecond defaultBitrate = aamp->GetDefaultBitrate();
+	BitsPerSecond iframeBitrate = aamp->GetIframeBitrate();
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;	/*Conveys whether the current playback from FOG or not.*/
-	long minBitrate = aamp->GetMinimumBitrate();
-	long maxBitrate = aamp->GetMaximumBitrate();
+	BitsPerSecond minBitrate = aamp->GetMinimumBitrate();
+	BitsPerSecond maxBitrate = aamp->GetMaximumBitrate();
 	bool periodChanged = false;
 	std::set<uint32_t> chosenAdaptationIdxs;
 
@@ -7164,14 +7165,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					mUpdateStreamInfo = false;
 					vector<Representation *> representations = mMPDParseHelper->GetBitrateInfoFromCustomMpd(pMediaStreamContext->adaptationSet);
-					int representationCount = (int)representations.size();
-					if ((representationCount != mBitrateIndexVector.size()) && mStreamInfo)
+					size_t representationCount = representations.size();
+					if (representationCount != mBitrateIndexVector.size())
 					{
-						SAFE_DELETE_ARRAY(mStreamInfo);
+						mStreamInfo.clear();
 					}
-					if (!mStreamInfo)
+					if (mStreamInfo.empty())
 					{
-						mStreamInfo = new StreamInfo[representationCount];
+						mStreamInfo.resize(representationCount);
 					}
 					GetABRManager().clearProfiles();
 					mBitrateIndexVector.clear();
@@ -7294,16 +7295,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
-					if ( periodChanged && mStreamInfo != nullptr )
+					if ( periodChanged && !mStreamInfo.empty() )
 					{
-						SAFE_DELETE_ARRAY(mStreamInfo);
+						mStreamInfo.clear();
 						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
 						pMediaStreamContext->representationIndex = -1;
 						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
 					}
-					if (!mStreamInfo)
+					if (mStreamInfo.empty())
 					{
-						mStreamInfo = new StreamInfo[representationCount];
+						mStreamInfo.resize(representationCount);
 					}
 					GetABRManager().clearProfiles();
 					mBitrateIndexVector.clear();
@@ -7514,7 +7515,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					if (0 == addedProfiles)
 					{
 						ret = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
-						AAMPLOG_WARN("No profiles found, minBitrate : %ld maxBitrate: %ld", minBitrate, maxBitrate);
+						AAMPLOG_WARN("No profiles found, minBitrate : %" BITSPERSECOND_FORMAT " maxBitrate: %" BITSPERSECOND_FORMAT, minBitrate, maxBitrate);
 						return ret;
 					}
 					if (modifyDefaultBW)
@@ -7532,24 +7533,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						// Set Default init bitrate according to last PersistBandwidth
 						if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 						{
-							long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
+							BitsPerSecond persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 							long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
 							//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 							if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
 							{
-								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
+								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth, TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 							}
 							//If current Network bandwidth is higher than current default bitrate and if config for PersistHighBandwidth is true , then network bandwidth will be applied as default bitrate for tune
 							else if(ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth) && TimeGap < 10000 && persistbandwidth > 0)
 							{
-								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
+								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 							}
 							// Set default init bitrate
 							else
 							{
-								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 							}
@@ -7593,6 +7594,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						else
 						{
 							currentProfileIndex = GetABRManager().getClosestProfileIndexByBandwidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+							// Set profileIdxForBandwidthNotification to match the current profile index after stream switch or period change
+							profileIdxForBandwidthNotification = currentProfileIndex;
 						}
 						AAMPLOG_INFO("Desired profile index updated [%d]",currentProfileIndex);
 						// Adaptation Set Index corresponding to a particular profile
@@ -7656,6 +7659,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if(0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 			{
 				pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
+				// Update current bandwidth to handle changes between periods
+				pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 			}
 			pMediaStreamContext->fragmentDescriptor.RepresentationID.assign(pMediaStreamContext->representation->GetId());
 			pMediaStreamContext->fragmentDescriptor.Time = 0;
@@ -7747,17 +7752,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 				}
 				pMediaStreamContext->fragmentDescriptor.Number = startNumber;
-				bool liveSync = false;
 				if (mMPDParseHelper->GetLiveTimeFragmentSync() && !timelineAvailable)
 				{
 					pMediaStreamContext->fragmentDescriptor.Number += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
 					// For LiveTimeSync cases, availability timeOffset and periodstart is same. So take first fragment time based on fragment number.
-					liveSync = true;
-				}
-				if(aamp->mFirstFragmentTimeOffset < 0 && mLowLatencyMode)
-				{
-					aamp->mFirstFragmentTimeOffset = liveSync? (((double)(pMediaStreamContext->fragmentDescriptor.Number - startNumber)  * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
-					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mProgressReportOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf mPTSOffset:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS, mPTSOffset.inSeconds());
 			}
@@ -7842,7 +7840,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 		validPeriod = currMPDPeriodDetails[0];
 		for(const auto& iter : currMPDPeriodDetails)
 		{
-			if(iter.duration > 0)
+			if(iter.duration > 0 && !iter.isEmptyPeriod)
 			{
 				validPeriod = iter;
 				break;
@@ -8797,7 +8795,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 
 			if (PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(trackIdx))))
 			{
-				AAMPLOG_TRACE("StreamAbstractionAAMP_MPD::%s[%d] Advancing track downloads", __FUNCTION__, __LINE__);
+				AAMPLOG_TRACE("StreamAbstractionAAMP_MPD::Advancing track downloads" );
 			}
 			else if (pMediaStreamContext->eos == true && mIsLiveManifest && trackIdx == eMEDIATYPE_VIDEO && !(ISCONFIGSET(eAAMPConfig_InterruptHandling) && mIsFogTSB))
 			{
@@ -10187,7 +10185,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 	aamp->SyncBegin();
 
-	SAFE_DELETE_ARRAY(mStreamInfo);
+	// mStreamInfo is now a vector and will be automatically destroyed
 	deIndexTileInfo(indexedTileInfo);
 	if(!thumbnailtrack.empty())
 	{
@@ -10430,7 +10428,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}
 		}
-		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 		if(tsbReaderThreadID.joinable())
 		{
 			abortTsbReader = true;
@@ -10478,11 +10475,18 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  * @brief Get output format of stream.
  *
  */
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
+	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
+		format = FORMAT_UNKNOWN;
+	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = FORMAT_ISO_BMFF;
+		primaryOutputFormat = format;
 	}
 	else
 	{
@@ -10490,28 +10494,17 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = FORMAT_ISO_BMFF;
+		audioOutputFormat = format;
 	}
 	else
 	{
 		audioOutputFormat = FORMAT_INVALID;
 	}
-	//if subtitle is disabled, but aux is enabled, then its status is saved in place of eMEDIATYPE_SUBTITLE
-	if ((mMediaStreamContext[eMEDIATYPE_AUX_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUX_AUDIO]->enabled) ||
-		(mMediaStreamContext[eMEDIATYPE_SUBTITLE] && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type == eTRACK_AUX_AUDIO))
-	{
-		auxOutputFormat = FORMAT_ISO_BMFF;
-	}
-	else
-	{
-		auxOutputFormat = FORMAT_INVALID;
-	}
 
-	//TODO - check whether the ugly hack above is in operation
-	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
+	// The check for PTS restamp enabled is a hack.
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
-	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] &&
-		mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
+	// TODO: We need to remove this in future
+	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE])
 	{
 		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
@@ -10530,6 +10523,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			else
 			{
 				AAMPLOG_INFO("mimeType empty");
+				// Mp4Demux is skipped for subtitles
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 			}
 		}
@@ -10657,25 +10651,46 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth( BitsPerSecond mTsbBa
  *
  *   @retval stream information corresponding to index.
  */
-StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
+StreamInfo *StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 {
+	StreamInfo *result = nullptr;
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
 	if (isFogTsb)
 	{
-		return &mStreamInfo[idx];
+		// Direct index access for FOG TSB
+		if (idx >= 0 && idx < static_cast<int>(mStreamInfo.size()))
+		{
+			result = &mStreamInfo[idx];
+		}
+		else
+		{
+			AAMPLOG_ERR("GetStreamInfo: Invalid index %d, available profiles: %zu",
+						idx, mStreamInfo.size());
+		}
 	}
 	else
 	{
-		int userData = 0;
+		// Non-FOG TSB: use ABR manager to get user data index
+		int profileIndex = 0;
 
-		if (GetProfileCount() && !aamp->IsFogTSBSupported()) // avoid calling getUserDataOfProfile() for playlist only URL playback.
+		if (GetProfileCount() && !aamp->IsFogTSBSupported())
 		{
-			userData = GetABRManager().getUserDataOfProfile(idx);
+			profileIndex = GetABRManager().getUserDataOfProfile(idx);
 		}
-		return &mStreamInfo[userData];
-	}
-}
 
+		if (profileIndex >= 0 && profileIndex < static_cast<int>(mStreamInfo.size()))
+		{
+			result = &mStreamInfo[profileIndex];
+		}
+		else
+		{
+			AAMPLOG_ERR("GetStreamInfo: Invalid userData index %d for profile %d, available profiles: %zu",
+						profileIndex, idx, mStreamInfo.size());
+		}
+	}
+
+	return result;
+}
 
 /**
  *   @brief  Get (restamped) PTS of first sample.
@@ -10765,7 +10780,7 @@ int StreamAbstractionAAMP_MPD::GetBWIndex(BitsPerSecond bitrate)
 	int profileCount = GetProfileCount();
 	if (profileCount)
 	{
-		for (int i = 0; i < profileCount; i++)
+		for (int i = 0; i < (int)profileCount; i++)
 		{
 			StreamInfo *streamInfo = &mStreamInfo[i];
 			if (!streamInfo->isIframeTrack && streamInfo->enabled && streamInfo->bandwidthBitsPerSecond > bitrate)
@@ -10806,7 +10821,7 @@ std::vector<BitsPerSecond> StreamAbstractionAAMP_MPD::GetVideoBitrates(void)
 
 /*
 * @brief Gets Max Bitrate available for current playback.
-* @ret long MAX video bitrates
+* @ret max video bitrate
 */
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
@@ -12095,7 +12110,7 @@ void StreamAbstractionAAMP_MPD::printSelectedTrack(const std::string &trackIndex
 			{
 				if (audioTrack.index == trackIndex)
 				{
-					AAMPLOG_INFO("Selected Audio Track: Index:%s language:%s rendition:%s name:%s label:%s type:%s codec:%s bandwidth:%ld Channel:%d Accessibility:%s ",
+					AAMPLOG_INFO("Selected Audio Track: Index:%s language:%s rendition:%s name:%s label:%s type:%s codec:%s bandwidth:%" BITSPERSECOND_FORMAT " Channel:%d Accessibility:%s ",
 					audioTrack.index.c_str(), audioTrack.language.c_str(), audioTrack.rendition.c_str(), audioTrack.name.c_str(),
 					audioTrack.label.c_str(), audioTrack.mType.c_str(), audioTrack.codec.c_str(),
 					audioTrack.bandwidth, audioTrack.channels, audioTrack.accessibilityItem.print().c_str());
@@ -12226,7 +12241,7 @@ void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period,
 		std::string codec;
 		std::string lang;
 		std::string tag ;
-		long bandwidth = 0;
+		BitsPerSecond bandwidth = 0;
 		std::string role;
 		int channel = 0;
 		std::string label;
@@ -12259,7 +12274,7 @@ void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period,
 				role = getRole (childNode);
 				channel = getChannel(childNode);
 				/** Preselection node is used for representing muxed audio tracks **/
-				AAMPLOG_INFO("Preselection node found with tag %s language %s role %s id %s codec %s bandwidth %ld Channel %d ",
+				AAMPLOG_INFO("Preselection node found with tag %s language %s role %s id %s codec %s bandwidth %" BITSPERSECOND_FORMAT " Channel %d ",
 				tag.c_str(), lang.c_str(), role.c_str(), id.c_str(), codec.c_str(), bandwidth, channel);
 				audioAC4Tracks.push_back(AudioTrackInfo(tag, lang, role, id, codec, bandwidth, channel, true, true));
 			}
@@ -12774,23 +12789,16 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 					assert(pAampLLDashServiceData->maxLatency !=0 );
 					assert(pAampLLDashServiceData->maxLatency >= pAampLLDashServiceData->targetLatency);
 
-					double currentLatency;// = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+					long currentLatency;
 					if(aamp->mNewSeekInfo.GetInfo().isPopulated())
 					{
-						double liveTime = (double)aamp->mNewSeekInfo.GetInfo().getUpdateTime()/1000.0 + mDeltaTime;
-						double finalProgressTime = (aamp->mFirstFragmentTimeOffset) + ((double)aamp->mNewSeekInfo.GetInfo().getPosition()/1000.0);
-						currentLatency = (liveTime - finalProgressTime) * 1000;
-						if(aamp->mProgressReportOffset >= 0)
-						{
-							// Correction with progress offset
-							currentLatency += (aamp->mProgressReportOffset * 1000);
-						}
+						currentLatency = aamp->GetCurrentLatency();
 					}
 					else
 					{
-						currentLatency = ((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
+						currentLatency = static_cast<long>((aamp->DurationFromStartOfPlaybackMs()) - aamp->GetPositionMs());
 					}
-					AAMPLOG_TRACE("LiveLatency=%lf currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
+					AAMPLOG_TRACE("LiveLatency=%ld currentPlayRate=%lf dur:%lld pos:%lld",currentLatency, playRate, aamp->DurationFromStartOfPlaybackMs(), aamp->GetPositionMs());
 #if 0
 					long encoderDisplayLatency = 0;
 					encoderDisplayLatency = (long)( GetEncoderDisplayLatency() * 1000)+currentLatency;
@@ -12821,7 +12829,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								bufferLowHit = true;
 								bufferLowHitCount++;
 								/** Buffer Low hit so push the data to telemetry*/
-								aamp->profiler.SetLLDLowBufferParam(currentLatency, bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
+								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
 								bufferLowCount = 0;
 							}
 						}
@@ -12832,10 +12840,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							bufferLowHitCount = 0;
 						}
 
-						AAMPLOG_INFO("currentLatency = %.02lf  AvailableBuffer = %.02lf minbuffer = %.02lf targetBuffer=%.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
+						AAMPLOG_INFO("currentLatency = %ld  AvailableBuffer = %.02lf minbuffer = %.02lf targetBuffer=%.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
 							currentLatency, bufferValue, minbuffer, targetBuffer, currPlaybackRate, bufferLowHit, isEnoughBuffer, latencyCorrected, bufferCorrectionStarted);
 
-						if ((currentLatency > ((double) pAampLLDashServiceData->maxLatency )) && isEnoughBuffer)
+						if ((currentLatency > static_cast<long>(pAampLLDashServiceData->maxLatency)) && isEnoughBuffer)
 						{
 							if (latencyCorrected)
 							{
@@ -12844,10 +12852,10 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							}
 							playRate = pAampLLDashServiceData->maxPlaybackRate;
 						}
-						else if (currentLatency < ((double) pAampLLDashServiceData->minLatency) ||
+						else if (currentLatency < static_cast<long>(pAampLLDashServiceData->minLatency) ||
 						(bufferLowHit && (currPlaybackRate != pAampLLDashServiceData->minPlaybackRate)) )
 						{
-							if ((currentLatency < (double) pAampLLDashServiceData->minLatency) && !latencyCorrected)
+							if ((currentLatency < static_cast<long>(pAampLLDashServiceData->minLatency)) && !latencyCorrected)
 							{
 								/**< Rate change due to latency change; So report event; rare condition*/
 								latencyCorrected = true;
@@ -12860,14 +12868,14 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							}
 							playRate = pAampLLDashServiceData->minPlaybackRate;
 						}
-						else if (((currentLatency <= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate ==  pAampLLDashServiceData->maxPlaybackRate))
+						else if (((currentLatency <= static_cast<long>(pAampLLDashServiceData->targetLatency)) &&  currPlaybackRate ==  pAampLLDashServiceData->maxPlaybackRate))
 						{
 							/** latency corrected; stop max rate playback*/
 							latencyCorrected = true;
 							reportEvent = true;
 							playRate = normalPlaybackRate;
 						}
-						else if (((currentLatency >= (long)pAampLLDashServiceData->targetLatency) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (bufferValue > minbuffer))
+						else if (((currentLatency >= static_cast<long>(pAampLLDashServiceData->targetLatency)) &&  currPlaybackRate == pAampLLDashServiceData->minPlaybackRate) && (bufferValue > minbuffer))
 						{
 							if (bufferCorrectionStarted)
 							{
@@ -13428,7 +13436,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			if(attributeMapRate.find("min") == attributeMapRate.end())
 			{
 				AAMPLOG_TRACE("Latency min attribute not available");
-				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);;
+				stAampLLDashServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
 			}
 			else
 			{
@@ -13655,7 +13663,7 @@ void StreamAbstractionAAMP_MPD::setNextobjectrequestUrl(std::string media,const 
 	aamp->mCMCDCollector->CMCDSetNextObjectRequest(std::move(media) ,(fragmentDescriptor)->Bandwidth, mediaType);
 }
 
-void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType)
+void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType)
 {
 	aamp->mCMCDCollector->CMCDSetNextRangeRequest(std::move(nextrange), bandwidth, mediaType);
 }
@@ -13704,7 +13712,7 @@ int StreamAbstractionAAMP_MPD::GetValidPeriodIdx(int periodIdx)
 				bvalidperiodfound = true;
 				break;
 			}
-			periodIter += direction;;
+			periodIter += direction;
 		}
 		if(!bvalidperiodfound)
 		{
@@ -13771,9 +13779,10 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		periodInfo.periodIndex = iter;
 		periodInfo.periodStartTime = mMPDParseHelper->GetPeriodStartTime(iter,mLastPlaylistDownloadTimeMs);
 		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
+		periodInfo.isEmptyPeriod = IsEmptyPeriod(iter);
 		currMPDPeriodDetails.push_back(periodInfo);
 		mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
-		if(!IsEmptyPeriod(iter))
+		if(!periodInfo.isEmptyPeriod)
 		{
 			durMs += periodInfo.duration;
 		}
@@ -13933,11 +13942,22 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 }
 
 /**
- * @fn GenerateFragmentURLList
- * @param[out] uriList fragment url list, bitrate as key and url as value
- * @param[in] pMediaStreamContext MediaStreamContext object
- * @param[in] isInit true if init fragment
- * @return fragment url list, bitrate as key and url as value
+ * @brief Generates fragment URL list for video representations across all adaptation sets
+ *
+ * This function iterates through all adaptation sets in the current period and generates
+ * fragment URLs for video representations, while filtering out blacklisted adaptation sets.
+ * It handles different segment types (SegmentTemplate, SegmentBase, SegmentList) and
+ * supports both initialization and media fragments.
+ *
+ * @param[out] uriList Map of bandwidth to URI information for generated fragments
+ * @param[in] pMediaStreamContext Media stream context containing fragment descriptor info
+ * @param[in] isInit Flag indicating whether to generate initialization fragments (true)
+ *                   or media fragments (false)
+ *
+ * @return void
+ *
+ * @note The function respects blacklisted adaptation set indexes and only processes
+ *       video content types that match the current trickplay configuration
  */
 void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, MediaStreamContext *pMediaStreamContext, bool isInit)
 {
@@ -13947,158 +13967,176 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 		return;
 	}
 
-	auto adaptationSet = pMediaStreamContext->adaptationSet;
-	if (!adaptationSet || !mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+	// set of blacklisted adaptation indexes for the current period
+	std::set<uint32_t> blAdaptationIdxs;
+	const auto &blacklistedProfiles = aamp->GetBlacklistedProfiles();
+	// Filter the blacklisted profiles in the period
+	for (auto &blProfile : blacklistedProfiles)
 	{
-		return;
+		if (blProfile.mPeriodId == mCurrentPeriod->GetId())
+		{
+			blAdaptationIdxs.insert(blProfile.mAdaptationSetIdx);
+		}
 	}
-
-	auto appendBaseUrls = [&](FragmentDescriptor *desc, IRepresentation *repr)
+	const auto &adaptationSets = mCurrentPeriod->GetAdaptationSets();
+	for (uint32_t idx = 0; idx < adaptationSets.size(); idx++)
 	{
-		desc->ClearMatchingBaseUrl();
-		desc->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
-		desc->AppendMatchingBaseUrl(&mCurrentPeriod->GetBaseURLs());
-		desc->AppendMatchingBaseUrl(&adaptationSet->GetBaseURLs());
-		desc->AppendMatchingBaseUrl(&repr->GetBaseURLs());
-	};
-
-	for (auto &representation : adaptationSet->GetRepresentation())
-	{
-		URIInfo uriInfo;
-		auto fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
-		fragmentDescriptor->Bandwidth = representation->GetBandwidth();
-		fragmentDescriptor->RepresentationID = representation->GetId();
-		fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-		fragmentDescriptor->manifestUrl = (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
-											  ? aamp->GetManifestUrl()
-											  : pMediaStreamContext->fragmentDescriptor.manifestUrl;
-		appendBaseUrls(fragmentDescriptor.get(), representation);
-
-		SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
-		if (segmentTemplates.HasSegmentTemplate())
+		// If index is not present in blacklisted adaptation indexes, proceed further
+		if (blAdaptationIdxs.find(idx) == blAdaptationIdxs.end() && adaptationSets[idx] && mMPDParseHelper->IsContentType(adaptationSets[idx], eMEDIATYPE_VIDEO))
 		{
-			std::string urlTemplate = isInit ? segmentTemplates.Getinitialization() : segmentTemplates.Getmedia();
-			if (urlTemplate.empty())
+			// count iframe/video representations based on trickplay for allocating streamInfo.
+			bool selected = UseIframeTrack() ? IsIframeTrack(adaptationSets[idx]) : !IsIframeTrack(adaptationSets[idx]);
+			if (selected)
 			{
-				AAMPLOG_ERR("media is empty for representation %s", representation->GetId().c_str());
-				continue;
-			}
-
-			fragmentDescriptor->Number = pMediaStreamContext->fragmentDescriptor.Number;
-			fragmentDescriptor->Time = pMediaStreamContext->fragmentDescriptor.Time;
-			fragmentDescriptor->TimeScale = pMediaStreamContext->fragmentDescriptor.TimeScale;
-
-
-			if(mIsFogTSB && isInit)
-			{
-				// Seperate handling for fog TSB init fragments
-				// For fog TSB, we need to fetch init fragments from available bitrates
-				auto reprFromAvailableBitrates = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-				for (auto rep : reprFromAvailableBitrates)
+				const auto &adaptationSet = adaptationSets[idx];
+				auto appendBaseUrls = [&](FragmentDescriptor *desc, IRepresentation *repr)
 				{
-					URIInfo fogUriInfo;
-					fragmentDescriptor->Bandwidth = rep->GetBandwidth();
-					// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
-					ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
-					uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
-				}
-				break; // No need to process further representations for fog TSB init fragments
-			}
-			else
-			{
-				// For non-fog TSB, we can use the representation's bandwidth
-				// to construct the URL for init fragments
-				ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(urlTemplate), aamp->mConfig);
-				uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
-				continue;
-			}
-		}
+					desc->ClearMatchingBaseUrl();
+					desc->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
+					desc->AppendMatchingBaseUrl(&mCurrentPeriod->GetBaseURLs());
+					desc->AppendMatchingBaseUrl(&adaptationSet->GetBaseURLs());
+					desc->AppendMatchingBaseUrl(&repr->GetBaseURLs());
+				};
 
-		if (auto segmentBase = representation->GetSegmentBase())
-		{
-			if (isInit)
-			{
-				const IURLType *urlType = segmentBase->GetInitialization();
-				uriInfo.range = urlType ? urlType->GetRange() : segmentBase->GetIndexRange();
-
-				if (!urlType)
+				for (auto &representation : adaptationSet->GetRepresentation())
 				{
-					uint64_t s1, s2;
-					sscanf(uriInfo.range.c_str(), "%" PRIu64 "-%" PRIu64 "", &s1, &s2);
-					char temp[MAX_RANGE_STRING_CHARS];
-					snprintf(temp, sizeof(temp), "0-%" PRIu64, s1 - 1);
-					uriInfo.range = temp;
-				}
-			}
-			// For segment base, we need to use the index range for the URL
-			// The range is identified by parsing sidx box and it is done at downloader level
-			ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), "", aamp->mConfig);
-			uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
-			continue;
-		}
+					URIInfo uriInfo;
+					auto fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+					fragmentDescriptor->Bandwidth = representation->GetBandwidth();
+					fragmentDescriptor->RepresentationID = representation->GetId();
+					fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+					fragmentDescriptor->manifestUrl = (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
+														  ? aamp->GetManifestUrl()
+														  : pMediaStreamContext->fragmentDescriptor.manifestUrl;
+					appendBaseUrls(fragmentDescriptor.get(), representation);
 
-		if (auto segmentList = representation->GetSegmentList())
-		{
-			if (isInit)
-			{
-				const IURLType *urlType = segmentList->GetInitialization();
-				if (!urlType)
-				{
-					// Check if the segment list has an initialization URL at adaptation set level
-					segmentList = adaptationSet->GetSegmentList();
-					urlType = segmentList ? segmentList->GetInitialization() : nullptr;
-					if (!urlType)
+					SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+					if (segmentTemplates.HasSegmentTemplate())
 					{
-						AAMPLOG_ERR("initialization is null in segmentList");
-						return;
-					}
-				}
-
-				std::string initUrl = urlType->GetSourceURL();
-				if (!initUrl.empty())
-				{
-					ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(initUrl), aamp->mConfig);
-					uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
-				}
-				else
-				{
-					// Segment list uses range, so parse init from first segment URL
-					const auto &segmentURLs = segmentList->GetSegmentURLs();
-					if (!segmentURLs.empty() && segmentURLs[0])
-					{
-						const char *rangeStr = segmentURLs[0]->GetMediaRange().c_str();
-						int start, end;
-						if (sscanf(rangeStr, "%d-%d", &start, &end) == 2 && start > 1)
+						std::string urlTemplate = isInit ? segmentTemplates.Getinitialization() : segmentTemplates.Getmedia();
+						if (urlTemplate.empty())
 						{
-							char temp[MAX_RANGE_STRING_CHARS];
-							snprintf(temp, sizeof(temp), "0-%d", start - 1);
-							uriInfo.range = temp;
-							ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), "", aamp->mConfig);
-							uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+							AAMPLOG_ERR("media is empty for representation %s", representation->GetId().c_str());
+							continue;
+						}
+
+						fragmentDescriptor->Number = pMediaStreamContext->fragmentDescriptor.Number;
+						fragmentDescriptor->Time = pMediaStreamContext->fragmentDescriptor.Time;
+						fragmentDescriptor->TimeScale = pMediaStreamContext->fragmentDescriptor.TimeScale;
+
+						if (mIsFogTSB && isInit)
+						{
+							// Separate handling for fog TSB init fragments
+							// For fog TSB, we need to fetch init fragments from available bitrates
+							auto reprFromAvailableBitrates = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
+							for (auto rep : reprFromAvailableBitrates)
+							{
+								URIInfo fogUriInfo;
+								fragmentDescriptor->Bandwidth = rep->GetBandwidth();
+								// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
+								ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
+								uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+							}
+							break; // No need to process further representations for fog TSB init fragments
 						}
 						else
 						{
-							AAMPLOG_ERR("Cannot determine init range from segmentList");
+							// For non-fog TSB, we can use the representation's bandwidth
+							// to construct the URL for init fragments
+							ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(urlTemplate), aamp->mConfig);
+							uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+							continue;
 						}
 					}
-				}
-			}
-			else
-			{
-				const auto &segmentURLs = segmentList->GetSegmentURLs();
-				if (pMediaStreamContext->fragmentIndex < segmentURLs.size() && segmentURLs[pMediaStreamContext->fragmentIndex])
-				{
-					auto *segmentURL = segmentURLs[pMediaStreamContext->fragmentIndex];
-					auto rawAttrs = segmentList->GetRawAttributes();
-					if (rawAttrs.find("customlist") == rawAttrs.end())
+
+					if (auto segmentBase = representation->GetSegmentBase())
 					{
-						ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), segmentURL->GetMediaURI(), aamp->mConfig);
-						uriInfo.range = segmentURL->GetMediaRange();
+						if (isInit)
+						{
+							const IURLType *urlType = segmentBase->GetInitialization();
+							uriInfo.range = urlType ? urlType->GetRange() : segmentBase->GetIndexRange();
+
+							if (!urlType)
+							{
+								uint64_t s1, s2;
+								sscanf(uriInfo.range.c_str(), "%" PRIu64 "-%" PRIu64 "", &s1, &s2);
+								char temp[MAX_RANGE_STRING_CHARS];
+								snprintf(temp, sizeof(temp), "0-%" PRIu64, s1 - 1);
+								uriInfo.range = temp;
+							}
+						}
+						// For segment base, we need to use the index range for the URL
+						// The range is identified by parsing sidx box and it is done at downloader level
+						ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), "", aamp->mConfig);
 						uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+						continue;
 					}
-					else
+
+					if (auto segmentList = representation->GetSegmentList())
 					{
-						AAMPLOG_ERR("segmentList is unsupported (customlist)");
+						if (isInit)
+						{
+							const IURLType *urlType = segmentList->GetInitialization();
+							if (!urlType)
+							{
+								// Check if the segment list has an initialization URL at adaptation set level
+								segmentList = adaptationSet->GetSegmentList();
+								urlType = segmentList ? segmentList->GetInitialization() : nullptr;
+								if (!urlType)
+								{
+									AAMPLOG_ERR("initialization is null in segmentList");
+									return;
+								}
+							}
+
+							std::string initUrl = urlType->GetSourceURL();
+							if (!initUrl.empty())
+							{
+								ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(initUrl), aamp->mConfig);
+								uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+							}
+							else
+							{
+								// Segment list uses range, so parse init from first segment URL
+								const auto &segmentURLs = segmentList->GetSegmentURLs();
+								if (!segmentURLs.empty() && segmentURLs[0])
+								{
+									const char *rangeStr = segmentURLs[0]->GetMediaRange().c_str();
+									int start, end;
+									if (sscanf(rangeStr, "%d-%d", &start, &end) == 2 && start > 1)
+									{
+										char temp[MAX_RANGE_STRING_CHARS];
+										snprintf(temp, sizeof(temp), "0-%d", start - 1);
+										uriInfo.range = temp;
+										ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), "", aamp->mConfig);
+										uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+									}
+									else
+									{
+										AAMPLOG_ERR("Cannot determine init range from segmentList");
+									}
+								}
+							}
+						}
+						else
+						{
+							const auto &segmentURLs = segmentList->GetSegmentURLs();
+							if (pMediaStreamContext->fragmentIndex < segmentURLs.size() && segmentURLs[pMediaStreamContext->fragmentIndex])
+							{
+								auto *segmentURL = segmentURLs[pMediaStreamContext->fragmentIndex];
+								auto rawAttrs = segmentList->GetRawAttributes();
+								if (rawAttrs.find("customlist") == rawAttrs.end())
+								{
+									ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), segmentURL->GetMediaURI(), aamp->mConfig);
+									uriInfo.range = segmentURL->GetMediaRange();
+									uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+								}
+								else
+								{
+									AAMPLOG_ERR("segmentList is unsupported (customlist)");
+								}
+							}
+						}
 					}
 				}
 			}

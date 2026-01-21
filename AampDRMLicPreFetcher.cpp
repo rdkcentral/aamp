@@ -45,6 +45,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mSendErrorOnFailure(true),
 		mPrivAAMP(aamp),
 		mFetchInstance(nullptr),
+		mLicenseAcquisitionMutex(),
 		mVssPreFetchThread(),
 		mVssFetchQueue(),
 		mQVssMutex(),
@@ -213,10 +214,28 @@ bool AampLicensePreFetcher::Term()
 			mVssFetchQueue.pop_front();
 		}
 	}
-	
+
 	mTrackStatus.fill(false);
-	mFetchInstance = nullptr;
+	SetLicenseFetcher(nullptr);
 	return ret;
+}
+
+/**
+ * @brief Set license fetcher instance in a thread-safe manner.
+ *
+ * Sets the license fetcher instance used by the prefetcher.
+ * This method is thread-safe and uses a mutex (mLicenseAcquisitionMutex)
+ * to protect mFetchInstance from concurrent access. This helps to Serialize
+ * license acquisition with start/stop and failure flows.
+ *
+ * @param fetcherInstance Pointer to the AampLicenseFetcher instance to set.
+ * @note Thread-safe: uses mutual exclusion to protect mFetchInstance.
+ */
+void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+	std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+	mFetchInstance = fetcherInstance;
+	AAMPLOG_INFO("License fetcher set to %p", static_cast<void*>(mFetchInstance));
 }
 
 /**
@@ -254,6 +273,10 @@ void AampLicensePreFetcher::PreFetchThread()
 						AAMPLOG_INFO("Notifying DRM failure for type:%d adaptationSetIdx:%u", obj->mType, obj->mAdaptationIdx);
 						bool isSecClientError = isSecFeatureEnabled();
 						DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+						/*
+						 * mLicenseAcquisitionMutex shouldn't be locked before calling
+						 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
+						 */
 						NotifyDrmFailure(obj, std::move(e));
 					}
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
@@ -379,6 +402,12 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
 	bool skipErrorEvent = false;
+#ifdef USE_PREINIT_DECODING
+	if(mPrivAAMP->mIsFakeTune)
+	{
+		skipErrorEvent = true;
+	}
+#endif
 	// Skip these additional checks and send error event if mSendErrorOnFailure is set
 	// For a non-intra asset playback with KR, if a future license fails, we should send the error
 	// and skip below check. Maybe introduce a better data structure for mTrackStatus based on periodId
@@ -423,31 +452,34 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 		}
 	}
 
-	if (skipErrorEvent && mFetchInstance)
 	{
-		mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
-	}
-	else
-	{
-		if (!selfAbort)
+		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+		if (skipErrorEvent && mFetchInstance)
 		{
-			//Set the isRetryEnabled flag to true if the failure is due to
-			//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
-			//error is caused by a network failure, so the tune may succeed
-			//on a retry attempt.
-			//For other DRM failures, the flag should be set to false.
-			isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
+			mFetchInstance->UpdateFailedDRMStatus(fetchObj.get());
+		}
+		else
+		{
+			if (!selfAbort)
+			{
+				//Set the isRetryEnabled flag to true if the failure is due to
+				//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
+				//error is caused by a network failure, so the tune may succeed
+				//on a retry attempt.
+				//For other DRM failures, the flag should be set to false.
+				isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
 				      || ((failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
 				      && (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
 				      && (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 				      && (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
 				      && (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR));
-			AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
-			mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
-			AAMPLOG_ERR("Failed DRM Session sending error event");
-			mPrivAAMP->SendDrmErrorEvent(event, std::move(isRetryEnabled));
-			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
-			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+				AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
+				mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
+				AAMPLOG_ERR("Failed DRM Session sending error event");
+				mPrivAAMP->SendDrmErrorEvent(event, std::move(isRetryEnabled));
+				mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
+				mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
+			}
 		}
 	}
 }
@@ -473,6 +505,10 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if (fetchObj->mHelper == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation,  no helper");
+		/*
+		 * Do not hold mLicenseAcquisitionMutex when calling NotifyDrmFailure,
+		 * as NotifyDrmFailure acquires mLicenseAcquisitionMutex internally.
+		 */
 		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 		return ret;
 	}
@@ -485,14 +521,42 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	}
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
+	DrmSession *drmSession = nullptr;
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+	{
+		/*
+		 * Serialize license acquisition with start/stop and failure flows.
+		 * mLicenseAcquisitionMutex is shared between the start/stop flows and
+		 * NotifyDrmFailure(). NotifyDrmFailure() may be invoked from the same
+		 * CreateDRMSession flow (directly or indirectly), so calling it while
+		 * already holding this mutex would risk deadlock if it also attempted
+		 * to acquire mLicenseAcquisitionMutex.
+		 *
+		 * By reusing this mutex around the licenseManager->createDrmSession()
+		 * call, we ensure that, in fast channel-change scenarios, the stop
+		 * path can wait until the PrefetchThread has exited the license
+		 * acquisition flow before moving to a new tune. This helps to avoid
+		 * applying a previous tune's license to the CDM after a new tune
+		 * has been initiated.
+		 *
+		 * Callers of NotifyDrmFailure() and any code that may call it
+		 * from within the CreateDRMSession flow must not already hold
+		 * mLicenseAcquisitionMutex. That contract is required to avoid recursive
+		 * locking and potential deadlocks.
+		 */
+		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+	}
 
 
 	//set failures here 
-	if(NULL == drmSession)
+	if(drmSession == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
+		/*
+		 * mLicenseAcquisitionMutex shouldn't be locked before calling
+		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
+		 */
 		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 	}
 	else

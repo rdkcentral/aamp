@@ -53,12 +53,56 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	return aamp->GetTimedMetadata();
 }
 
+#ifdef USE_PREINIT_DECODING
+
+constexpr auto FAKE_TUNE_WAIT_DURATION = std::chrono::seconds(7);
+
+void doFakeTune()
+{
+	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
+	{
+			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
+			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			std::string jsonStr = R"({
+		    		"preferredDrm": 1,
+		    		"licenseServerUrl": "https://dummy.com"
+			})";
+			fakeTuneInstance->InitAAMPConfig(jsonStr.c_str());
+			fakeTuneInstance->Tune(
+			FAKE_TUNE_URL,
+			true,						  // autoPlay
+			"VOD",						  // contentType
+			true,						  // bFirstAttempt
+			false,						  // bFinalAttempt
+			"trace-id-123",				  // traceUUID
+			false,						  // audioDecoderStreamSync
+			nullptr,					  // refreshManifestUrl
+			0,							  // mpdStichingMode
+			"session-id"				  // sid
+			);
+			AAMPLOG_WARN("After Fake tune call ...");
+			std::thread([fakeTuneInstance]() {
+					AAMPLOG_WARN("Sleeping before calling stop");
+					std::this_thread::sleep_for(FAKE_TUNE_WAIT_DURATION); // or your desired duration
+					fakeTuneInstance->Stop();
+					AAMPLOG_WARN("Fake tune instance stopped..");
+					}).detach();
+	}
+}
+
+#else
+void doFakeTune()
+{
+	// No-op when preinit decoding is not enabled
+}
+#endif
+
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -90,6 +134,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
+		pExternalsInterface->SetPowerEvent(powerEvt);
 		pExternalsInterface->Initialize();	
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
@@ -99,6 +145,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
+	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
@@ -261,7 +309,15 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		{
 			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
-
+		// Enhanced DRM cleanup for Deep Sleep scenarios
+		// Must be done AFTER StopInternal() to ensure GStreamer pipeline is torn down
+		// and all encrypted buffers are flushed before destroying DRM sessions
+		if (forceCleanup && aamp->mDRMLicenseManager)
+		{
+			AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
+			aamp->mDRMLicenseManager->clearDrmSession(true);
+			aamp->mDRMLicenseManager->clearFailedKeyIds();
+		}
 		//Release lock
 		mScheduler.ResumeScheduler();
 	}
@@ -657,7 +713,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
-						sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mAuxFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus(), aamp->mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+						sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
 						aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
 						aamp->mpStreamAbstractionAAMP->StartInjection();
 						sink->Stream();
@@ -1971,7 +2027,7 @@ AAMPPlayerState PlayerInstanceAAMP::GetState(void)
 /**
  *  @brief To get the bitrate of current video profile.
  */
-long PlayerInstanceAAMP::GetVideoBitrate(void)
+BitsPerSecond PlayerInstanceAAMP::GetVideoBitrate(void)
 {
 	BitsPerSecond bitrate = 0;
 	if(aamp)
@@ -3107,17 +3163,7 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceClean
 	
 	// Negate sendStateChangeEvent since no need to send state change event on destructor call
 	aamp->Stop(!sendStateChangeEvent);
-	
-	// Enhanced DRM cleanup for Deep Sleep scenarios
-	// Must be done AFTER Stop() to ensure GStreamer pipeline is torn down
-	// and all encrypted buffers are flushed before destroying DRM sessions
-	if (forceCleanup && aamp->mDRMLicenseManager)
-	{
-		AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
-		aamp->mDRMLicenseManager->clearDrmSession(true);
-		aamp->mDRMLicenseManager->clearFailedKeyIds();
-	}
-	
+
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
@@ -3222,67 +3268,6 @@ std::string PlayerInstanceAAMP::GetAAMPConfig()
 	std::string jsonStr;
 	mConfig.GetAampConfigJSONStr(jsonStr);
 	return jsonStr;
-}
-
-/**
- *  @brief Set auxiliary language
- */
-void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language)
-{
-	if(mAsyncTuneEnabled)
-	{
-
-		mScheduler.ScheduleTask(AsyncTaskObj([language](void *data)
-					{
-						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
-						instance->SetAuxiliaryLanguageInternal(language);
-					}, (void *)this , __FUNCTION__));
-	}
-	else
-	{
-		SetAuxiliaryLanguageInternal(language);
-	}
-
-}
-
-/**
- *  @brief Set auxiliary track language.
- */
-void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &language)
-{ // note: this feature available only on bluetooth enabled devices
-	if( aamp )
-	{
-		UsingPlayerId playerId(aamp->mPlayerId);
-		std::string currentLanguage = aamp->GetAuxiliaryAudioLanguage();
-		AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s)->(%s)", currentLanguage.c_str(), language.c_str());
-		if(language != currentLanguage)
-		{
-
-			AAMPPlayerState state = aamp->GetState();
-			// There is no active playback session, save the language for later
-			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
-			{
-				aamp->SetAuxiliaryLanguage(language);
-			}
-			// check if language is supported in manifest languagelist
-			else if((aamp->IsAudioLanguageSupported(language.c_str())) || (!aamp->mMaxLanguageCount))
-			{
-				aamp->SetAuxiliaryLanguage(language);
-				if (aamp->mpStreamAbstractionAAMP)
-				{
-					AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s) retuning", language.c_str());
-
-					aamp->discardEnteringLiveEvt = true;
-
-					aamp->seek_pos_seconds = aamp->GetPositionSeconds();
-					aamp->TeardownStream(false);
-					aamp->TuneHelper(eTUNETYPE_SEEK);
-
-					aamp->discardEnteringLiveEvt = false;
-				}
-			}
-		}
-	}
 }
 
 /**

@@ -65,7 +65,6 @@ struct TrackInjectionParams
 	bool videoInjection;
 	bool audioInjection;
 	bool subtitleInjection;
-	bool auxAudioInjection;
 	bool videoTrackEnabled;
 
 	// For test name generation
@@ -75,7 +74,6 @@ struct TrackInjectionParams
 		ss << "V" << videoInjection
 		   << "_A" << audioInjection
 		   << "_S" << subtitleInjection
-		   << "_X" << auxAudioInjection
 		   << "_VE" << videoTrackEnabled;
 		return ss.str();
 	}
@@ -131,25 +129,22 @@ TEST_P(TestPrivateInstanceAAMPTracks, UpdateLocalAAMPTsbInjection)
 	const bool hasActiveVideoInjection = params.videoInjection && params.videoTrackEnabled;
 
 	const bool expectedInjection = hasActiveVideoInjection || params.audioInjection ||
-								   params.subtitleInjection || params.auxAudioInjection;
+								   params.subtitleInjection;
 
 	// Calculate expected call counts based on short-circuit evaluation
 	const int expectVideoCheck = (hasActiveVideoInjection) ? 1 : 0;
 	const int expectAudioCheck = (hasActiveVideoInjection) ? 0 : 1;
 	const int expectSubtitleCheck = (hasActiveVideoInjection || params.audioInjection) ? 0 : 1;
-	const int expectAuxCheck = (hasActiveVideoInjection || params.audioInjection || params.subtitleInjection) ? 0 : 1;
 
 	// Create tracks
 	auto videoTrack = CreateMockTrack(eTRACK_VIDEO, "VIDEO");
 	auto audioTrack = CreateMockTrack(eTRACK_AUDIO, "AUDIO");
 	auto subtitleTrack = params.subtitleInjection ? CreateMockTrack(eTRACK_SUBTITLE, "SUBTITLE") : nullptr;
-	auto auxTrack = CreateMockTrack(eTRACK_AUX_AUDIO, "AUX_AUDIO");
 
 	// Setup expectations
 	SetupTrackExpectations(eTRACK_VIDEO, videoTrack, params.videoInjection, params.videoTrackEnabled, 1, expectVideoCheck);
 	SetupTrackExpectations(eTRACK_AUDIO, audioTrack, params.audioInjection, true, expectAudioCheck, expectAudioCheck);
 	SetupTrackExpectations(eTRACK_SUBTITLE, subtitleTrack, params.subtitleInjection, true, expectSubtitleCheck, expectSubtitleCheck);
-	SetupTrackExpectations(eTRACK_AUX_AUDIO, auxTrack, params.auxAudioInjection, true, expectAuxCheck, expectAuxCheck);
 
 	// Execute test
 	p_aamp->UpdateLocalAAMPTsbInjection();
@@ -161,20 +156,18 @@ TEST_P(TestPrivateInstanceAAMPTracks, UpdateLocalAAMPTsbInjection)
 // Generate test cases for all track combinations
 std::vector<TrackInjectionParams> GenerateTestCases() {
 	std::vector<TrackInjectionParams> cases;
-	for (int i = 0; i < 16; i++) {
+	for (int i = 0; i < 8; i++) {
 		cases.push_back({
-			static_cast<bool>(i & 0x8),
 			static_cast<bool>(i & 0x4),
 			static_cast<bool>(i & 0x2),
 			static_cast<bool>(i & 0x1),
-			static_cast<bool>(i & 0x8) // Video track enabled if video injection is true
+			static_cast<bool>(i & 0x4) // Video track enabled if video injection is true
 		});
 	}
 
 	//test track is not enabled, but the injection is enabled
 	cases.push_back({
 		true,
-		false,
 		false,
 		false,
 		false // Video track not enabled

@@ -313,8 +313,8 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,"		// video init-segment (start,total,err)
 		"%d,%d,%d,"		// audio init-segment (start,total,err)
 
-		"%d,%d,%d,%ld,"	// video fragment (start,total,err, bitrate)
-		"%d,%d,%d,%ld,"	// audio fragment (start,total,err, bitrate)
+		"%d,%d,%d,%" BITSPERSECOND_FORMAT ","	// video fragment (start,total,err, bitrate)
+		"%d,%d,%d,%" BITSPERSECOND_FORMAT ","	// audio fragment (start,total,err, bitrate)
 
 		"%d,%d,%d,"		// licenseAcqStart, licenseAcqTotal, drmFailErrorCode
 		"%d,%d,%d,"		// LAPreProcDuration, LANetworkDuration, LAPostProcDuration

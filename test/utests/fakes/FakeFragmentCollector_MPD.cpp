@@ -20,6 +20,8 @@
 #include "fragmentcollector_mpd.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 
+TimeSyncClient::TimeSyncClient() = default;
+
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
@@ -66,7 +68,7 @@ void StreamAbstractionAAMP_MPD::Start() {  }
 
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 

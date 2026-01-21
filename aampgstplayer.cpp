@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <glib.h>
 #include "priv_aamp.h"
 #include <atomic>
 #include <algorithm>
@@ -102,7 +103,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
-	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
 /*
@@ -678,8 +678,12 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
+ *  @param mediaType Type of media.
+ *  @param sample Media sample to be sent. Moved semantics is used to avoid unnecessary copy.
+ *  @param initFragment Indicates if the fragment is an initialization fragment.
+ *  @param discontinuity Indicates if there is a discontinuity in the stream.
  */
-bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment, bool discontinuity)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -693,6 +697,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				aamp->NotifyFirstFrameReceived(playerInstance->GetCCDecoderHandle());
 			}
 		}
+		// sample will be destroyed when it goes out of scope (RAII)
 		return false;
 	}
 
@@ -700,6 +705,10 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	bool notifyFirstBufferProcessed = false;
 	bool resetTrickUTC = false;
 	bool firstBufferPushed = false;
+	// To be used in buffer control notification
+	double fpts = sample.mPts;
+	double fdts = sample.mDts;
+	double fDuration = sample.mDuration;
 
 	// This block checks if the data contain a valid ID3 header and if it is the case
 	// calls the callback function.
@@ -707,10 +716,10 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		namespace aih = aamp::id3_metadata::helpers;
 
 		if (aih::IsValidMediaType(mediaType) &&
-			aih::IsValidHeader(static_cast<const uint8_t*>(ptr), len))
+			aih::IsValidHeader(sample.data(), sample.size()))
 		{
-			m_ID3MetadataHandler(mediaType, static_cast<const uint8_t*>(ptr), len,
-								 {fpts, fdts, fDuration}, nullptr);
+			m_ID3MetadataHandler(mediaType, sample.data(), sample.size(),
+								 {sample.mPts, sample.mDts, sample.mDuration}, nullptr);
 		}
 	}
 
@@ -723,7 +732,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 	{
 		sendNewSegmentEvent = true;
 	}
-	bool bPushBuffer = playerInstance->SendHelper(mediaType, ptr, len, fpts, fdts, fDuration, fragmentPTSoffset, copy, initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
+	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
 	if(sendNewSegmentEvent)
 	{
 		aamp->mbNewSegmentEvtSent[mediaType] = true;
@@ -748,7 +757,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				aamp->SetDiscontinuityParam();
 			}
 		}
-		if(resetTrickUTC)                               //PlatformNeeds TrickStartUTC Time
+		if(resetTrickUTC)				//PlatformNeeds TrickStartUTC Time
 		{
 			aamp->ResetTrickStartUTCTime();
 		}
@@ -761,17 +770,19 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 /**
  *  @brief inject HLS/ts elementary stream buffer to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
+bool AAMPGstPlayer::SendCopy(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration)
 {
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, true /*copy*/, 0.0 );
+	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, 0.0);
+	return SendHelper(mediaType, std::move(sample));
 }
 
 /**
  *  @brief inject mp4 segment to gstreamer pipeline
  */
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	return SendHelper( mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/, fragmentPTSoffset,  initFragment, discontinuity );
+	MediaSample sample(std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset);
+	return SendHelper(mediaType, std::move(sample), initFragment, discontinuity);
 }
 
 /**
@@ -785,14 +796,14 @@ void AAMPGstPlayer::Stream()
 /**
  * @brief Configure pipeline based on A/V formats
  */
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
 
-	AAMPLOG_MIL("videoFormat %d audioFormat %d auxFormat %d subFormat %d",format, audioFormat, auxFormat, subFormat);
+	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d",format, audioFormat, subFormat);
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
@@ -803,8 +814,8 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
-	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
-									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
+	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
+									  bESChangeStatus,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();
@@ -1311,4 +1322,30 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 		monitorAvTimerId = 0;
 		AAMPLOG_MIL("MonitorAvTimer stopped");
 	}
+}
+
+/**
+ * @brief Set stream capabilities based on codec info
+ *
+ * @param[in] type - Media type
+ * @param[in] codecInfo - Codec information
+ */
+void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
+{
+	playerInstance->SetStreamCaps(static_cast<GstMediaType>(type), std::move(codecInfo));
+}
+
+/**
+ * @brief Inject AampMediaSample to gstreamer pipeline
+ * 
+ * @param[in] mediaType - Media type
+ * @param[in,out] sample - Media sample to inject
+ * @return true if sample is successfully injected, false otherwise
+ */
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+{
+	MediaSample gstSample(sample.mData.ExtractVector(), sample.mPts, sample.mDts, sample.mDuration, 0.0);
+	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
+
+	return SendHelper(mediaType, std::move(gstSample));
 }

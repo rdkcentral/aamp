@@ -208,12 +208,15 @@ void aamp_ResolveURL(std::string& dst, std::string base, const char *uri , bool 
 /**
  * @brief distinguish between absolute and relative urls
  *
- * @return true iff url starts with http:// or https://
- */
+ * @return true iff url starts with http:// or https:// or file://
+*/
 bool aamp_IsAbsoluteURL( const std::string &url )
 {
-	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
-	// note: above slightly faster than equivalent url.rfind("http://",0)==0 || url.rfind("https://",0)==0;
+	return
+	url.compare(0, 7, "http://")==0 ||
+	url.compare(0, 8, "https://")==0 ||
+	url.compare(0, 7, "file://") == 0;
+	// note: above slightly faster than equivalent url.rfind("http://",0)==0 || url.rfind("https://",0)==0 || url.rfind("file://",0)==0
 }
 
 /**
@@ -326,9 +329,6 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 	char *temp = (char *)malloc(srcLen+3);
 	if( temp )
 	{
-		temp[srcLen+2] = '\0';
-		temp[srcLen+1] = '=';
-		temp[srcLen+0] = '=';
 		for( int iter = 0; iter < srcLen; iter++ )
 		{
 			char c = src[iter];
@@ -345,7 +345,10 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 			}
 			temp[iter] = c;
 		}
-		rc = base64_Decode(temp, len );
+		temp[srcLen++] = '=';
+		temp[srcLen++] = '=';
+		temp[srcLen] = '\0';
+		rc = base64_Decode(temp, len, srcLen );
 		free(temp);
 	}
 	else
@@ -607,18 +610,18 @@ enum HarvestConfigType
 	eHARVEST_ENABLE_VIDEO = 0x00000001,              /**< Enable Harvest Video fragments - set 1st bit*/
 	eHARVEST_ENABLE_AUDIO = 0x00000002,              /**< Enable Harvest audio - set 2nd bit*/
 	eHARVEST_ENABLE_SUBTITLE = 0x00000004,           /**< Enable Harvest subtitle - set 3rd bit */
-	eHARVEST_ENABLE_AUX_AUDIO = 0x00000008,          /**< Enable Harvest auxiliary audio - set 4th bit*/
+	eHARVEST_ENABLE_RESERVED = 0x00000008,           /**< Reserved for future use */
 	eHARVEST_ENABLE_MANIFEST = 0x00000010,           /**< Enable Harvest manifest - set 5th bit */
 	eHARVEST_ENABLE_LICENCE = 0x00000020,            /**< Enable Harvest license - set 6th bit  */
 	eHARVEST_ENABLE_IFRAME = 0x00000040,             /**< Enable Harvest iframe - set 7th bit  */
 	eHARVEST_ENABLE_INIT_VIDEO = 0x00000080,         /**< Enable Harvest video init fragment - set 8th bit*/
 	eHARVEST_ENABLE_INIT_AUDIO = 0x00000100,         /**< Enable Harvest audio init fragment - set 9th bit*/
 	eHARVEST_ENABLE_INIT_SUBTITLE = 0x00000200,      /**< Enable Harvest subtitle init fragment - set 10th bit*/
-	eHARVEST_ENABLE_INIT_AUX_AUDIO = 0x00000400,     /**< Enable Harvest auxiliary audio init fragment - set 11th bit*/
+	eHARVEST_ENABLE_INIT_RESERVED = 0x00000400,      /**< Reserved for future use */
 	eHARVEST_ENABLE_PLAYLIST_VIDEO = 0x00000800,     /**< Enable Harvest video playlist - set 12th bit*/
 	eHARVEST_ENABLE_PLAYLIST_AUDIO = 0x00001000,     /**< Enable Harvest audio playlist - set 13th bit*/
 	eHARVEST_ENABLE_PLAYLIST_SUBTITLE = 0x00002000,  /**< Enable Harvest subtitle playlist - set 14th bit*/
-	eHARVEST_ENABLE_PLAYLIST_AUX_AUDIO = 0x00004000, /**< Enable Harvest auxiliary audio playlist - set 15th bit*/
+	eHARVEST_ENABLE_PLAYLIST_RESERVED = 0x00004000,  /**< Reserved for future use */
 	eHARVEST_ENABLE_PLAYLIST_IFRAME = 0x00008000,    /**< Enable Harvest Iframe playlist - set 16th bit*/
 	eHARVEST_ENABLE_INIT_IFRAME = 0x00010000,        /**< Enable Harvest IFRAME init fragment - set 17th bit*/
 	eHARVEST_ENABLE_DSM_CC = 0x00020000,             /**< Enable Harvest digital storage media command and control (DSM-CC)- set 18th bit */
@@ -1136,18 +1139,18 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 		"video",//eMEDIATYPE_VIDEO
 		"audio",//eMEDIATYPE_AUDIO
 		"text",//eMEDIATYPE_SUBTITLE
-		"aux_audio",//eMEDIATYPE_AUX_AUDIO
+		"reserved",//eMEDIATYPE_RESERVED
 		"manifest",//eMEDIATYPE_MANIFEST
 		"licence",//eMEDIATYPE_LICENCE
 		"iframe",//eMEDIATYPE_IFRAME
 		"init_video",//eMEDIATYPE_INIT_VIDEO
 		"init_audio",//eMEDIATYPE_INIT_AUDIO
 		"init_text",//eMEDIATYPE_INIT_SUBTITLE
-		"init_aux_audio",//eMEDIATYPE_INIT_AUX_AUDIO
+		"init_reserved",//eMEDIATYPE_INIT_RESERVED
 		"playlist_video",//eMEDIATYPE_PLAYLIST_VIDEO
 		"playlist_audio",//eMEDIATYPE_PLAYLIST_AUDIO
 		"playlist_text",//eMEDIATYPE_PLAYLIST_SUBTITLE
-		"playlist_aux_audio",//eMEDIATYPE_PLAYLIST_AUX_AUDIO
+		"playlist_reserved",//eMEDIATYPE_PLAYLIST_RESERVED
 		"playlist_iframe",//eMEDIATYPE_PLAYLIST_IFRAME
 		"init_iframe",//eMEDIATYPE_INIT_IFRAME
 		"dsm_cc",//eMEDIATYPE_DSM_CC
@@ -1420,6 +1423,38 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
+
+/**
+ * @brief Convert a hexadecimal ASCII character to its numeric value.
+ *
+ * Converts the given character to its corresponding integer value if it
+ * represents a hexadecimal digit ('0'-'9', 'A'-'F', or 'a'-'f').
+ *
+ * @param[in] c Input ASCII character to convert.
+ *
+ * @return Numeric value in the range 0-15 on success, or -1 if the character
+ *         is not a valid hexadecimal digit.
+ */
+int hexCharToInt(char c)
+{
+	if (c >= '0' && c <= '9')
+	{
+		return c - '0';
+	}
+	if (c >= 'a' && c <= 'f')
+	{
+		return 10 + (c - 'a');
+	}
+	if (c >= 'A' && c <= 'F')
+	{
+		return 10 + (c - 'A');
+	}
+	return -1;
+}
+
+/*
+ * EOF
+ */
 
 bool aamp_isTuneScheme( const char *cmdBuf )
 {

@@ -61,7 +61,9 @@ std::string aamp_GetLocalPath( const char *filename )
 #endif
 
 #ifdef USE_OPENGL
-// extract each frame and render using opengl shader
+// extract each raw yuv frame and render using opengl shader
+// used only in simulator to avoid device compilation issues
+// this avoids OSX spawning multiple windows, and can be used with optional OCR support
 
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -532,4 +534,3 @@ void destroyAppWindow( void )
 }
 
 #endif // !USE_OPENGL
-

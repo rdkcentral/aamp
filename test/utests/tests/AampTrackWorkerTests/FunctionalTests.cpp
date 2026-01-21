@@ -41,16 +41,9 @@ protected:
 	class TestableAampTrackWorker : public aamp::AampTrackWorker
 	{
 	public:
-		using AampTrackWorker::mQueueMutex; // Expose protected member for testing
-
 		TestableAampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
 			: aamp::AampTrackWorker(_aamp, _mediaType)
 		{
-		}
-
-		void SetStopFlag(bool stop)
-		{
-			mStop.store(stop);
 		}
 
 		PrivateInstanceAAMP *GetAampInstance()
@@ -63,19 +56,16 @@ protected:
 			return mMediaType;
 		}
 
-		void NotifyConditionVariable()
-		{
-			mCondVar.notify_one();
-		}
-
 		size_t GetJobQueueSize()
 		{
+			std::lock_guard<std::mutex> lock(mQueueMutex);
 			return mJobQueue.size();
 		}
 
 		bool IsPaused()
 		{
-			return mPaused.load();
+			std::lock_guard<std::mutex> lock(mQueueMutex);
+			return mPaused;
 		}
 	};
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -243,7 +233,6 @@ TEST_F(FunctionalTests, CreateMultipleWorkers)
 	{
 		PrivateInstanceAAMP mAAMP;
 		aamp::AampTrackWorker audioWorker(&mAAMP, AampMediaType::eMEDIATYPE_AUDIO);
-		aamp::AampTrackWorker auxAudioWorker(&mAAMP, AampMediaType::eMEDIATYPE_AUX_AUDIO);
 		aamp::AampTrackWorker subtitleWorker(&mAAMP, AampMediaType::eMEDIATYPE_SUBTITLE);
 		SUCCEED();
 	}

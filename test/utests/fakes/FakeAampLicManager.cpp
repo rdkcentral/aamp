@@ -118,6 +118,10 @@ void AampDRMLicenseManager::clearFailedKeyIds()
 
 void AampDRMLicenseManager::setSessionMgrState(SessionMgrState state)
 {
+    if(g_mockAampLicenseManager)
+    {
+        g_mockAampLicenseManager->setSessionMgrState(state);
+    }
 }
 
 void AampDRMLicenseManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
@@ -134,6 +138,14 @@ void AampDRMLicenseManager::notifyCleanup()
 DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
 {
 	return NULL;
+}
+DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
+{
+    if(g_mockAampLicenseManager)
+    {
+        return g_mockAampLicenseManager->createDrmSession(drmHelper, aampInstance, eventHandle, streamTypeIn);
+    }
+    return nullptr;
 }
 SessionMgrState AampDRMLicenseManager::getSessionMgrState()
 {

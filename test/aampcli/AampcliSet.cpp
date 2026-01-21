@@ -850,7 +850,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						BitsPerSecond bitrate1, bitrate2, bitrate3;
 						std::vector<BitsPerSecond>bitrateList;
 						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoTrack - %s\n", cmd);
-						if (sscanf(cmd, "set %s %ld %ld %ld", command, &bitrate1, &bitrate2, &bitrate3) == 4){
+						if (sscanf(cmd, "set %s %" BITSPERSECOND_FORMAT " %" BITSPERSECOND_FORMAT " %" BITSPERSECOND_FORMAT, command, &bitrate1, &bitrate2, &bitrate3) == 4){
 							bitrateList.push_back(bitrate1);
 							bitrateList.push_back(bitrate2);
 							bitrateList.push_back(bitrate3);
@@ -1206,22 +1206,6 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						break;
 					}
 
-				case 52:
-					{
-						char lang[12];
-						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AuxiliaryAudio - %s\n", cmd);
-						if (sscanf(cmd, "set %s %s", command, lang) == 2)
-						{
-							playerInstanceAamp->SetAuxiliaryLanguage(lang);
-						}
-						else
-						{
-							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value in string>\n", command);
-						}
-						break;
-					}
-
 				case 55:
 					{
 						int timeout;
@@ -1359,14 +1343,12 @@ void Set::registerSetCommands()
 	addCommand(44,"ccStatus"," <x>","Set CC status (x = 0/1)");
 	addCommand(45,"ccStyle"," <x>","Set a predefined CC style commandion (x = 1/2/3)");
 	addCommand(46,"languageFormat"," <x> <y> ","Set Language Format (x = preferredFormat(0-3), y = useRole(0/1))");
-	//addCommand("auxiliaryAudio"," <x>","Set auxiliary audio language (x = string lang)");
 	addCommand(47,"propagateUriParam"," <x>","Set propagate uri parameters: (int x = 0 to disable)");
 	//addCommand("rateOnTune"," <x>","Set Pre-tune rate (x= PreTuneRate)");
 	addCommand(48,"thumbnailTrack"," <x>","Set Thumbnail Track (int x = Thumbnail Index)");
 	addCommand(49,"sslVerifyPeer"," <x>","Set Ssl Verify Peer flag (x = 1 for enabling)");
 	addCommand(50,"downloadDelayOnFetch"," <x>","Set delay while downloading fragments (unsigned int x = download delay in ms)");
 	addCommand(51,"pausedBehavior"," <x>","Set Paused behavior (int x (0-3) options -\"autoplay defer\",\"autoplay immediate\",\"live defer\",\"live immediate\"");
-	addCommand(52,"auxiliaryAudio"," <x>","Set auxiliary audio language (x = string lang)");
 	addCommand(53,"registerForMediaMetadata"," <x>","Set Listen for AAMP_EVENT_MEDIA_METADATA events (x = 1 - add listener, x = 0 - remove)");
 	addCommand(54,"videoTrack"," <x> <y> <z> ","Set Video tracks range (x = bitrate1, y = bitrate2, z = bitrate3) OR single bitrate provide same value for x, y,z ");
 	addCommand(55,"dynamicDrm"," <x> ","set Dynamic DRM config in Json format x=Timeout value for response message ");

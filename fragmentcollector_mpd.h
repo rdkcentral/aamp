@@ -67,6 +67,29 @@ struct ProfileInfo
 	int representationIndex;
 };
 
+/**
+ * @struct TimeSyncClient
+ *
+ * @brief Maintains state for periodic synchronization of the local clock
+ * with a remote UTC time server, used in DASH manifest processing.
+ *
+ * This struct tracks the last successful synchronization time and the
+ * cached offset between the local system clock and the server's UTC time.
+ * It supports logic to determine when a new synchronization request should
+ * be made based on elapsed time and configuration.
+ */
+struct TimeSyncClient
+{
+	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
+	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
+	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
+	
+	/**
+	 * @brief Constructor initializes lastSync with current time and resets other members.
+	 */
+	TimeSyncClient();
+};
+
 class AampDashWorkerJob : public aamp::AampTrackWorkerJob
 {
 private:
@@ -158,10 +181,9 @@ public:
 	 * @fn GetStreamFormat
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
-	 * @param[out]  auxOutputFormat - format of aux audio track
 	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
 	/**
 	 * @fn GetStreamPosition
 	 */
@@ -422,7 +444,7 @@ public:
 
 	// CMCD Get nor and nrr fields
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType);
-	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType);
+	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType);
 
 	 /*
 	 * @fn NotifyFirstVideoPTS
@@ -689,12 +711,14 @@ protected:
 	 * @param init retrievePlaylistFromCache true to try to get from cache
 	 */
 	AAMPStatusType UpdateMPD(bool init = false);
+
 	/**
 	 * @fn FindServerUTCTime
 	 * @param mpd:  MPD top level element
 	 * @param root: XML root node
 	 */
 	bool FindServerUTCTime(Node* root);
+	
 	/**
 	 * @fn FetchDashManifest
 	 */
@@ -832,7 +856,7 @@ protected:
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIdxForBandwidthNotification(uint32_t bandwidth);
+	int GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth);
 	/**
 	 * @fn GetCurrentMimeType
 	 * @param AampMediaType type of media
@@ -1111,7 +1135,7 @@ protected:
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
 	bool mUpdateManifestState;
-	StreamInfo* mStreamInfo;
+	std::vector<StreamInfo> mStreamInfo;	/**< Stream information for all profiles */
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;
 	std::string mPrevLastSegurlMedia;
@@ -1148,7 +1172,7 @@ protected:
 	// DASH does not use abr manager to store the supported bandwidth values,
 	// hence storing max TSB bandwidth in this variable which will be used for VideoEnd Metric data via
 	// StreamAbstractionAAMP::GetMaxBitrate function,
-	long mMaxTSBBandwidth;
+	BitsPerSecond mMaxTSBBandwidth;
 
 	double mLiveEndPosition;    // Live end absolute position
 	double mCulledSeconds;      // Culled absolute position
@@ -1259,6 +1283,21 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	
+public:
+	/**
+	 * @brief Client used for server time synchronization.
+	 *
+	 * @note TimeSyncClient maintains internal mutable state (e.g. lastSync,
+	 *       lastOffset, hasSynced) and is not internally thread-safe.
+	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
+	 *       in the implementation) are expected to be serialized by the
+	 *       caller. By design, this member is accessed only from the
+	 *       manifest-processing thread and MUST NOT be used concurrently
+	 *       from multiple threads without additional external
+	 *       synchronization.
+	 */
+	TimeSyncClient mTimeSyncClient;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

@@ -42,12 +42,20 @@ Remove the entire folder externals/rdk/IARM
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
 #include "_base64.h"
-
+#ifdef USE_PREINIT_DECODING
+#include "power_controller.h"
+#include <thread>
+#include <system_error> // for std::system_error 
+#include <exception> // for std::exception base class
+#endif
 #include "PlayerLogManager.h"
 
 #include "PlayerExternalsRdkInterface.h"
 
 #include "PlayerExternalUtils.h"
+
+constexpr int POWER_CONTROLLER_CONNECT_MAX_RETRIES = 50; // ~15 seconds total 
+constexpr useconds_t POWER_CONTROLLER_RETRY_SLEEP_MICROSECONDS = 300000; // 300 ms
 
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
@@ -57,6 +65,13 @@ typedef enum _NetworkManager_EventId_t {
 	IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS=55,
 	IARM_BUS_NETWORK_MANAGER_MAX
 } IARM_Bus_NetworkManager_EventId_t;
+
+#ifdef USE_PREINIT_DECODING
+static PowerController_PowerState_t prevState = POWER_STATE_ON;
+static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState, void* userdata);
+void terminatePowerController();
+#endif
 
 /**
  * @struct _IARM_BUS_NetSrvMgr_Iface_EventData_t
@@ -74,8 +89,10 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
 std::shared_ptr<DeviceIARMInterface> s_pDeviceIARMInterface = nullptr;
 
+#ifndef USE_DS_EVENT_SUPPORTED
 static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
+#endif
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
 
@@ -110,11 +127,135 @@ void DeviceIARMInterface::Initialize()
 {
     if(s_pDeviceIARMInterface)
     {
+#ifdef USE_PREINIT_DECODING
+        if(!IsContainerEnvironment())
+        {
+            MW_LOG_INFO("\nCalling terminatePowerController()");
+            terminatePowerController();
+        }
+#endif
         s_pDeviceIARMInterface->RegisterDsMgrEventHandler();
         s_pDeviceIARMInterface->RegisterNtwMgrEventHandler();
     }
     
 }
+
+#ifdef USE_PREINIT_DECODING
+void triggerFakeTune()
+{
+	try { 
+        std::thread([]() { 
+            try {
+                std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+                if(pInstance->GetDoFakeTuneCallBack())
+                {
+                    MW_LOG_INFO("Calling Fake tune callback"); 
+                    pInstance->GetDoFakeTuneCallBack()();
+                }
+                else
+                {
+                    MW_LOG_WARN("Fake tune callback not set"); 
+                }
+                
+                MW_LOG_INFO("Fake tune thread completed successfully"); 
+            } 
+            catch (const std::exception& e) { 
+                MW_LOG_ERR("Fake tune thread failed: %s", e.what()); 
+            } 
+        }).detach(); 
+        MW_LOG_INFO("Fake tune thread created and detached"); 
+    } 
+    catch (const std::system_error& e) { 
+        MW_LOG_ERR("Failed to create fake tune thread: %s", e.what()); 
+    }
+}
+
+void getPwrContInterface()
+{
+
+    int retries = 0;
+
+    MW_LOG_INFO("Enter ... getPwrContInterface()");
+	PowerController_Init();
+
+    while (!PowerController_IsOperational()) {
+        uint32_t status = PowerController_Connect();
+
+        if (POWER_CONTROLLER_ERROR_NONE == status) {
+            MW_LOG_INFO("Success :: Connect");
+            break;
+        } else if (POWER_CONTROLLER_ERROR_UNAVAILABLE == status) {
+            MW_LOG_ERR("Failed :: Connect :: Thunder is UNAVAILABLE");
+            retries++;
+        } else if (POWER_CONTROLLER_ERROR_NOT_EXIST == status) {
+            MW_LOG_ERR("Failed :: Connect :: PowerManager is UNAVAILABLE");
+            retries++;
+        } else {
+            retries++;
+            // Do nothing
+        }
+        
+        if (retries >= POWER_CONTROLLER_CONNECT_MAX_RETRIES) {
+            MW_LOG_ERR("Exceeded max retries (%d) for Connect", POWER_CONTROLLER_CONNECT_MAX_RETRIES);
+            return;
+        }
+
+        usleep(POWER_CONTROLLER_RETRY_SLEEP_MICROSECONDS); // 300ms
+    }
+    MW_LOG_INFO("Registering power mode change callback...");
+    PowerController_RegisterPowerModeChangedCallback(IARM_PowerChangeHandler, nullptr);
+
+    MW_LOG_INFO("Exit ... getPwrContInterface()");
+}
+
+void initPowerController()
+{
+    MW_LOG_INFO("Enter ... initPowerController()");
+    // Get powercontroller thunder client interface in separate 
+    try{
+        std::thread pwrThread(getPwrContInterface);
+        pwrThread.detach();
+        MW_LOG_INFO("[%s:%d]: created getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+    }
+    catch (const std::system_error& e) {
+        MW_LOG_ERR("Failed to create getPwrContInterface thread: %s", e.what());
+    }
+
+    MW_LOG_INFO("Exit ... initPowerController()");
+}
+
+void terminatePowerController()
+{
+    MW_LOG_INFO("Enter ... terminatePowerController");
+    PowerController_UnRegisterPowerModeChangedCallback(IARM_PowerChangeHandler);
+    PowerController_Term();
+    MW_LOG_INFO("Exit ... terminatePowerController()");
+}
+
+/**
+ * @brief   Handles Power change
+ * @param   currentState Current power state
+ * @param   newState New power state
+ * @param   userdata pointer to Received userdata
+ * @retval  IARM Result success or Failure
+ */
+static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState, void* userdata)
+{
+	MW_LOG_INFO("Entering IARM_PowerChangeHandler:State Changed currentState: %d, newState: %d",
+			currentState, newState);
+	bool isOnOrStandby = (newState == POWER_STATE_STANDBY || newState == POWER_STATE_ON);
+	if((currentState == POWER_STATE_STANDBY_DEEP_SLEEP && isOnOrStandby) || 
+        (prevState == POWER_STATE_STANDBY_DEEP_SLEEP && currentState == POWER_STATE_STANDBY_LIGHT_SLEEP && isOnOrStandby))
+	{
+		MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
+		triggerFakeTune();
+	}
+	prevState = currentState;
+	MW_LOG_INFO("Exiting IARM_PowerChangeHandler..");
+}
+
+#endif
 
 void DeviceIARMInterface::IARMInit()
 {
@@ -132,6 +273,19 @@ void DeviceIARMInterface::IARMInit()
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
             MW_PRE_LOGGER_LOG("IARM Interface Connected in Player\n");
+#ifdef USE_PREINIT_DECODING
+	    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+	    // Register for power mode change event
+	    if (pInstance->GetPowerEvent())
+	    {
+		    MW_PRE_LOGGER_LOG("******** Registering **************\n");
+		    if(!IsContainerEnvironment())
+		    {
+			    MW_PRE_LOGGER_LOG("Registering power manager mode change in Player");
+		    	    initPowerController();
+		    }
+	    }
+#endif
     }
     else {
             MW_PRE_LOGGER_LOG("IARM Interface Connected Externally :%d\n", result);
@@ -143,16 +297,20 @@ void DeviceIARMInterface::IARMInit()
 
 void DeviceIARMInterface::RegisterDsMgrEventHandler()
 {
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
-    IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#ifndef USE_DS_EVENT_SUPPORTED
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
+	IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#endif
 }
 
 void DeviceIARMInterface::RemoveEventHandlers()
 {
+#ifndef USE_DS_EVENT_SUPPORTED
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#endif
     IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
 }
 
@@ -201,7 +359,7 @@ char * DeviceIARMInterface::GetTR181Config(const char * paramName, size_t & iCon
 
 				iConfigLen = param.paramLen;
 				const char *src = (const char*)(param.paramValue);
-				strConfig = (char * ) base64_Decode(src,&iConfigLen);
+				strConfig = (char * ) base64_Decode(src,&iConfigLen,strlen(src));
 
 				MW_LOG_INFO("GetTR181PlayerConfig: Got:%s En-Len:%d Dec-len:%d\n",strforLog.c_str(),param.paramLen,iConfigLen);
 			}
@@ -249,6 +407,7 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	
 }
 
+#ifndef USE_DS_EVENT_SUPPORTED
 /**
  * @brief IARM event handler for HDCP and HDMI hot plug events
  */
@@ -317,3 +476,4 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
             break;
     }
 }
+#endif

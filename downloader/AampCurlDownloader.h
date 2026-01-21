@@ -25,7 +25,6 @@
 #ifndef __AAMP_CURL_DOWNLOADER__
 #define __AAMP_CURL_DOWNLOADER__
 
-//#include "AampDefine.h"
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
@@ -41,8 +40,7 @@
 #include <chrono>
 #include <memory>
 #include "AampCurlDefine.h"
-
-
+#include "AampMediaType.h"
 
 typedef std::map<int,std::string> RespHeader;
 typedef std::map<int,std::string>::iterator RespHeaderIter;
@@ -116,7 +114,8 @@ public:
 typedef struct _dnld_metrics
 {
 	double total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
-	long reqSize, downloadbps;
+	long reqSize;
+	BitsPerSecond downloadbps;
 	
 	_dnld_metrics():total(0), connect(0), startTransfer(0), resolve(0), appConnect(0), preTransfer(0), redirect(0), dlSize(0),
 	reqSize(0), downloadbps(0)
@@ -228,6 +227,23 @@ public:
 	* @param[in] dnldCfg - configuration for download
 	*/	
 	void Release();
+	/**
+	 * @brief Cleanup curl header resources after downloads have stopped
+	 *
+	 * Frees the curl header list (mHeaders) using curl_slist_free_all and
+	 * resets any associated download timing or state required before the
+	 * next use of this downloader instance.
+	 *
+	 * This method must be called after Release() has been invoked and after
+	 * any worker or download threads using this instance have been joined to
+	 * ensure that no curl callbacks are still accessing the header list.
+	 *
+	 * @note This method is thread-safe; it acquires mCurlMutex internally.
+	 * @warning Do not call this method until all download activity associated
+	 *          with this instance has fully stopped, to avoid race conditions
+	 *          where headers are freed while curl callbacks are still running.
+	 */
+	void CleanupCurlHeaderResources();
 	void Clear();
 	/**
 	* @brief Download - function to start  download 

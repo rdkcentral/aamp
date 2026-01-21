@@ -32,7 +32,7 @@ bool PlayerLogManager::enableEthanLogRedirection = false;
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char *format, ...)
 {
 }
 

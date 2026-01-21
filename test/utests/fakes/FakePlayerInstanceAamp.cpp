@@ -29,7 +29,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 }
 
 
-	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
+	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames, bool powerEvt) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
 	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
@@ -164,7 +164,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
-	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }
 	void PlayerInstanceAAMP::SetLicenseCustomData(const char *customData) {  }
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }

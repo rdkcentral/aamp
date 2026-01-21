@@ -28,8 +28,8 @@ class MockOpenCdmSessionAdapter
     public:
 
         MOCK_METHOD(bool, verifyOutputProtection, ());
-        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
         MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
+        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
 };
 
 extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;

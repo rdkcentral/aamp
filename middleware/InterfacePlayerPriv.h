@@ -42,7 +42,7 @@
 #include "GstUtils.h"
 
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
-#define GST_TRACK_COUNT 4 /**< internal use - audio+video+sub+aux track */
+#define GST_TRACK_COUNT 3 /**< internal use - audio+video+sub track */
 #define VIDEO_COORDINATES_SIZE 32
 #define GST_TASK_ID_INVALID 0
 #define GST_NORMAL_PLAY_RATE 1
@@ -221,12 +221,12 @@ struct GstPlayerPriv
 	int decodeErrorCBCount;                                                                  /**< Total decode error cb received within threshold time */
 	bool progressiveBufferingEnabled;
 	bool progressiveBufferingStatus;
-	bool forwardAudioBuffers;                                 /**< flag denotes if audio buffers to be forwarded to aux pipeline */
 	bool enableSEITimeCode;                                   /**< Enables SEI Time Code handling */
 	bool firstVideoFrameReceived;                     /**< flag that denotes if first video frame was notified. */
 	bool firstAudioFrameReceived;                     /**< flag that denotes if first audio frame was notified */
 	int NumberOfTracks;                                               /**< Indicates the number of tracks */
 	GstPlaybackQualityStruct playbackQuality; /**< video playback quality info */
+	bool isMp4DemuxPlayback; /**< flag to denote mp4demux path needs BMFF-like semantics */
 	struct CallbackData
 	{
 		gpointer instance;
@@ -302,13 +302,5 @@ class InterfacePlayerPriv
 		 * @ret TRUE if override is enabled, FALSE otherwise
 		 */
 		gboolean SendQtDemuxOverrideEvent(int mediaType, GstClockTime pts, bool enablePTSReStamp, int vodTrickModeFPS, const void *ptr = nullptr, size_t len = 0);
-
-		/**
-		 * @fn ForwardBuffersToAuxPipeline
-		 *
-		 * @param[in] buffer - input buffer to be forwarded
-		 */
-		void ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data);
-
 };
 #endif

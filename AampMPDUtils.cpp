@@ -172,7 +172,6 @@ bool IsCompatibleMimeType(const std::string& mimeType, AampMediaType mediaType)
 			break;
 
 		case eMEDIATYPE_AUDIO:
-		case eMEDIATYPE_AUX_AUDIO:
 			if ((mimeType == "audio/webm") ||
 				(mimeType == "audio/mp4"))
 				isCompatible = true;

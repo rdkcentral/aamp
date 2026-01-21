@@ -27,6 +27,7 @@ class MockDRMSessionManager
 {
 public:
     MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
+    MOCK_METHOD(bool, IsKeyIdProcessed, (std::vector<uint8_t> keyIdArray, bool &status));
 };
 
 extern MockDRMSessionManager *g_mockDRMSessionManager;

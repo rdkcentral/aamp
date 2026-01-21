@@ -198,7 +198,7 @@ void MediaTrack::FlushFragments()
 {
 }
 
-int MediaTrack::GetCurrentBandWidth()
+BitsPerSecond MediaTrack::GetCurrentBandWidth()
 {
 	return 0;
 }
@@ -224,7 +224,7 @@ void MediaTrack::PlaylistDownloader()
 {
 }
 
-void MediaTrack::SetCurrentBandWidth(int bandwidthBps)
+void MediaTrack::SetCurrentBandWidth(BitsPerSecond bandwidthBps)
 {
 }
 

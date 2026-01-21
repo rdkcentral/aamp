@@ -52,6 +52,12 @@ GstCaps* GetCaps(GstStreamOutputFormat format)
 					"mpegversion", G_TYPE_INT, 2,
 					"stream-format", G_TYPE_STRING, "adts", NULL);
 			break;
+		case GST_FORMAT_AUDIO_ES_AAC_RAW:
+			caps = gst_caps_new_simple ("audio/mpeg",
+					"mpegversion", G_TYPE_INT, 4,
+					"framed", G_TYPE_BOOLEAN, TRUE,
+					"stream-format", G_TYPE_STRING, "raw", NULL);
+			break;
 		case GST_FORMAT_AUDIO_ES_AC3:
 			caps = gst_caps_new_simple ("audio/x-ac3", NULL, NULL);
 			break;
@@ -92,14 +98,45 @@ GstCaps* GetCaps(GstStreamOutputFormat format)
 					"systemstream", G_TYPE_BOOLEAN, FALSE, NULL);
 			break;  //CID:81305 - Using break statement
 		case GST_FORMAT_UNKNOWN:
-			g_print("Unknown format %d", format);
+			g_print("Unknown format %d\n", format);
 			break;
 		case GST_FORMAT_INVALID:
 		default:
-			g_print("Unsupported format %d", format);
+			g_print("Unsupported format %d\n", format);
 			break;
 	}
 	return caps;
+}
+
+/**
+ * @brief Create GstBuffer with data copied from input data pointer
+ * @param data Pointer to the data to be copied into the GstBuffer
+ * @param size Size of the data to be copied
+ * @return GstBuffer* Pointer to the created GstBuffer containing the copied data
+ */
+GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
+{
+	GstBuffer *buffer = gst_buffer_new_and_alloc(size);
+	if (buffer)
+	{
+		GstMapInfo map;
+		if (gst_buffer_map(buffer, &map, GST_MAP_WRITE))
+		{
+			memcpy(map.data, data, size);
+			gst_buffer_unmap(buffer, &map);
+		}
+		else
+		{
+			g_print("Failed to map GstBuffer for writing\n");
+			gst_buffer_unref(buffer);
+			buffer = NULL;
+		}
+	}
+	else
+	{
+		g_print("Failed to allocate GstBuffer of size %zu\n", size);
+	}
+	return buffer;
 }
 
 /**

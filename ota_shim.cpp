@@ -757,11 +757,10 @@ void StreamAbstractionAAMP_OTA::EnableContentRestrictions()
 /**
  * @brief Get output format of stream.
  */
-void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
     primaryOutputFormat = FORMAT_INVALID;
     audioOutputFormat = FORMAT_INVALID;
-	auxAudioOutputFormat = FORMAT_INVALID;
 	subtitleOutputFormat = FORMAT_INVALID;
 }
 
