@@ -27,7 +27,7 @@ AAMP is built on top of GStreamer and uses CMake as its build system. This docum
 
 ### Common Dependencies
 - CMake 3.14+
-- GCC/Clang with C++11 support
+- GCC/Clang with C++17 support
 - GStreamer 1.x development files
 - OpenSSL development files
 - libcurl development files
