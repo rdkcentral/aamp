@@ -56,6 +56,12 @@ public:
 		}
 	}
 
+	// Setter method to initialize mMPDParseHelper for testing
+	void SetMPDParseHelper(AampMPDParseHelperPtr mpdParseHelperPtr)
+	{
+		this->mMPDParseHelper = mpdParseHelperPtr;
+	}
+
 	// Expose public methods for testing
 	using StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation;
 	using StreamAbstractionAAMP_MPD::IsEmptyPeriod;
@@ -86,6 +92,9 @@ protected:
 		
 		// Create the testable component under test
 		mMpdStream = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, mSeekTime, mRate);
+		
+		// Initialize mMPDParseHelper to avoid NULL dereference in tests
+		mMpdStream->SetMPDParseHelper(std::make_shared<AampMPDParseHelper>());
 	}
 
 	void TearDown() override
