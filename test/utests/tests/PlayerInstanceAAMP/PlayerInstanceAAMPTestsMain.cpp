@@ -369,12 +369,6 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
     mPlayerInstance->aamp->rate = 1.0f;
     g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
     
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillRepeatedly(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(false));
-    
     // Should call SetIsAtLivePoint to clear the flag
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
         .Times(1)
