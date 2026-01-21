@@ -8,6 +8,8 @@ jobs:
   execute-unit-tests-on-pr:
     name: Runs all unit tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rdkcentral/aamp-ci-image:latest
     
     steps:
       # Checkout the aamp repository
