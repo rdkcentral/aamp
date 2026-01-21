@@ -2567,6 +2567,8 @@ void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::strin
 {
 	aamp->mAudioTuple.clear();
 	aamp->mAudioTuple.setAudioTrackTuple(language, rendition, codec, channel);
+	AAMPLOG_WARN("VRN PlayerInstanceAAMP:: SetAudioTrackInternal Language:%s, Rendition:%s, Type:%s, Codec:%s, Channel:%u, Label:%s",
+				language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
 	/* Now we have an option to set language and rendition only*/
 	SetPreferredLanguages( language.empty()?NULL:language.c_str(),
 							rendition.empty()?NULL:rendition.c_str(),
@@ -2580,6 +2582,7 @@ void PlayerInstanceAAMP::SetAudioTrackInternal(std::string language,  std::strin
  */
 void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList)
 {
+	AAMP_WARN("PlayerInstanceAAMP:: SetPreferredCodec CodecList:%s", codecList);
 	aamp->SetPreferredLanguages(NULL, NULL, NULL, codecList, NULL, NULL);
 }
 
@@ -2588,6 +2591,7 @@ void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList)
  */
 void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList)
 {
+	AAMP_WARN("PlayerInstanceAAMP:: SetPreferredLabels LabelList:%s", labelList);
 	aamp->SetPreferredLanguages(NULL, NULL, NULL, NULL, labelList, NULL);
 }
 
@@ -2596,6 +2600,7 @@ void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList)
  */
 void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList)
 {
+	AAMP_WARN(" VRN PlayerInstanceAAMP:: SetPreferredRenditions RenditionList:%s", renditionList);
 	aamp->SetPreferredLanguages(NULL, renditionList, NULL, NULL, NULL, NULL);
 }
 
@@ -2622,6 +2627,15 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
  */
 void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
+	AAMPLOG_WARN("VRN PlayerInstanceAAMP:: SetPreferredLanguages LanguageList:%s, Rendition:%s, Type:%s, Codec:%s, Label:%s, Accessibility:%s, Name:%s",
+		languageList ? languageList : "NULL",
+		preferredRendition ? preferredRendition : "NULL",
+		preferredType ? preferredType : "NULL",
+		codecList ? codecList : "NULL",
+		labelList ? labelList : "NULL",
+		accessibilityItem ? accessibilityItem->ToString().c_str() : "NULL",
+		preferredName ? preferredName : "NULL");
+
 	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem, preferredName);
 }
 
@@ -2836,6 +2850,7 @@ void PlayerInstanceAAMP::SetAudioTrack(int trackId)
 			std::vector<AudioTrackInfo> tracks = aamp->mpStreamAbstractionAAMP->GetAvailableAudioTracks();
 			if (!tracks.empty() && (trackId >= 0 && trackId < tracks.size()))
 			{
+				AAMP_WARN("trackId: %d tracks size %zu", trackId, tracks.size());
 				if (mAsyncTuneEnabled)
 				{
 					mScheduler.ScheduleTask(AsyncTaskObj(

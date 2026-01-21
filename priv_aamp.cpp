@@ -12118,6 +12118,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				preferredTypeString.clear();
 			}
 
+			AAMPLOG_WARN("VRN CODEC LIST %s",codecList?codecList:"NULL");
 			if(codecList != NULL)
 			{
 				preferredCodecString.clear();
@@ -12131,6 +12132,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					AAMPLOG_INFO("Parsed preferred codec: %s", codec.c_str());
 				}
 				preferredCodecString = std::string(codecList);
+				AAMPLOG_WARN("VRN Setting codec %s", preferredCodecString.c_str());
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 			}
 			AAMPLOG_INFO("Number of preferred codecs: %zu", preferredCodecList.size());
@@ -12204,6 +12206,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				char *currentPrefCodec = const_cast<char*>(trackInfo[trackIndex].codec.c_str());
 				char *currentPrefLabel = const_cast<char*>(trackInfo[trackIndex].label.c_str());
 				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
+				AAMPLOG_WARN("VRN Current Preferred Language %s, Rendition %s, Accessibility %s, Codec %s, Label %s, Name %s",
+					currentPrefLanguage, currentPrefRendition, currentPrefAccessibility, currentPrefCodec, currentPrefLabel, currentPrefName);
 
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
 				if(!preferredCodecString.empty())
