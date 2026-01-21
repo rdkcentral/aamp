@@ -261,7 +261,7 @@ config.customHeader = "Proxy-Authorization: Basic base64credentials";
 
 ## Performance Issues
 
-### Low Latency Playback Latency
+### High Latency in Low Latency Playback
 
 **High Latency**:
 ```javascript
