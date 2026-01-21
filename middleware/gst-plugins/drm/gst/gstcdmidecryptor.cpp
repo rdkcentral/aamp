@@ -41,7 +41,7 @@ enum
 	ePROF_BEGIN, ePROF_END , ePROF_ERR
 };
 
-//#define FUNCTION_DEBUG 1
+#define FUNCTION_DEBUG 1
 #ifdef FUNCTION_DEBUG
 #define DEBUG_FUNC()    g_warning("####### %s : %d ####\n", __FUNCTION__, __LINE__);
 #else
@@ -504,7 +504,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		result = GST_FLOW_NOT_SUPPORTED;
 		goto free_resources;
 	}
-
+	if (!cdmidecryptor->firstsegprocessed)
+	{
+			g_warning("[cdmidecrypt] First buffer received in decryptor - mediaType: %d, buffer: %p, size: %zu\n", 
+		       cdmidecryptor->mediaType, buffer, 
+		       buffer ? gst_buffer_get_size(buffer) : 0);
+	}
 	protectionMeta =
 			reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
 
@@ -687,7 +692,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		}
 		else
 		{
-			GST_DEBUG_OBJECT(cdmidecryptor, "Decryption successful for Video packets");
+			g_warning(cdmidecryptor, "Decryption successful for Video packets");
 		}
 	}
 
@@ -799,6 +804,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		break;
 		}
 
+		g_warning("[cdmidecrypt] GST_EVENT_PROTECTION received - Starting DRM session creation\n");
 
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Received encrypted event: Proceeding to parse initData\n");
@@ -924,6 +930,9 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 	else
 		{
+			g_warning("[cdmidecrypt] DRM session created successfully - mediaType: %d, drmSession: %p\n", 
+			       cdmidecryptor->mediaType, cdmidecryptor->drmSession);
+
 			cdmidecryptor->streamReceived = TRUE;
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)

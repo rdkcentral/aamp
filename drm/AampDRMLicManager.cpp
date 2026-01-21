@@ -253,7 +253,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		/**
 		 * Generate a License challenge from the CDM
 		 */
-		AAMPLOG_INFO("Request to generate license challenge to the aampDRMSession(CDM)");
+		AAMPLOG_MIL("Request to generate license challenge to the aampDRMSession(CDM)");
 
 		ChallengeInfo challengeInfo;
 		challengeInfo.data.reset(mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->generateKeyRequest(challengeInfo.url, drmHelper->licenseGenerateTimeout()));
