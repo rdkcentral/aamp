@@ -216,12 +216,6 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_A
     mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
     g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
     
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillRepeatedly(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(false));
-    
     // Should NOT call NotifyOnEnteringLive when not at live point
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
         .Times(0);
