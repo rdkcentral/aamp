@@ -239,7 +239,7 @@ Adjust timeout values based on network conditions:
 
 ```javascript
 // Configure fragment download timeout (in milliseconds)
-config.fragmentDownloadTimeout = 15000;  // Adjust as needed
+config.fragmentDownloadTimeout = 15000;
 ```
 
 ### SSL/Certificate Errors
