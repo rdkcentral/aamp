@@ -396,15 +396,34 @@ Note: starting in RDK 6.9, we support ability to start video paused on first fra
 
 ---
 
-### stop()
+### stop( forceCleanup )
+### stop( sendStateChangeEvent, forceCleanup )
 - Supported UVE version 0.7 and above.
 - Stop playback and free resources associated with playback.
-Usage example:
+
+**Single Parameter Form:**
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| forceCleanup | Boolean | Optional parameter. If True, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. Prevents playback failures after device wake-up from Deep Sleep by clearing stale DRM sessions and failed key IDs. |
+
+**Two Parameter Form (Advanced Usage):**
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sendStateChangeEvent | Boolean | If True, sends state change events during stop operation. Default is true. |
+| forceCleanup | Boolean | If True, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. |
+
+Usage examples:
 ```js
     {
 	    .....
-	    // for immediate stop of playback
+	    // Standard stop - sends state change events
 	    player.stop();
+	    
+	    // Stop with DRM cleanup before Deep Sleep
+	    player.stop(true);
+	    
+	    // Advanced: Stop without state events, with DRM cleanup
+	    player.stop(false, true);
     }
 ```
 ---
@@ -2527,6 +2546,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### stop
 - Stop playback and free resources
+- Optional forceCleanup parameter for DRM cleanup in Deep Sleep scenarios
 
 ##### getAudioTrack
 - Get the index of the currently selected Audio track

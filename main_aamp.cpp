@@ -35,6 +35,7 @@
 #include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
+#include "AampDRMLicManager.h"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -187,7 +188,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			aamp->Stop( true );
+			aamp->Stop(false); // Don't send state change events during destruction
 		}
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
@@ -239,7 +240,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
 	if (aamp)
 	{
@@ -256,9 +257,17 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			StopInternal(sendStateChangeEvent);
+			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
-
+		// Enhanced DRM cleanup for Deep Sleep scenarios
+		// Must be done AFTER Stop() to ensure GStreamer pipeline is torn down
+		// and all encrypted buffers are flushed before destroying DRM sessions
+		if (forceCleanup && aamp->mDRMLicenseManager)
+		{
+			AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
+			aamp->mDRMLicenseManager->clearDrmSession(true);
+			aamp->mDRMLicenseManager->clearFailedKeyIds();
+		}
 		//Release lock
 		mScheduler.ResumeScheduler();
 	}
@@ -353,7 +362,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			StopInternal(false);
+			StopInternal(true, false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -3055,7 +3064,7 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceCleanup)
 {
 	aamp->StopPausePositionMonitoring("Stop() called");
 	AAMPPlayerState state = aamp->GetState();
@@ -3063,8 +3072,11 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 	{
 		aamp->TuneFail(true);
 	}
-	AAMPLOG_MIL("aamp_stop PlayerState=%d",state);
-	aamp->Stop();
+	AAMPLOG_MIL("aamp_stop PlayerState=%d forceCleanup=%d", state, forceCleanup);
+	
+	// Negate sendStateChangeEvent since no need to send state change event on destructor call
+	aamp->Stop(!sendStateChangeEvent);
+
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);

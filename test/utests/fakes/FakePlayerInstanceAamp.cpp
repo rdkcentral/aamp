@@ -51,7 +51,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 									std::string session_id,
 									const char *preprocessedManifest
 									) { }
-    void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent) {  }
+    void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }
 	void PlayerInstanceAAMP::SetRate(float rate, int overshootcorrection) {  }
 	void PlayerInstanceAAMP::PauseAt(double  position) {  }
