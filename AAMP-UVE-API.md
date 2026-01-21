@@ -82,7 +82,7 @@ This document is targeted to application developers who are interested in evalua
 	<script>
 	    window.onload = function() {
 		    var player = new AAMPMediaPlayer();
-		    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
+		    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL
 		    player.load(url);
 	    }
 	</script>
@@ -815,7 +815,7 @@ Change playback rate. Supported speeds are given below.
 		var player;
 		window.onload = function() {
 			player = new AAMPMediaPlayer(); // create player instance for AAMP
-			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)"; // replace with valid URL!
+			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)"; // replace with valid URL
 			console.log("loading " + url );
 			player.load( url ); // tune using AMP
 			console.log("screen size: " + screen.width + "x" + screen.height); // typically 1280x720
@@ -900,12 +900,12 @@ Example:
     {
             // configuration for DRM -Sample for Widevine
             var DrmConfig = {
-            'com.widevine.alpha':'https://example.com/AcquireLicense', // replace with valid URL!
+            'com.widevine.alpha':'https://example.com/AcquireLicense', // replace with valid URL
             'preferredKeysystem':'com.widevine.alpha'
             };
 
 
-	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    // custom header message for license request
@@ -1627,7 +1627,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
     Linear Streams:
     {
         // Use valid URL instead of example
-        "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL!
+        "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL
         "raw_w":1600,
         "raw_h":900,
         "width":320,
@@ -1644,7 +1644,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
     VOD Streams:
     {
-        "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL!
+        "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL
         "raw_w": 3744,
         "raw_h": 3978,
         "width": 416,
@@ -1702,7 +1702,7 @@ acquisition |
 ```
  {
     "keyID" : [57, 49, 49, 100, 98, 54, 99, 99, 45],
-    "com.widevine.alpha" : "example.com", // replace with valid URL!
+    "com.widevine.alpha" : "example.com", // replace with valid URL
     "customData" : “data”,
     "authToken"  : “token string”,
  }
