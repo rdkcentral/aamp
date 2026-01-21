@@ -747,7 +747,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 
 			// Any other rate change (including resume to 1.0) = not at live
-			aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint(); 
+			static_cast<void>(aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint()); 
 
 			//-- Get the trick play to a closer position
 			//Logic adapted
