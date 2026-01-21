@@ -25,6 +25,10 @@ This document consolidates AAMP's testing approach, including L1 unit tests, tes
 
 ## Test Levels
 
+In AAMP, test levels classify automated tests by scope and dependencies:
+**L1** refers to fast, fully isolated unit tests suitable for frequent and CI runs,
+while **L1.5** refers to unit tests that additionally depend on DRM-related
+headers or libraries and may require extra environment setup.
 ### L1 Unit Tests (Microtests)
 
 **Purpose**: Fast, lightweight tests for individual components
