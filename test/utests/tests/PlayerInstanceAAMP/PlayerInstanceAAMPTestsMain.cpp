@@ -392,6 +392,82 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
     EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
 }
 
+/**
+ * @brief Test SetRateInternal called multiple times at live point preserves live flag
+ * 
+ * This test verifies the fix for the original issue where calling SetRate with FFWD
+ * at the live edge would incorrectly clear the live edge flag. When at live point,
+ * calling SetRate multiple times should skip the operation each time and maintain
+ * the live point flag without clearing it.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_MultipleCallsAtLivePoint_PreservesLiveFlag)
+{
+    float rate = 2.0f;
+    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+    
+    // Setup: Player is at live point
+    mPlayerInstance->aamp->mbDetached = false;
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+    
+    // First SetRate call at live point
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(1);
+    
+    // Should NOT call IsStreamerAtLivePoint (which would clear the flag)
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .Times(0);
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+    
+    // Verify live flag is still set after first call
+    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+    
+    // Second SetRate call at live point - should also skip and preserve flag
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(1);
+    
+    // Still should NOT call IsStreamerAtLivePoint
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .Times(0);
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+    
+    // Verify live flag is STILL set after second call - this is the key verification
+    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+    
+    // Third SetRate call with different FF rate - should still preserve flag
+    float rate3x = 3.0f;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(1);
+    
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .Times(0);
+    
+    mPlayerInstance->SetRate(rate3x, overshootcorrection);
+    
+    // Final verification: flag remains set after multiple SetRate calls
+    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+}
+
  TEST_F(PlayerInstanceAAMPTests,SetTextTrack_InternalTest)
  {
     int trackId = 10;
