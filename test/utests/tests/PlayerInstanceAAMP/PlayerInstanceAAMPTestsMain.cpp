@@ -137,6 +137,258 @@ TEST_F(PlayerInstanceAAMPTests,SetRateInternalTest)
         .WillOnce(Return(true));
     mplayer->SetRate_Internal(rate,overshootcorrection);
 }
+
+/**
+ * @brief Test SetRateInternal when at live point with fast forward rate
+ * 
+ * When player is at live point and rate >= AAMP_NORMAL_PLAY_RATE (1.0),
+ * the operation should be skipped and NotifyOnEnteringLive() should be called.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_SkipsOperation)
+{
+    float rate = 2.0f;
+    int overshootcorrection = 10;
+    
+    // Setup: Player is at live point
+    mPlayerInstance->aamp->mbDetached = false;
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    // Expect NotifyOnEnteringLive to be called
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(1);
+    
+    // Should not call IsStreamerAtLivePoint when operation is skipped
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .Times(0);
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Test SetRateInternal when at live point with normal play rate
+ * 
+ * When player is at live point and rate == AAMP_NORMAL_PLAY_RATE (1.0),
+ * the operation should be skipped and NotifyOnEnteringLive() should be called.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_NormalPlayRate_SkipsOperation)
+{
+    float rate = AAMP_NORMAL_PLAY_RATE; // 1.0
+    int overshootcorrection = 10;
+    
+    // Setup: Player is at live point
+    mPlayerInstance->aamp->mbDetached = false;
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    // Expect NotifyOnEnteringLive to be called
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(1);
+    
+    // Should not call IsStreamerAtLivePoint when operation is skipped
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .Times(0);
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Test SetRateInternal when NOT at live point with fast forward rate
+ * 
+ * When player is NOT at live point, fast forward rate changes should be allowed
+ * and IsStreamerAtLivePoint should be called to update the flag.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_AllowsOperation)
+{
+    float rate = 2.0f;
+    int overshootcorrection = 10;
+    
+    // Setup: Player is NOT at live point
+    mPlayerInstance->aamp->mbDetached = false;
+    mPlayerInstance->aamp->pipeline_paused = false;
+    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillRepeatedly(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(false));
+    
+    // Should NOT call NotifyOnEnteringLive when not at live point
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(0);
+    
+    // Should call IsStreamerAtLivePoint to update the flag (clearing it)
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .WillOnce(Return(false));
+    
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+        .WillRepeatedly(Return(false));
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Test SetRateInternal with slowmotion rate (0.5)
+ * 
+ * Slowmotion rate is less than AAMP_NORMAL_PLAY_RATE, so even if at live point,
+ * the operation should proceed (not skip).
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_SlowMotionRate_AllowsOperation)
+{
+    float rate = AAMP_SLOWMOTION_RATE; // 0.5
+    int overshootcorrection = 10;
+    
+    // Setup: Player is at live point but with slowmotion rate
+    mPlayerInstance->aamp->mbDetached = false;
+    mPlayerInstance->aamp->pipeline_paused = false;
+    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillRepeatedly(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    // Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(0);
+    
+    // Should call IsStreamerAtLivePoint to update the flag
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+        .WillRepeatedly(Return(false));
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Test SetRateInternal with negative rate (rewind)
+ * 
+ * Negative rates (rewind) are less than AAMP_NORMAL_PLAY_RATE, so even if at live point,
+ * the operation should proceed (not skip).
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOperation)
+{
+    float rate = -2.0f; // Rewind
+    int overshootcorrection = 10;
+    
+    // Setup: Player is at live point but with rewind rate
+    mPlayerInstance->aamp->mbDetached = false;
+    mPlayerInstance->aamp->pipeline_paused = false;
+    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillRepeatedly(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    // Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(0);
+    
+    // Should call IsStreamerAtLivePoint to update the flag
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .WillOnce(Return(false)); // Rewind takes us away from live point
+    
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+        .WillRepeatedly(Return(false));
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Test SetRateInternal when mbDetached is true
+ * 
+ * When mbDetached flag is true, even if at live point, the operation should proceed.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOperation)
+{
+    float rate = 2.0f;
+    int overshootcorrection = 10;
+    
+    // Setup: Player is at live point but detached
+    mPlayerInstance->aamp->mbDetached = true;
+    mPlayerInstance->aamp->pipeline_paused = false;
+    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillRepeatedly(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(true));
+    
+    // Should NOT call NotifyOnEnteringLive when detached
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+        .Times(0);
+    
+    // Should call IsStreamerAtLivePoint to update the flag
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .WillOnce(Return(true));
+    
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+        .WillRepeatedly(Return(false));
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Test SetRateInternal verifies mIsAtLivePoint flag is updated
+ * 
+ * After any rate change (except when skipped at live point), 
+ * IsStreamerAtLivePoint should be called to update the mIsAtLivePoint flag.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
+{
+    float rate = 2.0f;
+    int overshootcorrection = 10;
+    
+    // Setup: Player starts NOT at live point
+    mPlayerInstance->aamp->mbDetached = false;
+    mPlayerInstance->aamp->pipeline_paused = false;
+    mPlayerInstance->aamp->rate = 1.0f;
+    g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+        .WillRepeatedly(Return(true));
+    
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+        .WillOnce(Return(false));
+    
+    // Should call IsStreamerAtLivePoint which will update mIsAtLivePoint
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsStreamerAtLivePoint(testing::_))
+        .WillOnce(testing::Invoke([](double) {
+            // Simulate flag being updated to true
+            g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+            return true;
+        }));
+    
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+        .WillRepeatedly(Return(false));
+    
+    mPlayerInstance->SetRate(rate, overshootcorrection);
+    
+    // Verify the flag was updated
+    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+}
+
  TEST_F(PlayerInstanceAAMPTests,SetTextTrack_InternalTest)
  {
     int trackId = 10;
