@@ -75,6 +75,8 @@
 #include "AAMPAnomalyMessageType.h"
 #include "AampDemuxDataTypes.h"
 
+#define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
+
 // forward declaration to avoid circular dependency
 class AampMPDDownloader;
 
