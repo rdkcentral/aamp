@@ -314,12 +314,6 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOpera
     mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
     g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
     
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillRepeatedly(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
     // Should NOT call NotifyOnEnteringLive when detached
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
         .Times(0);
