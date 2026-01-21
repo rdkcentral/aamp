@@ -2667,7 +2667,6 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 			MW_LOG_WARN( "ANJ: Incorrect state! gst_element_get_state current state=%d, pending=%d, ret=%d", current, pending, ret );
 			return NULL;//anj??
 		}
-#endif//anj
 	}
 	MW_LOG_MIL("ANJ: OUT: GetVideoPlaybackQuality");
 	return NULL;
