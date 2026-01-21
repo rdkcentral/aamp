@@ -173,12 +173,12 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_Skip
 /**
  * @brief Test SetRateInternal when at live point with normal play rate
  * 
- * When player is at live point and rate == AAMP_NORMAL_PLAY_RATE (1.0),
+ * When player is at live point and rate == AAMP_NORMAL_PLAY_RATE,
  * the operation should be skipped and NotifyOnEnteringLive() should be called.
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_NormalPlayRate_SkipsOperation)
 {
-    float rate = AAMP_NORMAL_PLAY_RATE; // 1.0
+    float rate = AAMP_NORMAL_PLAY_RATE;
     int overshootcorrection = 10;
     
     // Setup: Player is at live point
@@ -240,14 +240,14 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_A
 }
 
 /**
- * @brief Test SetRateInternal with slowmotion rate (0.5)
+ * @brief Test SetRateInternal with slowmotion rate
  * 
  * Slowmotion rate is less than AAMP_NORMAL_PLAY_RATE, so even if at live point,
  * the operation should proceed (not skip).
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_SlowMotionRate_AllowsOperation)
 {
-    float rate = AAMP_SLOWMOTION_RATE; // 0.5
+    float rate = AAMP_SLOWMOTION_RATE;
     int overshootcorrection = 10;
     
     // Setup: Player is at live point but with slowmotion rate
