@@ -1012,7 +1012,8 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingBool c
 	}
 	else
 	{
-		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]",cfgName,newowner,setting.owner);
+		AAMPLOG_WARN("%s Owner[%d] not allowed to Set (wanted:%s), current Owner[%d] has value:%s",
+			cfgName,newowner,value?"true":"false",setting.owner,setting.value?"true":"false");
 	}
 }
 
@@ -1536,6 +1537,7 @@ bool AampConfig::ReadAampCfgTxtFile()
 bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLen, ConfigPriority cfgPriority)
 {
 	bool bCharCompliant = false;
+	AAMPLOG_WARN("ProcessBase64AampCfg: Starting processing, configLen=%zu, priority=%d", configLen, cfgPriority);
 	if(base64Config && (configLen > 0))
 	{
 		bCharCompliant = true;
@@ -1553,10 +1555,12 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
 		if (bCharCompliant)
 		{
 			std::string strCfg(base64Config,configLen);
+			AAMPLOG_WARN("ProcessBase64AampCfg: Config is char-compliant, attempting JSON parse first");
 			cJSON *cfgdata = cJSON_Parse(strCfg.c_str());
 			if(!ProcessConfigJson(cfgdata,cfgPriority))
 			{
 				// Input received is not json format, parse as text
+				AAMPLOG_WARN("ProcessBase64AampCfg: Not JSON format, parsing as text. Total config: [%s]", strCfg.c_str());
 				std::istringstream iSteam(strCfg);
 				std::string line;
 				while (std::getline(iSteam, line))
@@ -1568,7 +1572,19 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
 					}
 				}
 			}
+			else
+			{
+				AAMPLOG_WARN("ProcessBase64AampCfg: Successfully processed as JSON config");
+			}
 		}
+		else
+		{
+			AAMPLOG_ERR("ProcessBase64AampCfg: Config has non-compliant characters, skipping processing");
+		}
+	}
+	else
+	{
+		AAMPLOG_ERR("ProcessBase64AampCfg: Invalid input - base64Config is NULL or configLen is 0");
 	}
 	return bCharCompliant;
 }
@@ -1628,13 +1644,22 @@ void AampConfig::ReadAampCfgFromEnv()
 	{
 		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 		size_t iConfigLen = strEnvConfig.length();
-		AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ", strEnvConfig.c_str(), iConfigLen);
+		AAMPLOG_WARN("ReadAampCfgFromEnv:BASE64 ENV received, encoded length:%zu, base64 string:[%s]", iConfigLen, strEnvConfig.c_str());
 		char *strConfig = (char *)base64_Decode(strEnvConfig.c_str(), &iConfigLen);
 		if (NULL != strConfig)
 		{
+			AAMPLOG_WARN("ReadAampCfgFromEnv:BASE64 decoded successfully, decoded length:%zu, decoded config:[%s]", iConfigLen, strConfig);
 			ProcessBase64AampCfg(strConfig, iConfigLen, AAMP_DEV_CFG_SETTING);
 			free(strConfig); // free mem allocated by base64_Decode
 		}
+		else
+		{
+			AAMPLOG_ERR("ReadAampCfgFromEnv:BASE64 decode FAILED for input string");
+		}
+	}
+	else
+	{
+		AAMPLOG_INFO("ReadAampCfgFromEnv:BASE64 - AAMP_CFG_BASE64 environment variable NOT set");
 	}
 
 	DoCustomSetting(AAMP_DEV_CFG_SETTING);

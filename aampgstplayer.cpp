@@ -79,6 +79,9 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->appSrcForProgressivePlayback = config->IsConfigSet(eAAMPConfig_UseAppSrcForProgressivePlayback);
 	interfacePlayer->m_gstConfigParam->enablePTSReStamp = config->IsConfigSet(eAAMPConfig_EnablePTSReStamp);
 	interfacePlayer->m_gstConfigParam->seamlessAudioSwitch = config->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch);
+	AAMPLOG_WARN("seamlessAudioSwitch config: %s, enablePTSReStamp: %s", 
+		interfacePlayer->m_gstConfigParam->seamlessAudioSwitch ? "ENABLED" : "DISABLED",
+		interfacePlayer->m_gstConfigParam->enablePTSReStamp ? "ENABLED" : "DISABLED");
 	interfacePlayer->m_gstConfigParam->videoBufBytes = config->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
 	interfacePlayer->m_gstConfigParam->enableDisconnectSignals = config->IsConfigSet(eAAMPConfig_enableDisconnectSignals);
 	interfacePlayer->m_gstConfigParam->eosInjectionMode = config->GetConfigValue(eAAMPConfig_EOSInjectionMode);

@@ -3633,8 +3633,15 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 	else
 	{
 		MW_LOG_DEBUG("stream->format %d, stream->firstBufferProcessed %d", stream->format , stream->firstBufferProcessed);
+		MW_LOG_WARN("CheckDiscontinuity: mediaType=%s, format=%d, PTSReStamp=%s, seamlessAudioSwitch=%s, codecChange=%s",
+			gstGetMediaTypeName(type), Format,
+			m_gstConfigParam->enablePTSReStamp ? "YES" : "NO",
+			m_gstConfigParam->seamlessAudioSwitch ? "YES" : "NO",
+			codecChange ? "YES" : "NO");
+		
 		if(m_gstConfigParam->enablePTSReStamp && (Format == GST_FORMAT_ISO_BMFF) && ( !codecChange ))
 		{
+			MW_LOG_WARN("SEAMLESS SWITCH PATH: No EOS signal, continuing with existing pipeline");
 			unblockDiscProcess = true;
 			ret = true;
 		}

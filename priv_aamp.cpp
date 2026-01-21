@@ -11533,6 +11533,14 @@ void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
  */
 void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
+	AAMPLOG_WARN("SetPreferredLanguages called: languageList=%s, rendition=%s, type=%s, codecList=%s, labelList=%s, name=%s",
+		languageList ? languageList : "NULL",
+		preferredRendition ? preferredRendition : "NULL",
+		preferredType ? preferredType : "NULL",
+		codecList ? codecList : "NULL",
+		labelList ? labelList : "NULL",
+		preferredName ? preferredName : "NULL");
+	
 	/**< First argument is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = NULL;
 	bool isJson = false;
@@ -11876,6 +11884,11 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						codecChange = false;
 					}
 					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
+					AAMPLOG_WARN("Codec change detection: codecChange=%s", codecChange ? "TRUE (retune required)" : "FALSE (seamless possible)");
+				}
+				else
+				{
+					AAMPLOG_WARN("PreferredCodecString is empty, codecChange remains TRUE (default)");
 				}
 
 				// Logic to check whether the given language is present in the available tracks,
@@ -12051,6 +12064,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
 					AcquireStreamLock();
+					
+					// Log all conditions for seamless audio switch
+					AAMPLOG_WARN("Seamless audio switch decision: seamlessConfig=%s, firstTune=%s, format=%d (HLS_MP4=%d, DASH=%d), codecChange=%s",
+						ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) ? "YES" : "NO",
+						mFirstTune ? "YES (blocks seamless)" : "NO",
+						mMediaFormat, eMEDIAFORMAT_HLS_MP4, eMEDIAFORMAT_DASH,
+						codecChange ? "YES (blocks seamless)" : "NO");
+					
 					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
 					{
 						AAMPLOG_WARN("Seamless audio switch has been enabled");
