@@ -94,7 +94,7 @@ enableLowLatencyDash=true
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `enableLowLatencyDash` | Boolean | true | Enable Low Latency DASH mode |
-| `disableLowLatencyABR` | Boolean | true | Enable Low Latency ABR handling |
+| `disableLowLatencyABR` | Boolean | true | Disable Low Latency ABR handling |
 | `enableLowLatencyCorrection` | Boolean | true | Prevent gradual latency drift |
 | `downloadBufferChunks` | Number | 20 | Low Latency fragment chunk cache |
 
