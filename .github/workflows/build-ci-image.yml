@@ -2,11 +2,12 @@ name: Build AAMP CI Docker Image
 
 on:
   push:
-    # branches:
-    #   - dev_sprint_25_2
+    branches:
+      - dev_sprint_25_2
     paths:
       - .github/Dockerfile.ci
       - .github/workflows/build-ci-image.yml
+      - scripts/*
 
   workflow_dispatch:
 
