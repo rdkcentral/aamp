@@ -296,7 +296,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 
 	bool newClosedCaptionsControl = false;
-	MW_LOG_MIL("ANJ: IN: ConfigurePipeline");
 
 	if(isSubEnable)
 	{
@@ -437,7 +436,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 				//Don't kill the tune for subtitles
 				if (eGST_MEDIATYPE_SUBTITLE != (GstMediaType)i)
 				{
-	MW_LOG_MIL("ANJ: OUT1: ConfigurePipeline");
 					return;
 				}
 			}
@@ -526,7 +524,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
 	}
-	MW_LOG_MIL("ANJ: OUT: ConfigurePipeline");
 }
 
 /**
@@ -639,8 +636,6 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	const int AVSYNC_NEGATIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdNegativeMs;
 	const int JUMP_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvJumpThresholdMs;
 
-MW_LOG_MIL( "ANJ: IN: MonitorAV");
-printf( "ANJ: IN: MonitorAV");
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
@@ -754,10 +749,8 @@ printf( "ANJ: IN: MonitorAV");
 	}
 	else
 	{
-		MW_LOG_WARN( "gst_element_get_state %d", state );
+		MW_LOG_WARN( "gst_element_get_state %d, rc=%d", state, rc );
 	}
-MW_LOG_MIL( "ANJ: OUT: MonitorAV");
-printf( "ANJ: OUT: MonitorAV");
 }
 
 /**
@@ -2603,57 +2596,40 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
 	GstStructure *stats= 0;
 	GstElement *element;
-	MW_LOG_MIL("ANJ: IN: GetVideoPlaybackQuality");
 
 	if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
 	{
 		element = interfacePlayerPriv->gstPrivateContext->video_sink;
-		MW_LOG_MIL("ANJ: gstPrivateContext->video_sink : %p ----", interfacePlayerPriv->gstPrivateContext->video_sink);
 	}
 	else
 	{
 		element = interfacePlayerPriv->gstPrivateContext->video_dec;
-		MW_LOG_MIL("ANJ: gstPrivateContext->video_dec :%p ----", interfacePlayerPriv->gstPrivateContext->video_dec);
 	}
 	if( element )
 	{
 		GstState current = GST_STATE_VOID_PENDING;
 		GstState pending = GST_STATE_VOID_PENDING;
 		GstClockTime timeout = 0;
-#if 0//anj
-		gint ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
-		if (pending != GST_STATE_VOID_PENDING && ret == GST_STATE_CHANGE_ASYNC)
-		{
-		    ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 2 * GST_SECOND);
-		}
-#endif//anj
-		gint ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+		GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+		MW_LOG_WARN( "ANJ: gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending );
 		if( (ret == GST_STATE_CHANGE_SUCCESS) && ( (current == GST_STATE_PLAYING) || (current == GST_STATE_PAUSED)) )
 		{
-			//MW_LOG_MIL("ANJ: calling g_object_get - stats : element(video_sink) =%p", element);
-			MW_LOG_MIL("ANJ: calling g_object_get - stats");
 			g_object_get( G_OBJECT(element), "stats", &stats, NULL );
-			MW_LOG_MIL("ANJ: after calling g_object_get - stats");
 			if ( stats )
 			{
 				const GValue *value;
-				MW_LOG_MIL("ANJ: calling gst_structure_get_value - rendered");
 				value= gst_structure_get_value( stats, "rendered" );
-				MW_LOG_MIL("ANJ: after calling gst_structure_get_value - rendered");
 				if ( value )
 				{
 					interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
 				}
-				MW_LOG_MIL("ANJ: calling gst_structure_get_value - dropped");
 				value= gst_structure_get_value( stats, "dropped" );
-				MW_LOG_MIL("ANJ: after calling gst_structure_get_value - dropped");
 				if ( value )
 				{
 					interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
 				}
 				MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
 				gst_structure_free( stats );
-				MW_LOG_MIL("ANJ: OUT1: GetVideoPlaybackQuality");
 				return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
 			}
 			else
@@ -2663,12 +2639,10 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 		}
 		else
 		{
-			MW_LOG_WARN( "gst_element_get_state current state=%d, pending=%d, ret=%d", current, pending, ret );
-			MW_LOG_WARN( "ANJ: Incorrect state! gst_element_get_state current state=%d, pending=%d, ret=%d", current, pending, ret );
-			return NULL;//anj??
+			MW_LOG_WARN( "Incorrect state. gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending );
+			return NULL;
 		}
 	}
-	MW_LOG_MIL("ANJ: OUT: GetVideoPlaybackQuality");
 	return NULL;
 }
 
@@ -4811,9 +4785,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				{
 					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 					{ // video
-						//MW_LOG_MIL("ANJ: bus_sync_handler. Before gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
-						//MW_LOG_MIL("ANJ: bus_sync_handler. After gst_object_replace - privatePlayer->gstPrivateContext->video_dec -------");
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(GstPlayer_OnFirstVideoFrameCallback), pInterfacePlayerRDK);
@@ -4893,7 +4865,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 		case GST_MESSAGE_ASYNC_DONE:
 
 			MW_LOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
-			MW_LOG_MIL("ANJ: Received GST_MESSAGE_ASYNC_DONE message");
 			if (privatePlayer->gstPrivateContext->buffering_in_progress)
 			{
 				privatePlayer->gstPrivateContext->bufferingTimeoutTimerId = g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS, buffering_timeout, pInterfacePlayerRDK, NULL);
