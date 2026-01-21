@@ -52,6 +52,6 @@ public:
 };
 
 // Global pointer used by fakes to delegate behavior to the test's mock instance
-//extern MockDrmMetaDataEvent* g_mockDrmMetaDataEvent;
+
 
 #endif // MOCK_DRMMETADATA_EVENT_H
