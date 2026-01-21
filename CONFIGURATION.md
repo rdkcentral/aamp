@@ -115,7 +115,7 @@ enableLowLatencyDash=true
 | `parallelPlaylistRefresh` | Boolean | true | Parallel fetch during playlist refresh |
 | `preFetchIframePlaylist` | Boolean | false | Pre-fetch I-frame playlist |
 | `preservePipeline` | Boolean | false | Flush instead of teardown |
-| `fragmentRetryLimit` | Number | -1 | Fragment retry limit (-1 = unlimited) |
+| `fragmentRetryLimit` | Number | -1 | Fragment retry limit |
 
 ### Audio Track Demultiplexing
 
