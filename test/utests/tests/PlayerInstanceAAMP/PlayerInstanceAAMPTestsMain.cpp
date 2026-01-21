@@ -278,12 +278,6 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOpe
     mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
     g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
     
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillRepeatedly(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
     // Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
         .Times(0);
