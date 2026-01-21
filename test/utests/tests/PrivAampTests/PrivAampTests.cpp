@@ -50,6 +50,8 @@
 #include "MockAdManager.h"
 #include "MockPlayerCCManager.h"
 #include "MockMediaStreamContext.h"
+#include "MockIsoBmffBuffer.h"
+#include "MockAampGrowableBuffer.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -99,6 +101,7 @@ protected:
 		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
+		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
 	}
 
 	void TearDown() override
@@ -139,6 +142,9 @@ protected:
 
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
+
+		delete g_mockIsoBmffBuffer;
+		g_mockIsoBmffBuffer = nullptr;
 
 		delete (int*)mCurlEasyHandle;
 		mCurlEasyHandle = nullptr;
@@ -913,7 +919,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 
 	// Create a buffer for the context
 	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	buffer.AppendBytes("dummy data", strlen("dummy data"));
 
 	// Create a valid curl context
 	CurlCallbackContext context(p_aamp, &buffer);
@@ -921,6 +927,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = 0;
+	context.chunkBoundary = buffer.GetLen(); // Simulate end of chunk
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
@@ -942,6 +949,320 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Result: %zu", result);
 	// Result should be size*nmemb = strlen(testData)*1
 	EXPECT_EQ(result, strlen(testData));
+}
+
+// Test HandleSSLWriteCallback when ParseBuffer API call fails in chunkInjection mode
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Setting up");
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+	// In this test, parseBuffer() fails, so no mdat box is detected and CacheFragmentChunk() should not be called
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.Times(0);
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillRepeatedly(Return(false)); // return no mdat for now
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	context.bufferOffset = 0;
+	context.chunkBoundary = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Calling HandleSSLWriteCallback");
+
+	// Call with valid context - ptr is not NULL, so data processing happens
+	char testData[] = "test data with parse failure";
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Result: %zu", result);
+	// Result should be size*nmemb
+	EXPECT_EQ(result, strlen(testData));
+	// Verify that bufferOffset and chunkBoundary remain unchanged
+	EXPECT_EQ(context.bufferOffset, 0);
+	EXPECT_EQ(context.chunkBoundary, 0);
+}
+
+// Test HandleSSLWriteCallback when no mdat detected in chunkInjection mode
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Setting up");
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+	// In this test, complete mdat is not detected, so CacheFragmentChunk() should not be called
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.Times(0);
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillRepeatedly(Return(false)); // return no mdat for now
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	context.bufferOffset = 0;
+	context.chunkBoundary = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Calling HandleSSLWriteCallback");
+
+	// Call with valid context - ptr is not NULL, so data processing happens
+	char testData[] = "test data with zero mdat";
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Result: %zu", result);
+	// Result should be size*nmemb
+	EXPECT_EQ(result, strlen(testData));
+	// Verify that bufferOffset and chunkBoundary remain unchanged
+	EXPECT_EQ(context.bufferOffset, 0);
+	EXPECT_EQ(context.chunkBoundary, 0);
+}
+
+// Test HandleSSLWriteCallback when full mdat is received in chunkInjection mode
+// Done in 2 iterations to simulate data arriving in parts
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Setting up");
+
+	// RAII guard to ensure memory copying is disabled on test exit (success or failure)
+	struct MemoryCopyingGuard {
+		MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
+		~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
+	} guard;
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(1024);
+	char initialData[] = "dummy data";
+	buffer.AppendBytes(initialData, strlen(initialData));
+
+	size_t startBufferOffset = buffer.GetLen();
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	// Lets also simulate existing buffer data scenario
+	context.bufferOffset = startBufferOffset;
+	context.chunkBoundary = 0;
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Calling HandleSSLWriteCallback");
+
+	// Call HandleSSLWriteCallback twice with incremental data to simulate full mdat reception
+	char testDataPart1[] = "test data with mdat full chunk part 1";
+	char testDataPart2[] = "test data with mdat full chunk part 2";
+	size_t totalBufSize = strlen(testDataPart1) + strlen(testDataPart2);
+	// Lets assume mdat starts from offset 10 to end of buffer
+	size_t mdatStart = 10;
+	size_t mdatSize = totalBufSize - mdatStart;
+	size_t chunkBoundary = startBufferOffset + mdatStart + mdatSize;
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillRepeatedly(Return(true));
+	// Return mdat count as 1
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(DoAll(
+			SetArgReferee<0>(static_cast<size_t>(1)),
+			Return(true)
+		));
+	// Return mdat info
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxInfo(0, _, _))
+		.WillOnce(DoAll(
+			SetArgReferee<1>(static_cast<size_t>(mdatStart)), // mdat start
+			SetArgReferee<2>(static_cast<size_t>(mdatSize)), // mdat size
+			Return(true)
+		));
+
+	// In this test, CacheFragmentChunk() should be called exactly once when full mdat is received
+	// Lets make this a strict check using expected values
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.GetPtr() + startBufferOffset, chunkBoundary - startBufferOffset, _, _))
+		.Times(1);
+
+	size_t result1 = p_aamp->HandleSSLWriteCallback(testDataPart1, strlen(testDataPart1), 1, &context);
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Intermediate Result: %zu", result1);
+	EXPECT_EQ(result1, strlen(testDataPart1));
+	// bufferOffset should still be startBufferOffset
+	EXPECT_EQ(context.bufferOffset, startBufferOffset);
+	// chunkBoundary should be updated to mdat start + mdat size
+	EXPECT_EQ(context.chunkBoundary, chunkBoundary);
+	EXPECT_EQ(buffer.GetLen(), startBufferOffset + strlen(testDataPart1));
+
+	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Result: %zu", result);
+	// Result should be size*nmemb
+	EXPECT_EQ(result, strlen(testDataPart2));
+	// Verify that bufferOffset is updated to total mdat size
+	EXPECT_EQ(context.bufferOffset, chunkBoundary);
+	// chunkBoundary should be reset
+	EXPECT_EQ(context.chunkBoundary, 0);
+	EXPECT_EQ(buffer.GetLen(), startBufferOffset + totalBufSize);
+	// guard destructor will call AampGrowableBuffer_EnableMemoryCopying(false)
+}
+
+// Test HandleSSLWriteCallback when multiple mdat boxes are received
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Setting up");
+
+	// RAII guard to ensure memory copying is disabled on test exit
+	struct MemoryCopyingGuard {
+		MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
+		~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
+	} guard;
+
+	// Enable LL DASH chunk mode
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	buffer.ReserveBytes(2048);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 2048;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	context.bufferOffset = 0;
+	context.chunkBoundary = 0;
+
+	// Simulate receiving data with multiple mdat boxes
+	// First mdat: offset 10, size 100 (boundary at 110)
+	// Second mdat: offset 150, size 120 (boundary at 270)
+	// Third mdat: offset 300, size 150 (boundary at 450)
+	char testData[] = "test data with multiple mdat boxes in fragmented MP4 format";
+	size_t firstMdatStart = 10;
+	size_t firstMdatSize = 100;
+	size_t secondMdatStart = 150;
+	size_t secondMdatSize = 120;
+	size_t thirdMdatStart = 300;
+	size_t thirdMdatSize = 150;
+	size_t lastMdatBoundary = thirdMdatStart + thirdMdatSize; // Should use the last mdat
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillRepeatedly(Return(true));
+
+	// Return mdat count as 3 (multiple fragments in buffer)
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(DoAll(
+			SetArgReferee<0>(static_cast<size_t>(3)),
+			Return(true)
+		));
+
+	// getMdatBoxInfo will be called with index 2 (count - 1) to get the last mdat
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxInfo(2, _, _))
+		.WillOnce(DoAll(
+			SetArgReferee<1>(static_cast<size_t>(thirdMdatStart)),
+			SetArgReferee<2>(static_cast<size_t>(thirdMdatSize)),
+			Return(true)
+		));
+
+	// CacheFragmentChunk should be called once with data up to the last mdat boundary
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, lastMdatBoundary, _, _))
+		.Times(1);
+
+	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Result: %zu", result);
+	EXPECT_EQ(result, strlen(testData));
+
+	// Verify that chunkBoundary was identified as the last mdat boundary
+	EXPECT_EQ(context.chunkBoundary, lastMdatBoundary);
+
+	// Now send more data to complete the chunk
+	std::vector<char> additionalData(500, 'X');
+
+	size_t result2 = p_aamp->HandleSSLWriteCallback(additionalData.data(), additionalData.size(), 1, &context);
+	EXPECT_EQ(result2, additionalData.size());
+
+	// After receiving enough data, bufferOffset should be updated to the boundary
+	EXPECT_EQ(context.bufferOffset, lastMdatBoundary);
+	// chunkBoundary should be reset
+	EXPECT_EQ(context.chunkBoundary, 0);
+	EXPECT_EQ(buffer.GetLen(), strlen(testData) + additionalData.size());
 }
 
 TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
@@ -2696,6 +3017,7 @@ TEST_F(PrivAampTests,DISABLED_stopTest)
 
 TEST_F(PrivAampTests,stopTest_1)
 {
+	EXPECT_CALL(*g_mockAampLicenseManager, setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE));
 	p_aamp->Stop();
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 	EXPECT_FALSE(p_aamp->IsFogTSBSupported());

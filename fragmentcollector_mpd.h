@@ -46,6 +46,9 @@
 #include "AampTrackWorkerManager.hpp"
 #include "AampDownloadInfo.hpp"
 
+// Sentinel for invalid base period offset in ad nodes
+constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
+
 using namespace dash;
 using namespace std;
 using namespace dash::mpd;
@@ -65,6 +68,29 @@ struct ProfileInfo
 {
 	int adaptationSetIndex;
 	int representationIndex;
+};
+
+/**
+ * @struct TimeSyncClient
+ *
+ * @brief Maintains state for periodic synchronization of the local clock
+ * with a remote UTC time server, used in DASH manifest processing.
+ *
+ * This struct tracks the last successful synchronization time and the
+ * cached offset between the local system clock and the server's UTC time.
+ * It supports logic to determine when a new synchronization request should
+ * be made based on elapsed time and configuration.
+ */
+struct TimeSyncClient
+{
+	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
+	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
+	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
+	
+	/**
+	 * @brief Constructor initializes lastSync with current time and resets other members.
+	 */
+	TimeSyncClient();
 };
 
 class AampDashWorkerJob : public aamp::AampTrackWorkerJob
@@ -688,12 +714,14 @@ protected:
 	 * @param init retrievePlaylistFromCache true to try to get from cache
 	 */
 	AAMPStatusType UpdateMPD(bool init = false);
+
 	/**
 	 * @fn FindServerUTCTime
 	 * @param mpd:  MPD top level element
 	 * @param root: XML root node
 	 */
 	bool FindServerUTCTime(Node* root);
+	
 	/**
 	 * @fn FetchDashManifest
 	 */
@@ -1227,6 +1255,13 @@ protected:
 	 */
 	uint32_t GetSegmentRepeatCount(MediaStreamContext *pMediaStreamContext, int timeLineIndex);
 
+	/**
+	 * @fn UpdateStartTimeOfFirstPTS
+	 * @brief Recalculate and update mStartTimeOfFirstPTS.
+	 * @return void
+	 */
+	void UpdateStartTimeOfFirstPTS();
+
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/
@@ -1244,6 +1279,21 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	
+public:
+	/**
+	 * @brief Client used for server time synchronization.
+	 *
+	 * @note TimeSyncClient maintains internal mutable state (e.g. lastSync,
+	 *       lastOffset, hasSynced) and is not internally thread-safe.
+	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
+	 *       in the implementation) are expected to be serialized by the
+	 *       caller. By design, this member is accessed only from the
+	 *       manifest-processing thread and MUST NOT be used concurrently
+	 *       from multiple threads without additional external
+	 *       synchronization.
+	 */
+	TimeSyncClient mTimeSyncClient;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_
