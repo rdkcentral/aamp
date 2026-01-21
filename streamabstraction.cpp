@@ -4027,7 +4027,12 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
  */
 void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
 {
-	mIsAtLivePoint = isAtLivePoint;
+	if (mIsAtLivePoint != isAtLivePoint)
+	{
+		AAMPLOG_INFO("SetIsAtLivePoint: changing mIsAtLivePoint from %d to %d",
+			(mIsAtLivePoint ? 1 : 0), (isAtLivePoint ? 1 : 0));
+		mIsAtLivePoint = isAtLivePoint;
+	}
 }
 
 /**
