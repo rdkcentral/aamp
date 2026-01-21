@@ -49,7 +49,6 @@ static constexpr uint32_t TRICKMODE_TIMESCALE{100000};
 
 using namespace std;
 
-
 AampMediaType TrackTypeToMediaType( TrackType trackType )
 {
 	switch( trackType )
@@ -2582,7 +2581,8 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 		else
 		{
 			long currentBandwidth = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
-			long networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
+			const BitsPerSecond networkBandwidth = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+			aamp->UpdatePersistBandwidth(networkBandwidth);
 			int nwConsistencyCnt = (mNwConsistencyBypass)?1:mABRNwConsistency;
 			if(aamp->GetLLDashServiceData()->lowLatencyMode)
 			{
@@ -2692,7 +2692,8 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		{
 			stAbrInfo.currentBandwidth = streamInfoCurrent->bandwidthBitsPerSecond;
 			stAbrInfo.desiredBandwidth = streamInfoDesired->bandwidthBitsPerSecond;
-			stAbrInfo.networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
+			stAbrInfo.networkBandwidth = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+			aamp->UpdatePersistBandwidth(stAbrInfo.networkBandwidth);
 			stAbrInfo.errorType = AAMPNetworkErrorHttp;
 			stAbrInfo.errorCode = http_error;
 
@@ -2714,7 +2715,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			if(video)
 			{
 				video->SetCurrentBandWidth( newBW );
-				aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
+				aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
 
 				// Send abr notification
@@ -2941,7 +2942,8 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	int desiredProfileIndex = currentProfileIndex;
 	double totalFetchedDuration = video->GetTotalFetchedDuration();
-	long availBW = aamp->GetCurrentlyAvailableBandwidth();
+	const BitsPerSecond availBW = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+	aamp->UpdatePersistBandwidth(availBW);
 	bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
 	//For LLD, it's necessary to initiate a rampdown process when there is a consistent download delay in order to construct the buffer.
 	if (aamp->GetLLDashServiceData()->lowLatencyMode && !checkProfileChange && (aamp->mDownloadDelay >= (int)(floor(aamp->mLiveOffset / 2))))
@@ -2971,7 +2973,8 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 		stAbrInfo.desiredProfileIndex = desiredProfileIndex;
 		stAbrInfo.currentBandwidth = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
 		stAbrInfo.desiredBandwidth = GetStreamInfo(desiredProfileIndex)->bandwidthBitsPerSecond;
-		stAbrInfo.networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
+		stAbrInfo.networkBandwidth = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+		aamp->UpdatePersistBandwidth(stAbrInfo.networkBandwidth);
 		stAbrInfo.errorType = AAMPNetworkErrorNone;
 
 		AampLogManager::LogABRInfo(&stAbrInfo);
@@ -2984,7 +2987,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 		video->ABRProfileChanged();
 		long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
 		video->SetCurrentBandWidth(newBW);
-		aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
+		aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 		mABRLowBufferCounter = 0 ;
 		mABRHighBufferCounter = 0;
 		retVal = true;

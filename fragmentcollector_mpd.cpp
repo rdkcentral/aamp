@@ -7520,7 +7520,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 					if (modifyDefaultBW)
 					{	// Not for new tune ( for Seek / Trickplay)
-						long persistedBandwidth = aamp->GetPersistedBandwidth();
+						BitsPerSecond persistedBandwidth = aamp->mhAbrManager.GetNetworkBandwidth();
 						// If Bitrate persisted over trickplay is true, set persisted BW as default init BW
 						if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitrate || aamp->IsBitRatePersistedOverSeek()))
 						{
@@ -7606,7 +7606,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 						IRepresentation *selectedRepresentation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
 						// for the profile selected ,reset the abr values with default bandwidth values
-						aamp->ResetCurrentlyAvailableBandwidth(selectedRepresentation->GetBandwidth(),trickplayMode,currentProfileIndex);
+						aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 						aamp->profiler.SetBandwidthBitsPerSecondVideo(selectedRepresentation->GetBandwidth());
 					}
 					else
@@ -12861,7 +12861,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								bufferLowHit = true;
 								bufferLowHitCount++;
 								/** Buffer Low hit so push the data to telemetry*/
-								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
+								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mhAbrManager.GetNetworkBandwidth(), bufferLowHitCount);
 								bufferLowCount = 0;
 							}
 						}

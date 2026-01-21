@@ -22,6 +22,8 @@
 #include "AampMPDDownloader.h"
 #include "AampStreamSinkManager.h"
 
+#include "BandwidthEstimatorBase.h"
+
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
@@ -49,7 +51,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsAudioContextSkipped(false),
 	mMediaFormat(eMEDIAFORMAT_HLS),
 	mPersistedProfileIndex(0),
-	mAvailableBandwidth(0),
 	mContentType(ContentType_UNKNOWN),
 	mManifestUrl(""),
 	mServiceZone(),
@@ -141,6 +142,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
+{
+}
+
+void PrivateInstanceAAMP::UpdatePersistBandwidth(BitsPerSecond bandwidth)
 {
 }
 
@@ -892,9 +897,6 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
-{
-}
 
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
@@ -1037,11 +1039,6 @@ uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
-}
-
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-    return 0;
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
