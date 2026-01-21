@@ -423,7 +423,12 @@ long PrivateInstanceAAMP::GetCurrentLatency()
 
 bool PrivateInstanceAAMP::IsAtLivePoint()
 {
-	return false;
+	bool isAtLivePoint = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		isAtLivePoint = g_mockPrivateInstanceAAMP->IsAtLivePoint();
+	}
+	return isAtLivePoint;
 }
 
 ContentType PrivateInstanceAAMP::GetContentType() const
@@ -1195,7 +1200,12 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 
 bool PrivateInstanceAAMP::IsLiveStream(void)
 {
-	return mIsLiveStream;
+	bool isLiveStream = mIsLiveStream;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		isLiveStream = g_mockPrivateInstanceAAMP->IsLiveStream();
+	}
+	return isLiveStream;
 }
 
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
