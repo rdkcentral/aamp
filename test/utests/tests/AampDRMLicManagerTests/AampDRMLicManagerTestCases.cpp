@@ -223,15 +223,16 @@ protected:
 /**
  * @brief Test OCDM session construction failure error mapping
  * 
- * Validates that MW_DRM_SESSION_CONSTRUCT_FAILED from middleware layer
- * is properly mapped to AAMP_TUNE_DRM_SESSION_CONSTRUCT_FAILED at player layer
+ * Validates that MW_DRM_SESSION_CREATE_FAILED from middleware layer
+ * is properly mapped to AAMP_TUNE_DRM_SESSION_CREATE_FAILED at player layer,
+ * which corresponds to the error message "OCDM session construction failed".
  * 
  * Test Flow:
  * 1. Mock g_mockAampLicenseManager->createDrmSession to invoke a custom action
  * 2. In that action, call g_mockDRMSessionManager->initializeDrmSession 
- * 3. initializeDrmSession sets err = MW_DRM_SESSION_CONSTRUCT_FAILED
+ * 3. initializeDrmSession sets err = MW_DRM_SESSION_CREATE_FAILED
  * 4. The fake createDrmSession should then call the mapping logic
- * 5. Verify eventHandle contains AAMP_TUNE_DRM_SESSION_CONSTRUCT_FAILED
+ * 5. Verify eventHandle contains AAMP_TUNE_DRM_SESSION_CREATE_FAILED
  */
 TEST_F(AampDRMLicManagerTests, ValidateOCDMSessionConstructFailure)
 {
