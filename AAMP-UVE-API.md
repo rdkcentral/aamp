@@ -236,7 +236,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | reportVideoPTS | Boolean | false | Enable Video PTS reporting along with progressReport. Available in version 3.0. |
 | propagateUriParameters | Boolean | true | Enable/disable propagating URI parameters from main manifest to segment downloads. |
 | enableSeekableRange | Boolean | false | Enable reporting of seekable range for linear scrubbing. |
-| livePauseBehavior | Number | 0 | Configure player live pause behavior on linear streams when live window touches eldest position. Options: 0 – Autoplay immediate; 1 – Live immediate; 2 – Autoplay defer; 3 – Live defer; Default – Autoplay immediate. Refer [Appendix](#live-pause-configuration). |
+| livePauseBehavior | Number | 0 | Configure player live pause behavior on linear streams when live window touches eldest position. Options: 0 - Autoplay immediate; 1 - Live immediate; 2 - Autoplay defer; 3 - Live defer; Default - Autoplay immediate. Refer [Appendix](#live-pause-configuration). |
 | asyncTune | Boolean | true | Enable asynchronous player API processing. Application/UI caller threads returned immediately without any processing delays. |
 | useAbsoluteTimeline | Boolean | false | Enable progress reporting based on Availability Start Time of stream (DASH only). |
 | tsbInterruptHandling | Boolean | false | Enable support for network interruption handling with TSB. Network failures will be ignored and TSB will continue building. |
