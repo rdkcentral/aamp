@@ -218,12 +218,12 @@ make coverage_report
 
 ### Best Practices
 
-1. **One Assertion per Test** (ideally) or logical grouping
-2. **Descriptive Names**: Use pattern `Test_Component_Behavior_Expectation`
-3. **Test Data**: Use realistic but minimal test data
-4. **Isolation**: Tests must pass in any order
-5. **No Network Calls**: Use mocks instead
-6. **Deterministic**: No flaky tests due to timing
+- [ ] **One Assertion per Test** (ideally) or logical grouping
+- [ ] **Descriptive Names**: Use pattern `Test<Component><Behavior><Expectation>`
+- [ ] **Test Data**: Use realistic but minimal test data
+- [ ] **Isolation**: Tests must pass in any order
+- [ ] **No Network Calls**: Use mocks instead
+- [ ] **Deterministic**: No flaky tests due to timing
 
 ## Instruction References
 
