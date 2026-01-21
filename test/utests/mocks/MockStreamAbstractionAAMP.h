@@ -101,7 +101,7 @@ public:
 
 	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
 
-	MOCK_METHOD(bool, IsStreamerAtLivePoint, (double seekPosition));
+	MOCK_METHOD(void, SetIsAtLivePoint, (bool isAtLivePoint));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;
