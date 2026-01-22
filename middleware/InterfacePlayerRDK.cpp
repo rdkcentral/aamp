@@ -2596,23 +2596,22 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
 	GstStructure *stats= 0;
 	GstElement *element;
+	GstState current = GST_STATE_VOID_PENDING;
+	GstState pending = GST_STATE_VOID_PENDING;
+	GstClockTime timeout = 0;
+	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+	if( (ret == GST_STATE_CHANGE_SUCCESS) && ( (current == GST_STATE_PLAYING) || (current == GST_STATE_PAUSED)) )
+	{
 
-	if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
-	{
-		element = interfacePlayerPriv->gstPrivateContext->video_sink;
-	}
-	else
-	{
-		element = interfacePlayerPriv->gstPrivateContext->video_dec;
-	}
-	if( element )
-	{
-		GstState current = GST_STATE_VOID_PENDING;
-		GstState pending = GST_STATE_VOID_PENDING;
-		GstClockTime timeout = 0;
-		GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
-		MW_LOG_WARN( "ANJ: gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending );
-		if( (ret == GST_STATE_CHANGE_SUCCESS) && ( (current == GST_STATE_PLAYING) || (current == GST_STATE_PAUSED)) )
+		if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
+		{
+			element = interfacePlayerPriv->gstPrivateContext->video_sink;
+		}
+		else
+		{
+			element = interfacePlayerPriv->gstPrivateContext->video_dec;
+		}
+		if( element )
 		{
 			g_object_get( G_OBJECT(element), "stats", &stats, NULL );
 			if ( stats )
@@ -2637,11 +2636,10 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 				MW_LOG_ERR("Failed to get sink stats");
 			}
 		}
-		else
-		{
-			MW_LOG_WARN( "Incorrect state. gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending );
-			return NULL;
-		}
+	}
+	else
+	{
+		MW_LOG_WARN( "Incorrect state. gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending );
 	}
 	return NULL;
 }

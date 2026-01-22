@@ -813,7 +813,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
-AAMPLOG_WARN("ANJ: IN: AAMPGstPlayer::Configure");
+
 	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d",format, audioFormat, subFormat);
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
@@ -825,17 +825,11 @@ AAMPLOG_WARN("ANJ: IN: AAMPGstPlayer::Configure");
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
-	AAMPLOG_WARN("ANJ: AAMPGstPlayer::Configure calling ConfigurePipeline()");
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
-	AAMPLOG_WARN("ANJ: AAMPGstPlayer::Configure after calling ConfigurePipeline()");
-
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
-	AAMPLOG_WARN("ANJ: AAMPGstPlayer::Configure calling StartMonitorAvTimer()");
 	StartMonitorAvTimer();
-	AAMPLOG_WARN("ANJ: AAMPGstPlayer::Configure after calling StartMonitorAvTimer()");
-	AAMPLOG_WARN("ANJ: OUT: AAMPGstPlayer::Configure");
 }
 
 /**
@@ -1274,7 +1268,6 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 static gboolean MonitorAvTimerCallback(gpointer user_data)
 {
 	AAMPGstPlayer *player  = static_cast<AAMPGstPlayer*>(user_data);
-	AAMPLOG_WARN("ANJ: IN: MonitorAvTimerCallback");
 	if (player && player->playerInstance != nullptr)
 	{
 		// No mutex is employed for MonitorAVState as this callback and ProgressTimerCallback are called from the main thread
@@ -1297,9 +1290,7 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 				{
 					timeInState = player->GetMonitorAVInterval(); // Cap to reporting interval
 				}
-				AAMPLOG_WARN("ANJ: calling GetVideoPlaybackQuality()");
 				GstPlaybackQualityStruct* playbackQuality = player->playerInstance->GetVideoPlaybackQuality();
-				AAMPLOG_WARN("ANJ: After calling GetVideoPlaybackQuality(), SendMonitorAvEvent now ");
 				player->aamp->SendMonitorAvEvent(monitorAVState.description,
 						monitorAVState.av_position[eMEDIATYPE_VIDEO],
 						monitorAVState.av_position[eMEDIATYPE_AUDIO],
@@ -1308,7 +1299,6 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 			}
 		}
 	}
-	AAMPLOG_WARN("ANJ: OUT: MonitorAvTimerCallback");
 	return TRUE;
 }
 
@@ -1317,7 +1307,6 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
  */
 void AAMPGstPlayer::StartMonitorAvTimer()
 {
-	AAMPLOG_WARN("ANJ: IN: StartMonitorAvTimer");
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
 	{
 		// mMonitorAVInterval is in milliseconds
@@ -1331,7 +1320,6 @@ void AAMPGstPlayer::StartMonitorAvTimer()
 			AAMPLOG_MIL("MonitorAvTimer started with interval %d ms", mMonitorAVInterval);
 		}
 	}
-	AAMPLOG_WARN("ANJ: OUT: StartMonitorAvTimer");
 }
 
 /**
