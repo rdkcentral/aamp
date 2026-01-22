@@ -52,7 +52,8 @@ typedef	enum
 	KEY_READY = 2,			/**< Has a usable key */
 	KEY_ERROR = 3,			/**< Has an error */
 	KEY_CLOSED = 4,			/**< Has been closed */
-	KEY_ERROR_EMPTY_SESSION_ID = 5	/**< Has Empty DRM session id */
+	KEY_ERROR_EMPTY_SESSION_ID = 5,	/**< Has Empty DRM session id */
+	KEY_ERROR_SESSION_CREATE_FAILED = 6 /**< Session creation failed (OCDM) */
 	
 } KeyState;
 

@@ -92,6 +92,7 @@ public:
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
+	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
