@@ -221,6 +221,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_DRM_SELF_ABORT, 50, 14, "AAMP: DRM license request aborted by player"},
 	{AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN, 50, 15, "AAMP: Failed to get access token from Auth Service"},
 	{AAMP_TUNE_DRM_KEY_UPDATE_FAILED, 50, 16, "AAMP: Failed to process DRM key"},
+	{AAMP_TUNE_DRM_SESSION_CREATE_FAILED, 50, 17, "AAMP: OCDM session construction failed"},
 
 	
 	//Provisioning failure
