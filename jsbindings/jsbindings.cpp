@@ -4682,7 +4682,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 		std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL == _allocated_aamp )
 		{
-			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL);
+			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL, true);
 			LOG_WARN_EX("create aamp %p", _allocated_aamp);
 		}
 		else

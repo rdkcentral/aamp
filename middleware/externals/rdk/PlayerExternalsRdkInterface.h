@@ -83,6 +83,11 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         InitState m_initialized = NOT_INITIALIZED;
         //remove-end
 
+        bool mPowerEvt = false;
+
+        /**< Callback function for fake tune operations */
+        std::function<void()> m_doFakeTuneCallback = nullptr;
+
         PlayerExternalsRdkInterface();
 
     public:
@@ -156,6 +161,22 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
+
+	void SetPowerEvent(bool powerEvt) override;
+
+        bool GetPowerEvent() override;
+
+        /**
+         * @brief Set callback function for fake tune operations
+         * @param[in] t_doFakeTuneCallback Function to call when fake tune is triggered from power events
+         */
+        void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback) override;
+
+        /**
+         * @brief Get callback function for fake tune operations
+         * @return Function pointer for fake tune callback
+         */
+        std::function<void()> GetDoFakeTuneCallBack() override;
 
         ~PlayerExternalsRdkInterface();
 

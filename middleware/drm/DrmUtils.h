@@ -57,6 +57,7 @@ typedef enum
 	MW_DRM_INIT_FAILED,			   /**< DRM initialization failure */
 	MW_DRM_DATA_BIND_FAILED,			   /**< InitData binding with DRM failed */
 	MW_DRM_SESSIONID_EMPTY,			   /**< DRM session ID empty */
+	MW_DRM_SESSION_CREATE_FAILED,		   /**< DRM session creation failure (OCDM) */
 	MW_DRM_CHALLENGE_FAILED,			   /**< DRM key request challenge generation failed */
 	MW_INVALID_DRM_KEY,			   /**< DRM reporting invalid license key */
 	MW_CORRUPT_DRM_DATA,			   /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
