@@ -415,7 +415,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 {
 	// This test validates that when the fragment cache is already full,
 	// DownloadFragment returns without attempting to cache/download.
-	int maxCache = 1;
+	constexpr int maxCache = 1;
 
 	// Simulate cache already at capacity.
 	mMediaStreamContext->numberOfFragmentsCached = maxCache;
@@ -458,7 +458,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 	// This test validates that in Low Latency DASH mode, if we are injecting
 	// from a local TSB, the wait loop is skipped and the fragment can be
 	// cached even if TrackDownloadsAreEnabled() is false.
-	int maxCache = 5;
+	constexpr int maxCache = 5;
 
 	// Enable low-latency mode and leave cache capacity available.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
@@ -507,7 +507,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 	// - Downloads enabled
 	// - Not local TSB injection (so LLD logic is active)
 	// Expect caching/download to be attempted for each call.
-	int maxCache = 5;
+	constexpr int maxCache = 5;
 	int numCalls = 5;
 
 	// Enable low-latency mode and ensure cache has room.
