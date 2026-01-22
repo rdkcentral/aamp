@@ -221,6 +221,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_DRM_SELF_ABORT, 50, 14, "AAMP: DRM license request aborted by player"},
 	{AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN, 50, 15, "AAMP: Failed to get access token from Auth Service"},
 	{AAMP_TUNE_DRM_KEY_UPDATE_FAILED, 50, 16, "AAMP: Failed to process DRM key"},
+	{AAMP_TUNE_DRM_SESSION_CREATE_FAILED, 50, 17, "AAMP: OCDM session construction failed"},
 
 	
 	//Provisioning failure
@@ -3109,6 +3110,13 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
  */
 void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
+#ifdef USE_PREINIT_DECODING
+	if(mManifestUrl.compare(FAKE_TUNE_URL) == 0)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error for fake tune");
+		return;
+	}
+#endif
 	bool sendErrorEvent = false;
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	if(mState != eSTATE_ERROR)
@@ -3833,7 +3841,10 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(mManifestUrl != FAKE_TUNE_URL)
+	{
+		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
@@ -3861,7 +3872,10 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(mManifestUrl != FAKE_TUNE_URL)
+	{
+		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
@@ -7912,32 +7926,31 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
  */
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	bool rc = false;
- 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
- 	if (sink)
- 	{
-		rc = sink->SendCopy(mediaType, ptr, len, fpts, fdts, fDuration);
- 	}
-	return rc;
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink && ptr && len > 0)
+	{
+		return sink->SendCopy(mediaType,
+							  std::vector<uint8_t>(static_cast<const uint8_t *>(ptr),
+												   static_cast<const uint8_t *>(ptr) + len),
+							  fpts, fdts, fDuration);
+	}
+	else
+	{
+		AAMPLOG_WARN("SendStreamCopy: Invalid parameters or Sink not available ptr=%p len=%zu", ptr, len);
+	}
+	return false;
 }
 
 /**
  * @brief  API to send audio/video stream into the sink.
  */
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if( sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity) )
-		{
-			buffer->Transfer();
-		}
-		else
-		{ // unable to transfer - free up the buffer we were passed.
-			buffer->Free();
-		}
-		//memset(buffer, 0x00, sizeof(AampGrowableBuffer));
+		// The temporary vector returned by ExtractVector is automatically moved into SendTransfer.
+		sink->SendTransfer(mediaType, buffer->ExtractVector(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
 	else
 	{
@@ -8170,6 +8183,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMLicenseManager->Stop();
+
+		// Set Session Manager State to Inactive after StreamSink has been stopped
+		// to avoid any race condition between data still being streamed and DRM session manager
+		mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 	}
 
 	SAFE_DELETE(mCdaiObject);

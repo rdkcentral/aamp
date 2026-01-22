@@ -64,7 +64,9 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
     std::string url("Dummy");
 	const char* trackName = "video";
 	uint32_t timeScale = 48000;
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	// Check that setBuffer receives the actual buffer pointer
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
@@ -87,7 +89,8 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
     std::string url("Dummy");
 	const char* trackName = "video";
 	uint32_t timeScale = 48000;
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
@@ -107,7 +110,8 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	uint64_t pts{123};
 	uint64_t duration{1};
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(pts, duration));
 	EXPECT_TRUE(helper->SetPtsAndDuration(buffer, pts, duration));
@@ -127,7 +131,8 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
 	uint64_t pts{123};
 	uint64_t duration{1};
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(_, _)).Times(0);
 	EXPECT_FALSE(helper->SetPtsAndDuration(buffer, pts, duration));
@@ -143,7 +148,8 @@ TEST_F(IsoBmffHelperTests, setTimescaleTest)
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(true));
 	EXPECT_TRUE(helper->SetTimescale(buffer, 1000));
@@ -161,7 +167,8 @@ TEST_F(IsoBmffHelperTests, setTimescaleTestNegativeTest)
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(false));
 	EXPECT_FALSE(helper->SetTimescale(buffer, 1000));
@@ -177,7 +184,8 @@ TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationTest)
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setMediaHeaderDuration(0)).WillOnce(Return(true));
@@ -195,7 +203,8 @@ TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_1)
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
 	EXPECT_FALSE(helper->ClearMediaHeaderDuration(buffer));
@@ -212,7 +221,8 @@ TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_2)
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
 	// Set the pointer and length in the AampGrowableBuffer fake
 	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setMediaHeaderDuration(0)).WillOnce(Return(false));

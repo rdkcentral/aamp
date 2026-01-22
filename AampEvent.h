@@ -158,6 +158,7 @@ typedef enum
 	AAMP_TUNE_DRM_SELF_ABORT, /**< Download activity is aborted by player */
 	AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN,	/**< Failed to get session token from AuthService*/
 	AAMP_TUNE_DRM_KEY_UPDATE_FAILED,	/**< Failed to process DRM key, see the error code returned from Update() for more info */
+	AAMP_TUNE_DRM_SESSION_CREATE_FAILED,		   /**< DRM session creation failure (OCDM) */
 
     
 	
@@ -179,7 +180,7 @@ typedef enum
 	AAMP_TUNE_PLAYBACK_STALLED, /**< Playback was stalled due to valid fragments not available in playlist */
 	
 	//Unknown failure
-	AAMP_TUNE_FAILURE_UNKNOWN
+	AAMP_TUNE_FAILURE_UNKNOWN /**< Unknown failure */
 } AAMPTuneFailure;
 
 /**

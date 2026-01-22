@@ -4128,6 +4128,9 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
+#ifdef USE_PREINIT_DECODING
+	doFakeTune();
+#endif
 	LOG_TRACE("Exit");
 }
 
