@@ -314,7 +314,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						p2AdData.duration += diffInDurationMs;
 					}
 					AAMPLOG_INFO("periodDelta = %" PRId64 " p2AdData.duration = [%" PRIu64 "] mPlacementObj.adNextOffset = %u periodId = %s",periodDelta,p2AdData.duration,mPlacementObj.adNextOffset, periodId.c_str());
-					bool isSrcdurnotequalstoaddur = false;
+					bool source_ad_duration_mismatch = false;
 					if ((periodDelta == 0) && (nextPeriodDur > 0))
 					{
 						IPeriod* nextPeriod = periods.at(nextPeriodIter);
@@ -384,7 +384,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							{
 								AAMPLOG_INFO("nextPeriodDur = %" PRId64 " currPeriodDur = %" PRId64 " curAd.duration = [%" PRIu64 "] periodDurationAvailable:%" PRId64" adDurationToPlaceInBreak:%" PRId64 "",
 									nextPeriodDur,currPeriodDur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInBreak);
-								isSrcdurnotequalstoaddur = true;
+								source_ad_duration_mismatch = true;
 								// An ad exceeding the current period duration by more than 2 seconds is considered a split period
 								// Source period duration should be more than tiny period to be treated as split period
 								// If the tiny period just happens to be within a split period, then split period marker will be set which is expected as of now
@@ -395,7 +395,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							}
 						}
 					}
-					while(periodDelta > 0 || isSrcdurnotequalstoaddur)
+					while(periodDelta > 0 || source_ad_duration_mismatch)
 					{
 						if( !abObj.ads )
 						{
@@ -407,7 +407,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						if(periodDelta < (curAd.duration - mPlacementObj.adNextOffset))
 						{
 							mPlacementObj.adNextOffset += periodDelta;
-							if(isSrcdurnotequalstoaddur)
+							if(source_ad_duration_mismatch)
 							{
 								IPeriod* nextPeriod = periods.at(nextPeriodIter);
 								// check if the current source period duration < current period ad duration and it is lest than offset factor
@@ -469,7 +469,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								AAMPLOG_ERR("[CDAI] remainingAdDuration[%" PRId64 "] is -ve, not expected, adDuration:%" PRIu64 " nextOffset:%" PRIu32 ,
 									remainingAdDuration, curAd.duration, mPlacementObj.adNextOffset);
 							}
-							isSrcdurnotequalstoaddur = false;
+							source_ad_duration_mismatch = false;
 							// If another ad exists in this ad break
 							if(mPlacementObj.curAdIdx+1 < abObj.ads->size())
 							{

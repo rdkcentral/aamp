@@ -477,7 +477,7 @@ public:
     	 */
 	AampConfig();
 	/**
-         * @brief AampConfig Distructor function
+         * @brief AampConfig Destructor function
          *
          * @return None
          */

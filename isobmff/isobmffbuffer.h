@@ -212,10 +212,10 @@ public:
 	/**
 	*  	@fn parseBuffer
 	*  	@param[in] name - name of the track
-	*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+	*  	@param[in/out] unParsedBuffer - Total unparsed buffer
 	*  	@param[in] timeScale - timescale of the track
 	*	@param[out] parsedBufferSize - parsed buffer size
-	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+	*  	@param[in/out] unParsedBufferSize - unparsed or remaining buffer size
 	*	@param[out] fpts - fragment pts value
 	*  	@param[out] fduration - fragment duration
 	*	@return true if parsed or false
