@@ -7185,7 +7185,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						if(representation != NULL)
 						{
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
-							mStreamInfo[idx].isIframeTrack = !(AAMP_NORMAL_PLAY_RATE == mPlayRate);
+							mStreamInfo[idx].isIframeTrack = ShouldCheckOnlyIframeAdaptation();
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
 							mStreamInfo[idx].resolution.width = representation->GetWidth();
 							mStreamInfo[idx].resolution.framerate = 0;
@@ -7324,7 +7324,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							IRepresentation *representation = representations.at(reprIdx);
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
-							mStreamInfo[idx].isIframeTrack = !(AAMP_NORMAL_PLAY_RATE == mPlayRate);
+							mStreamInfo[idx].isIframeTrack = ShouldCheckOnlyIframeAdaptation();
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
 							mStreamInfo[idx].resolution.width = representation->GetWidth();
 							mStreamInfo[idx].resolution.framerate = 0;
