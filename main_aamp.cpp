@@ -2633,7 +2633,7 @@ void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const c
 		preferredType ? preferredType : "NULL",
 		codecList ? codecList : "NULL",
 		labelList ? labelList : "NULL",
-		accessibilityItem ? accessibilityItem->ToString().c_str() : "NULL",
+		accessibilityItem ? accessibilityItem : "NULL",
 		preferredName ? preferredName : "NULL");
 
 	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem, preferredName);
