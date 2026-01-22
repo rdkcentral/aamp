@@ -353,7 +353,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 	// are disabled, DownloadFragment should not attempt to cache/download the
 	// fragment (i.e., it should not call GetFetchBuffer/GetFile). The function
 	// should still return true because the "download loop" can exit cleanly.
-	int maxCache = 5;
+	constexpr int maxCache = 5;
 
 	// Enable low-latency mode so the wait loop path is exercised.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
