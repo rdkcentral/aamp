@@ -508,7 +508,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 	// - Not local TSB injection (so LLD logic is active)
 	// Expect caching/download to be attempted for each call.
 	constexpr int maxCache = 5;
-	int numCalls = 5;
+	constexpr int numCalls = 5;
 
 	// Enable low-latency mode and ensure cache has room.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
