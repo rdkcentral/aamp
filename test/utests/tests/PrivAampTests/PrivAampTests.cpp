@@ -350,10 +350,7 @@ public:
 	}
 	void GetAvailableTracks_obj()
 	{
-		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
-	
-		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
+		g_mockStreamAbstractionAAMP->GetAvailableAudioTracks(true);
 		GetAvailableAudioTracks(true);
 	}
 	void InitStreamAbstraction()
@@ -394,6 +391,9 @@ public:
 
 TEST_F(PrivAampPrivTests, GetAvailableTracksTest_1)
 {
+	static std::vector<AudioTrackInfo> mockAudio;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillRepeatedly(ReturnRef(mockAudio));
 	testp_aamp->GetAvailableTracks_obj();
 }
 
