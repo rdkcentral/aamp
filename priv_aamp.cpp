@@ -1675,6 +1675,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
+	AAMPLOG_WARN("VRN PreferredCodecString SET - %s",!preferredCodecString.empty()?preferredCodecString.c_str():"EMPTY");
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
 		curl[i] = NULL;
@@ -6176,6 +6177,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	preferredSubtitleLanguageVctr.clear();
 	std::istringstream ss(mSubLanguage);
 	std::string lng;
+	AAMPLOG_WARN("VRN PreferredCodecString SET - %s",!preferredCodecString.empty()?preferredCodecString.c_str():"EMPTY");
 	while(std::getline(ss, lng, ','))
 	{
 		preferredSubtitleLanguageVctr.push_back(lng);
@@ -12038,6 +12040,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		preferredCodecList = std::move(inputCodecList);
 		preferredNameString = std::move(inputNameString);
 
+		AAMPLOG_WARN("VRN PreferredCodecString SET - %s",!preferredCodecString.empty()?preferredCodecString.c_str():"EMPTY");
+
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioRendition,preferredRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
@@ -12124,6 +12128,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				preferredCodecString.clear();
 				preferredCodecList.clear();
 				preferredCodecString = std::string(codecList);
+				AAMPLOG_WARN("VRN PreferredCodecString SET - %s",!preferredCodecString.empty()?preferredCodecString.c_str():"EMPTY");
 				std::istringstream ss(preferredCodecString);
 				std::string codec;
 				while(std::getline(ss, codec, ','))
@@ -12132,6 +12137,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					AAMPLOG_INFO("Parsed preferred codec: %s", codec.c_str());
 				}
 				preferredCodecString = std::string(codecList);
+				AAMPLOG_WARN("VRN PreferredCodecString SET - %s",!preferredCodecString.empty()?preferredCodecString.c_str():"EMPTY");
 				AAMPLOG_WARN("VRN Setting codec %s", preferredCodecString.c_str());
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 			}
@@ -12206,8 +12212,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				char *currentPrefCodec = const_cast<char*>(trackInfo[trackIndex].codec.c_str());
 				char *currentPrefLabel = const_cast<char*>(trackInfo[trackIndex].label.c_str());
 				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
-				AAMPLOG_WARN("VRN Current Preferred Language %s, Rendition %s, Accessibility %s, Codec %s, Label %s, Name %s",
-					currentPrefLanguage, currentPrefRendition, currentPrefAccessibility, currentPrefCodec, currentPrefLabel, currentPrefName);
+				AAMPLOG_WARN("VRN Current Preferred Language %s, Rendition %s, Accessibility %s, Codec %s, Label %s, Name %s Pref Code St[%d]",
+					currentPrefLanguage, currentPrefRendition, currentPrefAccessibility, currentPrefCodec, currentPrefLabel, currentPrefName, !preferredCodecString.empty());
 
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
 				if(!preferredCodecString.empty())
@@ -12392,6 +12398,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
 					AcquireStreamLock();
+					AAMPLOG_WARN("VRN SEAMLESS CHECK MediaFormat: %d (%s), FirstTune: %d, CodecChange: %d",mMediaFormat,mMediaFormatName[mMediaFormat],mFirstTune,codecChange);
 					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
 					{
 						AAMPLOG_WARN("Seamless audio switch has been enabled");
