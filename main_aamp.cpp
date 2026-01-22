@@ -2627,13 +2627,12 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
  */
 void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
-	AAMPLOG_WARN("VRN PlayerInstanceAAMP:: SetPreferredLanguages LanguageList:%s, Rendition:%s, Type:%s, Codec:%s, Label:%s, Accessibility:%s, Name:%s",
+	AAMPLOG_WARN("VRN PlayerInstanceAAMP:: SetPreferredLanguages LanguageList:%s, Rendition:%s, Type:%s, Codec:%s, Label:%s, Name:%s",
 		languageList ? languageList : "NULL",
 		preferredRendition ? preferredRendition : "NULL",
 		preferredType ? preferredType : "NULL",
 		codecList ? codecList : "NULL",
 		labelList ? labelList : "NULL",
-		accessibilityItem ? accessibilityItem : "NULL",
 		preferredName ? preferredName : "NULL");
 
 	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem, preferredName);
