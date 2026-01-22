@@ -352,7 +352,7 @@ public:
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
 		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
-
+	
 		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
 	}
@@ -391,7 +391,8 @@ public:
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
-TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
+
+TEST_F(PrivAampPrivTests, GetAvailableTracksTest_1)
 {
 	testp_aamp->GetAvailableTracks_obj();
 }

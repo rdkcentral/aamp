@@ -152,8 +152,12 @@ void StreamAbstractionAAMP_MPD::SetCDAIObject(CDAIObject *cdaiObj)
 {
 }
 
-std::vector<AudioTrackInfo>& StreamAbstractionAAMP_MPD::GetAvailableAudioTracks(bool allTrack)
+std::vector<AudioTrackInfo> &StreamAbstractionAAMP_MPD::GetAvailableAudioTracks(bool allTrack)
 {
+    if (g_mockStreamAbstractionAAMP_MPD)
+    {
+        return g_mockStreamAbstractionAAMP_MPD->GetAvailableAudioTracks(allTrack);
+    }
     return mAudioTracksAll;
 }
 

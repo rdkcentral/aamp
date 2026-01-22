@@ -32,6 +32,7 @@ using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
 using ::testing::NiceMock;
+using ::testing::ReturnRef;
 
 // Test constants
 constexpr int TEST_OVERSHOOT_CORRECTION = 10;
@@ -39,326 +40,333 @@ constexpr int TEST_OVERSHOOT_CORRECTION = 10;
 class PlayerInstanceAAMPTests : public ::testing::Test
 {
 protected:
-    PlayerInstanceAAMP *mPlayerInstance = nullptr;
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
-    AampConfig *mConfig;
-    void SetUp() override 
-    {
-        if(gpGlobalConfig == nullptr)
-        {
-            gpGlobalConfig =  new AampConfig();
-        }
+	PlayerInstanceAAMP *mPlayerInstance = nullptr;
+	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	AampConfig *mConfig;
+	void SetUp() override
+	{
+		if(gpGlobalConfig == nullptr)
+		{
+			gpGlobalConfig =  new AampConfig();
+		}
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-        mPlayerInstance = new PlayerInstanceAAMP();
-        g_mockAampConfig = new NiceMock<MockAampConfig>();
-        g_mockAampScheduler = new MockAampScheduler();
-        g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-        mConfig = new AampConfig();
-        mplayer = new TestablePlayerInstanceAAMP();
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstance = new PlayerInstanceAAMP();
+		mPlayerInstance->aamp = mPrivateInstanceAAMP;
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampScheduler = new MockAampScheduler();
+		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+		g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		mConfig = new AampConfig();
+		mplayer = new TestablePlayerInstanceAAMP();
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
+		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
    		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 
-    }
-    
-    void TearDown() override 
-    {
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+	}
 
-        delete g_mockAampScheduler;
-        g_mockAampScheduler = nullptr;
+	void TearDown() override
+	{
+		delete g_mockPrivateInstanceAAMP;
+		g_mockPrivateInstanceAAMP = nullptr;
 
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+		delete g_mockAampScheduler;
+		g_mockAampScheduler = nullptr;
 
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP =nullptr;
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
 
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+		delete g_mockStreamAbstractionAAMP;
+		g_mockStreamAbstractionAAMP =nullptr;
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+		delete mPrivateInstanceAAMP;
+		mPrivateInstanceAAMP = nullptr;
 
-        delete g_mockAampStreamSinkManager;
-        g_mockAampStreamSinkManager = nullptr;
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
 
-        delete mConfig;
-        mConfig = nullptr;
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
 
-        delete mplayer;
-        mplayer = nullptr;
+		delete mConfig;
+		mConfig = nullptr;
 
-    }
-    class TestablePlayerInstanceAAMP : public PlayerInstanceAAMP {
+		delete mplayer;
+		mplayer = nullptr;
+
+	}
+	class TestablePlayerInstanceAAMP : public PlayerInstanceAAMP {
 public:
-    TestablePlayerInstanceAAMP() : PlayerInstanceAAMP(){}
-    void SetTextTrack_Internal(int trackId, char *data)
-    {
-        int x = trackId;
-        char* y = new char[50];
-        strcpy(y,"data");
-        SetTextTrackInternal(x, y);
-    }
-    void SetRate_Internal(float rate,int overshootcorrection)
-    {
-        SetRateInternal(rate,overshootcorrection);
-    }
-    void Seek_Internal(double secondsRelativeToTuneTime, bool keepPaused)
-    {
-        SeekInternal(secondsRelativeToTuneTime,keepPaused);
-    }
+	TestablePlayerInstanceAAMP() : PlayerInstanceAAMP(){}
+	void SetTextTrack_Internal(int trackId, char *data)
+	{
+		int x = trackId;
+		char* y = new char[50];
+		strcpy(y,"data");
+		SetTextTrackInternal(x, y);
+	}
+	void SetRate_Internal(float rate,int overshootcorrection)
+	{
+		SetRateInternal(rate,overshootcorrection);
+	}
+	void Seek_Internal(double secondsRelativeToTuneTime, bool keepPaused)
+	{
+		SeekInternal(secondsRelativeToTuneTime,keepPaused);
+	}
 };
 TestablePlayerInstanceAAMP *mplayer;
 };
 TEST_F(PlayerInstanceAAMPTests,SeekInternalTest1)
 {
-    double secondsRelativeToTuneTime = 2.5;
-    bool keepPaused = true;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_INITIALIZED));
-	
-    mPrivateInstanceAAMP->seek_pos_seconds = secondsRelativeToTuneTime ;
+	double secondsRelativeToTuneTime = 2.5;
+	bool keepPaused = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_INITIALIZED));
 
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PlaybackOffset,secondsRelativeToTuneTime);
+	mPrivateInstanceAAMP->seek_pos_seconds = secondsRelativeToTuneTime ;
 
-    mplayer->Seek_Internal(secondsRelativeToTuneTime,keepPaused);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PlaybackOffset,secondsRelativeToTuneTime);
+
+	mplayer->Seek_Internal(secondsRelativeToTuneTime,keepPaused);
 }
-TEST_F(PlayerInstanceAAMPTests,SetRateInternalTest)
+TEST_F(PlayerInstanceAAMPTests, SetRateInternalTest)
 {
-    float rate = 2.2f;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
-        .WillOnce(Return(true));
-    mplayer->SetRate_Internal(rate,overshootcorrection);
+	float rate = 2.2f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
+		.WillOnce(Return(true));
+	mplayer->SetRate_Internal(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal when at live point with fast forward rate
- * 
+ *
  * When player is at live point and rate >= AAMP_NORMAL_PLAY_RATE (1.0),
  * the operation should be skipped and NotifyOnEnteringLive() should be called.
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_SkipsOperation)
 {
-    float rate = 2.0f;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is at live point
-    mPlayerInstance->aamp->mbDetached = false;
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
-    
-    // Expect NotifyOnEnteringLive to be called
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(1);
-    
-    // Should not call SetIsAtLivePoint when operation is skipped
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
-        .Times(0);
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
+	float rate = 2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is at live point
+	mPlayerInstance->aamp->mbDetached = false;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+
+	// Ensure PrivateInstance reports being at live point
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	// Expect NotifyOnEnteringLive to be called
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(1);
+
+	// Should not call SetIsAtLivePoint when operation is skipped
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
+		.Times(0);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal when at live point with normal play rate
- * 
+ *
  * When player is at live point and rate == AAMP_NORMAL_PLAY_RATE,
  * the operation should be skipped and NotifyOnEnteringLive() should be called.
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_NormalPlayRate_SkipsOperation)
 {
-    float rate = AAMP_NORMAL_PLAY_RATE;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is at live point
-    mPlayerInstance->aamp->mbDetached = false;
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
-    // Expect NotifyOnEnteringLive to be called
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(1);
-    
-    // Should not call SetIsAtLivePoint when operation is skipped
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
-        .Times(0);
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
+	float rate = AAMP_NORMAL_PLAY_RATE;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is at live point
+	mPlayerInstance->aamp->mbDetached = false;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	// Expect NotifyOnEnteringLive to be called
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(1);
+
+	// Should not call SetIsAtLivePoint when operation is skipped
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
+		.Times(0);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal when NOT at live point with fast forward rate
- * 
+ *
  * When player is NOT at live point, fast forward rate changes should be allowed
  * and SetIsAtLivePoint should be called to clear the flag.
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_AllowsOperation)
 {
-    float rate = 2.0f;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is NOT at live point
-    mPlayerInstance->aamp->mbDetached = false;
-    mPlayerInstance->aamp->pipeline_paused = false;
-    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
-    
-    // Should NOT call NotifyOnEnteringLive when not at live point
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(0);
-    
-    // Should call SetIsAtLivePoint to clear the flag
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
-        .Times(1);
-    
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
-        .WillRepeatedly(Return(false));
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
+	float rate = 2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is NOT at live point
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+
+	// Should NOT call NotifyOnEnteringLive when not at live point
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(0);
+
+	// Should call SetIsAtLivePoint to clear the flag
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
+		.Times(1);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+		.WillRepeatedly(Return(false));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal with slowmotion rate
- * 
+ *
  * Slowmotion rate is less than AAMP_NORMAL_PLAY_RATE, so even if at live point,
  * the operation should proceed (not skip).
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_SlowMotionRate_AllowsOperation)
 {
-    float rate = AAMP_SLOWMOTION_RATE;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is at live point but with slowmotion rate
-    mPlayerInstance->aamp->mbDetached = false;
-    mPlayerInstance->aamp->pipeline_paused = false;
-    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
-    
-    // Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(0);
-    
-    // Should call SetIsAtLivePoint to update the flag
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
-        .Times(1);
-    
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
-        .WillRepeatedly(Return(false));
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
+	float rate = AAMP_SLOWMOTION_RATE;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is at live point but with slowmotion rate
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(0);
+
+	// Should call SetIsAtLivePoint to update the flag
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
+		.Times(1);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+		.WillRepeatedly(Return(false));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal with negative rate (rewind)
- * 
+ *
  * Negative rates (rewind) are less than AAMP_NORMAL_PLAY_RATE, so even if at live point,
  * the operation should proceed (not skip).
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOperation)
 {
-    float rate = -2.0f; // Rewind
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is at live point but with rewind rate
-    mPlayerInstance->aamp->mbDetached = false;
-    mPlayerInstance->aamp->pipeline_paused = false;
-    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
-    
-    // Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(0);
-    
-    // Should call SetIsAtLivePoint to clear the flag (rewind takes us away from live point)
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
-        .Times(1);
-    
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
-        .WillRepeatedly(Return(false));
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
+	float rate = -2.0f; // Rewind
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is at live point but with rewind rate
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// Should NOT call NotifyOnEnteringLive because rate < AAMP_NORMAL_PLAY_RATE
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(0);
+
+	// Should call SetIsAtLivePoint to clear the flag (rewind takes us away from live point)
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
+		.Times(1);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+		.WillRepeatedly(Return(false));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal when mbDetached is true
- * 
+ *
  * When mbDetached flag is true, even if at live point, the operation should proceed.
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOperation)
 {
-    float rate = 2.0f;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is at live point but detached
-    mPlayerInstance->aamp->mbDetached = true;
-    mPlayerInstance->aamp->pipeline_paused = false;
-    mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
-    
-    // Should NOT call NotifyOnEnteringLive when detached
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(0);
-    
-    // Should call SetIsAtLivePoint to update the flag
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
-        .Times(1);
-    
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
-        .WillRepeatedly(Return(false));
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
+	float rate = 2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is at live point but detached
+	mPlayerInstance->aamp->mbDetached = true;
+	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// Should NOT call NotifyOnEnteringLive when detached
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(0);
+
+	// Should call SetIsAtLivePoint to update the flag
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
+		.Times(1);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+		.WillRepeatedly(Return(false));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /**
  * @brief Test SetRateInternal verifies mIsAtLivePoint flag is updated
- * 
- * After any rate change (except when skipped at live point), 
+ *
+ * After any rate change (except when skipped at live point),
  * SetIsAtLivePoint should be called to update the mIsAtLivePoint flag.
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
 {
-    float rate = 2.0f;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player starts NOT at live point
-    mPlayerInstance->aamp->mbDetached = false;
-    mPlayerInstance->aamp->pipeline_paused = false;
-    mPlayerInstance->aamp->rate = 1.0f;
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
-    
-    // Should call SetIsAtLivePoint to clear the flag
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
-        .Times(1)
-        .WillOnce(testing::Invoke([](bool isAtLive) {
-            // Verify the flag is set to false
-            g_mockStreamAbstractionAAMP->mIsAtLivePoint = isAtLive;
-        }));
-    
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
-        .WillRepeatedly(Return(false));
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
-    
-    // Verify the flag was updated to false
-    EXPECT_FALSE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+	float rate = 2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player starts NOT at live point
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->rate = 1.0f;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+
+	// Should call SetIsAtLivePoint to clear the flag
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false))
+		.Times(1)
+		.WillOnce(testing::Invoke([](bool isAtLive)
+								  {g_mockStreamAbstractionAAMP->mIsAtLivePoint = isAtLive; }));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(testing::_))
+		.WillRepeatedly(Return(false));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	// Verify the flag was updated to false
+	EXPECT_FALSE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
 }
 
 /**
  * @brief Test SetRateInternal called multiple times at live point preserves live flag
- * 
+ *
  * This test verifies the fix for the original issue where calling SetRate with FFWD
  * at the live edge would incorrectly clear the live edge flag. When at live point,
  * calling SetRate multiple times should skip the operation each time and maintain
@@ -366,542 +374,536 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
  */
 TEST_F(PlayerInstanceAAMPTests, SetRateInternal_MultipleCallsAtLivePoint_PreservesLiveFlag)
 {
-    float rate = 2.0f;
-    int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
-    
-    // Setup: Player is at live point
-    mPlayerInstance->aamp->mbDetached = false;
-    g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
-    
-    // First SetRate call at live point
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(1);
-    
-    // Should NOT call SetIsAtLivePoint (which would clear the flag)
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
-        .Times(0);
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
-    
-    // Verify live flag is still set after first call
-    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
-    
-    // Second SetRate call at live point - should also skip and preserve flag
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(1);
-    
-    // Still should NOT call SetIsAtLivePoint
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
-        .Times(0);
-    
-    mPlayerInstance->SetRate(rate, overshootcorrection);
-    
-    // Verify live flag is STILL set after second call - this is the key verification
-    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
-    
-    // Third SetRate call with different FF rate - should still preserve flag
-    float rate3x = 3.0f;
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
-        .WillOnce(Return(true));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
-        .Times(1);
-    
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
-        .Times(0);
-    
-    mPlayerInstance->SetRate(rate3x, overshootcorrection);
-    
-    // Final verification: flag remains set after multiple SetRate calls
-    EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+	float rate = 2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// Setup: Player is at live point
+	mPlayerInstance->aamp->mbDetached = false;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// First SetRate call at live point
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(1);
+
+	// Should NOT call SetIsAtLivePoint (which would clear the flag)
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
+		.Times(0);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	// Verify live flag is still set after first call
+	EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+
+	// Second SetRate call at live point - should also skip and preserve flag
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(1);
+
+	// Still should NOT call SetIsAtLivePoint
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
+		.Times(0);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+
+	// Verify live flag is STILL set after second call - this is the key verification
+	EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
+
+	// Third SetRate call with different FF rate - should still preserve flag
+	float rate3x = 3.0f;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(1);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(testing::_))
+		.Times(0);
+
+	mPlayerInstance->SetRate(rate3x, overshootcorrection);
+
+	// Final verification: flag remains set after multiple SetRate calls
+	EXPECT_TRUE(g_mockStreamAbstractionAAMP->mIsAtLivePoint);
 }
 
  TEST_F(PlayerInstanceAAMPTests,SetTextTrack_InternalTest)
  {
-    int trackId = 10;
-    char data[] = "data";
-    mplayer->SetTextTrack_Internal(trackId,data);
+	int trackId = 10;
+	char data[] = "data";
+	mplayer->SetTextTrack_Internal(trackId,data);
  }
 // Testing calling PauseAt with position
-// Expect to call stop pause position monitoring, followed by 
+// Expect to call stop pause position monitoring, followed by
 // start pause position monitoring with the requested position
 TEST_F(PlayerInstanceAAMPTests, PauseAt)
 {
-    double pauseAtSeconds = 100.0;
-    long long pauseAtMilliseconds = pauseAtSeconds * 1000;
+	double pauseAtSeconds = 100.0;
+	long long pauseAtMilliseconds = pauseAtSeconds * 1000;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(pauseAtMilliseconds)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(pauseAtMilliseconds)).Times(1);
 
-    mPlayerInstance->PauseAt(pauseAtSeconds);
+	mPlayerInstance->PauseAt(pauseAtSeconds);
 }
 
 // Testing calling PauseAt with position 0
-// Expect to call stop pause position monitoring, followed by 
+// Expect to call stop pause position monitoring, followed by
 // start pause position monitoring with the requested position
 TEST_F(PlayerInstanceAAMPTests, PauseAt_Position0)
 {
-    double pauseAtSeconds = 0;
-    long long pauseAtMilliseconds = pauseAtSeconds * 1000;
+	double pauseAtSeconds = 0;
+	long long pauseAtMilliseconds = pauseAtSeconds * 1000;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(pauseAtMilliseconds)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(pauseAtMilliseconds)).Times(1);
 
-    mPlayerInstance->PauseAt(pauseAtSeconds);
+	mPlayerInstance->PauseAt(pauseAtSeconds);
 }
 
 // Testing calling PauseAt with negative value to cancel
 // Expect to call stop pause position monitoring
 TEST_F(PlayerInstanceAAMPTests, PauseAt_Cancel)
 {
-    double pauseAtSeconds = -1.0;
+	double pauseAtSeconds = -1.0;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
-    mPlayerInstance->PauseAt(pauseAtSeconds);
+	mPlayerInstance->PauseAt(pauseAtSeconds);
 }
 
 // Testing calling PauseAt when already paused
 // Don't expect to start pause position monitoring
 TEST_F(PlayerInstanceAAMPTests, PauseAt_AlreadyPaused)
 {
-    double pauseAtSeconds = 100.0;
+	double pauseAtSeconds = 100.0;
 	mPlayerInstance->aamp->pipeline_paused = true; // FIXME! violates mPlayerInstance->aamp being private
 	//mPlayerInstance->SetRate(0); // logically similar, but doesn't work with below code
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
-    mPlayerInstance->PauseAt(pauseAtSeconds);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+	mPlayerInstance->PauseAt(pauseAtSeconds);
 }
 
 // Testing calling PauseAt whilst in error state
 // Expect to neither call stop nor start pause position monitoring
 TEST_F(PlayerInstanceAAMPTests, PauseAt_InErrorState)
 {
-    double pauseAtSeconds = -1.0;
+	double pauseAtSeconds = -1.0;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring(_)).Times(0);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
-    mPlayerInstance->PauseAt(pauseAtSeconds);
+	mPlayerInstance->PauseAt(pauseAtSeconds);
 }
 
 // Testing calling PauseAt when configured to run async API
 // Expect the async scheduler to be called
 TEST_F(PlayerInstanceAAMPTests, PauseAtAsync)
 {
-    double pauseAtSeconds = 100.0;
+	double pauseAtSeconds = 100.0;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
+	mPlayerInstance->AsyncStartStop();
 
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
 
-    mPlayerInstance->PauseAt(pauseAtSeconds);
-    mPrivateInstanceAAMP->mMediaFormat=eMEDIAFORMAT_DASH;
-    MediaFormat type = mPrivateInstanceAAMP->GetMediaFormatType("mpd");
+	mPlayerInstance->PauseAt(pauseAtSeconds);
+	mPrivateInstanceAAMP->mMediaFormat=eMEDIAFORMAT_DASH;
+	MediaFormat type = mPrivateInstanceAAMP->GetMediaFormatType("mpd");
 }
 
 // Testing calling Tune cancels any pause position monitoring
-// Expect StopPausePositionMonitoring to be called at least once 
+// Expect StopPausePositionMonitoring to be called at least once
 // (internally Tune can call Stop ao possible for multiple calls)
 TEST_F(PlayerInstanceAAMPTests, DISABLED_PauseAt_Tune)
 {
-    char mainManifestUrl[] = "";
+	char mainManifestUrl[] = "";
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Tune() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Tune() called")).Times(1);
 	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, Stop(false)).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
-    mPlayerInstance->Tune(mainManifestUrl);
+	mPlayerInstance->Tune(mainManifestUrl);
 }
 
 // Testing calling detach cancels any pause position monitoring
-// Expect StopPausePositionMonitoring to be called at once 
+// Expect StopPausePositionMonitoring to be called at once
 TEST_F(PlayerInstanceAAMPTests, PauseAt_detach)
 {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("detach() called")).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    mPlayerInstance->detach();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("detach() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+
+	mPlayerInstance->detach();
 }
 
 // Testing calling SetRate cancels any pause position monitoring
-// Expect StopPausePositionMonitoring to be called at once 
+// Expect StopPausePositionMonitoring to be called at once
 TEST_F(PlayerInstanceAAMPTests, PauseAt_SetRate)
 {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
-    mPlayerInstance->SetRate(1);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
+	mPlayerInstance->AsyncStartStop();
+
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
+	mPlayerInstance->SetRate(1);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRate_Test)
 {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetRate(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetRate(0);
 }
 // Testing calling Stop cancels any pause position monitoring
-// Expect StopPausePositionMonitoring to be called at once 
+// Expect StopPausePositionMonitoring to be called at once
 TEST_F(PlayerInstanceAAMPTests, PauseAt_Stop)
 {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
 	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, Stop(false)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
-    mPlayerInstance->Stop();
+	mPlayerInstance->Stop();
 }
 
 // Testing calling Seek cancels any pause position monitoring
-// Expect StopPausePositionMonitoring to be called at once 
+// Expect StopPausePositionMonitoring to be called at once
 TEST_F(PlayerInstanceAAMPTests, PauseAt_Seek)
 {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Seek() called")).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Seek() called")).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
-    mPlayerInstance->Seek(1000);
+	mPlayerInstance->Seek(1000);
 }
 TEST_F(PlayerInstanceAAMPTests, ResetConfigurationTests) {
-    
-    mPlayerInstance-> ResetConfiguration();
+
+	mPlayerInstance-> ResetConfiguration();
 }
 TEST_F(PlayerInstanceAAMPTests, RegisterEventsTypeTests) {
-    EventListener* eventListener = nullptr;
-    AAMPEventType type = AAMP_EVENT_TUNED;
-    mPlayerInstance-> RegisterEvent(type,eventListener);
-    
+	EventListener* eventListener = nullptr;
+	AAMPEventType type = AAMP_EVENT_TUNED;
+	mPlayerInstance-> RegisterEvent(type,eventListener);
+
 }
 TEST_F(PlayerInstanceAAMPTests, RegisterEventsTests) {
-    EventListener* eventListener = nullptr;
-    mPlayerInstance-> RegisterEvents(eventListener);
-    mPrivateInstanceAAMP->RegisterAllEvents(eventListener);
+	EventListener* eventListener = nullptr;
+	mPlayerInstance-> RegisterEvents(eventListener);
+	mPrivateInstanceAAMP->RegisterAllEvents(eventListener);
 }
 
 TEST_F(PlayerInstanceAAMPTests, UnRegisterEventsTests) {
-    EventListener* eventListener = nullptr;
-    mPlayerInstance-> UnRegisterEvents(eventListener);
-    mPrivateInstanceAAMP->UnRegisterEvents(eventListener);
+	EventListener* eventListener = nullptr;
+	mPlayerInstance-> UnRegisterEvents(eventListener);
+	mPrivateInstanceAAMP->UnRegisterEvents(eventListener);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetSegmentInjectFailCountTest1) {
-    //checking random value
-    int value = 10;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
-    mPlayerInstance->SetSegmentInjectFailCount(value);
+	//checking random value
+	int value = 10;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
+	mPlayerInstance->SetSegmentInjectFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentInjectFailCountTest2) {
-    //checking Maximum value
-    int value = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
-    mPlayerInstance->SetSegmentInjectFailCount(value);
+	//checking Maximum value
+	int value = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
+	mPlayerInstance->SetSegmentInjectFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentInjectFailCountTest3) {
-    //checking Minimum value
-    int value = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
-    mPlayerInstance->SetSegmentInjectFailCount(value);
+	//checking Minimum value
+	int value = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
+	mPlayerInstance->SetSegmentInjectFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentInjectFailCountTest4) {
-    //checking negative value
-    int value = -50;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
-    mPlayerInstance->SetSegmentInjectFailCount(value);
+	//checking negative value
+	int value = -50;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_SegmentInjectThreshold,value);
+	mPlayerInstance->SetSegmentInjectFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentDecryptFailCountTest1) {
-    //checking random value
-    int value = 5;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
-    mPlayerInstance->SetSegmentDecryptFailCount(value);
+	//checking random value
+	int value = 5;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
+	mPlayerInstance->SetSegmentDecryptFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentDecryptFailCountTest2) {
-    //checking Maximum value
-    int value = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
-    mPlayerInstance->SetSegmentDecryptFailCount(value);
+	//checking Maximum value
+	int value = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
+	mPlayerInstance->SetSegmentDecryptFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentDecryptFailCountTest3) {
-    //checking Minimum value
-    int value = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
-    mPlayerInstance->SetSegmentDecryptFailCount(value);
+	//checking Minimum value
+	int value = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
+	mPlayerInstance->SetSegmentDecryptFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSegmentDecryptFailCountTest4) {
-    //checking negative value
-    int value = -5;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
-    mPlayerInstance->SetSegmentDecryptFailCount(value);
+	//checking negative value
+	int value = -5;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DRMDecryptThreshold,value);
+	mPlayerInstance->SetSegmentDecryptFailCount(value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitialBufferDurationTest1) {
-    //checking random value
-    int durationSec = 10;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
-    mPlayerInstance->SetInitialBufferDuration(durationSec);
+	//checking random value
+	int durationSec = 10;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
+	mPlayerInstance->SetInitialBufferDuration(durationSec);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitialBufferDurationTest2) {
-    //checking Maximum value
-    int durationSec = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
-    mPlayerInstance->SetInitialBufferDuration(durationSec);
+	//checking Maximum value
+	int durationSec = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
+	mPlayerInstance->SetInitialBufferDuration(durationSec);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitialBufferDurationTest3) {
-    //checking minimum value
-    int durationSec = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
-    mPlayerInstance->SetInitialBufferDuration(durationSec);
+	//checking minimum value
+	int durationSec = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
+	mPlayerInstance->SetInitialBufferDuration(durationSec);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitialBufferDurationTest4) {
-    //checking negative value
-    int durationSec = -10;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
-    mPlayerInstance->SetInitialBufferDuration(durationSec);
+	//checking negative value
+	int durationSec = -10;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitialBuffer,durationSec);
+	mPlayerInstance->SetInitialBufferDuration(durationSec);
 }
 TEST_F(PlayerInstanceAAMPTests, GetInitialBufferDurationTest) {
-    
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
-        .WillOnce(Return(5000)); 
-    int initialBufferDuration = mPlayerInstance->GetInitialBufferDuration();
 
-    EXPECT_EQ(initialBufferDuration,5000);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
+		.WillOnce(Return(5000));
+	int initialBufferDuration = mPlayerInstance->GetInitialBufferDuration();
+
+	EXPECT_EQ(initialBufferDuration,5000);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetMaxPlaylistCacheSizeTest1) {
-    //checking random value
-    int Cachesize = 100;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
-    mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
+	//checking random value
+	int Cachesize = 100;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
+	mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMaxPlaylistCacheSizeTest2) {
-    //checking Maximum value
-    int Cachesize = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
-    mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
+	//checking Maximum value
+	int Cachesize = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
+	mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMaxPlaylistCacheSizeTest3) {
-    //checking Minimum value
-    int Cachesize = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
-    mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
+	//checking Minimum value
+	int Cachesize = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
+	mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMaxPlaylistCacheSizeTest4) {
-    //checking negative value
-    int Cachesize = -100;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
-    mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
+	//checking negative value
+	int Cachesize = -100;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxPlaylistCacheSize,Cachesize);
+	mPlayerInstance->SetMaxPlaylistCacheSize(Cachesize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRampDownLimitTest1) {
-    //checking random value
-    int expectedLimit = 50;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
-    mPlayerInstance->SetRampDownLimit(expectedLimit);
+	//checking random value
+	int expectedLimit = 50;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
+	mPlayerInstance->SetRampDownLimit(expectedLimit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRampDownLimitTest2) {
-    //checking Maximum value
-    int expectedLimit = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
-    mPlayerInstance->SetRampDownLimit(expectedLimit);
+	//checking Maximum value
+	int expectedLimit = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
+	mPlayerInstance->SetRampDownLimit(expectedLimit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRampDownLimitTest3) {
-    //checking Minimum value
-    int expectedLimit = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
-    mPlayerInstance->SetRampDownLimit(expectedLimit);
+	//checking Minimum value
+	int expectedLimit = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
+	mPlayerInstance->SetRampDownLimit(expectedLimit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRampDownLimitTest4) {
-    //checking negative value
-    int expectedLimit = -10;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
-    mPlayerInstance->SetRampDownLimit(expectedLimit);
+	//checking negative value
+	int expectedLimit = -10;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_RampDownLimit ,expectedLimit);
+	mPlayerInstance->SetRampDownLimit(expectedLimit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMinimumBitrate_ValidBitrate) {
-    //checking for bitrate > 0  
-    BitsPerSecond bitrate = 1000000;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MinBitrate ,int(bitrate));
-    mPlayerInstance->SetMinimumBitrate(bitrate);
+	//checking for bitrate > 0
+	BitsPerSecond bitrate = 1000000;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MinBitrate ,int(bitrate));
+	mPlayerInstance->SetMinimumBitrate(bitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMinimumBitrate_InvalidBitrate) {
-    //checking bitrate < 0 ;
-    BitsPerSecond bitrate = -500000; 
-    mPlayerInstance->SetMinimumBitrate(bitrate);
+	//checking bitrate < 0 ;
+	BitsPerSecond bitrate = -500000;
+	mPlayerInstance->SetMinimumBitrate(bitrate);
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetMaximumBitrate) {
 
-    BitsPerSecond expectedMaxBitrate = 6000;
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxBitrate))
-        .WillOnce(Return(expectedMaxBitrate));
+	BitsPerSecond expectedMaxBitrate = 6000;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxBitrate))
+		.WillOnce(Return(expectedMaxBitrate));
 
-    BitsPerSecond maxBitrate = mPlayerInstance->GetMaximumBitrate();
-    EXPECT_EQ(expectedMaxBitrate,maxBitrate);
+	BitsPerSecond maxBitrate = mPlayerInstance->GetMaximumBitrate();
+	EXPECT_EQ(expectedMaxBitrate,maxBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMaximumBitrateTest1) {
-    //checking bitrate greater than 0 values
-    BitsPerSecond expectedMinBitrate = 10000;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxBitrate ,expectedMinBitrate);
-    mPlayerInstance->SetMaximumBitrate(expectedMinBitrate);
+	//checking bitrate greater than 0 values
+	BitsPerSecond expectedMinBitrate = 10000;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_MaxBitrate ,expectedMinBitrate);
+	mPlayerInstance->SetMaximumBitrate(expectedMinBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMaximumBitrateTest2) {
-    //checking bitrate less than 0 values
-    BitsPerSecond expectedMinBitrate = 0;
-    mPlayerInstance->SetMaximumBitrate(expectedMinBitrate);
+	//checking bitrate less than 0 values
+	BitsPerSecond expectedMinBitrate = 0;
+	mPlayerInstance->SetMaximumBitrate(expectedMinBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, GetMinimumBitrate1) {
-    //checking random values
-    BitsPerSecond expectedMinBitrate = 10000;
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MinBitrate))
-        .WillOnce(Return(expectedMinBitrate));
+	//checking random values
+	BitsPerSecond expectedMinBitrate = 10000;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MinBitrate))
+		.WillOnce(Return(expectedMinBitrate));
 
-    BitsPerSecond minBitrate = mPlayerInstance->GetMinimumBitrate();
-    EXPECT_EQ(minBitrate,expectedMinBitrate);
+	BitsPerSecond minBitrate = mPlayerInstance->GetMinimumBitrate();
+	EXPECT_EQ(minBitrate,expectedMinBitrate);
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetRampDownLimitTest) {
 
-     EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RampDownLimit))
-        .WillOnce(Return(10000)); 
-    int RampDownlimit = mPlayerInstance->GetRampDownLimit();
+	 EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RampDownLimit))
+		.WillOnce(Return(10000));
+	int RampDownlimit = mPlayerInstance->GetRampDownLimit();
 
-    EXPECT_EQ(RampDownlimit,10000);
+	EXPECT_EQ(RampDownlimit,10000);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetLanguageFormatTest) {
-   
+
    bool useRole = true;
    LangCodePreference lang [] = {
-    ISO639_NO_LANGCODE_PREFERENCE,
-    ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
-    ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
-    ISO639_PREFER_2_CHAR_LANGCODE
+	ISO639_NO_LANGCODE_PREFERENCE,
+	ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
+	ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
+	ISO639_PREFER_2_CHAR_LANGCODE
    };
    for(LangCodePreference preference : lang)
    {
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LanguageCodePreference ,preference);
-        mPlayerInstance->SetLanguageFormat(preference, useRole);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LanguageCodePreference ,preference);
+		mPlayerInstance->SetLanguageFormat(preference, useRole);
    }
 }
 
 TEST_F(PlayerInstanceAAMPTests, SeekToLiveTest){
-    //checking true condition
-    bool keepPaused = true;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	//checking true condition
+	bool keepPaused = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
+	mPlayerInstance->AsyncStartStop();
 
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
 
-    mPlayerInstance->SeekToLive(keepPaused);
+	mPlayerInstance->SeekToLive(keepPaused);
 }
 TEST_F(PlayerInstanceAAMPTests, SeekToLiveTest_1){
-    //checking false condition
-    bool keepPaused = false;
-    mPlayerInstance->SeekToLive(keepPaused);
+	//checking false condition
+	bool keepPaused = false;
+	mPlayerInstance->SeekToLive(keepPaused);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetSlowMotionPlayRateTest1){
-    //checking random float value
-    float rate = 0.5f;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetSlowMotionPlayRate(rate);
+	//checking random float value
+	float rate = 0.5f;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetSlowMotionPlayRate(rate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSlowMotionPlayRateTest2){
-    //Maximum float value
-    float rate = FLT_MAX;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetSlowMotionPlayRate(rate);
+	//Maximum float value
+	float rate = FLT_MAX;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetSlowMotionPlayRate(rate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSlowMotionPlayRateTest3){
-    //Minimum float value
-    float rate = FLT_MIN;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetSlowMotionPlayRate(rate);
+	//Minimum float value
+	float rate = FLT_MIN;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetSlowMotionPlayRate(rate);
 }
 TEST_F(PlayerInstanceAAMPTests,SetRateAndSeekvalidTest1)
 {
-    int rate = 1;
-    double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
-    TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
+	int rate = 1;
+	double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
+	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
-        .WillOnce(Return(true));
-    mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
+		.WillOnce(Return(true));
+	mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
 }
 TEST_F(PlayerInstanceAAMPTests,SetRateAndSeekvalidTest2)
 {
-    int rate = 64;
-    double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
-    TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
+	int rate = 64;
+	double secondsRelativeToTuneTime = AAMP_SEEK_TO_LIVE_POSITION;
+	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
-        .WillOnce(Return(true));
-    mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
+		.WillOnce(Return(true));
+	mPlayerInstance->SetRateAndSeek(rate,secondsRelativeToTuneTime);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoRectangleTest1) {
-    //checking random values
-    int x = 10; 
-    int y = 20;
-    int w = 640;
-    int h = 480;
+	//checking random values
+	int x = 10;
+	int y = 20;
+	int w = 640;
+	int h = 480;
 
-    mPlayerInstance->SetVideoRectangle(x, y, w, h);
+	mPlayerInstance->SetVideoRectangle(x, y, w, h);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoRectangleTest2) {
-    //checking Maximum values
-    int x = INT_MAX; 
-    int y = INT_MAX;
-    int w = INT_MAX;
-    int h = INT_MAX;
+	//checking Maximum values
+	int x = INT_MAX;
+	int y = INT_MAX;
+	int w = INT_MAX;
+	int h = INT_MAX;
 
-    mPlayerInstance->SetVideoRectangle(x, y, w, h);
+	mPlayerInstance->SetVideoRectangle(x, y, w, h);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoRectangleTest3) {
-    //checking Minimum values
-    int x = INT_MIN; 
-    int y = INT_MIN;
-    int w = INT_MIN;
-    int h = INT_MIN;
+	//checking Minimum values
+	int x = INT_MIN;
+	int y = INT_MIN;
+	int w = INT_MIN;
+	int h = INT_MIN;
 
-    mPlayerInstance->SetVideoRectangle(x, y, w, h);
+	mPlayerInstance->SetVideoRectangle(x, y, w, h);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetVideoZoomTest0) {
-    VideoZoomMode zoom = VIDEO_ZOOM_NONE;
-    mPlayerInstance->SetVideoZoom(zoom);
+	VideoZoomMode zoom = VIDEO_ZOOM_NONE;
+	mPlayerInstance->SetVideoZoom(zoom);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoZoomTest1) {
 	VideoZoomMode zoom = VIDEO_ZOOM_DIRECT;
@@ -929,383 +931,383 @@ TEST_F(PlayerInstanceAAMPTests, SetVideoZoomTest6) {
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetVideoMute_True) {
-    bool muted = true;
+	bool muted = true;
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
-    mPlayerInstance->SetVideoMute(muted);
+	mPlayerInstance->SetVideoMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoMute_False) {
-    bool muted = false;
+	bool muted = false;
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
-    mPlayerInstance->SetVideoMute(muted);
+	mPlayerInstance->SetVideoMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest1) {
-    //checking true condition
-    bool muted = true; 
+	//checking true condition
+	bool muted = true;
    mPlayerInstance->SetSubtitleMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest2) {
-    //checking false condition
-    bool muted = false; 
+	//checking false condition
+	bool muted = false;
    mPlayerInstance->SetSubtitleMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioVolumeTest1) {
-    //checking correct volume
-    int volume = 50; 
-    // Call the method to be tested
+	//checking correct volume
+	int volume = 50;
+	// Call the method to be tested
    mPlayerInstance->SetAudioVolume(volume);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioVolumeTest2) {
-    //checking volume greater than 100
-    int volume = 101; 
-    // Call the method to be tested
+	//checking volume greater than 100
+	int volume = 101;
+	// Call the method to be tested
    mPlayerInstance->SetAudioVolume(volume);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioVolumeTest3) {
-    //checking volume less than 0
-    int volume = -1; 
-    // Call the method to be tested
+	//checking volume less than 0
+	int volume = -1;
+	// Call the method to be tested
    mPlayerInstance->SetAudioVolume(volume);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLanguageTest1) {
-    const char* language = "english";
+	const char* language = "english";
 
-    // mPlayerInstance->SetPreferredLanguages(language);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	// mPlayerInstance->SetPreferredLanguages(language);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
+	mPlayerInstance->AsyncStartStop();
 
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
-    // Call the method to be tested
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
+	// Call the method to be tested
    mPlayerInstance->SetLanguage(language);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLanguageTest2) {
-    const char* language = "english";
+	const char* language = "english";
    mPlayerInstance->SetLanguage(language);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubscribedTagsTest) {
-     std::vector<std::string> subscribedTags = { "tag1", "tag2" };
+	 std::vector<std::string> subscribedTags = { "tag1", "tag2" };
 
-    // Call the method to be tested
+	// Call the method to be tested
    mPlayerInstance->SetSubscribedTags(subscribedTags);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SubscribeResponseHeadersTest) {
-    std::vector<std::string> responseHeaders = { "header1: value1", "header2: value2" }; 
-    // Call the method to be tested
+	std::vector<std::string> responseHeaders = { "header1: value1", "header2: value2" };
+	// Call the method to be tested
    mPlayerInstance->SubscribeResponseHeaders(responseHeaders);
 }
 
 TEST_F(PlayerInstanceAAMPTests, AddEventListenerTest) {
-    AAMPEventType eventType = AAMP_EVENT_TUNED;
-    std::shared_ptr<EventListener> eventListener = nullptr;
+	AAMPEventType eventType = AAMP_EVENT_TUNED;
+	std::shared_ptr<EventListener> eventListener = nullptr;
 
-    // Call the method to be tested
+	// Call the method to be tested
    mPlayerInstance->AddEventListener(eventType,eventListener);
    mPrivateInstanceAAMP->AddEventListener(eventType,eventListener);
 }
 
 TEST_F(PlayerInstanceAAMPTests, RemoveEventListenerTest) {
-    AAMPEventType eventType = AAMP_EVENT_TUNED;
-    std::shared_ptr<EventListener> eventListener = nullptr;
+	AAMPEventType eventType = AAMP_EVENT_TUNED;
+	std::shared_ptr<EventListener> eventListener = nullptr;
 
-    // Call the method to be tested
+	// Call the method to be tested
    mPlayerInstance->RemoveEventListener(eventType,eventListener);
-    mPrivateInstanceAAMP->RemoveEventListener(eventType,eventListener);
+	mPrivateInstanceAAMP->RemoveEventListener(eventType,eventListener);
 }
 
 TEST_F(PlayerInstanceAAMPTests, IsLiveTest) {
-    // Call the method to be tested
+	// Call the method to be tested
    bool islive = mPlayerInstance->IsLive();
    EXPECT_FALSE(islive);
 }
 
 TEST_F(PlayerInstanceAAMPTests, IsJsInfoLoggingEnabledTest) {
-    
-    bool expectedValue = true;
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_JsInfoLogging))
-        .WillOnce(Return(expectedValue));
+
+	bool expectedValue = true;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_JsInfoLogging))
+		.WillOnce(Return(expectedValue));
    bool isLoggingEnabled = mPlayerInstance->IsJsInfoLoggingEnabled();
    EXPECT_TRUE(isLoggingEnabled);
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetCurrentDRMTest) {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    const char* expectedDrmName = "DRM";
-    // DrmHelperPtr helper = mPrivateInstanceAAMP->GetCurrentDRM();
-    //helper->friendlyName();
-    std::string drmName =  mPlayerInstance->GetDRM();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	const char* expectedDrmName = "DRM";
+	// DrmHelperPtr helper = mPrivateInstanceAAMP->GetCurrentDRM();
+	//helper->friendlyName();
+	std::string drmName =  mPlayerInstance->GetDRM();
 }
 
 TEST_F(PlayerInstanceAAMPTests, AddPageHeadersTest) {
-    
-    std::map<std::string, std::string> pageHeaders;
-    pageHeaders["Header1"] = "pageHeaders_Value1";
-    pageHeaders["Header2"] = "pageHeaders_Value2"; 
 
-    bool expectedValue = true;
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AllowPageHeaders))
-        .WillOnce(Return(expectedValue));
-    mPlayerInstance->AddPageHeaders(pageHeaders);
+	std::map<std::string, std::string> pageHeaders;
+	pageHeaders["Header1"] = "pageHeaders_Value1";
+	pageHeaders["Header2"] = "pageHeaders_Value2";
+
+	bool expectedValue = true;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AllowPageHeaders))
+		.WillOnce(Return(expectedValue));
+	mPlayerInstance->AddPageHeaders(pageHeaders);
 }
 
 TEST_F(PlayerInstanceAAMPTests, AddCustomHTTPHeaderTest) {
-    std::string headerName = "CustomHeader";
-    std::vector<std::string> headerValue = { "headerValue1", "headerValue2" }; 
-    bool isLicenseHeader = true; 
-   
-    // Call the method to be tested
-    mPlayerInstance->AddCustomHTTPHeader(headerName, headerValue, isLicenseHeader);
+	std::string headerName = "CustomHeader";
+	std::vector<std::string> headerValue = { "headerValue1", "headerValue2" };
+	bool isLicenseHeader = true;
+
+	// Call the method to be tested
+	mPlayerInstance->AddCustomHTTPHeader(headerName, headerValue, isLicenseHeader);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetLicenseServerURLTest1) {
-    
-    const char* prUrl = "https://playready.example.com/";
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PRLicenseServerUrl ,prUrl);
-    mPlayerInstance->SetLicenseServerURL(prUrl, eDRM_PlayReady);
+
+	const char* prUrl = "https://playready.example.com/";
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PRLicenseServerUrl ,prUrl);
+	mPlayerInstance->SetLicenseServerURL(prUrl, eDRM_PlayReady);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseServerURLTest2){
-    const char* wvUrl = "https://widevine.example.com/";
-     mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PRLicenseServerUrl ,wvUrl);
+	const char* wvUrl = "https://widevine.example.com/";
+	 mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PRLicenseServerUrl ,wvUrl);
    mPlayerInstance->SetLicenseServerURL(wvUrl, eDRM_WideVine);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseServerURLTest3){
-    const char* ckUrl = "https://clearkey.example.com/";
-     mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_CKLicenseServerUrl ,ckUrl);
-    mPlayerInstance->SetLicenseServerURL(ckUrl, eDRM_ClearKey);
+	const char* ckUrl = "https://clearkey.example.com/";
+	 mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_CKLicenseServerUrl ,ckUrl);
+	mPlayerInstance->SetLicenseServerURL(ckUrl, eDRM_ClearKey);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseServerURLTest4){
-    const char* invalidUrl = "https://invalid.example.com/";
-     mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LicenseServerUrl ,invalidUrl);
+	const char* invalidUrl = "https://invalid.example.com/";
+	 mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LicenseServerUrl ,invalidUrl);
    mPlayerInstance->SetLicenseServerURL(invalidUrl, eDRM_MAX_DRMSystems);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseServerURLTest5){
    const char* invalidUrl1 = "https://invalid1.example.com/";
-    mPlayerInstance->SetLicenseServerURL(invalidUrl1, static_cast<DRMSystems>(-1));
+	mPlayerInstance->SetLicenseServerURL(invalidUrl1, static_cast<DRMSystems>(-1));
 }
 TEST_F(PlayerInstanceAAMPTests, SetAnonymousRequestTest1) {
-    //checking true condition
-    bool isAnonymous = true;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AnonymousLicenseRequest ,isAnonymous);
-    mPlayerInstance->SetAnonymousRequest(isAnonymous);
+	//checking true condition
+	bool isAnonymous = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AnonymousLicenseRequest ,isAnonymous);
+	mPlayerInstance->SetAnonymousRequest(isAnonymous);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAnonymousRequestTest2) {
-    //checking true condition
-    bool isAnonymous = false;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AnonymousLicenseRequest ,isAnonymous);
-    mPlayerInstance->SetAnonymousRequest(isAnonymous);
+	//checking true condition
+	bool isAnonymous = false;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AnonymousLicenseRequest ,isAnonymous);
+	mPlayerInstance->SetAnonymousRequest(isAnonymous);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAvgBWForABRTest1) {
-    //checking true condition
-    bool useAvgBW  = true;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AvgBWForABR ,useAvgBW);
-    mPlayerInstance->SetAvgBWForABR(useAvgBW);
+	//checking true condition
+	bool useAvgBW  = true;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AvgBWForABR ,useAvgBW);
+	mPlayerInstance->SetAvgBWForABR(useAvgBW);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAvgBWForABRTest2) {
-    //checking false condition
-    bool useAvgBW  = false;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AvgBWForABR ,useAvgBW);
-    mPlayerInstance->SetAvgBWForABR(useAvgBW);
+	//checking false condition
+	bool useAvgBW  = false;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AvgBWForABR ,useAvgBW);
+	mPlayerInstance->SetAvgBWForABR(useAvgBW);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreCacheTimeWindowTest1) {
    //checking random values
    int nTimeWindow = 30;
    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
-    mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
+	mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreCacheTimeWindowTest2) {
    //checking Maximum values
    int nTimeWindow = INT_MAX;
    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
-    mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
+	mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreCacheTimeWindowTest3) {
    //checking Minimum values
    int nTimeWindow = INT_MIN;
    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
-    mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
+	mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreCacheTimeWindowTest4) {
    //checking negative values
    int nTimeWindow = -30;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
-    mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PreCachePlaylistTime ,nTimeWindow);
+	mPlayerInstance->SetPreCacheTimeWindow(nTimeWindow);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVODTrickplayFPSTest1) {
-    //checking random values
-    int vodTrickplayFPS = 60;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
-    mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
+	//checking random values
+	int vodTrickplayFPS = 60;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
+	mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVODTrickplayFPSTest2) {
-    //checking Maximum value
-    int vodTrickplayFPS = INT_MAX;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
-    mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
+	//checking Maximum value
+	int vodTrickplayFPS = INT_MAX;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
+	mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVODTrickplayFPSTest3) {
-    //checking Minimum value
-    int vodTrickplayFPS = INT_MIN;
-     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
-    mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
+	//checking Minimum value
+	int vodTrickplayFPS = INT_MIN;
+	 EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
+	mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVODTrickplayFPSTest4) {
-    //checking negative value
-    int vodTrickplayFPS = -10;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
-    mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
+	//checking negative value
+	int vodTrickplayFPS = -10;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_VODTrickPlayFPS ,vodTrickplayFPS);
+	mPlayerInstance->SetVODTrickplayFPS(vodTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLinearTrickplayFPSTest1) {
-    //checking random values
-    int linearTrickplayFPS = 30;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LinearTrickPlayFPS ,linearTrickplayFPS);
-    mPlayerInstance->SetLinearTrickplayFPS(linearTrickplayFPS);
+	//checking random values
+	int linearTrickplayFPS = 30;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LinearTrickPlayFPS ,linearTrickplayFPS);
+	mPlayerInstance->SetLinearTrickplayFPS(linearTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLinearTrickplayFPSTest2) {
-    //checking Maximum value
-    int linearTrickplayFPS = INT_MAX;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LinearTrickPlayFPS ,linearTrickplayFPS);
-    mPlayerInstance->SetLinearTrickplayFPS(linearTrickplayFPS);
+	//checking Maximum value
+	int linearTrickplayFPS = INT_MAX;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LinearTrickPlayFPS ,linearTrickplayFPS);
+	mPlayerInstance->SetLinearTrickplayFPS(linearTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLinearTrickplayFPSTest3) {
-    //checking Minimum value
-    int linearTrickplayFPS = INT_MIN;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LinearTrickPlayFPS ,linearTrickplayFPS);
-    mPlayerInstance->SetLinearTrickplayFPS(linearTrickplayFPS);
+	//checking Minimum value
+	int linearTrickplayFPS = INT_MIN;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LinearTrickPlayFPS ,linearTrickplayFPS);
+	mPlayerInstance->SetLinearTrickplayFPS(linearTrickplayFPS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLiveOffsetTest1) {
-    //checking random value
-    double liveoffset = 10.0;
-    mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset ,liveoffset);
-    mPlayerInstance->SetLiveOffset(liveoffset);
+	//checking random value
+	double liveoffset = 10.0;
+	mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset ,liveoffset);
+	mPlayerInstance->SetLiveOffset(liveoffset);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLiveOffsetTest2) {
    //checking Maximum value
-    double liveoffset = DBL_MAX;
-    mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset ,liveoffset);
-    mPlayerInstance->SetLiveOffset(liveoffset);
+	double liveoffset = DBL_MAX;
+	mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset ,liveoffset);
+	mPlayerInstance->SetLiveOffset(liveoffset);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLiveOffsetTest3) {
    //checking Minimum value
-    double liveoffset = DBL_MIN;
-    mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset ,liveoffset);
-    mPlayerInstance->SetLiveOffset(liveoffset);
+	double liveoffset = DBL_MIN;
+	mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset ,liveoffset);
+	mPlayerInstance->SetLiveOffset(liveoffset);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLiveOffset4KTest1) {
-    //checking random value
-    double liveoffset = 15.0;
-    mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
-     mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset4K ,liveoffset);
-    mPlayerInstance->SetLiveOffset4K(liveoffset);
+	//checking random value
+	double liveoffset = 15.0;
+	mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
+	 mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset4K ,liveoffset);
+	mPlayerInstance->SetLiveOffset4K(liveoffset);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLiveOffset4KTest2) {
-    //checking Maximum value
-    double liveoffset = DBL_MAX;
-    mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
-     mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset4K ,liveoffset);
-    mPlayerInstance->SetLiveOffset4K(liveoffset);
+	//checking Maximum value
+	double liveoffset = DBL_MAX;
+	mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
+	 mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset4K ,liveoffset);
+	mPlayerInstance->SetLiveOffset4K(liveoffset);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLiveOffset4KTest3) {
-    //checking Minimum value
-    double liveoffset = DBL_MIN;
-    mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
-     mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset4K ,liveoffset);
-    mPlayerInstance->SetLiveOffset4K(liveoffset);
+	//checking Minimum value
+	double liveoffset = DBL_MIN;
+	mPrivateInstanceAAMP->SetLiveOffsetAppRequest(true);
+	 mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LiveOffset4K ,liveoffset);
+	mPlayerInstance->SetLiveOffset4K(liveoffset);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStallErrorCodeTest1) {
-    //checking random  value
-    int errorCode = 404;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallErrorCode ,errorCode);
-    mPlayerInstance->SetStallErrorCode(errorCode);
+	//checking random  value
+	int errorCode = 404;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallErrorCode ,errorCode);
+	mPlayerInstance->SetStallErrorCode(errorCode);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStallErrorCodeTest2) {
-    //checking maximum  value
-    int errorCode = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallErrorCode ,errorCode);
-    mPlayerInstance->SetStallErrorCode(errorCode);
+	//checking maximum  value
+	int errorCode = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallErrorCode ,errorCode);
+	mPlayerInstance->SetStallErrorCode(errorCode);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStallErrorCodeTest3) {
-    //checking minimum  value
-    int errorCode = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallErrorCode ,errorCode);
-    mPlayerInstance->SetStallErrorCode(errorCode);
+	//checking minimum  value
+	int errorCode = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallErrorCode ,errorCode);
+	mPlayerInstance->SetStallErrorCode(errorCode);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStallTimeoutTest1) {
-     //checking random  value
-    int timeoutMS = 5000;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallTimeoutMS ,timeoutMS);
-    mPlayerInstance->SetStallTimeout(timeoutMS);
+	 //checking random  value
+	int timeoutMS = 5000;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallTimeoutMS ,timeoutMS);
+	mPlayerInstance->SetStallTimeout(timeoutMS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStallTimeoutTest2) {
-     //checking maximum  value
-    int timeoutMS = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallTimeoutMS ,timeoutMS);
-    mPlayerInstance->SetStallTimeout(timeoutMS);
+	 //checking maximum  value
+	int timeoutMS = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallTimeoutMS ,timeoutMS);
+	mPlayerInstance->SetStallTimeout(timeoutMS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStallTimeoutTest3) {
-     //checking minimum  value
-    int timeoutMS = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallTimeoutMS ,timeoutMS);
-    mPlayerInstance->SetStallTimeout(timeoutMS);
+	 //checking minimum  value
+	int timeoutMS = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_StallTimeoutMS ,timeoutMS);
+	mPlayerInstance->SetStallTimeout(timeoutMS);
 }
 TEST_F(PlayerInstanceAAMPTests, SetReportIntervalTest) {
-    mPlayerInstance->SetReportInterval(5000);
+	mPlayerInstance->SetReportInterval(5000);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetInitFragTimeoutRetryCount1) {
-    //checking random  value
-    int count = 4;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
-    mPlayerInstance->SetInitFragTimeoutRetryCount(count);
+	//checking random  value
+	int count = 4;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
+	mPlayerInstance->SetInitFragTimeoutRetryCount(count);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitFragTimeoutRetryCount2) {
-    //checking negative value
-    int count = -1;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
-    mPlayerInstance->SetInitFragTimeoutRetryCount(count);
+	//checking negative value
+	int count = -1;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
+	mPlayerInstance->SetInitFragTimeoutRetryCount(count);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitFragTimeoutRetryCount3) {
-     //checking Maximum value
-    int count = INT_MAX;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
-    mPlayerInstance->SetInitFragTimeoutRetryCount(count);
+	 //checking Maximum value
+	int count = INT_MAX;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
+	mPlayerInstance->SetInitFragTimeoutRetryCount(count);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitFragTimeoutRetryCount4) {
-    //checking Minimum value
-    int count = INT_MIN;
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
-    mPlayerInstance->SetInitFragTimeoutRetryCount(count);
+	//checking Minimum value
+	int count = INT_MIN;
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_InitFragmentRetryCount ,count);
+	mPlayerInstance->SetInitFragTimeoutRetryCount(count);
 }
 TEST_F(PlayerInstanceAAMPTests, GetPlaybackPositionTest) {
 
-    double expectedPosition = 100.00;
-    double position = mPlayerInstance->GetPlaybackPosition();
+	double expectedPosition = 100.00;
+	double position = mPlayerInstance->GetPlaybackPosition();
 }
 TEST_F(PlayerInstanceAAMPTests, GetPlaybackDurationTest) {
-    double playbackDuration = mPlayerInstance->GetPlaybackDuration();
+	double playbackDuration = mPlayerInstance->GetPlaybackDuration();
 }
 TEST_F(PlayerInstanceAAMPTests, GetIdNotNullTest1) {
-    //checking for random value
-    mPlayerInstance->SetId( 123 );
-    int playerId = mPlayerInstance->GetId();
+	//checking for random value
+	mPlayerInstance->SetId( 123 );
+	int playerId = mPlayerInstance->GetId();
 
-    EXPECT_EQ(playerId,123);
+	EXPECT_EQ(playerId,123);
 }
 TEST_F(PlayerInstanceAAMPTests, GetIdNullTest2) {
 	//checking for Null condition
@@ -1314,277 +1316,277 @@ TEST_F(PlayerInstanceAAMPTests, GetIdNullTest2) {
 	EXPECT_EQ(playerId,-1);
 }
 TEST_F(PlayerInstanceAAMPTests, GetIdNotNullTest3) {
-    //checking for Maximum value
-    mPlayerInstance->SetId(INT_MAX);
-    int playerId = mPlayerInstance->GetId();
+	//checking for Maximum value
+	mPlayerInstance->SetId(INT_MAX);
+	int playerId = mPlayerInstance->GetId();
 
-    EXPECT_EQ(playerId,INT_MAX);
+	EXPECT_EQ(playerId,INT_MAX);
 }
 TEST_F(PlayerInstanceAAMPTests, GetIdNotNullTest4) {
-    //checking for Minimum value
-    mPlayerInstance->SetId(INT_MIN);
-    int playerId = mPlayerInstance->GetId();
+	//checking for Minimum value
+	mPlayerInstance->SetId(INT_MIN);
+	int playerId = mPlayerInstance->GetId();
 
-    EXPECT_EQ(playerId,INT_MIN);
+	EXPECT_EQ(playerId,INT_MIN);
 }
 TEST_F(PlayerInstanceAAMPTests, GetStateTest) {
-  
-    AAMPPlayerState state = mPlayerInstance->GetState();
+
+	AAMPPlayerState state = mPlayerInstance->GetState();
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetVideoBitrateTest1) {
-    //checking random bitrate value
-    BitsPerSecond bitrate = 3000000; 
+	//checking random bitrate value
+	BitsPerSecond bitrate = 3000000;
    mPlayerInstance->SetVideoBitrate(bitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoBitrateTest2) {
-    //checking minimum bitrate value
-    BitsPerSecond bitrate = std::numeric_limits<BitsPerSecond>::min();
+	//checking minimum bitrate value
+	BitsPerSecond bitrate = std::numeric_limits<BitsPerSecond>::min();
    mPlayerInstance->SetVideoBitrate(bitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoBitrateTest3) {
-    //checking maximum bitrate value
-    BitsPerSecond bitrate = std::numeric_limits<BitsPerSecond>::max(); 
+	//checking maximum bitrate value
+	BitsPerSecond bitrate = std::numeric_limits<BitsPerSecond>::max();
    mPlayerInstance->SetVideoBitrate(bitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoBitrateTest4) {
-    //checking bitrate = 0 condition
-    BitsPerSecond bitrate = 0; 
-    mPlayerInstance->SetVideoBitrate(0);
+	//checking bitrate = 0 condition
+	BitsPerSecond bitrate = 0;
+	mPlayerInstance->SetVideoBitrate(0);
 }
 TEST_F(PlayerInstanceAAMPTests, GetAudioBitrateTest1) {
-    //random bitrate
-    BitsPerSecond audioBitrate = 128000; 
-    BitsPerSecond retrievedAudioBitrate = mPlayerInstance->GetAudioBitrate();
+	//random bitrate
+	BitsPerSecond audioBitrate = 128000;
+	BitsPerSecond retrievedAudioBitrate = mPlayerInstance->GetAudioBitrate();
 }
 TEST_F(PlayerInstanceAAMPTests, GetAudioBitrateTest2) {
-    //Minimum audio bitrate
-    BitsPerSecond maxAudioBitrate = std::numeric_limits<BitsPerSecond>::min();
-    BitsPerSecond retrievedMinAudioBitrate = mPlayerInstance->GetAudioBitrate();
+	//Minimum audio bitrate
+	BitsPerSecond maxAudioBitrate = std::numeric_limits<BitsPerSecond>::min();
+	BitsPerSecond retrievedMinAudioBitrate = mPlayerInstance->GetAudioBitrate();
 }
 TEST_F(PlayerInstanceAAMPTests, GetAudioBitrateTest3) {
-    //Maximum audio bitrate
-    BitsPerSecond maxAudioBitrate = std::numeric_limits<BitsPerSecond>::max();
-    BitsPerSecond retrievedMinAudioBitrate = mPlayerInstance->GetAudioBitrate();
+	//Maximum audio bitrate
+	BitsPerSecond maxAudioBitrate = std::numeric_limits<BitsPerSecond>::max();
+	BitsPerSecond retrievedMinAudioBitrate = mPlayerInstance->GetAudioBitrate();
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioBitrateTest1) {
-    //random Set_audio bitrate
-    BitsPerSecond audioBitrate = 96000; 
-    mPlayerInstance->SetAudioBitrate(audioBitrate);
+	//random Set_audio bitrate
+	BitsPerSecond audioBitrate = 96000;
+	mPlayerInstance->SetAudioBitrate(audioBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioBitrateTest2) {
-    //Maximum Set_audio bitrate
-    BitsPerSecond audioBitrate = std::numeric_limits<BitsPerSecond>::max(); 
-    mPlayerInstance->SetAudioBitrate(audioBitrate);
+	//Maximum Set_audio bitrate
+	BitsPerSecond audioBitrate = std::numeric_limits<BitsPerSecond>::max();
+	mPlayerInstance->SetAudioBitrate(audioBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioBitrateTest3) {
-    //Minimum Set_audio bitrate
-    BitsPerSecond audioBitrate = std::numeric_limits<BitsPerSecond>::min(); 
-    mPlayerInstance->SetAudioBitrate(audioBitrate);
+	//Minimum Set_audio bitrate
+	BitsPerSecond audioBitrate = std::numeric_limits<BitsPerSecond>::min();
+	mPlayerInstance->SetAudioBitrate(audioBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoZoomDefault){
 	int ZoomMode = mPlayerInstance->GetVideoZoom();
 	EXPECT_EQ(ZoomMode,VIDEO_ZOOM_NONE);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoZoomTest1) {
-    //checking zoom mode = VIDEO_ZOOM_FULL
-    mPlayerInstance->SetVideoZoom(VIDEO_ZOOM_FULL);
-    int ZoomMode = mPlayerInstance->GetVideoZoom();
-    EXPECT_EQ(ZoomMode,VIDEO_ZOOM_FULL);
+	//checking zoom mode = VIDEO_ZOOM_FULL
+	mPlayerInstance->SetVideoZoom(VIDEO_ZOOM_FULL);
+	int ZoomMode = mPlayerInstance->GetVideoZoom();
+	EXPECT_EQ(ZoomMode,VIDEO_ZOOM_FULL);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoZoomTest2) {
-    //checking zoom mode = VIDEO_ZOOM_NONE
-    mPlayerInstance->SetVideoZoom(VIDEO_ZOOM_NONE);
-    int ZoomMode = mPlayerInstance->GetVideoZoom();
-    EXPECT_EQ(ZoomMode,VIDEO_ZOOM_NONE);
+	//checking zoom mode = VIDEO_ZOOM_NONE
+	mPlayerInstance->SetVideoZoom(VIDEO_ZOOM_NONE);
+	int ZoomMode = mPlayerInstance->GetVideoZoom();
+	EXPECT_EQ(ZoomMode,VIDEO_ZOOM_NONE);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest1) {
-    //checking true condition
-    mPlayerInstance->aamp->video_muted = true;
-    bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
-    EXPECT_TRUE(retrievedVideoMute);
+	//checking true condition
+	mPlayerInstance->aamp->video_muted = true;
+	bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
+	EXPECT_TRUE(retrievedVideoMute);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest2) {
-    //checking false condition
-    mPlayerInstance->aamp->video_muted = false;
-    bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
-    EXPECT_FALSE(retrievedVideoMute);
+	//checking false condition
+	mPlayerInstance->aamp->video_muted = false;
+	bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
+	EXPECT_FALSE(retrievedVideoMute);
 }
 TEST_F(PlayerInstanceAAMPTests, GetAudioVolumeTest1) {
 	mPlayerInstance->aamp->audio_volume = 50; // FIXME! violates mPlayerInstance->aamp being private
-    //mPlayerInstance->SetAudioVolume(50); // logically similar, but doesn't work with below code
+	//mPlayerInstance->SetAudioVolume(50); // logically similar, but doesn't work with below code
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
-    int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
-    EXPECT_EQ(retrievedAudioVolume,50);
+	int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
+	EXPECT_EQ(retrievedAudioVolume,50);
 }
 TEST_F(PlayerInstanceAAMPTests, GetAudioVolumeTest2) {
-    //checking Maximum value
+	//checking Maximum value
 	mPlayerInstance->aamp->audio_volume = INT_MAX; // FIXME! violates mPlayerInstance->aamp being private
 	//mPlayerInstance->SetAudioVolume(INT_MAX); // logically similar, but doesn't work with below code
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
-    int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
-    EXPECT_EQ(retrievedAudioVolume,INT_MAX);
+	int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
+	EXPECT_EQ(retrievedAudioVolume,INT_MAX);
 }
 TEST_F(PlayerInstanceAAMPTests, GetAudioVolumeTest3) {
-    //checking Minimum value
+	//checking Minimum value
 	mPlayerInstance->aamp->audio_volume = INT_MIN; // FIXME! violates mPlayerInstance->aamp being private
 	//mPlayerInstance->SetAudioVolume(INT_MIN); // logically similar, but doesn't work with below code
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
-    int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+	int retrievedAudioVolume = mPlayerInstance->GetAudioVolume();
 
-    EXPECT_EQ(retrievedAudioVolume,INT_MIN);
+	EXPECT_EQ(retrievedAudioVolume,INT_MIN);
 }
 TEST_F(PlayerInstanceAAMPTests, GetPlaybackRateTest_1) {
-    //checking false condition
+	//checking false condition
 	mPlayerInstance->aamp->pipeline_paused = false; // FIXME! violates mPlayerInstance->aamp being private
 	mPlayerInstance->aamp->rate = 10.9f;
-    mPlayerInstance->SetRate(10.9f); // logically similar, but doesn't work with below code
-    int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
+	mPlayerInstance->SetRate(10.9f); // logically similar, but doesn't work with below code
+	int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
 
-    EXPECT_EQ(retrievedPlaybackRate,10);
+	EXPECT_EQ(retrievedPlaybackRate,10);
 }
 TEST_F(PlayerInstanceAAMPTests, GetPlaybackRateTest_2) {
-    //checking true condition
+	//checking true condition
 	mPlayerInstance->SetRate(0);
-    int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
-    EXPECT_EQ(retrievedPlaybackRate,0);
+	int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
+	EXPECT_EQ(retrievedPlaybackRate,0);
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetAudioTrackTest) {
-	mPlayerInstance->SetAudioTrack(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).Times(1);
 	int audioTrack = mPlayerInstance->GetAudioTrack();
-	EXPECT_NE(audioTrack,1);
+	EXPECT_EQ(audioTrack,0);
 }
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest) {
-    std::string expectedManifest = "Sample Manifest";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-    mPrivateInstanceAAMP->GetLastDownloadedManifest(expectedManifest);
-    std::string result = mPlayerInstance->GetManifest();
+	std::string expectedManifest = "Sample Manifest";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	mPrivateInstanceAAMP->GetLastDownloadedManifest(expectedManifest);
+	std::string result = mPlayerInstance->GetManifest();
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest2) {
-    mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
-    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-    std::string result = mPlayerInstance->GetManifest();
-    EXPECT_EQ(result,"");
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	std::string result = mPlayerInstance->GetManifest();
+	EXPECT_EQ(result,"");
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest3) {
-    mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
-    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-    std::string result = mPlayerInstance->GetManifest();
-    EXPECT_EQ(result,"");
+	mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	std::string result = mPlayerInstance->GetManifest();
+	EXPECT_EQ(result,"");
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest4) {
-    mPrivateInstanceAAMP->SetState(eSTATE_RELEASED);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_RELEASED));
-    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-    std::string result = mPlayerInstance->GetManifest();
-    EXPECT_EQ(result,"");
+	mPrivateInstanceAAMP->SetState(eSTATE_RELEASED);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_RELEASED));
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	std::string result = mPlayerInstance->GetManifest();
+	EXPECT_EQ(result,"");
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest5) {
-    mPrivateInstanceAAMP->SetState(eSTATE_STOPPED);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_STOPPED));
-    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-    std::string result = mPlayerInstance->GetManifest();
-    EXPECT_EQ(result,"");
+	mPrivateInstanceAAMP->SetState(eSTATE_STOPPED);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_STOPPED));
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	std::string result = mPlayerInstance->GetManifest();
+	EXPECT_EQ(result,"");
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetInitialBitrateTest) {
-    BitsPerSecond bitrate = 1500; 
-    mPlayerInstance->SetInitialBitrate(bitrate);
+	BitsPerSecond bitrate = 1500;
+	mPlayerInstance->SetInitialBitrate(bitrate);
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetInitialBitrateTest) {
-    BitsPerSecond expectedBitrate = 2500; 
-    BitsPerSecond result = mPlayerInstance->GetInitialBitrate();
+	BitsPerSecond expectedBitrate = 2500;
+	BitsPerSecond result = mPlayerInstance->GetInitialBitrate();
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitialBitrate4KTest) {
-    BitsPerSecond bitrate4K = 25000000; 
-    mPlayerInstance->SetInitialBitrate4K(bitrate4K);
+	BitsPerSecond bitrate4K = 25000000;
+	mPlayerInstance->SetInitialBitrate4K(bitrate4K);
 }
 TEST_F(PlayerInstanceAAMPTests, GetInitialBitrate4kTest) {
-    BitsPerSecond expectedBitrate = 25000000; 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_DefaultBitrate4K))
-        .WillOnce(Return(expectedBitrate)); 
-    BitsPerSecond result = mPlayerInstance->GetInitialBitrate4k();
+	BitsPerSecond expectedBitrate = 25000000;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_DefaultBitrate4K))
+		.WillOnce(Return(expectedBitrate));
+	BitsPerSecond result = mPlayerInstance->GetInitialBitrate4k();
 
-    EXPECT_EQ(result,expectedBitrate);
+	EXPECT_EQ(result,expectedBitrate);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNetworkTimeoutTest1) {
-    //checking random value
-    double timeout = 10.0; 
-    mPlayerInstance->SetNetworkTimeout(timeout);
+	//checking random value
+	double timeout = 10.0;
+	mPlayerInstance->SetNetworkTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNetworkTimeoutTest2) {
-    //checking Maximum value
-    double timeout = DBL_MAX; 
-    mPlayerInstance->SetNetworkTimeout(timeout);
+	//checking Maximum value
+	double timeout = DBL_MAX;
+	mPlayerInstance->SetNetworkTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNetworkTimeoutTest3) {
-    //checking Minimum value
-    double timeout = DBL_MIN; 
-    mPlayerInstance->SetNetworkTimeout(timeout);
+	//checking Minimum value
+	double timeout = DBL_MIN;
+	mPlayerInstance->SetNetworkTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetManifestTimeoutTest1) {
-    //checking random value
-    double timeout = 5.0; 
-    mPlayerInstance->SetManifestTimeout(timeout);
+	//checking random value
+	double timeout = 5.0;
+	mPlayerInstance->SetManifestTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetManifestTimeoutTest2) {
-    //checking Maximum value
-    double timeout = DBL_MAX; 
-    mPlayerInstance->SetManifestTimeout(timeout);
+	//checking Maximum value
+	double timeout = DBL_MAX;
+	mPlayerInstance->SetManifestTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetManifestTimeoutTest3) {
-    //checking Minimum value
-    double timeout = DBL_MIN;
-    mPlayerInstance->SetManifestTimeout(timeout);
+	//checking Minimum value
+	double timeout = DBL_MIN;
+	mPlayerInstance->SetManifestTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPlaylistTimeoutTest1) {
-    //checking random value
-    double timeout = 8.0; 
-    mPlayerInstance->SetPlaylistTimeout(timeout);
+	//checking random value
+	double timeout = 8.0;
+	mPlayerInstance->SetPlaylistTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPlaylistTimeoutTest2) {
-    //checking Maximum value
-    double timeout = DBL_MAX; 
-    mPlayerInstance->SetPlaylistTimeout(timeout);
+	//checking Maximum value
+	double timeout = DBL_MAX;
+	mPlayerInstance->SetPlaylistTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPlaylistTimeoutTest3) {
-    //checking Minimum value
-    double timeout = DBL_MIN; 
-    mPlayerInstance->SetPlaylistTimeout(timeout);
+	//checking Minimum value
+	double timeout = DBL_MIN;
+	mPlayerInstance->SetPlaylistTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest1) {
-    //checking random value
-    int buffersize = 1024; 
-    mPlayerInstance->SetDownloadBufferSize(buffersize);
+	//checking random value
+	int buffersize = 1024;
+	mPlayerInstance->SetDownloadBufferSize(buffersize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest2) {
-    //checking Maximum value
-    int buffersize = INT_MAX; 
-    mPlayerInstance->SetDownloadBufferSize(buffersize);
+	//checking Maximum value
+	int buffersize = INT_MAX;
+	mPlayerInstance->SetDownloadBufferSize(buffersize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest3) {
-    //checking Minimum value
-    int buffersize = INT_MIN; 
-    mPlayerInstance->SetDownloadBufferSize(buffersize);
+	//checking Minimum value
+	int buffersize = INT_MIN;
+	mPlayerInstance->SetDownloadBufferSize(buffersize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest4) {
-    //checking negative value
-    int buffersize = -500; 
-    mPlayerInstance->SetDownloadBufferSize(buffersize);
+	//checking negative value
+	int buffersize = -500;
+	mPlayerInstance->SetDownloadBufferSize(buffersize);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredDRMTest)
 {
-    //checking drmtype not equal to eDRM_NONE using loop
-    DRMSystems drmtype_list [] = {    
+	//checking drmtype not equal to eDRM_NONE using loop
+	DRMSystems drmtype_list [] = {
 	eDRM_WideVine,
 	eDRM_PlayReady,
 	eDRM_CONSEC_agnostic,
@@ -1592,686 +1594,691 @@ TEST_F(PlayerInstanceAAMPTests, SetPreferredDRMTest)
 	eDRM_Vanilla_AES,
 	eDRM_ClearKey,
 	eDRM_MAX_DRMSystems
-    };
+	};
    for(DRMSystems drmtype : drmtype_list){
-     mPlayerInstance->SetPreferredDRM(drmtype);}
+	 mPlayerInstance->SetPreferredDRM(drmtype);}
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredDRMNoneTest1)
 {
-    //checking drmtype equal to eDRM_NONE
-    DRMSystems drmtype = eDRM_NONE;
-    mPlayerInstance->SetPreferredDRM(drmtype);
+	//checking drmtype equal to eDRM_NONE
+	DRMSystems drmtype = eDRM_NONE;
+	mPlayerInstance->SetPreferredDRM(drmtype);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDisable4KTest1)
 {
-    //checking true condition
-    bool Value =  true;
-    mPlayerInstance->SetDisable4K(Value);
+	//checking true condition
+	bool Value =  true;
+	mPlayerInstance->SetDisable4K(Value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDisable4KTest2)
 {
-    //checking false condition
-    bool Value =  false;
-    mPlayerInstance->SetDisable4K(Value);
+	//checking false condition
+	bool Value =  false;
+	mPlayerInstance->SetDisable4K(Value);
 }
 TEST_F(PlayerInstanceAAMPTests, SetBulkTimedMetaReportTest1)
 {
-    //checking true condition
-    bool bValue =  true;
+	//checking true condition
+	bool bValue =  true;
    mPlayerInstance->SetBulkTimedMetaReport(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetBulkTimedMetaReportTest2)
 {
-    //checking false condition
-    bool bValue =  false;
+	//checking false condition
+	bool bValue =  false;
    mPlayerInstance->SetBulkTimedMetaReport(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRetuneForUnpairedDiscontinuityTest1)
 {
-    //checking true condition
-    bool bValue =  true;
-    mPlayerInstance->SetRetuneForUnpairedDiscontinuity(bValue);
+	//checking true condition
+	bool bValue =  true;
+	mPlayerInstance->SetRetuneForUnpairedDiscontinuity(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRetuneForUnpairedDiscontinuityTest2)
 {
-    //checking false condition
-    bool bValue =  false;
-    mPlayerInstance->SetRetuneForUnpairedDiscontinuity(bValue);
+	//checking false condition
+	bool bValue =  false;
+	mPlayerInstance->SetRetuneForUnpairedDiscontinuity(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRetuneForGSTInternalErrorTest1)
 {
-    //checking true condition
-    bool bValue =  true;
-    mPlayerInstance->SetRetuneForGSTInternalError(bValue);
+	//checking true condition
+	bool bValue =  true;
+	mPlayerInstance->SetRetuneForGSTInternalError(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRetuneForGSTInternalErrorTest2)
 {
-    //checking false condition
-    bool bValue =  false;
-    mPlayerInstance->SetRetuneForGSTInternalError(bValue);
+	//checking false condition
+	bool bValue =  false;
+	mPlayerInstance->SetRetuneForGSTInternalError(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAlternateContentsTest1)
 {
-    //checking random string
-    std::string adBreakId = "adBreak1";
-    std::string adId = "ad1";
-    std::string url = "http://example.com/ad1";
+	//checking random string
+	std::string adBreakId = "adBreak1";
+	std::string adId = "ad1";
+	std::string url = "http://example.com/ad1";
 
-    mPlayerInstance->SetAlternateContents(adBreakId, adId, url);
+	mPlayerInstance->SetAlternateContents(adBreakId, adId, url);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAlternateContentsTest)
 {
-    //checking long string with 100000 character 
-    std::string adBreakId(100000,'a');
-    std::string adId(100000,'b');
-    std::string url(100000,'h');
+	//checking long string with 100000 character
+	std::string adBreakId(100000,'a');
+	std::string adId(100000,'b');
+	std::string url(100000,'h');
 
-    mPlayerInstance->SetAlternateContents(adBreakId, adId, url);
+	mPlayerInstance->SetAlternateContents(adBreakId, adId, url);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNetworkProxyTest)
 {
-    const char* proxy = "http://example-proxy.com:8080";
+	const char* proxy = "http://example-proxy.com:8080";
 
-    mPlayerInstance->SetNetworkProxy(proxy);
+	mPlayerInstance->SetNetworkProxy(proxy);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetLicenseReqProxyTest)
 {
-    const char* licenseProxy = "http://license-proxy.com:8080";
+	const char* licenseProxy = "http://license-proxy.com:8080";
 
-    mPlayerInstance->SetLicenseReqProxy(licenseProxy);
+	mPlayerInstance->SetLicenseReqProxy(licenseProxy);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStallTimeoutTest1)
 {
-    //checking random values
-    int stallTimeout = 10;
-    mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
+	//checking random values
+	int stallTimeout = 10;
+	mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStallTimeoutTest2)
 {
-    //checking Maximum values
-    int stallTimeout = INT_MAX;
-    mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
+	//checking Maximum values
+	int stallTimeout = INT_MAX;
+	mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStallTimeoutTest3)
 {
-    //checking Minimum values
-    int stallTimeout = INT_MIN;
-    mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
+	//checking Minimum values
+	int stallTimeout = INT_MIN;
+	mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStallTimeoutTest4)
 {
-    //checking negative values
-    int stallTimeout = -100;
-    mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
+	//checking negative values
+	int stallTimeout = -100;
+	mPlayerInstance->SetDownloadStallTimeout(stallTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStartTimeoutTest1)
 {
-    //checking Maximum value
-    int startTimeout = INT_MAX;
-    mPlayerInstance->SetDownloadStartTimeout(startTimeout);
+	//checking Maximum value
+	int startTimeout = INT_MAX;
+	mPlayerInstance->SetDownloadStartTimeout(startTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStartTimeoutTest2)
 {
-    //checking Minimum value
-    int startTimeout = INT_MIN;
-    mPlayerInstance->SetDownloadStartTimeout(startTimeout);
+	//checking Minimum value
+	int startTimeout = INT_MIN;
+	mPlayerInstance->SetDownloadStartTimeout(startTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadStartTimeoutTest3)
 {
-    //checking negative value
-    int startTimeout = -10;
-    mPlayerInstance->SetDownloadStartTimeout(startTimeout);
+	//checking negative value
+	int startTimeout = -10;
+	mPlayerInstance->SetDownloadStartTimeout(startTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadLowBWTimeoutTest1)
 {
-    //checking random value
-    int lowBWTimeout = 10;
-    mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
+	//checking random value
+	int lowBWTimeout = 10;
+	mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadLowBWTimeoutTest2)
 {
-    //checking max value
-    int lowBWTimeout = INT_MAX;
-    mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
+	//checking max value
+	int lowBWTimeout = INT_MAX;
+	mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadLowBWTimeoutTest3)
 {
-    //checking min value
-    int lowBWTimeout = INT_MIN;
-    mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
+	//checking min value
+	int lowBWTimeout = INT_MIN;
+	mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadLowBWTimeoutTest4)
 {
-    //checking negative value
-    int lowBWTimeout = -1;
-    mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
+	//checking negative value
+	int lowBWTimeout = -1;
+	mPlayerInstance->SetDownloadLowBWTimeout(lowBWTimeout);
 }
-TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState1) 
+TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState1)
 {
-    //checking random value
-    const char* language = "English";  
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetPreferredSubtitleLanguage(language);
+	//checking random value
+	const char* language = "English";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
-TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState2) 
+TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState2)
 {
-    //cchecking maximum char
+	//cchecking maximum char
 	char language[] = { CHAR_MAX, 0x00 };
-    mPlayerInstance->SetPreferredSubtitleLanguage(language);
+	mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
-TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState3) 
+TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState3)
 {
-    //cchecking minimum char
-	char language[] = { CHAR_MIN, 0x00 };  
-    mPlayerInstance->SetPreferredSubtitleLanguage(language);
+	//cchecking minimum char
+	char language[] = { CHAR_MIN, 0x00 };
+	mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
 TEST_F(PlayerInstanceAAMPTests, SetWesterosSinkConfigTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetWesterosSinkConfig(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->SetWesterosSinkConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetWesterosSinkConfigTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetWesterosSinkConfig(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetWesterosSinkConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseCachingTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetLicenseCaching(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->SetLicenseCaching(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseCachingTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetLicenseCaching(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetLicenseCaching(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetOutputResolutionCheckTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetOutputResolutionCheck(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->SetOutputResolutionCheck(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetOutputResolutionCheckTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetOutputResolutionCheck(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetOutputResolutionCheck(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMatchingBaseUrlConfigTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetMatchingBaseUrlConfig(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->SetMatchingBaseUrlConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetMatchingBaseUrlConfigTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetMatchingBaseUrlConfig(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetMatchingBaseUrlConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNewABRConfigTest)
 {
-    bool bValue = true;
-    mPlayerInstance->SetNewABRConfig(bValue);
+	bool bValue = true;
+	mPlayerInstance->SetNewABRConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPropagateUriParametersTest)
 {
-    bool bValue = true;
-    mPlayerInstance->SetPropagateUriParameters(bValue);
+	bool bValue = true;
+	mPlayerInstance->SetPropagateUriParameters(bValue);
 }
 
 TEST_F(PlayerInstanceAAMPTests, ApplyArtificialDownloadDelayTest1)
 {
-    //checking for random value
-    unsigned int DownloadDelayInMs = 100;
-    mPlayerInstance->ApplyArtificialDownloadDelay(DownloadDelayInMs);
+	//checking for random value
+	unsigned int DownloadDelayInMs = 100;
+	mPlayerInstance->ApplyArtificialDownloadDelay(DownloadDelayInMs);
 }
 TEST_F(PlayerInstanceAAMPTests, ApplyArtificialDownloadDelayTest2)
 {
-    //checking for Maximum value
-    unsigned int DownloadDelayInMs = UINT_MAX;
-    mPlayerInstance->ApplyArtificialDownloadDelay(DownloadDelayInMs);
+	//checking for Maximum value
+	unsigned int DownloadDelayInMs = UINT_MAX;
+	mPlayerInstance->ApplyArtificialDownloadDelay(DownloadDelayInMs);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSslVerifyPeerConfigTest1)
 {
-    //checking for true condition
-    bool bValue = true;
-    mPlayerInstance->SetSslVerifyPeerConfig(bValue);
+	//checking for true condition
+	bool bValue = true;
+	mPlayerInstance->SetSslVerifyPeerConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSslVerifyPeerConfigTest2)
 {
-    //checking for false condition
-    bool bValue = false;
-    mPlayerInstance->SetSslVerifyPeerConfig(bValue);
+	//checking for false condition
+	bool bValue = false;
+	mPlayerInstance->SetSslVerifyPeerConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioTrackTest1)
 {
-    //checking random values
-    std::string language = "eng";
-    std::string rendition = "main";
-    std::string type = "audio";
-    std::string codec = "aac";
-    unsigned int channel = 2;
-    std::string label = "English";
+	//checking random values
+	std::string language = "eng";
+	std::string rendition = "main";
+	std::string type = "audio";
+	std::string codec = "aac";
+	unsigned int channel = 2;
+	std::string label = "English";
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
+	mPlayerInstance->AsyncStartStop();
 
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
-    mPlayerInstance->SetAudioTrack(language, rendition, type, codec, channel, label);
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
+	mPlayerInstance->SetAudioTrack(language, rendition, type, codec, channel, label);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioTrackTest2)
 {
-    //checking for long string
-    std::string language(1000000,'L');
-    std::string rendition(1000000,'R');
-    std::string type(1000000,'T');
-    std::string codec(1000000,'C');
-    unsigned int channel = UINT_MAX;
-    std::string label(1000000,'L');
+	//checking for long string
+	std::string language(1000000,'L');
+	std::string rendition(1000000,'R');
+	std::string type(1000000,'T');
+	std::string codec(1000000,'C');
+	unsigned int channel = UINT_MAX;
+	std::string label(1000000,'L');
 
-    mPlayerInstance->SetAudioTrack(language, rendition, type, codec, channel, label);
+	mPlayerInstance->SetAudioTrack(language, rendition, type, codec, channel, label);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioTrackTest3)
 {
-    //checking for empty string
-    std::string language = "";
-    std::string rendition = "";
-    std::string type = "";
-    std::string codec = "";
-    unsigned int channel = UINT_MAX;
-    std::string label = "";
+	//checking for empty string
+	std::string language = "";
+	std::string rendition = "";
+	std::string type = "";
+	std::string codec = "";
+	unsigned int channel = UINT_MAX;
+	std::string label = "";
 
-    mPlayerInstance->SetAudioTrack(language, rendition, type, codec, channel, label);
+	mPlayerInstance->SetAudioTrack(language, rendition, type, codec, channel, label);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredCodecTest)
 {
-    const char* codecList = "codec1,codec2,codec3";
-    mPlayerInstance->SetPreferredCodec(codecList);
+	const char* codecList = "codec1,codec2,codec3";
+	mPlayerInstance->SetPreferredCodec(codecList);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetPreferredLabelsTest)
 {
-    const char* labelList = "label1,label2,label3";
-    mPlayerInstance->SetPreferredLabels(labelList);
+	const char* labelList = "label1,label2,label3";
+	mPlayerInstance->SetPreferredLabels(labelList);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetPreferredRenditionsTest)
 {
-    const char* renditionList = "rendition1,rendition2,rendition3";
-    mPlayerInstance->SetPreferredRenditions(renditionList);
+	const char* renditionList = "rendition1,rendition2,rendition3";
+	mPlayerInstance->SetPreferredRenditions(renditionList);
 }
 TEST_F(PlayerInstanceAAMPTests, GetPreferredTextPropertiesTest)
 {
-    std::string result = "TextProperties";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string result = "TextProperties";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
    std::string textProperties = mPlayerInstance->GetPreferredTextProperties();
    EXPECT_STREQ(result.c_str(),textProperties.c_str());
 
 }
 TEST_F(PlayerInstanceAAMPTests, GetPreferredAudioPropertiesTest)
 {
-    std::string audio_result = "AudioProperties";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string audio_result = "AudioProperties";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
    std::string audioProperties = mPlayerInstance->GetPreferredAudioProperties();
-    EXPECT_STREQ(audio_result.c_str(),audioProperties.c_str());
+	EXPECT_STREQ(audio_result.c_str(),audioProperties.c_str());
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredLanguagesTest)
 {
-    mPlayerInstance->SetPreferredLanguages("en,es,fr", "HD", "video", "h264", "main", nullptr);
+	mPlayerInstance->SetPreferredLanguages("en,es,fr", "HD", "video", "h264", "main", nullptr);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredTextLanguagesTest)
 {
-    mPlayerInstance->SetPreferredTextLanguages("en,es,fr");
+	mPlayerInstance->SetPreferredTextLanguages("en,es,fr");
 }
 TEST_F(PlayerInstanceAAMPTests, GetPreferredDRMTest)
 {
-    DRMSystems expectedDRM = eDRM_WideVine;
-    DRMSystems result = mPlayerInstance->GetPreferredDRM();
+	DRMSystems expectedDRM = eDRM_WideVine;
+	DRMSystems result = mPlayerInstance->GetPreferredDRM();
 }
 TEST_F(PlayerInstanceAAMPTests, GetPreferredLanguagesTest)
 {
-    mPrivateInstanceAAMP->preferredLanguagesString = "english,french,spanish";
+	mPrivateInstanceAAMP->preferredLanguagesString = "english,french,spanish";
 
-    std::string preferredLanguages = mPlayerInstance->GetPreferredLanguages();
+	std::string preferredLanguages = mPlayerInstance->GetPreferredLanguages();
 
 }
 TEST_F(PlayerInstanceAAMPTests, GetPreferredLanguagesEmptyTest)
 {
-    std::string lang = mPlayerInstance->GetPreferredLanguages();
+	std::string lang = mPlayerInstance->GetPreferredLanguages();
 }
 TEST_F(PlayerInstanceAAMPTests, SetNewAdBreakerConfigTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetNewAdBreakerConfig(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->SetNewAdBreakerConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNewAdBreakerConfigTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetNewAdBreakerConfig(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetNewAdBreakerConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetVideoTracksTest)
 {
-    std::vector<BitsPerSecond> bitrates = {500000, 1000000, 1500000};
-    mPlayerInstance->SetVideoTracks(bitrates);
+	std::vector<BitsPerSecond> bitrates = {500000, 1000000, 1500000};
+	mPlayerInstance->SetVideoTracks(bitrates);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAppNameTest)
 {
-    mPlayerInstance->SetAppName("MyApp");
+	mPlayerInstance->SetAppName("MyApp");
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetNativeCCRenderingTest1)
 {
-    //checking true condition
-    bool enable = true;
-    mPlayerInstance->SetNativeCCRendering(enable);
+	//checking true condition
+	bool enable = true;
+	mPlayerInstance->SetNativeCCRendering(enable);
 }
 TEST_F(PlayerInstanceAAMPTests, SetNativeCCRenderingTest2)
 {
-    //checking false condition
-    bool enable = false;
-    mPlayerInstance->SetNativeCCRendering(enable);
+	//checking false condition
+	bool enable = false;
+	mPlayerInstance->SetNativeCCRendering(enable);
 }
 TEST_F(PlayerInstanceAAMPTests, SetTuneEventConfigTest1)
 {
-    //checking for random value
-    int tuneEventType = 1;
-    mPlayerInstance->SetTuneEventConfig(tuneEventType);
+	//checking for random value
+	int tuneEventType = 1;
+	mPlayerInstance->SetTuneEventConfig(tuneEventType);
 }
 TEST_F(PlayerInstanceAAMPTests, SetTuneEventConfigTest2)
 {
-    //checking Maximum value
-    int tuneEventType = INT_MAX;
-    mPlayerInstance->SetTuneEventConfig(tuneEventType);
+	//checking Maximum value
+	int tuneEventType = INT_MAX;
+	mPlayerInstance->SetTuneEventConfig(tuneEventType);
 }
 TEST_F(PlayerInstanceAAMPTests, SetTuneEventConfigTest3)
 {
-    //checking for Minimum value
-    int tuneEventType = INT_MIN;
-    mPlayerInstance->SetTuneEventConfig(tuneEventType);
+	//checking for Minimum value
+	int tuneEventType = INT_MIN;
+	mPlayerInstance->SetTuneEventConfig(tuneEventType);
 }
 TEST_F(PlayerInstanceAAMPTests, SetTuneEventConfigTest4)
 {
-    //checking for negative value
-    int tuneEventType = -10;
-    mPlayerInstance->SetTuneEventConfig(tuneEventType);
+	//checking for negative value
+	int tuneEventType = -10;
+	mPlayerInstance->SetTuneEventConfig(tuneEventType);
 }
 
 TEST_F(PlayerInstanceAAMPTests, EnableVideoRectangleTest)
 {
-    mPlayerInstance->EnableVideoRectangle(true);
+	mPlayerInstance->EnableVideoRectangle(true);
 }
 
 TEST_F(PlayerInstanceAAMPTests, EnableVideoRectangle_1Test)
 {
-     bool expectedValue = true;
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillOnce(Return(expectedValue));
-    mPlayerInstance->EnableVideoRectangle(false);
+	 bool expectedValue = true;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillOnce(Return(expectedValue));
+	mPlayerInstance->EnableVideoRectangle(false);
 }
 TEST_F(PlayerInstanceAAMPTests, EnableVideoRectangle_2Test)
 {
-     bool expectedValue = false;
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillOnce(Return(expectedValue));
-    mPlayerInstance->EnableVideoRectangle(false);
+	 bool expectedValue = false;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillOnce(Return(expectedValue));
+	mPlayerInstance->EnableVideoRectangle(false);
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetAudioTrackTest)
 {
-    mPlayerInstance->SetAudioTrack(1);
+	static std::vector<AudioTrackInfo> emptyTracks;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.Times(1)
+		.WillOnce(::testing::ReturnRef(emptyTracks));
+	// Call under test - we only assert the forwarding call happens
+	mPlayerInstance->SetAudioTrack(1);
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetTextTrackTest)
 {
-    int trackId = mPlayerInstance->GetTextTrack();
+	int trackId = mPlayerInstance->GetTextTrack();
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetCCStatusTest)
 {
-    mPlayerInstance->SetCCStatus(true);
-    EXPECT_FALSE(mPlayerInstance->GetCCStatus()); 
+	mPlayerInstance->SetCCStatus(true);
+	EXPECT_FALSE(mPlayerInstance->GetCCStatus());
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetTextStyleTest)
 {
-    const std::string options = "SampleTextStyle";
-    mPlayerInstance->SetTextStyle(options);
+	const std::string options = "SampleTextStyle";
+	mPlayerInstance->SetTextStyle(options);
 }
 TEST_F(PlayerInstanceAAMPTests, GetTextStyleTest){
-    const std::string expectedTextStyle = "TextStyle";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string result = mPlayerInstance->GetTextStyle();
-    EXPECT_STREQ(expectedTextStyle.c_str(),result.c_str());
+	const std::string expectedTextStyle = "TextStyle";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string result = mPlayerInstance->GetTextStyle();
+	EXPECT_STREQ(expectedTextStyle.c_str(),result.c_str());
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetInitRampdownLimitTest1)
 {
-    //checking random value
-    int limit = 10;
-    mPlayerInstance->SetInitRampdownLimit(limit);
+	//checking random value
+	int limit = 10;
+	mPlayerInstance->SetInitRampdownLimit(limit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitRampdownLimitTest2)
 {
-    //checking Maximum value
-    int limit = INT_MAX;
-    mPlayerInstance->SetInitRampdownLimit(limit);
+	//checking Maximum value
+	int limit = INT_MAX;
+	mPlayerInstance->SetInitRampdownLimit(limit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitRampdownLimitTest3)
 {
-    //checking Minimum value
-    int limit = INT_MIN;
-    mPlayerInstance->SetInitRampdownLimit(limit);
+	//checking Minimum value
+	int limit = INT_MIN;
+	mPlayerInstance->SetInitRampdownLimit(limit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetInitRampdownLimitTest4)
 {
-    //checking negative value
-    int limit = -1;
-    mPlayerInstance->SetInitRampdownLimit(limit);
+	//checking negative value
+	int limit = -1;
+	mPlayerInstance->SetInitRampdownLimit(limit);
 }
 TEST_F(PlayerInstanceAAMPTests, SetThumbnailTrackTest1)
 {
-    //checking random value
-    int thumbIndex = 2;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    bool result = mPlayerInstance->SetThumbnailTrack(thumbIndex);
-    EXPECT_FALSE(result);
+	//checking random value
+	int thumbIndex = 2;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	bool result = mPlayerInstance->SetThumbnailTrack(thumbIndex);
+	EXPECT_FALSE(result);
 }
 TEST_F(PlayerInstanceAAMPTests, SetThumbnailTrackTest2)
 {
-    //Checking Maximum value
-    int thumbIndex = INT_MAX;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    bool result = mPlayerInstance->SetThumbnailTrack(thumbIndex);
+	//Checking Maximum value
+	int thumbIndex = INT_MAX;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	bool result = mPlayerInstance->SetThumbnailTrack(thumbIndex);
 }
 TEST_F(PlayerInstanceAAMPTests, SetThumbnailTrackTest3)
 {
-    //Checking Minimum value
-    int thumbIndex = INT_MIN;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    bool result = mPlayerInstance->SetThumbnailTrack(thumbIndex);
+	//Checking Minimum value
+	int thumbIndex = INT_MIN;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	bool result = mPlayerInstance->SetThumbnailTrack(thumbIndex);
 }
 TEST_F(PlayerInstanceAAMPTests, EnableSeekableRangeTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->EnableSeekableRange(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->EnableSeekableRange(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, EnableSeekableRangeTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->EnableSeekableRange(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->EnableSeekableRange(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetReportVideoPTSTest1)
 {
-    //checking false condition
-    bool bValue = true;
-    mPlayerInstance->SetReportVideoPTS(bValue);
+	//checking false condition
+	bool bValue = true;
+	mPlayerInstance->SetReportVideoPTS(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetReportVideoPTSTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetReportVideoPTS(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetReportVideoPTS(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, DisableContentRestrictionsTest1)
 {
-    //checking random values
-    long grace = 600;
-    long time = 3600;
-    bool eventChange = true;
-    mPlayerInstance->DisableContentRestrictions(grace,time,eventChange);
+	//checking random values
+	long grace = 600;
+	long time = 3600;
+	bool eventChange = true;
+	mPlayerInstance->DisableContentRestrictions(grace,time,eventChange);
 }
 TEST_F(PlayerInstanceAAMPTests, DisableContentRestrictionsTest2)
 {
-    //checking Maximum values along with false condition
-    long grace = LONG_MAX;
-    long time = LONG_MAX;
-    bool eventChange = false;
-    mPlayerInstance->DisableContentRestrictions(grace,time,eventChange);
+	//checking Maximum values along with false condition
+	long grace = LONG_MAX;
+	long time = LONG_MAX;
+	bool eventChange = false;
+	mPlayerInstance->DisableContentRestrictions(grace,time,eventChange);
 }
 TEST_F(PlayerInstanceAAMPTests, DisableContentRestrictionsTest3)
 {
-    //checking Minimum values along with false condition
-    long grace = LONG_MIN;
-    long time = LONG_MIN;
-    bool eventChange = false;
-    mPlayerInstance->DisableContentRestrictions(grace,time,eventChange);
+	//checking Minimum values along with false condition
+	long grace = LONG_MIN;
+	long time = LONG_MIN;
+	bool eventChange = false;
+	mPlayerInstance->DisableContentRestrictions(grace,time,eventChange);
 }
 TEST_F(PlayerInstanceAAMPTests, EnableContentRestrictionsTest)
 {
-    mPlayerInstance->EnableContentRestrictions();
+	mPlayerInstance->EnableContentRestrictions();
 }
 TEST_F(PlayerInstanceAAMPTests, ManageAsyncTuneConfigTest)
 {
-    const char* mainManifestUrl = "http://example.com/main.mpd";
-    mPlayerInstance->ManageAsyncTuneConfig(mainManifestUrl);
+	const char* mainManifestUrl = "http://example.com/main.mpd";
+	mPlayerInstance->ManageAsyncTuneConfig(mainManifestUrl);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAsyncTuneConfigTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetAsyncTuneConfig(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->SetAsyncTuneConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAsyncTuneConfigTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetAsyncTuneConfig(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetAsyncTuneConfig(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, PersistBitRateOverSeekTest1)
 {
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->PersistBitRateOverSeek(bValue);
+	//checking true condition
+	bool bValue = true;
+	mPlayerInstance->PersistBitRateOverSeek(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, PersistBitRateOverSeekTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->PersistBitRateOverSeek(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->PersistBitRateOverSeek(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPausedBehaviorTest)
 {
-    //checking random value
-    int behavior = 3;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LivePauseBehavior ,behavior);
-    mPlayerInstance->SetPausedBehavior(behavior);
+	//checking random value
+	int behavior = 3;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPrivateInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_LivePauseBehavior ,behavior);
+	mPlayerInstance->SetPausedBehavior(behavior);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPausedBehaviorTest1)
 {
-    //checking boundary value
-    int behavior = 4;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetPausedBehavior(behavior);
+	//checking boundary value
+	int behavior = 4;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetPausedBehavior(behavior);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPausedBehaviorTest2)
 {
-    //checking Maximum value
-    int behavior = INT_MAX;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetPausedBehavior(behavior);
+	//checking Maximum value
+	int behavior = INT_MAX;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetPausedBehavior(behavior);
 }
 TEST_F(PlayerInstanceAAMPTests, SetPausedBehaviorTest3)
 {
-    //checking minimum value
-    int behavior = INT_MIN;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    mPlayerInstance->SetPausedBehavior(behavior);
+	//checking minimum value
+	int behavior = INT_MIN;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	mPlayerInstance->SetPausedBehavior(behavior);
 }
 TEST_F(PlayerInstanceAAMPTests, SetUseAbsoluteTimelineTest1)
 {
-    //checking true condition
-    bool configState = true;
-    mPlayerInstance->SetUseAbsoluteTimeline(configState);
+	//checking true condition
+	bool configState = true;
+	mPlayerInstance->SetUseAbsoluteTimeline(configState);
 }
 TEST_F(PlayerInstanceAAMPTests, SetUseAbsoluteTimelineTest)
 {
-    //checking false condition
-    bool configState = false;
-    mPlayerInstance->SetUseAbsoluteTimeline(configState);
+	//checking false condition
+	bool configState = false;
+	mPlayerInstance->SetUseAbsoluteTimeline(configState);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRepairIframesTest1)
 {
-    //checking false condition
-    bool configState = false;
-    mPlayerInstance->SetRepairIframes(configState);
+	//checking false condition
+	bool configState = false;
+	mPlayerInstance->SetRepairIframes(configState);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRepairIframesTest2)
 {
-    //checking true condition
-    bool configState = true;
-    mPlayerInstance->SetRepairIframes(configState);
+	//checking true condition
+	bool configState = true;
+	mPlayerInstance->SetRepairIframes(configState);
 }
 TEST_F(PlayerInstanceAAMPTests, SetLicenseCustomDataTest)
 {
-    const char* customData = "customData"; 
-    mPlayerInstance->SetLicenseCustomData(customData);
+	const char* customData = "customData";
+	mPlayerInstance->SetLicenseCustomData(customData);
 }
 TEST_F(PlayerInstanceAAMPTests, SetContentProtectionDataUpdateTimeoutTest1)
 {
-    //checking random value
-    int timeout = 50;
-    mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
+	//checking random value
+	int timeout = 50;
+	mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetContentProtectionDataUpdateTimeoutTest2)
 {
-    //checking Maximum value
-    int timeout = INT_MAX;
-    mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
+	//checking Maximum value
+	int timeout = INT_MAX;
+	mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetContentProtectionDataUpdateTimeoutTest3)
 {
-    //checking Minimum value
-    int timeout = INT_MIN;
-    mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
+	//checking Minimum value
+	int timeout = INT_MIN;
+	mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetContentProtectionDataUpdateTimeoutTest4)
 {
-    //checking negative value
-    int timeout = -10;
-    mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
+	//checking negative value
+	int timeout = -10;
+	mPlayerInstance->SetContentProtectionDataUpdateTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRuntimeDRMConfigSupportTest1)
 {
-    //checking true condition
-    bool DynamicDRMSupported = true;
-    mPlayerInstance->SetRuntimeDRMConfigSupport(DynamicDRMSupported);
+	//checking true condition
+	bool DynamicDRMSupported = true;
+	mPlayerInstance->SetRuntimeDRMConfigSupport(DynamicDRMSupported);
 }
 TEST_F(PlayerInstanceAAMPTests, SetRuntimeDRMConfigSupportTest2)
 {
-    //checking false condition
-    bool DynamicDRMSupported = false;
-    mPlayerInstance->SetRuntimeDRMConfigSupport(DynamicDRMSupported);
+	//checking false condition
+	bool DynamicDRMSupported = false;
+	mPlayerInstance->SetRuntimeDRMConfigSupport(DynamicDRMSupported);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoRectangleTest) {
 	std::string expectedRectangle = "VideoRectangle";
@@ -2281,299 +2288,346 @@ TEST_F(PlayerInstanceAAMPTests, GetVideoRectangleTest) {
 }
 TEST_F(PlayerInstanceAAMPTests, GetThumbnailsTest)
 {
-    std::string expectedThumbnail = "Thumbnail";
-    double tStart = 10.0;
-    double tEnd = 20.0;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string expectedThumbnail = "Thumbnail";
+	double tStart = 10.0;
+	double tEnd = 20.0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    std::string result = mPlayerInstance->GetThumbnails(tStart, tEnd);
-    EXPECT_STREQ(result.c_str(),expectedThumbnail.c_str());
+	std::string result = mPlayerInstance->GetThumbnails(tStart, tEnd);
+	EXPECT_STREQ(result.c_str(),expectedThumbnail.c_str());
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetStereoOnlyPlaybackTest1)
 {
-    //checking true condtion
-    bool bValue = true;
-    mPlayerInstance->SetStereoOnlyPlayback(bValue);
+	//checking true condtion
+	bool bValue = true;
+	mPlayerInstance->SetStereoOnlyPlayback(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetStereoOnlyPlaybackTest2)
 {
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetStereoOnlyPlayback(bValue);
+	//checking false condition
+	bool bValue = false;
+	mPlayerInstance->SetStereoOnlyPlayback(bValue);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSessionTokenTest1)
 {
-    //checking random strings
-    std::string sessionToken = "my_session_token";
-    mPlayerInstance->SetSessionToken(sessionToken);
+	//checking random strings
+	std::string sessionToken = "my_session_token";
+	mPlayerInstance->SetSessionToken(sessionToken);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSessionTokenTest2)
 {
-    //checking large string
-    std::string sessionToken(100000,'A');
-    mPlayerInstance->SetSessionToken(sessionToken);
+	//checking large string
+	std::string sessionToken(100000,'A');
+	mPlayerInstance->SetSessionToken(sessionToken);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSessionTokenTest3)
 {
-    //checking short string
-    std::string sessionToken = "s";
-    mPlayerInstance->SetSessionToken(sessionToken);
+	//checking short string
+	std::string sessionToken = "s";
+	mPlayerInstance->SetSessionToken(sessionToken);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSessionTokenTest4)
 {
-    //checking empty string
-    std::string sessionToken = "";
-    mPlayerInstance->SetSessionToken(sessionToken);
+	//checking empty string
+	std::string sessionToken = "";
+	mPlayerInstance->SetSessionToken(sessionToken);
 }
 TEST_F(PlayerInstanceAAMPTests, GetAvailableVideoTracksTest)
 {
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string result = mPrivateInstanceAAMP->GetAvailableVideoTracks();
-    
-    std::string availableTracks = mPlayerInstance->GetAvailableVideoTracks();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string result = mPrivateInstanceAAMP->GetAvailableVideoTracks();
+
+	std::string availableTracks = mPlayerInstance->GetAvailableVideoTracks();
 
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest1)
 {
-    std::string result;
-    mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
-    std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
-    EXPECT_STREQ(result.c_str(),availableTracks.c_str());
+	std::string result;
+	mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
+	std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
+	EXPECT_STREQ(result.c_str(),availableTracks.c_str());
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest2)
 {
-    std::string result;
-    mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
-    std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
-    EXPECT_STREQ(result.c_str(),availableTracks.c_str());
+	std::string result;
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+	std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
+	EXPECT_STREQ(result.c_str(),availableTracks.c_str());
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetAudioTrackInfoTest)
 {
-    std::string result = "AudioTrack";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string textProperties = mPlayerInstance->GetAudioTrackInfo();
-    EXPECT_STREQ(result.c_str(),textProperties.c_str());
+	std::string result = "AudioTrack";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string textProperties = mPlayerInstance->GetAudioTrackInfo();
+	EXPECT_STREQ(result.c_str(),textProperties.c_str());
 }
 TEST_F(PlayerInstanceAAMPTests, GetTextTrackInfoTest)
 {
-    std::string text_result = "TextTrack";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string textProperties = mPlayerInstance->GetTextTrackInfo();
-    EXPECT_STREQ(text_result.c_str(),textProperties.c_str());
+	std::string text_result = "TextTrack";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string textProperties = mPlayerInstance->GetTextTrackInfo();
+	EXPECT_STREQ(text_result.c_str(),textProperties.c_str());
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetAvailableThumbnailTracksTest)
 {
    std::string expectedQuality = "ThumbnailTracks";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string result = mPlayerInstance->GetAvailableThumbnailTracks();
-    EXPECT_STREQ(expectedQuality.c_str(),result.c_str());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string result = mPlayerInstance->GetAvailableThumbnailTracks();
+	EXPECT_STREQ(expectedQuality.c_str(),result.c_str());
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoPlaybackQualityTest1)
 {
-    //checking for normal string
-    std::string expectedquality = "videoplayback";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    std::string result = mPlayerInstance->GetVideoPlaybackQuality();
-    EXPECT_STREQ(result.c_str(),expectedquality.c_str());
+	//checking for normal string
+	std::string expectedquality = "videoplayback";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	std::string result = mPlayerInstance->GetVideoPlaybackQuality();
+	EXPECT_STREQ(result.c_str(),expectedquality.c_str());
 
 }
 TEST_F(PlayerInstanceAAMPTests, GetAAMPConfigTests)
 {
-    std::string expectedJsonStr = "expected_json_string";
-    bool result = mConfig->GetAampConfigJSONStr(expectedJsonStr);
-    EXPECT_FALSE(result);
-    std::string jsonStr = mPlayerInstance->GetAAMPConfig();
+	std::string expectedJsonStr = "expected_json_string";
+	bool result = mConfig->GetAampConfigJSONStr(expectedJsonStr);
+	EXPECT_FALSE(result);
+	std::string jsonStr = mPlayerInstance->GetAAMPConfig();
 
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetPlaybackStatsTests)
 {
-    std::string result_stats = mPrivateInstanceAAMP->GetPlaybackStats();
-    std::string stats = mPlayerInstance->GetPlaybackStats();
+	std::string result_stats = mPrivateInstanceAAMP->GetPlaybackStats();
+	std::string stats = mPlayerInstance->GetPlaybackStats();
 }
 TEST_F(PlayerInstanceAAMPTests, ProcessContentProtectionDataConfigTests)
 {
    const char* jsonBuffer = "json_buffer";
    cJSON *cfgdata = cJSON_Parse(jsonBuffer);
-    mPlayerInstance->ProcessContentProtectionDataConfig(jsonBuffer);
+	mPlayerInstance->ProcessContentProtectionDataConfig(jsonBuffer);
 }
 
 TEST_F(PlayerInstanceAAMPTests,SetCEAFormatTest1)
 {
-    int expectedFormat = 1;
-    mPlayerInstance->SetCEAFormat(expectedFormat);
+	int expectedFormat = 1;
+	mPlayerInstance->SetCEAFormat(expectedFormat);
 }
 TEST_F(PlayerInstanceAAMPTests,SetCEAFormatTest2)
 {
-    int expectedFormat = INT_MIN;
-    mPlayerInstance->SetCEAFormat(expectedFormat);
+	int expectedFormat = INT_MIN;
+	mPlayerInstance->SetCEAFormat(expectedFormat);
 }
 TEST_F(PlayerInstanceAAMPTests,SetCEAFormatTest3)
 {
-    int expectedFormat = INT_MAX;
-    mPlayerInstance->SetCEAFormat(expectedFormat);
+	int expectedFormat = INT_MAX;
+	mPlayerInstance->SetCEAFormat(expectedFormat);
 }
 TEST_F(PlayerInstanceAAMPTests,IsOOBCCRenderingSupportedTest)
 {
-    mPlayerInstance->IsOOBCCRenderingSupported();
+	mPlayerInstance->IsOOBCCRenderingSupported();
 }
 
-TEST_F(PlayerInstanceAAMPTests, GetCurrentAudioLanguageTest1)
-{
-    // Scenario 1: Expected language
-    const char* expectedLanguage = "English";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    long result = mPlayerInstance->GetVideoBitrate();
-    int trackIndex = mPlayerInstance->GetAudioTrack();
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).Times(0);
-    EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
-		.Times(0);
-    std::string language = mPlayerInstance->GetAudioLanguage();
-}
-TEST_F(PlayerInstanceAAMPTests, GetCurrentAudioLanguageTest2)
-{
-    // Scenario 2: Minimum length language
-    char minLanguage = CHAR_MIN;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    int minTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string minLanguageResult = mPlayerInstance->GetAudioLanguage();
-}
-TEST_F(PlayerInstanceAAMPTests, GetCurrentAudioLanguageTest3)
-{
-    // Scenario 3: Minimum length language
-    const char* minLanguage = "a";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    int minTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string minLanguageResult = mPlayerInstance->GetAudioLanguage();
-}
-TEST_F(PlayerInstanceAAMPTests,GetCurrentAudioLanguageTest4)
-{
-    // Scenario 4: Maximum length language
-    char expectedLanguage = CHAR_MAX;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+/**
+ * @brief Factory using move semantics to populate AudioTrackInfo.
+ */
+std::vector<AudioTrackInfo> CreateMockTracks(std::vector<std::string>&& languages) {
+	std::vector<AudioTrackInfo> tracks;
+	tracks.reserve(languages.size()); // RAII: Pre-allocate memory to avoid reallocs
 
-    int trackIndex = mPlayerInstance->GetAudioTrack();
-    std::string language = mPlayerInstance->GetAudioLanguage();
+	for (auto& lang : languages) {
+		AudioTrackInfo info;
+		// Since language is a std::string, we move it to transfer ownership
+		// of the internal buffer without a deep copy.
+		info.language = std::move(lang);
+		tracks.push_back(std::move(info));
+	}
+	return tracks;
 }
-TEST_F(PlayerInstanceAAMPTests, GetCurrentAudioLanguageTest5)
+
+/**
+ * @test Verify behavior when no track is selected (-1 index).
+ */
+TEST_F(PlayerInstanceAAMPTests, GetAudioLanguage_ReturnsEmptyWhenNoTrackSelected)
 {
-    // Scenario 5: Maximum length language
-    const char* maxLanguage = "ThisIsALongLanguageStringForTestingPurpose";
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    int maxTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string maxLanguageResult = mPlayerInstance->GetAudioLanguage();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).WillRepeatedly(Return(-1));
+	// Abstraction should not even be queried if index is invalid
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_)).Times(0);
+
+	std::string language = mPlayerInstance->GetAudioLanguage();
+	EXPECT_TRUE(language.empty());
 }
-TEST_F(PlayerInstanceAAMPTests, GetCurrentAudioLanguageTest6)
+
+/**
+ * @test Verify behavior when the track list returned is empty.
+ */
+TEST_F(PlayerInstanceAAMPTests, GetAudioLanguage_ReturnsEmptyWhenTrackListIsEmpty)
 {
-    // Scenario 6: Null language
-    const char* nullLanguage = nullptr;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
-    int nullTrackIndex = mPlayerInstance->GetAudioTrack();
-    std::string nullLanguageResult = mPlayerInstance->GetAudioLanguage();
+	std::vector<AudioTrackInfo> emptyTracks; // RAII: local scope
+
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(emptyTracks));
+
+	EXPECT_EQ("", mPlayerInstance->GetAudioLanguage());
 }
+
+/**
+ * @test Test 3: Single track retrieval
+ */
+TEST_F(PlayerInstanceAAMPTests, GetAudioLanguage_ReturnsCorrectLanguageForSingleTrack)
+{
+	auto tracks = CreateMockTracks({"English"});
+
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+
+	EXPECT_EQ("English", mPlayerInstance->GetAudioLanguage());
+}
+
+/**
+ * @test Test 4: Multiple tracks, selecting the second one
+ */
+TEST_F(PlayerInstanceAAMPTests, GetAudioLanguage_ReturnsCorrectLanguageForSecondaryTrack)
+{
+	auto tracks = CreateMockTracks({"English", "French"});
+
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+
+	EXPECT_EQ("French", mPlayerInstance->GetAudioLanguage());
+}
+
+/**
+ * @test Test 5: Handling long strings (Validation of internal limits)
+ */
+TEST_F(PlayerInstanceAAMPTests, GetAudioLanguage_HandlesLongStrings)
+{
+	// If the internal logic still enforces a limit, it would likely be
+	// in the PlayerInstance, not the struct itself.
+	std::string longLang(128, 'A');
+	auto tracks = CreateMockTracks({"English", longLang});
+
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioTrack()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+
+	std::string result = mPlayerInstance->GetAudioLanguage();
+	EXPECT_EQ(longLang.substr(0, MAX_LANGUAGE_TAG_LENGTH-1), result);
+}
+
 TEST_F(PlayerInstanceAAMPTests,SetTextTrackTest)
 {
-    int trackID = 1;
-    char* ccData = new char[50];
-    strcpy(ccData,"Closed caption data");
-    mPlayerInstance->SetTextTrack(trackID,ccData);
+	std::vector<TextTrackInfo> textTracks;
+
+	int trackID = 1;
+	char* ccData = new char[50];
+	strcpy(ccData,"Closed caption data");
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(textTracks));
+
+	mPlayerInstance->SetTextTrack(trackID,ccData);
 }
 TEST_F(PlayerInstanceAAMPTests,InitAAMPConfigTest)
 {
-    const char* jsonStr = "{\"key\": \"value\"}";
-    mPlayerInstance->AsyncStartStop();
-    mPlayerInstance->InitAAMPConfig(jsonStr);
+	const char* jsonStr = "{\"key\": \"value\"}";
+	mPlayerInstance->AsyncStartStop();
+	mPlayerInstance->InitAAMPConfig(jsonStr);
 }
 
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest1)
 {
-    //checking null speed
-    float nullspeed = 0.0f;
-    mPlayerInstance->SetPlaybackSpeed(nullspeed);
+	//checking null speed
+	float nullspeed = 0.0f;
+	mPlayerInstance->SetPlaybackSpeed(nullspeed);
 }
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest2)
 {
-    //checking min speed
-    float minspeed = 0.1f;
-    mPlayerInstance->SetPlaybackSpeed(minspeed);
+	//checking min speed
+	float minspeed = 0.1f;
+	mPlayerInstance->SetPlaybackSpeed(minspeed);
 }
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest3)
 {
-    //checking max speed
-    float maxspeed = 5.0f;
-    mPlayerInstance->SetPlaybackSpeed(maxspeed);
+	//checking max speed
+	float maxspeed = 5.0f;
+	mPlayerInstance->SetPlaybackSpeed(maxspeed);
 }
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest4)
 {
-    //checking negative speed
-    float negativespeed = -0.5f;
-    mPlayerInstance->SetPlaybackSpeed(negativespeed);
+	//checking negative speed
+	float negativespeed = -0.5f;
+	mPlayerInstance->SetPlaybackSpeed(negativespeed);
 }
 TEST_F(PlayerInstanceAAMPTests,Tune_msyncenabledTest)
 {
-    // Scenario 1: random values
-    
-    const char *mainManifestUrl = "https://example.com";
-    bool autoPlay = true;
-    const char *contentType = "video";
-    bool bFirstAttempt = true;
-    bool bFinalAttempt = false;
-    const char *traceUUID = "12345";
-    bool audioDecoderStreamSync = true;
-    const char *refreshManifestUrl = "https://example.comm";
+	// Scenario 1: random values
+
+	const char *mainManifestUrl = "https://example.com";
+	bool autoPlay = true;
+	const char *contentType = "video";
+	bool bFirstAttempt = true;
+	bool bFinalAttempt = false;
+	const char *traceUUID = "12345";
+	bool audioDecoderStreamSync = true;
+	const char *refreshManifestUrl = "https://example.comm";
 	int mpdStitchingMode = 10;
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
-    mPlayerInstance->AsyncStartStop();
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AsyncTune)).WillRepeatedly(Return(true));
+	mPlayerInstance->AsyncStartStop();
 
-    EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).WillOnce(Return(1));
 
-    mPlayerInstance->Tune(mainManifestUrl,autoPlay,contentType,bFirstAttempt,bFinalAttempt,traceUUID,audioDecoderStreamSync,refreshManifestUrl,mpdStitchingMode);
+	mPlayerInstance->Tune(mainManifestUrl,autoPlay,contentType,bFirstAttempt,bFinalAttempt,traceUUID,audioDecoderStreamSync,refreshManifestUrl,mpdStitchingMode);
 }
 TEST_F(PlayerInstanceAAMPTests,TuneTest1)
 {
-    // Scenario 1: random values
-    const char *mainManifestUrl = "https://example.com";
-    const char *contentType = "video";
-    bool bFirstAttempt = true;
-    bool bFinalAttempt = false;
-    const char *traceUUID = "12345";
-    bool audioDecoderStreamSync = true;
+	// Scenario 1: random values
+	const char *mainManifestUrl = "https://example.com";
+	const char *contentType = "video";
+	bool bFirstAttempt = true;
+	bool bFinalAttempt = false;
+	const char *traceUUID = "12345";
+	bool audioDecoderStreamSync = true;
 
-    mPlayerInstance->Tune(mainManifestUrl,contentType,bFirstAttempt,bFinalAttempt,traceUUID,audioDecoderStreamSync);
+	mPlayerInstance->Tune(mainManifestUrl,contentType,bFirstAttempt,bFinalAttempt,traceUUID,audioDecoderStreamSync);
 }
 TEST_F(PlayerInstanceAAMPTests, TuneTest2)
 {
-    // Scenario 2: Minimum values
-    const char *minManifestUrl = "https://min.example.com";
-    char minContentType = CHAR_MIN;
-    bool minFirstAttempt = false;
-    bool minFinalAttempt = false;
-    char minTraceUUID = CHAR_MIN;
-    bool minAudioDecoderStreamSync = false;
+	// Scenario 2: Minimum values
+	const char *minManifestUrl = "https://min.example.com";
+	char minContentType = CHAR_MIN;
+	bool minFirstAttempt = false;
+	bool minFinalAttempt = false;
+	char minTraceUUID = CHAR_MIN;
+	bool minAudioDecoderStreamSync = false;
 
-    mPlayerInstance->Tune(minManifestUrl, &minContentType, minFirstAttempt, minFinalAttempt, &minTraceUUID, minAudioDecoderStreamSync);
+	mPlayerInstance->Tune(minManifestUrl, &minContentType, minFirstAttempt, minFinalAttempt, &minTraceUUID, minAudioDecoderStreamSync);
 }
 TEST_F(PlayerInstanceAAMPTests, TuneTest3)
 {
-    // Scenario 3: Maximum values
-    const char *maxManifestUrl = "https://max.example.com";
-    char maxContentType = CHAR_MAX;
-    bool maxFirstAttempt = true;
-    bool maxFinalAttempt = true;
-    char maxTraceUUID = CHAR_MAX;
-    bool maxAudioDecoderStreamSync = true;
+	// Scenario 3: Maximum values
+	const char *maxManifestUrl = "https://max.example.com";
+	char maxContentType = CHAR_MAX;
+	bool maxFirstAttempt = true;
+	bool maxFinalAttempt = true;
+	char maxTraceUUID = CHAR_MAX;
+	bool maxAudioDecoderStreamSync = true;
 
-    mPlayerInstance->Tune(maxManifestUrl, &maxContentType, maxFirstAttempt, maxFinalAttempt, &maxTraceUUID, maxAudioDecoderStreamSync);
+	mPlayerInstance->Tune(maxManifestUrl, &maxContentType, maxFirstAttempt, maxFinalAttempt, &maxTraceUUID, maxAudioDecoderStreamSync);
 }
 
 TEST_F(PlayerInstanceAAMPTests, TuneTest4)
@@ -2614,58 +2668,63 @@ TEST_F(PlayerInstanceAAMPTests, updateManifestTest2)
 
 TEST_F(PlayerInstanceAAMPTests,SetTextTrackTest1)
 {
+	std::vector<TextTrackInfo> textTracks;
 	int trackID = 1;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(textTracks));
+
 	mPlayerInstance->SetTextTrack(trackID,NULL);
 }
 
 // Test pausing
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause) {
-    mPlayerInstance->aamp = mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
-    mPrivateInstanceAAMP->mbPlayEnabled = true;
-    mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(1);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true)).Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, false)).Times(1);
-    
-    mPlayerInstance->SetRate(0);
 
-    EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
+	mPlayerInstance->SetRate(0);
+
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
 }
 
 // Test pausing with local TSB
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_Pause) {
-    mPlayerInstance->aamp = mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
-    mPrivateInstanceAAMP->mbPlayEnabled = true;
-    mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true)).Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, false)).Times(1);
-    
-    mPlayerInstance->SetRate(0);
 
-    EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
+	mPlayerInstance->SetRate(0);
+
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
 }
 
 // Test resuming from being paused on live with local TSB
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 
-    long long seek_pos_seconds = 15000.0;
+	long long seek_pos_seconds = 15000.0;
 
-    mPlayerInstance->aamp = mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = true;
-    mPrivateInstanceAAMP->mbPlayEnabled = true;
-    mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
@@ -2673,22 +2732,22 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_SEEKING)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, false)).Times(1);
 
-    mPlayerInstance->SetRate(1.0);
+	mPlayerInstance->SetRate(1.0);
 
-    EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, seek_pos_seconds / 1000);
-    EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, seek_pos_seconds / 1000);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
 }
 
 // Test resuming from being paused in local TSB playback
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 
-    mPlayerInstance->aamp = mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = true;
-    mPrivateInstanceAAMP->mbPlayEnabled = true;
-    mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 
@@ -2697,9 +2756,9 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(false)).Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(1);
 
-    mPlayerInstance->SetRate(1.0);
+	mPlayerInstance->SetRate(1.0);
 
-    EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
 }
 
 // Test forward 2x from being paused in local TSB playback

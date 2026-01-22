@@ -528,7 +528,12 @@ std::string PrivateInstanceAAMP::GetAppName()
 
 int PrivateInstanceAAMP::GetAudioTrack()
 {
-	return 0;
+	int retValue = 0;
+	if(g_mockPrivateInstanceAAMP != nullptr) 
+	{
+		retValue = g_mockPrivateInstanceAAMP->GetAudioTrack();
+	}
+	return retValue;
 }
 
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
