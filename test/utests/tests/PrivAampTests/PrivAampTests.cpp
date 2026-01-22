@@ -4041,7 +4041,7 @@ TEST_F(PrivAampTests,ResetDiscontinuityInTracksTest)
 TEST_F(PrivAampTests,SetPreferredLanguagesTest)
 {
 	Accessibility *accessibilityItem;
-	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LableList",accessibilityItem);
+	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LabelList", accessibilityItem);
 }
 
 TEST_F(PrivAampTests,EnableMediaDownloadsTest)
