@@ -2592,12 +2592,17 @@ void InterfacePlayerRDK::ResetFirstFrame(void)
 	interfacePlayerPriv->gstPrivateContext->firstFrameReceived = false;
 }
 
+/**
+ *  @brief Get rendered and dropped frames count when gst element state is GST_STATE_CHANGE_SUCCESS
+ *  with pipeline in playing or paused state.
+ *  Returns NULL during pipeline state transition, and any states other than the above mentioned ones.
+ */
 GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
 	GstStructure *stats= 0;
 	GstElement *element;
-	GstState current = GST_STATE_VOID_PENDING;
-	GstState pending = GST_STATE_VOID_PENDING;
+	GstState current{};
+	GstState pending{};
 	GstClockTime timeout = 0;
 	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
 	if( (ret == GST_STATE_CHANGE_SUCCESS) && ( (current == GST_STATE_PLAYING) || (current == GST_STATE_PAUSED)) )
@@ -2637,9 +2642,13 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 			}
 		}
 	}
+	else if (ret == GST_STATE_CHANGE_ASYNC)
+	{
+		MW_LOG_INFO("gst_element_get_state async: state transition in progress (current state=%d, pending=%d), can't query playback quality now", current, pending);
+	}
 	else
 	{
-		MW_LOG_WARN( "Incorrect state. gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending );
+		MW_LOG_WARN("Incorrect state. gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending);
 	}
 	return NULL;
 }
