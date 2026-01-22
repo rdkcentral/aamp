@@ -957,14 +957,14 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			mActiveDownloadInfo = dlInfo;
 		}
 		int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); // Max cached fragments per track
-		auto DownloadsEnabled = [this]()
+		auto DownloadsEnabled = [this]() const
 		{
 			return aamp->DownloadsAreEnabled() && !abort;
 		};
 		// In low-latency mode, wait for needData/enoughData signals before
 		// downloading the next fragment. Skip this wait when injecting from
 		// the local AAMP TSB.
-		auto WaitForLowLatencyDashDownloads = [this, &DownloadsEnabled]()
+		auto WaitForLowLatencyDashDownloads = [this, &DownloadsEnabled]() const
 		{
 			return DownloadsEnabled() &&
 				   !aamp->IsLocalAAMPTsbInjection() &&
