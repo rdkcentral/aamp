@@ -8896,6 +8896,12 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	AampTime timelineStart;
 	AampTime duration;
 
+	if (!mCurrentPeriod)
+	{
+		AAMPLOG_ERR("No current period");
+		return;
+	}
+
 	IPeriod *period = mCurrentPeriod;
 	GetStartAndDurationForPtsRestamping(timelineStart, duration);
 
@@ -13901,16 +13907,13 @@ void StreamAbstractionAAMP_MPD::InitializeWorkers()
  */
 void StreamAbstractionAAMP_MPD::ClearWorkers()
 {
-	if (!aamp->GetAampTrackWorkerManager()->IsEmpty())
+	try
 	{
-		try
-		{
-			aamp->GetAampTrackWorkerManager()->RemoveWorkers();
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Exception caught in ClearWorkers: %s", e.what());
-		}
+		aamp->GetAampTrackWorkerManager()->RemoveWorkers();
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("Exception caught in ClearWorkers: %s", e.what());
 	}
 }
 
