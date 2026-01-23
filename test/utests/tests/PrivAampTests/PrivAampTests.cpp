@@ -350,7 +350,10 @@ public:
 	}
 	void GetAvailableTracks_obj()
 	{
-		g_mockStreamAbstractionAAMP->GetAvailableAudioTracks(true);
+		static std::vector<AudioTrackInfo> mockAudio;
+		EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+			.WillRepeatedly(ReturnRef(mockAudio));
+
 		GetAvailableAudioTracks(true);
 	}
 	void InitStreamAbstraction()
@@ -401,9 +404,6 @@ struct MemoryCopyingGuard {
 
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
 {
-	static std::vector<AudioTrackInfo> mockAudio;
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
-		.WillRepeatedly(ReturnRef(mockAudio));
 	testp_aamp->GetAvailableTracks_obj();
 }
 
