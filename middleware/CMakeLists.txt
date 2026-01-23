@@ -40,6 +40,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/baseConversion)
+if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
+	# On Ubuntu/Darwin, include fake headers as fallback for missing SDK headers
+	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/utests/fakes)
+endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerLogManager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerJsonObject)
 
