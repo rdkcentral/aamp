@@ -1039,42 +1039,8 @@ bool MediaTrack::ProcessFragmentChunk()
 	uint32_t timeScale = cachedFragment->timeScale;
 	if(!timeScale)
 	{
-		AAMPLOG_WARN("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
-		// Fallback to global timescale if cached fragment doesn't have it set
-		if(type == eTRACK_VIDEO)
-		{
-			timeScale = aamp->GetVidTimeScale();
-		}
-		else if(type == eTRACK_AUDIO)
-		{
-			timeScale = aamp->GetAudTimeScale();
-		}
-		else if (type == eTRACK_SUBTITLE)
-		{
-			timeScale = aamp->GetSubTimeScale();
-		}
-		else
-		{
-			AAMPLOG_WARN("[%s] Unknown track type %d, cannot get timescale", name, type);
-		}
-	}
-	if(!timeScale)
-	{
-		//FIX-ME-Read from MPD INSTEAD
-		if(pContext)
-		{
-			timeScale = pContext->GetCurrPeriodTimeScale();
-			if(!timeScale)
-			{
-				timeScale = 10000000.0;
-				AAMPLOG_WARN("[%s] Empty timeScale!!! Using default timeScale=%d", name, timeScale);
-			}
-		}
-		else
-		{
-			timeScale = 1000.0;
-			AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
-		}
+		AAMPLOG_ERR("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
+		return true;
 	}
 	double fpts = 0.0, fduration = 0.0;
 	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
