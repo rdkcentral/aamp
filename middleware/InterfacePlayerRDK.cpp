@@ -2599,7 +2599,7 @@ void InterfacePlayerRDK::ResetFirstFrame(void)
  */
 GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
-	GstStructure *stats= 0;
+	GstStructure *stats = nullptr;
 	GstElement *element;
 	GstState current{};
 	GstState pending{};

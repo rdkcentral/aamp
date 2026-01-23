@@ -1062,13 +1062,13 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtReadyState)
 }
 
 /**
- * @test GetVideoPlaybackQuality_NoStasCallAtNullState
+ * @test GetVideoPlaybackQuality_NoStatsCallAtNullState
  * @brief Verify that stats query is skipped when pipeline is in NULL state
  *
  * Element in NULL state means the pipeline is stopped.
  * The function should return NULL without calling g_object_get for stats.
  */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStasCallAtNullState)
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtNullState)
 {
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
 	mPlayerContext->pipeline = &gst_element_pipeline;
@@ -1090,13 +1090,13 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStasCallAtNullState)
 }
 
 /**
- * @test GetVideoPlaybackQuality_NoStasCallAtVoidPendingState
+ * @test GetVideoPlaybackQuality_NoStatsCallAtVoidPendingState
  * @brief Verify that stats query is skipped when pipeline is in VOID_PENDING state
  *
  * Element in VOID_PENDING state is in an invalid or uninitialized state.
  * The function should return NULL without calling g_object_get for stats.
  */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStasCallAtVoidPendingState)
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtVoidPendingState)
 {
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
 	mPlayerContext->pipeline = &gst_element_pipeline;
@@ -1135,7 +1135,7 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingState)
 
 	GstState current_state{GST_STATE_PLAYING};
 	GstStructure valid_stats{0x1234};
-	GstStructure *stats= &valid_stats;
+	GstStructure *stats = &valid_stats;
 	GValue rendered_value{};
 	GValue dropped_value{};
 
