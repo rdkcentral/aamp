@@ -1031,18 +1031,33 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	//Print box details
 	//isobuf.printBoxes();
-	uint32_t timeScale = 0;
-	if(type == eTRACK_VIDEO)
+
+	// Use the timescale stored in the cached fragment, which represents the timescale
+	// of the segment being injected. This is critical when using TSB, as the segment
+	// being downloaded at the live edge may have a different timescale (e.g., an ad)
+	// than the segment being injected from TSB (e.g., base content).
+	uint32_t timeScale = cachedFragment->timeScale;
+	//uint32_t timeScale = 0;		// Jose
+	if(!timeScale)
 	{
-		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(type == eTRACK_AUDIO)
-	{
-		timeScale = aamp->GetAudTimeScale();
-	}
-	else if (type == eTRACK_SUBTITLE)
-	{
-		timeScale = aamp->GetSubTimeScale();
+		AAMPLOG_WARN("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
+		// Fallback to global timescale if cached fragment doesn't have it set
+		if(type == eTRACK_VIDEO)
+		{
+			timeScale = aamp->GetVidTimeScale();
+		}
+		else if(type == eTRACK_AUDIO)
+		{
+			timeScale = aamp->GetAudTimeScale();
+		}
+		else if (type == eTRACK_SUBTITLE)
+		{
+			timeScale = aamp->GetSubTimeScale();
+		}
+		else
+		{
+			AAMPLOG_WARN("[%s] Unknown track type %d, cannot get timescale", name, type);
+		}
 	}
 	if(!timeScale)
 	{

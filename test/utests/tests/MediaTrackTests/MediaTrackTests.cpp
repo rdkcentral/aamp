@@ -820,3 +820,113 @@ TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 	EXPECT_EQ(videoTrack.GetCachedFragmentChunksSize(), kMaxFragmentChunkCached);
 }
+
+/**
+ * @brief Test data for ProcessFragmentChunk timescale tests
+ *
+ * This structure holds the test parameters for verifying that ProcessFragmentChunk
+ * uses the correct timescale from the cached fragment (critical for TSB playback
+ * where injected segments may have different timescales than live edge segments).
+ */
+struct ChunkTimescaleTestData
+{
+	uint32_t cachedFragmentTimeScale;  /**< Timescale stored in the cached fragment */
+	uint32_t globalTimeScale;          /**< Global timescale from AAMP instance */
+	uint32_t expectedTimeScale;        /**< Expected timescale to be used in ParseChunkData */
+};
+
+class MediaTrackProcessFragmentChunkTimescaleTests
+	: public MediaTrackTests,
+	  public testing::WithParamInterface<ChunkTimescaleTestData>
+{
+};
+
+/**
+ * @brief Test that ProcessFragmentChunk uses the cached fragment's timescale
+ *
+ * This test verifies that when processing fragment chunks, the timescale from
+ * the cached fragment is used (if set), rather than falling back to global
+ * timescales. This is critical for TSB (Time-Shift Buffer) scenarios where:
+ * - The segment being downloaded at the live edge may be from an ad with one timescale
+ * - The segment being injected from TSB may be from base content with a different timescale
+ *
+ * The test would fail if ProcessFragmentChunk used global timescales instead of the
+ * cached fragment's timescale, as the ParseChunkData mock expects the exact timescale
+ * value from the cached fragment.
+ */
+TEST_P(MediaTrackProcessFragmentChunkTimescaleTests, UseCachedFragmentTimescaleInParseChunkData)
+{
+	ChunkTimescaleTestData testData = GetParam();
+	CachedFragment* bufferedFragment{nullptr};
+
+	// Configure low-latency mode since ProcessFragmentChunk is used for chunk-based injection
+	SetLowLatencyMode(true);
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	mStreamAbstractionAAMP_MPD->trickplayMode = false;
+
+	// Set up mock to return the global timescale (used as fallback when cached fragment timescale is 0)
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
+		.WillRepeatedly(Return(testData.globalTimeScale));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
+								  mStreamAbstractionAAMP_MPD};
+
+	// First inject an init fragment (required before media fragments)
+	CachedFragment initFragment;
+	initFragment.initFragment = true;
+	initFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
+	videoTrack.numberOfFragmentChunksCached = 1;
+	bufferedFragment->Copy(&initFragment, initFragment.fragment.GetLen());
+	ASSERT_TRUE(videoTrack.InjectFragment());
+
+	// Now inject a media fragment with a specific timescale
+	CachedFragment testFragment;
+	testFragment.initFragment = false;
+	testFragment.duration = FRAGMENT_DURATION.inSeconds();
+	testFragment.position = FIRST_PTS.inSeconds();
+	testFragment.timeScale = testData.cachedFragmentTimeScale;
+	testFragment.uri = "test_segment.m4s";
+	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+
+	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
+	videoTrack.numberOfFragmentChunksCached = 1;
+	bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
+
+	// Key assertion: ParseChunkData should be called with the expected timescale
+	// This tests that ProcessFragmentChunk uses cachedFragment->timeScale when set,
+	// or falls back to global timescale when cachedFragment->timeScale is 0
+	EXPECT_CALL(*g_mockIsoBmffBuffer,
+				ParseChunkData(_, _, testData.expectedTimeScale, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<5>(bufferedFragment->position),
+						SetArgReferee<6>(bufferedFragment->duration), Return(true)));
+
+	ASSERT_TRUE(videoTrack.InjectFragment());
+}
+
+ChunkTimescaleTestData chunkTimescaleTestData[] = {
+	// When cached fragment has a valid timescale, it should be used
+	{90000, 48000, 90000},    // Fragment timescale 90000 (typical video), global 48000 -> use 90000
+	{48000, 90000, 48000},    // Fragment timescale 48000 (typical audio), global 90000 -> use 48000
+	{10000000, 90000, 10000000},  // Fragment timescale 10000000 (100ns units), global 90000 -> use 10000000
+	// When cached fragment timescale is 0, fall back to global timescale
+	{0, 90000, 90000},        // Fragment timescale 0, global 90000 -> use global
+	{0, 48000, 48000},        // Fragment timescale 0, global 48000 -> use global
+};
+
+INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackProcessFragmentChunkTimescaleTests,
+						 ValuesIn(chunkTimescaleTestData));
