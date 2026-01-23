@@ -2623,15 +2623,15 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 				if ( stats )
 				{
 					const GValue *value;
-					value= gst_structure_get_value( stats, "rendered" );
+					value = gst_structure_get_value( stats, "rendered" );
 					if ( value )
 					{
-						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = g_value_get_uint64( value );
 					}
-					value= gst_structure_get_value( stats, "dropped" );
+					value = gst_structure_get_value( stats, "dropped" );
 					if ( value )
 					{
-						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = g_value_get_uint64( value );
 					}
 					MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
 					gst_structure_free( stats );
@@ -2656,7 +2656,7 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 	{
 		MW_LOG_INFO("gst_element_get_state ret=%d: can't query playback quality now", ret);
 	}
-	return NULL;
+	return nullptr;
 }
 
 /**
