@@ -4031,8 +4031,7 @@ void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
 {
 	if (mIsAtLivePoint != isAtLivePoint)
 	{
-		AAMPLOG_INFO("SetIsAtLivePoint: changing mIsAtLivePoint from %d to %d",
-			(mIsAtLivePoint ? 1 : 0), (isAtLivePoint ? 1 : 0));
+		AAMPLOG_INFO("SetIsAtLivePoint: changing mIsAtLivePoint from %d to %d", mIsAtLivePoint, isAtLivePoint);
 		mIsAtLivePoint = isAtLivePoint;
 	}
 }
