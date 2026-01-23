@@ -392,3 +392,72 @@ TEST_F(ClosedCaptionTests, GetAvailableTextTracks_WithLocalAAMPTsb_GetCurrentTex
 	// Basic sanity check since the mock Print returns minimal JSON
 	EXPECT_FALSE(result.empty()) << "Should return non-empty result even when GetCurrentTextTrack fails";
 }
+
+TEST_F(ClosedCaptionTests, GetAvailableTextTracks_WithDisableWebVTT_ReturnsOnlyCCTracks)
+{
+    // Enable DisableWebVTT so only Closed Caption (CC) tracks should be returned
+    gpGlobalConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DisableWebVTT, true);
+
+    // Copy only CC tracks from the mock list into a separate vector
+    std::vector<TextTrackInfo> textTracksCopy;
+    std::copy_if(begin(mockTextTracks), end(mockTextTracks), back_inserter(textTracksCopy),
+                 [](const TextTrackInfo& e){ return e.isCC; });
+
+    // Mock JSON array + item pointers (fake addresses used only for mocking)
+    cJSON* mockArray = reinterpret_cast<cJSON*>(0x3000);
+    cJSON* mockItem  = reinterpret_cast<cJSON*>(0x3003);
+
+    // Create a list of fake JSON object pointers, one per CC track
+    std::vector<cJSON*> mockObjects;
+    for (size_t i = 0; i < textTracksCopy.size(); i++) {
+        mockObjects.push_back(reinterpret_cast<cJSON*>(0x4000 + i));
+    }
+
+    // Expect CreateArray() to be called once and return our mock array pointer
+    EXPECT_CALL(*g_mockCJsonManager, CreateArray())
+        .WillOnce(Return(mockArray));
+
+    // Expect CreateObject() to be called once per CC track and return mock objects
+    EXPECT_CALL(*g_mockCJsonManager, CreateObject())
+        .WillOnce(Return(mockObjects[0]))
+        .WillOnce(Return(mockObjects[1]));
+
+    // For each CC track, set expectations for JSON field creation and availability flags
+    for (size_t i = 0; i < textTracksCopy.size(); i++) {
+        const auto& track = textTracksCopy[i];
+        cJSON* mockObj = mockObjects[i];
+
+        // Expect production code to add correct string fields (e.g., name, language)
+        setupTrackStringFieldExpectations(track, mockObj, mockItem);
+
+        // Expect production code to mark the track as available (non-TSB mode)
+        setupTrackAvailabilityExpectation(track, mockObj, mockItem, true);
+    }
+
+    // Expect AddItemToArray() to be called for each CC track
+    for (size_t i = 0; i < textTracksCopy.size(); i++) {
+        EXPECT_CALL(*g_mockCJsonManager, AddItemToArray(mockArray, mockObjects[i]))
+            .WillOnce(Return(cJSON_True));
+    }
+
+    // Allow Print() to be called and return minimal JSON (actual content not validated here)
+    EXPECT_CALL(*g_mockCJsonManager, Print(mockArray))
+        .WillOnce(Return("[]"));
+
+    // Expect Delete() to be called once to free the JSON array
+    EXPECT_CALL(*g_mockCJsonManager, Delete(mockArray))
+        .Times(1);
+
+    // Mock StreamAbstraction to return only CC tracks
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
+        .WillOnce(ReturnRef(textTracksCopy));
+
+    // Execute the function under test
+    std::string result = mPrivateInstanceAAMP->GetAvailableTextTracks(false);
+
+    // Validate that output is not empty (should contain CC-only JSON)
+    EXPECT_FALSE(result.empty()) << "Expected CC-only JSON output";
+
+    // Reset config to default
+    gpGlobalConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_DisableWebVTT, false);
+}
