@@ -2672,12 +2672,12 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		stAbrInfo.abrCalledFor = AAMPAbrFragmentDownloadFailed;
 		stAbrInfo.currentProfileIndex = currentProfileIndex;
 		stAbrInfo.desiredProfileIndex = desiredProfileIndex;
-		StreamInfo* streamInfodesired = GetStreamInfo(desiredProfileIndex);
-		StreamInfo* streamInfocurrent = GetStreamInfo(currentProfileIndex);
-		if((streamInfocurrent != NULL) && (streamInfodesired != NULL))   //CID:160715 - Forward null
+		StreamInfo* streamInfoDesired = GetStreamInfo(desiredProfileIndex);
+		StreamInfo* streamInfoCurrent = GetStreamInfo(currentProfileIndex);
+		if((streamInfoCurrent != NULL) && (streamInfoDesired != NULL))   //CID:160715 - Forward null
 		{
-			stAbrInfo.currentBandwidth = streamInfocurrent->bandwidthBitsPerSecond;
-			stAbrInfo.desiredBandwidth = streamInfodesired->bandwidthBitsPerSecond;
+			stAbrInfo.currentBandwidth = streamInfoCurrent->bandwidthBitsPerSecond;
+			stAbrInfo.desiredBandwidth = streamInfoDesired->bandwidthBitsPerSecond;
 			stAbrInfo.networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
 			stAbrInfo.errorType = AAMPNetworkErrorHttp;
 			stAbrInfo.errorCode = http_error;
@@ -2725,7 +2725,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 /**
  *  @brief Check whether the current profile is lowest.
  */
-bool StreamAbstractionAAMP::IsLowestProfile(int currentProfileIndex)
+bool StreamAbstractionAAMP::IsCurrentProfileLowest()
 {
 	bool ret = false;
 
@@ -2781,11 +2781,13 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	}
 
 	// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
-	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsLowestProfile(currentProfileIndex))
+	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsCurrentProfileLowest())
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 403 ||
+			http_error == 500 || http_error == 503 ||
+			http_error == CURLE_PARTIAL_FILE)
 		{
 			if (RampDownProfile(http_error))
 			{
@@ -4467,7 +4469,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 		//Get Minimum update duration in milliseconds
 		long minUpdateDuration = GetMinUpdateDuration();
 		minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
-		// when target duration is high value(>Max delay)  but buffer is available just above the max update inteval,then go with max delay between playlist refresh.
+		// when target duration is high value(>Max delay)  but buffer is available just above the max update interval,then go with max delay between playlist refresh.
 		if(bufferAvailable < (2* MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS))
 		{
 			if ((minUpdateDuration > 0) && (bufferAvailable  > minUpdateDuration))

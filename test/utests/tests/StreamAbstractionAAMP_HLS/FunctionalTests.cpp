@@ -191,16 +191,16 @@ protected:
             NotifyPlaybackPaused(false);
         }
 
-        bool CallIsLowestProfile(int currentProfileIndex)
+        bool CallIsCurrentProfileLowest()
         {
             TestableStreamAbstractionAAMP_HLS::trickplayMode = true;
-            return IsLowestProfile(currentProfileIndex);
+            return IsCurrentProfileLowest();
         }
 
-        bool CallIsLowestProfile_1(int currentProfileIndex)
+        bool CallIsCurrentProfileLowest_1()
         {
             TestableStreamAbstractionAAMP_HLS::trickplayMode = false;
-            return IsLowestProfile(currentProfileIndex);
+            return IsCurrentProfileLowest();
         }
 
 	void CallSetAvailableTextTracks(std::vector<TextTrackInfo>& tracks)
@@ -1808,13 +1808,13 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RampDownProfiletest)
     ASSERT_FALSE(result);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsCurrentProfileLowestTest)
 {
     // Set up the necessary data or objects for your test
-    int currentProfileIndex = 0;
+    mStreamAbstractionAAMP_HLS->currentProfileIndex = 0;
     // int currentProfileIndex = -22;
     // Call the function you want to test
-    bool result = mStreamAbstractionAAMP_HLS->IsLowestProfile(currentProfileIndex);
+    bool result = mStreamAbstractionAAMP_HLS->IsCurrentProfileLowest();
 
     ASSERT_TRUE(result);
 }
@@ -2738,19 +2738,19 @@ TEST_F(StreamAbstractionAAMP_HLSTest, NotifyPlaybackPausedtest)
     mStreamAbstractionAAMP_HLS->CallNotifyPlaybackPaused(true);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_2)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsCurrentProfileLowestTest_2)
 {
     // Set up the necessary data or objects for your test
-    int currentProfileIndex = -1;
-    bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile(currentProfileIndex);
+    mStreamAbstractionAAMP_HLS->currentProfileIndex = -1;
+    bool result = mStreamAbstractionAAMP_HLS->CallIsCurrentProfileLowest();
     ASSERT_FALSE(result);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsCurrentProfileLowestTest_1)
 {
     // Set up the necessary data or objects for your test
-    int currentProfileIndex = -1;
-    bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile_1(currentProfileIndex);
+    mStreamAbstractionAAMP_HLS->currentProfileIndex = -1;
+    bool result = mStreamAbstractionAAMP_HLS->CallIsCurrentProfileLowest_1();
     ASSERT_TRUE(result);
 }
 

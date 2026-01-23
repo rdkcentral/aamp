@@ -143,6 +143,8 @@
 #define DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS 100 	/**< default jump threshold to MonitorAV reporting */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 
+#define DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT 80 /**< By default, let's abort early if bps is less than 80% of profile bandwidth */
+
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE

@@ -47,11 +47,6 @@ bool HybridABRManager::CheckProfileChange(double totalFetchedDuration ,int currP
 	return false;
 }
 
-bool HybridABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
-{
-	return false;
-}
-
 void HybridABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileIndex,double bufferValue,double minBufferNeeded,const std::string& periodId)
 {
 }

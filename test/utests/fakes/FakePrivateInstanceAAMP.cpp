@@ -1737,3 +1737,8 @@ const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void )
 	static std::vector<TimedMetadata> rc;
 	return rc;
 }
+
+bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
+{
+	return false;
+}
