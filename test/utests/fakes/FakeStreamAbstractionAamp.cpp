@@ -565,3 +565,8 @@ std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB
 {
 	return nullptr;
 }
+
+bool StreamAbstractionAAMP::IsCurrentProfileLowest()
+{
+	return false;
+}

@@ -2739,7 +2739,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 /**
  *  @brief Check whether the current profile is lowest.
  */
-bool StreamAbstractionAAMP::IsLowestProfile(int currentProfileIndex)
+bool StreamAbstractionAAMP::IsCurrentProfileLowest()
 {
 	bool ret = false;
 
@@ -2795,11 +2795,13 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	}
 
 	// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
-	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsLowestProfile(currentProfileIndex))
+	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsCurrentProfileLowest())
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 403 ||
+			http_error == 500 || http_error == 503 ||
+			http_error == CURLE_PARTIAL_FILE)
 		{
 			if (RampDownProfile(http_error))
 			{
