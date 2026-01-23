@@ -267,12 +267,24 @@ struct CurlCallbackContext
 	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
 	size_t bufferOffset = 0; // Used for chunked injection to keep track of start offset of the last mp4 chunk in buffer
 	size_t chunkBoundary = 0; // Used for chunked injection to store the end offset of the last mp4 chunk in buffer
+	long long dataTransferStartTime = -1; /**< Indicate the time when data transfer starts */
+	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE; /**< Reason for aborting the curl download  */
+	bool earlyAbortEnabled = false; /**< Flag to enable early abort logic for chunk downloads */
+	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
 
-	CurlCallbackContext(){}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer){}
+	// Default constructor
+	CurlCallbackContext() {}
+
+	/**
+	 * @brief Constructor to initialize CurlCallbackContext
+	 * @param[in] _aamp - PrivateInstanceAAMP pointer
+	 * @param[in] _buffer - AampGrowableBuffer pointer
+	 */
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer) {}
 
 	~CurlCallbackContext() {}
 
+	// Disabled copy constructor and copy assignment
 	CurlCallbackContext(const CurlCallbackContext &other) = delete;
 	CurlCallbackContext& operator=(const CurlCallbackContext& other) = delete;
 };
