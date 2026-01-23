@@ -8,22 +8,21 @@ jobs:
   execute-unit-tests-on-pr:
     name: Runs all unit tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rdkcentral/aamp-ci-image:latest
     
     steps:
       # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
       
-      # Install AAMP
-      - name: Install AAMP
-        run: yes | ./install-aamp.sh -s file
-      
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
+        shell: bash
         run: |
-          set -o pipefail
-          ./run.sh 2>&1 | tee utest_run.log
+          set -euo pipefail
+          CXXFLAGS="-std=c++17" CFLAGS="-std=c17" ./run.sh 2>&1 | tee utest_run.log
 
       # Generate pretty test run output
       - name: Pretty test run output
@@ -32,6 +31,11 @@ jobs:
         run: |
           python3 parse_gtest_log.py utest_run.log
       
+      # Needed to avoid git safe directory issues in GH Actions container    
+      - name: Mark workspace as safe for git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       # Publish AAMP test results
       - name: Publish AAMP L1 test results
         uses: dorny/test-reporter@v1
@@ -53,18 +57,14 @@ jobs:
       - name: Show failure details (if any)
         if: failure()
         run: tail -n 50 test/utests/build/ctest-results.xml || true
-
-      # Install Middleware
-      - name: Install Middleware
-        working-directory: ./middleware
-        run: yes | ./install-middleware.sh -s subtec
         
       # Run Middleware L1 unit tests
       - name: Run Middleware L1 unit tests
         working-directory: ./middleware/test/utests
+        shell: bash
         run: |
-          set -o pipefail
-          ./run.sh 2>&1 | tee utest_run.log
+          set -euo pipefail
+          CXXFLAGS="-std=c++17" CFLAGS="-std=c17" ./run.sh 2>&1 | tee utest_run.log
           
       # Publish Middleware test results
       - name: Publish Middleware L1 test results
