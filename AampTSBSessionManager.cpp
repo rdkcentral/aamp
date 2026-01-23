@@ -540,7 +540,7 @@ void AampTSBSessionManager::Flush()
 double AampTSBSessionManager::CullSegments()
 {
 	LockReadMutex();
-	double culledduration = 0;
+	double culled_duration = 0;
 	double lastVideoPos = mLastVideoPos;
 	int iter = eMEDIATYPE_VIDEO;
 	while (iter < AAMP_TRACK_COUNT)
@@ -556,7 +556,7 @@ double AampTSBSessionManager::CullSegments()
 		// Check if video position has changed
 		if ((eMEDIATYPE_VIDEO == iter) && (AAMP_PAUSE_POSITION_INVALID_POSITION != mLastVideoPos))
 		{
-			culledduration += (videoFirstPosition - lastVideoPos); // Adjust culledduration for write failures
+			culled_duration += (videoFirstPosition - lastVideoPos); // Adjust culled_duration for write failures
 		}
 		lastVideoPos = videoFirstPosition; // Update lastVideoPos
 
@@ -602,7 +602,7 @@ double AampTSBSessionManager::CullSegments()
 			{
 				double durationInSeconds = removedFragment->GetDuration().inSeconds();
 				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
-					culledduration += durationInSeconds;
+					culled_duration += durationInSeconds;
 				std::string removedFragmentUrl = ToUniqueUrl(removedFragment->GetUrl(),removedFragment->GetAbsolutePosition().inSeconds());
 				UnlockReadMutex();
 				mTSBStore->Delete(removedFragmentUrl);
@@ -634,12 +634,12 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mLastVideoPos = lastVideoPos;
 	}
-	if(culledduration > 0.0)
+	if(culled_duration > 0.0)
 	{
-		mCulledDuration += culledduration;
+		mCulledDuration += culled_duration;
 	}
 	UnlockReadMutex();
-	return culledduration;
+	return culled_duration;
 }
 
 /**
