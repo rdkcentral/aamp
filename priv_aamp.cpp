@@ -714,8 +714,7 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 		// Calculate the bps based on the data received so far from dataTransferStartTime
 		// If the bps is less than earlyAbortProfileBandwidthPercent% of the video bitrate, abort the download
 		long long dataTransferTime = NOW_STEADY_TS_MS - context->dataTransferStartTime;
-		AAMPLOG_DEBUG("[%d] now: %lld, start: %lld, elapsed: %lld", context->mediaType,
-						NOW_STEADY_TS_MS, context->dataTransferStartTime, dataTransferTime);
+		AAMPLOG_DEBUG("[%d] start: %lld, elapsed: %lld", context->mediaType, context->dataTransferStartTime, dataTransferTime);
 		if (dataTransferTime > 0)
 		{
 			double bps = (double)(context->buffer->GetLen() * BYTES_PER_MS_TO_BITS_PER_SEC) / (double)dataTransferTime;
