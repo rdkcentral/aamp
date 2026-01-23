@@ -1037,7 +1037,6 @@ bool MediaTrack::ProcessFragmentChunk()
 	// being downloaded at the live edge may have a different timescale (e.g., an ad)
 	// than the segment being injected from TSB (e.g., base content).
 	uint32_t timeScale = cachedFragment->timeScale;
-	//uint32_t timeScale = 0;		// Jose
 	if(!timeScale)
 	{
 		AAMPLOG_WARN("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
