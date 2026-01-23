@@ -609,7 +609,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
  * @brief Get end time of current period
  * @param[in] periodIndex Index of the period
  * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
- * @param[in] checkIFrame Flag indicating whether to check only iframe adaptations when determining if a period is empty
+ * @param[in] checkIFrame If true, check only iframe adaptations; otherwise check all adaptations
  * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
  * @retval current period's end time in seconds
  */
@@ -828,7 +828,7 @@ std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo
  * @brief Get duration of current period
  * @param[in] periodIndex Index of the period
  * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
- * @param[in] checkIFrame Flag indicating whether to check only iframe adaptations when determining if a period is empty
+ * @param[in] checkIFrame If true, check only iframe adaptations; otherwise check all adaptations
  * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
  * @retval current period's duration in milliseconds
  */
