@@ -2605,41 +2605,47 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 	GstState pending{};
 	GstClockTime timeout = 0;
 	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
-	if( (ret == GST_STATE_CHANGE_SUCCESS) && ( (current == GST_STATE_PLAYING) || (current == GST_STATE_PAUSED)) )
+	if( ret == GST_STATE_CHANGE_SUCCESS )
 	{
-
-		if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
+		if(current == GST_STATE_PLAYING || current == GST_STATE_PAUSED)
 		{
-			element = interfacePlayerPriv->gstPrivateContext->video_sink;
-		}
-		else
-		{
-			element = interfacePlayerPriv->gstPrivateContext->video_dec;
-		}
-		if( element )
-		{
-			g_object_get( G_OBJECT(element), "stats", &stats, NULL );
-			if ( stats )
+			if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
 			{
-				const GValue *value;
-				value= gst_structure_get_value( stats, "rendered" );
-				if ( value )
-				{
-					interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
-				}
-				value= gst_structure_get_value( stats, "dropped" );
-				if ( value )
-				{
-					interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
-				}
-				MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
-				gst_structure_free( stats );
-				return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+				element = interfacePlayerPriv->gstPrivateContext->video_sink;
 			}
 			else
 			{
-				MW_LOG_ERR("Failed to get sink stats");
+				element = interfacePlayerPriv->gstPrivateContext->video_dec;
 			}
+			if( element )
+			{
+				g_object_get( G_OBJECT(element), "stats", &stats, NULL );
+				if ( stats )
+				{
+					const GValue *value;
+					value= gst_structure_get_value( stats, "rendered" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+					}
+					value= gst_structure_get_value( stats, "dropped" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+					}
+					MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
+					gst_structure_free( stats );
+					return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+				}
+				else
+				{
+					MW_LOG_ERR("Failed to get sink stats");
+				}
+			}
+		}
+		else
+		{
+			MW_LOG_INFO("gst_element_get_state current=%d is not PLAYING or PAUSED, pending=%d: can't query playback quality now", current, pending);
 		}
 	}
 	else if (ret == GST_STATE_CHANGE_ASYNC)
@@ -2648,7 +2654,7 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 	}
 	else
 	{
-		MW_LOG_WARN("Incorrect state. gst_element_get_state ret=%d, current state=%d, pending=%d", ret, current, pending);
+		MW_LOG_INFO("gst_element_get_state ret=%d: can't query playback quality now", ret);
 	}
 	return NULL;
 }

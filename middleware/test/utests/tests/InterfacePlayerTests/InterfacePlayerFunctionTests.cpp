@@ -1005,207 +1005,282 @@ TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_StatsNull)
 }
 
 /**
- * @test GetVideoPlaybackQuality_StateTransitionChecks
- * @brief Test all state transition scenarios during audio language change
+ * @test GetVideoPlaybackQuality_NoStatsCallDuringStateTransition
+ * @brief Verify that stats property is not accessed during state transitions
  *
- * This comprehensive test covers:
- * 1. GST_STATE_CHANGE_ASYNC (state transition in progress) → returns NULL
- * 2. State is neither PLAYING nor PAUSED (e.g., READY, NULL) → returns NULL
- * 3. State is PLAYING/PAUSED with GST_STATE_CHANGE_SUCCESS → works correctly
- *
- * This addresses the race condition crash that occurs during audio language switches
- * when g_object_get("stats") hangs due to concurrent element state changes.
+ * When pipeline state is transitioning asynchronously (GST_STATE_CHANGE_ASYNC),
+ * the function should return NULL without attempting to access the "stats" property.
+ * This prevents hangs and race condition crashes during state changes.
  */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateTransitionChecks)
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallDuringStateTransition)
+{
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	GstState current_state{GST_STATE_PAUSED};
+	GstState pending_state{GST_STATE_PLAYING};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(pending_state),
+			Return(GST_STATE_CHANGE_ASYNC)
+		));
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.Times(0);
+
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @test GetVideoPlaybackQuality_NoStatsCallAtReadyState
+ * @brief Verify that stats query is skipped when pipeline is in READY state
+ *
+ * Element in READY state is not suitable for playback quality metrics.
+ * The function should return NULL without calling g_object_get for stats.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtReadyState)
+{
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	GstState current_state{GST_STATE_READY};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_READY),
+			Return(GST_STATE_CHANGE_SUCCESS)
+		));
+
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.Times(0);
+
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @test GetVideoPlaybackQuality_NoStasCallAtNullState
+ * @brief Verify that stats query is skipped when pipeline is in NULL state
+ *
+ * Element in NULL state means the pipeline is stopped.
+ * The function should return NULL without calling g_object_get for stats.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStasCallAtNullState)
+{
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	GstState current_state{GST_STATE_NULL};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_NULL),
+			Return(GST_STATE_CHANGE_SUCCESS)
+		));
+
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.Times(0);
+
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @test GetVideoPlaybackQuality_NoStasCallAtVoidPendingState
+ * @brief Verify that stats query is skipped when pipeline is in VOID_PENDING state
+ *
+ * Element in VOID_PENDING state is in an invalid or uninitialized state.
+ * The function should return NULL without calling g_object_get for stats.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStasCallAtVoidPendingState)
+{
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	GstState current_state{GST_STATE_VOID_PENDING};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)
+		));
+
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.Times(0);
+
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result, nullptr);
+}
+
+/**
+ * @test GetVideoPlaybackQuality_PlayingState
+ * @brief Verify successful stats retrieval when pipeline is in PLAYING state
+ *
+ * When pipeline is in PLAYING state with valid stats available,
+ * should successfully retrieve and return quality metrics.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingState)
 {
 	GstElement video_sink{};
-	GstElement video_dec{};
-	GstStructure stats{1};
-
 	mPlayerContext->video_sink = &video_sink;
+	GstElement video_dec = {};
 	mPlayerContext->video_dec = &video_dec;
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
 
-	// =====================================================
-	// Scenario 1: State transition in progress (ASYNC)
-	// Expected: Returns NULL without querying stats
-	// =====================================================
-	{
-		GstState current_state{GST_STATE_PAUSED};
-		GstState pending_state{GST_STATE_PLAYING};
+	GstState current_state{GST_STATE_PLAYING};
+	GstStructure valid_stats{0x1234};
+	GstStructure *stats= &valid_stats;
+	GValue rendered_value{};
+	GValue dropped_value{};
 
-		// Mock gst_element_get_state to return GST_STATE_CHANGE_ASYNC
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&video_sink, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(current_state),
-				SetArgPointee<2>(pending_state),
-				Return(GST_STATE_CHANGE_ASYNC)
-			));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)
+		));
 
-		// Ensure g_object_get is NOT called during async transition
-		EXPECT_CALL(*g_mockGLib, g_object_get(_, _, _, _))
-			.Times(0);  // Should NOT be called
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.WillOnce(DoAll(
+			SetArgPointee<2>(stats),
+			Return()
+		));
 
-		GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-		EXPECT_EQ(result, nullptr);
-	}
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
+		.WillOnce(Return(&rendered_value));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
+		.WillOnce(Return(&dropped_value));
 
-	// =====================================================
-	// Scenario 2: Element in READY state (not PLAYING/PAUSED)
-	// Expected: Returns NULL (invalid state for quality metrics)
-	// =====================================================
-	{
-		GstState current_state{GST_STATE_READY};
+	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&rendered_value))
+		.WillOnce(Return(1000ULL));
 
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&video_sink, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(current_state),
-				SetArgPointee<2>(GST_STATE_READY),
-				Return(GST_STATE_CHANGE_SUCCESS)
-			));
+	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&dropped_value))
+		.WillOnce(Return(5ULL));
 
-		EXPECT_CALL(*g_mockGLib, g_object_get(_, _, _, _))
-			.Times(0);  // Should NOT be called
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
 
-		GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-		EXPECT_EQ(result, nullptr);
-	}
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 1000ULL);
+	EXPECT_EQ(result->dropped, 5ULL);
+}
 
-	// =====================================================
-	// Scenario 3: Element in NULL state (not PLAYING/PAUSED)
-	// Expected: Returns NULL (pipeline stopped)
-	// =====================================================
-	{
-		GstState current_state{GST_STATE_NULL};
+/**
+ * @test GetVideoPlaybackQuality_PausedState
+ * @brief Verify successful stats retrieval when pipeline is in PAUSED state
+ *
+ * When pipeline is in PAUSED state with valid stats available,
+ * should successfully retrieve and return quality metrics.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PausedState)
+{
+	GstElement video_sink{};
+	mPlayerContext->video_sink = &video_sink;
+	GstElement video_dec = {};
+	mPlayerContext->video_dec = &video_dec;
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
 
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&video_sink, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(current_state),
-				SetArgPointee<2>(GST_STATE_NULL),
-				Return(GST_STATE_CHANGE_SUCCESS)
-			));
+	GstState current_state{GST_STATE_PAUSED};
+	GstStructure valid_stats{0x5678};
+	GValue rendered_value{};
+	GValue dropped_value{};
 
-		EXPECT_CALL(*g_mockGLib, g_object_get(_, _, _, _))
-			.Times(0);  // Should NOT be called
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_PAUSED),
+			Return(GST_STATE_CHANGE_SUCCESS)
+		));
 
-		GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-		EXPECT_EQ(result, nullptr);
-	}
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.WillOnce(DoAll(
+			SetArgPointee<2>(&valid_stats),
+			Return()
+		));
 
-	// =====================================================
-	// Scenario 4: Element in PLAYING state with valid stats
-	// Expected: Successfully returns playback quality stats
-	// =====================================================
-	{
-		GstState current_state{GST_STATE_PLAYING};
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
+		.WillOnce(Return(&rendered_value));
 
-		// Setup GstStructure with mock data
-		GstStructure valid_stats{1};
-		GValue rendered_value{};
-		GValue dropped_value{};
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
+		.WillOnce(Return(&dropped_value));
 
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&video_sink, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(current_state),
-				SetArgPointee<2>(GST_STATE_PLAYING),
-				Return(GST_STATE_CHANGE_SUCCESS)
-			));
+	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&rendered_value))
+		.WillOnce(Return(2000ULL));
 
-		// Expect g_object_get to be called and return valid stats
-		EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<2>(&valid_stats),
-				Return()
-			));
+	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&dropped_value))
+		.WillOnce(Return(10ULL));
 
-		// Mock structure value retrieval for "rendered" and "dropped"
-		EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-			.WillOnce(Return(&rendered_value));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
 
-		EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-			.WillOnce(Return(&dropped_value));
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 2000ULL);
+	EXPECT_EQ(result->dropped, 10ULL);
+}
 
-		// Mock g_value_get_uint64 calls
-		EXPECT_CALL(*g_mockGLib, g_value_get_uint64(&rendered_value))
-			.WillOnce(Return(1000ULL));
+/**
+ * @test GetVideoPlaybackQuality_StateChangeFailure
+ * @brief Verify that stats query is skipped when state change returns FAILURE
+ *
+ * When gst_element_get_state() returns GST_STATE_CHANGE_FAILURE,
+ * indicating a failed state transition, the function should return NULL
+ * without attempting to access stats property.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeFailure)
+{
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
 
-		EXPECT_CALL(*g_mockGLib, g_value_get_uint64(&dropped_value))
-			.WillOnce(Return(5ULL));
+	GstState current_state{GST_STATE_NULL};
 
-		// Expect gst_structure_free to be called
-		EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_NULL),
+			Return(GST_STATE_CHANGE_FAILURE)
+		));
 
-		GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-		EXPECT_NE(result, nullptr);
-		EXPECT_EQ(result->rendered, 1000ULL);
-		EXPECT_EQ(result->dropped, 5ULL);
-	}
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.Times(0);
 
-	// =====================================================
-	// Scenario 5: Element in PAUSED state with valid stats
-	// Expected: Successfully returns playback quality stats
-	// =====================================================
-	{
-		GstState current_state{GST_STATE_PAUSED};
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result, nullptr);
+}
 
-		GstStructure valid_stats{1};
-		GValue rendered_value{};
-		GValue dropped_value{};
+/**
+ * @test GetVideoPlaybackQuality_StateChangeNoPreroll
+ * @brief Verify that stats query is skipped when state change returns NO_PREROLL
+ *
+ * When gst_element_get_state() returns GST_STATE_CHANGE_NO_PREROLL,
+ * indicating the pipeline cannot produce data in PAUSED state (typical for live sources),
+ * the function should return NULL without attempting to access stats property.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeNoPreroll)
+{
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
 
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&video_sink, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(current_state),
-				SetArgPointee<2>(GST_STATE_PAUSED),
-				Return(GST_STATE_CHANGE_SUCCESS)
-			));
+	GstState current_state{GST_STATE_PAUSED};
 
-		EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<2>(&valid_stats),
-				Return()
-			));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(current_state),
+			SetArgPointee<2>(GST_STATE_PAUSED),
+			Return(GST_STATE_CHANGE_NO_PREROLL)
+		));
 
-		EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-			.WillOnce(Return(&rendered_value));
+	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
+		.Times(0);
 
-		EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-			.WillOnce(Return(&dropped_value));
-
-		EXPECT_CALL(*g_mockGLib, g_value_get_uint64(&rendered_value))
-			.WillOnce(Return(2000ULL));
-
-		EXPECT_CALL(*g_mockGLib, g_value_get_uint64(&dropped_value))
-			.WillOnce(Return(10ULL));
-
-		EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
-
-		GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-		EXPECT_NE(result, nullptr);
-		EXPECT_EQ(result->rendered, 2000ULL);
-		EXPECT_EQ(result->dropped, 10ULL);
-	}
-
-	// =====================================================
-	// Scenario 6: Transition from PAUSED to PLAYING during language change
-	// Expected: Returns NULL (state change in progress)
-	// =====================================================
-	{
-		GstState current_state{GST_STATE_PAUSED};
-		GstState pending_state{GST_STATE_PLAYING};
-
-		EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&video_sink, _, _, _))
-			.WillOnce(DoAll(
-				SetArgPointee<1>(current_state),
-				SetArgPointee<2>(pending_state),
-				Return(GST_STATE_CHANGE_ASYNC)
-			));
-
-		// Ensure stats are NOT queried during async transition
-		EXPECT_CALL(*g_mockGLib, g_object_get(_, _, _, _))
-			.Times(0);
-
-		GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-		EXPECT_EQ(result, nullptr);
-	}
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result, nullptr);
 }
 
 TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds)
