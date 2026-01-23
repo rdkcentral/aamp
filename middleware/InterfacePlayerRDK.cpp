@@ -2710,22 +2710,25 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 long InterfacePlayerRDK::GetDurationMilliseconds(void)
 {
 	long rc = 0;
+	GstQuery *durationQuery;
 	if( interfacePlayerPriv->gstPrivateContext->pipeline )
 	{
 		if( interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PLAYING || // playing
 		   (interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) ) // paused by user
 		{
-			MW_LOG_WARN( "GetDurationMilliseconds: Creating duration query" );
-			interfacePlayerPriv->gstPrivateContext->durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
-			if( interfacePlayerPriv->gstPrivateContext->durationQuery )
+			MW_LOG_WARN( "GetDurationMilliseconds: Creating duration query from local var" );
+			//interfacePlayerPriv->gstPrivateContext->durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
+			durationQuery = gst_query_new_duration(GST_FORMAT_TIME);
+
+			if(durationQuery)
 			{
-				MW_LOG_WARN( "GetDurationMilliseconds: Query object address: %p", static_cast<void*>(interfacePlayerPriv->gstPrivateContext->durationQuery) );
-				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,interfacePlayerPriv->gstPrivateContext->durationQuery);
-				MW_LOG_WARN( "gst_element_query Completed" );
+				MW_LOG_WARN( "GetDurationMilliseconds: Query object address: %p", static_cast<void*>(durationQuery) );
+				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,durationQuery);
+				MW_LOG_WARN( "gst_element_query Completed using local var" );
 				if( res )
 				{
 					gint64 duration;
-					gst_query_parse_duration(interfacePlayerPriv->gstPrivateContext->durationQuery, NULL, &duration); /* parses the value into duration */
+					gst_query_parse_duration(durationQuery, NULL, &duration); /* parses the value into duration */
 					MW_LOG_WARN( "GetDurationMilliseconds: Duration parsed: %" G_GINT64_FORMAT, duration );
 					rc = GST_TIME_AS_MSECONDS(duration);
 				}
@@ -2733,8 +2736,8 @@ long InterfacePlayerRDK::GetDurationMilliseconds(void)
 				{
 					MW_LOG_ERR("Duration query failed");
 				}
-				gst_query_unref(interfacePlayerPriv->gstPrivateContext->durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
-				interfacePlayerPriv->gstPrivateContext->durationQuery = NULL;
+				gst_query_unref(durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
+				durationQuery = NULL;
 			}
 			else
 			{
