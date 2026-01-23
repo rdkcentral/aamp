@@ -12109,7 +12109,7 @@ void StreamAbstractionAAMP_MPD::SendAdPlacementEvent(AAMPEventType type, const s
 		}
 		else
 		{
-			AAMPLOG_ERR("[CDAI]: Unrecognised type %d", type);
+			AAMPLOG_ERR("[CDAI]: Unrecognized type %d", type);
 		}
 		if (sendImmediate)
 		{

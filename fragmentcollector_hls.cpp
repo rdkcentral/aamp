@@ -5917,30 +5917,30 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 		// No condition to check DiscontinuityCount.Possible that in next refresh it will be available,
 		// Case where one discontinuity in one track ,but other track not having it
 		AampTime deltaCulledSec{inputCulledSec - mCulledSeconds};
-		bool foundmatchingdisc = false;
+		bool found_matching_discontinuity = false;
 		for( auto i = 0; i < mDiscontinuityIndex.size(); i++ )
 		{
 			const DiscontinuityIndexNode &discontinuity = mDiscontinuityIndex[i];
 			// Live is complicated lets finish that
-			AampTime discdatetime{discontinuity.discontinuityPDT};
+			AampTime discontinuity_date_time{discontinuity.discontinuityPDT};
 
 			if (IsLive())
 			{
-				AAMPLOG_WARN("[%s] Host loop %d mDiscontinuityIndexCount %zu discontinuity-pos %f mCulledSeconds %f playlistRefreshTime:%f discdatetime=%f",name, i,
-															mDiscontinuityIndex.size(), discontinuity.position.inSeconds(), mCulledSeconds.inSeconds(), mProgramDateTime.inSeconds(), discdatetime.inSeconds());
+				AAMPLOG_WARN("[%s] Host loop %d mDiscontinuityIndexCount %zu discontinuity-pos %f mCulledSeconds %f playlistRefreshTime:%f discontinuity_date_time=%f",name, i,
+															mDiscontinuityIndex.size(), discontinuity.position.inSeconds(), mCulledSeconds.inSeconds(), mProgramDateTime.inSeconds(), discontinuity_date_time.inSeconds());
 
 				AAMPLOG_WARN("Visitor loop %d Input track position:%f useDateTime:%d CulledSeconds :%f playlistRefreshTime :%f DeltaCulledSec:%f", i,
 																		position.inSeconds(), useDiscontinuityDateTime, inputCulledSec.inSeconds(), inputProgramDateTime.inSeconds(), deltaCulledSec.inSeconds());
 			}
 			// check if date and time for discontinuity tag exists
-			if(useDiscontinuityDateTime && discdatetime != 0)
+			if(useDiscontinuityDateTime && discontinuity_date_time != 0)
 			{
 				// unfortunately date and time of calling track is passed in position argument
-				AAMPLOG_WARN("Comparing two disc date&time input pdt:%f pdt:%f diff:%f", position.inSeconds(), discdatetime.inSeconds(), fabs(discdatetime - position));
-				if( fabs( discdatetime - position ) <= targetDurationSeconds )
+				AAMPLOG_WARN("Comparing two disc date&time input pdt:%f pdt:%f diff:%f", position.inSeconds(), discontinuity_date_time.inSeconds(), fabs(discontinuity_date_time - position));
+				if( fabs( discontinuity_date_time - position ) <= targetDurationSeconds )
 				{
-					foundmatchingdisc = true;
-					diffBetweenDiscontinuities = discdatetime - position;
+					found_matching_discontinuity = true;
+					diffBetweenDiscontinuities = discontinuity_date_time - position;
 					AAMPLOG_WARN("[%s] Found the matching discontinuity with pdt at position:%f", name, position.inSeconds());
 					break;
 				}
@@ -5964,7 +5964,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 				//playposition(e.g:85.6 seconds instead of epoc PDT time 1652300037)
 				int64_t roundedPosn;
 
-				if(discdatetime == 0)
+				if(discontinuity_date_time == 0)
 				{
 					roundedPosn = playPosition.nearestSecond();
 					isDiffChkReq = false;
@@ -5977,7 +5977,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 				AAMPLOG_WARN("Comparing position input posn:%" PRIi64 " index[%d] position:%d deltaCulled:%f limit1:%" PRIi64" limit2:%" PRIi64, roundedPosn, i, (int)(discontinuity.position.inSeconds()), deltaCulledSec.inSeconds(), limit1, limit2);
 				if(roundedPosn >= limit1 && roundedPosn <= limit2 )
 				{
-					foundmatchingdisc = true;
+					found_matching_discontinuity = true;
 					AAMPLOG_WARN("[%s] Found the matching discontinuity at position:%f for position:%f", name, discontinuity.position.inSeconds(), position.inSeconds());
 					break;
 				}
@@ -5985,7 +5985,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 		}
 
 		// Now the worst part . Not found matching discontinuity.How long to wait ???
-		if(!foundmatchingdisc)
+		if(!found_matching_discontinuity)
 		{
 			AAMPLOG_WARN("##[%s] Discontinuity not found mDuration %f playPosition %f  playlistType %d useStartTime %d ",
 										 name, mDuration.inSeconds(), playPosition.inSeconds(), (int)mPlaylistType, (int)useDiscontinuityDateTime);

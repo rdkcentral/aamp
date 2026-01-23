@@ -333,7 +333,7 @@ typedef enum
 	eAAMPConfig_Dns_CacheTimeout, 						/**< Curl life-time for DNS cache entries*/
 	eAAMPConfig_MinLatencyCorrectionPlaybackRate,       /**< Latency adjust/buffer correction min playback rate*/
 	eAAMPConfig_MaxLatencyCorrectionPlaybackRate,       /**< Latency correction max playback rate*/
-	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Nomral playback rate for LLD stream; backdoor for debug*/
+	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Normal playback rate for LLD stream; backdoor for debug*/
 	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
@@ -478,7 +478,7 @@ public:
     	 */
 	AampConfig();
 	/**
-         * @brief AampConfig Distructor function
+         * @brief AampConfig Destructor function
          *
          * @return None
          */

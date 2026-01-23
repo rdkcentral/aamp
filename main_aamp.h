@@ -1009,11 +1009,11 @@ public:
 
 	/**
 	 *   @fn SetPreferredLabels
-	 *   @param[in] lableList - string with array with label list
+	 *   @param[in] labelList - string with array with label list
 	 *
 	 *   @return void
 	 */
-	void SetPreferredLabels(const char *lableList);
+	void SetPreferredLabels(const char *labelList);
 
 	/**
 	 *   @fn SetPreferredRenditions
