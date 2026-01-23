@@ -1437,7 +1437,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
- * @brief Tests the functionality of the PlaceAds method when isSrcdurnotequalstoaddur is true
+ * @brief Tests the functionality of the PlaceAds method when source_ad_duration_mismatch is true
  * If the duration of ad outside source period is greater than 2sec, its treated as split period
  * This test validates the scenario when duration of ad outside source period is equal to 2sec
  */
@@ -1492,7 +1492,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 32000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId1 ad duration is set to 32000 to force mismatch for source_ad_duration_mismatch
   // Also setting brkDuration to 32 sec as well
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(32000, std::make_shared<std::vector<AdNode>>(), "", 0, 32000)},
@@ -1616,7 +1616,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 14, 0, 28000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId1 ad duration is set to 35000 to force mismatch for source_ad_duration_mismatch
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(60000, std::make_shared<std::vector<AdNode>>(), "", 0, 60000)},
   };
@@ -3291,7 +3291,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 29000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId1 ad duration is set to 29000 to force mismatch for source_ad_duration_mismatch
   // testPeriodId2 ad duration is set to 30000
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(29000, std::make_shared<std::vector<AdNode>>(), "", 0, 29000)},

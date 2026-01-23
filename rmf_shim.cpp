@@ -88,7 +88,7 @@ StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *
 }
 
 /**
- * @brief StreamAbstractionAAMP_RMF Distructor
+ * @brief StreamAbstractionAAMP_RMF Destructor
  */
 StreamAbstractionAAMP_RMF::~StreamAbstractionAAMP_RMF()
 {
