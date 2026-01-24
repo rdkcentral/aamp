@@ -370,6 +370,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true},
 	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false},
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
+	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
