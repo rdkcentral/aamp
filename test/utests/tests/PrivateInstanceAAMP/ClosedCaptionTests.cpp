@@ -448,9 +448,10 @@ TEST_F(ClosedCaptionTests, GetAvailableTextTracks_WithDisableWebVTT_ReturnsOnlyC
     EXPECT_CALL(*g_mockCJsonManager, Delete(mockArray))
         .Times(1);
 
-    // Mock StreamAbstraction to return only CC tracks
+    // Mock StreamAbstraction to return the full track list (including WebVTT/non-CC tracks)
+    // The production code should filter out non-CC tracks when eAAMPConfig_DisableWebVTT is enabled
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
-        .WillOnce(ReturnRef(textTracksCopy));
+        .WillOnce(ReturnRef(mockTextTracks));
 
     // Execute the function under test
     std::string result = mPrivateInstanceAAMP->GetAvailableTextTracks(false);
