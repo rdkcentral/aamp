@@ -56,7 +56,7 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 /**
 *  	@fn ParseChunkData
 *  	@param[in] name - name of the track
-*  	@param[in,out] unParsedBuffer - Total unparsedbuffer
+*  	@param[in,out] unParsedBuffer - Total unparsed buffer
 *  	@param[in] timeScale - timescale of the track
 *	@param[out] parsedBufferSize - parsed buffer size
 *  	@param[in,out] unParsedBufferSize -uunparsed or remaining buffer size

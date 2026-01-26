@@ -350,10 +350,10 @@ public:
 	}
 	void GetAvailableTracks_obj()
 	{
-		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		static std::vector<AudioTrackInfo> mockAudio;
+		EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+			.WillRepeatedly(ReturnRef(mockAudio));
 
-		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
 	}
 	void InitStreamAbstraction()
@@ -388,9 +388,20 @@ public:
 	{
 		return mLocalAAMPTsbFromConfig;
 	}
+	bool CallCheckForChunkEarlyAbort(CurlCallbackContext *context)
+	{
+		return CheckForChunkEarlyAbort(context);
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
+
+// RAII guard to ensure memory copying is disabled on test exit
+struct MemoryCopyingGuard {
+	MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
+	~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
+};
+
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
 {
 	testp_aamp->GetAvailableTracks_obj();
@@ -1072,10 +1083,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Setting up");
 
 	// RAII guard to ensure memory copying is disabled on test exit (success or failure)
-	struct MemoryCopyingGuard {
-		MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
-		~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
-	} guard;
+	MemoryCopyingGuard guard;
 
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
@@ -1172,10 +1180,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Setting up");
 
 	// RAII guard to ensure memory copying is disabled on test exit
-	struct MemoryCopyingGuard {
-		MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
-		~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
-	} guard;
+	MemoryCopyingGuard guard;
 
 	// Enable LL DASH chunk mode
 	AampLLDashServiceData llData;
@@ -1263,6 +1268,70 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
 	EXPECT_EQ(buffer.GetLen(), strlen(testData) + additionalData.size());
+}
+
+// Test HandleSSLWriteCallback when CheckForChunkEarlyAbort returns true
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Setting up");
+
+	// RAII guard to ensure memory copying is disabled on test exit
+	MemoryCopyingGuard guard;
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+	// In this test, CheckForChunkEarlyAbort() returns true, so CacheFragmentChunk() should not be called
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.Times(0);
+
+	// No need to mock IsoBmffBuffer APIs
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	char testData[] = "dummy data";
+	buffer.AppendBytes(testData, strlen(testData));
+	char inputData[] = "test data with chunk early abort";
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = NOW_STEADY_TS_MS - 1000;
+	context.bufferOffset = 0; // CheckForChunkEarlyAbort() is called when bufferOffset == 0
+	context.chunkBoundary = strlen(testData) + strlen(inputData); // simulates first chunk fully downloaded
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10; //10ms - shorter time reduces sensitivity to scheduling jitter
+	context.earlyAbortEnabled = true;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+		.WillOnce(Return(80));
+	// bps = 42 bytes * 8000 / 10ms = 33600
+	context.profileBps = 50000; // 50000*0.8 = 40000 is greater than bps, triggering early abort
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Calling HandleSSLWriteCallback");
+
+	size_t result = p_aamp->HandleSSLWriteCallback(inputData, strlen(inputData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Result: %zu", result);
+	// Result should be 0 as callback was aborted
+	EXPECT_EQ(result, 0);
+	// Verify that bufferOffset remain unchanged and abortReason updated
+	EXPECT_EQ(context.bufferOffset, 0);
+	EXPECT_EQ(context.abortReason, eCURL_ABORT_REASON_FIRST_CHUNK_SLOW);
 }
 
 TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
@@ -4041,7 +4110,7 @@ TEST_F(PrivAampTests,ResetDiscontinuityInTracksTest)
 TEST_F(PrivAampTests,SetPreferredLanguagesTest)
 {
 	Accessibility *accessibilityItem;
-	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LableList",accessibilityItem);
+	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LabelList", accessibilityItem);
 }
 
 TEST_F(PrivAampTests,EnableMediaDownloadsTest)
@@ -5260,6 +5329,82 @@ TEST_F(PrivAampTests,VerifyPausedBehavior)
         p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
         EXPECT_FALSE(p_aamp->mSeekFromPausedState);
 }
+
+// Pass null pointer as CurlCallbackContext and abort should be false
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.Times(0);
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(nullptr));
+}
+
+// Pass CurlCallbackContext with dataTransferTime = -1 or earlyAbortEnabled = false
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
+{
+	AampGrowableBuffer buffer("test_data");
+	CurlCallbackContext context(aamp, &buffer);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.Times(0);
+
+	context.dataTransferStartTime = -1;
+	context.earlyAbortEnabled = true;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+
+	context.dataTransferStartTime = 10000;
+	context.earlyAbortEnabled = false;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+	// Can't simulate dataTransferTime = 0, since we are using NOW_STEADY_TS_MS which is not mockable
+}
+
+// Pass valid CurlCallbackContext with profileBps = 0 or coeff = 0
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
+{
+	AampGrowableBuffer buffer("test_data");
+	CurlCallbackContext context(aamp, &buffer);
+	char testData[] = "dummy data";
+	context.buffer->AppendBytes(testData, strlen(testData));
+	context.earlyAbortEnabled = true;
+	context.profileBps = 0;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(80)); // 80% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+
+	context.profileBps = 10000;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(0)); // 0% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+}
+
+// Pass valid CurlCallbackContext with different params
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
+{
+	AampGrowableBuffer buffer("test_data");
+	CurlCallbackContext context(aamp, &buffer);
+	char testData[] = "dummy data";
+	context.buffer->AppendBytes(testData, strlen(testData));
+	context.earlyAbortEnabled = true;
+	context.profileBps = 12000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(80)); // 80% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	// bps = 8000bps (10bytes * 8000 / 10ms) and profileBps*coeff = 9600bps
+	EXPECT_TRUE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(50)); // 50% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	// bps = 8000bps (10bytes * 8000 / 10ms) and profileBps*coeff = 6000bps
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+}
+
 // Test parameters structure for GetStreamFormat tests
 struct GetStreamFormatTestParams {
 	double rate;
