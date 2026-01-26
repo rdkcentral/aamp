@@ -23,7 +23,7 @@
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
-    : StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
+	: StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
 {
 }
 
@@ -34,32 +34,32 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &accessNode)
 {
 
-    Accessibility accessibilityNode;
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        accessibilityNode = g_mockStreamAbstractionAAMP_MPD->getAccessibilityNode(accessNode);
-    }
-    return accessibilityNode;
+	Accessibility accessibilityNode;
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		accessibilityNode = g_mockStreamAbstractionAAMP_MPD->getAccessibilityNode(accessNode);
+	}
+	return accessibilityNode;
 }
 
 AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        return g_mockStreamAbstractionAAMP_MPD->Init(tuneType);
-    }
-    return eAAMPSTATUS_OK;
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->Init(tuneType);
+	}
+	return eAAMPSTATUS_OK;
 }
 
 AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 {
-    AAMPStatusType status = eAAMPSTATUS_OK;
-    AAMPLOG_WARN("g_mockStreamAbstractionAAMP_MPD = %p", g_mockStreamAbstractionAAMP_MPD);
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        status = g_mockStreamAbstractionAAMP_MPD->InitTsbReader(tuneType);
-    }
-    return status;
+	AAMPStatusType status = eAAMPSTATUS_OK;
+	AAMPLOG_WARN("g_mockStreamAbstractionAAMP_MPD = %p", g_mockStreamAbstractionAAMP_MPD);
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		status = g_mockStreamAbstractionAAMP_MPD->InitTsbReader(tuneType);
+	}
+	return status;
 }
 
 void StreamAbstractionAAMP_MPD::Start() {  }
@@ -72,12 +72,12 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 
 double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() {
 
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        return g_mockStreamAbstractionAAMP_MPD->GetMidSeekPosOffset();
-    }
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetMidSeekPosOffset();
+	}
 
-    return 0;
+	return 0;
 }
 
 double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
@@ -108,34 +108,34 @@ StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx) { return nullptr; 
 
 double StreamAbstractionAAMP_MPD::GetFirstPeriodStartTime(void)
 {
-    return 0.0;
+	return 0.0;
 }
 
 uint32_t StreamAbstractionAAMP_MPD::GetCurrPeriodTimeScale()
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP_MPD::GetProfileCount()
 {
-    return 0;
+	return 0;
 }
 
 int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth(BitsPerSecond mTsbBandwidth)
 {
-    return 0;
+	return 0;
 }
 
 BitsPerSecond StreamAbstractionAAMP_MPD::GetMaxBitrate()
 {
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        return g_mockStreamAbstractionAAMP_MPD->GetMaxBitrate();
-    }
-    else
-    {
-        return 0;
-    }
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetMaxBitrate();
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 void StreamAbstractionAAMP_MPD::StartSubtitleParser()
@@ -150,14 +150,18 @@ void StreamAbstractionAAMP_MPD::SetCDAIObject(CDAIObject *cdaiObj)
 {
 }
 
-std::vector<AudioTrackInfo>& StreamAbstractionAAMP_MPD::GetAvailableAudioTracks(bool allTrack)
+std::vector<AudioTrackInfo> &StreamAbstractionAAMP_MPD::GetAvailableAudioTracks(bool allTrack)
 {
-    return mAudioTracksAll;
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetAvailableAudioTracks(allTrack);
+	}
+	return mAudioTracksAll;
 }
 
 std::vector<TextTrackInfo>& StreamAbstractionAAMP_MPD::GetAvailableTextTracks(bool allTrack)
 {
-    return mTextTracksAll;
+	return mTextTracksAll;
 }
 
 void StreamAbstractionAAMP_MPD::InitSubtitleParser(char *data)
@@ -186,12 +190,12 @@ void StreamAbstractionAAMP_MPD::MuteSidecarSubtitles(bool mute)
 
 bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth)
 {
-    return false;
+	return false;
 }
 
 bool StreamAbstractionAAMP_MPD::SetTextStyle(const std::string &options)
 {
-    return false;
+	return false;
 }
 
 void StreamAbstractionAAMP_MPD::UpdateFailedDRMStatus(LicensePreFetchObject *object)
@@ -208,7 +212,7 @@ void StreamAbstractionAAMP_MPD::ProcessAllContentProtectionForMediaType(AampMedi
 
 const IAdaptationSet* StreamAbstractionAAMP_MPD::GetAdaptationSetAtIndex(int idx)
 {
-    return NULL;
+	return NULL;
 }
 
 dash::mpd::IMPD *StreamAbstractionAAMP_MPD::GetMPD( void )
@@ -228,15 +232,15 @@ IPeriod *StreamAbstractionAAMP_MPD::GetPeriod( void )
 
 ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresentationIndicesForProfile(int profileIndex)
 {
-    return mProfileMaps.at(0);
+	return mProfileMaps.at(0);
 }
 
 void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
 {
-    if (g_mockStreamAbstractionAAMP_MPD)
-    {
-        g_mockStreamAbstractionAAMP_MPD->SeekPosUpdate(secondsRelativeToTuneTime);
-    }
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		g_mockStreamAbstractionAAMP_MPD->SeekPosUpdate(secondsRelativeToTuneTime);
+	}
 }
 
 double StreamAbstractionAAMP_MPD::GetStreamPosition()
@@ -265,7 +269,7 @@ void StreamAbstractionAAMP_MPD::SetSubtitleTrackOffset()
 
 double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
 {
-    return 0.0;
+	return 0.0;
 }
 
 void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
