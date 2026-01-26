@@ -85,6 +85,10 @@ public:
 protected:
 	void SetUp() override
 	{
+		// Ensure PlayerCCManager starts in a clean state for each test
+		// This prevents order-dependent failures where mEnabled state persists
+		PlayerCCManager::DestroyInstance();
+
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
@@ -4052,7 +4056,7 @@ TEST_F(PrivAampTests,RestoreCCWhenCCWasDisabledBeforeTune)
 
 TEST_F(PrivAampTests,RestoreCCDuringAdContentTransitionsWithNewTune)
 {
-	// Test that CC state is preserved across ad↔content transitions with newTune=true
+	// Test that CC state is preserved across ad<->content transitions with newTune=true
 	p_aamp->mIsInbandCC = true;
 
 	// Initial tune (content) - SetStatus(false) is called
