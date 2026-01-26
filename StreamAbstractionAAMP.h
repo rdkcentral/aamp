@@ -292,6 +292,8 @@ public:
 
 	/**
 	 * @fn ProcessFragmentChunk
+	 * @brief Process next cached fragment chunk
+	 * @retval true if chunk should be removed from the cached fragment chunk buffer, false otherwise
 	 */
 	bool ProcessFragmentChunk();
 
