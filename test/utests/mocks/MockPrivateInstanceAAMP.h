@@ -1,3 +1,4 @@
+
 /*
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
@@ -90,7 +91,6 @@ public:
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
-	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
