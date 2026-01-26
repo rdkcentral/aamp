@@ -223,8 +223,8 @@ TEST_F(byteRangeTests, testFormatFromExtension )
 	for( size_t i=0; i<ARRAY_SIZE(test_data); i++ )
 	{
         printf( "test#%zu: '%s'\n", i, test_data[i].data );
-		AampGrowableBuffer buffer;
-		buffer.AppendBytes(test_data[i].data, strlen(test_data[i].data) );
+		std::vector<uint8_t> buffer;
+		buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(test_data[i].data), reinterpret_cast<const uint8_t*>(test_data[i].data) + strlen(test_data[i].data) );
 		StreamOutputFormat format = GetFormatFromFragmentExtension( buffer );
 		EXPECT_EQ( format, test_data[i].format );
 	}

@@ -114,7 +114,7 @@ class IsoBmffProcessorPTMTests : public IsoBmffProcessorBaseTests
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests1)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests1");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	// Spawn thread to perform wait.
@@ -138,13 +138,13 @@ TEST_F(IsoBmffProcessorTests, abortTests1)
 
 	t.join();
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 }
 
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests2)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests2");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
@@ -163,14 +163,14 @@ TEST_F(IsoBmffProcessorTests, abortTests2)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
 	this->asyncTask.join();
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 }
 
 
 //Scenario where audio and subtitle processors are waiting for videoPTS and abort gets called
 TEST_F(IsoBmffProcessorTests, abortTests3)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests3");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	mAudIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
@@ -193,14 +193,14 @@ TEST_F(IsoBmffProcessorTests, abortTests3)
 	(void)mAudIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
 	this->asyncTask.join();
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 }
 
 //Race condition between InjectorLoop and reset calls
 //Call sendSegment after an abort was called
 TEST_F(IsoBmffProcessorTests, abortTests4)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests4");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
@@ -216,14 +216,14 @@ TEST_F(IsoBmffProcessorTests, abortTests4)
 	(void)mIsoBmffProcessor->abort();
 	(void)mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 }
 
 //Race condition between InjectorLoop and reset calls
 //Call sendSegment after an abort and reset was called
 TEST_F(IsoBmffProcessorTests, abortTests5)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests5");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 	Box *box = (Box*)(0xdeadbeef);
 
@@ -248,13 +248,13 @@ TEST_F(IsoBmffProcessorTests, abortTests5)
 
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 }
 
 //Processing of Init followed by 2 continuous video fragments
 TEST_F(IsoBmffProcessorTests, ptsTests)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double position = 0, duration = 0;
@@ -283,7 +283,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	rslt = ceil((position) * vCurrTS);
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
@@ -295,7 +295,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 //eBMFFPROCESSOR_INIT_TIMESCALE, eBMFFPROCESSOR_CONTINUE_TIMESCALE
 TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_1");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double vPosition = 0, aPosition = 0;
@@ -351,7 +351,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
@@ -362,7 +362,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 
 //eBMFFPROCESSOR_INIT_TIMESCALE, eBMFFPROCESSOR_CONTINUE_TIMESCALE
 TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_2");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double vPosition = 0, aPosition = 0;
@@ -418,7 +418,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
@@ -430,7 +430,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 //eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE - BasePTS will change after discontinuity
 TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_3");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	bool discontinuous = false, ptsError = false;
@@ -470,7 +470,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 	uint64_t newTS = mIsoBmffProcessor->getCurrentTimeScale();
 	rslt = ceil((position) * newTS);
@@ -482,7 +482,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 
 //eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE - Discontinuity (ad->content) and again rampup/down due to curl errors, hence 2 inits will be pushed back to back, BasePTS will be updated
 TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_4");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	bool discontinuous, ptsError = false;
@@ -541,7 +541,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
 	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 	uint64_t newTS = mIsoBmffProcessor->getCurrentTimeScale();
 	rslt = ceil((position) * newTS);
@@ -554,7 +554,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 //Difference in manifest duration vs buffer duration. Player should process the buffer one.
 TEST_F(IsoBmffProcessorTests, ptsTests_2)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests_2");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	bool discontinuous, ptsError = false;
@@ -592,7 +592,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 //Before disc, video ends at x, audio ends at x-1, after disc, both should be in sync and resume from x
 TEST_F(IsoBmffProcessorTests, ptsTests_3)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests_3");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double vPosition = 0, aPosition = 0;
@@ -672,7 +672,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aNewDuration));
 	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	rslt = ceil((aPosition) * aCurrTS);
 	restampedPTS = mAudIsoBmffProcessor->getSumPTS() - aNewDuration;
 	EXPECT_NE(restampedPTS, rslt); //Sync the audio PTS with the video pts.
@@ -683,7 +683,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 //Dup video fragments
 TEST_F(IsoBmffProcessorTests, ptsTests_4)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests_4");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double position = 0, duration = 0;
@@ -725,7 +725,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
 	EXPECT_EQ(restampedPTS, rslt); // Restamped PTS will not update on dup fragment
 }
@@ -740,8 +740,8 @@ TEST_F(IsoBmffProcessorTests, PTMOnRestampOnTest)
 // Validates the sendSegment calls with PTM enabled and restamp disabled
 TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorPTMTests-passThroughTests1");
-	buffer.AppendBytes("SampleData", 10); // Dummy data to simulate a buffer
+	std::vector<uint8_t> buffer;
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>("SampleData"), reinterpret_cast<const uint8_t*>("SampleData") + 10); // Dummy data to simulate a buffer
 
 	double position = 0, duration = 0;
 	bool discontinuous = false, ptsError = false;
@@ -773,5 +773,5 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
-	buffer.Free();
+	buffer.clear(); buffer.shrink_to_fit();
 }

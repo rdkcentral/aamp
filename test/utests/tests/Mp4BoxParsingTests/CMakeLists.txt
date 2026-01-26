@@ -28,7 +28,6 @@ set(TEST_SOURCES
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/mp4demux/MP4Demux.cpp
-	${AAMP_ROOT}/AampGrowableBuffer.cpp
 )
 
 # Include common test directories

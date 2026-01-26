@@ -56,16 +56,16 @@ class IsoBmffHelperTests : public ::testing::Test
  */
 TEST_F(IsoBmffHelperTests, restampPtsTest)
 {
-	AampGrowableBuffer buffer("IsoBmffHelperTests-restampPts");
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[] = ("IsoBmff buffer content");
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
 	int64_t ptsOffset{123};
     std::string url("Dummy");
 	const char* trackName = "video";
 	uint32_t timeScale = 48000;
 	// Check that setBuffer receives the actual buffer pointer
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
@@ -81,15 +81,15 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
  */
 TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
 {
-	AampGrowableBuffer buffer("IsoBmffHelperTests-restampPts");
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[] = ("IsoBmff buffer content");
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
 	int64_t ptsOffset{123};
     std::string url("Dummy");
 	const char* trackName = "video";
 	uint32_t timeScale = 48000;
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
@@ -104,13 +104,13 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
  */
 TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-setPtsAndDuration"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
 	uint64_t pts{123};
 	uint64_t duration{1};
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(pts, duration));
@@ -125,13 +125,13 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
  */
 TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-setPtsAndDuration"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
 	uint64_t pts{123};
 	uint64_t duration{1};
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(_, _)).Times(0);
@@ -144,11 +144,11 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
  */
 TEST_F(IsoBmffHelperTests, setTimescaleTest)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-setTimescale"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(true));
@@ -163,11 +163,11 @@ TEST_F(IsoBmffHelperTests, setTimescaleTest)
 
 TEST_F(IsoBmffHelperTests, setTimescaleTestNegativeTest)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-setTimescale"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(false));
@@ -180,11 +180,11 @@ TEST_F(IsoBmffHelperTests, setTimescaleTestNegativeTest)
  */
 TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationTest)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-clearMediaHeaderDuration"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
@@ -199,11 +199,11 @@ TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationTest)
  */
 TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_1)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-clearMediaHeaderDuration"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
@@ -217,11 +217,11 @@ TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_1)
  */
 TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_2)
 {
-	AampGrowableBuffer buffer{"IsoBmffHelperTests-clearMediaHeaderDuration"};
+	std::vector<uint8_t> buffer;
 	uint8_t bufferContent[]{"IsoBmff buffer content"};
-	// Set the pointer and length in the AampGrowableBuffer fake
-	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
-	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.GetPtr());
+	// Set the pointer and length in the std::vector<uint8_t> fake
+	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(bufferContent), reinterpret_cast<const uint8_t*>(bufferContent) + sizeof(bufferContent));
+	auto expectedPtr = reinterpret_cast<uint8_t*>(buffer.data());
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, sizeof(bufferContent)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));

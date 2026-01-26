@@ -29,7 +29,7 @@ TSProcessor::~TSProcessor()
 {
 }
 
-double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+double TSProcessor::getFirstPts( std::vector<uint8_t>* pBuffer )
 {
 	return 0.0;
 }
@@ -38,7 +38,7 @@ void TSProcessor::setPtsOffset( double ptsOffset )
 {
 }
 
-bool TSProcessor::sendSegment( AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool TSProcessor::sendSegment( std::vector<uint8_t>* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {
     return true;

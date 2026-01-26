@@ -372,7 +372,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -398,7 +398,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
     mStreamAbstractionAAMP_HLS->ParseMainManifest();
 }
@@ -420,7 +420,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -445,7 +445,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -469,7 +469,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -494,7 +494,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -519,7 +519,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -543,7 +543,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -566,7 +566,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -591,7 +591,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired(); (void)TestResult;
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -614,7 +614,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -638,7 +638,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -651,7 +651,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_4k)
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_5SD_4K_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -686,7 +686,8 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_multi
 
     for (auto &td : test_data)
     {
-        mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes((char *)td.manifest, strlen(td.manifest) );
+        mStreamAbstractionAAMP_HLS->mainManifest.clear();
+        mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>((char *)td.manifest), reinterpret_cast<const uint8_t*>((char *)td.manifest) + strlen(td.manifest) );
 
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -703,7 +704,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
 {
     char manifest[] = MANIFEST_5SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     // Call the fake Tune() method with a non-local URL to setup Fog related flags.
     mPrivateInstanceAAMP->Tune("https://ads.com/ad.m3u8", false);
 
@@ -719,7 +720,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, FogABRMode)
 {
     char manifest[] = MANIFEST_5SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 
     // Call the fake Tune() method with a Fog TSB URL to setup Fog related flags.
     mPrivateInstanceAAMP->Tune("http://127.0.0.1/tsb?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8", false);
@@ -1322,7 +1323,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1338,7 +1339,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-BYTERANGE:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1353,7 +1354,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXTINF:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1368,7 +1369,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new6)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-TARGETDURATION:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1383,7 +1384,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new7)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MEDIA-SEQUENCE:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1398,7 +1399,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new8)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-KEY:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1413,7 +1414,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new9)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MAP:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1428,7 +1429,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new10)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-PROGRAM-DATE-TIME:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1443,7 +1444,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new11)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ALLOW-CACHE:";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1458,7 +1459,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new12)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ENDLIST";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1473,7 +1474,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new13)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-DISCONTINUITY";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1488,7 +1489,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-I-FRAMES-ONLY";
-    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.insert(mStreamAbstractionAAMP_HLS->mainManifest.end(), reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1496,7 +1497,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
 
 TEST_F(TrackStateTests, ABRProfileChangedTest)
 {
-    AampGrowableBuffer newPlaylist("test");
+    std::vector<uint8_t> newPlaylist;
     int http_error = 2;
     TrackStateobj->IsLive();
     TrackStateobj->ProcessPlaylist(newPlaylist, http_error);
@@ -1563,9 +1564,9 @@ TEST_F(TrackStateTests, FindTimedMetadata_New)
     bool reportBulkMeta = false;
     bool bInitCall = true; // Simulate the bInitCall flag being set
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSubscribedTags)).WillOnce(Return(true));
-    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+    std::vector<uint8_t> buffer;
         //buffer.AppendBytes(10);
-    buffer.GetPtr();
+    buffer.data();
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 

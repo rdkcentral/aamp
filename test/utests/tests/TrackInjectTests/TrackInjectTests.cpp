@@ -49,7 +49,7 @@ public:
 		playlistURL = "http://host/asset/low/manifest.mpd";
 	}
 
-	void ProcessPlaylist(AampGrowableBuffer &newPlaylist, int http_error)
+	void ProcessPlaylist(std::vector<uint8_t> &newPlaylist, int http_error)
 	{
 	}
 
@@ -118,7 +118,7 @@ public:
 		if (isLLD)
 		{
 			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-			cachFragment->fragment.Clear();
+			cachFragment->fragment.clear();
 		}
 		else
 		{
@@ -129,7 +129,7 @@ public:
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
-		cachFragment->fragment.AppendBytes(data, sizeof(data));
+		cachFragment->fragment.insert(cachFragment->fragment.end(), reinterpret_cast<const uint8_t*>(data), reinterpret_cast<const uint8_t*>(data) + sizeof(data));
 		if (isLLD)
 		{
 			UpdateTSAfterChunkFetch();

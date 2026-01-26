@@ -26,7 +26,6 @@
 #include "AampTime.h"
 #include "priv_aamp.h"
 #include "fragmentcollector_mpd.h"
-#include "AampGrowableBuffer.h"
 
 #include "MockIsoBmffHelper.h"
 #include "MockIsoBmffBuffer.h"
@@ -59,13 +58,13 @@ AampConfig* gpGlobalConfig{nullptr};
 // behavior, done in case it's modified or destructed later.)
 MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
 {
-	const AampGrowableBuffer& buffer = bufferStdConstRef.get();
-	return std::memcmp(arg.GetPtr(), buffer.GetPtr(), buffer.GetLen()) == 0;
+	const std::vector<uint8_t>& buffer = bufferStdConstRef.get();
+	return std::memcmp(arg.data(), buffer.data(), buffer.size()) == 0;
 }
 
 MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
 {
-	return std::memcmp(arg->GetPtr(), bufferPtr->GetPtr(), bufferPtr->GetLen()) == 0;
+	return std::memcmp(arg->data(), bufferPtr->data(), bufferPtr->size()) == 0;
 }
 
 // MediaTrack is an abstract base class, so must be tested via a derived class
@@ -79,7 +78,7 @@ public:
 	}
 
 	// Provide overrides for pure virtuals - this is just to keep the compiler happy
-	void ProcessPlaylist(AampGrowableBuffer&, int) override {};
+	void ProcessPlaylist(std::vector<uint8_t>&, int) override {};
 	std::string& GetPlaylistUrl() override { return mFakeStr; };
 	std::string& GetEffectivePlaylistUrl() override { return mFakeStr; };
 	void SetEffectivePlaylistUrl(std::string) override {};
@@ -170,7 +169,7 @@ protected:
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
 			mediaTrack.numberOfFragmentsCached = 1;
 		}
-		bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
+		bufferedFragment->Copy(&testFragment, testFragment.fragment.size());
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
 			// Make the buffer parser return the correct position and duration
@@ -212,7 +211,7 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 {
 	CachedFragment* bufferedFragment{nullptr};
 	CachedFragment testFragment;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	PlayRateTestData testParam = GetParam(); // Test parameter injected here
 	SetLowLatencyMode(testParam.lowLatencyMode);
 	mPrivateInstanceAAMP->rate = testParam.playRate;
@@ -270,7 +269,7 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 {
 	CachedFragment* bufferedFragment{nullptr};
 	CachedFragment testFragment;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	PlayRateTestData testParam = GetParam(); // Test parameter injected here
 	SetLowLatencyMode(testParam.lowLatencyMode);
 	mPrivateInstanceAAMP->rate = testParam.playRate;
@@ -356,7 +355,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	// Init segment
 	CachedFragment testFragment;
 	testFragment.initFragment = true;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 
 	EXPECT_CALL(*g_mockIsoBmffHelper,
@@ -373,7 +372,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	testFragment.position = FIRST_PTS.inSeconds();
 	testFragment.absPosition = FIRST_PTS.inSeconds();
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	AampTime lastPosition{testFragment.position};
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 
@@ -413,7 +412,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		// Inject an init segment as if there was an ABR change in the "recorded" content. This should not reset the restamp PTS.
 		testFragment = CachedFragment{};
 		testFragment.initFragment = true;
-		testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+		testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 		bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 		EXPECT_CALL(*g_mockIsoBmffHelper,
 					SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
@@ -435,7 +434,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		AampTime nextPts{FIRST_PTS + (FRAGMENT_DURATION * i)};
 		testFragment.position = nextPts.inSeconds();
 		testFragment.absPosition = nextPts.inSeconds();
-		testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+		testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 		AampTime positionDelta{fabs(testFragment.position - lastPosition)};
 		lastPosition = testFragment.position;
 		bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
@@ -489,7 +488,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	std::string expectedUri{"Dummy URI"};
 	CachedFragment* bufferedFragment{nullptr};
 	CachedFragment testFragment;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	testFragment.position = FIRST_PTS.inSeconds();
 	testFragment.PTSOffsetSec = PTS_OFFSET_SEC;
 	testFragment.timeScale = PLAYBACK_TIMESCALE;
@@ -570,7 +569,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampInvalidPlayRateTests, InvalidPlayRateTes
 {
 	CachedFragment* bufferedFragment{nullptr};
 	CachedFragment testFragment;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	mPrivateInstanceAAMP->rate = GetParam(); // Test parameter injected here
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
@@ -638,7 +637,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	// Init segment
 	CachedFragment testFragment;
 	testFragment.initFragment = true;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetTimescale(_, _)).WillOnce(Return(true));
@@ -649,7 +648,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	testFragment.initFragment = false;
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	testFragment.position = FIRST_PTS.inSeconds();
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).WillOnce(Return(true));
@@ -662,7 +661,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	testFragment.duration = FRAGMENT_DURATION_BEFORE_AD_BREAK.inSeconds();
 	AampTime nextPts{FIRST_PTS + FRAGMENT_DURATION_BEFORE_AD_BREAK};
 	testFragment.position = nextPts.inSeconds();
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	AampTime positionDelta{fabs(nextPts - FIRST_PTS)};
@@ -678,7 +677,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	// For trickplay, this flag appears to be used to signal a discontinuity - not the
 	// isDiscontinuity flag passed to ProcessAndInjectFragment()
 	testFragment.discontinuity = true;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	// Assume no change in restamped duration on discontinuity
@@ -695,7 +694,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	testFragment.initFragment = false;
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	testFragment.position = FIRST_PTS.inSeconds();
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	AampTime lastPosition{testFragment.position};
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
@@ -718,7 +717,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	nextPts = FIRST_PTS + FRAGMENT_DURATION;
 	testFragment.position = nextPts.inSeconds();
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	testFragment.fragment.insert(testFragment.fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, LLD_DISABLED);
 
 	positionDelta = fabs(nextPts - FIRST_PTS);
@@ -760,7 +759,7 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 
 	bufferedFragment1 = videoTrack.GetFetchBuffer(true);
 	bufferedFragment1->initFragment = true;
-	bufferedFragment1->fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	bufferedFragment1->fragment.insert(bufferedFragment1->fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	videoTrack.UpdateTSAfterFetch(bufferedFragment1->initFragment);
 
 	// First media segment
@@ -768,7 +767,7 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 	bufferedFragment2->initFragment = false;
 	bufferedFragment2->duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment2->position = FIRST_PTS.inSeconds();
-	bufferedFragment2->fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	bufferedFragment2->fragment.insert(bufferedFragment2->fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 	videoTrack.UpdateTSAfterFetch(bufferedFragment2->initFragment);
 
 	// Second media segment, not updated for injection
@@ -776,7 +775,7 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 	bufferedFragment3->initFragment = false;
 	bufferedFragment3->duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment3->position = 2 * FIRST_PTS.inSeconds();
-	bufferedFragment3->fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	bufferedFragment3->fragment.insert(bufferedFragment3->fragment.end(), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA), reinterpret_cast<const uint8_t*>(FRAGMENT_TEST_DATA) + strlen(FRAGMENT_TEST_DATA));
 
 	ASSERT_EQ(videoTrack.numberOfFragmentsCached, 2);
 	ASSERT_EQ(bufferedFragment1->position, 0);

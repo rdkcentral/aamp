@@ -925,8 +925,8 @@ TEST_F(sendSegmentTests, SendSegmentTest)
 {
     size_t size = 100;
     char segment[100];
-    AampGrowableBuffer buf("ts-processor-buffer-send-test");
-    buf.AppendBytes(segment,size);
+    std::vector<uint8_t> buf;
+    buf.insert(buf.end(), reinterpret_cast<const uint8_t*>(segment), reinterpret_cast<const uint8_t*>(segment) + size);
     double position = 0.0;
     double duration = 10.0;
 	double offset = 0.0;
@@ -937,7 +937,7 @@ TEST_F(sendSegmentTests, SendSegmentTest)
     bool result;
     result = mTSProcessor->sendSegment(&buf, position, duration, offset, discontinuous,init, nullptr, ptsError);
     ASSERT_FALSE(result);
-    buf.Free();
+    buf.clear(); buf.shrink_to_fit();
 }
 
 TEST_F(sendSegmentTests, SetApplyOffsetFlagFalse)
@@ -948,7 +948,7 @@ TEST_F(sendSegmentTests, SetApplyOffsetFlagFalse)
 TEST_F(sendSegmentTests, esMP3test)
 {
     unsigned char segment[tsPacketLength * 2] = {};
-    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+    std::vector<uint8_t> buffer;
     double position = 0;
     double duration = 2.43;
 	double offset = 0.0;
@@ -956,14 +956,14 @@ TEST_F(sendSegmentTests, esMP3test)
 	bool init = false;
     bool ptsError = false;
 
-    buffer.AppendBytes(segment, sizeof(segment));
+    buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(segment), reinterpret_cast<const uint8_t*>(segment) + sizeof(segment));
     mTSProcessor->sendSegment(&buffer, position, duration, offset, discontinuous, init,
         [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
             mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
         },
         ptsError);
 
-    buffer.Free();
+    buffer.clear(); buffer.shrink_to_fit();
 }
 
 TEST_F(sendSegmentTests, SetRateTest)

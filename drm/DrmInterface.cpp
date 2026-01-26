@@ -19,7 +19,6 @@
 #include "DrmInterface.h"
 #include "Aes.h"
 #include "HlsOcdmBridgeInterface.h"
-#include "AampGrowableBuffer.h"
 #include "HlsDrmSessionManager.h"
 #include "AampDRMLicManager.h"
 #define AES_128_KEY_LEN_BYTES 16

@@ -78,7 +78,9 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 		}
 
 		if (isEmpty)
+		{
 			return node;
+		}
 
 		Node    *subnode = NULL;
 		int     ret = xmlTextReaderRead(*reader);
@@ -101,7 +103,6 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 			ret = xmlTextReaderRead(*reader);
 			subnodeType = xmlTextReaderNodeType(*reader);
 		}
-
 		return node;
 	}
 	else if (type == Text || type == XML_CDATA_SECTION_NODE) 

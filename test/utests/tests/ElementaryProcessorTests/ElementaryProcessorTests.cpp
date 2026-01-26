@@ -107,14 +107,14 @@ protected:
 // TEST_F(ElementaryProcessorTest, sendSegmentTest)
 // {
 //     char *segment = new char[100];
-// 	AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+// 	std::vector<uint8_t> buffer;
 // 	double position = 0;
 // 	double duration = 2.43;
 // 	bool discontinuous = false;
 // 	bool isInit = false;
 //     MediaProcessor::process_fcn_t processor;
 // 	bool ptsError = false;
-// 	buffer.AppendBytes(segment,tsPacketLength*2);
+// 	buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(segment), reinterpret_cast<const uint8_t*>(segment) + tsPacketLength*2);
 // 	mElementaryProcessor->sendSegment(&buffer, position, duration, discontinuous,isInit,
 // 		[this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 // 		{
@@ -122,7 +122,7 @@ protected:
 // 		},
 // 		ptsError
 // 	);
-// 	buffer.Free();
+// 	buffer.clear(); buffer.shrink_to_fit();
 // }
 
 TEST_F(ElementaryProcessorTest, abortInjectionWaitTest)

@@ -944,6 +944,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 					xmlFreeTextReader(reader);
 					reader = xmlReaderForMemory(reinterpret_cast<const char*>(fogManifest.data()), (int) fogManifest.size(), NULL, NULL, 0);
 					manifestStr.assign(reinterpret_cast<const char*>(fogManifest.data()), fogManifest.size());
+					manifest = std::move(fogManifest);
 				}
 				else
 				{
@@ -956,11 +957,9 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				// Optionally, return early or handle as needed
 			}
 
-			if(!fogManifest.empty())
-			{
-				fogManifest.clear(); fogManifest.shrink_to_fit();
-			}
+			fogManifest.clear(); fogManifest.shrink_to_fit();
 		}
+
 		if (reader != NULL)
 		{
 			// Cache the init headers before processing the manifest nodes

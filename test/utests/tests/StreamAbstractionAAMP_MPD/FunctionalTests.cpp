@@ -221,13 +221,13 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	*/
-	bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer)
+	bool GetManifest(std::string remoteUrl, std::vector<uint8_t> *buffer)
 	{
 		EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
 
-		/* Setup fake AampGrowableBuffer contents. */
-		buffer->Clear();
-		buffer->AppendBytes((char *)mManifest, strlen(mManifest));
+		/* Setup fake std::vector<uint8_t> contents. */
+		buffer->clear();
+		buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(mManifest), reinterpret_cast<const uint8_t*>(mManifest) + strlen(mManifest));
 
 		return true;
 	}

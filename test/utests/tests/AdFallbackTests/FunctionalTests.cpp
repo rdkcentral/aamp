@@ -264,11 +264,11 @@ class AdFallbackTests : public ::testing::Test
 			return mStreamAbstractionAAMP_MPD->Init(tuneType);
 		}
 
-		bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+		bool GetManifest(std::string remoteUrl, std::vector<uint8_t> *buffer, std::string& effectiveUrl, int *httpError)
 		{
-			/* Setup fake AampGrowableBuffer contents. */
-			buffer->Clear();
-			buffer->AppendBytes((char *)mAdManifest, strlen(mAdManifest));
+			/* Setup fake std::vector<uint8_t> contents. */
+			buffer->clear();
+			buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>((char *)mAdManifest), reinterpret_cast<const uint8_t*>((char *)mAdManifest) + strlen(mAdManifest));
 			effectiveUrl = remoteUrl;
 			*httpError = 200;
 

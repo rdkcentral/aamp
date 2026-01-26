@@ -23,10 +23,8 @@
 #include <cstring>
 #include <limits>
 #include "CachedFragment.h"
-#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include "priv_aamp.h"
-#include "MockAampGrowableBuffer.h"
 
 /**
  * @brief Test fixture for CachedFragment class
@@ -38,7 +36,6 @@ class CachedFragmentTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Clear global storage to ensure clean state for each test
-        AampGrowableBuffer_ClearGlobalStorage();
         
         // Create fresh CachedFragment instances for each test
         cachedFragment.reset(new CachedFragment());

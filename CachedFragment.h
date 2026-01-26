@@ -25,7 +25,6 @@
 #ifndef CACHED_FRAGMENT_H
 #define CACHED_FRAGMENT_H
 
-#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
 #include <string>

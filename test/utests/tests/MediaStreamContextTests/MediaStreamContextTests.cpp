@@ -82,7 +82,7 @@ TEST_F(MediaStreamContextTest, CacheFragmentChunkTest)
 
 TEST_F(MediaStreamContextTest,ProcessPlaylistTest)
 {
-    AampGrowableBuffer newPlaylist("download-PlaylistManifest");
+    std::vector<uint8_t> newPlaylist;
     //Act:call ProcessPlaylist function
     mMediaStreamContext->ProcessPlaylist(newPlaylist,1);
 }

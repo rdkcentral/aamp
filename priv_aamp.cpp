@@ -44,7 +44,6 @@
 #include "aampgstplayer.h"
 #include "AampStreamSinkManager.h"
 #include "SubtecFactory.hpp"
-#include "AampGrowableBuffer.h"
 
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"

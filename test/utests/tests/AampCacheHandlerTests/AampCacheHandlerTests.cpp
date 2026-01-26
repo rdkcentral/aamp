@@ -21,7 +21,6 @@
 #include "AampCacheHandler.h"
 #include "AampMediaType.h"
 #include "AampConfig.h"
-#include "MockAampGrowableBuffer.h"
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
@@ -33,12 +32,9 @@ protected:
 	void SetUp() override
 	{
 		handler = new AampCacheHandler(-1);
-		g_mockAampGrowableBuffer = new NiceMock<MockAampGrowableBuffer>( );
 	}
 	void TearDown() override
 	{
-		delete g_mockAampGrowableBuffer;
-		g_mockAampGrowableBuffer = nullptr;
 
 		delete handler;
 		handler = nullptr;
@@ -82,20 +78,19 @@ TEST_F(AampCacheHandlerTest, InitFragCache)
 	std::string url7 = "http://example7.com";
 	std::string eURL;
 
-	AampGrowableBuffer *buffer;
+	std::vector<uint8_t> *buffer;
 	AampMediaType type;
 	type = eMEDIATYPE_INIT_VIDEO;
 
-	buffer = new AampGrowableBuffer("InitFragCache_Data");
+	buffer = new std::vector<uint8_t>();
 	// Inserting the Url and trying to retrieve with empty buffer
 	handler->InsertToInitFragCache(url1, buffer, url1, type);
 	bool res01 = handler->RetrieveFromInitFragmentCache(url1, buffer, eURL);
 	EXPECT_FALSE(res01);
 
 	//initializing buffer
-	const char *srcData1[30] = {"HelloWorld"};
-	size_t arraySize1 = sizeof(srcData1) / sizeof(srcData1[0]);
-	buffer->AppendBytes(srcData1, arraySize1);
+	const char srcData1[] = "HelloWorld"; size_t arraySize1 = sizeof(srcData1) - 1; // exclude null terminator
+	buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(srcData1), reinterpret_cast<const uint8_t*>(srcData1) + arraySize1);
 	// Inserting the Url and trying to retrieve with non-empty buffer
 	handler->InsertToInitFragCache(url1, buffer, url1, type);
 	bool res1 = handler->RetrieveFromInitFragmentCache(url1, buffer, eURL);
@@ -128,25 +123,23 @@ TEST_F(AampCacheHandlerTest, InitFragCacheWithEffectiveURL)
 	std::string eURL3 = "http://example3.com-redirect";
 	std::string ret_eURL;
 
-	AampGrowableBuffer *buffer;
+	std::vector<uint8_t> *buffer;
 	AampMediaType type;
 	type = eMEDIATYPE_INIT_VIDEO;
 
-	buffer = new AampGrowableBuffer("InitFragCache_Data");
+	buffer = new std::vector<uint8_t>();
 	// Inserting the Url and trying to retrieve with empty buffer
 	handler->InsertToInitFragCache(url1, buffer,eURL1, type);
 	EXPECT_FALSE( handler->RetrieveFromInitFragmentCache(url1, buffer, eURL1) );
 
 	//initializing buffer
-	const char *srcData1[30] = {"HelloWorld"};
-	size_t arraySize1 = sizeof(srcData1) / sizeof(srcData1[0]);
-	buffer->AppendBytes(srcData1, arraySize1);
+	const char srcData1[] = "HelloWorld"; size_t arraySize1 = sizeof(srcData1) - 1; // exclude null terminator
+	buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(srcData1), reinterpret_cast<const uint8_t*>(srcData1) + arraySize1);
 	// Inserting the Url and trying to retrieve with non-empty buffer
 	handler->InsertToInitFragCache(url1, buffer, eURL1, type);
 	EXPECT_TRUE( handler->RetrieveFromInitFragmentCache(url1, buffer, eURL1) );
 	EXPECT_EQ(eURL1, "http://example1.com-redirect");
 
-	EXPECT_CALL(*g_mockAampGrowableBuffer, dtor()).Times(2); // Removing url4 won't free its growable buffer as it is still referenced by eURL2
 
 	// Without Inserting the Url trying to retrieve
 	EXPECT_FALSE( handler->RetrieveFromInitFragmentCache(url2, buffer, eURL1) );
@@ -180,16 +173,16 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
 	std::string url7 = "http://example7.com";
 	std::string mpdurl = "http://example.mpd";
 
-	AampGrowableBuffer *buffer = new AampGrowableBuffer("PlaylistCache_Data");
+	std::vector<uint8_t> *buffer = new std::vector<uint8_t>();
 
 	// expected failure inserting empty buffer
-	buffer->Clear();
+	buffer->clear();
 	EXPECT_FALSE(handler->IsPlaylistUrlCached(url1));
 	handler->InsertToPlaylistCache(url1, buffer, url1, false, eMEDIATYPE_PLAYLIST_VIDEO);
 	EXPECT_FALSE(handler->IsPlaylistUrlCached(url1));
 
 	// expected failure caching non-empty playlist for live playback
-	buffer->AppendBytes("apple",5);
+	buffer->insert(buffer->end(), "apple", "apple" + 5);
 	handler->InsertToPlaylistCache(url1, buffer, url1, true, eMEDIATYPE_PLAYLIST_VIDEO);
 	EXPECT_FALSE(handler->IsPlaylistUrlCached(url1));
 
@@ -197,12 +190,11 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
 	handler->InsertToPlaylistCache(url2, buffer, url2, false, eMEDIATYPE_PLAYLIST_VIDEO);
 	EXPECT_TRUE(handler->IsPlaylistUrlCached(url2));
 
-	buffer->Clear();
+	buffer->clear();
 
 	//initializing buffer
-	const char *srcData3[30] = {"HelloWorld"};
-	size_t arraySize3 = sizeof(srcData3) / sizeof(srcData3[0]);
-	buffer->AppendBytes(srcData3, arraySize3);
+	const char srcData3[] = "HelloWorld"; size_t arraySize3 = sizeof(srcData3) - 1; // exclude null terminator
+	buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(srcData3), reinterpret_cast<const uint8_t*>(srcData3) + arraySize3);
 	// Inserting the playlist and trying to retrieve with non-empty buffer
 	handler->InsertToPlaylistCache(url2, buffer, url2, false, eMEDIATYPE_PLAYLIST_VIDEO);
 	EXPECT_TRUE(handler->IsPlaylistUrlCached(url2));
@@ -221,19 +213,17 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
 	EXPECT_TRUE(handler->RetrieveFromPlaylistCache(url3, buffer, url3, eMEDIATYPE_MANIFEST));
 
 	// Trying to Insert Url when the buffer size is greater than MaxPlaylistCacheSize
-	const char *srcData1[30] = {"HelloWorld"};
-	size_t arraySize1 = sizeof(srcData1) / sizeof(srcData1[0]);
-	buffer->AppendBytes(srcData1, arraySize1);
+	const char srcData1[] = "HelloWorld"; size_t arraySize1 = sizeof(srcData1) - 1; // exclude null terminator
+	buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(srcData1), reinterpret_cast<const uint8_t*>(srcData1) + arraySize1);
 	handler->SetMaxPlaylistCacheSize(20);
 	handler->InsertToPlaylistCache(url4, buffer, url4, false, eMEDIATYPE_PLAYLIST_VIDEO);
 	EXPECT_FALSE(handler->IsPlaylistUrlCached(url4));
 
-	buffer->Clear();
+	buffer->clear();
 
 	// Trying to Insert Url when the buffer size is lesser than MaxPlaylistCacheSize
-	const char *srcData2[20] = {"HelloWorld"};
-	size_t arraySize2 = sizeof(srcData2) / sizeof(srcData2[0]);
-	buffer->AppendBytes(srcData2, arraySize2);
+	const char srcData2[] = "HelloWorld"; size_t arraySize2 = sizeof(srcData2) - 1; // exclude null terminator
+	buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(srcData2), reinterpret_cast<const uint8_t*>(srcData2) + arraySize2);
 	handler->SetMaxPlaylistCacheSize(30);
 	handler->InsertToPlaylistCache(url5, buffer, url5, false, eMEDIATYPE_MANIFEST);
 	EXPECT_TRUE(handler->IsPlaylistUrlCached(url5));
@@ -325,7 +315,7 @@ TEST_F(AampCacheHandlerTest, InitFragCacheLRU)
 	{
 		int idx = randSeq[i] - '0';
 		std::string url = "url"+std::to_string(idx);
-		AampGrowableBuffer *buffer = new AampGrowableBuffer("InitFragCache_Data");
+		std::vector<uint8_t> *buffer = new std::vector<uint8_t>();
 		std::string effectiveUrl;
 		bool hit = handler->RetrieveFromInitFragmentCache( url, buffer, effectiveUrl );
 		if( hit )
@@ -340,7 +330,7 @@ TEST_F(AampCacheHandlerTest, InitFragCacheLRU)
 				eURL += "-redirect";
 			}
 			std::string data = "data" + std::to_string(idx);
-			buffer->AppendBytes(data.c_str(), data.size() );
+			buffer->insert(buffer->end(), reinterpret_cast<const uint8_t*>(data.c_str()), reinterpret_cast<const uint8_t*>(data.c_str()) + data.size());
 			handler->InsertToInitFragCache( url, buffer, eURL, eMEDIATYPE_INIT_VIDEO );
 			ret += std::to_string(idx);
 		}

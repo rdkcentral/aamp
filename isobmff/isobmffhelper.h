@@ -22,7 +22,8 @@
 
 #include <cstdlib>
 #include <string>
-#include "AampGrowableBuffer.h"
+#include <vector>
+#include <cstdint>
 #include "AampLogManager.h"
 
 class IsoBmffHelper

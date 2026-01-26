@@ -36,7 +36,6 @@
 #include "DrmMediaFormat.h"
 #include "DrmCallbacks.h"
 #include <IPVideoStat.h>
-#include "AampGrowableBuffer.h"
 #include "CCTrackInfo.h"
 #include <signal.h>
 #include <semaphore.h>
