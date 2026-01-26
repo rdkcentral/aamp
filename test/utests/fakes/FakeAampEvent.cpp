@@ -18,6 +18,10 @@
 */
 
 #include "AampEvent.h"
+#include "MockDrmMetaDataEvent.h"
+
+// Global pointer to mock DrmMetaDataEvent for testing
+MockDrmMetaDataEvent* g_mockDrmMetaDataEvent = nullptr;
 
 AAMPEventObject::AAMPEventObject(AAMPEventType type, std::string sid) : mType(type), mSessionID{std::move(sid)}
 {
@@ -138,10 +142,16 @@ int MediaMetadataEvent::getHeight(void) const{ return 0; }
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
     AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid))
 {
+
 }
 
 void DrmMetaDataEvent::setFailure(AAMPTuneFailure failure)
-{	
+{
+	// If a mock is set, call it for verification in tests
+	if (g_mockDrmMetaDataEvent)
+	{
+		g_mockDrmMetaDataEvent->setFailure(failure);
+	}
 }
 
 void DrmMetaDataEvent::setResponseCode(int code)
@@ -166,7 +176,12 @@ void DrmMetaDataEvent::setSecManagerReasonCode(int32_t code)
 
 AAMPTuneFailure DrmMetaDataEvent::getFailure() const
 {
-	return AAMP_TUNE_INIT_FAILED;
+	// If a mock is set, call it for verification in tests
+	if (g_mockDrmMetaDataEvent)
+	{
+		return g_mockDrmMetaDataEvent->getFailure();
+	}
+	return AAMP_TUNE_FAILURE_UNKNOWN;
 }
 
 int DrmMetaDataEvent::getResponseCode() const

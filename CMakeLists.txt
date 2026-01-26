@@ -51,6 +51,12 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
+if(CMAKE_PREINIT_DECODER)
+       message("CMAKE_PREINIT_DECODER Set")
+       set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
+       set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_PREINIT_DECODING=1")
+endif()
+
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
 	pkg_check_modules(CURL REQUIRED libcurl>=8.5)
@@ -501,7 +507,7 @@ install(TARGETS aamp-cli
 # XCode schema target
 xcode_define_schema(aamp-cli)
 
-if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
+if ((CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin) AND CMAKE_BUILD_KOTLIN_ENABLED)
 	set(AAMP_KOTLIN_SRC
 		${AAMP_CLI_SOURCES}
 		test/aampcli/aampcli_kmp.cpp

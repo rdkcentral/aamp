@@ -121,6 +121,8 @@
 #define CAPPED_PROFILE_STRING 		"Profile-Capped:"
 #define TRANSFER_ENCODING_STRING		"Transfer-Encoding:"
 
+#define BYTES_PER_MS_TO_BITS_PER_SEC 8000.0 // (bits per byte) * (1000 ms per sec)
+
 /**
  * @struct gActivePrivAAMP_t
  * @brief Used for storing active PrivateInstanceAAMPs
@@ -221,6 +223,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_DRM_SELF_ABORT, 50, 14, "AAMP: DRM license request aborted by player"},
 	{AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN, 50, 15, "AAMP: Failed to get access token from Auth Service"},
 	{AAMP_TUNE_DRM_KEY_UPDATE_FAILED, 50, 16, "AAMP: Failed to process DRM key"},
+	{AAMP_TUNE_DRM_SESSION_CREATE_FAILED, 50, 17, "AAMP: OCDM session construction failed"},
 
 	
 	//Provisioning failure
@@ -594,7 +597,6 @@ static bool replace(std::string &str, const char *existingSubStringToReplace, co
 	return rc;
 }
 
-
 /**
  * @brief convert https to https in recordedUrl part of manifestUrl
  * @param[in][out] dst Buffer containing URL
@@ -941,6 +943,52 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 }
 
 /**
+ * @brief Check if chunk download should be aborted early based on transfer rate
+ * @param context Curl callback context
+ * @retval true if chunk download should be aborted
+ */
+bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
+{
+	bool abort = false;
+	if (!context)
+	{
+		AAMPLOG_ERR("Invalid context");
+	}
+	else if (context->dataTransferStartTime > 0 && context->earlyAbortEnabled)
+	{
+		// Calculate the bps based on the data received so far from dataTransferStartTime
+		// If the bps is less than earlyAbortProfileBandwidthPercent% of the video bitrate, abort the download
+		long long dataTransferTime = NOW_STEADY_TS_MS - context->dataTransferStartTime;
+		AAMPLOG_DEBUG("[%d] start: %lld, elapsed: %lld", context->mediaType, context->dataTransferStartTime, dataTransferTime);
+		if (dataTransferTime > 0)
+		{
+			double bps = (double)(context->buffer->GetLen() * BYTES_PER_MS_TO_BITS_PER_SEC) / (double)dataTransferTime;
+			double coeff = GETCONFIGVALUE_PRIV(eAAMPConfig_EarlyAbortProfileBandwidthPercent) / 100.0;
+			if (context->profileBps > 0 && coeff > 0.0)
+			{
+				double expectedBps = (double)context->profileBps * coeff;
+				if (bps < expectedBps)
+				{
+					AAMPLOG_WARN("[%d] Aborting chunk download; bps %.2lf < %.2lf (%.2f percent of video bitrate %" BITSPERSECOND_FORMAT ")",
+									context->mediaType, bps, expectedBps, coeff * 100.0, context->profileBps);
+					abort = true;
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("[%d] Early abort disabled due to invalid profileBps %" BITSPERSECOND_FORMAT " or coeff %.2f%%",
+					context->mediaType, context->profileBps, coeff * 100.0);
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_DEBUG("DataTransferStartTime: %lld, EarlyAbortEnabled: %d", context->dataTransferStartTime, context->earlyAbortEnabled);
+	}
+	return abort;
+}
+
+/**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
@@ -970,6 +1018,11 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		ret = numBytesForBlock;
 		if(ptr && numBytesForBlock > 0)
 		{
+			if (context->buffer->GetLen() == 0)
+			{
+				// First byte received, record data transfer start time
+				context->dataTransferStartTime = NOW_STEADY_TS_MS;
+			}
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
 				size_t prev_len = context->buffer->GetLen();
@@ -977,6 +1030,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				if( context->m_ChunkedTransferState == ChunkedTransferState::ERROR )
 				{
 					AAMPLOG_ERR("Chunked transfer parser entered ERROR state; aborting write callback");
+					context->abortReason = eCURL_ABORT_REASON_CHUNKED_PARSER_ERROR;
 					ret = 0;
 					return ret;
 				}
@@ -1017,36 +1071,46 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				{
 					if (context->buffer->GetLen() >= context->chunkBoundary)
 					{
-						const char *bufferPtr = context->buffer->GetPtr() + context->bufferOffset;
-						size_t bufferLen = 0;
-						if (context->chunkBoundary > context->bufferOffset)
+						// Check for early abort conditions for video fragments
+						if (context->bufferOffset == 0 && context->mediaType == eMEDIATYPE_VIDEO)
 						{
-							bufferLen = context->chunkBoundary - context->bufferOffset;
+							// This is the first chunk being cached, determine if the download can be completed in time
+							if (CheckForChunkEarlyAbort(context))
+							{
+								ret = 0; // abort download
+								context->abortReason = eCURL_ABORT_REASON_FIRST_CHUNK_SLOW;
+							}
 						}
-						else
+						if (ret > 0)
 						{
-							AAMPLOG_ERR("Invalid chunk boundary offset %zu buffer offset %zu", context->chunkBoundary, context->bufferOffset);
-							ret = 0; // abort download
-						}
-						if (bufferLen > 0)
-						{
-							// Release PrivateInstanceAAMP mutex to unblock async APIs
-							lock.unlock();
-							AAMPLOG_DEBUG("[%d] Caching chunk with size %zu", context->mediaType, bufferLen);
-							long long startTime = aamp_GetCurrentTimeMS();
-							mCtx->CacheFragmentChunk(context->mediaType,
-													bufferPtr,
-													bufferLen,
-													context->remoteUrl,
-													context->downloadStartTime);
-							context->processDelay += aamp_GetCurrentTimeMS() - startTime;
-							lock.lock();
-							// Update buffer offset and reset chunkBoundary
-							// Note: bufferOffset = chunkBoundary (not +1) because CacheFragmentChunk
-							// processes bytes [bufferOffset, chunkBoundary), so chunkBoundary
-							// is the first byte of the next chunk (not yet processed)
-							context->bufferOffset = context->chunkBoundary;
-							context->chunkBoundary = 0;
+							const char *bufferPtr = context->buffer->GetPtr() + context->bufferOffset;
+							if (context->chunkBoundary > context->bufferOffset)
+							{
+								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
+								// Release PrivateInstanceAAMP mutex to unblock async APIs
+								lock.unlock();
+								AAMPLOG_DEBUG("[%d] Caching chunk with size %zu", context->mediaType, bufferLen);
+								long long startTime = aamp_GetCurrentTimeMS();
+								mCtx->CacheFragmentChunk(context->mediaType,
+														bufferPtr,
+														bufferLen,
+														context->remoteUrl,
+														context->downloadStartTime);
+								context->processDelay += aamp_GetCurrentTimeMS() - startTime;
+								lock.lock();
+								// Update buffer offset and reset chunkBoundary
+								// Note: bufferOffset = chunkBoundary (not +1) because CacheFragmentChunk
+								// processes bytes [bufferOffset, chunkBoundary), so chunkBoundary
+								// is the first byte of the next chunk (not yet processed)
+								context->bufferOffset = context->chunkBoundary;
+								context->chunkBoundary = 0;
+							}
+							else
+							{
+								AAMPLOG_ERR("Invalid chunk boundary offset %zu buffer offset %zu", context->chunkBoundary, context->bufferOffset);
+								ret = 0; // abort download
+								context->abortReason = eCURL_ABORT_REASON_INVALID_CHUNK_BOUNDARY;
+							}
 						}
 					}
 					else
@@ -3109,6 +3173,13 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
  */
 void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
+#ifdef USE_PREINIT_DECODING
+	if(mManifestUrl.compare(FAKE_TUNE_URL) == 0)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error for fake tune");
+		return;
+	}
+#endif
 	bool sendErrorEvent = false;
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	if(mState != eSTATE_ERROR)
@@ -3833,7 +3904,10 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(mManifestUrl != FAKE_TUNE_URL)
+	{
+		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
@@ -3861,7 +3935,10 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if(mManifestUrl != FAKE_TUNE_URL)
+	{
+		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
@@ -4360,6 +4437,30 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			context.buffer = buffer;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
 			context.mediaType = mediaType;
+			// Early abort and profile bps are relevant only for video fragments
+			if (mediaType == eMEDIATYPE_VIDEO)
+			{
+				if (TryStreamLock())
+				{
+					if (mpStreamAbstractionAAMP)
+					{
+						// No need to perform early abort for lowest profile fragment downloads
+						context.earlyAbortEnabled = !mpStreamAbstractionAAMP->IsCurrentProfileLowest();
+						context.profileBps = mpStreamAbstractionAAMP->GetVideoBitrate();
+					}
+					else
+					{
+						// Default values set in CurlCallbackContext constructor
+						AAMPLOG_WARN("StreamAbstractionAAMP is NULL");
+					}
+					ReleaseStreamLock();
+				}
+				else
+				{
+					// Default values set in CurlCallbackContext constructor
+					AAMPLOG_WARN("StreamLock not available to get early abort and profile bps");
+				}
+			}
 
 			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
 			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
@@ -4613,14 +4714,37 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 					if (mAampLLDashServiceData.lowLatencyMode &&
 						(http_code == 200 || http_code == 204 || http_code == 206) &&
+						!pipeline_paused &&
 						(context.chunkBoundary > 0) &&
 						(context.chunkBoundary < buffer->GetLen()))
 					{
-						// This is not expected.
+						// When pipeline paused, chunk injection will be paused, so the chunkBoundary will not match buffer length
+						// Otherwise, this is not expected.
 						// Buffer is already cached through CURL write callback for low latency and there is no course correction.
 						// Let's log here for awareness, as it's not clear if we should cache the extra data beyond chunk boundary.
 						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer->GetLen(), buffer->GetLen() - context.chunkBoundary);
 					}
+				}
+				else if (mAampLLDashServiceData.lowLatencyMode &&
+						res == CURLE_WRITE_ERROR &&
+						context.abortReason == eCURL_ABORT_REASON_FIRST_CHUNK_SLOW)
+				{
+					// Handling this differently to avoid loopAgain logic for slow first chunk case
+					// Marking as timeout to trigger ABR ramp down and also update bandwidth metrics.
+					AAMPLOG_INFO("Curl download aborted due to slow first chunk detection");
+					res = CURLE_OPERATION_TIMEDOUT;
+					http_code = res;
+				}
+				else if (mAampLLDashServiceData.lowLatencyMode &&
+						context.bufferOffset > 0 &&
+						(res == CURLE_OPERATION_TIMEDOUT || res == CURLE_PARTIAL_FILE))
+				{
+					// Download timed out in low latency chunk mode injection.
+					// Here we have injected some chunks already, so treat it as success to avoid rampdown and to update bandwidth metrics.
+					// Rampdown in this case, will cause video looping due to duplicate mp4 chunks with same timestamps
+					AAMPLOG_WARN("Curl download timed out in low latency mode after injecting chunks, treating as success to avoid rampdown");
+					res = CURLE_OK;
+					http_code = 206; // Partial content
 				}
 				else
 				{
@@ -4762,6 +4886,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
+				if (mAampLLDashServiceData.lowLatencyMode && http_code == 206 && mediaType == eMEDIATYPE_VIDEO)
+				{
+					// In low latency mode, this is treated as a successful partial download
+					// But log at warning level to indicate partial download
+					reqEndLogLevel = eLOGLEVEL_WARN;
+				}
 				// Store the CMCD data irrespective of logging level
 				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
 				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
@@ -4854,12 +4984,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
-				ABRManager::CurlAbortReason hybridabortReason = (ABRManager::CurlAbortReason) abortReason;
+				ABRManager::CurlAbortReason hybridAbortReason = (ABRManager::CurlAbortReason) abortReason;
 				if((buffer->GetLen() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
 					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
-					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->GetLen(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridabortReason);
+					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->GetLen(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
 						mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(mAbrBitrateData,downloadbps,false);
@@ -14212,7 +14342,6 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD);
-
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD); /* Use 3sec for fragment download timout for LLD */
 		mNetworkTimeoutMs  = (uint32_t) CONVERT_SEC_TO_MS(GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout));
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -14224,9 +14353,9 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		if(stLLServiceData != NULL)
 		{
 			int timeout = ceil(stLLServiceData->fragmentDuration); // workaround: round up 1.92s(float) to 2(int)
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,timeout);
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,timeout);
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,timeout);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout, timeout);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout, timeout);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout, timeout);
 		}
 		else
 		{
