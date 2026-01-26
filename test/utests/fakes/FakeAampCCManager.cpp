@@ -36,6 +36,11 @@ public:
 		{
 			result = g_mockPlayerCCManager->SetStatus(enable);
 		}
+		// Track mEnabled state to support GetStatus()
+		if (result == 0)
+		{
+			mEnabled = enable;
+		}
 		return result;
 	}
 
@@ -63,6 +68,15 @@ int PlayerCCManagerBase::Init(void *handle)
 }
 void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
+	if (g_mockPlayerCCManager)
+	{
+		g_mockPlayerCCManager->RestoreCC(shouldRestoreCC);
+	}
+	// Update mEnabled state as the real implementation does
+	if (!mEnabled && shouldRestoreCC)
+	{
+		mEnabled = shouldRestoreCC;
+	}
 }
 void PlayerCCManagerBase::Release(int iID)
 {

@@ -4009,6 +4009,77 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 }
 
+TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
+{
+	// Test that RestoreCC(true) is called when CC was enabled before tune
+	p_aamp->mIsInbandCC = true;
+
+	// Initial tune - SetStatus(false) is called in SetCCStatusInternal during TuneHelper
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// Enable CC after tune - SetStatus(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Now tune again (simulating a new content tune)
+	// The GetStatus() call should return true, and RestoreCC(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+}
+
+TEST_F(PrivAampTests,RestoreCCWhenCCWasDisabledBeforeTune)
+{
+	// Test that RestoreCC(false) is called when CC was disabled before tune
+	p_aamp->mIsInbandCC = true;
+
+	// Initial state - CC is disabled by default
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Call TuneHelper - SetStatus(false) is called first, then RestoreCC(false) should be called since CC is disabled
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+}
+
+TEST_F(PrivAampTests,RestoreCCDuringAdContentTransitionsWithNewTune)
+{
+	// Test that CC state is preserved across ad↔content transitions with newTune=true
+	p_aamp->mIsInbandCC = true;
+
+	// Initial tune (content) - SetStatus(false) is called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// Enable CC - SetStatus(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Transition to ad - SetStatus(false) and RestoreCC(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// CC should still be enabled after ad tune
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Transition back to content - SetStatus(false) and RestoreCC(true) should be called again
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// CC should still be enabled after returning to content
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+}
+
 TEST_F(PrivAampTests,NotifyAudioTracksChangedTest)
 {
 	p_aamp->NotifyAudioTracksChanged();
