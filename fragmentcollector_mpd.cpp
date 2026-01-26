@@ -3986,15 +3986,15 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth
 			if (mIsFogTSB)
 			{
 				vector<Representation *> representations = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-				for (auto representation : representations)
+				for (auto *representation : representations)
 				{
 					height =  representation->GetHeight();
-					if ( height > AAMP_FHD_HEIGHT)
+					if (!Stream4k && height > AAMP_FHD_HEIGHT)
 					{
 						bandwidth = representation->GetBandwidth();
 						Stream4k = true;
-						break;
 					}
+					SAFE_DELETE(representation);
 				}
 			}
 			else
@@ -14069,13 +14069,14 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 							else
 							{
 								// Get init fragments from AvailableBitrates node
-								for (auto rep : reprFromAvailableBitrates)
+								for (auto *rep : reprFromAvailableBitrates)
 								{
 									URIInfo fogUriInfo;
 									fragmentDescriptor->Bandwidth = rep->GetBandwidth();
 									// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
 									ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
 									uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+									SAFE_DELETE(rep);
 								}
 								break; // No need to process further representations for fog TSB init fragments
 							}
