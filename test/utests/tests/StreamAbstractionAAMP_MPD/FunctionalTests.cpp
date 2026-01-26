@@ -367,9 +367,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
 
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(false));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
-
 
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &FunctionalTestsBase::GetManifestForMPDDownloader)));
