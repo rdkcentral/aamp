@@ -14058,15 +14058,27 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 							// Separate handling for fog TSB init fragments
 							// For fog TSB, we need to fetch init fragments from available bitrates
 							auto reprFromAvailableBitrates = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-							for (auto rep : reprFromAvailableBitrates)
+							if (reprFromAvailableBitrates.empty())
 							{
-								URIInfo fogUriInfo;
-								fragmentDescriptor->Bandwidth = rep->GetBandwidth();
-								// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
-								ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
-								uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+								// Ad playing from CDN, use representation's bandwidth
+								AAMPLOG_DEBUG("FOG_AD: No available bitrates found for init fragment");
+								ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(urlTemplate), aamp->mConfig);
+								uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+								continue;
 							}
-							break; // No need to process further representations for fog TSB init fragments
+							else
+							{
+								// Get init fragments from AvailableBitrates node
+								for (auto rep : reprFromAvailableBitrates)
+								{
+									URIInfo fogUriInfo;
+									fragmentDescriptor->Bandwidth = rep->GetBandwidth();
+									// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
+									ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
+									uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+								}
+								break; // No need to process further representations for fog TSB init fragments
+							}
 						}
 						else
 						{

@@ -157,6 +157,11 @@ protected:
 		{
 			InitializeWorkers();
 		}
+
+		void SetIsFogTSB(bool value)
+		{
+			mIsFogTSB = value;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -1074,6 +1079,113 @@ TEST_F(FetcherLoopTests, GenerateFragmentURLListVideoOnly)
 	EXPECT_NE(initUriList.find(800000), initUriList.end());
 	const auto& initUrl = initUriList[800000].url;
 	EXPECT_TRUE(initUrl.find("video_p0_init.mp4") != std::string::npos);
+}
+
+/**
+ * @brief GenerateFragmentURLList tests.
+ *
+ * The test verifies the GenerateFragmentURLList method behavior for a fog TSB
+ * scenario spanning two periods:
+ * - Period p0 contains a custom AvailableBitrates node.
+ * - Period p1 contains normal representations (ad playing from CDN), with no
+ *   AvailableBitrates node.
+ *
+ * Expected behavior:
+ * - For p0 init fragment generation, URLs are generated keyed by the
+ *   AvailableBitrates bandwidths.
+ * - For p1 init fragment generation, URLs are generated keyed by the
+ *   representation bandwidths.
+ */
+TEST_F(FetcherLoopTests, GenerateFragmentURLListFogPlayingAdFromCDN)
+{
+	static const char *fogTwoPeriodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+			<Period id="p0" start="PT0S">
+				<AdaptationSet id="0" contentType="video">
+					<AvailableBitrates>
+						<Representation bandwidth="400000" width="640" height="360" />
+						<Representation bandwidth="1200000" width="1280" height="720" />
+					</AvailableBitrates>
+					<Representation id="fog_video" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="fog_p0_init.mp4" media="fog_p0_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="1" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+			<Period id="p1" start="PT10S">
+				<AdaptationSet id="1" contentType="video">
+					<Representation id="cdn_low" mimeType="video/mp4" codecs="avc1.640028" bandwidth="700000" width="640" height="360" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="cdn_p1_low_init.mp4" media="cdn_p1_low_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="1" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+					<Representation id="cdn_high" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1400000" width="1280" height="720" frameRate="25">
+						<SegmentTemplate timescale="2500" initialization="cdn_p1_high_init.mp4" media="cdn_p1_high_$Number$.m4s" startNumber="1">
+							<SegmentTimeline>
+								<S t="0" d="5000" r="1" />
+							</SegmentTimeline>
+						</SegmentTemplate>
+					</Representation>
+				</AdaptationSet>
+			</Period>
+		</MPD>
+		)";
+
+	AAMPStatusType status;
+
+	/* Allow Init() to cache any init fragments. */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(fogTwoPeriodManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(videoTrack, nullptr);
+
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	ASSERT_NE(pVideoContext, nullptr);
+
+	pVideoContext->fragmentDescriptor.Number = 1;
+	pVideoContext->fragmentDescriptor.Time = 0;
+	pVideoContext->fragmentDescriptor.TimeScale = 2500;
+
+	/* Enable fog TSB path. */
+	mTestableStreamAbstractionAAMP_MPD->SetIsFogTSB(true);
+
+	/* Period p0: AvailableBitrates present -> keyed by AvailableBitrates bandwidths. */
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriod()->GetId(), std::string("p0"));
+	URLBitrateMap initUriListP0;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(initUriListP0, pVideoContext, true);
+
+	EXPECT_EQ(initUriListP0.size(), 2);
+	EXPECT_NE(initUriListP0.find(400000), initUriListP0.end());
+	EXPECT_NE(initUriListP0.find(1200000), initUriListP0.end());
+	EXPECT_EQ(initUriListP0.find(800000), initUriListP0.end());
+	EXPECT_TRUE(initUriListP0[400000].url.find("fog_p0_init.mp4") != std::string::npos);
+	EXPECT_TRUE(initUriListP0[1200000].url.find("fog_p0_init.mp4") != std::string::npos);
+
+	/* Period p1: no AvailableBitrates -> keyed by representation bandwidths. */
+	mTestableStreamAbstractionAAMP_MPD->IncrementCurrentPeriodIdx();
+	mTestableStreamAbstractionAAMP_MPD->SetCurrentPeriod(mTestableStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriod()->GetId(), std::string("p1"));
+	URLBitrateMap initUriListP1;
+	mTestableStreamAbstractionAAMP_MPD->GenerateFragmentURLList(initUriListP1, pVideoContext, true);
+
+	EXPECT_EQ(initUriListP1.size(), 2);
+	EXPECT_NE(initUriListP1.find(700000), initUriListP1.end());
+	EXPECT_NE(initUriListP1.find(1400000), initUriListP1.end());
+	EXPECT_TRUE(initUriListP1[700000].url.find("cdn_p1_low_init.mp4") != std::string::npos);
+	EXPECT_TRUE(initUriListP1[1400000].url.find("cdn_p1_high_init.mp4") != std::string::npos);
 }
 
 /**
