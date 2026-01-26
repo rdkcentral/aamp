@@ -401,6 +401,14 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 	return false;
 }
 
+void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->SetIsAtLivePoint(isAtLivePoint);
+	}
+}
+
 CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
 	if (g_mockMediaTrack != nullptr)
