@@ -121,6 +121,10 @@ public:
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
+
+	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
+
+	MOCK_METHOD(void, SetIsAtLivePoint, (bool isAtLivePoint));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

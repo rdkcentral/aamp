@@ -3505,8 +3505,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 					aamp->SetLLDashAdjustSpeed(true);
 				}
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
+				mIsAtLivePoint = true;
 			}
-			mIsAtLivePoint = true;
 			aamp->NotifyOnEnteringLive();
 		}
 
