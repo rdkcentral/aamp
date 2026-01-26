@@ -126,6 +126,7 @@ public:
 			this->mCachedFragment = new CachedFragment[3];
 			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
 		}
+		cachFragment->timeScale = 1;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
@@ -358,8 +359,6 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 							  SetArgReferee<6>(duration),
 							  Return(true)));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
-		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
