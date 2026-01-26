@@ -106,8 +106,6 @@ protected:
 
 	void TearDown() override
 	{
-		g_mockPlayerCCManager.reset();
-
 		delete g_MockPrivateCDAIObjectMPD;
 		g_MockPrivateCDAIObjectMPD = nullptr;
 		
@@ -151,6 +149,9 @@ protected:
 
 		delete p_aamp;
 		p_aamp = nullptr;
+
+		PlayerCCManager::DestroyInstance();
+		g_mockPlayerCCManager.reset();
 
 		delete config;
 		config = nullptr;
@@ -4025,8 +4026,9 @@ TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
 	// Now tune again (simulating a new content tune)
-	// The GetStatus() call should return true, and RestoreCC(true) should be called
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	// RestoreCC(true) should be called based on the tracked state
+	// SetCCStatusInternal is called during tune setup which calls SetStatus(true)
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 }
@@ -4063,16 +4065,16 @@ TEST_F(PrivAampTests,RestoreCCDuringAdContentTransitionsWithNewTune)
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Transition to ad - SetStatus(false) and RestoreCC(true) should be called
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	// Transition to ad - SetStatus(true) and RestoreCC(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(1);
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	
 	// CC should still be enabled after ad tune
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Transition back to content - SetStatus(false) and RestoreCC(true) should be called again
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	// Transition back to content - SetStatus(true) and RestoreCC(true) should be called again
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(1);
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	

@@ -29,6 +29,12 @@ std::shared_ptr<MockPlayerCCManager> g_mockPlayerCCManager{};
 class TestPlayerCCManager : public PlayerCCManagerBase
 {
 public:
+	TestPlayerCCManager() : PlayerCCManagerBase()
+	{
+		// Initialize mEnabled to false
+		mEnabled = false;
+	}
+
 	int SetStatus(bool enable) override
 	{
 		int result = 0;
@@ -126,6 +132,7 @@ int PlayerCCManagerBase::SetAnalogChannel(unsigned int id)
 void PlayerCCManager::DestroyInstance()
 {
 	delete mInstance;
+	mInstance = nullptr;
 }
 
 void PlayerCCManager::SetRialto(bool state)
