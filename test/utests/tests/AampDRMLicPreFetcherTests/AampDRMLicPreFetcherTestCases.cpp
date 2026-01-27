@@ -318,7 +318,6 @@ TEST_F(AampDRMLicPreFetcherTests, Term_WithQueuedItems_ClearsQueue)
 	EXPECT_CALL(*g_mockDRMSessionManager, IsKeyIdProcessed(_, _))
 		.Times(1)
 		.WillOnce(Return(false));
-
 	// Queue content protection to populate the queue
 	mTestablePreFetcher->QueueContentProtection(drmHelper, "period1", 0, eMEDIATYPE_VIDEO, false);
 

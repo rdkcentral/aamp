@@ -3146,8 +3146,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 					aamp->SetLLDashAdjustSpeed(true);
 				}
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
+				mIsAtLivePoint = true;
 			}
-			mIsAtLivePoint = true;
 			aamp->NotifyOnEnteringLive();
 		}
 
@@ -3826,10 +3826,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				//The default fragment time has been updated to an absolute time format. Therefore,
 				//the periodStartOffset should now be relative to the Availability Start Time.
 				mMediaStreamContext[i]->periodStartOffset = mPeriodStartTime;
-				if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0)
+				if (mCdaiObject != nullptr &&mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0)
 				{
 					//Ensuring basePeriodOffset has the proper value
-					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != -1)
+					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
 					{
 						/*When multiple DAI ads are mapped to a single source period, the periodStartOffset
 						needs to be updated with the basePeriodOffset for each ad. Otherwise,
@@ -3986,15 +3986,15 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth
 			if (mIsFogTSB)
 			{
 				vector<Representation *> representations = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-				for (auto representation : representations)
+				for (auto *representation : representations)
 				{
 					height =  representation->GetHeight();
-					if ( height > AAMP_FHD_HEIGHT)
+					if (!Stream4k && height > AAMP_FHD_HEIGHT)
 					{
 						bandwidth = representation->GetBandwidth();
 						Stream4k = true;
-						break;
 					}
+					SAFE_DELETE(representation);
 				}
 			}
 			else
@@ -7681,17 +7681,17 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
 				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
-				if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 )
+				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 
+					&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Make sure basePeriodOffset is updated
-					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != -1)
+					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
 					{
 						//Set the period start back to the beginning of the base period and then add basePeriodOffset
 						//to get the start for this AD
 						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
 						// convert to seconds, standard implicit conversion
 						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
-
 						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf mAbsoluteAdBreakStartTime %f",
 							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime,
 							absoluteAdBreakStartTime);
@@ -8896,6 +8896,12 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	AampTime timelineStart;
 	AampTime duration;
 
+	if (!mCurrentPeriod)
+	{
+		AAMPLOG_ERR("No current period");
+		return;
+	}
+
 	IPeriod *period = mCurrentPeriod;
 	GetStartAndDurationForPtsRestamping(timelineStart, duration);
 
@@ -9349,10 +9355,9 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Not updating mFirstPTS TimeScale(0) or mSeekedInPeriod(%d)", mSeekedInPeriod);
 					}
 					mSeekedInPeriod = false;
-					double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
-					if ((startTime != 0) && !aamp->IsUninterruptedTSB())
+					if (!aamp->IsUninterruptedTSB())
 					{
-						mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000;
+						UpdateStartTimeOfFirstPTS();
 					}
 				}
 				else if (nextSegmentTime != segmentStartTime || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
@@ -9363,10 +9368,9 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
 						mIsFinalFirstPTS = true;
 					}
-					double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
-					if ((startTime != 0) && !mIsFogTSB)
+					if (!mIsFogTSB)
 					{
-						mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000;
+						UpdateStartTimeOfFirstPTS();
 					}
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 				}
@@ -9389,6 +9393,34 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 		}
 	}
 	FetchAndInjectInitFragments(discontinuity);
+}
+
+/**
+ * @brief Update the start time of first PTS
+ */
+void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
+{
+	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
+	if (startTime != 0)
+	{
+		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
+		if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0
+	 		&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
+		{
+			if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
+			{
+				//Set the period start back to the beginning of the base period and then add basePeriodOffset
+				// to get the start for this AD (calculate directly in milliseconds)
+				mStartTimeOfFirstPTS = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds() * 1000.0 + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset;
+				AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms basePeriodOffset=%d",
+							 mStartTimeOfFirstPTS, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset);
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("skipping adPeriodOffset; using mStartTimeOfFirstPTS as %.0f ms", mStartTimeOfFirstPTS);
+		}
+	}
 }
 
 /**
@@ -12077,7 +12109,7 @@ void StreamAbstractionAAMP_MPD::SendAdPlacementEvent(AAMPEventType type, const s
 		}
 		else
 		{
-			AAMPLOG_ERR("[CDAI]: Unrecognised type %d", type);
+			AAMPLOG_ERR("[CDAI]: Unrecognized type %d", type);
 		}
 		if (sendImmediate)
 		{
@@ -13875,16 +13907,13 @@ void StreamAbstractionAAMP_MPD::InitializeWorkers()
  */
 void StreamAbstractionAAMP_MPD::ClearWorkers()
 {
-	if (!aamp->GetAampTrackWorkerManager()->IsEmpty())
+	try
 	{
-		try
-		{
-			aamp->GetAampTrackWorkerManager()->RemoveWorkers();
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Exception caught in ClearWorkers: %s", e.what());
-		}
+		aamp->GetAampTrackWorkerManager()->RemoveWorkers();
+	}
+	catch (const std::exception &e)
+	{
+		AAMPLOG_ERR("Exception caught in ClearWorkers: %s", e.what());
 	}
 }
 
@@ -14029,15 +14058,28 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 							// Separate handling for fog TSB init fragments
 							// For fog TSB, we need to fetch init fragments from available bitrates
 							auto reprFromAvailableBitrates = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-							for (auto rep : reprFromAvailableBitrates)
+							if (reprFromAvailableBitrates.empty())
 							{
-								URIInfo fogUriInfo;
-								fragmentDescriptor->Bandwidth = rep->GetBandwidth();
-								// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
-								ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
-								uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+								// Ad playing from CDN, use representation's bandwidth
+								AAMPLOG_DEBUG("FOG_AD: No available bitrates found for init fragment");
+								ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(urlTemplate), aamp->mConfig);
+								uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+								continue;
 							}
-							break; // No need to process further representations for fog TSB init fragments
+							else
+							{
+								// Get init fragments from AvailableBitrates node
+								for (auto *rep : reprFromAvailableBitrates)
+								{
+									URIInfo fogUriInfo;
+									fragmentDescriptor->Bandwidth = rep->GetBandwidth();
+									// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
+									ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
+									uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+									SAFE_DELETE(rep);
+								}
+								break; // No need to process further representations for fog TSB init fragments
+							}
 						}
 						else
 						{

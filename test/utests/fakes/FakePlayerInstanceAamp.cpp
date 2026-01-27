@@ -127,7 +127,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
 	void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList) {  }
-	void PlayerInstanceAAMP::SetPreferredLabels(const char *lableList) {  }
+	void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList) {  }
 	void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList) {  }
 	void PlayerInstanceAAMP::SetTuneEventConfig(int tuneEventType) {  }
 	void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty) {  }
