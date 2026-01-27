@@ -194,14 +194,6 @@ struct gst_media_stream
 	gst_media_stream &operator=(const gst_media_stream &) = delete;
 };
 
-struct MonitorAVState
-{
-	long long tLastReported;
-	long long tLastSampled;
-	const char *description;
-	gint64 av_position[2];
-	bool happy;
-};
 /**
  * @struct GstPlayerPriv
  * @brief Holds private variables of InterfacePlayerRDK

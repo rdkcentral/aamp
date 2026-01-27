@@ -31,7 +31,7 @@
 #include <stddef.h>
 #include <functional>
 #include <gst/gst.h>
-#include "InterfacePlayerRDK.h"
+#include "InterfacePlayerPriv.h"
 
 /**
  * @struct AAMPGstPlayerPriv
