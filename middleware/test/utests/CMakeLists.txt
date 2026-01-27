@@ -43,6 +43,9 @@ if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${JSCORE_INCLUDE_DIRS} REQUIRED)
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")
 if(NOT CMAKE_SYSTEM_NAME MATCHES "Linux")
   add_compile_options(-fsanitize=address)
