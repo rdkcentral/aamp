@@ -85,6 +85,10 @@ public:
 protected:
 	void SetUp() override
 	{
+		// Ensure PlayerCCManager starts in a clean state for each test
+		// This prevents order-dependent failures where mEnabled state persists
+		PlayerCCManager::DestroyInstance();
+
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
@@ -106,8 +110,6 @@ protected:
 
 	void TearDown() override
 	{
-		g_mockPlayerCCManager.reset();
-
 		delete g_MockPrivateCDAIObjectMPD;
 		g_MockPrivateCDAIObjectMPD = nullptr;
 		
@@ -151,6 +153,9 @@ protected:
 
 		delete p_aamp;
 		p_aamp = nullptr;
+
+		PlayerCCManager::DestroyInstance();
+		g_mockPlayerCCManager.reset();
 
 		delete config;
 		config = nullptr;
@@ -4006,6 +4011,78 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 	// and SetStatus(true) is called since we are now tuned and stored CC status is true
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+}
+
+TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
+{
+	// Test that RestoreCC(true) is called when CC was enabled before tune
+	p_aamp->mIsInbandCC = true;
+
+	// Initial tune - SetStatus(false) is called in SetCCStatusInternal during TuneHelper
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// Enable CC after tune - SetStatus(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Now tune again (simulating a new content tune)
+	// RestoreCC(true) should be called based on the tracked state
+	// SetCCStatusInternal is called during tune setup which calls SetStatus(true)
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+}
+
+TEST_F(PrivAampTests,RestoreCCWhenCCWasDisabledBeforeTune)
+{
+	// Test that RestoreCC(false) is called when CC was disabled before tune
+	p_aamp->mIsInbandCC = true;
+
+	// Initial state - CC is disabled by default
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Call TuneHelper - SetStatus(false) is called first, then RestoreCC(false) should be called since CC is disabled
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+}
+
+TEST_F(PrivAampTests,RestoreCCPreservesStateAcrossMultipleTunes)
+{
+	// Test that CC state is preserved and RestoreCC is called on consecutive tunes
+	p_aamp->mIsInbandCC = true;
+
+	// Initial tune - SetStatus(false) is called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// Enable CC - SetStatus(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Second tune - SetStatus(true) and RestoreCC(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// CC should still be enabled after second tune
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Third tune - SetStatus(true) and RestoreCC(true) should be called again
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// CC should still be enabled after third tune
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 }
 
