@@ -539,6 +539,7 @@ Track::Track() : queue(new std::queue<class TrackEvent *>), needsData(), gstream
 
 Track::~Track()
 {
+	Flush(); // Clean up all queued events first to prevent memory leaks
 	delete queue;
 }
 
