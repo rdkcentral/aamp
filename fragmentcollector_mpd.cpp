@@ -3369,7 +3369,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		for (unsigned iPeriod = 0; iPeriod < numPeriods; iPeriod++)
 		{//TODO -  test with streams having multiple periods.
 			IPeriod *period = mpd->GetPeriods().at(iPeriod);
-			if(mMPDParseHelper->IsEmptyPeriod(iPeriod, (currentRate != AAMP_NORMAL_PLAY_RATE)))
+			if(IsEmptyPeriod(iPeriod))
 			{
 				// Empty Period . Ignore processing, continue to next.
 				continue;
@@ -3478,11 +3478,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			segmentTagsPresent = false;
 			for(int iPeriod = 0; iPeriod < numPeriods; iPeriod++)
 			{
-				if(mMPDParseHelper->IsEmptyPeriod(iPeriod, (currentRate != AAMP_NORMAL_PLAY_RATE)))
+				if(IsEmptyPeriod(iPeriod))
 				{
 					continue;
 				}
-				durationMs += mMPDParseHelper->GetPeriodDuration(iPeriod,mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				durationMs += mMPDParseHelper->GetPeriodDuration(iPeriod,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 			}
 			AAMPLOG_WARN("Duration after adding up Period Duration %" PRIu64 " seconds", durationMs/1000);
 		}
@@ -3554,7 +3554,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				while( mCurrentPeriodIdx>0 )
 				{
 					mCurrentPeriodIdx--;
-					if( !mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (currentRate != AAMP_NORMAL_PLAY_RATE)))
+					if( !IsEmptyPeriod(mCurrentPeriodIdx))
 					{ // found last non-empty period
 						break;
 					}
@@ -3564,18 +3564,18 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				{
 					if(segmentTagsPresent)
 					{
-						duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())) / 1000;
+						duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB())) / 1000;
 						currentPeriodStart = ((double)durationMs / 1000) - duration;
 						offsetFromStart = duration - aamp->mLiveOffset;
 						while(offsetFromStart < 0 && mCurrentPeriodIdx > 0)
 						{
 							AAMPLOG_INFO("Adjusting to live offset offsetFromStart %f, mCurrentPeriodIdx %d", offsetFromStart, mCurrentPeriodIdx);
 							mCurrentPeriodIdx--;
-							while((mCurrentPeriodIdx > 0) && (mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (currentRate != AAMP_NORMAL_PLAY_RATE))))
+							while((mCurrentPeriodIdx > 0) && (IsEmptyPeriod(mCurrentPeriodIdx)))
 							{
 								mCurrentPeriodIdx--;
 							}
-							duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())) / 1000;
+							duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB())) / 1000;
 							currentPeriodStart = currentPeriodStart - duration;
 							offsetFromStart = offsetFromStart + duration;
 						}
@@ -3596,12 +3596,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						currentPeriodStart = ((double)durationMs / 1000);
 						while(mCurrentPeriodIdx >= 0)
 						{
-							while((mCurrentPeriodIdx > 0) && (mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (currentRate != AAMP_NORMAL_PLAY_RATE))))
+							while((mCurrentPeriodIdx > 0) && (IsEmptyPeriod(mCurrentPeriodIdx)))
 							{
 								mCurrentPeriodIdx--;
 							}
 							mPeriodStartTime =  mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
-							duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB())) / 1000;
+							duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB())) / 1000;
 							currentPeriodStart -= duration;
 							if(mPeriodStartTime < startTime)
 							{
@@ -3663,8 +3663,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 		mPeriodStartTime =  mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
-		mPeriodDuration =  mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
-		mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+		mPeriodDuration =  mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
+		mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 		int periodCnt = numPeriods;
 		if(mCurrentPeriodIdx < periodCnt)
 		{
@@ -3750,9 +3750,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				double durMs = 0;
 				for(int periodIter = 0; periodIter < numPeriods; periodIter++)
 				{
-					if(!mMPDParseHelper->IsEmptyPeriod(periodIter, (currentRate != AAMP_NORMAL_PLAY_RATE)))
+					if(!IsEmptyPeriod(periodIter))
 					{
-						durMs += mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(currentRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+						durMs += mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 					}
 				}
 
@@ -4079,7 +4079,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 			mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 		}
 		std::vector<IPeriod*> availablePeriods = mpd->GetPeriods();
-		mMPDParseHelper->UpdateBoundaryPeriod(mPlayRate != AAMP_NORMAL_PLAY_RATE);
+		mMPDParseHelper->UpdateBoundaryPeriod(ShouldCheckOnlyIframeAdaptation());
 		// Update Track Information based on flag
 		if (updateTrackInfo)
 		{
@@ -4128,9 +4128,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 					UpdateCulledAndDurationFromPeriodInfo(currMPDPeriodDetails);
 				}
 
-				mPeriodEndTime   = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				mPeriodEndTime   = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 				mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
-				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 
 				double duration = durMs /(double)1000;
 				mLiveEndPosition = duration + mCulledSeconds;
@@ -4440,7 +4440,7 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 		}
 		if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), FOG_INSERTED_PERIOD_ID_PREFIX))
 		{
-			if(mMPDParseHelper->IsEmptyPeriod(i, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+			if(IsEmptyPeriod(i))
 			{
 				// Empty period indicates that the gap is growing, report event without duration
 				aamp->ReportContentGap((long long)(prevPeriodEndMs - (aamp->mProgressReportOffset*1000)), tempPeriod->GetId());
@@ -4462,7 +4462,7 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 			double periodGapMS = (curPeriodStartMs - prevPeriodEndMs);
 			aamp->ReportContentGap((long long)(prevPeriodEndMs - (aamp->mProgressReportOffset*1000)), tempPeriod->GetId(), periodGapMS);
 		}
-		if(mMPDParseHelper->IsEmptyPeriod(i, (mPlayRate != AAMP_NORMAL_PLAY_RATE))) continue;
+		if(IsEmptyPeriod(i)) continue;
 		double periodDuration = mMPDParseHelper->aamp_GetPeriodDuration(i, mLastPlaylistDownloadTimeMs);
 		prevPeriodEndMs = curPeriodStartMs + periodDuration;
 	}
@@ -6498,7 +6498,7 @@ void StreamAbstractionAAMP_MPD::UpdateSeekPeriodOffset( double &offsetFromStart 
 	for (unsigned iPeriod = 0; iPeriod < numPeriods; iPeriod++)
 	{
 		IPeriod *period = mpd->GetPeriods().at(iPeriod);
-		if(mMPDParseHelper->IsEmptyPeriod(iPeriod, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+		if(IsEmptyPeriod(iPeriod))
 		{
 			// Empty Period . Ignore processing, continue to next.
 			continue;
@@ -7185,7 +7185,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						if(representation != NULL)
 						{
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
-							mStreamInfo[idx].isIframeTrack = !(AAMP_NORMAL_PLAY_RATE == mPlayRate);
+							mStreamInfo[idx].isIframeTrack = ShouldCheckOnlyIframeAdaptation();
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
 							mStreamInfo[idx].resolution.width = representation->GetWidth();
 							mStreamInfo[idx].resolution.framerate = 0;
@@ -7324,7 +7324,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							IRepresentation *representation = representations.at(reprIdx);
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
-							mStreamInfo[idx].isIframeTrack = !(AAMP_NORMAL_PLAY_RATE == mPlayRate);
+							mStreamInfo[idx].isIframeTrack = ShouldCheckOnlyIframeAdaptation();
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
 							mStreamInfo[idx].resolution.width = representation->GetWidth();
 							mStreamInfo[idx].resolution.framerate = 0;
@@ -7674,9 +7674,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if(periodChanged)
 			{
 				//update period start and endtimes as period has changed.
-				mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 				mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
-				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
@@ -8081,7 +8081,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 	unsigned numPeriods	=	 (unsigned)mMPDParseHelper->GetNumberOfPeriods();
 	for (unsigned iPeriod = 0; iPeriod < numPeriods; iPeriod++)
 	{
-		if(!mMPDParseHelper->IsEmptyPeriod((int)iPeriod, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+		if(!IsEmptyPeriod((int)iPeriod))
 		{
 			firstPeriod = mpd->GetPeriods().at(iPeriod);
 			firstPeriodIdx = iPeriod;
@@ -8093,7 +8093,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		int lastPeriodIdx = (int)numPeriods - 1;
 		for(int iPeriod = (int)numPeriods - 1 ; iPeriod >= 0; iPeriod--)
 		{
-			if(mMPDParseHelper->IsEmptyPeriod((int)iPeriod, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+			if(IsEmptyPeriod((int)iPeriod))
 			{
 				// Empty Period . Ignore processing, continue to next.
 				continue;
@@ -8155,7 +8155,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			mCulledSeconds = firstPeriodStart;
 		}
 		
-		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
+		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB()) / 1000.00);
 		
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
@@ -8169,7 +8169,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			while (iter < aamp->mMPDPeriodsInfo.size())
 			{
 				PeriodInfo periodInfo = currMPDPeriodDetails.at(iter);
-				if(!mMPDParseHelper->IsEmptyPeriod(iter, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				if(!IsEmptyPeriod(iter))
 				{
 					aamp->mAbsoluteEndPosition += (periodInfo.duration / 1000.0);
 				}
@@ -9012,13 +9012,13 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				vector<IAdaptationSet *> adaptationSets = newPeriod->GetAdaptationSets();
 				int adaptationSetCount = (int)adaptationSets.size();
 				// skip tiny periods (used for audio codec changes) as workaround for soc-specific issue
-				if (0 == adaptationSetCount || (mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (mPlayRate != AAMP_NORMAL_PLAY_RATE))) ||
-					(mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) < THRESHOLD_TOIGNORE_TINYPERIOD))
+				if (0 == adaptationSetCount || (IsEmptyPeriod(mIterPeriodIndex)) ||
+					(mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) < THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
 					/*To Handle non fog scenarios where empty periods are
 					* present after mpd update causing issues
 					*/
-					AAMPLOG_INFO("Period %s skipped. Adaptation size:%d, isEmpty:%d duration %f (ms)", newPeriod->GetId().c_str(), adaptationSetCount, mMPDParseHelper->IsEmptyPeriod(mIterPeriodIndex, (mPlayRate != AAMP_NORMAL_PLAY_RATE)), (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB())));
+					AAMPLOG_INFO("Period %s skipped. Adaptation size:%d, isEmpty:%d duration %f (ms)", newPeriod->GetId().c_str(), adaptationSetCount, IsEmptyPeriod(mIterPeriodIndex), (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB())));
 					mIterPeriodIndex += (mPlayRate < AAMP_RATE_PAUSE) ? -1 : 1;
 					// Skipping period completely, so exit from period selection
 					ret = false;
@@ -9028,12 +9028,12 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// This is bit controversial to simplify setting of mBasePeriodOffset.
 				// But on a period change, would expect the periodOffset to align to either start or end of new period
 				// This could have some regressions, need to test thoroughly
-				mBasePeriodOffset = (mPlayRate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) / 1000.00);
+				mBasePeriodOffset = (mPlayRate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) / 1000.00);
 
 				// Update period gaps for playback stats
 				if (mIsLiveStream)
 				{
-					double periodGap = (mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) - mMPDParseHelper->GetPeriodStartTime(mIterPeriodIndex, mLastPlaylistDownloadTimeMs)) * 1000;
+					double periodGap = (mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) - mMPDParseHelper->GetPeriodStartTime(mIterPeriodIndex, mLastPlaylistDownloadTimeMs)) * 1000;
 					if (periodGap > 0)
 					{
 						// for livestream, period gaps are updated as playback progresses through the periods
@@ -9071,7 +9071,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						mCurrentPeriodIdx = GetValidPeriodIdx(mIterPeriodIndex);
 						mIterPeriodIndex = mCurrentPeriodIdx;
 						mBasePeriodId = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId();
-						if (mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+						if (IsEmptyPeriod(mCurrentPeriodIdx))
 						{
 							AAMPLOG_WARN("Empty period(%s) at the end of manifest BasePeriodId (%s)", mpd->GetPeriods().at(mCurrentPeriodIdx)->GetId().c_str(), mpd->GetPeriods().at(mIterPeriodIndex)->GetId().c_str());
 						}
@@ -9079,7 +9079,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					}
 				}
 				// Set the period offset to the boundaries of new period after ad playback
-				mBasePeriodOffset = (mPlayRate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) / 1000.00);
+				mBasePeriodOffset = (mPlayRate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) / 1000.00);
 
 				{
 					std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
@@ -9120,7 +9120,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 
 				/*If next period is empty, period ID change is not processed.
 				Will check the period change for the same period in the next iteration.*/
-				if ((adaptationSetCount > 0 || !(mMPDParseHelper->IsEmptyPeriod(mCurrentPeriodIdx, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
+				if ((adaptationSetCount > 0 || !(IsEmptyPeriod(mCurrentPeriodIdx))) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
 					AAMPLOG_MIL("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 					currentPeriodId = mCurrentPeriod->GetId();
@@ -9967,7 +9967,7 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 		IPeriod *tempPeriod	=	PeriodIds.at(periodIter);
 		if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX))
 		{
-			if((1 == tempPeriod->GetAdaptationSets().size()) && mMPDParseHelper->IsEmptyPeriod(periodIter, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+			if((1 == tempPeriod->GetAdaptationSets().size()) && IsEmptyPeriod(periodIter))
 			{
 				if(std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), tempPeriod->GetId()) == mEarlyAvailablePeriodIds.end())
 				{
@@ -11571,7 +11571,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	int basePeriodIdx = mMPDParseHelper->getPeriodIdx(mBasePeriodId);
 	if(basePeriodIdx != -1)
 	{
-		if(mMPDParseHelper->IsEmptyPeriod(basePeriodIdx, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+		if(IsEmptyPeriod(basePeriodIdx))
 		{
 			AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
 			return false;
@@ -13301,7 +13301,7 @@ bool StreamAbstractionAAMP_MPD::GetLowLatencyParams(const MPD* mpd,AampLLDashSer
 			IPeriod *period = mpd->GetPeriods().at(iPeriod);
 			if(NULL != period )
 			{
-				if(mMPDParseHelper->IsEmptyPeriod((int)iPeriod, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				if(IsEmptyPeriod((int)iPeriod))
 				{
 					// Empty Period . Ignore processing, continue to next.
 					continue;
@@ -13717,8 +13717,8 @@ void StreamAbstractionAAMP_MPD::setNextRangeRequest(std::string fragmentUrl,std:
 int StreamAbstractionAAMP_MPD::GetValidPeriodIdx(int periodIdx)
 {
 	int periodIter = periodIdx;
-	bool isPeriodEmpty = mMPDParseHelper->IsEmptyPeriod(periodIter, (mPlayRate != AAMP_NORMAL_PLAY_RATE));
-	double periodDuration = mMPDParseHelper->GetPeriodDuration(periodIter, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+	bool isPeriodEmpty = IsEmptyPeriod(periodIter);
+	double periodDuration = mMPDParseHelper->GetPeriodDuration(periodIter, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
 	if (!isPeriodEmpty && periodDuration >= THRESHOLD_TOIGNORE_TINYPERIOD)
 	{
 		AAMPLOG_WARN("[CDAI] Landed at period (%s) periodIdx: %d duration(ms):%f",mpd->GetPeriods().at(periodIter)->GetId().c_str(), periodIter, periodDuration);
@@ -13736,8 +13736,8 @@ int StreamAbstractionAAMP_MPD::GetValidPeriodIdx(int periodIdx)
 		while((periodIter < mNumberOfPeriods) && (periodIter >= 0))
 		{
 			//Is empty/tiny period followed by another empty or tiny period
-			if ((!mMPDParseHelper->IsEmptyPeriod(periodIter, (mPlayRate != AAMP_NORMAL_PLAY_RATE))) &&
-				(mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
+			if ((!IsEmptyPeriod(periodIter)) &&
+				(mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 			{
 				AAMPLOG_WARN("[CDAI] valid period(%s) after non-empty period(%s) found at index (%d)",
 							mpd->GetPeriods().at(periodIter)->GetId().c_str(), mpd->GetPeriods().at(periodIdx)->GetId().c_str(), periodIter);
@@ -13805,13 +13805,13 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		auto period = periods.at(iter);
 		PeriodInfo periodInfo;
 		periodInfo.periodId = period->GetId();
-		periodInfo.duration = mMPDParseHelper->GetPeriodDuration(iter,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+		periodInfo.duration = mMPDParseHelper->GetPeriodDuration(iter,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
 		periodInfo.startTime = mMPDParseHelper->GetFirstSegmentStartTime(period);
 		periodInfo.timeScale = mMPDParseHelper->GetPeriodSegmentTimeScale(period);
 		periodInfo.periodIndex = iter;
 		periodInfo.periodStartTime = mMPDParseHelper->GetPeriodStartTime(iter,mLastPlaylistDownloadTimeMs);
-		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
-		periodInfo.isEmptyPeriod = mMPDParseHelper->IsEmptyPeriod(iter, (mPlayRate != AAMP_NORMAL_PLAY_RATE));
+		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB());
+		periodInfo.isEmptyPeriod = IsEmptyPeriod(iter);
 		currMPDPeriodDetails.push_back(periodInfo);
 		mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
 		if(!periodInfo.isEmptyPeriod)
@@ -14285,4 +14285,37 @@ bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
 void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 {
 	mFirstPTS = 0.0;
+}
+
+/**
+ * @fn ShouldCheckOnlyIframeAdaptation
+ * @brief Helper function to determine if only iframe adaptations should be checked
+ * @retval Return true if only iframe adaptations should be checked, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
+{
+	// If playing at normal rate, check all adaptations.
+	// For trick modes, check only iframe adaptations (unless using AAMP TSB)
+	// The pipeline will be flushed if the rate changes. The rate will not
+	// change while Init() or other methods are executing.
+	bool checkOnlyIframeAdaptation = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
+
+	// When using local AAMP TSB, i/frame track is not used,
+	// so check all adaptations regardless of playback rate.
+	if (aamp->IsLocalAAMPTsb())
+	{
+		checkOnlyIframeAdaptation = false;
+	}
+
+	return checkOnlyIframeAdaptation;
+}
+
+/**
+ * @fn IsEmptyPeriod
+ * @param[in] iPeriodIndex Index of the period to check whether it is empty
+ * @retval Return true on empty Period
+ */
+bool StreamAbstractionAAMP_MPD::IsEmptyPeriod(int iPeriodIndex) const
+{
+	return mMPDParseHelper->IsEmptyPeriod(iPeriodIndex, ShouldCheckOnlyIframeAdaptation());
 }
