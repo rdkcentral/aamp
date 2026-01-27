@@ -1418,9 +1418,39 @@ public:
 		}
 		else if( strcmp(str,"stop")==0 )
 		{
+			// Clean up global Mp4Demux instances to prevent memory leaks
+			for (int i = 0; i < 2; i++)
+			{
+				delete gMp4Demux[i];
+				gMp4Demux[i] = nullptr;
+			}
+			
+			// Flush track queues to remove stale events
+			pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
+			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
+			
+			// Reset pipeline state
 			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 			delete pipelineContext.pipeline;
-			pipelineContext.pipeline = new Pipeline( (class PipelineContext *)&pipelineContext );
+			pipelineContext.pipeline = new Pipeline( &pipelineContext );
+			
+			// Reset context state for clean restart (base class members)
+			pipelineContext.configured_stream_count = 0;
+			pipelineContext.initial_seek_performed = false;
+			
+			// Reset derived class members
+			pipelineContext.nextPTS = 0.0;
+			pipelineContext.nextTime = 0.0;
+			pipelineContext.seekPos = 0.0;
+			
+			// Reset track state
+			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
+			{
+				pipelineContext.track[i].needsData = false;
+				pipelineContext.track[i].gstreamerReadyForInjection = false;
+			}
+			
+			printf("Pipeline stopped and reset\n");
 		}
 		else if( sscanf(str, "path %199s", base_path ) == 1 )
 		{
