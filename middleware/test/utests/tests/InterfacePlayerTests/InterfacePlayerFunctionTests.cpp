@@ -1014,7 +1014,8 @@ TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_StatsNull)
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallDuringStateTransition)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_PAUSED};
@@ -1042,7 +1043,8 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallDuringStateTrans
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtReadyState)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_READY};
@@ -1070,7 +1072,8 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtReadyState)
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtNullState)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_NULL};
@@ -1098,7 +1101,8 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtNullState)
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtVoidPendingState)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_VOID_PENDING};
@@ -1127,7 +1131,8 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtVoidPendingSta
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallWhenElementIsNull)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 	//Do not set video_dec, so that element will be NULL when GetVideoPlaybackQuality() reads it
 
@@ -1158,9 +1163,10 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingState)
 {
 	GstElement video_sink{};
 	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec = {};
+	GstElement video_dec{};
 	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_PLAYING};
@@ -1213,9 +1219,10 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingStateWithRenderedNul
 {
 	GstElement video_sink{};
 	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec = {};
+	GstElement video_dec{};
 	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_PLAYING};
@@ -1267,9 +1274,10 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingStateWithDroppedNull
 {
 	GstElement video_sink{};
 	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec = {};
+	GstElement video_dec{};
 	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_PLAYING};
@@ -1320,9 +1328,10 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PausedState)
 {
 	GstElement video_sink{};
 	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec = {};
+	GstElement video_dec{};
 	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_PAUSED};
@@ -1373,7 +1382,8 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PausedState)
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeFailure)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_NULL};
@@ -1402,7 +1412,8 @@ TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeFailure)
  */
 TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeNoPreroll)
 {
-	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_pipeline{};
+	gst_element_pipeline.object.name = (gchar *)"testpipeline";
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
 	GstState current_state{GST_STATE_PAUSED};
