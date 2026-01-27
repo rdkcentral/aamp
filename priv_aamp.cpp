@@ -959,8 +959,7 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 		// Calculate the bps based on the data received so far from dataTransferStartTime
 		// If the bps is less than earlyAbortProfileBandwidthPercent% of the video bitrate, abort the download
 		long long dataTransferTime = NOW_STEADY_TS_MS - context->dataTransferStartTime;
-		AAMPLOG_DEBUG("[%d] now: %lld, start: %lld, elapsed: %lld", context->mediaType,
-						NOW_STEADY_TS_MS, context->dataTransferStartTime, dataTransferTime);
+		AAMPLOG_DEBUG("[%d] start: %lld, elapsed: %lld", context->mediaType, context->dataTransferStartTime, dataTransferTime);
 		if (dataTransferTime > 0)
 		{
 			double bps = (double)(context->buffer->GetLen() * BYTES_PER_MS_TO_BITS_PER_SEC) / (double)dataTransferTime;
@@ -5691,15 +5690,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	if (!newTune)
-	{
-		// Capture the current CC enabled state only for non-new tunes (e.g. retune/seek).
-		// For brand new tunes we intentionally do NOT restore any previous CC state;
-		// previousCCEnabled remains at its default (false) so RestoreCC() starts CC
-		// from a clean, disabled state for new content.
-		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
-	}
+
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -6065,6 +6056,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			IncreaseGSTBufferSize();
 		}
 
+		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
+		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
+
 		if (!mbUsingExternalPlayer)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -6420,6 +6415,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
 		}
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
+		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
+		AAMPLOG_INFO("app name:%s disableWebVTT(%d)", mAppName.c_str(), GETCONFIGVALUE_PRIV(eAAMPConfig_DisableWebVTT));
 	}
 
 	/* Reset counter in new tune */
@@ -10823,6 +10820,11 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
+		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
+		{
+			trackInfo.swap(textTracksCopy);
+			AAMPLOG_DEBUG("Filtered track list to include only in-band CC tracks");
+		}
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
