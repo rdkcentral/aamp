@@ -124,7 +124,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 			SendMediaMetadataEvent();
 
 			// generate notify bitrate event if video w/h is changed
-			// this is lagacy event used by factory test app to get video info
+			// this is legacy event used by factory test app to get video info
 			if( (miPrevmiVideoWidth != miVideoWidth) ||  (miPrevmiVideoHeight != miVideoHeight) )
 			{
 				miPrevmiVideoWidth = miVideoWidth;

@@ -3146,8 +3146,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 					aamp->SetLLDashAdjustSpeed(true);
 				}
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
+				mIsAtLivePoint = true;
 			}
-			mIsAtLivePoint = true;
 			aamp->NotifyOnEnteringLive();
 		}
 
@@ -3986,15 +3986,15 @@ bool StreamAbstractionAAMP_MPD::Is4KStream(int &height, BitsPerSecond &bandwidth
 			if (mIsFogTSB)
 			{
 				vector<Representation *> representations = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-				for (auto representation : representations)
+				for (auto *representation : representations)
 				{
 					height =  representation->GetHeight();
-					if ( height > AAMP_FHD_HEIGHT)
+					if (!Stream4k && height > AAMP_FHD_HEIGHT)
 					{
 						bandwidth = representation->GetBandwidth();
 						Stream4k = true;
-						break;
 					}
+					SAFE_DELETE(representation);
 				}
 			}
 			else
@@ -12109,7 +12109,7 @@ void StreamAbstractionAAMP_MPD::SendAdPlacementEvent(AAMPEventType type, const s
 		}
 		else
 		{
-			AAMPLOG_ERR("[CDAI]: Unrecognised type %d", type);
+			AAMPLOG_ERR("[CDAI]: Unrecognized type %d", type);
 		}
 		if (sendImmediate)
 		{
@@ -14058,15 +14058,28 @@ void StreamAbstractionAAMP_MPD::GenerateFragmentURLList(URLBitrateMap &uriList, 
 							// Separate handling for fog TSB init fragments
 							// For fog TSB, we need to fetch init fragments from available bitrates
 							auto reprFromAvailableBitrates = mMPDParseHelper->GetBitrateInfoFromCustomMpd(adaptationSet);
-							for (auto rep : reprFromAvailableBitrates)
+							if (reprFromAvailableBitrates.empty())
 							{
-								URIInfo fogUriInfo;
-								fragmentDescriptor->Bandwidth = rep->GetBandwidth();
-								// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
-								ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
-								uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+								// Ad playing from CDN, use representation's bandwidth
+								AAMPLOG_DEBUG("FOG_AD: No available bitrates found for init fragment");
+								ConstructFragmentURL(uriInfo.url, fragmentDescriptor.get(), std::move(urlTemplate), aamp->mConfig);
+								uriList[fragmentDescriptor->Bandwidth] = std::move(uriInfo);
+								continue;
 							}
-							break; // No need to process further representations for fog TSB init fragments
+							else
+							{
+								// Get init fragments from AvailableBitrates node
+								for (auto *rep : reprFromAvailableBitrates)
+								{
+									URIInfo fogUriInfo;
+									fragmentDescriptor->Bandwidth = rep->GetBandwidth();
+									// Note : Don't use std::move on urlTemplate as its used multiple times in the loop
+									ConstructFragmentURL(fogUriInfo.url, fragmentDescriptor.get(), urlTemplate, aamp->mConfig);
+									uriList[fragmentDescriptor->Bandwidth] = std::move(fogUriInfo);
+									SAFE_DELETE(rep);
+								}
+								break; // No need to process further representations for fog TSB init fragments
+							}
 						}
 						else
 						{
