@@ -372,7 +372,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								//matches the current periodId.This avoid incorrect calculation in split period cases
 								//where an ad spans next into the next period which could otherwise result in a negative value.
 								if( abObj.ads->at(mPlacementObj.curAdIdx).basePeriodId == periodId )
-								{ 
+								{
 									periodDurationAvailable -= abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset;
 									if (periodDurationAvailable < 0)
 									{
@@ -569,46 +569,32 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				}
 				else
 				{
-					// get current period duration
+					// If next period is available then start playing at that period
+					// else continue playing in current period because we do not know
+					// how long until the end of the current period
 					uint64_t currPeriodDuration = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0);
-					int diff = (int)(currPeriodDuration - abObj.endPeriodOffset);
-					//--> Inserted Ads finishes < 2 seconds in new period : Channel play-back starts from new period.
-					if (diff < OFFSET_ALIGN_FACTOR)
+					for (iter = iter + 1; iter < periods.size(); iter++)
 					{
-						// If the current period is not closed, we have to wait for it.
-						// This is because in following iterations, the current period could be updated such that
-						// diff > OFFSET_ALIGN_FACTOR, in which case its a partial ad.
-						// diff < OFFSET_ALIGN_FACTOR, in which case we have to align to next period.
-						// So check if next period available with valid duration
-						for (iter = iter+1; iter < periods.size(); iter++)
+						if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
 						{
-							if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
-							{
-								break;
-							}
-						}
-						if (iter < periods.size())
-						{
-							auto nextPeriod = periods.at(iter);
-							// done with Adjustment
-							abObj.adjustEndPeriodOffset = false;
-							// Aligning to next period start
-							abObj.endPeriodOffset = 0;
-							abObj.endPeriodId = nextPeriod->GetId();
-							abObj.mAdBreakPlaced = true;
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s",
-											diff, currPeriodDuration, abObj.endPeriodId.c_str());
-						}
-						else
-						{
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "], but next period not available, waiting",
-											diff, currPeriodDuration);
+							break;
 						}
 					}
-					// --> Inserted Ads finishes >= 2 seconds in current period : Channel playback starts from that position in the current period.
+					if (iter < periods.size())
+					{
+						auto nextPeriod = periods.at(iter);
+						// done with Adjustment
+						abObj.adjustEndPeriodOffset = false;
+						// Aligning to next period start
+						abObj.endPeriodOffset = 0;
+						abObj.endPeriodId = nextPeriod->GetId();
+						abObj.mAdBreakPlaced = true;
+						AAMPLOG_INFO("[CDAI] close to period end [%" PRIu64 "],Aligning to next-period:%s",
+									 currPeriodDuration, abObj.endPeriodId.c_str());
+					}
 					else
 					{
-						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, period:%s duration[%" PRIu64 "]", diff, mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
+						AAMPLOG_INFO("[CDAI] NOT close to period end, period:%s duration[%" PRIu64 "]", mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
 						// done with Adjustment
 						abObj.adjustEndPeriodOffset = false;
 						// adbrk duration not equal to src period duration continue to play source period for remaining duration
