@@ -12344,6 +12344,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					}
 					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
 				}
+				else
+				{
+					preferredCodecString = currentPrefCodec;
+					codecChange = false;
+					AAMPLOG_WARN("VRN OVR RIDE the CODEC PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
+				}
 
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
