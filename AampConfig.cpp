@@ -356,8 +356,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	// this will eventually be default enabled and deprecated as a configuration
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
-	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
-	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
+	{true, "useRialtoSink", eAAMPConfig_useRialtoSink, true},
+	{true, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
