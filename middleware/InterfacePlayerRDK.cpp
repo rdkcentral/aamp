@@ -2603,7 +2603,7 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 	GstElement *element;
 	GstState current{};
 	GstState pending{};
-	GstClockTime timeout = 0;
+	constexpr GstClockTime timeout = 0;
 	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
 	if( ret == GST_STATE_CHANGE_SUCCESS )
 	{
@@ -2628,10 +2628,18 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 					{
 						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = g_value_get_uint64( value );
 					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = 0;
+					}
 					value = gst_structure_get_value( stats, "dropped" );
 					if ( value )
 					{
 						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = 0;
 					}
 					MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
 					gst_structure_free( stats );
