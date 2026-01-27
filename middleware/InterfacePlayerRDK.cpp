@@ -731,7 +731,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	}
 	else
 	{
-		MW_LOG_WARN( "gst_element_get_state %d", state );
+		MW_LOG_WARN( "gst_element_get_state %d, rc=%d", state, rc );
 	}
 }
 
@@ -2609,44 +2609,79 @@ void InterfacePlayerRDK::ResetFirstFrame(void)
 	interfacePlayerPriv->gstPrivateContext->firstFrameReceived = false;
 }
 
+/**
+ *  @brief Get rendered and dropped frames count when gst element state is GST_STATE_CHANGE_SUCCESS
+ *  with pipeline in playing or paused state.
+ *  Returns NULL during pipeline state transition, and any states other than the above mentioned ones.
+ */
 GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
-	GstStructure *stats= 0;
+	GstStructure *stats = nullptr;
 	GstElement *element;
-	if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
+	GstState current{};
+	GstState pending{};
+	constexpr GstClockTime timeout = 0;
+	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+	if( ret == GST_STATE_CHANGE_SUCCESS )
 	{
-		element = interfacePlayerPriv->gstPrivateContext->video_sink;
-	}
-	else
-	{
-		element = interfacePlayerPriv->gstPrivateContext->video_dec;
-	}
-	if( element )
-	{
-		g_object_get( G_OBJECT(element), "stats", &stats, NULL );
-		if ( stats )
+		if(current == GST_STATE_PLAYING || current == GST_STATE_PAUSED)
 		{
-			const GValue *value;
-			value= gst_structure_get_value( stats, "rendered" );
-			if ( value )
+			if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+				element = interfacePlayerPriv->gstPrivateContext->video_sink;
 			}
-			value= gst_structure_get_value( stats, "dropped" );
-			if ( value )
+			else
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+				element = interfacePlayerPriv->gstPrivateContext->video_dec;
 			}
-			MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
-			gst_structure_free( stats );
-			return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+			if( element )
+			{
+				g_object_get( G_OBJECT(element), "stats", &stats, NULL );
+				if ( stats )
+				{
+					const GValue *value;
+					value = gst_structure_get_value( stats, "rendered" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = 0;
+					}
+					value = gst_structure_get_value( stats, "dropped" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = 0;
+					}
+					MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
+					gst_structure_free( stats );
+					return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+				}
+				else
+				{
+					MW_LOG_ERR("Failed to get sink stats");
+				}
+			}
 		}
 		else
 		{
-			MW_LOG_ERR("Failed to get sink stats");
+			MW_LOG_INFO("gst_element_get_state current=%d is not PLAYING or PAUSED, pending=%d: can't query playback quality now", current, pending);
 		}
 	}
-	return NULL;
+	else if (ret == GST_STATE_CHANGE_ASYNC)
+	{
+		MW_LOG_INFO("gst_element_get_state async: state transition in progress (current state=%d, pending=%d), can't query playback quality now", current, pending);
+	}
+	else
+	{
+		MW_LOG_INFO("gst_element_get_state ret=%d: can't query playback quality now", ret);
+	}
+	return nullptr;
 }
 
 /**
@@ -5344,4 +5379,190 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
+}
+
+/**
+ * @brief Add a buffer field to a GstStructure
+ * @param[in] structure The GstStructure to add the field to
+ * @param[in] fieldName The name of the field
+ * @param[in] data The data to add
+ */
+void AddBufferFieldToStructure(GstStructure *structure, const char *fieldName, const std::vector<uint8_t> &data)
+{
+	if (!structure || !fieldName || data.empty())
+	{
+		MW_LOG_ERR("Invalid GstStructure pointer[%p] or field name[%s] or empty data", structure, fieldName ? fieldName : "null");
+		return;
+	}
+	GstBuffer *buffer = CreateGstBufferWithData((gpointer)data.data(), (gsize)data.size());
+	if (buffer)
+	{
+		gst_structure_set(structure,
+						fieldName, GST_TYPE_BUFFER, buffer,
+						NULL);
+		gst_buffer_unref(buffer);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to allocate buffer for %s structure", fieldName);
+	}
+}
+
+/**
+ * @brief Sets the stream capabilities.
+ * @param[in] type The media type.
+ * @param[in] codecInfo The codec information.
+ */
+void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo)
+{
+	GstCaps *caps = GetCaps(codecInfo.mCodecFormat);
+	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
+	stream->format = codecInfo.mCodecFormat;
+	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = true;
+	if (caps)
+	{
+		// Append some additional info to caps
+		if (!codecInfo.mCodecData.empty())
+		{
+			AddBufferFieldToStructure(gst_caps_get_structure (caps, 0), "codec_data", codecInfo.mCodecData);
+		}
+		if (type == eGST_MEDIATYPE_VIDEO)
+		{
+			if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_H264)
+			{
+				gst_caps_set_simple(caps,
+									"stream-format", G_TYPE_STRING, "avc",
+									"alignment", G_TYPE_STRING, "au",
+									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+									NULL);
+			}
+			else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
+			{
+				gst_caps_set_simple(caps,
+									"stream-format", G_TYPE_STRING, "hvc1",
+									"alignment", G_TYPE_STRING, "au",
+									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+									NULL);
+			}
+		}
+		else if (type == eGST_MEDIATYPE_AUDIO)
+		{
+			if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_AAC_RAW)
+			{
+				gst_caps_set_simple(caps,
+									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+									NULL);
+			}
+			else if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_EC3)
+			{
+				gst_caps_set_simple(caps,
+									"framed", G_TYPE_BOOLEAN, TRUE,
+									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+									NULL);
+			}
+		}
+		if (codecInfo.mIsEncrypted)
+		{
+			GstStructure *s = gst_caps_get_structure (caps, 0);
+			if (s)
+			{
+				gst_structure_set (s,
+					"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
+					NULL);
+				if (mDrmSystem != NULL)
+				{
+					gst_structure_set (s,
+						GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
+						NULL);
+				}
+				// Same for both cenc and cbcs
+				gst_structure_set_name (s, "application/x-cenc");
+			}
+		}
+		gchar* capsStr = gst_caps_to_string(caps);
+		MW_LOG_MIL("Setting stream caps for type[%d] format[%d]: %s", type, codecInfo.mCodecFormat, capsStr);
+		g_free(capsStr);
+		gst_app_src_set_caps(GST_APP_SRC(stream->source), caps);
+		gst_caps_unref(caps);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to get caps for type[%d] format[%d]", type, codecInfo.mCodecFormat);
+	}
+}
+
+/**
+ * @brief Decorate a GstBuffer with DRM metadata
+ * @param[in] buffer The GstBuffer to decorate
+ * @param[in] drmMetadata The DRM metadata
+ */
+static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
+{
+	GstStructure *metadata = NULL;
+	if (drmMetadata.mIsEncrypted)
+	{
+		metadata = gst_structure_new(
+									"application/x-cenc",
+									"encrypted", G_TYPE_BOOLEAN, TRUE,
+									// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
+									"cipher-mode", G_TYPE_STRING, CipherTypeToString(drmMetadata.mCipher),
+									NULL);
+
+		if (!metadata)
+		{
+			MW_LOG_ERR("Failed to create DRM metadata structure");
+			return;
+		}
+
+		if (!drmMetadata.mKeyId.empty())
+		{
+			AddBufferFieldToStructure(metadata, "kid", drmMetadata.mKeyId);
+		}
+
+		if (!drmMetadata.mIV.empty())
+		{
+			AddBufferFieldToStructure(metadata, "iv", drmMetadata.mIV);
+			gst_structure_set(metadata,
+							"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
+							NULL);
+		}
+
+		if (!drmMetadata.mSubSamples.empty())
+		{
+			AddBufferFieldToStructure(metadata, "subsamples", drmMetadata.mSubSamples);
+			gst_structure_set(metadata,
+							"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
+							NULL);
+		}
+		else
+		{
+			gst_structure_set(metadata,
+							"subsample_count", G_TYPE_UINT, 0,
+							NULL);
+		}
+
+		if (drmMetadata.mCipher == CIPHER_TYPE_CBCS)
+		{
+			gst_structure_set(metadata,
+							"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
+							"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
+							NULL );
+		}
+	}
+
+	if (metadata)
+	{
+		// serialize and print the metadata
+		gchar *metaStr = gst_structure_to_string(metadata);
+		MW_LOG_DEBUG("Added drm metadata: %s", metaStr);
+		g_free(metaStr);
+
+		gst_buffer_add_protection_meta(buffer, metadata);
+	}
 }

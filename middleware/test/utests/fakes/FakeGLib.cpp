@@ -89,7 +89,7 @@ void g_object_get(gpointer object, const gchar *first_property_name, ...)
 			
 			if((strcmp(property_name, "stats") == 0))
 			{
-				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, GstStructure*));
+				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, GstStructure**));
 			}
 			else if((strcmp(property_name, "video-pts") == 0))
 			{
