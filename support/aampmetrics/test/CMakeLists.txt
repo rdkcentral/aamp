@@ -28,7 +28,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")
 

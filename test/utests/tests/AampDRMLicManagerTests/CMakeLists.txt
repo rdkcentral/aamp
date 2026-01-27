@@ -28,8 +28,6 @@ include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/test/utests/drm/ocdm)
 include_directories(${AAMP_ROOT}/.libs/include)
 
-set(CMAKE_CXX_STANDARD 14)
-
 set(TEST_SOURCES
 	AampDRMLicManagerTestCases.cpp
 	AampDRMLicManagerTests.cpp

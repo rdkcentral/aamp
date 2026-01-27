@@ -25,8 +25,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
 
-set(CMAKE_CXX_STANDARD 14)
-
 set(TEST_SOURCES
 	AampDRMLicPreFetcherTestCases.cpp
 	AampDRMLicPreFetcherTests.cpp
