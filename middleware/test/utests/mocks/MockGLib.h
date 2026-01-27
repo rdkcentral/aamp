@@ -47,7 +47,7 @@ public:
 	MOCK_METHOD(gboolean, g_type_check_instance_is_a, (gpointer instance, GType iface_type));
 	MOCK_METHOD(gboolean, g_signal_handler_is_connected, (gpointer instance, gulong handler_id));
 	MOCK_METHOD(gboolean, g_signal_handler_disconnect, (gpointer instance, gulong handler_id));
-	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, GstStructure *structure));
+	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, GstStructure **structure));
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, uint *value));
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, gpointer *value));
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, gint64 *value));
