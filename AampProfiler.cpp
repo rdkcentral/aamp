@@ -261,8 +261,8 @@ void ProfileEventAAMP::TuneBegin(void)
  * [31] laPostProcDuration          License acquisition post-processing (ms)
  * [32] videoDecryptDuration        Video decrypt duration (ms)
  * [33] audioDecryptDuration        Audio decrypt duration (ms)
- * [34] gstStart                    Pipeline first-buffer start offset
- * [35] gstFirstFrame               First decoded/presented frame offset
+ * [34] gstStart                    Offset (ms) from tune start when pipeline first fed data
+ * [35] gstFirstFrame               Offset (ms) from tune start when first video frame is decoded/presented
  * [36] contentType                 Playback mode (e.g., LINEAR, VOD, etc)
  * [37] streamType                  Stream type (e.g., HLS, DASH, etc)
  * [38] firstTune                   First tune after reboot/crash (bool)
