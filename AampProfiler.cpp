@@ -280,7 +280,7 @@ void ProfileEventAAMP::TuneBegin(void)
  * [50] tsbEnabled                  TSB enabled (1) / disabled (0)
  * [51] totalTime                   Total tune time (ms)
  * [52] stopDuration                Stop duration (ms)
- * [53] gstDecodeTime               Decode time to first frame excl decryption
+ * [53] gstDecodeTime               Decode time to first frame excluding decryption
  *
  * Note: [34] and [35] are adjusted when prebuffered && success by subtracting
  * the prebuffer start offset.
