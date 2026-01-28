@@ -4118,6 +4118,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationS*1000);
 	const char* failureReason = nullptr;
+	// Flag denotes if early abort logic was updated properly
+	bool earlyAbortUpdated = false;
 
 	int maxDownloadAttempt = 1;
 	switch( mediaType )
@@ -4185,6 +4187,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// No need to perform early abort for lowest profile fragment downloads
 						context.earlyAbortEnabled = !mpStreamAbstractionAAMP->IsCurrentProfileLowest();
 						context.profileBps = mpStreamAbstractionAAMP->GetVideoBitrate();
+						earlyAbortUpdated = true;
 					}
 					else
 					{
@@ -4246,6 +4249,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
 					lowBWTimeout = std::max(DEFAULT_LOW_BW_TIMEOUT, lowBWTimeout);
+				}
+				// For video fragments, disable low bandwidth timeout if already at the lowest profile
+				// This is already updated in context.earlyAbortEnabled above
+				if (lowBWTimeout > 0 && mediaType == eMEDIATYPE_VIDEO &&
+					earlyAbortUpdated && !context.earlyAbortEnabled)
+				{
+					lowBWTimeout = 0;
+					AAMPLOG_DEBUG("Disable low bandwidth timeout in aamp for lowest profile video fragment");
 				}
 				if (mFogTSBEnabled)
 				{

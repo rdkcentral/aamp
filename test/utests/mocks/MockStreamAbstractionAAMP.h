@@ -121,6 +121,8 @@ public:
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
+
+	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

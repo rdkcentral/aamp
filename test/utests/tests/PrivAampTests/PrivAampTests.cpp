@@ -56,6 +56,7 @@
 using ::testing::An;
 using ::testing::DoAll;
 using ::testing::InvokeWithoutArgs;
+using ::testing::Invoke;
 using ::testing::Matcher;
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -5246,6 +5247,77 @@ TEST_F(PrivAampTests,VerifyPausedBehavior)
         p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE;
         p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
         EXPECT_FALSE(p_aamp->mSeekFromPausedState);
+}
+
+// Validates that low bandwidth timeout is enabled if the video is not at the lowest profile
+TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
+{
+	std::string effectiveUrl;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	AampMediaType mType = eMEDIATYPE_VIDEO;
+	const int lowBWTimeoutValue = 2; // 2 seconds
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000; // 2000ms timeout
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	// By default lets, return 2s for lowBWTimeout
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(lowBWTimeoutValue));
+	// Set IsCurrentProfileLowest to false
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
+		.WillOnce(Invoke([lowBWTimeoutValue](void* handle, CURLoption option, const void* param) -> CURLcode {
+			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			EXPECT_EQ(ctx->lowBWTimeout, lowBWTimeoutValue);
+			return CURLE_OK;
+		}));
+
+	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+}
+
+// Validates that low bandwidth timeout is disabled if the video is at the lowest profile
+TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
+{
+	std::string effectiveUrl;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	AampMediaType mType = eMEDIATYPE_VIDEO;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000; // 2000ms timeout
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	// By default lets, return 2s for lowBWTimeout
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(2));
+	// Set IsCurrentProfileLowest to true
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
+		.WillOnce(Invoke([](void* handle, CURLoption option, const void* param) -> CURLcode {
+			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			EXPECT_EQ(ctx->lowBWTimeout, 0);
+			return CURLE_OK;
+		}));
+
+	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
 }
 
 // Pass null pointer as CurlCallbackContext and abort should be false
