@@ -1499,7 +1499,7 @@ static gboolean myIdleFunc( gpointer arg )
 	AppContext *appContext = (AppContext *)arg;
 	appContext->IdleFunc();
 	// avoid 100% cpu utilization by waiting 10ms for next idle callback
-	g_timeout_add(10, (GSourceFunc)myIdleFunc, arg);
+	g_timeout_add(10, myIdleFunc, arg);
 	return FALSE;
 }
 
