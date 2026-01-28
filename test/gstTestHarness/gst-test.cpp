@@ -1420,7 +1420,7 @@ public:
 		else if( strcmp(str,"stop")==0 )
 		{
 			// Clean up global Mp4Demux instances to prevent memory leaks
-			for (int i = 0; i < 2; i++)
+			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
 			{
 				delete gMp4Demux[i];
 				gMp4Demux[i] = nullptr;
