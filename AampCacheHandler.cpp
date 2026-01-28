@@ -31,7 +31,7 @@ AampCacheHandler::~AampCacheHandler( void )
 	}
 }
 
-void AampCacheHandler::InsertToPlaylistCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType )
+void AampCacheHandler::InsertToPlaylistCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType )
 {
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	assert( !effectiveUrl.empty() );
@@ -59,7 +59,7 @@ void AampCacheHandler::StopPlaylistCache( void )
 	mCondVar.notify_one();
 }
 
-bool AampCacheHandler::RetrieveFromPlaylistCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType)
+bool AampCacheHandler::RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl, AampMediaType mediaType)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
@@ -67,8 +67,8 @@ bool AampCacheHandler::RetrieveFromPlaylistCache(std::string url, AampGrowableBu
 	if (cachedData)
 	{
 		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
-		buffer->Clear();
-		buffer->AppendBytes(cachedData->buffer->GetPtr(), cachedData->buffer->GetLen());
+		// Assume cachedData->buffer is always valid and assign directly.
+		buffer = *cachedData->buffer;
 		// below fails when playing an HLS playlist directly, then seeking or retuning
 		// assert( mediaType == cachedData->mediaType );
 		AAMPLOG_TRACE("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
@@ -107,7 +107,7 @@ void AampCacheHandler::RemoveFromPlaylistCache( const std::string &url )
 	mPlaylistCache.Remove( url );
 }
 
-void AampCacheHandler::InsertToInitFragCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
+void AampCacheHandler::InsertToInitFragCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, AampMediaType mediaType )
 {
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	assert( !effectiveUrl.empty() );
@@ -115,17 +115,16 @@ void AampCacheHandler::InsertToInitFragCache( const std::string &url, const Aamp
 	mInitFragmentCache.Insert( url, buffer, effectiveUrl, mediaType );
 }
 
-bool AampCacheHandler::RetrieveFromInitFragmentCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl)
+bool AampCacheHandler::RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	AampCachedData *cachedData = mInitFragmentCache.Find(url);
 	if (cachedData)
 	{
-		std::shared_ptr<AampGrowableBuffer> buf = cachedData->buffer;
 		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
-		buffer->Clear();
-		buffer->AppendBytes(buf->GetPtr(), buf->GetLen());
+		// Assume cachedData->buffer is always valid and assign directly.
+		buffer = *cachedData->buffer;
 		AAMPLOG_INFO("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}

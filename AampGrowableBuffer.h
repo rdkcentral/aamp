@@ -79,6 +79,16 @@ public:
 	 * @note The internal buffer is cleared after extraction. Uses move semantics for zero-copy transfer.
 	 */
 	std::vector<uint8_t> ExtractVector( void );
+
+	/**
+	 * @brief Access the internal storage vector by reference.
+	 *	This returns a reference to the internal std::vector<uint8_t> so callers
+	 * can pass it directly to APIs that accept a vector reference without
+	 * performing an extra copy. Prefer using the const overload if mutation is
+	 * not required.
+	 */
+	std::vector<uint8_t>& GetVector() { return buffer; }
+	const std::vector<uint8_t>& GetVector() const { return buffer; }
 	
 	char *GetPtr( void ) { return buffer.empty() ? nullptr : reinterpret_cast<char*>(buffer.data()); }
 	const char *GetPtr( void ) const { return buffer.empty() ? nullptr : reinterpret_cast<const char*>(buffer.data()); }

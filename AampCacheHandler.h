@@ -30,7 +30,8 @@
 #include <exception>
 #include <mutex>
 #include <condition_variable>
-#include "AampGrowableBuffer.h"
+#include <vector>
+#include <assert.h>
 #include "AampMediaType.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
@@ -48,7 +49,7 @@ class AampCachedData
 {
 public:
 	std::string effectiveUrl;
-	std::shared_ptr<AampGrowableBuffer> buffer;
+	std::shared_ptr<std::vector<uint8_t>> buffer;
 	AampMediaType mediaType;
 	long seqNo;
 
@@ -65,7 +66,7 @@ public:
 	 * @param mediaType type of cache entry
 	 * @param seqNo bigger for more recent usage; used to drive LRU purging heuristic
 	 */
-	AampCachedData(const std::string &effectiveUrl, std::shared_ptr<AampGrowableBuffer> buffer, AampMediaType mediaType)
+	AampCachedData(const std::string &effectiveUrl, std::shared_ptr<std::vector<uint8_t>> buffer, AampMediaType mediaType)
 		: effectiveUrl(effectiveUrl)
 		, buffer(buffer)
 		, mediaType(mediaType)
@@ -108,9 +109,9 @@ private:
 			}
 			else
 			{
-				if( !cachedData->effectiveUrl.empty() )
+				if (!cachedData->effectiveUrl.empty())
 				{ // not alias; reclaim space
-					totalCachedBytes -= cachedData->buffer->GetLen();
+					totalCachedBytes -= cachedData->buffer->size();
 				}
 				SAFE_DELETE(cachedData);
 				iter = cache.erase(iter);
@@ -133,7 +134,7 @@ private:
 				{
 					if( !cachedData->effectiveUrl.empty() )
 					{
-						totalCachedBytes -= cachedData->buffer->GetLen();
+						totalCachedBytes -= cachedData->buffer->size();
 					}
 					SAFE_DELETE(cachedData);
 					iter = cache.erase(iter);
@@ -151,6 +152,8 @@ private:
 		}
 		else if( maxPlaylistCacheBytes != PLAYLIST_CACHE_SIZE_UNLIMITED )
 		{ // cache size constraint to be enforced
+			AAMPLOG_WARN( "DJH playlist cache size %zu bytes, total used %zu bytes, need %zu bytes",
+				(size_t)maxPlaylistCacheBytes, (size_t)totalCachedBytes, bytesNeeded );
 			if( totalCachedBytes+bytesNeeded > maxPlaylistCacheBytes  )
 			{
 				reduceCacheSize( mediaType, maxPlaylistCacheBytes - bytesNeeded );
@@ -218,73 +221,73 @@ public:
 	}
 
 public:
-	void Insert( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
+	void Insert(const std::string &url, const std::vector<uint8_t> &buffer, const std::string &effectiveUrl, AampMediaType mediaType)
 	{
-		if( buffer->GetLen()==0 )
+		if (buffer.size() == 0)
 		{
-			AAMPLOG_ERR( "empty buffer" );
+			AAMPLOG_ERR("empty buffer");
 		}
-		else if( Find(url) )
+		else if (Find(url))
 		{ // should never happen - caller has no business downloading if already cached
 			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
 		}
 		else
 		{
 			bool ok = false;
-			switch( cacheType )
+			switch (cacheType)
 			{
 				case eCACHE_TYPE_INIT_FRAGMENT:
-					ok = makeRoomForInitFragment( mediaType );
+					ok = makeRoomForInitFragment(mediaType);
 					break;
 				case eCACHE_TYPE_PLAYLIST:
-					ok = makeRoomForPlaylist( mediaType, buffer->GetLen() );
+					ok = makeRoomForPlaylist(mediaType, buffer.size());
 					break;
 				default:
 					break;
 			}
-			if( ok )
+			if (ok)
 			{
-				size_t len = buffer->GetLen();
-				AampCachedData *cachedData = new AampCachedData( effectiveUrl, std::make_shared<AampGrowableBuffer>("cached-data"), mediaType );
-				cachedData->buffer->AppendBytes( buffer->GetPtr(), len );
+				// construct shared vector via copy-constructor (clear and intent is explicit)
+				auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
+				AampCachedData *cachedData = new AampCachedData(effectiveUrl, cachedBuf, mediaType);
 
 				cache[url] = cachedData;
 				cachedData->seqNo = ++seqNo;
-				totalCachedBytes += len;
-				AAMPLOG_MIL( "inserted %s %s", GetMediaTypeName(mediaType), url.c_str() ); // used by l2tests
+				totalCachedBytes += cachedBuf->size();
+				AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
 				// There are cases where main url and effective url will be different (often for main manifest)
 				// Need to store both the entries with same content data
 				// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
 				// When retune happens from JS, regular Main url will be asked to read from cached manifest.
 				// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
-				if( url != effectiveUrl )
+				if (url != effectiveUrl)
 				{ // re-use buffer without extra copy
-					if ( cache.find(effectiveUrl) != cache.end() )
-					{	// effective url was already in cache, so delete the old one
+					if (cache.find(effectiveUrl) != cache.end())
+					{ // effective url was already in cache, so delete the old one
 						SAFE_DELETE(cache[effectiveUrl]);
 					}
-					AampCachedData *newData = new AampCachedData( "", cachedData->buffer, mediaType );
+					AampCachedData *newData = new AampCachedData("", cachedData->buffer, mediaType);
 					cache[effectiveUrl] = newData;
-					AAMPLOG_MIL( "duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str() );
+					AAMPLOG_MIL("duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str());
 				}
 			}
 		}
 	}
 
-	void Remove( const std::string &url )
+	void Remove(const std::string &url)
 	{
 		auto iter = cache.find(url);
-		assert( iter != cache.end() );
+		assert(iter != cache.end());
 		AampCachedData *cachedData = iter->second;
-		totalCachedBytes -= cachedData->buffer->GetLen();
-		assert( !cachedData->effectiveUrl.empty() );
-		if(( url != cachedData->effectiveUrl ) &&
+		totalCachedBytes -= cachedData->buffer->size();
+		assert(!cachedData->effectiveUrl.empty());
+		if ((url != cachedData->effectiveUrl) &&
 			(countReferencesToEffectiveUrl(cachedData->effectiveUrl) == 1))
 		{ // remove main entry with payload
 			auto iter2 = cache.find(cachedData->effectiveUrl);
-			assert( iter2 != cache.end() );
+			assert(iter2 != cache.end());
 			AampCachedData *cachedData2 = iter2->second;
-			assert( cachedData2->effectiveUrl.empty() );
+			assert(cachedData2->effectiveUrl.empty());
 			SAFE_DELETE(cachedData2);
 			cache.erase(iter2);
 		}
@@ -429,25 +432,25 @@ public:
 	void StopPlaylistCache( void );
 
 	/**
-	 *   @brief Add playlist to cache
-	 *   @param[in] url - URL
-	 *   @param[in] buffer - Pointer to growable buffer
-	 *   @param[in] effectiveUrl - Final URL
-	 *   @param[in] isLive
-	 *   @param[in] mediaType - Type of the file inserted
-	 *
-	 *   @return void
+	 * @brief Add playlist to cache
+	 * @param[in] url URL identifying the playlist to cache
+	 * @param[in] buffer Reference to the payload buffer (std::vector<uint8_t>) to store in cache
+	 * @param[in] effectiveUrl Final/effective URL for the resource (used as aliasing key)
+	 * @param[in] isLive True if this is a live playlist
+	 * @param[in] mediaType Type of the file inserted (see AampMediaType)
+	 * @return void
 	 */
-	void InsertToPlaylistCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
+	void InsertToPlaylistCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
 
 	/**
-	 *   @brief Find playlist in cache
-	 *   @param[in] url - URL
-	 *   @param[out] buffer - Pointer to growable buffer
-	 *   @param[out] effectiveUrl - Final URL
-	 *   @return true: found, false: not found
+	 * @brief Find playlist in cache
+	 * @param[in] url URL to look up in cache
+	 * @param[out] buffer Reference to a vector which will be replaced with the cached payload on a hit
+	 * @param[out] effectiveUrl The effective URL associated with the cached entry (returned on hit)
+	 * @param[in] mediaType Expected media type for this lookup (guards cache matching)
+	 * @return true if entry found and buffer/effectiveUrl were set, false otherwise
 	 */
-	bool RetrieveFromPlaylistCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType);
+	bool RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl, AampMediaType mediaType);
 
 	/**
 	 * @brief Remove playlist from cache
@@ -473,27 +476,23 @@ public:
 	bool IsPlaylistUrlCached( const std::string &playlistUrl );
 
 	/**
-	 *   @brief add initialization fragment to cache
-	 *
-	 *   @param[in] url - URL
-	 *   @param[in] buffer - Pointer to growable buffer
-	 *   @param[in] effectiveUrl - Final URL
-	 *   @param[in] mediaType - Type of the file inserted
-	 *
-	 *   @return void
+	 * @brief Add initialization fragment to cache
+	 * @param[in] url URL identifying the initialization fragment
+	 * @param[in] buffer Reference to the payload buffer (std::vector<uint8_t>) to store in cache
+	 * @param[in] effectiveUrl Final/effective URL for the resource
+	 * @param[in] mediaType Type of the file inserted (initial fragment media type)
+	 * @return void
 	 */
-	void InsertToInitFragCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType );
+	void InsertToInitFragCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, AampMediaType mediaType );
 
 	/**
-	 *   @brief Find initialization fragment in cache
-	 *
-	 *   @param[in] url - URL
-	 *   @param[out] buffer - Pointer to growable buffer
-	 *   @param[out] effectiveUrl - Final URL
-	 *
-	 *   @return true: found, false: not found
+	 * @brief Find initialization fragment in cache
+	 * @param[in] url URL to look up in cache
+	 * @param[out] buffer Reference to a vector which will be replaced with the cached payload on a hit
+	 * @param[out] effectiveUrl The effective URL associated with the cached entry (returned on hit)
+	 * @return true if entry found and buffer/effectiveUrl were set, false otherwise
 	 */
-	bool RetrieveFromInitFragmentCache(std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
+	bool RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl);
 
 	/**
 	*   @brief set max initialization fragments allowed in cache (per track)
