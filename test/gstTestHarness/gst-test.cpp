@@ -237,10 +237,14 @@ public:
 				if( ptr )
 				{
 					memcpy( ptr, tsDemux->getPtr(i), len );
+					double final_pts = pts+pts_offset;
+					double final_dts = dts+pts_offset;
+					if( i == 0 ) printf("INJECT TS: mediaType=%d pts=%.3f offset=%.3f final_pts=%.3f\n",
+									   mediaType, pts, pts_offset, final_pts);
 					context->pipeline->SendBufferES( mediaType, ptr, len,
 													dur,
-													pts+pts_offset,
-													dts+pts_offset );
+													final_pts,
+													final_dts );
 				}
 			}
 		}
@@ -260,10 +264,14 @@ public:
 					{
 						memcpy( ptr, mp4Demux->getPtr(i), len );
 						GstStructure *metadata = mp4Demux->getDrmMetadata( i );
+						double final_pts = pts+pts_offset;
+						double final_dts = dts+pts_offset;
+						if( i == 0 ) printf("INJECT MP4: mediaType=%d pts=%.3f offset=%.3f final_pts=%.3f\n",
+										   mediaType, pts, pts_offset, final_pts);
 						context->pipeline->SendBufferES( mediaType, ptr, len,
 														dur,
-														pts+pts_offset,
-														dts+pts_offset,
+														final_pts,
+														final_dts,
 														metadata );
 					}
 				}
@@ -1009,18 +1017,21 @@ public:
 			if( processingFirstPeriod )
 			{
 				if( secondsToSkip >= period.duration )
-				{ // skip this period
+				{ // skip entire period
 					secondsToSkip -= period.duration;
 					continue;
 				}
-				SeekParam seekParam;
-				seekParam.flush = true;
-				seekParam.start_seconds = pipelineContext.seekPos;
-				seekParam.stop_seconds = pipelineContext.seekPos;
-				if( !inventory )
-				{
-					pipelineContext.pipeline->ScheduleSeek(seekParam);
-				}
+				// Don't schedule seek - we'll restamp buffers instead to start from PTS=0
+				// This avoids GStreamer pipeline timing issues when seeking before playback starts
+				
+				// Restamp buffers to start from PTS=0 by subtracting the seek position
+				// Natural segment PTS matches DASH timeline, so offset = -seekPos
+				// Example: seeking to 10s, first segment has natural PTS 10.080s
+				//          offset = -10.0, final PTS = 10.080 - 10.0 = 0.080s
+				pts_offset = -pipelineContext.seekPos;
+				
+				printf("SEEK DEBUG: seekPos=%.3f period.firstPts=%.3f secondsToSkip=%.3f => pts_offset=%.3f (restamping to start from 0)\n",
+					   pipelineContext.seekPos, period.firstPts, secondsToSkip, pts_offset);
 				processingFirstPeriod = false;
 			}
 			
@@ -1077,6 +1088,7 @@ public:
 				}
 				
 				double skip = secondsToSkip;
+				double cumulativeTime = 0.0;  // Track cumulative segment time
 				for( unsigned idx=0; idx<segmentCount; idx++ )
 				{
 					int durationIndex = idx;
@@ -1085,15 +1097,26 @@ public:
 						durationIndex = 0;
 					}
 					double segmentDurationS = representation.data.duration[durationIndex]/(double)representation.data.timescale;
-					if( skip>0 )
+					double segmentEndTime = cumulativeTime + segmentDurationS;
+					
+					// Skip segments where the seek position is at or very close to the end
+					// This ensures we start with a segment that has substantial content after the seek position
+					const double MIN_SEGMENT_CONTENT = 0.010;  // Require at least 10ms of content after seek position
+					if( segmentEndTime - secondsToSkip < MIN_SEGMENT_CONTENT )
 					{
-						skip -= segmentDurationS;
-						if( skip>0 )
-						{
-							continue;
-						}
-						segmentDurationS += skip;
+						cumulativeTime = segmentEndTime;
+						continue;
 					}
+					
+					// This segment has content after the seek position - download it
+					// Adjust if we're starting mid-segment
+					if( cumulativeTime < secondsToSkip )
+					{
+						// Starting partway through this segment
+						double skipWithinSegment = secondsToSkip - cumulativeTime;
+						segmentDurationS -= skipWithinSegment;
+					}
+					cumulativeTime = segmentEndTime;
 					
 					int mediaIndex = idx;
 					if( mediaIndex >= representation.data.media.size() )
@@ -1110,6 +1133,8 @@ public:
 					const std::string &media = representation.data.media[mediaIndex];
 					std::string mediaUrl = representation.BaseURL + ExpandURL( media, segment_template_param );
 					std::cout << mediaUrl << "\n";
+					printf("SEGMENT DEBUG: mediaType=%d segment#=%llu pts_offset=%.3f segmentDuration=%.3f\n",
+						   mediaType, number, pts_offset, segmentDurationS);
 					if( inventory )
 					{
 						if( fInventory )
@@ -1160,6 +1185,8 @@ public:
 						continue;
 					}
 					m_timeScale[mediaType] = representation.data.timescale;
+					printf("SEGMENT DEBUG: mediaType=%d pts_offset=%.3f segmentDuration=%.3f\n",
+						   mediaType, pts_offset, segmentDurationS);
 					pipelineContext.track[mediaType].EnqueueSegment(
 																	new TrackFragment(
 																					  mediaType,
@@ -1488,7 +1515,9 @@ static gboolean myIdleFunc( gpointer arg )
 {
 	AppContext *appContext = (AppContext *)arg;
 	appContext->IdleFunc();
-	return TRUE;
+	// avoid 100% cpu utilization by waiting 10ms for next idle callback
+	g_timeout_add(10, (GSourceFunc)myIdleFunc, arg);
+	return FALSE;
 }
 
 static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppContext * appContext )

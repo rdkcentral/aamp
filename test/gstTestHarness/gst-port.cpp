@@ -506,6 +506,7 @@ size_t Pipeline::GetNumPendingSeek(void) const
 
 void Pipeline::Configure( MediaType mediaType )
 {
+	printf("CONFIGURE DEBUG: Configuring mediaType=%d\n", mediaType);
 	mediaStream[mediaType]->Configure(pipeline);
 	// Increment count and perform initial seek if both branches are configured
 	// All operations protected by mutex to prevent race conditions
@@ -519,10 +520,16 @@ void Pipeline::Configure( MediaType mediaType )
 	   !context->initial_seek_performed &&
 	   !context->mSegmentEndSeekQueue.empty())
 	{
+		printf("CONFIGURE DEBUG: Both streams ready, executing scheduled seek\n");
 		SeekParam param = context->mSegmentEndSeekQueue.front();
 		context->mSegmentEndSeekQueue.pop();
 		(void)DoSeekNow(param);
 		context->initial_seek_performed = true;
+	}
+	else
+	{
+		printf("CONFIGURE DEBUG: count=%d initial_seek_performed=%d queue_empty=%d\n",
+			count, context->initial_seek_performed, context->mSegmentEndSeekQueue.empty());
 	}
 }
 
@@ -594,6 +601,7 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 {
 	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
+	printf("DO_SEEK_NOW DEBUG: Executing seek to %.3fs (flush=%d)\n", req.start_seconds, req.flush);
 	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d segment=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush, req.segment);
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	if (req.flush)

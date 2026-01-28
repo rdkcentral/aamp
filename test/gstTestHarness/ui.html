@@ -1,6 +1,7 @@
 <html>
 	<head>
 		<script>
+			const baseUrl = "https://aampcdn.example.net/VideoTestStream/public/aamptest/streams/generated/";
 			var timer;
 			const DONE = 4;
 			const OK = 200;
@@ -96,7 +97,6 @@
 			window.onload = (event) => {
 				locator.value = locators.value;
 			};
-			
 		</script>
 	</head>
 	
@@ -108,15 +108,15 @@
 		
 		Client URL: <input id="clienturl" type="text" value="http://127.0.0.1:8080"></input>
 		<br/>
-		<button onclick="sendCommand('load ' + locator.value)">Load</button>
+		<button onclick="sendCommand('load ' + baseUrl + locator.value)">Load</button>
 		<select id="locators" onchange="locator.value=this.value">
-			<option value="https://example.com/main.mpd">segment timeline</option>
-			<option value="https://example.com/main_seglist.mpd">segment list</option>
-			<option value="https://example.com/main_notimeline.mpd">segment template</option>
-			<option value="https:/cexample.com/main-segmentbase.mpd">segment base</option>
-			<option value="https://example.com/manifest.mpd">multi-period ads</option>
-			<option value="https://example.com/main-multi.mpd">multi-period pts restamping-test</option>
-			<option value="https://example.com/SegmentTimeline.mpd">hevc</option>
+			<option value="main.mpd">segment timeline</option>
+			<option value="main_seglist.mpd">segment list</option>
+			<option value="main_notimeline.mpd">segment template</option>
+			<option value="main-segmentbase.mpd">segment base</option>
+			<option value="manifest.mpd">multi-period ads</option>
+			<option value="main-multi.mpd">multi-period pts restamping-test</option>
+			<option value="SegmentTimeline.mpd">hevc</option>
 		</select>
 		<br/>
 		<textarea id="locator" cols="80" rows="1"></textarea>
