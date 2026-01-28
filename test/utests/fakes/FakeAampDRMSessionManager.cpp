@@ -110,6 +110,10 @@ DrmSession * DrmSessionManager::createDrmSession(int &responseCode,int& err,
 
 DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
+	if (g_mockDRMSessionManager)
+	{
+		return g_mockDRMSessionManager->createDrmSession(responseCode, err, drmHelper, Instance, streamType, metaDataPtr);
+	}
 	return nullptr;
 }
 		
@@ -129,6 +133,15 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 		return g_mockDRMSessionManager->IsKeyIdProcessed(keyIdArray, status);
 	}
 	return false;
+}
+
+KeyState DrmSessionManager::initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot, int &err)
+{
+	if (g_mockDRMSessionManager)
+	{
+		return g_mockDRMSessionManager->initializeDrmSession(drmHelper, sessionSlot, err);
+	}
+	return KEY_ERROR;
 }
 
 void DrmSessionManager::clearDrmSession(bool forceClearSession)

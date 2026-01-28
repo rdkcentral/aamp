@@ -203,15 +203,17 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url), initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{
 			cachedFragment->fragment.ReserveBytes(len);
+			cachedFragment->fragment.SetLen(len);
+
 			UnlockReadMutex();
 			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
-			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
+
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
@@ -276,11 +278,12 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		}
 
 		cachedFragment->fragment.ReserveBytes(len);
-		UnlockReadMutex();
-
-		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
 		cachedFragment->fragment.SetLen(len);
+
+		UnlockReadMutex();
+		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
 		LockReadMutex();
+
 		if (status == TSB::Status::OK)
 		{
 			return cachedFragment;
@@ -404,6 +407,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 
 				// Call TSBHandler Write operation
 				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.GetLen());
+
 				if (status == TSB::Status::OK)
 				{
 					writeSucceeded = true;
@@ -536,7 +540,7 @@ void AampTSBSessionManager::Flush()
 double AampTSBSessionManager::CullSegments()
 {
 	LockReadMutex();
-	double culledduration = 0;
+	double culledDuration = 0;
 	double lastVideoPos = mLastVideoPos;
 	int iter = eMEDIATYPE_VIDEO;
 	while (iter < AAMP_TRACK_COUNT)
@@ -552,7 +556,7 @@ double AampTSBSessionManager::CullSegments()
 		// Check if video position has changed
 		if ((eMEDIATYPE_VIDEO == iter) && (AAMP_PAUSE_POSITION_INVALID_POSITION != mLastVideoPos))
 		{
-			culledduration += (videoFirstPosition - lastVideoPos); // Adjust culledduration for write failures
+			culledDuration += (videoFirstPosition - lastVideoPos); // Adjust culledDuration for write failures
 		}
 		lastVideoPos = videoFirstPosition; // Update lastVideoPos
 
@@ -598,7 +602,7 @@ double AampTSBSessionManager::CullSegments()
 			{
 				double durationInSeconds = removedFragment->GetDuration().inSeconds();
 				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
-					culledduration += durationInSeconds;
+					culledDuration += durationInSeconds;
 				std::string removedFragmentUrl = ToUniqueUrl(removedFragment->GetUrl(),removedFragment->GetAbsolutePosition().inSeconds());
 				UnlockReadMutex();
 				mTSBStore->Delete(removedFragmentUrl);
@@ -630,12 +634,12 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mLastVideoPos = lastVideoPos;
 	}
-	if(culledduration > 0.0)
+	if(culledDuration > 0.0)
 	{
-		mCulledDuration += culledduration;
+		mCulledDuration += culledDuration;
 	}
 	UnlockReadMutex();
-	return culledduration;
+	return culledDuration;
 }
 
 /**

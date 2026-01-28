@@ -230,6 +230,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
 	KeyState code = KEY_ERROR;
+#ifdef USE_PREINIT_DECODING
+	if(aampInstance->mManifestUrl == FAKE_TUNE_URL)
+	{
+		return code;
+	}
+#endif
 	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
@@ -1521,14 +1527,16 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
+
 	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
-
-
-	 if(err != -1)
-	 {
-		 eventHandle->setFailure((AAMPTuneFailure)err);
-	 }
-	 return session;
+	// Check if session creation failed
+	if(err != -1)
+	{
+		// Map middleware DRM error to AAMP tune failure
+		eventHandle->setFailure(MapDrmToAampTuneFailure(static_cast<DrmTuneFailure>(err)));
+		AAMPLOG_ERR("DRM session creation failed with middleware error: %d", err);
+	}
+	return session;
 }
 
 /**
@@ -1548,11 +1556,13 @@ DrmSession * AampDRMLicenseManager::createDrmSession(
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
-        DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
+    DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
 
 	if(err != -1)
 	{
-		eventHandle->setFailure((AAMPTuneFailure)err);
+		// Map middleware DRM error to AAMP tune failure
+		eventHandle->setFailure(MapDrmToAampTuneFailure(static_cast<DrmTuneFailure>(err)));
+		AAMPLOG_ERR("DRM session creation failed with middleware error: %d", err);
 	}
 	return session;
 }
@@ -1564,6 +1574,7 @@ AAMPTuneFailure AampDRMLicenseManager::MapDrmToAampTuneFailure(DrmTuneFailure dr
         case MW_DRM_INIT_FAILED:            return AAMP_TUNE_DRM_INIT_FAILED;
         case MW_DRM_DATA_BIND_FAILED:       return AAMP_TUNE_DRM_DATA_BIND_FAILED;
         case MW_DRM_SESSIONID_EMPTY:        return AAMP_TUNE_DRM_SESSIONID_EMPTY;
+        case MW_DRM_SESSION_CREATE_FAILED:  return AAMP_TUNE_DRM_SESSION_CREATE_FAILED;
         case MW_DRM_CHALLENGE_FAILED:       return AAMP_TUNE_DRM_CHALLENGE_FAILED;
         case MW_INVALID_DRM_KEY:            return AAMP_TUNE_INVALID_DRM_KEY;
         case MW_CORRUPT_DRM_DATA:           return AAMP_TUNE_CORRUPT_DRM_DATA;

@@ -53,12 +53,56 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	return aamp->GetTimedMetadata();
 }
 
+#ifdef USE_PREINIT_DECODING
+
+constexpr auto FAKE_TUNE_WAIT_DURATION = std::chrono::seconds(7);
+
+void doFakeTune()
+{
+	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
+	{
+			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
+			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			std::string jsonStr = R"({
+		    		"preferredDrm": 1,
+		    		"licenseServerUrl": "https://dummy.com"
+			})";
+			fakeTuneInstance->InitAAMPConfig(jsonStr.c_str());
+			fakeTuneInstance->Tune(
+			FAKE_TUNE_URL,
+			true,						  // autoPlay
+			"VOD",						  // contentType
+			true,						  // bFirstAttempt
+			false,						  // bFinalAttempt
+			"trace-id-123",				  // traceUUID
+			false,						  // audioDecoderStreamSync
+			nullptr,					  // refreshManifestUrl
+			0,							  // mpdStichingMode
+			"session-id"				  // sid
+			);
+			AAMPLOG_WARN("After Fake tune call ...");
+			std::thread([fakeTuneInstance]() {
+					AAMPLOG_WARN("Sleeping before calling stop");
+					std::this_thread::sleep_for(FAKE_TUNE_WAIT_DURATION); // or your desired duration
+					fakeTuneInstance->Stop();
+					AAMPLOG_WARN("Fake tune instance stopped..");
+					}).detach();
+	}
+}
+
+#else
+void doFakeTune()
+{
+	// No-op when preinit decoding is not enabled
+}
+#endif
+
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -90,6 +134,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
+		pExternalsInterface->SetPowerEvent(powerEvt);
 		pExternalsInterface->Initialize();	
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
@@ -99,6 +145,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
+	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
@@ -641,7 +689,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
-
 			// Special case where playback has not started due to autoplay being false and
 			// first rate is paused, set to pause with first frame shown
 			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
@@ -681,9 +728,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 			}
 			bool retValue = true;
-			if ( AAMP_SLOWMOTION_RATE != rate && rate > 0 && aamp->IsLive() && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint() && aamp->rate >= AAMP_NORMAL_PLAY_RATE && !aamp->mbDetached)
+
+			if (rate >= AAMP_NORMAL_PLAY_RATE &&
+				aamp->IsAtLivePoint() &&
+				!aamp->mbDetached)
 			{
-				AAMPLOG_WARN("Already at logical live point, hence skipping operation");
+				AAMPLOG_WARN("Already at logical live point, hence skipping operation (rate=%.2f)", rate);
 				aamp->NotifyOnEnteringLive();
 				return;
 			}
@@ -695,6 +745,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused, rate);
 				return;
 			}
+
+			// Not at live edge, so clear the flag
+			aamp->mpStreamAbstractionAAMP->SetIsAtLivePoint(false);
 
 			//-- Get the trick play to a closer position
 			//Logic adapted

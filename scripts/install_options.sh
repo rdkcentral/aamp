@@ -29,7 +29,7 @@ OPTION_QUICK=false
 OPTION_RIALTO_REFERENCE="v0.2.2"
 OPTION_RIALTO_BUILD=false
 OPTION_SUBTEC_SKIP=false
-OPTION_AAMPCLIKOTLIN_SKIP=false
+OPTION_AAMPCLIKOTLIN_SKIP=true
 OPTION_SUBTEC_BUILD=true
 OPTION_SUBTEC_CLEAN=false
 OPTION_CLEAN_BUILD=false
@@ -83,7 +83,7 @@ function install_options_fn()
         echo "Enable Ubuntu sanitizer: ${OPTION_UBUNTU_SANITIZER}"
         ;;
       k )
-        OPTION_AAMPCLIKOTLIN_SKIP=true
+        OPTION_AAMPCLIKOTLIN_SKIP=false
         echo "Skip aamp-cli on Kotlin: ${OPTION_AAMPCLIKOTLIN_SKIP}"
         ;;
       p )
@@ -105,7 +105,7 @@ function install_options_fn()
 
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
-        [-k] Skip aamp-cli Kotlin build and installation]
+        [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"
 

@@ -30,6 +30,7 @@ public:
 	MOCK_METHOD(void, Release, (int iID));
 	MOCK_METHOD(bool, IsOOBCCRenderingSupported, ());
 	MOCK_METHOD(int, SetStatus, (bool enable));
+	MOCK_METHOD(bool, GetStatus, ());
 	MOCK_METHOD(int, SetStyle, (const std::string &options));
 	MOCK_METHOD(int, SetTrack, (const std::string &track, const CCFormat format));
 	MOCK_METHOD(void, SetTrickplayStatus, (bool enable));

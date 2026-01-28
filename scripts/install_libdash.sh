@@ -35,11 +35,11 @@ function install_build_libdash_fn()
         INSTALL_STATUS_ARR+=("libdash was already installed.")
     else
         echo "Installing libdash..."
-        do_clone_fn  https://github.com/bitmovin/libdash.git
+        git clone https://github.com/bitmovin/libdash.git
 
         cd libdash/libdash
         git checkout stable_3_0
-        do_clone_fn -b rdk-next "https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext"
+        git clone https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext -b rdk-next
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0001-libdash-build.patch
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0002-libdash-starttime-uint64.patch 
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0003-libdash-presentationTimeOffset-uint64.patch 

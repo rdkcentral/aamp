@@ -964,7 +964,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 		// So using the endposition in playlist - Current playing position to get the buffer availability
 		int bufferAvailable = mLatencyValue;
 
-		// when target duration is high value(>Max delay)  but buffer is available just above the max update inteval,then go with max delay between playlist refresh.
+		// when target duration is high value(>Max delay)  but buffer is available just above the max update interval,then go with max delay between playlist refresh.
 		if(bufferAvailable != -1 && !mIsLowLatency)
 		{
 			if(bufferAvailable < (2* MAX_DELAY_BETWEEN_MPD_UPDATE_MS))

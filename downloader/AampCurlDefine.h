@@ -38,11 +38,6 @@
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
 #define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
 #define DEFAULT_DNS_CACHE_TIMEOUT 3*60L	/***< Name resolve results for this number of seconds*/
-/**
- * @enum AampCurlStoreErrorCode
- * @brief Error codes returned by curlstore
- */
- 
 
 /**
  * @brief Http Header Type
@@ -61,7 +56,10 @@ enum CurlAbortReason
 	eCURL_ABORT_REASON_NONE = 0,
 	eCURL_ABORT_REASON_STALL_TIMEDOUT,
 	eCURL_ABORT_REASON_START_TIMEDOUT,
-	eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT
+	eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT,
+	eCURL_ABORT_REASON_CHUNKED_PARSER_ERROR,
+	eCURL_ABORT_REASON_FIRST_CHUNK_SLOW,
+	eCURL_ABORT_REASON_INVALID_CHUNK_BOUNDARY
 };
 
 enum CurlTimeoutFailureReason
