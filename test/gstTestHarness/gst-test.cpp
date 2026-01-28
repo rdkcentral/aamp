@@ -1447,7 +1447,7 @@ public:
 		else if( strcmp(str,"stop")==0 )
 		{
 			// Clean up global Mp4Demux instances to prevent memory leaks
-			for (int i = 0; i < 2; i++)
+			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
 			{
 				delete gMp4Demux[i];
 				gMp4Demux[i] = nullptr;
@@ -1462,9 +1462,19 @@ public:
 			delete pipelineContext.pipeline;
 			pipelineContext.pipeline = new Pipeline( &pipelineContext );
 			
-			// Reset context state for clean restart (base class members)
-			pipelineContext.configured_stream_count = 0;
-			pipelineContext.initial_seek_performed = false;
+			// Reset context state that is protected by segment_seek_mutex
+			{
+				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
+				pipelineContext.configured_stream_count = 0;
+				pipelineContext.initial_seek_performed = false;
+				
+				// Clear any pending segment-end seeks so they are not
+				// carried into the next playback session.
+				while (!pipelineContext.mSegmentEndSeekQueue.empty())
+				{
+					pipelineContext.mSegmentEndSeekQueue.pop();
+				}
+			}
 			
 			// Reset derived class members
 			pipelineContext.nextPTS = 0.0;
@@ -1645,7 +1655,8 @@ int my_main(int argc, char **argv)
 	struct AppContext appContext;
 	GIOChannel *io_stdin = g_io_channel_unix_new (fileno (stdin));
 	(void)g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) handle_keyboard, &appContext);
-	(void)g_idle_add( myIdleFunc, (gpointer)&appContext );
+	// Use g_timeout_add instead of g_idle_add to avoid 100% CPU utilization
+	(void)g_timeout_add( 10, myIdleFunc, (gpointer)&appContext );
 	std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
 	g_main_loop_run(appContext.main_loop);
 	g_main_loop_unref(appContext.main_loop);
