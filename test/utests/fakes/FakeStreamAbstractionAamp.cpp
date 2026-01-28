@@ -568,5 +568,12 @@ std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB
 
 bool StreamAbstractionAAMP::IsCurrentProfileLowest()
 {
-	return false;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->IsCurrentProfileLowest();
+	}
+	else
+	{
+		return false;
+	}
 }
