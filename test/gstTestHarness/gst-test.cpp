@@ -1498,9 +1498,7 @@ static gboolean myIdleFunc( gpointer arg )
 {
 	AppContext *appContext = (AppContext *)arg;
 	appContext->IdleFunc();
-	// avoid 100% cpu utilization by waiting 10ms for next idle callback
-	g_timeout_add(10, myIdleFunc, arg);
-	return FALSE;
+	return TRUE;
 }
 
 static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppContext * appContext )
@@ -1628,7 +1626,8 @@ int my_main(int argc, char **argv)
 	struct AppContext appContext;
 	GIOChannel *io_stdin = g_io_channel_unix_new (fileno (stdin));
 	(void)g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) handle_keyboard, &appContext);
-	(void)g_idle_add( myIdleFunc, (gpointer)&appContext );
+	// Use g_timeout_add instead of g_idle_add to avoid 100% CPU utilization
+	(void)g_timeout_add( 10, myIdleFunc, (gpointer)&appContext );
 	std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
 	g_main_loop_run(appContext.main_loop);
 	g_main_loop_unref(appContext.main_loop);
