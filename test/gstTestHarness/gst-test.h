@@ -54,7 +54,7 @@ public:
 	Track& operator=(const Track&)=delete;
 };
 
-class MyPipelineContext : PipelineContext
+class MyPipelineContext : public PipelineContext
 {
 public:
 	class Pipeline *pipeline;
