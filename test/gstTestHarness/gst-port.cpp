@@ -630,8 +630,25 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 void Pipeline::Reset( void )
 {
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	std::queue<SeekParam> empty; std::swap( context->mSegmentEndSeekQueue, empty );
-	GST_DEBUG_OBJECT(pipeline, "Reset seek queue");
+	
+	// Clear seek queue
+	std::queue<SeekParam> empty;
+	std::swap(context->mSegmentEndSeekQueue, empty);
+	
+	// Reset configuration state to allow reconfiguration
+	context->configured_stream_count = 0;
+	context->initial_seek_performed = false;
+	
+	// Clear injected buffer counters
+	for (auto& ms : mediaStream)
+	{
+		if (ms)
+		{
+			ms->ClearInjectedSeconds();
+		}
+	}
+	
+	GST_DEBUG_OBJECT(pipeline, "Reset complete: cleared seek queue, config state, and buffer counters");
 }
 
 long long Pipeline::GetPositionMilliseconds( MediaType /*mediaType*/ ) const
