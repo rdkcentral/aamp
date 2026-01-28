@@ -103,8 +103,8 @@ TEST_F(AampCacheHandlerTest, InitFragCache)
 	std::string url7 = "http://example7.com";
 	std::string eURL;
 
-	const std::string rawData = "HelloWorld";
-	std::vector<uint8_t> dataBuffer(rawData.begin(), rawData.end());
+	const std::string helloStr = "HelloWorld";
+	std::vector<uint8_t> dataBuffer(helloStr.begin(), helloStr.end());
 	std::vector<uint8_t> emptyBuffer{};
 	AampMediaType type = eMEDIATYPE_INIT_VIDEO;
 
@@ -145,8 +145,8 @@ TEST_F(AampCacheHandlerTest, InitFragCacheWithEffectiveURL)
 	std::string eURL3 = "http://example3.com-redirect";
 	std::string ret_eURL;
 
-	const std::string rawData1 = "HelloWorld";
-	std::vector<uint8_t> dataBuffer(rawData1.begin(), rawData1.end());
+	const std::string helloStr = "HelloWorld";
+	std::vector<uint8_t> dataBuffer(helloStr.begin(), helloStr.end());
 	std::vector<uint8_t> emptyBuffer{};
 	AampMediaType type = eMEDIATYPE_INIT_VIDEO;
 	// Inserting the Url and trying to retrieve with empty buffer
