@@ -2750,7 +2750,7 @@ long InterfacePlayerRDK::GetDurationMilliseconds()
 
     // Log entry with thread id for concurrency diagnostics
     std::thread::id this_id = std::this_thread::get_id();
-    MW_LOG_INFO( "GetDurationMilliseconds: Enter (thread id: %zu)",
+    MW_LOG_WARN( "GetDurationMilliseconds: Enter (thread id: %zu)",
         static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
 
     // Defensive: Ensure private context and pipeline are valid
@@ -2783,7 +2783,7 @@ long InterfacePlayerRDK::GetDurationMilliseconds()
         return 0;
     }
 
-    MW_LOG_DEBUG( "GetDurationMilliseconds: Created duration query %p (thread id: %zu)",
+    MW_LOG_WARN( "GetDurationMilliseconds: Created duration query %p (thread id: %zu)",
         static_cast<void*>(durationQuery),
         static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
 
@@ -2792,14 +2792,14 @@ long InterfacePlayerRDK::GetDurationMilliseconds()
         interfacePlayerPriv->gstPrivateContext->pipeline,
         durationQuery );
 
-    MW_LOG_DEBUG( "GetDurationMilliseconds: gst_element_query returned %d (thread id: %zu)",
+    MW_LOG_WARN( "GetDurationMilliseconds: gst_element_query returned %d (thread id: %zu)",
         queryOk, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
 
     if ( queryOk )
     {
         GstFormat fmt = GST_FORMAT_UNDEFINED;
         gst_query_parse_duration( durationQuery, &fmt, &durationNs );
-        MW_LOG_DEBUG( "GetDurationMilliseconds: Parsed duration: %" PRId64 " ns, format: %d (thread id: %zu)",
+        MW_LOG_WARN( "GetDurationMilliseconds: Parsed duration: %" PRId64 " ns, format: %d (thread id: %zu)",
             durationNs, fmt, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
         if ( fmt == GST_FORMAT_TIME && durationNs > 0 )
         {
@@ -2821,7 +2821,7 @@ long InterfacePlayerRDK::GetDurationMilliseconds()
     gst_query_unref( durationQuery );
     durationQuery = nullptr;
 
-    MW_LOG_INFO( "GetDurationMilliseconds: Exit with %ld ms (thread id: %zu)",
+    MW_LOG_WARN( "GetDurationMilliseconds: Exit with %ld ms (thread id: %zu)",
         durationMs, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
 
     return durationMs;
