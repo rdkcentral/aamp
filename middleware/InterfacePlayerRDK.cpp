@@ -749,7 +749,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	}
 	else
 	{
-		MW_LOG_WARN( "gst_element_get_state %d", state );
+		MW_LOG_WARN( "gst_element_get_state %d, rc=%d", state, rc );
 	}
 }
 
@@ -2592,44 +2592,79 @@ void InterfacePlayerRDK::ResetFirstFrame(void)
 	interfacePlayerPriv->gstPrivateContext->firstFrameReceived = false;
 }
 
+/**
+ *  @brief Get rendered and dropped frames count when gst element state is GST_STATE_CHANGE_SUCCESS
+ *  with pipeline in playing or paused state.
+ *  Returns NULL during pipeline state transition, and any states other than the above mentioned ones.
+ */
 GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
-	GstStructure *stats= 0;
+	GstStructure *stats = nullptr;
 	GstElement *element;
-	if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
+	GstState current{};
+	GstState pending{};
+	constexpr GstClockTime timeout = 0;
+	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+	if( ret == GST_STATE_CHANGE_SUCCESS )
 	{
-		element = interfacePlayerPriv->gstPrivateContext->video_sink;
-	}
-	else
-	{
-		element = interfacePlayerPriv->gstPrivateContext->video_dec;
-	}
-	if( element )
-	{
-		g_object_get( G_OBJECT(element), "stats", &stats, NULL );
-		if ( stats )
+		if(current == GST_STATE_PLAYING || current == GST_STATE_PAUSED)
 		{
-			const GValue *value;
-			value= gst_structure_get_value( stats, "rendered" );
-			if ( value )
+			if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+				element = interfacePlayerPriv->gstPrivateContext->video_sink;
 			}
-			value= gst_structure_get_value( stats, "dropped" );
-			if ( value )
+			else
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+				element = interfacePlayerPriv->gstPrivateContext->video_dec;
 			}
-			MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
-			gst_structure_free( stats );
-			return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+			if( element )
+			{
+				g_object_get( G_OBJECT(element), "stats", &stats, NULL );
+				if ( stats )
+				{
+					const GValue *value;
+					value = gst_structure_get_value( stats, "rendered" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = 0;
+					}
+					value = gst_structure_get_value( stats, "dropped" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = 0;
+					}
+					MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
+					gst_structure_free( stats );
+					return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+				}
+				else
+				{
+					MW_LOG_ERR("Failed to get sink stats");
+				}
+			}
 		}
 		else
 		{
-			MW_LOG_ERR("Failed to get sink stats");
+			MW_LOG_INFO("gst_element_get_state current=%d is not PLAYING or PAUSED, pending=%d: can't query playback quality now", current, pending);
 		}
 	}
-	return NULL;
+	else if (ret == GST_STATE_CHANGE_ASYNC)
+	{
+		MW_LOG_INFO("gst_element_get_state async: state transition in progress (current state=%d, pending=%d), can't query playback quality now", current, pending);
+	}
+	else
+	{
+		MW_LOG_INFO("gst_element_get_state ret=%d: can't query playback quality now", ret);
+	}
+	return nullptr;
 }
 
 /**
@@ -2954,15 +2989,16 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 }
 
 /**
- *  @brief Inject stream buffer to gstreamer pipeline
+ *  @brief Inject stream buffer to gstreamer pipeline with transfer ownership (zero-copy)
  */
-bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
 	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
 	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
+
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
 	{
 		MW_LOG_WARN( "[%d] Discontinuity detected - setting subtitle clock to %" GST_TIME_FORMAT " dAR %d rP %d init %d sC %d",
@@ -3027,53 +3063,40 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 			pts_offset = 0;
 		}
 
-		if(copy)
+		std::vector<uint8_t>* heapVector = new std::vector<uint8_t>(std::move(sample.mData));
+		
+		buffer = gst_buffer_new_wrapped_full(
+			GST_MEMORY_FLAG_READONLY,
+			(gpointer)heapVector->data(), heapVector->size(),
+			0, heapVector->size(),
+			heapVector,
+			[](gpointer user_data) {
+				delete static_cast<std::vector<uint8_t>*>(user_data);
+			}
+		);
+
+		if (buffer)
 		{
-			buffer = CreateGstBufferWithData(sample.mData, sample.mDataSize);
-
-			if (buffer)
+			GST_BUFFER_PTS(buffer) = pts;
+			GST_BUFFER_DTS(buffer) = dts;
+			GST_BUFFER_DURATION(buffer) = duration;
+			if (sample.mDrmMetadata.mIsEncrypted)
 			{
-				GST_BUFFER_PTS(buffer) = pts;
-				GST_BUFFER_DTS(buffer) = dts;
-				GST_BUFFER_DURATION(buffer) = duration;
-				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-					GST_BUFFER_OFFSET(buffer) = pts_offset;
-
-				MW_LOG_DEBUG("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT, mediaType, pts, dts);
-				MW_LOG_DEBUG(" fragmentPTSoffset %" G_GINT64_FORMAT, pts_offset);
+				// Set DRM metadata to buffer
+				DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
 			}
-			else
+			if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 			{
-				bPushBuffer = false;
+				GST_BUFFER_OFFSET(buffer) = pts_offset;
 			}
+
+			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
+						mediaType, pts, dts, heapVector->size(), initFragment, discontinuity, duration, pts_offset);
 		}
 		else
-		{ // transfer
-			buffer = gst_buffer_new_wrapped((gpointer)sample.mData,(gsize)sample.mDataSize);
-
-			if (buffer)
-			{
-				GST_BUFFER_PTS(buffer) = pts;
-				GST_BUFFER_DTS(buffer) = dts;
-				GST_BUFFER_DURATION(buffer) = duration;
-				if (sample.mDrmMetadata.mIsEncrypted)
-				{
-					// Set DRM metadata to buffer
-					// Skipped for copy as that path is not used for demuxed content
-					// TODO: Handle copy path also if required in future
-					DecorateGstBufferWithDrmMetadata(buffer, sample.mDrmMetadata);
-				}
-				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-					GST_BUFFER_OFFSET(buffer) = pts_offset;
-
-				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
-							mediaType, pts, dts, sample.mDataSize, initFragment, discontinuity, duration);
-
-			}
-			else
-			{
-				bPushBuffer = false;
-			}
+		{
+			delete heapVector;
+			bPushBuffer = false;
 		}
 
 		if (bPushBuffer)
