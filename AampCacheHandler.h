@@ -152,8 +152,6 @@ private:
 		}
 		else if( maxPlaylistCacheBytes != PLAYLIST_CACHE_SIZE_UNLIMITED )
 		{ // cache size constraint to be enforced
-			AAMPLOG_WARN( "DJH playlist cache size %zu bytes, total used %zu bytes, need %zu bytes",
-				(size_t)maxPlaylistCacheBytes, (size_t)totalCachedBytes, bytesNeeded );
 			if( totalCachedBytes+bytesNeeded > maxPlaylistCacheBytes  )
 			{
 				reduceCacheSize( mediaType, maxPlaylistCacheBytes - bytesNeeded );
