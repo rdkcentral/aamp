@@ -30,6 +30,7 @@
 #include "AampCacheHandler.h"
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <math.h>
 #include <iterator>
 #include <sys/time.h>
@@ -989,7 +990,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
 	{
-		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
+		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%" PRIu64 "] != currentdownloadtime[%" PRIu64 "]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
 		unparsedBufferChunk.Free();
 	}
 	size_t requiredLength = cachedFragment->fragment.GetLen() + unparsedBufferChunk.GetLen();
