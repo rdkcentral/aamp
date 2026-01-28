@@ -4351,6 +4351,20 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 	}
 }
 
+#if 1//test
+static int curlDebugCallback(CURL *handle, curl_infotype type, char *data, size_t size, void *userp)
+{
+	(void)handle;
+	(void)userp;
+	size_t len = size;
+
+	while( len>0 && data[len-1]<' ' ) len--;
+	std::string printable(data,len);
+	AAMPLOG_MIL("curl debug type:%d info:%s", type, printable.c_str() );
+
+	return 0;
+}
+#endif//test
 /**
  * @brief Download a file from the CDN
  */
@@ -4423,6 +4437,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CurlCallbackContext context;
 		if (curl)
 		{
+#if 1//test
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_VERBOSE, 1L);
+			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_DEBUGFUNCTION, curlDebugCallback);
+#endif
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 			
 			//  by default libcurl handles chunked transfer encoding transparently
