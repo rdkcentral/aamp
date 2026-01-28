@@ -2740,56 +2740,93 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 }
 
 /**
- *  @brief Get playback duration in MS
+ * @brief Gets the duration of the current media in milliseconds.
+ *        Adds debug logs and thread id for crash diagnosis.
+ * @return Duration in milliseconds, or 0 on error.
  */
-long InterfacePlayerRDK::GetDurationMilliseconds(void)
+long InterfacePlayerRDK::GetDurationMilliseconds()
 {
-	long rc = 0;
-	GstQuery *durationQuery;
-	if( interfacePlayerPriv->gstPrivateContext->pipeline )
-	{
-		if( interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PLAYING || // playing
-		   (interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) ) // paused by user
-		{
-			MW_LOG_WARN( "GetDurationMilliseconds: Creating duration query from local var" );
-			//interfacePlayerPriv->gstPrivateContext->durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
-			durationQuery = gst_query_new_duration(GST_FORMAT_TIME);
+    long durationMs = 0;
 
-			if(durationQuery)
-			{
-				MW_LOG_WARN( "GetDurationMilliseconds: Query object address: %p", static_cast<void*>(durationQuery) );
-				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,durationQuery);
-				MW_LOG_WARN( "gst_element_query Completed using local var" );
-				if( res )
-				{
-					gint64 duration;
-					gst_query_parse_duration(durationQuery, NULL, &duration); /* parses the value into duration */
-					MW_LOG_WARN( "GetDurationMilliseconds: Duration parsed: %" G_GINT64_FORMAT, duration );
-					rc = GST_TIME_AS_MSECONDS(duration);
-				}
-				else
-				{
-					MW_LOG_ERR("Duration query failed");
-				}
-				gst_query_unref(durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
-				durationQuery = NULL;
-			}
-			else
-			{
-				MW_LOG_WARN("Duration query is NULL");
-			}
-		}
-		else
-		{
-			MW_LOG_WARN("Pipeline is in %s state", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState) );
-		}
-	}
-	else
-	{
-		MW_LOG_WARN("Pipeline is null");
-	}
-	return rc;
+    // Log entry with thread id for concurrency diagnostics
+    std::thread::id this_id = std::this_thread::get_id();
+    MW_LOG_INFO( "GetDurationMilliseconds: Enter (thread id: %zu)",
+        static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+
+    // Defensive: Ensure private context and pipeline are valid
+    if ( !interfacePlayerPriv
+        || !interfacePlayerPriv->gstPrivateContext
+        || !interfacePlayerPriv->gstPrivateContext->pipeline )
+    {
+        MW_LOG_WARN( "GetDurationMilliseconds: Pipeline is null (thread id: %zu)",
+            static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+        return 0;
+    }
+
+    // Defensive: Only query when pipeline is in a valid state
+    GstState state = interfacePlayerPriv->gstPrivateContext->pipelineState;
+    if ( state != GST_STATE_PLAYING
+        && !( state == GST_STATE_PAUSED
+            && interfacePlayerPriv->gstPrivateContext->paused ) )
+    {
+        MW_LOG_WARN( "GetDurationMilliseconds: Pipeline not in valid state (state: %d, thread id: %zu)",
+            state, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+        return 0;
+    }
+
+    // Use local query variable for thread safety
+    GstQuery *durationQuery = gst_query_new_duration( GST_FORMAT_TIME );
+    if ( !durationQuery )
+    {
+        MW_LOG_ERR( "GetDurationMilliseconds: Failed to create duration query (thread id: %zu)",
+            static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+        return 0;
+    }
+
+    MW_LOG_DEBUG( "GetDurationMilliseconds: Created duration query %p (thread id: %zu)",
+        static_cast<void*>(durationQuery),
+        static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+
+    gint64 durationNs = 0;
+    gboolean queryOk = gst_element_query(
+        interfacePlayerPriv->gstPrivateContext->pipeline,
+        durationQuery );
+
+    MW_LOG_DEBUG( "GetDurationMilliseconds: gst_element_query returned %d (thread id: %zu)",
+        queryOk, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+
+    if ( queryOk )
+    {
+        GstFormat fmt = GST_FORMAT_UNDEFINED;
+        gst_query_parse_duration( durationQuery, &fmt, &durationNs );
+        MW_LOG_DEBUG( "GetDurationMilliseconds: Parsed duration: %" PRId64 " ns, format: %d (thread id: %zu)",
+            durationNs, fmt, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+        if ( fmt == GST_FORMAT_TIME && durationNs > 0 )
+        {
+            durationMs = static_cast<long>( durationNs / GST_MSECOND );
+        }
+        else
+        {
+            MW_LOG_WARN( "GetDurationMilliseconds: Invalid format or duration (thread id: %zu)",
+                static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+        }
+    }
+    else
+    {
+        MW_LOG_WARN( "GetDurationMilliseconds: gst_element_query failed (thread id: %zu)",
+            static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+    }
+
+    // Always unref and null the query pointer
+    gst_query_unref( durationQuery );
+    durationQuery = nullptr;
+
+    MW_LOG_INFO( "GetDurationMilliseconds: Exit with %ld ms (thread id: %zu)",
+        durationMs, static_cast<size_t>(std::hash<std::thread::id>{}(this_id)) );
+
+    return durationMs;
 }
+
 /**
  *  @brief Get video display's width and height
  */
