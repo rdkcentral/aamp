@@ -1430,6 +1430,7 @@ public:
 			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
 			
 			// Reset pipeline state
+			pipelineContext.pipeline->Reset();
 			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 			delete pipelineContext.pipeline;
 			pipelineContext.pipeline = new Pipeline( &pipelineContext );
