@@ -1498,7 +1498,9 @@ static gboolean myIdleFunc( gpointer arg )
 {
 	AppContext *appContext = (AppContext *)arg;
 	appContext->IdleFunc();
-	return TRUE;
+	// avoid 100% cpu utilization by waiting 10ms for next idle callback
+	g_timeout_add(10, (GSourceFunc)myIdleFunc, arg);
+	return FALSE;
 }
 
 static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppContext * appContext )
