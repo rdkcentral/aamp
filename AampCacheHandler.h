@@ -102,7 +102,7 @@ private:
 		AAMPLOG_WARN( "removing %s playlists from cache", GetMediaTypeName(mediaType) );
 		while(iter != cache.end())
 		{
-			AampCachedData *cachedData = iter->second;
+			AampCachedData *cachedData = iter->second.get();
 			if(cachedData->mediaType == eMEDIATYPE_MANIFEST || cachedData->mediaType != mediaType)
 			{ // leave main manifest and alternate playlist types
 				iter++;
@@ -113,7 +113,6 @@ private:
 				{ // not alias; reclaim space
 					totalCachedBytes -= cachedData->buffer->size();
 				}
-				SAFE_DELETE(cachedData);
 				iter = cache.erase(iter);
 			}
 		}
@@ -125,7 +124,7 @@ private:
 			iter = cache.begin();
 			while(iter != cache.end())
 			{
-				AampCachedData *cachedData = iter->second;
+				AampCachedData *cachedData = iter->second.get();
 				if( cachedData->mediaType == eMEDIATYPE_MANIFEST )
 				{ // leave main manifest
 					iter++;
@@ -136,7 +135,6 @@ private:
 					{
 						totalCachedBytes -= cachedData->buffer->size();
 					}
-					SAFE_DELETE(cachedData);
 					iter = cache.erase(iter);
 				}
 			}
@@ -164,11 +162,11 @@ private:
 	bool makeRoomForInitFragment( AampMediaType mediaType )
 	{
 		int count = 0;
-		std::unordered_map<std::string, AampCachedData *>::iterator lru = cache.end();
+		auto lru = cache.end();
 		auto iter = cache.begin();
 		while( iter != cache.end() )
 		{
-			AampCachedData *cachedData = iter->second;
+			AampCachedData *cachedData = iter->second.get();
 			if(cachedData->mediaType == mediaType && !cachedData->effectiveUrl.empty() )
 			{
 				if( lru==cache.end() || cachedData->seqNo < lru->second->seqNo )
@@ -192,7 +190,7 @@ private:
 		int count = 0;
 		for (auto& it: cache)
 		{
-			AampCachedData *cachedData = it.second;
+			AampCachedData *cachedData = it.second.get();
 			if(cachedData->effectiveUrl == effectiveUrl)
 			{
 				count++;
@@ -204,7 +202,7 @@ private:
 public:
 	int maxCachedInitFragmentsPerTrack;
 	int maxPlaylistCacheBytes;
-	std::unordered_map<std::string, AampCachedData *> cache;
+	std::unordered_map<std::string, std::unique_ptr<AampCachedData>> cache;
 
 	AampCache()
 	{
@@ -221,53 +219,50 @@ public:
 public:
 	void Insert(const std::string &url, const std::vector<uint8_t> &buffer, const std::string &effectiveUrl, AampMediaType mediaType)
 	{
-		if (buffer.size() == 0)
+		// High hit early exit scenario
+		if (cache.find(url) != cache.end())
+		{
+			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
+			return;
+		}
+
+		if (buffer.empty())
 		{
 			AAMPLOG_ERR("empty buffer");
+			return;
 		}
-		else if (Find(url))
-		{ // should never happen - caller has no business downloading if already cached
-			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
-		}
-		else
-		{
-			bool ok = false;
-			switch (cacheType)
-			{
-				case eCACHE_TYPE_INIT_FRAGMENT:
-					ok = makeRoomForInitFragment(mediaType);
-					break;
-				case eCACHE_TYPE_PLAYLIST:
-					ok = makeRoomForPlaylist(mediaType, buffer.size());
-					break;
-				default:
-					break;
-			}
-			if (ok)
-			{
-				// construct shared vector via copy-constructor (clear and intent is explicit)
-				auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
-				AampCachedData *cachedData = new AampCachedData(effectiveUrl, cachedBuf, mediaType);
 
-				cache[url] = cachedData;
-				cachedData->seqNo = ++seqNo;
-				totalCachedBytes += cachedBuf->size();
-				AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
-				// There are cases where main url and effective url will be different (often for main manifest)
-				// Need to store both the entries with same content data
-				// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
-				// When retune happens from JS, regular Main url will be asked to read from cached manifest.
-				// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
-				if (url != effectiveUrl)
-				{ // re-use buffer without extra copy
-					if (cache.find(effectiveUrl) != cache.end())
-					{ // effective url was already in cache, so delete the old one
-						SAFE_DELETE(cache[effectiveUrl]);
-					}
-					AampCachedData *newData = new AampCachedData("", cachedData->buffer, mediaType);
-					cache[effectiveUrl] = newData;
-					AAMPLOG_MIL("duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str());
-				}
+		bool ok = false;
+		switch (cacheType)
+		{
+		case eCACHE_TYPE_INIT_FRAGMENT:
+			ok = makeRoomForInitFragment(mediaType);
+			break;
+		case eCACHE_TYPE_PLAYLIST:
+			ok = makeRoomForPlaylist(mediaType, buffer.size());
+			break;
+		default:
+			break;
+		}
+
+		if (ok)
+		{
+			auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
+			auto cachedData = std::make_unique<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
+
+			cachedData->seqNo = ++seqNo;
+			cache[url] = std::move(cachedData);
+			totalCachedBytes += cachedBuf->size();
+			AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
+			// There are cases where main url and effective url will be different (often for main manifest)
+			// Need to store both the entries with same content data
+			// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
+			// When retune happens from JS, regular Main url will be asked to read from cached manifest.
+			// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
+			if (url != effectiveUrl)
+			{ // re-use buffer and replace effectiveUrl entry if it exists
+				cache.insert_or_assign(effectiveUrl, std::make_unique<AampCachedData>("", cachedBuf, mediaType));				
+				AAMPLOG_MIL("duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str());
 			}
 		}
 	}
@@ -276,7 +271,7 @@ public:
 	{
 		auto iter = cache.find(url);
 		assert(iter != cache.end());
-		AampCachedData *cachedData = iter->second;
+		AampCachedData *cachedData = iter->second.get();
 		totalCachedBytes -= cachedData->buffer->size();
 		assert(!cachedData->effectiveUrl.empty());
 		if ((url != cachedData->effectiveUrl) &&
@@ -284,36 +279,28 @@ public:
 		{ // remove main entry with payload
 			auto iter2 = cache.find(cachedData->effectiveUrl);
 			assert(iter2 != cache.end());
-			AampCachedData *cachedData2 = iter2->second;
+			AampCachedData *cachedData2 = iter2->second.get();
 			assert(cachedData2->effectiveUrl.empty());
-			SAFE_DELETE(cachedData2);
 			cache.erase(iter2);
 		}
-		SAFE_DELETE(cachedData);
 		cache.erase(iter);
 	}
 
 	void Clear( void )
 	{
-		for( auto it = cache.begin(); it != cache.end(); it++)
-		{
-			AampCachedData *cachedData = it->second;
-			SAFE_DELETE(cachedData);
-		}
+		// unique_ptr owned entries are destructed automatically
 		cache.clear();
 		totalCachedBytes = 0;
 	}
 
-	AampCachedData * Find( const std::string &url )
+	AampCachedData *Find(const std::string &url)
 	{
-		AampCachedData *cachedData = NULL;
-		auto it = cache.find(url);
-		if( it != cache.end() )
-		{ // cache hit
-			cachedData = it->second;
-			cachedData->seqNo = ++seqNo;
+		if (auto it = cache.find(url); it != cache.end())
+		{
+			it->second->seqNo = ++seqNo; // Update LRU priority
+			return it->second.get();
 		}
-		return cachedData;
+		return nullptr;
 	}
 };
 
