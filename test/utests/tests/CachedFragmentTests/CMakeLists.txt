@@ -20,8 +20,6 @@ cmake_minimum_required(VERSION 3.10.3)
 # Project name
 project(CachedFragmentTests)
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 11)
 
 # Include GoogleTest module
 include(GoogleTest)
