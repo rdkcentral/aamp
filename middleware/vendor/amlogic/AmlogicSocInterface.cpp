@@ -48,7 +48,14 @@ void AmlogicSocInterface::SetAudioProperty(const char * &volume, const char * &m
  */
 void AmlogicSocInterface::SetSeamlessSwitch(GstElement* sink, gboolean value)
 {
-	MW_LOG_INFO("AMLOGIC:setting seamless property");
+	MW_LOG_WARN("VRN AMLOGIC:setting seamless property Sink[%s]",sink==nullptr?"INVALID":"VALID");
+    if (GST_IS_ELEMENT(sink)) {
+        MW_LOG_ERROR("VRN AMLOGIC:SetSeamlessSwitch() sink is a valid GstElement");
+    }
+	else
+	{
+		MW_LOG_ERROR("VRN AMLOGIC:SetSeamlessSwitch() sink is not a valid GstElement, cannot set property");
+	}
 	g_object_set(sink, "seamless-switch", value, NULL);
 }
 
