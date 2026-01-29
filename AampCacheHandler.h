@@ -185,18 +185,10 @@ private:
 		return true; // success
 	}
 
-	int countReferencesToEffectiveUrl( const std::string effectiveUrl )
+	int countReferencesToEffectiveUrl(const std::string effectiveUrl)
 	{
-		int count = 0;
-		for (auto& it: cache)
-		{
-			AampCachedData *cachedData = it.second.get();
-			if(cachedData->effectiveUrl == effectiveUrl)
-			{
-				count++;
-			}
-		}
-		return count;
+		return std::count_if(cache.begin(), cache.end(), [&effectiveUrl](const auto &pair)
+							 { return pair.second->effectiveUrl == effectiveUrl; });
 	}
 
 public:
