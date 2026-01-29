@@ -247,22 +247,35 @@ public:
 
 		if (ok)
 		{
-			auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
-			auto cachedData = std::make_unique<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
+			try
+			{	// Do the allocations up front to avoid partial state updates on failure
+				auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
+				auto cachedData = std::make_unique<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
 
-			cachedData->seqNo = ++seqNo;
-			cache[url] = std::move(cachedData);
-			totalCachedBytes += cachedBuf->size();
-			AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
-			// There are cases where main url and effective url will be different (often for main manifest)
-			// Need to store both the entries with same content data
-			// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
-			// When retune happens from JS, regular Main url will be asked to read from cached manifest.
-			// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
-			if (url != effectiveUrl)
-			{ // re-use buffer and replace effectiveUrl entry if it exists
-				cache.insert_or_assign(effectiveUrl, std::make_unique<AampCachedData>("", cachedBuf, mediaType));				
-				AAMPLOG_MIL("duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str());
+				std::unique_ptr<AampCachedData> aliasData = nullptr;
+				if (url != effectiveUrl)
+				{
+					aliasData = std::make_unique<AampCachedData>("", cachedBuf, mediaType);
+				}
+
+				cachedData->seqNo = ++seqNo;
+				cache[url] = std::move(cachedData);
+				totalCachedBytes += cachedBuf->size();
+				AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
+				// There are cases where main url and effective url will be different (often for main manifest)
+				// Need to store both the entries with same content data
+				// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
+				// When retune happens from JS, regular Main url will be asked to read from cached manifest.
+				// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
+				if (aliasData)
+				{ // re-use buffer and replace effectiveUrl entry if it exists
+					cache.insert_or_assign(effectiveUrl, std::move(aliasData));
+					AAMPLOG_MIL("duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str());
+				}
+			}
+			catch (const std::bad_alloc &e)
+			{
+				AAMPLOG_ERR("Memory allocation failed: %s", e.what());
 			}
 		}
 	}
