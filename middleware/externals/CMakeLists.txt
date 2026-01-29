@@ -17,9 +17,14 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-project(playerfbinterface_LIB)
+project(playerfbinterface_LIB VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Set default install prefix
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Default install prefix" FORCE)
+endif()
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
@@ -172,7 +177,18 @@ if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
    target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
 endif()
 
+# Configure pkg-config file
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/playerfbinterface.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/playerfbinterface.pc"
+    @ONLY
+)
+
 # Install the library and its headers
 install(TARGETS playerfbinterface
     DESTINATION lib
     PUBLIC_HEADER DESTINATION include)
+
+# Install pkg-config file
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/playerfbinterface.pc"
+    DESTINATION lib/pkgconfig)

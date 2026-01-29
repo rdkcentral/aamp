@@ -1,0 +1,10 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: baseconversion
+Description: Base64 and Base16 conversion utilities for player middleware
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lbaseconversion
+Cflags: -I${includedir}

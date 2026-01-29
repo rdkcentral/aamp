@@ -17,9 +17,14 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-project(baseconversion)
+project(baseconversion VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Set default install prefix
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Default install prefix" FORCE)
+endif()
 
 include_directories(..)
 
@@ -29,8 +34,19 @@ add_library(baseconversion SHARED ${BaseConversion_SRC})
 
 set_target_properties(baseconversion PROPERTIES PUBLIC_HEADER "_base64.h;base16.h")
 
+# Configure pkg-config file
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/baseconversion.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/baseconversion.pc"
+    @ONLY
+)
+
 # Install the library and its headers
 install(TARGETS baseconversion
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
 )
+
+# Install pkg-config file
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/baseconversion.pc"
+    DESTINATION lib/pkgconfig)

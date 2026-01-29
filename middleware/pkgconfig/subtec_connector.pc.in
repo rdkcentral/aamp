@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: subtec_connector
+Description: Subtitle connector library for player middleware closed captions
+Version: @PROJECT_VERSION@
+Requires.private: playerlogmanager
+Libs: -L${libdir} -lsubtec_connector
+Cflags: -I${includedir}
