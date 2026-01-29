@@ -844,8 +844,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
 // Test HandleSSLWriteCallback when ParseBuffer API call fails in chunkInjection mode
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Setting up");
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -865,9 +863,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 		.Times(0);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(false));
+		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
-		.WillRepeatedly(Return(false)); // return no mdat for now
+		.Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.Times(0);
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
@@ -884,13 +884,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	context.bufferOffset = 0;
 	context.chunkBoundary = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Calling HandleSSLWriteCallback");
-
 	// Call with valid context - ptr is not NULL, so data processing happens
 	char testData[] = "test data with parse failure";
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
-
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Result: %zu", result);
 	// Result should be size*nmemb
 	EXPECT_EQ(result, strlen(testData));
 	// Verify that bufferOffset and chunkBoundary remain unchanged
@@ -901,8 +897,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 // Test HandleSSLWriteCallback when no mdat detected in chunkInjection mode
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Setting up");
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -922,9 +916,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 		.Times(0);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(true));
+		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
-		.WillRepeatedly(Return(false)); // return no mdat for now
+		.WillOnce(Return(false)); // return no mdat for now
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.WillOnce(Return(false)); // return no mdat info
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
@@ -941,13 +937,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	context.bufferOffset = 0;
 	context.chunkBoundary = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Calling HandleSSLWriteCallback");
-
 	// Call with valid context - ptr is not NULL, so data processing happens
 	char testData[] = "test data with zero mdat";
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
-
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Result: %zu", result);
 	// Result should be size*nmemb
 	EXPECT_EQ(result, strlen(testData));
 	// Verify that bufferOffset and chunkBoundary remain unchanged
@@ -955,12 +947,12 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	EXPECT_EQ(context.chunkBoundary, 0);
 }
 
-// Test HandleSSLWriteCallback when full mdat is received in chunkInjection mode
-// Done in 2 iterations to simulate data arriving in parts
-TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
+// Test HandleSSLWriteCallback when a chunked (incomplete) MDAT box is received
+// in chunkInjection mode and detected via getChunkedMdatBoxInfo() rather than
+// as a complete MDAT counted by getMdatBoxCount(). The 2 iterations simulate
+// the chunked MDAT data arriving over multiple callbacks.
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Setting up");
-
 	// RAII guard to ensure memory copying is disabled on test exit (success or failure)
 	MemoryCopyingGuard guard;
 
@@ -999,41 +991,36 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
 	context.bufferOffset = startBufferOffset;
 	context.chunkBoundary = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Calling HandleSSLWriteCallback");
-
-	// Call HandleSSLWriteCallback twice with incremental data to simulate full mdat reception
-	char testDataPart1[] = "test data with mdat full chunk part 1";
-	char testDataPart2[] = "test data with mdat full chunk part 2";
+	// Call HandleSSLWriteCallback twice with incremental data to simulate partial (chunked) mdat reception
+	char testDataPart1[] = "test data with partial mdat chunk part 1";
+	char testDataPart2[] = "test data with partial mdat chunk part 2";
 	size_t totalBufSize = strlen(testDataPart1) + strlen(testDataPart2);
-	// Lets assume mdat starts from offset 10 to end of buffer
-	size_t mdatStart = 10;
+	// Lets assume mdat starts from offset 20 to end of buffer
+	size_t mdatStart = 20;
 	size_t mdatSize = totalBufSize - mdatStart;
 	size_t chunkBoundary = startBufferOffset + mdatStart + mdatSize;
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(true));
+		.WillOnce(Return(true));
 	// Return mdat count as 1
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(Return(false));
+	// Return chunked mdat info
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
 		.WillOnce(DoAll(
-			SetArgReferee<0>(static_cast<size_t>(1)),
-			Return(true)
-		));
-	// Return mdat info
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxInfo(0, _, _))
-		.WillOnce(DoAll(
-			SetArgReferee<1>(static_cast<size_t>(mdatStart)), // mdat start
-			SetArgReferee<2>(static_cast<size_t>(mdatSize)), // mdat size
+			SetArgReferee<0>(static_cast<size_t>(mdatStart)), // mdat start
+			SetArgReferee<1>(static_cast<size_t>(mdatSize)), // mdat size
 			Return(true)
 		));
 
-	// In this test, CacheFragmentChunk() should be called exactly once when full mdat is received
+	// In this test, CacheFragmentChunk() should be called exactly once when chunked mdat boundary is detected
 	// Lets make this a strict check using expected values
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.GetPtr() + startBufferOffset, chunkBoundary - startBufferOffset, _, _))
 		.Times(1);
 
 	size_t result1 = p_aamp->HandleSSLWriteCallback(testDataPart1, strlen(testDataPart1), 1, &context);
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Intermediate Result: %zu", result1);
+	// Result should be size*nmemb
 	EXPECT_EQ(result1, strlen(testDataPart1));
 	// bufferOffset should still be startBufferOffset
 	EXPECT_EQ(context.bufferOffset, startBufferOffset);
@@ -1042,7 +1029,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
 	EXPECT_EQ(buffer.GetLen(), startBufferOffset + strlen(testDataPart1));
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Result: %zu", result);
 	// Result should be size*nmemb
 	EXPECT_EQ(result, strlen(testDataPart2));
 	// Verify that bufferOffset is updated to total mdat size
@@ -1056,8 +1042,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
 // Test HandleSSLWriteCallback when multiple mdat boxes are received
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Setting up");
-
 	// RAII guard to ensure memory copying is disabled on test exit
 	MemoryCopyingGuard guard;
 
@@ -1106,7 +1090,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	size_t lastMdatBoundary = thirdMdatStart + thirdMdatSize; // Should use the last mdat
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(true));
+		.WillOnce(Return(true));
 
 	// Return mdat count as 3 (multiple fragments in buffer)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
@@ -1122,6 +1106,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 			SetArgReferee<2>(static_cast<size_t>(thirdMdatSize)),
 			Return(true)
 		));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.Times(0); // Not expected to be called in this test
 
 	// CacheFragmentChunk should be called once with data up to the last mdat boundary
 	EXPECT_CALL(*g_mockMediaStreamContext,
@@ -1129,8 +1115,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 		.Times(1);
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
-
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Result: %zu", result);
 	EXPECT_EQ(result, strlen(testData));
 
 	// Verify that chunkBoundary was identified as the last mdat boundary

@@ -283,6 +283,18 @@ struct CurlCallbackContext
 	// Disabled copy constructor and copy assignment
 	CurlCallbackContext(const CurlCallbackContext &other) = delete;
 	CurlCallbackContext& operator=(const CurlCallbackContext& other) = delete;
+
+	/**
+	 * @brief Reset the context variables specific to each download attempt
+	 */
+	void ResetForNewDownload()
+	{
+		chunkedDownload = false;
+		bufferOffset = 0;
+		chunkBoundary = 0;
+		abortReason = eCURL_ABORT_REASON_NONE;
+		dataTransferStartTime = -1;
+	}
 };
 
 /**

@@ -46,6 +46,7 @@ public:
 	MOCK_METHOD(bool, setTrickmodeTimescale, (uint32_t));
     MOCK_METHOD(bool, setMediaHeaderDuration, (uint64_t));
     MOCK_METHOD(bool, getMdatBoxInfo, (size_t, size_t&, size_t&));
+    MOCK_METHOD(bool, getChunkedMdatBoxInfo, (size_t&, size_t&), (const));
 };
 
 extern MockIsoBmffBuffer *g_mockIsoBmffBuffer;
