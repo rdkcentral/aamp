@@ -511,5 +511,14 @@ public:
 	 * @return bool if box found. false otherwise
 	 */
 	bool getMdatBoxInfo(size_t index, size_t &start, size_t &size);
+
+	/**
+	 * @fn getChunkedMdatBoxInfo
+	 *
+	 * @param[out] start - start offset of chunked mdat box
+	 * @param[out] size - size of chunked mdat box
+	 * @return true if chunked mdat box is present. false otherwise
+	 */
+	bool getChunkedMdatBoxInfo(size_t &start, size_t &size) const;
 };
 #endif /* __ISOBMFFBUFFER_H__ */
