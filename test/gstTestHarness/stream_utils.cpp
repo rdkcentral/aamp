@@ -69,12 +69,13 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 			auto baseTime = timeline.tuneUTC - timeline.availabilityStartTime - timeline.timeShiftBufferDepth;
 			if( representation.data.duration.size()==0 )
 			{
-				assert(0);
+				std::cerr << "ERROR: GetPeriodFirstPts() - representation has no duration data" << std::endl;
+				std::exit(EXIT_FAILURE);
 			}
 			else if( representation.data.duration.size()>1 )
 			{
-				auto dt = (baseTime - period.start);
-				pts += dt;
+				auto delta = (baseTime - period.start);
+				pts += delta;
 			}
 			else
 			{
@@ -90,7 +91,7 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 void ComputeTimestampOffsets( Timeline &timeline )
 {
 	double totalDurationSeconds = 0;
-	for( int iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
+	for( size_t iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
 	{
 		PeriodObj &period = timeline.period[iPeriod];
 		if( iPeriod==0 )
@@ -117,15 +118,16 @@ void ComputeTimestampOffsets( Timeline &timeline )
 		}
 	}
 	
+	if (!timeline.period.empty())
 	{
-		PeriodObj &lastPeriod = timeline.period[timeline.period.size()-1];
+		PeriodObj &lastPeriod = timeline.period.back();
 		if( lastPeriod.duration<0 && lastPeriod.start >=0 )
 		{ // use mediaPresentationDuration to infer final duration
 			lastPeriod.duration = timeline.mediaPresentationDuration - lastPeriod.start;
 		}
 	}
 	
-	for( int iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
+	for( size_t iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
 	{
 		PeriodObj &period = timeline.period[iPeriod];
 		auto periodDuration = period.duration;

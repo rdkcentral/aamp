@@ -82,8 +82,11 @@ public:
 		{
 			context->capacity = context->size + total;
 			context->buffer = (char *)g_realloc(context->buffer, context->capacity);
+			if (context->buffer == NULL) {
+				printf("ERROR: CurlContext::write_callback - g_realloc failed to allocate %zu bytes\n", context->capacity);
+				exit(EXIT_FAILURE);
+			}
 		}
-		assert( context->buffer != NULL );
 		(void)memcpy(&context->buffer[context->size], ptr, total);
 		context->size += total;
 		return total;
@@ -196,10 +199,9 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			f = fopen( prefix.c_str(), "rb" );
 			if( !f )
 			{ // file not found
-				printf( "file not found!\n" );
+				printf( "ERROR: LoadUrl() - File not found: %s\n", prefix.c_str() );
 				return NULL;
 			}
-			//assert( f );
 			fseek( f, 0, SEEK_END );
 			len = ftell(f);
 		}
@@ -207,11 +209,24 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		{
 			std::string prefix = url.substr(start,delim-start);
 			f = fopen( prefix.c_str(), "rb" );
-			assert( f );
+			if (!f) {
+				printf("ERROR: LoadUrl() - Failed to open file with range: %s\n", prefix.c_str());
+				exit(EXIT_FAILURE);
+			}
 			delim = range.find('-');
-			assert( delim != std::string::npos );
-			offs = atol( range.substr(0,delim).c_str() );
-			len = atol( range.substr(delim+1).c_str() ) + 1 - offs;
+			if (delim == std::string::npos) {
+				printf("ERROR: LoadUrl() - Invalid range format (missing '-'): %s\n", range.c_str());
+				fclose(f);
+				exit(EXIT_FAILURE);
+			}
+			try {
+				offs = std::stol(range.substr(0,delim));
+				len = std::stol(range.substr(delim+1)) + 1 - offs;
+			} catch (const std::exception& e) {
+				printf("ERROR: LoadUrl() - Failed to parse range values: %s - %s\n", range.c_str(), e.what());
+				fclose(f);
+				exit(EXIT_FAILURE);
+			}
 		}
 		if( f )
 		{
