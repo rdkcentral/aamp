@@ -445,7 +445,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_DISCONTINUITY_TIMEOUT,"discontinuityTimeout",eAAMPConfig_DiscontinuityTimeout,false},
 	{0,"minBitrate",eAAMPConfig_MinBitrate,true},
 	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
-	{CURL_SSLVERSION_DEFAULT,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION}, // by default, allow libcurl to negotiate best version supported by client and server, typically TLS1.3
+	{CURL_SSLVERSION_TLSv1_2, "supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION}, // minimum required version, with libcurl allowed to negotiate best version supported by client and server, typically TLS1.3
 	{DEFAULT_DRM_NETWORK_TIMEOUT,"drmNetworkTimeout",eAAMPConfig_DrmNetworkTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStallTimeout",eAAMPConfig_DrmStallTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStartTimeout",eAAMPConfig_DrmStartTimeout,true,eCONFIG_RANGE_TIMEOUT},

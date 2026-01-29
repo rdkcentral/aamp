@@ -14064,6 +14064,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->userAgentString = GETCONFIGVALUE_PRIV(eAAMPConfig_UserAgent);
 	inpData->mDnldConfig->proxyName       = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkProxy);
 	inpData->mDnldConfig->bSSLVerifyPeer = ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer);
+	inpData->mDnldConfig->lSupportedTLSVersion = mSupportedTLSVersion;
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
 
