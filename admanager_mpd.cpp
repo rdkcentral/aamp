@@ -581,7 +581,17 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						// diff < OFFSET_ALIGN_FACTOR, in which case we have to align to next period.
 						// So check if next period available with valid duration
 
-							auto nextPeriod = periods.at(iter+1);
+						for (iter = iter + 1; iter < periods.size(); iter++)
+						{
+							if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
+							{
+								break;
+							}
+						}
+						if (iter < periods.size())
+						{
+
+							auto nextPeriod = periods.at(iter);
 							// done with Adjustment
 							abObj.adjustEndPeriodOffset = false;
 							// Aligning to next period start
@@ -589,8 +599,13 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							abObj.endPeriodId = nextPeriod->GetId();
 							abObj.mAdBreakPlaced = true;
 							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s",
-											diff, currPeriodDuration, abObj.endPeriodId.c_str());
-
+										 diff, currPeriodDuration, abObj.endPeriodId.c_str());
+						}
+						else
+						{
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "], but next period not available, waiting",
+										 diff, currPeriodDuration);
+						}
 					}
 					// --> Inserted Ads finishes >= 2 seconds from end of current period
 					// OR we do not know when current period ends, have not established duration
