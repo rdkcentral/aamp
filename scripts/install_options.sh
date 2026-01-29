@@ -19,6 +19,8 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_1"
+#update default middleware branch to develop after RDKEMW-11881 is merged
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_BRANCH="feature/RDKEMW-11881"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
@@ -40,7 +42,7 @@ OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
 function install_options_fn()
 {
   # Parse optional command line parameters
-  while getopts ":d:b:cf:np:r:g:qskt" OPT; do
+  while getopts ":d:b:m:cf:np:r:g:qskt" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -48,6 +50,9 @@ function install_options_fn()
         ;;
       b ) # process option b code branch name
         OPTION_AAMP_BRANCH=${OPTARG}
+        ;;
+      m ) # process option m middleware player interface branch name
+        OPTION_MIDDLEWARE_PLAYER_INTERFACE_BRANCH=${OPTARG}
         ;;
       c ) # process option c coverage
         OPTION_COVERAGE=ON
@@ -94,6 +99,7 @@ function install_options_fn()
       * )
         echo "'Usage: No flags/options specified - build AAMP with default options
         [-b] Specify aamp branch name (default: current sprint branch)
+        [-m] Specify middleware player interface branch name (default: feature/RDKEMW-11881)
         [-d] Local setup directory name (default: current working directory)
         [-c] Test coverage scan on
         [-f] Add compiler flags

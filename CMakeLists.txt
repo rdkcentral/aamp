@@ -51,6 +51,9 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
+# CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
+# option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
+# components should be sourced from external repositories or built from the local aamp repository.
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
 	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)

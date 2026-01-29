@@ -144,6 +144,7 @@ install_build_libdash_fn "${OPTION_CLEAN}"
 INSTALL_STATUS_ARR+=("install_build_libdash check passed.")
 
 # Build middleware interface
+export MIDDLEWARE_PLAYER_INTERFACE_BRANCH="${OPTION_MIDDLEWARE_PLAYER_INTERFACE_BRANCH}"
 install_build_middleware_interface_fn "${OPTION_CLEAN}"
 INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
 

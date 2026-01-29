@@ -21,7 +21,7 @@
 #include "open_cdm_adapter.h"
 #include "MockOpenCdm.h"
 
-MockOpenCdm *g_mockopencdm = nullptr;
+std::unique_ptr<MockOpenCdm> g_mockopencdm = nullptr;
 
 struct OpenCDMSystem* opencdm_create_system(const char keySystem[])
 {

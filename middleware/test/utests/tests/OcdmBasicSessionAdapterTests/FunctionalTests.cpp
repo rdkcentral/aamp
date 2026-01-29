@@ -37,6 +37,11 @@ using ::testing::Eq;
 
 
 // For comparing memory buffers such as C-style arrays
+// ASSUMPTIONS:
+// - Both 'arg' and 'buffer' are expected to be uint8_t* or compatible byte pointers
+// - Both buffers must be valid for at least 'elementCount' bytes
+// - Caller is responsible for ensuring buffer validity and preventing overflow
+// - elementCount should represent the actual size in bytes of both buffers
 MATCHER_P2(MemBufEq, buffer, elementCount, "")
 {
 	// Handle NULL pointers safely
@@ -51,9 +56,20 @@ MATCHER_P2(MemBufEq, buffer, elementCount, "")
 	if (elementCount <= 0) {
 		return true; // Empty buffers are considered equal
 	}
+	
+	// Basic bounds check to prevent obvious overflow issues
+	// Note: This is a basic safeguard - caller must still ensure buffer validity
+	static const size_t MAX_REASONABLE_BUFFER_SIZE = 1024 * 1024 * 100; // 100MB limit
+	if (static_cast<size_t>(elementCount) > MAX_REASONABLE_BUFFER_SIZE) {
+		// Reject unreasonably large buffer comparisons that might indicate overflow
+		return false;
+	}
+	
 	// Cast buffer to const uint8_t* to avoid compiler warnings with nullptr
 	const uint8_t* bufPtr = static_cast<const uint8_t*>(buffer);
-	return std::equal(arg, arg + elementCount, bufPtr);
+	// Cast arg to const uint8_t* for consistency and type safety
+	const uint8_t* argPtr = static_cast<const uint8_t*>(arg);
+	return std::equal(argPtr, argPtr + elementCount, bufPtr);
 }
 
 std::shared_ptr<MockDrmHelper> drmHelper;
@@ -66,7 +82,7 @@ class OcdmBasicSessionAdapterTests : public ::testing::Test
 {
 
 protected:
-	OCDMBasicSessionAdapter *m_ocdmbasicsessionadapter = nullptr;
+	std::unique_ptr<OCDMBasicSessionAdapter> m_ocdmbasicsessionadapter = nullptr;
 
 	void SetUp() override
 	{
@@ -75,8 +91,8 @@ protected:
 		ON_CALL(*drmHelper, ocdmSystemId()).WillByDefault(testing::ReturnRef(g_defaultSystemId));
 		// Set default return value for getMemorySystem() 
 		ON_CALL(*drmHelper, getMemorySystem()).WillByDefault(Return(nullptr));
-		g_mockopencdm = new NiceMock<MockOpenCdm>();
-		m_ocdmbasicsessionadapter = new OCDMBasicSessionAdapter(drmHelper,nullptr);
+		g_mockopencdm = std::make_unique<NiceMock<MockOpenCdm>>();
+		m_ocdmbasicsessionadapter = std::make_unique<OCDMBasicSessionAdapter>(drmHelper,nullptr);
 		g_mockOpenCdmSessionAdapter = std::make_unique<NiceMock<MockOpenCdmSessionAdapter>>();
 		// Set default return value for getUsableKeys() to return an empty vector
 		ON_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys()).WillByDefault(testing::ReturnRef(g_emptyKeys));
@@ -85,13 +101,11 @@ protected:
 
 	void TearDown() override
 	{
-		delete m_ocdmbasicsessionadapter;
-		m_ocdmbasicsessionadapter = nullptr;
+		m_ocdmbasicsessionadapter.reset();
 
 		g_mockOpenCdmSessionAdapter.reset();
 
-		delete g_mockopencdm;
-		g_mockopencdm = nullptr;
+		g_mockopencdm.reset();
 
 		drmHelper = nullptr;
 
@@ -126,6 +140,8 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithNullMemorySystem)
 
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(nullptr));
+	// keyId is generated dynamically and not deterministic, 
+	// so we only check that a keyId is present rather than its exact value.
 	EXPECT_CALL(*g_mockopencdm,
 				opencdm_session_decrypt(_,
 										MemBufEq(payloadData, payloadDataSize),
@@ -215,6 +231,8 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystemDecodeFail)
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
+	// keyId is generated dynamically and not deterministic, 
+	// so we only check that a keyId is present rather than its exact value.
 	EXPECT_CALL(*g_mockopencdm,
 				opencdm_session_decrypt(_,
 										MemBufEq(dataToSend, sizeToSend),

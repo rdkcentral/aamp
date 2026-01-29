@@ -43,28 +43,26 @@ class OCDMSessionAdapterTests : public ::testing::Test
 {
 
 protected:
-	OCDMSessionAdapter *m_ocdmsessionadapter = nullptr;
+	std::unique_ptr<OCDMSessionAdapter> m_ocdmsessionadapter = nullptr;
 	struct OpenCDMSystem *ocdmSystem = (OpenCDMSystem *)0x1234;
 	std::string systemId = "com.microsoft.playready";
 
 	void SetUp() override
 	{
 		drmHelper = std::make_shared<MockDrmHelper>();
-		g_mockopencdm = new NiceMock<MockOpenCdm>();
+		g_mockopencdm = std::make_unique<NiceMock<MockOpenCdm>>();
 
 		EXPECT_CALL(*drmHelper, ocdmSystemId()).WillOnce(ReturnRef(systemId));
 		EXPECT_CALL(*g_mockopencdm, opencdm_create_system(MemBufEq(systemId.c_str(), systemId.length() + 1))).WillOnce(Return(ocdmSystem));
 
-		m_ocdmsessionadapter = new OCDMSessionAdapter(drmHelper, nullptr);
+		m_ocdmsessionadapter = std::make_unique<OCDMSessionAdapter>(drmHelper, nullptr);
 	}
 
 	void TearDown() override
 	{
-		delete m_ocdmsessionadapter;
-		m_ocdmsessionadapter = nullptr;
+		m_ocdmsessionadapter.reset();
 
-		delete g_mockopencdm;
-		g_mockopencdm = nullptr;
+		g_mockopencdm.reset();
 
 		drmHelper = nullptr;
 	}
@@ -81,7 +79,7 @@ TEST_F(OCDMSessionAdapterTests, generateDRMSession)
 	const char *initDataType = "cenc";
 	uint8_t initDataTypeLen = strlen(initDataType);
 
-	((*g_mockopencdm).gmock_opencdm_construct_session(ocdmSystem, LicenseType::Temporary, MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), f_cbInitData, MemBufEq(customData.c_str(), customData.length()), customData.length(),_,_,_))(::testing::internal::GetWithoutMatchers(), nullptr) .InternalExpectedAt("/home/rekha/RDK/latest/l1_Final/aamp/middleware/test/utests/tests/OCDMSessionAdapter/FunctionalTests.cpp", 91, "*g_mockopencdm", "opencdm_construct_session(ocdmSystem, LicenseType::Temporary, MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), f_cbInitData, MemBufEq(customData.c_str(), customData.length()), customData.length(),_,_,_)").WillOnce(Return(ERROR_NONE));
+	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session(ocdmSystem, LicenseType::Temporary, MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), f_cbInitData, MemBufEq(customData.c_str(), customData.length()), customData.length(),_,_,_)).WillOnce(Return(ERROR_NONE));
 
 	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
 }
