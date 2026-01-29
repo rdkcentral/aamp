@@ -571,7 +571,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				{
 					// get current period duration
 					uint64_t currPeriodDuration = adMPDParseHelper->GetPeriodDurationFromStart(iter);
-					int diff = currPeriodDuration - abObj.endPeriodOffset;
+					int64_t diff = static_cast<int64_t>(currPeriodDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
 
 					if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
 					{
@@ -598,12 +598,12 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							abObj.endPeriodOffset = 0;
 							abObj.endPeriodId = nextPeriod->GetId();
 							abObj.mAdBreakPlaced = true;
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s",
+							AAMPLOG_INFO("[CDAI] diff [%" PRIi64 "] close to period end [%" PRIu64 "],Aligning to next-period:%s",
 										 diff, currPeriodDuration, abObj.endPeriodId.c_str());
 						}
 						else
 						{
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "], but next period not available, waiting",
+							AAMPLOG_INFO("[CDAI] diff [%" PRIi64 "] close to period end [%" PRIu64 "], but next period not available, waiting",
 										 diff, currPeriodDuration);
 						}
 					}
@@ -611,7 +611,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					// OR we do not know when current period ends, have not established duration
 					else
 					{
-						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, period:%s duration[%" PRIu64 "]", diff, mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
+						AAMPLOG_INFO("[CDAI] diff [%" PRIi64 "] NOT close to period end, period:%s duration[%" PRIu64 "]", diff, mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
 						// done with Adjustment
 						abObj.adjustEndPeriodOffset = false;
 						// adbrk duration not equal to src period duration continue to play source period for remaining duration

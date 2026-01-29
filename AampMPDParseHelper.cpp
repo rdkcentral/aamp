@@ -1210,6 +1210,11 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 			periodStart = ParseISO8601Duration(periodStartStr.c_str());
 			nextPeriodStart = ParseISO8601Duration(nextPeriodStartStr.c_str());
 			durationMs = nextPeriodStart - periodStart;
+			if (durationMs <= 0)
+			{
+				AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
+				durationMs = 0;
+			}
 		}
 		else
 		{
