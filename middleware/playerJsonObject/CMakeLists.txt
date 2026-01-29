@@ -17,9 +17,14 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-project(playerjsonobject)
+project(playerjsonobject VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Set default install prefix
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "Default install prefix" FORCE)
+endif()
 
 include(FindPkgConfig)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
@@ -43,8 +48,19 @@ set_target_properties(playerjsonobject PROPERTIES
     PUBLIC_HEADER "PlayerJsonObject.h"
 )
 
+# Configure pkg-config file
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/libplayerjsonobject.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libplayerjsonobject.pc"
+    @ONLY
+)
+
 install(TARGETS playerjsonobject
     DESTINATION lib
     PUBLIC_HEADER DESTINATION include
 )
+
+# Install pkg-config file
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libplayerjsonobject.pc"
+    DESTINATION lib/pkgconfig)
 
