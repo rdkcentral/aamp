@@ -2333,13 +2333,21 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		}
 		else if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink && eGST_MEDIATYPE_AUDIO == streamId)
 		{
-			MW_LOG_INFO("using rialtomseaudiosink");
+			MW_LOG_WARN("VRN using rialtomseaudiosink");
 			GstElement* audSink = gst_element_factory_make("rialtomseaudiosink",NULL);
 			if(audSink)
 			{
-				MW_LOG_INFO("Created rialtomseaudiosink : %s",GST_ELEMENT_NAME(audSink));
+				MW_LOG_WARN("VRN Created rialtomseaudiosink : %s",GST_ELEMENT_NAME(audSink));
 				g_object_set(stream->sinkbin, "audio-sink", audSink, NULL);
 				interfacePlayerPriv->gstPrivateContext->audio_sink = audSink;
+				if(interfacePlayerPriv->gstPrivateContext->audio_sink)
+				{
+					MW_LOG_WARN("VRN Created VALID rialtomseaudiosink ");
+				}
+				else
+				{
+					MW_LOG_WARN("VRN Created INVALID rialtomseaudiosink ");
+				}
 			}
 			else
 			{
