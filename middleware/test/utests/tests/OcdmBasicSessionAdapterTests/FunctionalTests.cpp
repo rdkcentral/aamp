@@ -74,7 +74,7 @@ MATCHER_P2(MemBufEq, buffer, elementCount, "")
 
 std::shared_ptr<MockDrmHelper> drmHelper;
 DrmInfo drminfo;
-MockDrmMemorySystem *g_mockMemorySystem;
+std::unique_ptr<MockDrmMemorySystem> g_mockMemorySystem;
 static std::string g_defaultSystemId = "com.widevine.alpha";
 static std::vector<std::vector<uint8_t>> g_emptyKeys;
 
@@ -96,7 +96,7 @@ protected:
 		g_mockOpenCdmSessionAdapter = std::make_unique<NiceMock<MockOpenCdmSessionAdapter>>();
 		// Set default return value for getUsableKeys() to return an empty vector
 		ON_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys()).WillByDefault(testing::ReturnRef(g_emptyKeys));
-		g_mockMemorySystem = new NiceMock<MockDrmMemorySystem>();
+		g_mockMemorySystem = std::make_unique<NiceMock<MockDrmMemorySystem>>();
 	}
 
 	void TearDown() override
@@ -109,8 +109,7 @@ protected:
 
 		drmHelper = nullptr;
 
-		delete g_mockMemorySystem;
-		g_mockMemorySystem = nullptr;
+		g_mockMemorySystem.reset();
 	}
 
 public:
@@ -173,7 +172,7 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystem)
 	uint8_t *dataToSend = vdata.data();
 
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
-	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
+	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem.get()));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
 	EXPECT_CALL(*g_mockopencdm,
 				opencdm_session_decrypt(_,
@@ -206,7 +205,7 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystemEncodeFail)
 	uint8_t *dataToSend = vdata.data();
 
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
-	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
+	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem.get()));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(false)));
 	EXPECT_CALL(*g_mockopencdm, opencdm_session_decrypt(_,_,_,_,_,_,_,_,_,_)).Times(0);
 	EXPECT_CALL(*g_mockMemorySystem, decode(_,_,_,_)).Times(0);
@@ -229,7 +228,7 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystemDecodeFail)
 	uint8_t *dataToSend = vdata.data();
 
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
-	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
+	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem.get()));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
 	// keyId is generated dynamically and not deterministic, 
 	// so we only check that a keyId is present rather than its exact value.
@@ -264,7 +263,7 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptFail)
 	uint8_t *dataToSend = vdata.data();
 
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
-	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
+	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem.get()));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
 	EXPECT_CALL(*g_mockopencdm,
 				opencdm_session_decrypt(_,
