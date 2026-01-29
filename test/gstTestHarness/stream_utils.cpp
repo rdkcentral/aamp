@@ -17,6 +17,8 @@
  * limitations under the License.
  */
 #include "stream_utils.hpp"
+#include <iostream>
+#include <cstdlib>
 
 namespace Math
 {
