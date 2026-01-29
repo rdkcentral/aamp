@@ -7,6 +7,6 @@ Name: playerfbinterface
 Description: Firebolt IARM/RFC interface library for player middleware
 Version: @PROJECT_VERSION@
 Requires: gstreamer-1.0, gstreamer-app-1.0, gstreamer-video-1.0
-Requires.private: playerlogmanager, baseconversion, playerjsonobject
+Requires.private: libplayerlogmanager, libbaseconversion, libplayerjsonobject
 Libs: -L${libdir} -lplayerfbinterface
 Cflags: -I${includedir}

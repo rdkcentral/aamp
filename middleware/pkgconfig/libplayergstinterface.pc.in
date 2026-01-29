@@ -7,7 +7,7 @@ Name: playergstinterface
 Description: Main GStreamer interface library for player middleware
 Version: @PROJECT_VERSION@
 Requires: gstreamer-1.0 >= 1.18.0, gstreamer-app-1.0, gstreamer-video-1.0
-Requires.private: playerlogmanager, baseconversion, playerjsonobject, playerfbinterface
+Requires.private: libplayerlogmanager, libbaseconversion, libplayerjsonobject, libplayerfbinterface
 Libs: -L${libdir} -lplayergstinterface
 Libs.private: -ldl
 Cflags: -I${includedir}

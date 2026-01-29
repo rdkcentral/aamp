@@ -7,6 +7,6 @@ Name: playerjsonobject
 Description: JSON handling utilities for player middleware
 Version: @PROJECT_VERSION@
 Requires: libcjson
-Requires.private: baseconversion
+Requires.private: libbaseconversion
 Libs: -L${libdir} -lplayerjsonobject
 Cflags: -I${includedir}
