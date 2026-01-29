@@ -539,6 +539,7 @@ Track::Track() : queue(new std::queue<class TrackEvent *>), needsData(), gstream
 
 Track::~Track()
 {
+	Flush(); // Clean up all queued events first to prevent memory leaks
 	delete queue;
 }
 
@@ -1418,9 +1419,49 @@ public:
 		}
 		else if( strcmp(str,"stop")==0 )
 		{
+			// Clean up global Mp4Demux instances to prevent memory leaks
+			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
+			{
+				delete gMp4Demux[i];
+				gMp4Demux[i] = nullptr;
+			}
+			
+			// Flush track queues to remove stale events
+			pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
+			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
+			
+			// Reset pipeline state
 			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 			delete pipelineContext.pipeline;
-			pipelineContext.pipeline = new Pipeline( (class PipelineContext *)&pipelineContext );
+			pipelineContext.pipeline = new Pipeline( &pipelineContext );
+			
+			// Reset context state that is protected by segment_seek_mutex
+			{
+				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
+				pipelineContext.configured_stream_count = 0;
+				pipelineContext.initial_seek_performed = false;
+				
+				// Clear any pending segment-end seeks so they are not
+				// carried into the next playback session.
+				while (!pipelineContext.mSegmentEndSeekQueue.empty())
+				{
+					pipelineContext.mSegmentEndSeekQueue.pop();
+				}
+			}
+			
+			// Reset derived class members
+			pipelineContext.nextPTS = 0.0;
+			pipelineContext.nextTime = 0.0;
+			pipelineContext.seekPos = 0.0;
+			
+			// Reset track state
+			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
+			{
+				pipelineContext.track[i].needsData = false;
+				pipelineContext.track[i].gstreamerReadyForInjection = false;
+			}
+			
+			printf("Pipeline stopped and reset\n");
 		}
 		else if( sscanf(str, "path %199s", base_path ) == 1 )
 		{
@@ -1585,7 +1626,8 @@ int my_main(int argc, char **argv)
 	struct AppContext appContext;
 	GIOChannel *io_stdin = g_io_channel_unix_new (fileno (stdin));
 	(void)g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) handle_keyboard, &appContext);
-	(void)g_idle_add( myIdleFunc, (gpointer)&appContext );
+	// Use g_timeout_add instead of g_idle_add to avoid 100% CPU utilization
+	(void)g_timeout_add( 10, myIdleFunc, (gpointer)&appContext );
 	std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
 	g_main_loop_run(appContext.main_loop);
 	g_main_loop_unref(appContext.main_loop);
