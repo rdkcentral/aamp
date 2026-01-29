@@ -59,8 +59,8 @@ target_link_libraries(playerlogmanager ${LIBPLAYERLOGMANAGER_DEPENDS})
 
 # Configure pkg-config file
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/playerlogmanager.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/playerlogmanager.pc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/libplayerlogmanager.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libplayerlogmanager.pc"
     @ONLY
 )
 
@@ -70,5 +70,5 @@ install(TARGETS playerlogmanager
     PUBLIC_HEADER DESTINATION include)
 
 # Install pkg-config file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/playerlogmanager.pc"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libplayerlogmanager.pc"
     DESTINATION lib/pkgconfig)

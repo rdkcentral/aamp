@@ -50,8 +50,8 @@ set_target_properties(playerjsonobject PROPERTIES
 
 # Configure pkg-config file
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/playerjsonobject.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/playerjsonobject.pc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/libplayerjsonobject.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libplayerjsonobject.pc"
     @ONLY
 )
 
@@ -61,6 +61,6 @@ install(TARGETS playerjsonobject
 )
 
 # Install pkg-config file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/playerjsonobject.pc"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libplayerjsonobject.pc"
     DESTINATION lib/pkgconfig)
 

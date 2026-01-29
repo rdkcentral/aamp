@@ -179,8 +179,8 @@ endif()
 
 # Configure pkg-config file
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/playerfbinterface.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/playerfbinterface.pc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/libplayerfbinterface.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libplayerfbinterface.pc"
     @ONLY
 )
 
@@ -190,5 +190,5 @@ install(TARGETS playerfbinterface
     PUBLIC_HEADER DESTINATION include)
 
 # Install pkg-config file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/playerfbinterface.pc"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libplayerfbinterface.pc"
     DESTINATION lib/pkgconfig)

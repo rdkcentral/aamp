@@ -36,8 +36,8 @@ set_target_properties(baseconversion PROPERTIES PUBLIC_HEADER "_base64.h;base16.
 
 # Configure pkg-config file
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/baseconversion.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/baseconversion.pc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/libbaseconversion.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libbaseconversion.pc"
     @ONLY
 )
 
@@ -48,5 +48,5 @@ install(TARGETS baseconversion
 )
 
 # Install pkg-config file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/baseconversion.pc"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libbaseconversion.pc"
     DESTINATION lib/pkgconfig)

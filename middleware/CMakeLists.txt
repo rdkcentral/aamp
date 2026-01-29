@@ -324,13 +324,13 @@ install (TARGETS subtec
 
 # Configure pkg-config file for subtec
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/subtec.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/subtec.pc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/libsubtec.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libsubtec.pc"
     @ONLY
 )
 
 # Install pkg-config file for subtec
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/subtec.pc"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libsubtec.pc"
     DESTINATION lib/pkgconfig)
 
 if (CMAKE_GST_SUBTEC_ENABLED)
@@ -361,13 +361,13 @@ if (CMAKE_SUBTITLE_SUPPORT)
 
 	# Configure pkg-config file for subtec_connector
 	configure_file(
-	    "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/subtec_connector.pc.in"
-	    "${CMAKE_CURRENT_BINARY_DIR}/subtec_connector.pc"
+	    "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/libsubtec_connector.pc.in"
+	    "${CMAKE_CURRENT_BINARY_DIR}/libsubtec_connector.pc"
 	    @ONLY
 	)
 
 	# Install pkg-config file for subtec_connector
-	install(FILES "${CMAKE_CURRENT_BINARY_DIR}/subtec_connector.pc"
+	install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libsubtec_connector.pc"
 	    DESTINATION lib/pkgconfig)
 
 	set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/subtec/PlayerSubtecCCManager.cpp)
@@ -410,8 +410,8 @@ set_target_properties(playergstinterface PROPERTIES COMPILE_FLAGS "${LIBPLAYERGS
 
 # Configure pkg-config file
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/playergstinterface.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/playergstinterface.pc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/libplayergstinterface.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libplayergstinterface.pc"
     @ONLY
 )
 
@@ -421,7 +421,7 @@ install(TARGETS playergstinterface
 )
 
 # Install pkg-config file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/playergstinterface.pc"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libplayergstinterface.pc"
     DESTINATION lib/pkgconfig)
 target_link_libraries(subtec playerlogmanager)
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
