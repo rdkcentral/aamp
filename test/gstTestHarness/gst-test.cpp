@@ -1156,7 +1156,7 @@ public:
 											representation.data.duration[durationIndex],
 											representation.data.timescale,
 											number,
-											localUrl(std::move(mediaUrl)).c_str(),
+											localUrl(mediaUrl).c_str(),
 											localUrl(initHeaderUrl).c_str() );
 									break;
 							}
