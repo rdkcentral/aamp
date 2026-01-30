@@ -98,116 +98,39 @@ inline void ResetFakePlayerExternalsRdkInterfaceState()
 	m_doFakeTuneCallback = nullptr;
 }
 
-inline void GetDisplayResolution(int &width, int &height)
-{
-	width = m_displayWidth;
-	height = m_displayHeight;
-}
-
-inline void SetResolution(int width, int height)
-{
-	// Validate input: reject zero, negative, or out-of-range values
-	if (width <= 0 || height <= 0 || 
-	    width < MIN_RESOLUTION || width > MAX_RESOLUTION ||
-	    height < MIN_RESOLUTION || height > MAX_RESOLUTION)
-	{
-		// Mark as invalid but don't update state
-		m_lastResolutionValid = false;
-		return;
-	}
-	
-	// Update only if validation passed
-	m_displayWidth = width;
-	m_displayHeight = height;
-	m_lastResolutionValid = true;
-}
-
-inline void SetHDMIStatus()
-{
-	// Fake implementation - no external device calls
-	// In real implementation, this would call device::Manager APIs
-	// For testing, we just handle gracefully
-}
-
-inline void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
-{
-	SetHDMIStatus();
-}
-
-inline void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
-{
-    SetHDMIStatus();
-}
-
-inline void OnResolutionPostChange(const int width, const int height)
-{
-	SetResolution(width, height);
-}
-
-inline void OnResolutionPreChange(const int width, const int height)
-{
-	// No implementation needed for pre-change event in tests
-}
-
-inline char * GetTR181Config(const char * paramName, size_t & iConfigLen)
-{
-	iConfigLen = 0;
-	return nullptr;
-}
-
-inline bool GetActiveInterface()
-{
-	return false;
-}
-
-inline void SetActiveInterface(bool isWifi)
-{
-	// Fake implementation
-}
-
-inline std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface()
-{
-	return m_pDeviceInterfaceBase;
-}
-
-inline void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol)
-{
-	m_hdcpCurrentProtocol = t_protocol;
-}
-
-inline void SetUseFireBoltSDK(bool t_use_firebolt_sdk)
-{
-	m_use_firebolt_sdk = t_use_firebolt_sdk;
-}
-
-inline void SetPowerEvent(bool powerEvt)
-{
-	mPowerEvt = powerEvt;
-}
-
-inline bool GetPowerEvent()
-{
-	return mPowerEvt;
-}
-
-inline void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
-{
-	m_doFakeTuneCallback = t_doFakeTuneCallback;
-}
-
-inline std::function<void()> GetDoFakeTuneCallBack()
-{
-	return m_doFakeTuneCallback;
-}
-
 // Wrapper class for test compatibility
 class PlayerExternalsRdkInterface
 {
+private:
+	// Static pointer to allow resetting the singleton for test isolation
+	// Using inline to avoid multiple definition errors when this file is included
+	inline static std::shared_ptr<PlayerExternalsRdkInterface> s_instance = nullptr;
+
 public:
 	static std::shared_ptr<PlayerExternalsRdkInterface> GetPlayerExternalsRdkInterfaceInstance()
 	{
-		static std::shared_ptr<PlayerExternalsRdkInterface> instance = std::make_shared<PlayerExternalsRdkInterface>();
-		return instance;
+		if (!s_instance)
+		{
+			s_instance = std::make_shared<PlayerExternalsRdkInterface>();
+		}
+		return s_instance;
+	}
+
+	/**
+	 * @brief Reset the singleton instance (TEST ONLY)
+	 * 
+	 * This method destroys and recreates the singleton instance, ensuring
+	 * complete test isolation. Should only be called from test teardown.
+	 * This addresses the fundamental issue that static local variables
+	 * persist across all tests and cannot be properly reset.
+	 */
+	static void ResetSingletonInstance()
+	{
+		if (s_instance)
+		{
+			s_instance->Reset(); // Clear state first
+		}
+		s_instance.reset(); // Destroy the singleton instance
 	}
 
 	// Rule of Five: Explicitly enforce singleton pattern
@@ -224,89 +147,107 @@ public:
 
 	// Default destructor
 	~PlayerExternalsRdkInterface() = default;
+
 	void GetDisplayResolution(int &width, int &height)
 	{
-		::GetDisplayResolution(width, height);
+		width = m_displayWidth;
+		height = m_displayHeight;
 	}
 
 	void SetResolution(int width, int height)
 	{
-		::SetResolution(width, height);
+		// Validate input: reject zero, negative, or out-of-range values
+		if (width <= 0 || height <= 0 || 
+		    width < MIN_RESOLUTION || width > MAX_RESOLUTION ||
+		    height < MIN_RESOLUTION || height > MAX_RESOLUTION)
+		{
+			// Mark as invalid but don't update state
+			m_lastResolutionValid = false;
+			return;
+		}
+		
+		// Update only if validation passed
+		m_displayWidth = width;
+		m_displayHeight = height;
+		m_lastResolutionValid = true;
 	}
 
 	void SetHDMIStatus()
 	{
-		::SetHDMIStatus();
+		// Fake implementation - no external device calls
+		// In real implementation, this would call device::Manager APIs
+		// For testing, we just handle gracefully
 	}
 
 	void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
 	{
-		::OnDisplayHDMIHotPlug(displayEvent);
+		SetHDMIStatus();
 	}
 
 	void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
 	{
-		::OnHDCPStatusChange(hdcpStatus);
+		SetHDMIStatus();
 	}
 
 	void OnResolutionPostChange(const int width, const int height)
 	{
-		::OnResolutionPostChange(width, height);
+		SetResolution(width, height);
 	}
 
 	void OnResolutionPreChange(const int width, const int height)
 	{
-		::OnResolutionPreChange(width, height);
+		// No implementation needed for pre-change event in tests
 	}
 
 	char * GetTR181Config(const char * paramName, size_t & iConfigLen)
 	{
-		return ::GetTR181Config(paramName, iConfigLen);
+		iConfigLen = 0;
+		return nullptr;
 	}
 
 	bool GetActiveInterface()
 	{
-		return ::GetActiveInterface();
+		return false;
 	}
 
 	void SetActiveInterface(bool isWifi)
 	{
-		::SetActiveInterface(isWifi);
+		// Fake implementation
 	}
 
 	std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface()
 	{
-		return ::GetDeviceInterface();
+		return m_pDeviceInterfaceBase;
 	}
 
 	void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol)
 	{
-		::setHdcpProtocol(t_protocol);
+		m_hdcpCurrentProtocol = t_protocol;
 	}
 
 	void SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 	{
-		::SetUseFireBoltSDK(t_use_firebolt_sdk);
+		m_use_firebolt_sdk = t_use_firebolt_sdk;
 	}
 
 	void SetPowerEvent(bool powerEvt)
 	{
-		::SetPowerEvent(powerEvt);
+		mPowerEvt = powerEvt;
 	}
 
 	bool GetPowerEvent()
 	{
-		return ::GetPowerEvent();
+		return mPowerEvt;
 	}
 
 	void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
 	{
-		::SetDoFakeTuneCallBack(t_doFakeTuneCallback);
+		m_doFakeTuneCallback = t_doFakeTuneCallback;
 	}
 
 	std::function<void()> GetDoFakeTuneCallBack()
 	{
-		return ::GetDoFakeTuneCallBack();
+		return m_doFakeTuneCallback;
 	}
 
 	/**

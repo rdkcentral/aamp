@@ -32,8 +32,16 @@ protected:
 
 	void SetUp() override
 	{
-		// Reset singleton instance before each test
+		// Get the singleton instance
 		mPlayerExternalsRdk = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+		
+		// Explicitly reset all global state before each test
+		// The singleton pattern persists state across tests, so we must explicitly reset
+		// to ensure each test starts with a clean, known state (test isolation)
+		if (mPlayerExternalsRdk)
+		{
+			mPlayerExternalsRdk->Reset();
+		}
 		
 		PlayerLogManager::lockLogLevel(false);
 		PlayerLogManager::disableLogRedirection = true; // required for mwlog output in utest
@@ -42,12 +50,9 @@ protected:
 
 	void TearDown() override
 	{
-		// Reset all global state in the fake implementation before releasing the reference
-		// This ensures proper test isolation by cleaning up state that persists across tests
-		if (mPlayerExternalsRdk)
-		{
-			mPlayerExternalsRdk->Reset();
-		}
+		// Destroy and reset the singleton instance completely for true test isolation
+		// This addresses the fundamental issue that singleton instances persist across tests
+		PlayerExternalsRdkInterface::ResetSingletonInstance();
 		mPlayerExternalsRdk.reset();
 	}
 
