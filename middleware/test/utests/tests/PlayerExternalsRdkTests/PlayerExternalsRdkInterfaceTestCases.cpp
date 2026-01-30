@@ -42,6 +42,12 @@ protected:
 
 	void TearDown() override
 	{
+		// Reset all global state in the fake implementation before releasing the reference
+		// This ensures proper test isolation by cleaning up state that persists across tests
+		if (mPlayerExternalsRdk)
+		{
+			mPlayerExternalsRdk->Reset();
+		}
 		mPlayerExternalsRdk.reset();
 	}
 

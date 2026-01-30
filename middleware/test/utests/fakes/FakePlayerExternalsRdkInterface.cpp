@@ -73,6 +73,31 @@ static InitState m_initialized = NOT_INITIALIZED;
 static bool mPowerEvt = false;
 static std::function<void()> m_doFakeTuneCallback = nullptr;
 
+/**
+ * @brief Reset all fake PlayerExternalsRdkInterface global state.
+ *
+ * This helper is intended to be called from unit test SetUp/TearDown
+ * to ensure test isolation when multiple tests share this fake.
+ * Global static variables persist state across tests, so this function
+ * must be called between tests to prevent test interdependence.
+ */
+inline void ResetFakePlayerExternalsRdkInterfaceState()
+{
+	m_displayWidth = 0;
+	m_displayHeight = 0;
+	m_lastResolutionValid = true;
+	m_isHDCPEnabled = false;
+	m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
+	m_sourceWidth = 0;
+	m_sourceHeight = 0;
+	m_gstElement = nullptr;
+	m_pDeviceInterfaceBase.reset();
+	m_use_firebolt_sdk = false;
+	m_initialized = NOT_INITIALIZED;
+	mPowerEvt = false;
+	m_doFakeTuneCallback = nullptr;
+}
+
 inline void GetDisplayResolution(int &width, int &height)
 {
 	width = m_displayWidth;
@@ -295,22 +320,12 @@ public:
 
 	/**
 	 * @brief Reset all internal state variables to initial values
-	 * This should be called between tests to ensure proper test isolation
+	 * This delegates to ResetFakePlayerExternalsRdkInterfaceState() helper
+	 * to ensure proper test isolation when multiple tests share this fake.
+	 * Should be called from test TearDown() to clean up state.
 	 */
 	void Reset()
 	{
-		m_displayWidth = 0;
-		m_displayHeight = 0;
-		m_isHDCPEnabled = false;
-		m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
-		m_sourceWidth = 0;
-		m_sourceHeight = 0;
-		m_gstElement = nullptr;
-		m_pDeviceInterfaceBase = nullptr;
-		m_use_firebolt_sdk = false;
-		m_initialized = NOT_INITIALIZED;
-		mPowerEvt = false;
-		m_doFakeTuneCallback = nullptr;
-		m_lastResolutionValid = true;
+		ResetFakePlayerExternalsRdkInterfaceState();
 	}
 };
