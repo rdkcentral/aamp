@@ -83,6 +83,14 @@ class Pipeline
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
 	void Step( void );
+	/**
+	 * @brief Dequeues and returns the next scheduled seek from the segment end seek queue
+	 * 
+	 * Thread-safe operation that removes the first seek from the queue if available.
+	 * If the queue is empty, returns a default-constructed SeekParam.
+	 * 
+	 * @return SeekParam The next scheduled seek parameters, or default SeekParam if queue is empty
+	 */
 	SeekParam PopSeek();
 	void ScheduleSeek( const SeekParam & );
 	size_t GetNumPendingSeek(void) const;
