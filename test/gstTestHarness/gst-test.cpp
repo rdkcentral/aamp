@@ -1500,7 +1500,7 @@ public:
 			}
 			else if( sscanf(str, "path %199s", base_path ) == 1 )
 			{
-				if (199 >= sizeof(base_path)) {
+				if (sizeof(base_path) <= 199) {
 					printf("ERROR: Buffer size mismatch - format specifier larger than buffer\n");
 					exit(EXIT_FAILURE);
 				}
