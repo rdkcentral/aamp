@@ -107,7 +107,6 @@ void GetAudioHeaderPath( char path[MAX_PATH_SIZE], const char *language )
 
 void GetAudioSegmentPath( char path[MAX_PATH_SIZE], int segmentNumber, const char *language )
 {
-	//assert( segmentNumber<SEGMENT_COUNT );
 	switch( mContentFormat )
 	{
 		case eCONTENTFORMAT_MP4_ES:
@@ -202,9 +201,6 @@ private:
 					
 				case eCONTENTFORMAT_TS_ES:
 					tsDemux = new TsDemux( mediaType, ptr, len );
-					if (!tsDemux) {
-						throw TestHarnessException("TrackFragment::Load() - Failed to create TsDemux");
-					}
 					break;
 			}
 		}
@@ -1270,10 +1266,6 @@ public:
 					throw TestHarnessException("Failed to load segment: " + fullpath);
 				}
 				auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, segmentPtr, segmentBytes );
-				if (!tsDemux) {
-					g_free(segmentPtr);
-					throw TestHarnessException("Failed to create TsDemux for segment: " + fullpath);
-				}
 				if (tsDemux->count() == 0) {
 					delete tsDemux;
 					g_free(segmentPtr);
