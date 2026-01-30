@@ -203,8 +203,7 @@ private:
 				case eCONTENTFORMAT_TS_ES:
 					tsDemux = new TsDemux( mediaType, ptr, len );
 					if (!tsDemux) {
-						printf("ERROR: TrackFragment::Load() - Failed to create TsDemux\n");
-						exit(EXIT_FAILURE);
+						throw TestHarnessException("TrackFragment::Load() - Failed to create TsDemux");
 					}
 					break;
 			}
@@ -980,8 +979,7 @@ public:
 			if( codec.rfind("hvc1.")==0 ) return "hevc";
 			if( codec=="hev1" ) return "hevc";
 			
-			printf( "ERROR: unmapped codec: %s\n", codec.c_str() );
-			exit(EXIT_FAILURE);
+			throw TestHarnessException("unmapped codec: " + codec);
 		}
 		
 		std::string localUrl( const std::string url )
@@ -1260,8 +1258,7 @@ public:
 				std::string fullpath = url;
 				auto delim = fullpath.find_last_of("/");
 				if (delim == std::string::npos) {
-					printf("ERROR: No '/' found in URL: %s\n", url.c_str());
-					exit(EXIT_FAILURE);
+					throw TestHarnessException("LoadHLS: No '/' found in URL: " + url);
 				}
 				fullpath = fullpath.substr(0,delim+1);
 				fullpath += segmentInfo.path;
@@ -1270,20 +1267,17 @@ public:
 					size_t segmentBytes = 0;
 					void *segmentPtr = LoadUrl(fullpath.c_str(),&segmentBytes);
 					if (!segmentPtr) {
-						printf("ERROR: Failed to load segment: %s\n", fullpath.c_str());
-						exit(EXIT_FAILURE);
+						throw TestHarnessException("Failed to load segment: " + fullpath);
 					}
 					auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, segmentPtr, segmentBytes );
 					if (!tsDemux) {
-						printf("ERROR: Failed to create TsDemux for segment: %s\n", fullpath.c_str());
 						g_free(segmentPtr);
-						exit(EXIT_FAILURE);
+						throw TestHarnessException("Failed to create TsDemux for segment: " + fullpath);
 					}
 					if (tsDemux->count() == 0) {
-						printf("ERROR: TsDemux has no frames for segment: %s\n", fullpath.c_str());
 						delete tsDemux;
 						g_free(segmentPtr);
-						exit(EXIT_FAILURE);
+						throw TestHarnessException("TsDemux has no frames for segment: " + fullpath);
 					}
 					double firstPts = tsDemux->getPts(0);
 					pts_offset = total_duration - firstPts;
@@ -1502,8 +1496,7 @@ public:
 			else if( sscanf(str, "path %199s", base_path ) == 1 )
 			{
 				if (sizeof(base_path) <= 199) {
-					printf("ERROR: Buffer size mismatch - format specifier larger than buffer\n");
-					exit(EXIT_FAILURE);
+					throw TestHarnessException("Buffer size mismatch - format specifier larger than buffer");
 				}
 				printf( "new base path: '%s'\n", base_path );
 			}
@@ -1559,26 +1552,32 @@ public:
 			}
 			*fin = 0x00;
 			
+		try {
 			appContext->ProcessCommand( str );
+		} catch (const TestHarnessException& e) {
+			printf("ERROR: %s\n", e.what());
+		} catch (const std::exception& e) {
+			printf("ERROR: Unexpected exception: %s\n", e.what());
 		}
-		
-		g_free( str );
-		
-		if (error)
-		{
-			g_error_free(error);
-		}
-		
-		return TRUE;
 	}
 	
-	static void NetworkCommandServer( struct AppContext *appContext )
-	{ // simply http server, dispatching incoming commands and returning playback state
+	g_free( str );
+	
+	if (error)
+	{
+		g_error_free(error);
+	}
+	
+	return TRUE;
+}
+
+static void NetworkCommandServer( struct AppContext *appContext )
+{ // simply http server, dispatching incoming commands and returning playback state
+	try {
 		char buf[1024];
 		int parentfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (parentfd < 0) {
-			printf("ERROR: NetworkCommandServer - Failed to create socket\n");
-			exit(EXIT_FAILURE);
+			throw TestHarnessException("NetworkCommandServer - Failed to create socket");
 		}
 		int optval = 1;
 		setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
@@ -1598,8 +1597,7 @@ public:
 		}
 		rc = listen(parentfd, 5);
 		if (rc < 0) {
-			printf("ERROR: NetworkCommandServer - listen() failed\n");
-			exit(EXIT_FAILURE);
+			throw TestHarnessException("NetworkCommandServer - listen() failed");
 		}
 		struct sockaddr_in clientaddr;
 		socklen_t clientlen = sizeof(clientaddr);
@@ -1642,7 +1640,13 @@ public:
 				delim+=4;
 				if( *delim )
 				{
-					appContext->ProcessCommand( delim );
+					try {
+						appContext->ProcessCommand( delim );
+					} catch (const TestHarnessException& e) {
+						printf("ERROR: Command failed: %s\n", e.what());
+					} catch (const std::exception& e) {
+						printf("ERROR: Unexpected exception in command: %s\n", e.what());
+					}
 				}
 			}
 			char json[256];
@@ -1676,6 +1680,11 @@ public:
 				printf("ERROR: NetworkCommandServer - write() failed\n");
 			}
 			close(childfd);
+		}
+		} catch (const TestHarnessException& e) {
+			printf("FATAL: NetworkCommandServer error: %s\n", e.what());
+		} catch (const std::exception& e) {
+			printf("FATAL: Unexpected exception in NetworkCommandServer: %s\n", e.what());
 		}
 	}
 	
