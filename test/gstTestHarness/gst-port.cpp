@@ -592,6 +592,7 @@ void Pipeline::SendEOS( MediaType mediaType )
 
 bool Pipeline::DoSeekNow( const SeekParam& req )
 {
+	printf( "DoSeekNow(%f)\n", req.start_seconds );
 	const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
 	const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
 	GST_INFO_OBJECT(pipeline, "DoSeekNow rate=%.2f start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT " flush=%d segment=%d", req.playback_rate, GST_TIME_ARGS(start), GST_TIME_ARGS(stop), req.flush, req.segment);

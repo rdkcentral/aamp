@@ -1076,7 +1076,7 @@ public:
 					}
 					
 					std::string initHeaderUrl = representation.BaseURL + ExpandURL( representation.data.initialization, segment_template_param );
-					std::cout << initHeaderUrl << "\n";
+					//std::cout << initHeaderUrl << "\n";
 					if( !inventory )
 					{
 						m_timeScale[mediaType] = representation.data.timescale;
@@ -1116,7 +1116,7 @@ public:
 						}
 						const std::string &media = representation.data.media[mediaIndex];
 						std::string mediaUrl = representation.BaseURL + ExpandURL( media, segment_template_param );
-						std::cout << mediaUrl << "\n";
+						//std::cout << mediaUrl << "\n";
 						if( inventory )
 						{
 							if( fInventory )
@@ -1307,9 +1307,9 @@ public:
 			XmlNode *xml = new XmlNode( "document", ptr, size );
 			auto numChildren = xml->children.size();
 			auto MPD = xml->children[numChildren-1];
-			DumpXml(MPD,0);
+			//DumpXml(MPD,0);
 			timeline = parseManifest( *MPD, url );
-			timeline.Debug();
+			//timeline.Debug();
 			ComputeTimestampOffsets( timeline );
 			InjectSegments( timeline, inventory );
 			delete xml;

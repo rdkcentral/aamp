@@ -110,6 +110,7 @@ public:
  */
 gpointer LoadUrl( const std::string &url, gsize *pLen )
 {
+	printf( "LoadUrl(%s)\n", url.c_str() );
 	gpointer ptr = NULL;
 	gsize len = 0;
 	
@@ -168,18 +169,15 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 					len = context.size;
 					break;
 				default:
-					printf( "LoadUrl(%s)\n", url.c_str() );
-					printf( "->http error: %ld\n", response_code );
-					
+					printf( "http error: %ld\n", response_code );
 					g_free(context.buffer);
 					context.buffer = NULL;
 					break;
 			}
 		}
 		else
-		{ // curl failure
-			printf( "LoadUrl(%s)\n", url.c_str() );
-			printf( "->curl error: %d\n", rc );
+		{
+			printf( "curl error: %d\n", rc );
 			g_free(context.buffer);
 			context.buffer = NULL;
 		}
@@ -199,7 +197,7 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			f = fopen( prefix.c_str(), "rb" );
 			if( !f )
 			{ // file not found
-				printf( "ERROR: LoadUrl() - File not found: %s\n", prefix.c_str() );
+				printf( "failed to open file\n" );
 				return NULL;
 			}
 			fseek( f, 0, SEEK_END );
@@ -210,12 +208,12 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			std::string prefix = url.substr(start,delim-start);
 			f = fopen( prefix.c_str(), "rb" );
 			if (!f) {
-				printf("ERROR: LoadUrl() - Failed to open file with range: %s\n", prefix.c_str());
+				printf("failed to open file\n" );
 				exit(EXIT_FAILURE);
 			}
 			delim = range.find('-');
 			if (delim == std::string::npos) {
-				printf("ERROR: LoadUrl() - Invalid range format (missing '-'): %s\n", range.c_str());
+				printf("Invalid range format (missing '-'): %s\n", range.c_str());
 				fclose(f);
 				exit(EXIT_FAILURE);
 			}
@@ -223,7 +221,7 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 				offs = std::stol(range.substr(0,delim));
 				len = std::stol(range.substr(delim+1)) + 1 - offs;
 			} catch (const std::exception& e) {
-				printf("ERROR: LoadUrl() - Failed to parse range values: %s - %s\n", range.c_str(), e.what());
+				printf("Failed to parse range values: %s - %s\n", range.c_str(), e.what());
 				fclose(f);
 				exit(EXIT_FAILURE);
 			}
