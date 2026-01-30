@@ -207,7 +207,7 @@ private:
 	}
 	
 public:
-	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
+	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(nullptr),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
 	{
 	}
 	
