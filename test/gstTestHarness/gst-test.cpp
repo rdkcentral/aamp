@@ -232,8 +232,7 @@ public:
 				double dts = tsDemux->getDts(i);
 				double dur = tsDemux->getDuration(i);
 				if (len == 0) {
-					printf("ERROR: TrackFragment::Inject() - Invalid buffer length (0) at index %d\n", i);
-					exit(EXIT_FAILURE);
+					throw TestHarnessException( "ERROR: TrackFragment::Inject() - Invalid buffer length" );
 				}
 				gpointer ptr = g_malloc(len);
 				if( ptr )
@@ -992,7 +991,7 @@ public:
 		{
 			return url.substr(8);
 		}
-		return std::move(url);
+		return url;
 	}
 	
 	void InjectSegments( const Timeline &timelineObj, bool inventory )
@@ -1443,7 +1442,8 @@ public:
 			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
 			
 			// Reset pipeline
-			pipelineContext.pipeline.reset(new Pipeline( &pipelineContext ));
+			pipelineContext.pipeline = std::unique_ptr<Pipeline>(new Pipeline(&pipelineContext));
+			
 			{
 				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
 				
