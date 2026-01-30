@@ -77,7 +77,7 @@ class Pipeline
 	long long GetPositionMilliseconds( MediaType mediaType ) const;
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void ) const;
-	void Configure( MediaType mediaType, const SeekParam &seekParam );
+	void Configure( MediaType mediaType, const SeekParam &seekParam = SeekParam() );
 	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void ) const;
