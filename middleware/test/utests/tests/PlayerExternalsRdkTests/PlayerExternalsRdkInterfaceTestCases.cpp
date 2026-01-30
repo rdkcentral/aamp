@@ -25,11 +25,6 @@
 // Include the fake implementation to get the class definition and enums
 #include "../../fakes/FakePlayerExternalsRdkInterface.cpp"
 
-using ::testing::NiceMock;
-using ::testing::StrictMock;
-using ::testing::Return;
-using ::testing::_;
-
 class PlayerExternalsRdkInterfaceTests : public ::testing::Test
 {
 protected:
@@ -167,62 +162,95 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_ZeroResolution_H
 	// Call the event handler - should not crash
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
-	// Verify the resolution was stored (even if zero)
-	VerifyResolution(width, height);
+	// Verify the resolution was NOT stored (validation should fail)
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid()) 
+		<< "Zero resolution should be rejected";
 }
 
 /**
  * @brief Test OnResolutionPostChange with negative width value
  * 
- * This is a negative test case where width is negative. The system should
- * handle invalid input gracefully without crashing.
+ * This test verifies that negative width values are rejected and not stored.
+ * Invalid inputs should not update the internal state.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_NegativeWidth_HandlesGracefully)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_NegativeWidth_IsRejected)
 {
+	// Set a valid resolution first
+	mPlayerExternalsRdk->OnResolutionPostChange(1920, 1080);
+	EXPECT_TRUE(mPlayerExternalsRdk->IsLastResolutionValid());
+	
+	int originalWidth = 0, originalHeight = 0;
+	mPlayerExternalsRdk->GetDisplayResolution(originalWidth, originalHeight);
+
 	const int width = -1;
 	const int height = 1080;
 
-	// Call the event handler - should not crash
+	// Attempt to set invalid resolution
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
-	// Verify the resolution was stored (even if negative)
-	VerifyResolution(width, height);
+	// Verify the invalid value was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Negative width should be rejected";
+	
+	// Verify previous valid state was preserved
+	int currentWidth = 0, currentHeight = 0;
+	mPlayerExternalsRdk->GetDisplayResolution(currentWidth, currentHeight);
+	EXPECT_EQ(originalWidth, currentWidth);
+	EXPECT_EQ(originalHeight, currentHeight);
 }
 
 /**
  * @brief Test OnResolutionPostChange with negative height value
  * 
- * This is a negative test case where height is negative. The system should
- * handle invalid input gracefully without crashing.
+ * This test verifies that negative height values are rejected and not stored.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_NegativeHeight_HandlesGracefully)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_NegativeHeight_IsRejected)
 {
+	// Set a valid resolution first
+	mPlayerExternalsRdk->OnResolutionPostChange(1920, 1080);
+	EXPECT_TRUE(mPlayerExternalsRdk->IsLastResolutionValid());
+	
+	int originalWidth = 0, originalHeight = 0;
+	mPlayerExternalsRdk->GetDisplayResolution(originalWidth, originalHeight);
+
 	const int width = 1920;
 	const int height = -1;
 
-	// Call the event handler - should not crash
+	// Attempt to set invalid resolution
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
-	// Verify the resolution was stored (even if negative)
-	VerifyResolution(width, height);
+	// Verify the invalid value was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Negative height should be rejected";
+	
+	// Verify previous valid state was preserved
+	int currentWidth = 0, currentHeight = 0;
+	mPlayerExternalsRdk->GetDisplayResolution(currentWidth, currentHeight);
+	EXPECT_EQ(originalWidth, currentWidth);
+	EXPECT_EQ(originalHeight, currentHeight);
 }
 
 /**
  * @brief Test OnResolutionPostChange with both negative values
  * 
- * This is an edge case test where both width and height are negative.
- * This might indicate an error condition or uninitialized state.
+ * This test verifies that resolution with both negative width and height
+ * are rejected as invalid.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_BothNegative_HandlesGracefully)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_BothNegative_IsRejected)
 {
+	// Set a valid resolution first
+	mPlayerExternalsRdk->OnResolutionPostChange(1920, 1080);
+	EXPECT_TRUE(mPlayerExternalsRdk->IsLastResolutionValid());
+
 	const int width = -1;
 	const int height = -1;
 
-	// Call the event handler - should not crash
+	// Attempt to set invalid resolution
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
-	// Verify the resolution was stored
-	VerifyResolution(width, height);
+	// Verify the resolution was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Both negative values should be rejected";
 }
 
 /**
@@ -325,54 +353,130 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_8KResolution_Han
 /**
  * @brief Test OnResolutionPostChange with maximum integer values
  * 
- * This is a boundary test with maximum integer values to ensure no overflow
- * or unexpected behavior occurs.
+ * This test verifies that extremely large values (INT_MAX) are rejected
+ * as they exceed reasonable display resolution limits.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_MaxIntValues_HandlesGracefully)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_MaxIntValues_IsRejected)
 {
 	const int width = INT_MAX;
 	const int height = INT_MAX;
 
-	// Call the event handler - should not crash or overflow
+	// Attempt to set extreme values
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
-	// Verify the resolution was stored
-	VerifyResolution(width, height);
+	// Verify the resolution was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "INT_MAX values should be rejected as out-of-range";
 }
 
 /**
  * @brief Test OnResolutionPostChange with minimum integer values
  * 
- * This is a boundary test with minimum integer values to ensure proper handling
- * of extreme negative values.
+ * This test verifies that extreme negative values (INT_MIN) are rejected.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_MinIntValues_HandlesGracefully)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_MinIntValues_IsRejected)
 {
 	const int width = INT_MIN;
 	const int height = INT_MIN;
 
-	// Call the event handler - should not crash
+	// Attempt to set extreme negative values
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
-	// Verify the resolution was stored
+	// Verify the resolution was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "INT_MIN values should be rejected as out-of-range";
+}
+
+/**
+ * @brief Test OnResolutionPostChange with minimum valid resolution (boundary)
+ * 
+ * This test verifies that the minimum valid resolution (320x320) is accepted.
+ */
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_MinValidResolution_IsAccepted)
+{
+	const int width = 320;
+	const int height = 320;
+
+	// Set minimum valid resolution
+	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
+
+	// Verify the resolution was accepted
+	EXPECT_TRUE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Minimum valid resolution (320x320) should be accepted";
 	VerifyResolution(width, height);
+}
+
+/**
+ * @brief Test OnResolutionPostChange with maximum valid resolution (boundary)
+ * 
+ * This test verifies that the maximum valid resolution (7680x7680) is accepted.
+ */
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_MaxValidResolution_IsAccepted)
+{
+	const int width = 7680;
+	const int height = 7680;
+
+	// Set maximum valid resolution
+	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
+
+	// Verify the resolution was accepted
+	EXPECT_TRUE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Maximum valid resolution (7680x7680) should be accepted";
+	VerifyResolution(width, height);
+}
+
+/**
+ * @brief Test OnResolutionPostChange with below-minimum resolution
+ * 
+ * This test verifies that resolutions below the minimum (319x319) are rejected.
+ */
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_BelowMinResolution_IsRejected)
+{
+	const int width = 319;
+	const int height = 319;
+
+	// Attempt to set below-minimum resolution
+	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
+
+	// Verify the resolution was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Below-minimum resolution (319x319) should be rejected";
+}
+
+/**
+ * @brief Test OnResolutionPostChange with above-maximum resolution
+ * 
+ * This test verifies that resolutions above the maximum (7681x7681) are rejected.
+ */
+TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_AboveMaxResolution_IsRejected)
+{
+	const int width = 7681;
+	const int height = 7681;
+
+	// Attempt to set above-maximum resolution
+	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
+
+	// Verify the resolution was rejected
+	EXPECT_FALSE(mPlayerExternalsRdk->IsLastResolutionValid())
+		<< "Above-maximum resolution (7681x7681) should be rejected";
 }
 
 /**
  * @brief Test OnResolutionPostChange with square resolution
  * 
  * This test verifies handling of a square resolution (1:1 aspect ratio),
- * which while unusual for displays, should be handled correctly.
+ * which while unusual for displays, should be handled correctly when within valid range.
  */
 TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_SquareResolution_HandlesCorrectly)
 {
 	const int width = 1080;
-	const int height = 1080; // 1:1 aspect ratio
+	const int height = 1080; // 1:1 aspect ratio, within valid range
 
 	// Call the event handler
 	mPlayerExternalsRdk->OnResolutionPostChange(width, height);
 
 	// Verify the resolution was stored correctly
+	EXPECT_TRUE(mPlayerExternalsRdk->IsLastResolutionValid());
 	VerifyResolution(width, height);
 }
 

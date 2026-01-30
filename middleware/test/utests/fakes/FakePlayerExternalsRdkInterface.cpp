@@ -54,9 +54,14 @@ public:
 	virtual ~DeviceInterfaceBase() {}
 };
 
+// Validation constraints for resolution
+static constexpr int MIN_RESOLUTION = 320;      // Minimum valid resolution (e.g., 320x240)
+static constexpr int MAX_RESOLUTION = 7680;     // Maximum valid resolution (8K: 7680x4320)
+
 // Global state variables for fake implementation
 static int m_displayWidth = 0;
 static int m_displayHeight = 0;
+static bool m_lastResolutionValid = true;       // Track if last resolution was valid
 static bool m_isHDCPEnabled = false;
 static dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
 static int m_sourceWidth = 0;
@@ -76,8 +81,20 @@ inline void GetDisplayResolution(int &width, int &height)
 
 inline void SetResolution(int width, int height)
 {
+	// Validate input: reject zero, negative, or out-of-range values
+	if (width <= 0 || height <= 0 || 
+	    width < MIN_RESOLUTION || width > MAX_RESOLUTION ||
+	    height < MIN_RESOLUTION || height > MAX_RESOLUTION)
+	{
+		// Mark as invalid but don't update state
+		m_lastResolutionValid = false;
+		return;
+	}
+	
+	// Update only if validation passed
 	m_displayWidth = width;
 	m_displayHeight = height;
+	m_lastResolutionValid = true;
 }
 
 inline void SetHDMIStatus()
@@ -97,12 +114,12 @@ inline void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
     SetHDMIStatus();
 }
 
-inline void OnResolutionPostChange(int width, int height)
+inline void OnResolutionPostChange(const int width, const int height)
 {
 	SetResolution(width, height);
 }
 
-inline void OnResolutionPreChange(int width, int height)
+inline void OnResolutionPreChange(const int width, const int height)
 {
 	// No implementation needed for pre-change event in tests
 }
@@ -168,6 +185,20 @@ public:
 		return instance;
 	}
 
+	// Rule of Five: Explicitly enforce singleton pattern
+	// Default constructor needed for std::make_shared
+	PlayerExternalsRdkInterface() = default;
+
+	// Prevent copying to ensure only one instance exists
+	PlayerExternalsRdkInterface(const PlayerExternalsRdkInterface&) = delete;
+	PlayerExternalsRdkInterface& operator=(const PlayerExternalsRdkInterface&) = delete;
+
+	// Allow move semantics for shared_ptr compatibility
+	PlayerExternalsRdkInterface(PlayerExternalsRdkInterface&&) = default;
+	PlayerExternalsRdkInterface& operator=(PlayerExternalsRdkInterface&&) = default;
+
+	// Default destructor
+	~PlayerExternalsRdkInterface() = default;
 	void GetDisplayResolution(int &width, int &height)
 	{
 		::GetDisplayResolution(width, height);
@@ -193,12 +224,12 @@ public:
 		::OnHDCPStatusChange(hdcpStatus);
 	}
 
-	void OnResolutionPostChange(int width, int height)
+	void OnResolutionPostChange(const int width, const int height)
 	{
 		::OnResolutionPostChange(width, height);
 	}
 
-	void OnResolutionPreChange(int width, int height)
+	void OnResolutionPreChange(const int width, const int height)
 	{
 		::OnResolutionPreChange(width, height);
 	}
@@ -251,5 +282,35 @@ public:
 	std::function<void()> GetDoFakeTuneCallBack()
 	{
 		return ::GetDoFakeTuneCallBack();
+	}
+
+	/**
+	 * @brief Check if the last resolution update was valid
+	 * @return true if the last SetResolution/OnResolutionPostChange was valid, false otherwise
+	 */
+	bool IsLastResolutionValid() const
+	{
+		return m_lastResolutionValid;
+	}
+
+	/**
+	 * @brief Reset all internal state variables to initial values
+	 * This should be called between tests to ensure proper test isolation
+	 */
+	void Reset()
+	{
+		m_displayWidth = 0;
+		m_displayHeight = 0;
+		m_isHDCPEnabled = false;
+		m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
+		m_sourceWidth = 0;
+		m_sourceHeight = 0;
+		m_gstElement = nullptr;
+		m_pDeviceInterfaceBase = nullptr;
+		m_use_firebolt_sdk = false;
+		m_initialized = NOT_INITIALIZED;
+		mPowerEvt = false;
+		m_doFakeTuneCallback = nullptr;
+		m_lastResolutionValid = true;
 	}
 };
