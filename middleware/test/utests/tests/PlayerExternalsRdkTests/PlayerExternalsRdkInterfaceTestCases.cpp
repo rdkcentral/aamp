@@ -19,8 +19,11 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include "PlayerExternalsRdkInterface.h"
 #include "PlayerLogManager.h"
+#include <memory>
+
+// Include the fake implementation to get the class definition and enums
+#include "../../fakes/FakePlayerExternalsRdkInterface.cpp"
 
 using ::testing::NiceMock;
 using ::testing::StrictMock;
