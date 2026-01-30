@@ -658,10 +658,6 @@ void Pipeline::Reset( void )
 	std::queue<SeekParam> empty;
 	std::swap(context->mSegmentEndSeekQueue, empty);
 	
-	// Reset configuration state to allow reconfiguration
-	//context->configured_stream_count = 0;
-	//context->initial_seek_performed = false;
-	
 	// Clear injected buffer counters
 	for (auto& ms : mediaStream)
 	{

@@ -1446,8 +1446,6 @@ public:
 			pipelineContext.pipeline.reset(new Pipeline( &pipelineContext ));
 			{
 				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
-				//pipelineContext.configured_stream_count = 0;
-				//pipelineContext.initial_seek_performed = false;
 				
 				// Clear any pending segment-end seeks so they are not
 				// carried into the next playback session.
