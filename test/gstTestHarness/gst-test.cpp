@@ -1615,9 +1615,9 @@ static void NetworkCommandServer( struct AppContext *appContext )
 				close(childfd);
 				continue;
 			}
-			char *hostaddrp = inet_ntoa(clientaddr.sin_addr);
-			if (!hostaddrp) {
-				printf("WARNING: NetworkCommandServer - inet_ntoa() failed\n");
+			char hostaddrp[INET_ADDRSTRLEN];
+			if (!inet_ntop(AF_INET, &clientaddr.sin_addr, hostaddrp, sizeof(hostaddrp))) {
+				printf("WARNING: NetworkCommandServer - inet_ntop() failed\n");
 				close(childfd);
 				continue;
 			}
