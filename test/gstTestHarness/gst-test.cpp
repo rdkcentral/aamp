@@ -977,7 +977,7 @@ public:
 		throw TestHarnessException("unmapped codec: " + codec);
 	}
 	
-	std::string localUrl( const std::string url )
+	std::string localUrl( const std::string &url )
 	{
 		if( url.rfind("file://",0)==0 )
 		{
@@ -1143,7 +1143,7 @@ public:
 											representation.data.duration[durationIndex],
 											representation.data.timescale,
 											number,
-											localUrl(std::move(mediaUrl)).c_str(),
+											localUrl(mediaUrl).c_str(),
 											localUrl(initHeaderUrl).c_str() );
 									break;
 								case eMEDIATYPE_VIDEO:
@@ -1281,6 +1281,11 @@ public:
 		
 		video.EnqueueControl( new TrackEOS() );
 		audio.EnqueueControl( new TrackEOS() );
+		
+		// Note here we don't call PopSeek nor apply any special SeekParam
+		// At moment only basic HLS playlists are supported by gst test harness.
+		// Seek is not yet supported so the default behavior (play from beginning)
+		// is fine for now.
 		
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
@@ -1564,10 +1569,11 @@ static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppCont
 
 static void NetworkCommandServer( struct AppContext *appContext )
 { // simply http server, dispatching incoming commands and returning playback state
+	int parentfd = -1;
 	try {
 		char buf[1024];
 		char hostaddrp[INET_ADDRSTRLEN];
-		int parentfd = socket(AF_INET, SOCK_STREAM, 0);
+		parentfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (parentfd < 0) {
 			throw TestHarnessException("NetworkCommandServer - Failed to create socket");
 		}
@@ -1672,10 +1678,16 @@ static void NetworkCommandServer( struct AppContext *appContext )
 			}
 			close(childfd);
 		}
-	} catch (const TestHarnessException& e) {
-		printf("FATAL: NetworkCommandServer error: %s\n", e.what());
-	} catch (const std::exception& e) {
-		printf("FATAL: Unexpected exception in NetworkCommandServer: %s\n", e.what());
+	}
+	catch (const TestHarnessException& e) {
+		printf("NetworkCommandServer error: %s\n", e.what());
+	}
+	catch (const std::exception& e) {
+		printf("NetworkCommandServer error: %s\n", e.what());
+	}
+	if( parentfd>=0 )
+	{
+		close(parentfd);
 	}
 }
 

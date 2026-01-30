@@ -27,8 +27,12 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <cmath>
 
 #define MY_PIPELINE_NAME "test-pipeline"
+
+// Epsilon for floating-point comparison tolerance
+static constexpr double SEEK_POSITION_EPSILON = 0.001; // 1ms tolerance
 
 // Logging category for this module
 GST_DEBUG_CATEGORY_STATIC(gstport_cat);
@@ -126,7 +130,7 @@ public:
 		{
 			flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
 		}
-		bool open = (req.stop_seconds==req.start_seconds);
+		bool open = std::fabs(req.stop_seconds - req.start_seconds) < SEEK_POSITION_EPSILON;
 		const gboolean ok = gst_element_seek( (GstElement *)appsrc,
 											 req.playback_rate,
 											 GST_FORMAT_TIME,
@@ -519,6 +523,12 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	}
 }
 
+/**
+ * @brief retrieve seek parameters to apply after configurating AV pipeline
+ *
+ * @retval eldest queued SeekParam
+ * @retval return default SeekParam (1x speed, starting at 0.0s) if if mSegmentEndSeekQueue is empty
+ */
 SeekParam Pipeline::PopSeek()
 {
 	SeekParam param;
@@ -627,7 +637,7 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 	{
 		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
 	}
-	bool open = (req.stop_seconds==req.start_seconds);
+	bool open = std::fabs(req.stop_seconds - req.start_seconds) < SEEK_POSITION_EPSILON;
 	const gboolean ok = gst_element_seek( pipeline,
 										 req.playback_rate,
 										 GST_FORMAT_TIME,
