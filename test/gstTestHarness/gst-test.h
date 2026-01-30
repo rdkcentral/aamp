@@ -25,10 +25,10 @@
 /**
  * @brief Exception thrown when a fatal error occurs in the test harness
  */
-class TestHarnessException : public std::runtime_error
+class TestHarnessException final : public std::runtime_error
 {
 public:
-	explicit TestHarnessException(const std::string& message)
+	explicit TestHarnessException(const std::string& message) noexcept
 	: std::runtime_error(message) {}
 };
 
