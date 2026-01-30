@@ -1447,8 +1447,7 @@ public:
 			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
 			
 			// Reset pipeline
-			pipelineContext.pipeline = std::unique_ptr<Pipeline>(new Pipeline(&pipelineContext));
-			
+			pipelineContext.pipeline = pipelineContext.pipeline = std::make_unique<Pipeline>(&pipelineContext);
 			{
 				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
 				
@@ -1476,9 +1475,6 @@ public:
 		}
 		else if( sscanf(str, "path %199s", base_path ) == 1 )
 		{
-			if (sizeof(base_path) < 200) {
-				throw TestHarnessException("Buffer size mismatch - format specifier larger than buffer");
-			}
 			printf( "new base path: '%s'\n", base_path );
 		}
 		else if( strcmp( str,"exit")==0 )
