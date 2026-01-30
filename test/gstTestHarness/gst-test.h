@@ -18,6 +18,7 @@
  */
 #include "gst-port.h"
 #include <queue>
+#include <memory>
 
 typedef enum
 {
@@ -38,7 +39,7 @@ public:
 	uint32_t timeScale; // needed here?
 	bool needsData;
 	bool gstreamerReadyForInjection;
-	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
+	std::unique_ptr<std::queue<class TrackEvent *>> queue; // sequential segments/commands, not yet injected
 	
 	Track();
 	~Track();
@@ -54,10 +55,10 @@ public:
 	Track& operator=(const Track&)=delete;
 };
 
-class MyPipelineContext : PipelineContext
+class MyPipelineContext : public PipelineContext
 {
 public:
-	class Pipeline *pipeline;
+	std::unique_ptr<Pipeline> pipeline;
 	double seekPos;
 	double nextPTS;
 	double nextTime;

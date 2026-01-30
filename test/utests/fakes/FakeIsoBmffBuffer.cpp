@@ -280,3 +280,15 @@ bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
         return false;
     }
 }
+
+bool IsoBmffBuffer::getChunkedMdatBoxInfo(size_t &start, size_t &size) const
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getChunkedMdatBoxInfo(start, size);
+    }
+    else
+    {
+        return false;
+    }
+}

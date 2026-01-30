@@ -18,15 +18,35 @@
  */
 #include "string_utils.hpp"
 #include <ctime>
+#include <cstdlib>
+#include <iostream>
 
 uint64_t Number( const std::string &string )
 { // parseInt
-	return std::stoull( string );
+	try {
+		return std::stoull( string );
+	} catch (const std::invalid_argument& e) {
+		std::cerr << "ERROR: Number() - Invalid argument for string: '" << string << "' - " << e.what() << std::endl;
+		std::exit(EXIT_FAILURE);
+	} catch (const std::out_of_range& e) {
+		std::cerr << "ERROR: Number() - Out of range for string: '" << string << "' - " << e.what() << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+	return 0;
 }
 
 double parseFloat( const std::string &string )
 {
-	return atof( string.c_str() );
+	try {
+		return std::stod( string );
+	} catch (const std::invalid_argument& e) {
+		std::cerr << "ERROR: parseFloat() - Invalid argument for string: '" << string << "' - " << e.what() << std::endl;
+		std::exit(EXIT_FAILURE);
+	} catch (const std::out_of_range& e) {
+		std::cerr << "ERROR: parseFloat() - Out of range for string: '" << string << "' - " << e.what() << std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+	return 0;
 }
 
 std::vector<std::string> splitString( const std::string &string, char c )
@@ -81,8 +101,13 @@ static double ISO8601DateTimeToUTCSeconds(const char *ptr)
 
 		if( msString && *msString )
 		{ // at least one character following decimal point
-			double ms = atof(msString-1); // back up and parse as float
-			timeSeconds += ms; // include ms granularity
+			try {
+				double ms = std::stod(std::string(msString-1)); // back up and parse as float
+				timeSeconds += ms; // include ms granularity
+			} catch (const std::exception& e) {
+				std::cerr << "ERROR: ISO8601DateTimeToUTCSeconds() - Failed to parse milliseconds: " << e.what() << std::endl;
+				std::exit(EXIT_FAILURE);
+			}
 		}
 	}
 	return timeSeconds;
@@ -148,7 +173,7 @@ std::string PadDecimalWithLeadingZeros( int num, int places )
 { // zero-prefixed numbers
 	auto name = std::to_string(num);
 	//var name = num.toString();
-	while( name.length()<places )
+	while( static_cast<int>(name.length())<places )
 	{
 		name = "0" + name;
 	}
@@ -159,7 +184,7 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 { // replace patterns like $Number%03d$"
 	auto pattern = splitString(pat,'$');
 	std::string rc;
-	int i = 0;
+	size_t i = 0;
 	while( i<pattern.size() )
 	{
 		rc += pattern[i++];
@@ -180,8 +205,12 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 				if( starts_with(format,'0') && ends_with(format,'d') )
 				//if( format.startsWith("0") && format.endsWith("d") )
 				{ // leading zeros, decimal
-					int num = (int)Number(param[key]);
-					int numDigits = (int)Number(format.substr(1,format.size()-2));
+					if (format.size() < 2) {
+						std::cerr << "ERROR: ExpandURL() - Invalid format string length: '" << format << "'" << std::endl;
+						std::exit(EXIT_FAILURE);
+					}
+					int num = static_cast<int>(Number(param[key]));
+					int numDigits = static_cast<int>(Number(format.substr(1,format.size()-2)));
 					value = PadDecimalWithLeadingZeros(num,numDigits);
 				}
 				else
