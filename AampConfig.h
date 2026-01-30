@@ -215,8 +215,7 @@ typedef enum
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
 	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
-	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
-	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
+	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
