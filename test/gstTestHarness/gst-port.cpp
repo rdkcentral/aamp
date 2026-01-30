@@ -521,9 +521,13 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 
 SeekParam Pipeline::PopSeek()
 {
+	SeekParam param;
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	SeekParam param = context->mSegmentEndSeekQueue.front();
-	context->mSegmentEndSeekQueue.pop();
+	if( !context->mSegmentEndSeekQueue.empty() )
+	{
+		param = context->mSegmentEndSeekQueue.front();
+		context->mSegmentEndSeekQueue.pop();
+	}
 	return param;
 }
 

@@ -30,8 +30,6 @@ class TestHarnessException : public std::runtime_error
 public:
 	explicit TestHarnessException(const std::string& message)
 		: std::runtime_error(message) {}
-	explicit TestHarnessException(const char* message)
-		: std::runtime_error(message) {}
 };
 
 typedef enum

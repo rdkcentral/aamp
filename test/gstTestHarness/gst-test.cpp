@@ -1445,27 +1445,16 @@ public:
 				{
 					gMp4Demux[i].reset();
 				}
-			}
-			else if( strcmp(str,"stop")==0 )
-			{
-				// Clean up global Mp4Demux instances to prevent memory leaks
-				for (int i = 0; i < NUM_MEDIA_TYPES; i++)
-				{
-					gMp4Demux[i].reset();
-				}
 			
-			// Stop pipeline immediately to halt playback
-			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
-			
-			// Stop pipeline immediately to halt playback
-			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
-			
-			// Flush track queues to remove stale events
-			pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
-			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
-			
-			// Reset pipeline
-			pipelineContext.pipeline.reset(new Pipeline( &pipelineContext ));
+				// Stop pipeline immediately to halt playback
+				pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
+				
+				// Flush track queues to remove stale events
+				pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
+				pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
+				
+				// Reset pipeline
+				pipelineContext.pipeline.reset(new Pipeline( &pipelineContext ));
 				{
 					std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
 					//pipelineContext.configured_stream_count = 0;
@@ -1575,6 +1564,7 @@ static void NetworkCommandServer( struct AppContext *appContext )
 { // simply http server, dispatching incoming commands and returning playback state
 	try {
 		char buf[1024];
+		char hostaddrp[INET_ADDRSTRLEN];
 		int parentfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (parentfd < 0) {
 			throw TestHarnessException("NetworkCommandServer - Failed to create socket");
@@ -1615,7 +1605,6 @@ static void NetworkCommandServer( struct AppContext *appContext )
 				close(childfd);
 				continue;
 			}
-			char hostaddrp[INET_ADDRSTRLEN];
 			if (!inet_ntop(AF_INET, &clientaddr.sin_addr, hostaddrp, sizeof(hostaddrp))) {
 				printf("WARNING: NetworkCommandServer - inet_ntop() failed\n");
 				close(childfd);
@@ -1700,6 +1689,7 @@ static void NetworkCommandServer( struct AppContext *appContext )
 		// Use g_timeout_add instead of g_idle_add to avoid 100% CPU utilization
 		(void)g_timeout_add( 10, myIdleFunc, (gpointer)&appContext );
 		std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
+		myNetworkCommandServer.detach();
 		g_main_loop_run(appContext.main_loop);
 		g_main_loop_unref(appContext.main_loop);
 		return 0;
