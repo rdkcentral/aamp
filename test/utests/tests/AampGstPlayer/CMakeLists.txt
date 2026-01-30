@@ -31,6 +31,7 @@ message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 set(TEST_SOURCES FunctionalTests.cpp
 		 PauseOnPlaybackTests.cpp
 		 AampGstPlayerTests.cpp
+		 DefaultSubtitleMuteTests.cpp
 	)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
