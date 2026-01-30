@@ -92,6 +92,11 @@ class Pipeline
 	bool DoSeekNow(const SeekParam & );
 	void Reset( void );
 	private:
+	/**
+	 * @brief Perform a seek operation on a specific media stream
+	 * @param[in] mediaType The type of media stream to seek (audio or video)
+	 * @param[in] param Seek parameters including rate, position, and segment boundaries
+	 */
 	void Seek( MediaType mediaType, const SeekParam &param );
 	void ReachedEOS( void );
 	class PipelineContext *context;
