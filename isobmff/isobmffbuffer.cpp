@@ -56,7 +56,7 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 /**
 *  	@fn ParseChunkData
 *  	@param[in] name - name of the track
-*  	@param[in,out] unParsedBuffer - Total unparsedbuffer
+*  	@param[in,out] unParsedBuffer - Total unparsed buffer
 *  	@param[in] timeScale - timescale of the track
 *	@param[out] parsedBufferSize - parsed buffer size
 *  	@param[in,out] unParsedBufferSize -uunparsed or remaining buffer size
@@ -597,7 +597,6 @@ bool IsoBmffBuffer::getBoxesInternal(const std::vector<Box*> *boxes, const char 
 	for (size_t i = 0; i < size; i++)
 	{
 		Box *box = boxes->at(i);
-
 		if (IS_TYPE(box->getType(), name))
 		{
 			pBoxes->push_back(box);
@@ -1246,24 +1245,22 @@ bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &s
 {
 	bool ret = false;
 	size_t matchCount = 0;
-	for (const auto& box : boxes)
+	size_t numBoxes = boxes.size();
+	//Adjust size when chunked box is available
+	if(chunkedBox)
 	{
+		numBoxes -= 1;
+	}
+	for (size_t i = 0; i < numBoxes; i++)
+	{
+		Box *box = boxes.at(i);
 		if (IS_TYPE(box->getType(), name))
 		{
 			if (matchCount == index)
 			{
-				if (box->getBase() >= buffer)
-				{
-					// Calculate the start offset of the box data within the buffer
-					start = static_cast<size_t>(box->getBase() - buffer);
-					// Get the size of the box
-					size = box->getSize();
-					ret = true;
-				}
-				else
-				{
-					AAMPLOG_ERR("Box of type %s has invalid base address:%p and buffer address:%p", name, box->getBase(), buffer);
-				}
+				start = box->getOffset();
+				size = box->getSize();
+				ret = true;
 				break;
 			}
 			matchCount++;
@@ -1272,6 +1269,25 @@ bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &s
 	if (!ret)
 	{
 		AAMPLOG_WARN("Box of type %s with index %zu not found, only %zu available", name, index, matchCount);
+	}
+	return ret;
+}
+
+/**
+ * @fn getChunkedMdatBoxInfo - Get chunked mdat box info
+ *
+ * @param[out] start - start offset of chunked mdat box
+ * @param[out] size - size of chunked mdat box
+ * @return bool - true if chunked mdat box found, false otherwise
+ */
+bool IsoBmffBuffer::getChunkedMdatBoxInfo(size_t &start, size_t &size) const
+{
+	bool ret = false;
+	if ((chunkedBox != nullptr) && IS_TYPE(chunkedBox->getType(), Box::MDAT))
+	{
+		start = chunkedBox->getOffset();
+		size = chunkedBox->getSize();
+		ret = true;
 	}
 	return ret;
 }

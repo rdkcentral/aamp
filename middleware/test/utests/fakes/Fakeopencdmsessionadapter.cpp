@@ -45,7 +45,10 @@ bool OCDMSessionAdapter::verifyOutputProtection()
 
 void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData)
 {
-
+    if (g_mockOpenCdmSessionAdapter != nullptr)
+    {
+        g_mockOpenCdmSessionAdapter->generateDRMSession(f_pbInitData, f_cbInitData, customData);
+    }
 }
 
 DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
@@ -60,6 +63,10 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 
 KeyState OCDMSessionAdapter::getState()
 {
+    if (g_mockOpenCdmSessionAdapter != nullptr)
+    {
+        return g_mockOpenCdmSessionAdapter->getState();
+    }
     return KEY_INIT;
 }
 void OCDMSessionAdapter::clearDecryptContext()

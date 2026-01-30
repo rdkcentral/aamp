@@ -97,17 +97,18 @@ void gstutils_Init( void )
 
 void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *messageName )
 {
-//	static gsize once = 0;
-//	if (g_once_init_enter(&once)) {
-//		GST_DEBUG_CATEGORY_INIT(gstutils_cat, "gstutils", 0, "GStreamer utility logs");
-//		g_once_init_leave(&once, 1);
-//	}
 	void *userData = NULL;
+	const char *name = GST_OBJECT_NAME(msg->src);
+	GstState old_state, new_state, pending_state;
+	gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+	if( strcmp(name,"test-pipeline")==0 )
+	{
+		printf( "%s -> %s\n",
+			gst_element_state_get_name(old_state),
+			gst_element_state_get_name(new_state) );
+	}
 	if( !gstutils_quiet )
 	{
-		GstState old_state, new_state, pending_state;
-		gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
-		const char *name = GST_OBJECT_NAME(msg->src);
 		GST_INFO("%s: %s %s -> %s (pending %s)",
 				 messageName,
 				 name,

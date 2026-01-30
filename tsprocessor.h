@@ -360,7 +360,7 @@ class TSProcessor : public MediaProcessor
        * @fn processScalingList
        * @param[in] p buffer containing scaling list
        * @param[in] mask mask
-       * @param[in] size lenght of scaling list
+       * @param[in] size length of scaling list
        */
       void processScalingList( unsigned char *& p, int& mask, int size );
       /**
@@ -504,7 +504,7 @@ class TSProcessor : public MediaProcessor
       /**
        * @fn processBuffer
        * @param[in] buffer contains TS data
-       * @param[in] size lenght of the buffer
+       * @param[in] size length of the buffer
        * @param[out] insPatPmt indicates if PAT and PMT needs to inserted
        */
       bool processBuffer(unsigned char *buffer, int size, bool &insPatPmt, bool discontinuity_pending);
@@ -529,7 +529,7 @@ class TSProcessor : public MediaProcessor
       /**
        * @fn demuxAndSend
        * @param[in] ptr buffer containing TS data
-       * @param[in] len lenght of buffer
+       * @param[in] len length of buffer
        * @param[in] position position of segment in seconds
        * @param[in] duration duration of segment in seconds
        * @param[in] discontinuous true if segment is discontinuous

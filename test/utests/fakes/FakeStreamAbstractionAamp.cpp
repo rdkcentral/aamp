@@ -401,6 +401,14 @@ bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
 	return false;
 }
 
+void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->SetIsAtLivePoint(isAtLivePoint);
+	}
+}
+
 CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 {
 	if (g_mockMediaTrack != nullptr)
@@ -556,4 +564,16 @@ std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB
 std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType)
 {
 	return nullptr;
+}
+
+bool StreamAbstractionAAMP::IsCurrentProfileLowest()
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->IsCurrentProfileLowest();
+	}
+	else
+	{
+		return false;
+	}
 }

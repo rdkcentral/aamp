@@ -212,10 +212,10 @@ public:
 	/**
 	*  	@fn parseBuffer
 	*  	@param[in] name - name of the track
-	*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+	*  	@param[in/out] unParsedBuffer - Total unparsed buffer
 	*  	@param[in] timeScale - timescale of the track
 	*	@param[out] parsedBufferSize - parsed buffer size
-	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
+	*  	@param[in/out] unParsedBufferSize - unparsed or remaining buffer size
 	*	@param[out] fpts - fragment pts value
 	*  	@param[out] fduration - fragment duration
 	*	@return true if parsed or false
@@ -511,5 +511,14 @@ public:
 	 * @return bool if box found. false otherwise
 	 */
 	bool getMdatBoxInfo(size_t index, size_t &start, size_t &size);
+
+	/**
+	 * @fn getChunkedMdatBoxInfo
+	 *
+	 * @param[out] start - start offset of chunked mdat box
+	 * @param[out] size - size of chunked mdat box
+	 * @return true if chunked mdat box is present. false otherwise
+	 */
+	bool getChunkedMdatBoxInfo(size_t &start, size_t &size) const;
 };
 #endif /* __ISOBMFFBUFFER_H__ */
