@@ -1449,7 +1449,8 @@ public:
 				// Clean up global Mp4Demux instances to prevent memory leaks
 				for (int i = 0; i < NUM_MEDIA_TYPES; i++)
 				{
-				gMp4Demux[i].reset();
+					gMp4Demux[i].reset();
+				}
 			}
 			else if( strcmp(str,"stop")==0 )
 			{

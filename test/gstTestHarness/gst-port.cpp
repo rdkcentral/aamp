@@ -134,6 +134,10 @@ public:
 											 GST_SEEK_TYPE_SET, start,
 											 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
 											 open? GST_CLOCK_TIME_NONE : stop );
+		if( !ok )
+		{
+			printf( "gst_element_seek failed\n" );
+		}
 	}
 
 	void SendBuffer( gpointer ptr, gsize len, double duration )

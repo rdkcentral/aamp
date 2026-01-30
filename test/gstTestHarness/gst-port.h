@@ -81,7 +81,6 @@ class Pipeline
 	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void ) const;
-	void Flush( double s );
 	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );
 	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata = NULL );
 	void SendGap( MediaType mediaType, double pts, double base_time );
