@@ -15,7 +15,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 /**
  * @file AampCacheHandler.h
@@ -76,10 +76,7 @@ public:
 	 * @param seqNo bigger for more recent usage; used to drive LRU purging heuristic
 	 */
 	AampCachedData(const std::string &effectiveUrl, std::shared_ptr<std::vector<uint8_t>> buffer, AampMediaType mediaType)
-		: effectiveUrl(effectiveUrl)
-		, buffer(buffer)
-		, mediaType(mediaType)
-		, seqNo()
+		: effectiveUrl(effectiveUrl), buffer(buffer), mediaType(mediaType), seqNo()
 	{
 	}
 };
@@ -104,81 +101,73 @@ private:
 	 *
 	 *   @return bool Success or Failure
 	 */
-	void reduceCacheSize( AampMediaType mediaType, size_t targetCacheSize )
+	void reduceCacheSize(AampMediaType mediaType, size_t targetCacheSize)
 	{
 		// First pass - remove playlists only of specific type
 		auto iter = cache.begin();
-		AAMPLOG_WARN( "removing %s playlists from cache", GetMediaTypeName(mediaType) );
-		while(iter != cache.end())
+		AAMPLOG_WARN("removing %s playlists from cache", GetMediaTypeName(mediaType));
+		while (iter != cache.end())
 		{
 			AampCachedData *cachedData = iter->second.get();
-			if(cachedData->mediaType == eMEDIATYPE_MANIFEST || cachedData->mediaType != mediaType)
+			if (cachedData->mediaType == eMEDIATYPE_MANIFEST || cachedData->mediaType != mediaType)
 			{ // leave main manifest and alternate playlist types
 				iter++;
 			}
 			else
 			{
-				if (!cachedData->effectiveUrl.empty())
-				{ // not alias; reclaim space
-					totalCachedBytes -= cachedData->buffer->size();
-				}
 				iter = cache.erase(iter);
 			}
 		}
 
-		//Second Pass - if more reduction needed, remove other playlist types, too
-		if( totalCachedBytes <= targetCacheSize )
+		// Second Pass - if more reduction needed, remove other playlist types, too
+		if (totalCachedBytes <= targetCacheSize)
 		{
-			AAMPLOG_WARN( "removing ALL playlists from cache" );
+			AAMPLOG_WARN("removing ALL playlists from cache");
 			iter = cache.begin();
-			while(iter != cache.end())
+			while (iter != cache.end())
 			{
 				AampCachedData *cachedData = iter->second.get();
-				if( cachedData->mediaType == eMEDIATYPE_MANIFEST )
+				if (cachedData->mediaType == eMEDIATYPE_MANIFEST)
 				{ // leave main manifest
 					iter++;
 				}
 				else
 				{
-					if( !cachedData->effectiveUrl.empty() )
-					{
-						totalCachedBytes -= cachedData->buffer->size();
-					}
 					iter = cache.erase(iter);
 				}
 			}
 		}
 	}
 
-	bool makeRoomForPlaylist( AampMediaType mediaType, size_t bytesNeeded )
+	bool makeRoomForPlaylist(AampMediaType mediaType, size_t bytesNeeded)
 	{
 		bool ok = true;
-		if( mediaType==eMEDIATYPE_MANIFEST )
+		if (mediaType == eMEDIATYPE_MANIFEST)
 		{ // flush and old playlist files (associated with different manifest)
 			Clear();
 		}
-		else if( maxPlaylistCacheBytes != PLAYLIST_CACHE_SIZE_UNLIMITED )
+		else if (maxPlaylistCacheBytes != PLAYLIST_CACHE_SIZE_UNLIMITED)
 		{ // cache size constraint to be enforced
-			if( totalCachedBytes+bytesNeeded > maxPlaylistCacheBytes  )
+			if (totalCachedBytes + bytesNeeded > maxPlaylistCacheBytes)
 			{
-				reduceCacheSize( mediaType, maxPlaylistCacheBytes - bytesNeeded );
-				ok = totalCachedBytes+bytesNeeded <= maxPlaylistCacheBytes;
+				reduceCacheSize(mediaType, maxPlaylistCacheBytes - bytesNeeded);
+				ok = totalCachedBytes + bytesNeeded <= maxPlaylistCacheBytes;
 			}
 		}
 		return ok;
 	}
 
-	bool makeRoomForInitFragment( AampMediaType mediaType )
+	bool makeRoomForInitFragment(AampMediaType mediaType)
 	{
 		int count = 0;
 		auto lru = cache.end();
 		auto iter = cache.begin();
-		while( iter != cache.end() )
+		while (iter != cache.end())
 		{
 			AampCachedData *cachedData = iter->second.get();
-			if(cachedData->mediaType == mediaType && !cachedData->effectiveUrl.empty() )
+			if (cachedData->mediaType == mediaType && !cachedData->effectiveUrl.empty())
 			{
-				if( lru==cache.end() || cachedData->seqNo < lru->second->seqNo )
+				if (lru == cache.end() || cachedData->seqNo < lru->second->seqNo)
 				{
 					lru = iter;
 				}
@@ -186,10 +175,10 @@ private:
 			}
 			iter++;
 		}
-		if( count >= maxCachedInitFragmentsPerTrack )
+		if (count >= maxCachedInitFragmentsPerTrack)
 		{
-			AAMPLOG_WARN( "removing entry from %s init fragment cache", GetMediaTypeName(mediaType) );
-			Remove( lru->first );
+			AAMPLOG_WARN("removing entry from %s init fragment cache", GetMediaTypeName(mediaType));
+			Remove(lru->first);
 		}
 		return true; // success
 	}
@@ -203,7 +192,7 @@ public:
 	{
 	}
 
-	AampCache( AampCacheType cacheType ) : cacheType(cacheType), cache(), totalCachedBytes(), maxPlaylistCacheBytes(MAX_PLAYLIST_CACHE_SIZE*1024), maxCachedInitFragmentsPerTrack(MAX_INIT_FRAGMENT_CACHE_PER_TRACK), seqNo()
+	AampCache(AampCacheType cacheType) : cacheType(cacheType), cache(), totalCachedBytes(), maxPlaylistCacheBytes(MAX_PLAYLIST_CACHE_SIZE * 1024), maxCachedInitFragmentsPerTrack(MAX_INIT_FRAGMENT_CACHE_PER_TRACK), seqNo()
 	{
 	}
 
@@ -244,7 +233,18 @@ public:
 		{
 			try
 			{ // Do the allocations up front to avoid partial state updates on failure
-				auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
+				// auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
+				size_t bytes = buffer.size();
+				auto cachedBuf = std::shared_ptr<std::vector<uint8_t>>(
+					new std::vector<uint8_t>(buffer),
+					[this, bytes](std::vector<uint8_t> *ptr)
+					{
+						this->totalCachedBytes -= bytes;
+						delete ptr;
+					});
+				// Update total cached bytes for the buffer as if a latter allocation fails the dtor will then decrement it again leaving it correct.
+				totalCachedBytes += cachedBuf->size();
+
 				auto cachedData = std::make_shared<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
 
 				std::shared_ptr<AampCachedData> aliasData = nullptr;
@@ -274,7 +274,7 @@ public:
 
 				cachedData->seqNo = ++seqNo;
 				cache[url] = std::move(cachedData);
-				totalCachedBytes += cachedBuf->size();
+
 				AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
 			}
 			catch (const std::bad_alloc &e)
@@ -290,12 +290,11 @@ public:
 		assert(iter != cache.end());
 
 		AampCachedData *cachedData = iter->second.get();
-		totalCachedBytes -= cachedData->buffer->size();
 		assert(!cachedData->effectiveUrl.empty());
 
-		if(cachedData->eUrlCachedDataPtr)
+		if (cachedData->eUrlCachedDataPtr)
 		{
-			if(cachedData->eUrlCachedDataPtr.use_count() == 2) // only this URL and effectiveUrl alias point to it
+			if (cachedData->eUrlCachedDataPtr.use_count() == 2) // only this URL and effectiveUrl alias point to it
 			{
 				cache.erase(cachedData->effectiveUrl);
 			}
@@ -304,7 +303,7 @@ public:
 		cache.erase(iter);
 	}
 
-	void Clear( void )
+	void Clear(void)
 	{
 		// unique_ptr owned entries are destructed automatically
 		cache.clear();
@@ -345,18 +344,18 @@ protected:
 	/**
 	 *  @brief Thread function for Async Cache clean
 	 */
-	void AsyncCacheCleanUpTask( void )
+	void AsyncCacheCleanUpTask(void)
 	{
 		UsingPlayerId playerId(mPlayerId);
 		std::unique_lock<std::mutex> lock(mCondVarMutex);
 
-		while( mAsyncCacheCleanUpThread )
+		while (mAsyncCacheCleanUpThread)
 		{
 			mCondVar.wait(lock);
-			if(!mCacheActive)
+			if (!mCacheActive)
 			{
 				std::cv_status status = mCondVar.wait_for(lock, std::chrono::seconds(10));
-				if( status == std::cv_status::timeout )
+				if (status == std::cv_status::timeout)
 				{
 					AAMPLOG_MIL("[%p] Cacheflush timed out", this);
 					mPlaylistCache.Clear();
@@ -367,11 +366,11 @@ protected:
 	}
 
 	/**
-	* @fn Init
-	*/
-	void InitializeIfNeeded( void )
+	 * @fn Init
+	 */
+	void InitializeIfNeeded(void)
 	{
-		if( !mbCleanUpTaskInitialized )
+		if (!mbCleanUpTaskInitialized)
 		{
 			try
 			{
@@ -382,9 +381,9 @@ protected:
 				}
 				AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zx]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
 			}
-			catch(std::exception &e)
+			catch (std::exception &e)
 			{
-				AAMPLOG_ERR( "Failed to create AampCacheHandler thread : %s", e.what() );
+				AAMPLOG_ERR("Failed to create AampCacheHandler thread : %s", e.what());
 			}
 			mbCleanUpTaskInitialized = true;
 		}
@@ -393,9 +392,9 @@ protected:
 	/**
 	 *  @brief Clear Cache Handler. Exit clean up thread.
 	 */
-	void ClearCacheHandler( void )
+	void ClearCacheHandler(void)
 	{
-		if( mbCleanUpTaskInitialized )
+		if (mbCleanUpTaskInitialized)
 		{
 			mCacheActive = true;
 			{
@@ -403,7 +402,7 @@ protected:
 				mAsyncCacheCleanUpThread = false;
 				mCondVar.notify_one();
 			}
-			if(mAsyncCleanUpTaskThreadId.joinable())
+			if (mAsyncCleanUpTaskThreadId.joinable())
 			{
 				mAsyncCleanUpTaskThreadId.join();
 			}
@@ -417,22 +416,22 @@ public:
 	/**
 	 * @brief constructor
 	 */
-	AampCacheHandler( int playerId );
+	AampCacheHandler(int playerId);
 
 	/**
 	 *  @brief destructor
 	 */
-	~AampCacheHandler( void );
+	~AampCacheHandler(void);
 
 	/**
 	 *  @brief Start playlist caching
 	 */
-	void StartPlaylistCache( void );
+	void StartPlaylistCache(void);
 
 	/**
 	 *  @brief Stop playlist caching
 	 */
-	void StopPlaylistCache( void );
+	void StopPlaylistCache(void);
 
 	/**
 	 * @brief Add playlist to cache
@@ -443,7 +442,7 @@ public:
 	 * @param[in] mediaType Type of the file inserted (see AampMediaType)
 	 * @return void
 	 */
-	void InsertToPlaylistCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
+	void InsertToPlaylistCache(const std::string &url, const std::vector<uint8_t> &buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType);
 
 	/**
 	 * @brief Find playlist in cache
@@ -453,13 +452,13 @@ public:
 	 * @param[in] mediaType Expected media type for this lookup (guards cache matching)
 	 * @return true if entry found and buffer/effectiveUrl were set, false otherwise
 	 */
-	bool RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl, AampMediaType mediaType);
+	bool RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t> &buffer, std::string &effectiveUrl, AampMediaType mediaType);
 
 	/**
 	 * @brief Remove playlist from cache
 	 * @param[in] url - URL
 	 */
-	void RemoveFromPlaylistCache( const std::string &url );
+	void RemoveFromPlaylistCache(const std::string &url);
 
 	/**
 	 *  @brief set max playlist cache size (bytes)
@@ -476,7 +475,7 @@ public:
 	/**
 	 *  @brief check if playlist in cache
 	 */
-	bool IsPlaylistUrlCached( const std::string &playlistUrl );
+	bool IsPlaylistUrlCached(const std::string &playlistUrl);
 
 	/**
 	 * @brief Add initialization fragment to cache
@@ -486,7 +485,7 @@ public:
 	 * @param[in] mediaType Type of the file inserted (initial fragment media type)
 	 * @return void
 	 */
-	void InsertToInitFragCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, AampMediaType mediaType );
+	void InsertToInitFragCache(const std::string &url, const std::vector<uint8_t> &buffer, const std::string &effectiveUrl, AampMediaType mediaType);
 
 	/**
 	 * @brief Find initialization fragment in cache
@@ -495,32 +494,32 @@ public:
 	 * @param[out] effectiveUrl The effective URL associated with the cached entry (returned on hit)
 	 * @return true if entry found and buffer/effectiveUrl were set, false otherwise
 	 */
-	bool RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl);
+	bool RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t> &buffer, std::string &effectiveUrl);
 
 	/**
-	*   @brief set max initialization fragments allowed in cache (per track)
-	*
-	*   @param[in] maxInitFragCacheSz - CacheSize
-	*
-	*   @return None
-	*/
-	void SetMaxInitFragCacheSize( int maxFragmentsPerTrack );
+	 *   @brief set max initialization fragments allowed in cache (per track)
+	 *
+	 *   @param[in] maxInitFragCacheSz - CacheSize
+	 *
+	 *   @return None
+	 */
+	void SetMaxInitFragCacheSize(int maxFragmentsPerTrack);
 
 	/**
-	*   @brief GetMaxPlaylistCacheSize - Get present CacheSize
-	*
-	*   @return int - maxCacheSize
-	*/
+	 *   @brief GetMaxPlaylistCacheSize - Get present CacheSize
+	 *
+	 *   @return int - maxCacheSize
+	 */
 	int GetMaxInitFragCacheSize() { return mInitFragmentCache.maxCachedInitFragmentsPerTrack; }
 
 	/**
 	 * @brief Copy constructor disabled
 	 */
-	AampCacheHandler(const AampCacheHandler&) = delete;
+	AampCacheHandler(const AampCacheHandler &) = delete;
 	/**
 	 * @brief assignment operator disabled
 	 */
-	AampCacheHandler& operator=(const AampCacheHandler&) = delete;
+	AampCacheHandler &operator=(const AampCacheHandler &) = delete;
 };
 
 #endif
