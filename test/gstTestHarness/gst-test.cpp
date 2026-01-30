@@ -1444,8 +1444,8 @@ public:
 				// Clean up global Mp4Demux instances to prevent memory leaks
 				for (int i = 0; i < NUM_MEDIA_TYPES; i++)
 				{
-				gMp4Demux[i].reset();
-			}
+					gMp4Demux[i].reset();
+				}
 			
 			// Stop pipeline immediately to halt playback
 			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
