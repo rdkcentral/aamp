@@ -1247,8 +1247,6 @@ public:
 		
 		mContentFormat = eCONTENTFORMAT_TS_ES; // use tsdemux.hpp
 		
-		//Seek( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/ );
-		
 		for( const auto& segmentInfo : segmentList )
 		{
 			std::string fullpath = url;
@@ -1286,9 +1284,8 @@ public:
 		audio.EnqueueControl( new TrackEOS() );
 		
 		// configure pipelines and begin streaming
-		SeekParam seekParam = pipelineContext.pipeline->PopSeek();
-		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, seekParam );
-		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, seekParam );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
 		//pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 	}
