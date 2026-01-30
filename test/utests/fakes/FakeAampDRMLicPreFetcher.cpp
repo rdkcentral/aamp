@@ -70,3 +70,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	return false;
 }
 
+void AampLicensePreFetcher::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+	// Fake implementation - no-op
+}
