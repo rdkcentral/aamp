@@ -53,6 +53,15 @@ public:
 	AampMediaType mediaType;
 	long seqNo;
 
+	/**
+	 * @brief Pointer to the "effectiveUrl" entry in the cache.
+	 * For a Main URL entry, this points to the AampCachedData object
+	 * keyed by the effectiveUrl. For an Alias entry, this is nullptr.
+	 * use_count() on this shared_ptr provides an O(1) way to see
+	 * how many URLs are currently redirected to the same effectiveUrl.
+	 */
+	std::shared_ptr<AampCachedData> eUrlCachedDataPtr;
+
 	~AampCachedData() {};
 
 	/**
@@ -185,16 +194,10 @@ private:
 		return true; // success
 	}
 
-	int countReferencesToEffectiveUrl(const std::string effectiveUrl)
-	{
-		return std::count_if(cache.begin(), cache.end(), [&effectiveUrl](const auto &pair)
-							 { return pair.second->effectiveUrl == effectiveUrl; });
-	}
-
 public:
 	int maxCachedInitFragmentsPerTrack;
 	int maxPlaylistCacheBytes;
-	std::unordered_map<std::string, std::unique_ptr<AampCachedData>> cache;
+	std::unordered_map<std::string, std::shared_ptr<AampCachedData>> cache;
 
 	AampCache()
 	{
@@ -240,30 +243,39 @@ public:
 		if (ok)
 		{
 			try
-			{	// Do the allocations up front to avoid partial state updates on failure
+			{ // Do the allocations up front to avoid partial state updates on failure
 				auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
-				auto cachedData = std::make_unique<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
+				auto cachedData = std::make_shared<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
 
-				std::unique_ptr<AampCachedData> aliasData = nullptr;
+				std::shared_ptr<AampCachedData> aliasData = nullptr;
 				if (url != effectiveUrl)
 				{
-					aliasData = std::make_unique<AampCachedData>("", cachedBuf, mediaType);
+					auto itEff = cache.find(effectiveUrl);
+					if (itEff == cache.end())
+					{
+						// only allocate when alias key not present
+						aliasData = std::make_shared<AampCachedData>("", cachedBuf,
+																	 mediaType);
+						cache.insert_or_assign(effectiveUrl, std::move(aliasData));
+						AAMPLOG_MIL("inserted eUrl %s %s",
+									GetMediaTypeName(mediaType), effectiveUrl.c_str());
+					}
+					else
+					{
+						// update existing alias to point to new buffer and metadata
+						aliasData = itEff->second;
+						aliasData->buffer = cachedBuf;
+						aliasData->mediaType = mediaType;
+						AAMPLOG_MIL("updated eUrl %s %s",
+									GetMediaTypeName(mediaType), effectiveUrl.c_str());
+					}
+					cachedData->eUrlCachedDataPtr = aliasData;
 				}
 
 				cachedData->seqNo = ++seqNo;
 				cache[url] = std::move(cachedData);
 				totalCachedBytes += cachedBuf->size();
 				AAMPLOG_MIL("inserted %s %s", GetMediaTypeName(mediaType), url.c_str()); // used by l2tests
-				// There are cases where main url and effective url will be different (often for main manifest)
-				// Need to store both the entries with same content data
-				// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
-				// When retune happens from JS, regular Main url will be asked to read from cached manifest.
-				// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
-				if (aliasData)
-				{ // re-use buffer and replace effectiveUrl entry if it exists
-					cache.insert_or_assign(effectiveUrl, std::move(aliasData));
-					AAMPLOG_MIL("duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str());
-				}
 			}
 			catch (const std::bad_alloc &e)
 			{
@@ -276,18 +288,19 @@ public:
 	{
 		auto iter = cache.find(url);
 		assert(iter != cache.end());
+
 		AampCachedData *cachedData = iter->second.get();
 		totalCachedBytes -= cachedData->buffer->size();
 		assert(!cachedData->effectiveUrl.empty());
-		if ((url != cachedData->effectiveUrl) &&
-			(countReferencesToEffectiveUrl(cachedData->effectiveUrl) == 1))
-		{ // remove main entry with payload
-			auto iter2 = cache.find(cachedData->effectiveUrl);
-			assert(iter2 != cache.end());
-			AampCachedData *cachedData2 = iter2->second.get();
-			assert(cachedData2->effectiveUrl.empty());
-			cache.erase(iter2);
+
+		if(cachedData->eUrlCachedDataPtr)
+		{
+			if(cachedData->eUrlCachedDataPtr.use_count() == 2) // only this URL and effectiveUrl alias point to it
+			{
+				cache.erase(cachedData->effectiveUrl);
+			}
 		}
+
 		cache.erase(iter);
 	}
 
