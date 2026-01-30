@@ -1227,8 +1227,7 @@ public:
 			std::string text = std::string(ptr,size);
 			std::istringstream iss(text);
 			std::string line;
-			SegmentInfo info;
-			memset( &info, 0, sizeof(info) );
+			SegmentInfo info{};
 			while (std::getline(iss, line)) {
 				if( starts_with(line,"#EXT-X-DISCONTINUITY") )
 				{
@@ -1452,6 +1451,16 @@ public:
 				{
 				gMp4Demux[i].reset();
 			}
+			else if( strcmp(str,"stop")==0 )
+			{
+				// Clean up global Mp4Demux instances to prevent memory leaks
+				for (int i = 0; i < NUM_MEDIA_TYPES; i++)
+				{
+					gMp4Demux[i].reset();
+				}
+			
+			// Stop pipeline immediately to halt playback
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 			
 			// Stop pipeline immediately to halt playback
 			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
