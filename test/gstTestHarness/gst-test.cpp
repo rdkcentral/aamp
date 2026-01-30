@@ -1556,6 +1556,7 @@ static void NetworkCommandServer( struct AppContext *appContext )
 		if (parentfd < 0) {
 			throw TestHarnessException("NetworkCommandServer - Failed to create socket");
 		}
+		SocketGuard parentfdGuard(parentfd); // RAII wrapper ensures socket is closed on exception
 		int optval = 1;
 		setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
 		struct sockaddr_in serveraddr; /* server's addr */

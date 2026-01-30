@@ -32,6 +32,35 @@ public:
 	: std::runtime_error(message) {}
 };
 
+/**
+ * @brief RAII wrapper for socket file descriptors
+ * 
+ * Ensures socket is properly closed even when exceptions are thrown.
+ */
+class SocketGuard
+{
+public:
+	explicit SocketGuard(int fd) noexcept : fd_(fd) {}
+	
+	~SocketGuard() noexcept
+	{
+		if (fd_ >= 0)
+		{
+			close(fd_);
+		}
+	}
+	
+	int get() const noexcept { return fd_; }
+	
+	bool isValid() const noexcept { return fd_ >= 0; }
+	
+	SocketGuard(const SocketGuard&) = delete;
+	SocketGuard& operator=(const SocketGuard&) = delete;
+	
+private:
+	int fd_;
+};
+
 typedef enum
 {
 	eVIDEORESOLUTION_IFRAME = 0,
