@@ -27,6 +27,7 @@
  */
 AmlogicSocInterface::AmlogicSocInterface()
 {
+	printf("VRN - Amlogic SOC has been Selected!!! \n");
 }
 
 /**
