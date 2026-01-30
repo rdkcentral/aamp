@@ -1447,7 +1447,7 @@ public:
 			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
 			
 			// Reset pipeline
-			pipelineContext.pipeline = pipelineContext.pipeline = std::make_unique<Pipeline>(&pipelineContext);
+			pipelineContext.pipeline = std::make_unique<Pipeline>(&pipelineContext);
 			{
 				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
 				
