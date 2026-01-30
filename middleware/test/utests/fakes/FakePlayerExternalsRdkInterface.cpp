@@ -68,96 +68,92 @@ static InitState m_initialized = NOT_INITIALIZED;
 static bool mPowerEvt = false;
 static std::function<void()> m_doFakeTuneCallback = nullptr;
 
-void GetDisplayResolution(int &width, int &height)
+inline void GetDisplayResolution(int &width, int &height)
 {
 	width = m_displayWidth;
 	height = m_displayHeight;
 }
 
-void SetResolution(int width, int height)
+inline void SetResolution(int width, int height)
 {
 	m_displayWidth = width;
 	m_displayHeight = height;
 }
 
-void SetHDMIStatus()
+inline void SetHDMIStatus()
 {
 	// Fake implementation - no external device calls
 	// In real implementation, this would call device::Manager APIs
 	// For testing, we just handle gracefully
 }
 
-void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
+inline void OnDisplayHDMIHotPlug(dsDisplayEvent_t displayEvent)
 {
-	const char *hdmihotplug = (displayEvent == dsDISPLAY_EVENT_CONNECTED) ? "connected" : "disconnected";
-	
 	SetHDMIStatus();
 }
 
-void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
+inline void OnHDCPStatusChange(dsHdcpStatus_t hdcpStatus)
 {
-	const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
-	
-	SetHDMIStatus();
+    SetHDMIStatus();
 }
 
-void OnResolutionPostChange(int width, int height)
+inline void OnResolutionPostChange(int width, int height)
 {
 	SetResolution(width, height);
 }
 
-void OnResolutionPreChange(int width, int height)
+inline void OnResolutionPreChange(int width, int height)
 {
 	// No implementation needed for pre-change event in tests
 }
 
-char * GetTR181Config(const char * paramName, size_t & iConfigLen)
+inline char * GetTR181Config(const char * paramName, size_t & iConfigLen)
 {
 	iConfigLen = 0;
 	return nullptr;
 }
 
-bool GetActiveInterface()
+inline bool GetActiveInterface()
 {
 	return false;
 }
 
-void SetActiveInterface(bool isWifi)
+inline void SetActiveInterface(bool isWifi)
 {
 	// Fake implementation
 }
 
-std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface()
+inline std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface()
 {
 	return m_pDeviceInterfaceBase;
 }
 
-void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol)
+inline void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol)
 {
 	m_hdcpCurrentProtocol = t_protocol;
 }
 
-void SetUseFireBoltSDK(bool t_use_firebolt_sdk)
+inline void SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
 	m_use_firebolt_sdk = t_use_firebolt_sdk;
 }
 
-void SetPowerEvent(bool powerEvt)
+inline void SetPowerEvent(bool powerEvt)
 {
 	mPowerEvt = powerEvt;
 }
 
-bool GetPowerEvent()
+inline bool GetPowerEvent()
 {
 	return mPowerEvt;
 }
 
-void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
+inline void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
 {
 	m_doFakeTuneCallback = t_doFakeTuneCallback;
 }
 
-std::function<void()> GetDoFakeTuneCallBack()
+inline std::function<void()> GetDoFakeTuneCallBack()
 {
 	return m_doFakeTuneCallback;
 }

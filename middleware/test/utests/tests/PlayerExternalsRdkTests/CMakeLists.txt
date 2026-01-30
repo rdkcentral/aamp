@@ -37,11 +37,15 @@ include_directories(${PLAYER_ROOT}/vendor)
 set(TEST_SOURCES PlayerExternalsRdkInterfaceTestCases.cpp
 		PlayerExternalsRdkInterfaceTests.cpp)
 
-set(PLAYER_SOURCES ${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp)
+set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakePlayerExternalsRdkInterface.cpp)
+
+set(PLAYER_SOURCES ${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp
+			${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
-               ${PLAYER_SOURCES})
+               ${PLAYER_SOURCES}
+               ${FAKE_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

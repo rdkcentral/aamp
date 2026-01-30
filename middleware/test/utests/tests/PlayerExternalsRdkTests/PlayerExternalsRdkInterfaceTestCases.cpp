@@ -419,17 +419,15 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnResolutionPostChange_CallsSetResoluti
  * OnHDCPStatusChange Test Cases
  * ============================================================================
  * 
- * These tests verify the OnHDCPStatusChange event handler behavior.
- * The handler logs the status and calls SetHDMIStatus() internally.
+ * The handler logs the status and, in the real implementation,
+ * calls SetHDMIStatus() internally.
  * 
- * Strategy: Since SetHDMIStatus() calls device:: APIs which are unavailable
- * in L1 test environment, they will throw exceptions. The try-catch in
- * SetHDMIStatus() handles these gracefully. If the handler doesn't call
- * SetHDMIStatus(), then no exception would be thrown (and no attempt made).
- * 
- * Proof of execution: If the handler invoked SetHDMIStatus() successfully
- * without crashing, it means the API call was made and device exceptions
- * were handled properly.
+ * Note: In this L1 test environment, a fake implementation is used and
+ * the real device:: APIs are not exercised. Additionally, the production
+ * implementation of SetHDMIStatus() catches device exceptions internally.
+ * As a result, these tests can only assert that OnHDCPStatusChange
+ * handles inputs without throwing or crashing; they do not prove that
+ * SetHDMIStatus() itself was invoked.
  */
 
 /**
@@ -576,7 +574,7 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnHDCPStatusChange_RealisticStatusTrans
  * Verifies that calling HDCP status change and resolution change handlers
  * in sequence doesn't cause issues or conflicts.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnHDCPStatusChange_InterleakedWithResolutionChanges_HandlesCorrectly)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnHDCPStatusChange_InterleavedWithResolutionChanges_HandlesCorrectly)
 {
 	// Interleave HDCP status and resolution change events
 	EXPECT_NO_THROW(mPlayerExternalsRdk->OnHDCPStatusChange((dsHdcpStatus_t)dsHDCP_STATUS_AUTHENTICATED));
@@ -765,7 +763,7 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnDisplayHDMIHotPlug_RealisticHotplugSe
  * Verifies that calling HDMI hotplug and HDCP status change handlers
  * in sequence doesn't cause issues or conflicts.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnDisplayHDMIHotPlug_InterleakedWithHDCPStatusChange_HandlesCorrectly)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnDisplayHDMIHotPlug_InterleavedWithHDCPStatusChange_HandlesCorrectly)
 {
 	// Interleave HDMI hotplug and HDCP status events
 	EXPECT_NO_THROW(mPlayerExternalsRdk->OnDisplayHDMIHotPlug((dsDisplayEvent_t)dsDISPLAY_EVENT_CONNECTED));
@@ -784,7 +782,7 @@ TEST_F(PlayerExternalsRdkInterfaceTests, OnDisplayHDMIHotPlug_InterleakedWithHDC
  * Verifies that calling hotplug, HDCP status change, and resolution change
  * handlers in an interleaved pattern doesn't cause issues.
  */
-TEST_F(PlayerExternalsRdkInterfaceTests, OnDisplayHDMIHotPlug_InterleakedWithAllHandlers_HandlesCorrectly)
+TEST_F(PlayerExternalsRdkInterfaceTests, OnDisplayHDMIHotPlug_InterleavedWithAllHandlers_HandlesCorrectly)
 {
 	// Interleave all event handlers
 	EXPECT_NO_THROW(mPlayerExternalsRdk->OnDisplayHDMIHotPlug((dsDisplayEvent_t)dsDISPLAY_EVENT_CONNECTED));
