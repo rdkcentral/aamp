@@ -1234,7 +1234,7 @@ public:
 					info.path = line;
 					info.firstPts = 0.0;
 					segmentList.push_back(info);
-					memset( &info, 0, sizeof(info) );
+					info = SegmentInfo{};
 				}
 			}
 		}
