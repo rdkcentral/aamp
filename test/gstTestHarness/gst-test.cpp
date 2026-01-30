@@ -1505,7 +1505,22 @@ public:
 static gboolean myIdleFunc( gpointer arg )
 {
 	AppContext *appContext = (AppContext *)arg;
-	appContext->IdleFunc();
+	try
+	{
+		appContext->IdleFunc();
+	}
+	catch (const TestHarnessException &e)
+	{
+		printf("ERROR: %s\n", e.what());
+	}
+	catch (const std::exception &e)
+	{
+		printf("ERROR: Unexpected exception in idle handler: %s\n", e.what());
+	}
+	catch (...)
+	{
+		printf("ERROR: Unknown exception in idle handler\n");
+	}
 	return TRUE;
 }
 
