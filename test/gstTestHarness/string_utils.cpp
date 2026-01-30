@@ -32,6 +32,7 @@ uint64_t Number( const std::string &string )
 		std::cerr << "ERROR: Number() - Out of range for string: '" << string << "' - " << e.what() << std::endl;
 		std::exit(EXIT_FAILURE);
 	}
+	return 0;
 }
 
 double parseFloat( const std::string &string )
@@ -45,6 +46,7 @@ double parseFloat( const std::string &string )
 		std::cerr << "ERROR: parseFloat() - Out of range for string: '" << string << "' - " << e.what() << std::endl;
 		std::exit(EXIT_FAILURE);
 	}
+	return 0;
 }
 
 std::vector<std::string> splitString( const std::string &string, char c )
