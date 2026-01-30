@@ -5244,13 +5244,14 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	double startPosition = 0;
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
-	MW_LOG_MIL("Entering InterfacePlayerRDK::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
+	MW_LOG_WARN("Entering InterfacePlayerRDK::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
 			   gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), pos);
 	gst_media_stream *stream = &this->interfacePlayerPriv->gstPrivateContext->stream[type];
 	double rate = (double)GST_NORMAL_PLAY_RATE;
 
 	if(eGST_MEDIATYPE_AUDIO == type)
 	{
+		MW_LOG_WARN("VRN - Going to set Seamless config to GST!!!");
 		interfacePlayerPriv->socInterface->SetSeamlessSwitch(this->interfacePlayerPriv->gstPrivateContext->audio_sink, TRUE);
 		interfacePlayerPriv->gstPrivateContext->filterAudioDemuxBuffers = true;
 		pos = pos + audioDelta;
@@ -5258,6 +5259,7 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	}
 	else
 	{
+		MW_LOG_WARN("VRN - Failed to set Seamless config to GST!!!");
 		pos = pos + subDelta;
 	}
 	gst_element_seek_simple (GST_ELEMENT(stream->source),
@@ -5266,7 +5268,7 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 							 pos * GST_SECOND);
 
 	startPosition = pos;
-	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
+	MW_LOG_WARN("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
 }
