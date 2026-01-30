@@ -233,4 +233,48 @@ const uint8_t setMediaHeaderDurationTestData[] = {
 	0x55, 0xC4, 0x00, 0x00  // language and pre_defined
 };
 
+// Test data for complete MDAT box (moof + full mdat)
+constexpr uint32_t MOOF_TYPE = 0x6D6F6F66; // 'moof'
+constexpr uint32_t MDAT_TYPE = 0x6D646174; // 'mdat'
+constexpr uint32_t COMPLETE_MOOF_SIZE = 8;  // Minimal moof box (header only)
+constexpr uint32_t COMPLETE_MDAT_SIZE = 64;
+
+const uint8_t completeMdatTestData[] = {
+	// moof box (minimal - header only, no payload to avoid parser infinite loop)
+	(COMPLETE_MOOF_SIZE >> 24) & 0xFF, (COMPLETE_MOOF_SIZE >> 16) & 0xFF, (COMPLETE_MOOF_SIZE >> 8) & 0xFF, COMPLETE_MOOF_SIZE & 0xFF,
+	(MOOF_TYPE >> 24) & 0xFF, (MOOF_TYPE >> 16) & 0xFF, (MOOF_TYPE >> 8) & 0xFF, MOOF_TYPE & 0xFF,
+
+	// mdat box (complete)
+	(COMPLETE_MDAT_SIZE >> 24) & 0xFF, (COMPLETE_MDAT_SIZE >> 16) & 0xFF, (COMPLETE_MDAT_SIZE >> 8) & 0xFF, COMPLETE_MDAT_SIZE & 0xFF,
+	(MDAT_TYPE >> 24) & 0xFF, (MDAT_TYPE >> 16) & 0xFF, (MDAT_TYPE >> 8) & 0xFF, MDAT_TYPE & 0xFF,
+	// mdat payload (56 bytes of media data)
+	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+	0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+	0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+	0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+	0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+	0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+	0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38
+};
+
+// Test data for chunked MDAT box (moof + partial mdat)
+// MDAT header claims 128 bytes but only 32 bytes are present
+constexpr uint32_t CHUNKED_MOOF_SIZE = 8;  // Minimal moof box (header only)
+constexpr uint32_t CHUNKED_MDAT_DECLARED_SIZE = 128;  // Size declared in header
+constexpr uint32_t CHUNKED_MDAT_ACTUAL_SIZE = 32;     // Actual data available (including 8-byte header)
+
+const uint8_t chunkedMdatTestData[] = {
+	// moof box (minimal - header only, no payload to avoid parser infinite loop)
+	(CHUNKED_MOOF_SIZE >> 24) & 0xFF, (CHUNKED_MOOF_SIZE >> 16) & 0xFF, (CHUNKED_MOOF_SIZE >> 8) & 0xFF, CHUNKED_MOOF_SIZE & 0xFF,
+	(MOOF_TYPE >> 24) & 0xFF, (MOOF_TYPE >> 16) & 0xFF, (MOOF_TYPE >> 8) & 0xFF, MOOF_TYPE & 0xFF,
+
+	// mdat box (chunked - header says 128 bytes but only 32 bytes present)
+	(CHUNKED_MDAT_DECLARED_SIZE >> 24) & 0xFF, (CHUNKED_MDAT_DECLARED_SIZE >> 16) & 0xFF, (CHUNKED_MDAT_DECLARED_SIZE >> 8) & 0xFF, CHUNKED_MDAT_DECLARED_SIZE & 0xFF,
+	(MDAT_TYPE >> 24) & 0xFF, (MDAT_TYPE >> 16) & 0xFF, (MDAT_TYPE >> 8) & 0xFF, MDAT_TYPE & 0xFF,
+	// mdat payload (only 24 bytes present, but header claims 120 more bytes)
+	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+	0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+	0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18
+};
+
 #endif // HELPERTESTDATA_H

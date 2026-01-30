@@ -668,12 +668,13 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 /**
  * @brief Identify mp4 chunk boundary in buffer
+ * @param[in] type - media type
  * @param[in] buffer - buffer to scan
  * @param[in] bufferOffset - offset in buffer to start scanning from
  * @param[out] chunkBoundaryOffset - offset of chunk boundary if found
  * @retval true if chunk boundary found
  */
-static bool IdentifyMp4ChunkBoundary(AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset)
+static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset)
 {
 	bool found = false;
 	chunkBoundaryOffset = 0;
@@ -688,23 +689,33 @@ static bool IdentifyMp4ChunkBoundary(AampGrowableBuffer *buffer, size_t bufferOf
 			// Check for 'mdat' box which indicates the end of mp4 chunk
 			// Specified in the ISO Base Media File Format (ISO/IEC 14496-12) specification that in fragmented MP4 files,
 			// a moof (Movie Fragment) box precedes the corresponding mdat (Media Data) box
-			size_t count = 0;
+			size_t mdatCount = 0;
+			size_t mdatStart = 0;
+			size_t mdatSize = 0;
 			// Get number of mdat boxes
-			if (isobmffBuffer.getMdatBoxCount(count))
+			if (isobmffBuffer.getMdatBoxCount(mdatCount) && mdatCount > 0)
 			{
-				if (count > 0)
+				// Get the last mdat box info
+				if (isobmffBuffer.getMdatBoxInfo(mdatCount - 1, mdatStart, mdatSize))
 				{
-					size_t start = 0;
-					size_t size = 0;
-					// Get the last mdat box info
-					if (isobmffBuffer.getMdatBoxInfo(count - 1, start, size))
-					{
-						// Calculate chunk boundary offset
-						chunkBoundaryOffset = bufferOffset + start + size;
-						found = true;
-					}
+					AAMPLOG_DEBUG("[%d] MDAT box count=%zu and start=%zu , size=%zu", type, mdatCount, mdatStart, mdatSize);
 				}
-				AAMPLOG_DEBUG("IdentifyMp4ChunkBoundary: mdat box count=%zu and chunkBoundaryOffset=%zu", count, chunkBoundaryOffset);
+				else
+				{
+					// Not expected
+					AAMPLOG_WARN("[%d] Failed to get MDAT box info for index=%zu (count=%zu)", type, mdatCount - 1, mdatCount);
+				}
+			}
+			else if (isobmffBuffer.getChunkedMdatBoxInfo(mdatStart, mdatSize))
+			{
+				AAMPLOG_DEBUG("[%d] Chunked MDAT box found start=%zu, size=%zu", type, mdatStart, mdatSize);
+			}
+			// start could be 0 if mdat is the first box in buffer
+			if (mdatSize > 0)
+			{
+				// Calculate chunk boundary offset
+				chunkBoundaryOffset = bufferOffset + mdatStart + mdatSize;
+				found = true;
 			}
 		}
 	}
@@ -1061,10 +1072,10 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				if (context->chunkBoundary == 0)
 				{
 					size_t chunkBoundaryOffset = 0;
-					if (IdentifyMp4ChunkBoundary(context->buffer, context->bufferOffset, chunkBoundaryOffset))
+					if (IdentifyMp4ChunkBoundary(context->mediaType, context->buffer, context->bufferOffset, chunkBoundaryOffset))
 					{
 						context->chunkBoundary = chunkBoundaryOffset;
-						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu", context->mediaType, context->chunkBoundary);
+						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu", context->mediaType, context->chunkBoundary, context->buffer->GetLen());
 					}
 				}
 				if (context->chunkBoundary > 0)
@@ -3663,7 +3674,7 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
 	AudioTrackInfo currentAudioTrack;
 
 	/** Only select track Id for setting gstplayer in case of muxed ac4 stream */
-	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack) && (currentAudioTrack.codec.find("ac4") == std::string::npos) && currentAudioTrack.isMuxed )
+	if (mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack) && (currentAudioTrack.codec.find("ac-4") != std::string::npos) && currentAudioTrack.isMuxed )
 	{
 		AAMPLOG_INFO("Found AC4 track as current Audio track  index = %s language - %s role - %s codec %s type %s bandwidth = %" BITSPERSECOND_FORMAT,
 		currentAudioTrack.index.c_str(), currentAudioTrack.language.c_str(), currentAudioTrack.rendition.c_str(),
@@ -4353,6 +4364,18 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 }
 
 /**
+ * @brief Check if download has timed out after receiving some data based on curl code and abort reason
+ */
+static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReason abortReason)
+{
+	// Not checking for eCURL_ABORT_REASON_START_TIMEOUT
+	return (curlCode == CURLE_OPERATION_TIMEDOUT) ||
+			curlCode == CURLE_PARTIAL_FILE ||
+			abortReason == eCURL_ABORT_REASON_STALL_TIMEDOUT ||
+			abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+}
+
+/**
  * @brief Download a file from the CDN
  */
 bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
@@ -4578,9 +4601,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
-				context.chunkedDownload = false;
-				context.m_ChunkedBytesRemaining = 0; // reset
-				context.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE; // reset
+				// Reset context values specific to each download attempt
+				context.ResetForNewDownload();
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
 				progressCtx.downloadUpdatedTime = -1;
@@ -4741,6 +4763,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						res == CURLE_WRITE_ERROR &&
 						context.abortReason == eCURL_ABORT_REASON_FIRST_CHUNK_SLOW)
 				{
+					// This is early chunk abort case in low latency mode
 					// Handling this differently to avoid loopAgain logic for slow first chunk case
 					// Marking as timeout to trigger ABR ramp down and also update bandwidth metrics.
 					AAMPLOG_INFO("Curl download aborted due to slow first chunk detection");
@@ -4749,11 +4772,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				else if (mAampLLDashServiceData.lowLatencyMode &&
 						context.bufferOffset > 0 &&
-						(res == CURLE_OPERATION_TIMEDOUT || res == CURLE_PARTIAL_FILE))
+						HasDownloadTimedOutWithData(res, progressCtx.abortReason))
 				{
 					// Download timed out in low latency chunk mode injection.
-					// Here we have injected some chunks already, so treat it as success to avoid rampdown and to update bandwidth metrics.
-					// Rampdown in this case, will cause video looping due to duplicate mp4 chunks with same timestamps
+					// With bufferOffset > 0, we have injected some chunks already, so treat it as success to update bandwidth metrics.
+					// Rampdown in this case, will cause video looping due to duplicate mp4 chunks with same timestamps.
+					// HasDownloadTimedOut check to ensure we are not treating non-timeout errors as success.
 					AAMPLOG_WARN("Curl download timed out in low latency mode after injecting chunks, treating as success to avoid rampdown");
 					res = CURLE_OK;
 					http_code = 206; // Partial content
@@ -6428,8 +6452,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
 		}
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
-		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
-		AAMPLOG_INFO("app name:%s disableWebVTT(%d)", mAppName.c_str(), GETCONFIGVALUE_PRIV(eAAMPConfig_DisableWebVTT));
 	}
 
 	/* Reset counter in new tune */
@@ -10833,11 +10855,6 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
-		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
-		{
-			trackInfo.swap(textTracksCopy);
-			AAMPLOG_DEBUG("Filtered track list to include only in-band CC tracks");
-		}
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
