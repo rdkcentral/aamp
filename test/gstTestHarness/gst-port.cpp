@@ -113,6 +113,29 @@ public:
 		return gstutils_GetMediaTypeName(mediaType);
 	}
 	
+	void Seek( const SeekParam &req )
+	{
+		const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
+		const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
+		GstSeekFlags flags = GST_SEEK_FLAG_NONE;
+		if (req.flush)
+		{
+			flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_FLUSH);
+		}
+		if (req.segment)
+		{
+			flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
+		}
+		bool open = (req.stop_seconds==req.start_seconds);
+		const gboolean ok = gst_element_seek( (GstElement *)appsrc,
+											 req.playback_rate,
+											 GST_FORMAT_TIME,
+											 flags,
+											 GST_SEEK_TYPE_SET, start,
+											 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
+											 open? GST_CLOCK_TIME_NONE : stop );
+	}
+
 	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
 		if (ptr && appsrc)
@@ -492,6 +515,14 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	}
 }
 
+SeekParam Pipeline::PopSeek()
+{
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+	SeekParam param = context->mSegmentEndSeekQueue.front();
+	context->mSegmentEndSeekQueue.pop();
+	return param;
+}
+
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )
 {
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
@@ -504,26 +535,10 @@ size_t Pipeline::GetNumPendingSeek(void) const
 	return context->mSegmentEndSeekQueue.size();
 }
 
-void Pipeline::Configure( MediaType mediaType )
+void Pipeline::Configure( MediaType mediaType, const SeekParam &seekParam )
 {
 	mediaStream[mediaType]->Configure(pipeline);
-	// Increment count and perform initial seek if both branches are configured
-	// All operations protected by mutex to prevent race conditions
-	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	
-	// Increment the configured stream count (protected by mutex above)
-	int count = ++context->configured_stream_count;
-	
-	// When both branches are configured and initial seek hasn't been performed yet
-	if (count == NUM_MEDIA_TYPES &&
-	   !context->initial_seek_performed &&
-	   !context->mSegmentEndSeekQueue.empty())
-	{
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		context->mSegmentEndSeekQueue.pop();
-		(void)DoSeekNow(param);
-		context->initial_seek_performed = true;
-	}
+	mediaStream[mediaType]->Seek(seekParam);
 }
 
 void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
@@ -636,8 +651,8 @@ void Pipeline::Reset( void )
 	std::swap(context->mSegmentEndSeekQueue, empty);
 	
 	// Reset configuration state to allow reconfiguration
-	context->configured_stream_count = 0;
-	context->initial_seek_performed = false;
+	//context->configured_stream_count = 0;
+	//context->initial_seek_performed = false;
 	
 	// Clear injected buffer counters
 	for (auto& ms : mediaStream)

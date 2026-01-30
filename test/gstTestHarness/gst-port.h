@@ -51,7 +51,8 @@ struct SeekParam {
 class PipelineContext
 {
 	public:
-	PipelineContext() : configured_stream_count(0), initial_seek_performed(false) {}
+	PipelineContext() //: configured_stream_count(0), initial_seek_performed(false)
+	{}
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
@@ -61,8 +62,8 @@ class PipelineContext
 	 */
 	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
-	int configured_stream_count; // Protected by segment_seek_mutex
-	bool initial_seek_performed; // Protected by segment_seek_mutex
+	//int configured_stream_count; // Protected by segment_seek_mutex
+	//bool initial_seek_performed; // Protected by segment_seek_mutex
 };
 
 class Pipeline
@@ -76,15 +77,17 @@ class Pipeline
 	long long GetPositionMilliseconds( MediaType mediaType ) const;
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void ) const;
-	void Configure( MediaType mediaType );
+	void Configure( MediaType mediaType, const SeekParam &seekParam );
 	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void ) const;
+	void Flush( double s );
 	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );
 	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata = NULL );
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
 	void Step( void );
+	SeekParam PopSeek();
 	void ScheduleSeek( const SeekParam & );
 	size_t GetNumPendingSeek(void) const;
 	bool DoSeekNow(const SeekParam & );
