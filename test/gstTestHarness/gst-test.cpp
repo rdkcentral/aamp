@@ -1222,8 +1222,7 @@ public:
 			std::string text = std::string(ptr,size);
 			std::istringstream iss(text);
 			std::string line;
-			SegmentInfo info;
-			memset( &info, 0, sizeof(info) );
+			SegmentInfo info{};
 			while (std::getline(iss, line)) {
 				if( starts_with(line,"#EXT-X-DISCONTINUITY") )
 				{
