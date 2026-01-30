@@ -1471,7 +1471,7 @@ public:
 		}
 		else if( sscanf(str, "path %199s", base_path ) == 1 )
 		{
-			if (sizeof(base_path) <= 199) {
+			if (sizeof(base_path) < 200) {
 				throw TestHarnessException("Buffer size mismatch - format specifier larger than buffer");
 			}
 			printf( "new base path: '%s'\n", base_path );
