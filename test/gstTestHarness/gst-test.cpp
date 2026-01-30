@@ -1675,6 +1675,7 @@ public:
 		// Use g_timeout_add instead of g_idle_add to avoid 100% CPU utilization
 		(void)g_timeout_add( 10, myIdleFunc, (gpointer)&appContext );
 		std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
+		myNetworkCommandServer.detach();
 		g_main_loop_run(appContext.main_loop);
 		g_main_loop_unref(appContext.main_loop);
 		return 0;
