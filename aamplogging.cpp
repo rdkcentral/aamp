@@ -91,7 +91,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 {
 	// Increment log counter for each log line
 	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
-	
+	uint32_t logerr = 0;	
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
 	if( AampLogManager::disableLogRedirection )
@@ -102,13 +102,14 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 	}
 	
 	char *format_ptr = NULL;
-	int format_bytes = 0;
+	int format_bytes = 0, ret = 0;
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%03u][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%03u][Err = %d][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
 							   logSeqNum,
+							   logerr,
 							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
 							   GetPrintableThreadID(),
@@ -116,6 +117,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 							   format );
 		if( format_bytes<=0 )
 		{ // should never happen!
+			logerr++;
 			break;
 		}
 		if( pass==0 )
@@ -129,7 +131,11 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 			va_start(args, format);
 			if( AampLogManager::disableLogRedirection )
 			{ // aampcli
-				vprintf( format_ptr, args );
+				ret = vprintf( format_ptr, args );
+				if( ret<0 )
+				{
+					logerr++;
+				}
 			}
 			else if ( AampLogManager::enableEthanLogRedirection )
 			{ // remap AAMP log levels to Ethan log levels
@@ -154,7 +160,12 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 						ethanLogLevel = ETHAN_LOG_MILESTONE;
 						break;
 				}
-				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				ret = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				if( ret<0 )
+				{
+					logerr++;
+				}
+
 			}
 			else
 			{

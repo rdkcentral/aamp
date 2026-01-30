@@ -5492,7 +5492,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 
 
-	AAMPLOG_INFO("Neil start");
+//	AAMPLOG_INFO("Neil start");
 
 	TestUrl.clear();
 
@@ -5501,12 +5501,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		TestUrl += ": " + std::to_string(i);
 	}
 
-	for (int i = 0; i < 5; i++)
-	{
-		AAMPLOG_INFO("%s",TestUrl.c_str());
-	}
+//	for (int i = 0; i < 5; i++)
+//	{
+//		AAMPLOG_INFO("%s",TestUrl.c_str());
+//	}
 	
-	AAMPLOG_INFO("Neil end");
+//	AAMPLOG_INFO("Neil end");
 
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
