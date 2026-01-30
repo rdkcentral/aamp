@@ -233,7 +233,6 @@ public:
 		{
 			try
 			{ // Do the allocations up front to avoid partial state updates on failure
-				// auto cachedBuf = std::make_shared<std::vector<uint8_t>>(buffer);
 				size_t bytes = buffer.size();
 				auto cachedBuf = std::shared_ptr<std::vector<uint8_t>>(
 					new std::vector<uint8_t>(buffer),
@@ -243,13 +242,14 @@ public:
 						delete ptr;
 					});
 				// Update total cached bytes for the buffer as if a latter allocation fails the dtor will then decrement it again leaving it correct.
-				totalCachedBytes += cachedBuf->size();
+				totalCachedBytes += bytes;
 
 				auto cachedData = std::make_shared<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
 
-				std::shared_ptr<AampCachedData> aliasData = nullptr;
 				if (url != effectiveUrl)
 				{
+					std::shared_ptr<AampCachedData> aliasData = nullptr;
+
 					auto itEff = cache.find(effectiveUrl);
 					if (itEff == cache.end())
 					{
@@ -257,7 +257,7 @@ public:
 						aliasData = std::make_shared<AampCachedData>("", cachedBuf,
 																	 mediaType);
 						cache.insert_or_assign(effectiveUrl, std::move(aliasData));
-						AAMPLOG_MIL("inserted eUrl %s %s",
+						AAMPLOG_MIL("inserted %s eUrl %s",
 									GetMediaTypeName(mediaType), effectiveUrl.c_str());
 					}
 					else
@@ -266,7 +266,7 @@ public:
 						aliasData = itEff->second;
 						aliasData->buffer = cachedBuf;
 						aliasData->mediaType = mediaType;
-						AAMPLOG_MIL("updated eUrl %s %s",
+						AAMPLOG_MIL("updated %s eUrl %s",
 									GetMediaTypeName(mediaType), effectiveUrl.c_str());
 					}
 					cachedData->eUrlCachedDataPtr = aliasData;
