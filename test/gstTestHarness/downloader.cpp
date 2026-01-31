@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 #include "downloader.hpp"
+#include "gst-test.h"
 #include <stdlib.h>
 #include <curl/curl.h>
 #include "string_utils.hpp"
@@ -83,8 +84,7 @@ public:
 			context->capacity = context->size + total;
 			context->buffer = (char *)g_realloc(context->buffer, context->capacity);
 			if (context->buffer == NULL) {
-				printf("ERROR: CurlContext::write_callback - g_realloc failed to allocate %zu bytes\n", context->capacity);
-				exit(EXIT_FAILURE);
+				throw TestHarnessException("CurlContext::write_callback - g_realloc failed");
 			}
 		}
 		(void)memcpy(&context->buffer[context->size], ptr, total);
@@ -208,22 +208,19 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			std::string prefix = url.substr(start,delim-start);
 			f = fopen( prefix.c_str(), "rb" );
 			if (!f) {
-				printf("failed to open file\n" );
-				exit(EXIT_FAILURE);
+				throw TestHarnessException("failed to open file: " + prefix);
 			}
 			delim = range.find('-');
 			if (delim == std::string::npos) {
-				printf("Invalid range format (missing '-'): %s\n", range.c_str());
 				fclose(f);
-				exit(EXIT_FAILURE);
+				throw TestHarnessException("Invalid range format (missing '-'): " + range);
 			}
 			try {
 				offs = std::stol(range.substr(0,delim));
 				len = std::stol(range.substr(delim+1)) + 1 - offs;
 			} catch (const std::exception& e) {
-				printf("Failed to parse range values: %s - %s\n", range.c_str(), e.what());
 				fclose(f);
-				exit(EXIT_FAILURE);
+				throw TestHarnessException("Failed to parse range values: " + range + " - " + e.what());
 			}
 		}
 		if( f )
