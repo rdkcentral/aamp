@@ -56,7 +56,7 @@ class PipelineContext
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
 	/**
-	 * 1. initial lazy seek when both appsrc branches are configured
+	 * 1. initial seek done as each appsrc is configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
 	std::mutex segment_seek_mutex;
