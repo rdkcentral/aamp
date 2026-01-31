@@ -201,7 +201,7 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 				{ // leading zeros, decimal
 					if (format.size() < 2) {
 						throw TestHarnessException(
-							"ERROR: ExpandURL() - Invalid format string length for format: '" + format + "'"
+							"ExpandURL() - Invalid format string length for format: '" + format + "'"
 						);
 					}
 					int num = static_cast<int>(Number(param[key]));
