@@ -19,6 +19,18 @@
 #include "gst-port.h"
 #include <queue>
 #include <memory>
+#include <stdexcept>
+#include <string>
+
+/**
+ * @brief Exception thrown when a fatal error occurs in the test harness
+ */
+class TestHarnessException final : public std::runtime_error
+{
+public:
+	explicit TestHarnessException(const std::string& message) noexcept
+	: std::runtime_error(message) {}
+};
 
 typedef enum
 {

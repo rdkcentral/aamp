@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 #include "stream_utils.hpp"
+#include "gst-test.h"
 #include <iostream>
 #include <cstdlib>
 
@@ -71,8 +72,7 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 			auto baseTime = timeline.tuneUTC - timeline.availabilityStartTime - timeline.timeShiftBufferDepth;
 			if( representation.data.duration.size()==0 )
 			{
-				std::cerr << "ERROR: GetPeriodFirstPts() - representation has no duration data" << std::endl;
-				std::exit(EXIT_FAILURE);
+				throw TestHarnessException("ERROR: GetPeriodFirstPts() - representation has no duration data");
 			}
 			else if( representation.data.duration.size()>1 )
 			{

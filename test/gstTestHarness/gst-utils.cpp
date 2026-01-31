@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 #include "gst-utils.h"
+#include <cstdio>
 
 bool gstutils_quiet = true;
 
