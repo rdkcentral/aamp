@@ -16,6 +16,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * @file mp4demux.hpp.deprecated
+ * @brief DEPRECATED - Old MP4 demuxer implementation
+ *
+ * ============================================================================
+ * DEPRECATION NOTICE
+ * ============================================================================
+ * This file contains the legacy MP4 demuxer that was originally used only by
+ * the gst test harness. It has been replaced by the newer, more robust
+ * implementation in mp4demux/MP4Demux.h.
+ *
+ * The gst test harness now uses Mp4DemuxAdapter (see Mp4DemuxAdapter.h) which
+ * wraps the new MP4Demux implementation while maintaining API compatibility.
+ *
+ * This file is retained temporarily for reference purposes only and should not
+ * be used for new development. It will be removed in a future release.
+ *
+ * Migration path:
+ * - For new code, use mp4demux/MP4Demux.h directly
+ * - For gst test harness compatibility, use Mp4DemuxAdapter.h
+ * ============================================================================
+ */
+
 #ifndef parsemp4_hpp
 #define parsemp4_hpp
 

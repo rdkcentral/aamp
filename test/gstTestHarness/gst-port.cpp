@@ -386,7 +386,7 @@ public:
 		return TRUE;
 	}
 	
-	void SetCaps( const Mp4Demux *mp4Demux )
+	void SetCaps( const Mp4DemuxAdapter *mp4Demux )
 	{
 		mp4Demux->setCaps( appsrc );
 	}
@@ -559,7 +559,7 @@ void Pipeline::Configure( MediaType mediaType, const SeekParam &seekParam )
 	mediaStream[mediaType]->Seek(seekParam);
 }
 
-void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
+void Pipeline::SetCaps( MediaType mediaType, const Mp4DemuxAdapter *mp4Demux )
 {
 	mediaStream[mediaType]->SetCaps(mp4Demux);
 }

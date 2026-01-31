@@ -35,7 +35,16 @@ set(TEST_SOURCES FunctionalTests.cpp
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
 		${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
-		${AAMP_ROOT}/test/gstTestHarness/mp4demux.hpp
+		${AAMP_ROOT}/test/gstTestHarness/Mp4DemuxAdapter.cpp
+		${AAMP_ROOT}/test/gstTestHarness/Mp4DemuxAdapter.h
+		${AAMP_ROOT}/mp4demux/MP4Demux.cpp
+		${AAMP_ROOT}/mp4demux/MP4Demux.h
+		${AAMP_ROOT}/middleware/DemuxDataTypes.h
+		${AAMP_ROOT}/AampDemuxDataTypes.h
+		${AAMP_ROOT}/AampGrowableBuffer.cpp
+		${AAMP_ROOT}/AampGrowableBuffer.h
+		${AAMP_ROOT}/middleware/GstUtils.cpp
+		${AAMP_ROOT}/middleware/GstUtils.h
 	)
 
 add_executable(${EXEC_NAME}

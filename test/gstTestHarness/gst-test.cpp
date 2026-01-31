@@ -24,7 +24,7 @@
 #include "stream_utils.hpp"
 #include "dash_adapter.hpp"
 #include "turbo_xml.hpp"
-#include "mp4demux.hpp"
+#include "Mp4DemuxAdapter.h"
 #include <mutex>
 #include <thread>
 #include <memory>
@@ -50,7 +50,7 @@ static enum ContentFormat
 	eCONTENTFORMAT_TSDEMUX,
 } mContentFormat = eCONTENTFORMAT_MP4_ES;
 
-static std::unique_ptr<Mp4Demux> gMp4Demux[2]; // RAII managed Mp4Demux instances
+static std::unique_ptr<Mp4DemuxAdapter> gMp4Demux[2]; // RAII managed Mp4DemuxAdapter instances
 
 static const char *mContentFormatDescription[] =
 {
@@ -190,10 +190,7 @@ private:
 				case eCONTENTFORMAT_MP4_ES:
 					if( !gMp4Demux[mediaType] )
 					{
-						gMp4Demux[mediaType] = std::make_unique<Mp4Demux>();
-					}
-					gMp4Demux[mediaType]->Parse(ptr,len);
-					break;
+					gMp4Demux[mediaType] = std::make_unique<Mp4DemuxAdapter>();
 					
 				case eCONTENTFORMAT_QTDEMUX:
 				case eCONTENTFORMAT_TSDEMUX:
@@ -220,7 +217,7 @@ public:
 	bool Inject( MyPipelineContext *context, MediaType mediaType )
 	{
 		Load(); // lazily load segment data
-		Mp4Demux *mp4Demux = gMp4Demux[mediaType].get(); // Get raw pointer from unique_ptr
+		Mp4DemuxAdapter *mp4Demux = gMp4Demux[mediaType].get(); // Get raw pointer from unique_ptr
 		
 		if( tsDemux )
 		{
@@ -280,7 +277,7 @@ public:
 			{
 				if( duration>0 )
 				{ // audio or video segment (not an initialization header)
-					Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
+					Mp4DemuxAdapter::AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
 				}
 			}
 			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );

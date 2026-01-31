@@ -51,7 +51,16 @@ set(TEST_ROOT "../")
 if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAKE_BUILD_RIALTO_POC)
 	# Rialto POC 2
 	set(RIALTOPOC2_SOURCES
-		${TEST_ROOT}/gstTestHarness/mp4demux.hpp
+		${TEST_ROOT}/gstTestHarness/Mp4DemuxAdapter.cpp
+		${TEST_ROOT}/gstTestHarness/Mp4DemuxAdapter.h
+		${AAMP_ROOT}/mp4demux/MP4Demux.cpp
+		${AAMP_ROOT}/mp4demux/MP4Demux.h
+		${AAMP_ROOT}/middleware/DemuxDataTypes.h
+		${AAMP_ROOT}/AampDemuxDataTypes.h
+		${AAMP_ROOT}/AampGrowableBuffer.cpp
+		${AAMP_ROOT}/AampGrowableBuffer.h
+		${AAMP_ROOT}/middleware/GstUtils.cpp
+		${AAMP_ROOT}/middleware/GstUtils.h
 		rialto-pipeline2.cpp
 		rialto-pipeline2.h
 		rialto-test2.cpp
@@ -92,7 +101,16 @@ if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL Darwin AND CMAK
 
 	# Rialto POC 3
 	set(RIALTOPOC3_SOURCES
-		${TEST_ROOT}/gstTestHarness/mp4demux.hpp
+		${TEST_ROOT}/gstTestHarness/Mp4DemuxAdapter.cpp
+		${TEST_ROOT}/gstTestHarness/Mp4DemuxAdapter.h
+		${AAMP_ROOT}/mp4demux/MP4Demux.cpp
+		${AAMP_ROOT}/mp4demux/MP4Demux.h
+		${AAMP_ROOT}/middleware/DemuxDataTypes.h
+		${AAMP_ROOT}/AampDemuxDataTypes.h
+		${AAMP_ROOT}/AampGrowableBuffer.cpp
+		${AAMP_ROOT}/AampGrowableBuffer.h
+		${AAMP_ROOT}/middleware/GstUtils.cpp
+		${AAMP_ROOT}/middleware/GstUtils.h
 		rialto-pipeline3.cpp
 		rialto-pipeline3.h
 		rialto-test3.cpp

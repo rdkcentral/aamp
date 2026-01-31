@@ -18,18 +18,18 @@
 */
 
 #include <stdio.h>
-#include "mp4demux.hpp"
+#include "Mp4DemuxAdapter.h"
 #include "rialto-pipeline2.h"
 
-static Mp4Demux trackAudio;
-static Mp4Demux trackVideo;
+static Mp4DemuxAdapter trackAudio;
+static Mp4DemuxAdapter trackVideo;
 static GstMediaPipeline *gstMediaPipeline;
 static int gUserPathLen;
 static const char *gUserPathPtr;
 static int32_t sourceIdAudio;
 static int32_t sourceIdVideo;
 
-void LoadAndDemuxSegment( Mp4Demux &mp4Demux, const char *path )
+void LoadAndDemuxSegment( Mp4DemuxAdapter &mp4Demux, const char *path )
 { 
 	char fullpath[512];
 	snprintf(fullpath, sizeof(fullpath), "/tmp/data/bipbop-gen/%s", path);

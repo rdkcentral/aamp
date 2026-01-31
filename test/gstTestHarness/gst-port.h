@@ -30,7 +30,7 @@
 #include <queue>
 #include <mutex>
 #include <atomic>
-#include "mp4demux.hpp"
+#include "Mp4DemuxAdapter.h"
 
 typedef enum
 { // 1-to-1 map to GstState
@@ -75,7 +75,7 @@ class Pipeline
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void ) const;
 	void Configure( MediaType mediaType, const SeekParam &seekParam = SeekParam() );
-	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
+	void SetCaps( MediaType mediaType, const Mp4DemuxAdapter *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void ) const;
 	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );

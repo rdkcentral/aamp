@@ -100,7 +100,7 @@ uint32_t WaitForNeedDataRequest(int32_t sourceId, int timeoutMs = 5000)
     return requestId;
 }
 
-void LoadAndDemuxSegment(Mp4Demux &mp4Demux, const char *path)
+void LoadAndDemuxSegment(Mp4DemuxAdapter &mp4Demux, const char *path)
 {
     char fullpath[512];
     snprintf(fullpath, sizeof(fullpath), "/tmp/data/bipbop-gen/%s", path);

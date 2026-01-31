@@ -536,7 +536,8 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-utils.h
 	test/gstTestHarness/gst-test.cpp
 	test/gstTestHarness/gst-test.h
-	test/gstTestHarness/mp4demux.hpp
+	test/gstTestHarness/Mp4DemuxAdapter.cpp
+	test/gstTestHarness/Mp4DemuxAdapter.h
 	test/gstTestHarness/dash_adapter.cpp
 	test/gstTestHarness/dash_adapter.hpp
 	test/gstTestHarness/downloader.cpp
@@ -547,6 +548,14 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/string_utils.hpp
 	test/gstTestHarness/tsdemux.hpp
 	test/gstTestHarness/turbo_xml.hpp
+	mp4demux/MP4Demux.cpp
+	mp4demux/MP4Demux.h
+	middleware/DemuxDataTypes.h
+	AampDemuxDataTypes.h
+	AampGrowableBuffer.cpp
+	AampGrowableBuffer.h
+	middleware/GstUtils.cpp
+	middleware/GstUtils.h
 )
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
