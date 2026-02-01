@@ -190,7 +190,10 @@ private:
 				case eCONTENTFORMAT_MP4_ES:
 					if( !gMp4Demux[mediaType] )
 					{
-					gMp4Demux[mediaType] = std::make_unique<Mp4DemuxAdapter>();
+						gMp4Demux[mediaType] = std::make_unique<Mp4DemuxAdapter>();
+					}
+					gMp4Demux[mediaType]->Parse(ptr,len);
+					break;
 					
 				case eCONTENTFORMAT_QTDEMUX:
 				case eCONTENTFORMAT_TSDEMUX:
