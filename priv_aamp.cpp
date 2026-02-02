@@ -35,6 +35,9 @@
 #include "fragmentcollector_hls.h"
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
+#ifdef AAMP_NET_TRACE
+#include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
+#endif
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 #include "ota_shim.h"
@@ -171,10 +174,10 @@ struct CurlCbContextSyncTime
  */
 struct TuneFailureMap
 {
-    AAMPTuneFailure tuneFailure;    /**< Failure ID */
-    int code;                       /**< Major Error code */
+	AAMPTuneFailure tuneFailure;    /**< Failure ID */
+	int code;                       /**< Major Error code */
 	int subCode;					/**< Minor Error code */
-    const char* description;        /**< Textual description */
+	const char* description;        /**< Textual description */
 };
 
 static TuneFailureMap tuneFailureMap[] =
@@ -189,7 +192,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR, 10, 7, "AAMP: init failed (unsynchronized tracks)"},
 	
 	
-    //Resource failure
+	//Resource failure
 	{AAMP_TUNE_CONTENT_NOT_FOUND, 20, 1, "AAMP: Resource was not found at the URL(HTTP 404)"},
 	
 	//Download failure
@@ -474,52 +477,52 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 
 double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len )
 {
-    double ret = 0;
-    uint32_t timeScale = 0;
-    switch( mediaType )
-    {
-    case eMEDIATYPE_VIDEO:
-        timeScale = GetVidTimeScale();
-        break;
-    case eMEDIATYPE_AUDIO:
-        timeScale = GetAudTimeScale();
-        break;
-    case eMEDIATYPE_SUBTITLE:
-        timeScale = GetSubTimeScale();
-        break;
-    default:
-        AAMPLOG_WARN("Invalid media type %d", mediaType);
-        break;
-    }
-    IsoBmffBuffer isobuf;
-    isobuf.setBuffer((uint8_t *)ptr, len);
-    bool bParse = false;
-    try
-    {
-        bParse = isobuf.parseBuffer();
-    }
-    catch( std::bad_alloc& ba)
-    {
-        AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-    }
-    catch( std::exception &e)
-    {
-        AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-    }
-    catch( ... )
-    {
-        AAMPLOG_ERR("Unknown exception");
-    }
-    if(bParse && (0 != timeScale))
-    {
-        uint64_t fPts = 0;
-        bool bParse = isobuf.getFirstPTS(fPts);
-        if (bParse)
-        {
-            ret = fPts/(timeScale*1.0);
-        }
-    }
-    return ret;
+	double ret = 0;
+	uint32_t timeScale = 0;
+	switch( mediaType )
+	{
+	case eMEDIATYPE_VIDEO:
+		timeScale = GetVidTimeScale();
+		break;
+	case eMEDIATYPE_AUDIO:
+		timeScale = GetAudTimeScale();
+		break;
+	case eMEDIATYPE_SUBTITLE:
+		timeScale = GetSubTimeScale();
+		break;
+	default:
+		AAMPLOG_WARN("Invalid media type %d", mediaType);
+		break;
+	}
+	IsoBmffBuffer isobuf;
+	isobuf.setBuffer((uint8_t *)ptr, len);
+	bool bParse = false;
+	try
+	{
+		bParse = isobuf.parseBuffer();
+	}
+	catch( std::bad_alloc& ba)
+	{
+		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
+	}
+	catch( std::exception &e)
+	{
+		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
+	}
+	catch( ... )
+	{
+		AAMPLOG_ERR("Unknown exception");
+	}
+	if(bParse && (0 != timeScale))
+	{
+		uint64_t fPts = 0;
+		bool bParse = isobuf.getFirstPTS(fPts);
+		if (bParse)
+		{
+			ret = fPts/(timeScale*1.0);
+		}
+	}
+	return ret;
 }
 
 /**
@@ -1029,6 +1032,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		ret = numBytesForBlock;
 		if(ptr && numBytesForBlock > 0)
 		{
+			#ifdef AAMP_NET_TRACE
+			        // Record burst timing BEFORE appending bytes; this captures ingress cadence
+			        if (context->net) {
+			            context->net->on_write(size*nmemb, aamptrace::now_monotonic_s());
+			        }
+			#endif
 			if (context->buffer->GetLen() == 0)
 			{
 				// First byte received, record data transfer start time
@@ -1235,11 +1244,12 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		{
 			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
-			
-#ifdef AAMP_NET_TRACE
-			if (context->net)
-				context->net->mark_chunked();
-#endif
+			#ifdef AAMP_NET_TRACE
+			            // Mark request as chunked for the recorder (request-level metadata)
+			            if (context->net) {
+			                context->net->mark_chunked();
+			            }
+			#endif
 		}
 		else if (0 == context->buffer->GetAvail() )
 		{
@@ -1808,7 +1818,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-    AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
+	AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
 }
@@ -2435,10 +2445,10 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 					if (sink)
- 					{
- 						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
+					{
+						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
 						{
- 							if (sink->SetPlayBackRate(rateRequired))
+							if (sink->SetPlayBackRate(rateRequired))
 							{
 								mCorrectionRate = rateRequired;
 								UpdateVideoEndMetrics(rateRequired);
@@ -2446,7 +2456,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
 								profiler.IncrementChangeCount(Count_RateCorrection);
 							}
- 						}
+						}
 					}
 				}
 				else
@@ -2454,7 +2464,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != normalPlaybackRate))
 					{
 						//Rate correction stopping from correction rate so reset to normal
- 						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 						if (sink)
 						{
 							if (sink->SetPlayBackRate(normalPlaybackRate))
@@ -2466,7 +2476,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 							{
 								AAMPLOG_WARN("Failed to reset the playback rate!!");
 							}
- 						}
+						}
 					}
 				}
 			}
@@ -2660,7 +2670,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		else
 		{
-	   		currentRate  = rate;
+			currentRate  = rate;
 		}
 		// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
 		// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
@@ -2862,7 +2872,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Pipeline will be in Paused state when Lightning trickplay is done. During this state XRE will send the resume position to exit pause state .
 	// Issue observed when culled position reaches the paused position during lightning trickplay and player resumes the playback with paused position as playback position ignoring XRE shown position.
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
-  	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
+	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
 	if( pipeline_paused && mpStreamAbstractionAAMP )
 	{
@@ -4382,45 +4392,32 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile( std::string remoteUrl,
-								   AampMediaType mediaType,
-								   AampGrowableBuffer *buffer,
-								   std::string& effectiveUrl,
-								   int * http_error,
-								   double *downloadTimeS,
-								   const char *range,
-								   unsigned int curlInstance,
-								   bool resetBuffer,
-								   BitsPerSecond *bitrate,
-								   int * fogError,
-								   double fragmentDurationS,
-								   ProfilerBucketType bucketType,
-								   int maxInitDownloadTimeMS )
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
-	// ---- preamble / profiling ----
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL("curl-begin type=%d", mediaType);
+		AAMPLOG_MIL( "curl-begin type=%d", mediaType);
 	}
-	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT )
+	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
 		profiler.ProfileBegin(bucketType);
 	}
+	MediaTypeTelemetry mediaTypeTelemetry = aamp_GetMediaTypeForTelemetry(mediaType);
+	replace( remoteUrl, " ", "%20" ); // CURL gives error if passed URL containing whitespace
 
-	MediaTypeTelemetry mediaTypeTelemetry = aamp_GetMediaTypeForTelemetry(mediaType);   // existing helper
-	replace(remoteUrl, " ", "%20"); // CURL gives error if whitespace in URL
 	int http_code = -1;
-	double total_time_s = 0.0;
+	double total = 0;
 	bool ret = false;
 	int downloadAttempt = 0;
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
-	const int fragmentDurationMs = (int)(fragmentDurationS*1000.0);
+	int fragmentDurationMs = (int)(fragmentDurationS*1000);
 	const char* failureReason = nullptr;
-
+	// Flag denotes if early abort logic was updated properly
 	bool earlyAbortUpdated = false;
+
 	int maxDownloadAttempt = 1;
-	switch (mediaType)
+	switch( mediaType )
 	{
 		case eMEDIATYPE_INIT_VIDEO:
 		case eMEDIATYPE_INIT_AUDIO:
@@ -4433,13 +4430,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl,
 			break;
 	}
 
-	if (mediaType == eMEDIATYPE_MANIFEST && ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader))
-	{
-		// Append custom URI parameter when header logging enabled (matches your existing behavior)
+	if( mediaType == eMEDIATYPE_MANIFEST && ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) )
+	{ // append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
 		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
-		if (!uriParameter.empty())
+		if( !uriParameter.empty() )
 		{
-			if (remoteUrl.find('?') == std::string::npos) { uriParameter[0] = '?'; }
+			if( remoteUrl.find("?") == std::string::npos )
+			{
+				uriParameter[0] = '?';
+			}
 			remoteUrl.append(uriParameter.c_str());
 		}
 	}
@@ -4449,310 +4448,885 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl,
 		buffer->Clear();
 	}
 
-	if (!mDownloadsEnabled)
+	if (mDownloadsEnabled)
 	{
-		// Downloads disabled at player state level
-		if (http_error) *http_error = CURLE_ABORTED_BY_CALLBACK;
-		if (downloadTimeS) *downloadTimeS = 0.0;
-		return false;
-	}
+		int downloadTimeMS = 0;
+		bool isDownloadStalled = false;
+		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
+		double connectTime = 0;
 
-	// =========================
-	// Instrumentation recorder
-	// =========================
-#ifdef AAMP_NET_TRACE
-	using aamptrace::NetTrace;
-	static std::atomic<uint64_t> g_req_id{1};
-	NetTrace::set_paths("/tmp/aamp_net_requests.csv","/tmp/aamp_net_bursts.csv"); // safe to call repeatedly
+		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
 
-	// Helper to extract compact path for logging
-	auto cut_path = [](const std::string& u)->std::string{
-		size_t s = 0; size_t p = u.find("://");
-		s = (p==std::string::npos) ? 0 : (p+3);
-		s = u.find('/', s);
-		return (s==std::string::npos) ? u : u.substr(s);
-	};
-	const char* mt_str =
-		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-	const double GAP_THR_S = 0.005;     // 5ms "write idle" ⇒ new burst
-	const double LATE_EXTRA_S = 0.120;  // classify unusually long gaps
-	NetTrace net(g_req_id.fetch_add(1),
-				 cut_path(remoteUrl),
-				 mt_str,
-				 /*chunked_hdr_seen*/false,
-				 GAP_THR_S,
-				 LATE_EXTRA_S);
-#endif
-
-	// --------- set up CURL and per-request context ----------
-	int downloadTimeMS = 0;
-	bool isDownloadStalled = false;
-	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
-	double connectTime = 0;
-
-	CURL* curl = GetCurlInstanceForURL(remoteUrl, curlInstance);  // your helper
-	AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
-
-	CurlCallbackContext context;
-	if (!curl)
-	{
-		AAMPLOG_ERR("GetFile: no CURL instance");
-		if (http_error) *http_error = CURLE_FAILED_INIT;
-		if (downloadTimeS) *downloadTimeS = 0.0;
-		return false;
-	}
-
-	CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
-
-	// If you enable your chunked-transfer debug mode, disable libcurl's transparent de-chunking
-	if (ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer))
-	{
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0L);  // allow us to see framing
-	}
-
-	if (this->mAampLLDashServiceData.lowLatencyMode)
-	{
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-		context.remoteUrl = remoteUrl;
-	}
-
-	context.aamp   = this;
-	context.buffer = buffer;
-	context.responseHeaderData = &httpRespHeaders[curlInstance];
-	context.mediaType = mediaType;
-
-	// ---- Early abort setup (video only) ----
-	if (mediaType == eMEDIATYPE_VIDEO)
-	{
-		if (TryStreamLock())
+		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
+		CurlCallbackContext context;
+		
+		    // ==== Begin additive instrumentation – no behavior change ====
+		#ifdef AAMP_NET_TRACE
+		    using aamptrace::NetTrace;
+		    static std::atomic<uint64_t> g_req_id{1};
+		    // Allow overriding CSV paths via env; otherwise default to /tmp
+		    if (const char* R = std::getenv("AAMP_REQ_CSV")) {
+		        if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::set_paths(R, B);
+		        else NetTrace::set_paths(R, "/tmp/aamp_net_bursts.csv");
+		    } else {
+		        NetTrace::set_paths("/tmp/aamp_net_requests.csv","/tmp/aamp_net_bursts.csv");
+		    }
+		    auto pathOnly = [](const std::string& u)->std::string {
+		        size_t s = 0, p = u.find("://");
+		        s = (p==std::string::npos) ? 0 : (p+3);
+		        s = u.find('/', s);
+		        return (s==std::string::npos) ? u : u.substr(s);
+		    };
+		    const char* mt_str =
+		       (mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+		       (mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+		       (mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+		       (mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
+		    // Split bursts on >5ms idle in write-callback; mark very long gaps as "late"
+		    const double GAP_THR_S  = 0.005;
+		    const double LATE_GAP_S = 0.120;
+		    NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
+		                 /*chunked=*/false, GAP_THR_S, LATE_GAP_S);
+		    // Make recorder available to header/write callbacks through the context
+		    context.net = &net;
+		#endif
+		    // ==== End additive instrumentation ====
+		
+		if (curl)
 		{
-			if (mpStreamAbstractionAAMP)
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
+			
+			//  by default libcurl handles chunked transfer encoding transparently
+			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
 			{
-				context.earlyAbortEnabled = !mpStreamAbstractionAAMP->IsCurrentProfileLowest();
-				context.profileBps = mpStreamAbstractionAAMP->GetVideoBitrate();
-				earlyAbortUpdated = true;
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
+			}
+			if(this->mAampLLDashServiceData.lowLatencyMode)
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+				context.remoteUrl = remoteUrl;
+			}
+			context.aamp = this;
+			context.buffer = buffer;
+			context.responseHeaderData = &httpRespHeaders[curlInstance];
+			context.mediaType = mediaType;
+			// Early abort and profile bps are relevant only for video fragments
+			if (mediaType == eMEDIATYPE_VIDEO)
+			{
+				if (TryStreamLock())
+				{
+					if (mpStreamAbstractionAAMP)
+					{
+						// No need to perform early abort for lowest profile fragment downloads
+						context.earlyAbortEnabled = !mpStreamAbstractionAAMP->IsCurrentProfileLowest();
+						context.profileBps = mpStreamAbstractionAAMP->GetVideoBitrate();
+						earlyAbortUpdated = true;
+					}
+					else
+					{
+						// Default values set in CurlCallbackContext constructor
+						AAMPLOG_WARN("StreamAbstractionAAMP is NULL");
+					}
+					ReleaseStreamLock();
+				}
+				else
+				{
+					// Default values set in CurlCallbackContext constructor
+					AAMPLOG_WARN("StreamLock not available to get early abort and profile bps");
+				}
+			}
+
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
+
+			if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer))
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYHOST, 0);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 			}
 			else
 			{
-				AAMPLOG_WARN("StreamAbstractionAAMP is NULL");
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 			}
-			ReleaseStreamLock();
+
+			CurlProgressCbContext progressCtx;
+			progressCtx.aamp = this;
+			progressCtx.mediaType = mediaType;
+			progressCtx.dlStarted = true;
+			progressCtx.fragmentDurationMs = fragmentDurationMs;
+
+			if ((mediaType == eMEDIATYPE_VIDEO) && (mAampLLDashServiceData.lowLatencyMode))
+			{
+				progressCtx.remoteUrl = remoteUrl;
+			}
+
+			SetCMCDTrackData(mediaType);
+
+			//Disable download stall detection checks for FOG playback done by JS PP
+			if(mediaType == eMEDIATYPE_MANIFEST || mediaType == eMEDIATYPE_PLAYLIST_VIDEO ||
+			   mediaType == eMEDIATYPE_PLAYLIST_AUDIO || mediaType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
+			   mediaType == eMEDIATYPE_PLAYLIST_IFRAME)
+			{
+				// For Manifest file : Set starttimeout to 0 ( no wait for first byte). Playlist/Manifest with DAI
+				// contents take more time , hence to avoid frequent timeout, its set as 0
+				progressCtx.startTimeout = 0;
+			}
+			else
+			{
+				// for Video/Audio segments , set the start timeout as configured by Application
+				progressCtx.startTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
+				// to enable lowBWTimeout based network timeout factor, if lowBWTimeout is not configured
+				int lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
+				if ((0 == lowBWTimeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
+				{
+					lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
+					lowBWTimeout = std::max(DEFAULT_LOW_BW_TIMEOUT, lowBWTimeout);
+				}
+				// For video fragments, disable low bandwidth timeout if already at the lowest profile
+				// This is already updated in context.earlyAbortEnabled above
+				if (lowBWTimeout > 0 && mediaType == eMEDIATYPE_VIDEO &&
+					earlyAbortUpdated && !context.earlyAbortEnabled)
+				{
+					lowBWTimeout = 0;
+					AAMPLOG_DEBUG("Disable low bandwidth timeout in aamp for lowest profile video fragment");
+				}
+				if (mFogTSBEnabled)
+				{
+					AAMPLOG_DEBUG("Disable low bandwidth timeout in aamp, it will be done in fog");
+					progressCtx.lowBWTimeout = 0;
+				}
+				else
+				{
+					progressCtx.lowBWTimeout = lowBWTimeout;
+				}
+			}
+			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
+
+			AAMPLOG_INFO("lowBWTimeout:%d, stallTimeout:%d", progressCtx.lowBWTimeout, progressCtx.stallTimeout);
+			// caller must pass either NULL or a string encoding range
+			// here we add sanity check to use null instead of empty string; this avoids undefined behavior
+			if( range && *range=='\0' ) range = NULL;
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_RANGE, range);
+
+			if ((httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_COOKIE) && (httpRespHeaders[curlInstance].data.length() > 0))
+			{
+				AAMPLOG_TRACE("Appending cookie headers to HTTP request");
+				CURL_EASY_SETOPT_STRING(curl, CURLOPT_COOKIE, httpRespHeaders[curlInstance].data.c_str());
+			}
+
+			std::vector<std::string> cmcdCustomHeader;
+			AampMediaType mmediaT;
+			mmediaT = (mediaType == eMEDIATYPE_INIT_VIDEO) ? eMEDIATYPE_VIDEO : (mediaType == eMEDIATYPE_INIT_AUDIO) ? eMEDIATYPE_AUDIO :mediaType;
+			mCMCDCollector->CMCDGetHeaders(mmediaT,cmcdCustomHeader);
+
+			if (cmcdCustomHeader.size() > 0)
+			{
+				for (std::vector<string>::iterator it=cmcdCustomHeader.begin(); it!=cmcdCustomHeader.end(); ++it)
+				{
+					// Confirm if all headers are coming right before adding it to curl
+					AAMPLOG_TRACE("CMCD Header:[%s]",(*it).c_str());
+					httpHeaders = curl_slist_append(httpHeaders, (*it).c_str());
+				}
+			}
+
+			struct curl_slist* customHeaders = GetCustomHeaders(mediaType);
+			curl_slist* Header = customHeaders;
+			while (Header != NULL) {
+				httpHeaders = curl_slist_append(httpHeaders, Header->data);
+				Header = Header->next;
+			}
+			curl_slist_free_all(customHeaders);
+			if (httpHeaders != NULL)
+			{
+				CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
+			}
+			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
+			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
+			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
+				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
+
+			while(downloadAttempt < maxDownloadAttempt)
+			{
+				// Reset context values specific to each download attempt
+				context.ResetForNewDownload();
+				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
+
+				progressCtx.downloadUpdatedTime = -1;
+				progressCtx.downloadSize = -1;
+				progressCtx.abortReason = eCURL_ABORT_REASON_NONE;
+				// Note: downloadStartTime is now set for all downloads (not just LL-DASH)
+				// so that timing/monitoring logic has a valid start timestamp in every case.
+				context.downloadStartTime = progressCtx.downloadStartTime;
+				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
+				if(buffer->GetPtr() != NULL)
+				{
+					buffer->Clear();
+				}
+
+				isDownloadStalled = false;
+				abortReason = eCURL_ABORT_REASON_NONE;
+
+				long long tStartTime = NOW_STEADY_TS_MS;
+				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+
+				    // ---- Finalize recorder immediately after the perform ----
+				#ifdef AAMP_NET_TRACE
+				    {
+				        double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
+				        double t_starttransfer=0, t_total=0, t_redirect=0;
+				        char*  primary_ip = nullptr;
+				        long   local_port = 0, num_connects = 0;
+				        long   http_code_local = -1;
+				        double size_download = 0;
+				        curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,    &t_namelookup);
+				        curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,       &t_connect);
+				        curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,    &t_appconnect);
+				        curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME,   &t_pretransfer);
+				        curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &t_starttransfer);
+				        curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME,         &t_total);
+				        curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME,      &t_redirect);
+				        curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP,         &primary_ip);
+				        curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
+				        curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
+				        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
+				        curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,      &size_download);
+				        if (context.net) {
+				            context.net->on_complete_bytes();
+				            context.net->set_curl_timings(
+				                t_namelookup, t_connect, t_appconnect, t_pretransfer,
+				                t_starttransfer, t_total, http_code_local, (num_connects==0),
+				                primary_ip?std::string(primary_ip):std::string(), local_port,
+				                (size_t)size_download);
+				            context.net->flush_csv();
+				        }
+				    }
+				#endif
+				
+				if( res == CURLE_OPERATION_TIMEDOUT)
+				{
+					AAMPLOG_INFO("Curl Timeout detected(%d)", res);
+					res = (CURLcode)GetCurlTimeoutFailureReason(curl);
+				}
+
+				if(!mAampLLDashServiceData.lowLatencyMode)
+				{
+					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
+					/* optionally locally induce extra per-download latency */
+					if( insertDownloadDelay > 0 )
+					{
+						interruptibleMsSleep( insertDownloadDelay );
+					}
+				}
+
+				long long tEndTime = NOW_STEADY_TS_MS;
+				downloadAttempt++;
+
+				downloadTimeMS = (int)(tEndTime - tStartTime);
+				bool loopAgain = false;
+				if (res == CURLE_OK)
+				{ // all data collected
+					if( memcmp(remoteUrl.c_str(), "file:", 5) == 0 )
+					{ // file uri scheme
+						// libCurl does not provide CURLINFO_RESPONSE_CODE for 'file:' protocol.
+						// Handle CURL_OK to http_code mapping here, other values handled below (see http_code = res).
+						http_code = 200;
+					}
+					else
+					{
+						http_code = GetCurlResponseCode(curl);
+					}
+					char *effectiveUrlPtr = NULL;
+					if(http_code == 204)
+					{
+						if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_EFF_LOCATION) && (httpRespHeaders[curlInstance].data.length() > 0) )
+						{
+							AAMPLOG_WARN("Received Location header: '%s'", httpRespHeaders[curlInstance].data.c_str());
+							effectiveUrlPtr =  const_cast<char *>(httpRespHeaders[curlInstance].data.c_str());
+						}
+					}
+					else
+					{
+						//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
+						if(mFogTSBEnabled && http_code == 302)
+						{
+							mFogTSBEnabled = false;
+						}
+						effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
+					}
+
+					if(effectiveUrlPtr)
+					{
+						effectiveUrl.assign(effectiveUrlPtr);    //CID:81493 - Resolve Forward null
+
+						if( ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && (remoteUrl!=effectiveUrl) )
+						{
+							curlhost[curlInstance]->redirect = true;
+						}
+					}
+					if (http_code != 200 && http_code != 204 && http_code != 206)
+					{
+						AampLogManager::LogNetworkError (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
+						AAMPNetworkErrorHttp, http_code, mediaType);
+						print_headerResponse(context.allResponseHeaders, mediaType);
+						//Http error 502 to be reattempted once per fragment download and remaining http error to be reattempted as per config
+						if(((http_code >= 500 && http_code !=502) && downloadAttempt < maxDownloadAttempt) || (http_code == 502 && downloadAttempt <= DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT))
+						{
+							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
+							interruptibleMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
+							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt:%d!", downloadAttempt);
+							loopAgain = true;
+						}
+					}
+
+					// check if redirected url is pointing to fog / local ip
+					if(mIsFirstRequestToFOG)
+					{
+						if(mTsbRecordingId.empty())
+						{
+							AAMPLOG_INFO("TSB not available from fog, playing from:%s ", effectiveUrl.c_str());
+						}
+						this->UpdateVideoEndTsbStatus(mFogTSBEnabled);
+					}
+
+					/*
+					 * Latency should be printed in the case of successful download which exceeds the download threshold value,
+					 * other than this case is assumed as network error and those will be logged with AampLogManager::LogNetworkError.
+					 */
+					if (fragmentDurationS != 0.0)
+					{
+						/*in case of fetch fragment this will be non zero value */
+						if (downloadTimeMS > fragmentDurationMs )
+						{
+							AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, mediaType);
+						}
+					}
+					else if (downloadTimeMS > FRAGMENT_DOWNLOAD_WARNING_THRESHOLD )
+					{
+						AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, mediaType);
+						print_headerResponse(context.allResponseHeaders, mediaType);
+					}
+
+					// Do the empty buffer check only for successful downloads
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->GetLen() == 0))
+					{
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+						double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
+						long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
+						AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
+									buffer->GetPtr(), buffer->GetLen(), dlSize,reqSize,
+									(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
+						// Treat empty buffer as a network error, to trigger rampdown
+						// Use CURLE_PARTIAL_FILE to avoid bandwidth recalculation
+						res = CURLE_PARTIAL_FILE;
+						http_code = res;
+					}
+
+					if (mAampLLDashServiceData.lowLatencyMode &&
+						(http_code == 200 || http_code == 204 || http_code == 206) &&
+						!pipeline_paused &&
+						(context.chunkBoundary > 0) &&
+						(context.chunkBoundary < buffer->GetLen()))
+					{
+						// When pipeline paused, chunk injection will be paused, so the chunkBoundary will not match buffer length
+						// Otherwise, this is not expected.
+						// Buffer is already cached through CURL write callback for low latency and there is no course correction.
+						// Let's log here for awareness, as it's not clear if we should cache the extra data beyond chunk boundary.
+						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer->GetLen(), buffer->GetLen() - context.chunkBoundary);
+					}
+				}
+				else if (mAampLLDashServiceData.lowLatencyMode &&
+						res == CURLE_WRITE_ERROR &&
+						context.abortReason == eCURL_ABORT_REASON_FIRST_CHUNK_SLOW)
+				{
+					// This is early chunk abort case in low latency mode
+					// Handling this differently to avoid loopAgain logic for slow first chunk case
+					// Marking as timeout to trigger ABR ramp down and also update bandwidth metrics.
+					AAMPLOG_INFO("Curl download aborted due to slow first chunk detection");
+					res = CURLE_OPERATION_TIMEDOUT;
+					http_code = res;
+				}
+				else if (mAampLLDashServiceData.lowLatencyMode &&
+						context.bufferOffset > 0 &&
+						HasDownloadTimedOutWithData(res, progressCtx.abortReason))
+				{
+					// Download timed out in low latency chunk mode injection.
+					// With bufferOffset > 0, we have injected some chunks already, so treat it as success to update bandwidth metrics.
+					// Rampdown in this case, will cause video looping due to duplicate mp4 chunks with same timestamps.
+					// HasDownloadTimedOut check to ensure we are not treating non-timeout errors as success.
+					AAMPLOG_WARN("Curl download timed out in low latency mode after injecting chunks, treating as success to avoid rampdown");
+					res = CURLE_OK;
+					http_code = 206; // Partial content
+				}
+				else
+				{
+					//abortReason for progress_callback exit scenarios
+					// curl sometimes exceeds the wait time by few milliseconds.Added buffer of 10msec
+					isDownloadStalled = ((res == CURLE_PARTIAL_FILE) || (progressCtx.abortReason != eCURL_ABORT_REASON_NONE));
+					// set flag if download aborted with start/stall timeout.
+					abortReason = progressCtx.abortReason;
+
+					/* Curl 23 and 42 is not a real network error, so no need to log it here */
+					//Log errors due to curl stall/start detection abort
+					if (AampLogManager::isLogworthyErrorCode(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
+					{
+						std::string effectiveUrl;
+						char *effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
+						if(effectiveUrlPtr)
+						{
+							effectiveUrl.assign(effectiveUrlPtr);
+						}
+						else
+						{
+							effectiveUrl.assign(remoteUrl);
+						}
+
+						if( res == CURLE_OPERATION_TIMEDOUT )
+						{
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
+							mediaType);
+						}
+						else
+						{
+							AampLogManager::LogNetworkError (effectiveUrl.c_str(), // Effective URL could be different than remoteURL
+							AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
+						}
+						print_headerResponse(context.allResponseHeaders, mediaType);
+
+					}
+					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
+					{
+						
+						if(mpStreamAbstractionAAMP)
+						{
+							switch (mediaType)
+							{
+							case eMEDIATYPE_MANIFEST:
+							case eMEDIATYPE_AUDIO:
+							case eMEDIATYPE_PLAYLIST_VIDEO:
+							case eMEDIATYPE_PLAYLIST_AUDIO:
+								// always retry small, critical fragments on timeout
+								loopAgain = true;
+								break;
+
+							case eMEDIATYPE_INIT_VIDEO:
+							case eMEDIATYPE_INIT_AUDIO:
+							case eMEDIATYPE_INIT_SUBTITLE:
+							case eMEDIATYPE_INIT_IFRAME:
+								loopAgain = true;
+								if (downloadAttempt == maxDownloadAttempt)
+								{
+									double bufferDurationS = mpStreamAbstractionAAMP->GetBufferedDuration();
+									// Keep retrying init segments whilst there is enough buffer depth to last until curl times out
+									if (bufferDurationS * 1000 > curlDownloadTimeoutMS)
+									{
+										// Only retry again if its likely the segment is still available
+										if (((NOW_STEADY_TS_MS + curlDownloadTimeoutMS)  < maxInitDownloadRetryUntil) || (maxInitDownloadTimeMS == 0))
+										{
+											maxDownloadAttempt++;
+										}
+									}
+									AAMPLOG_INFO("Keep trying init request while enough buffer buffer %fs, curlDownloadTimeoutMS %ldms, maxInitDownloadTimeMS %d, steady ms %lld, maxInitDownloadRetryUntil %lld, maxDownloadAttempt %d",
+										bufferDurationS, curlDownloadTimeoutMS, maxInitDownloadTimeMS,
+										(long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxDownloadAttempt);
+								}
+								break;
+
+							default:
+								double bufferDurationS = mpStreamAbstractionAAMP->GetBufferedDuration();
+								// buffer is -1 when sesssion not created. buffer is 0 when session created but playlist not downloaded
+								if (bufferDurationS == -1.0 || bufferDurationS == 0 || bufferDurationS * 1000 > (curlDownloadTimeoutMS + fragmentDurationMs))
+								{
+									// Check if buffer is available and more than timeout interval then only reattempt
+									// Not to retry download if there is no buffer left
+									loopAgain = true;
+									if (mediaType == eMEDIATYPE_VIDEO)
+									{
+										if (buffer->GetLen())
+										{
+											long downloadbps = ((long)(buffer->GetLen() / downloadTimeMS) * 8000);
+											long currentProfilebps = mpStreamAbstractionAAMP->GetVideoBitrate();
+											if (currentProfilebps - downloadbps > BITRATE_ALLOWED_VARIATION_BAND)
+											{
+												loopAgain = false;
+												AAMPLOG_WARN("Video retry disabled on timeout bps:%ld var:%d", (currentProfilebps - downloadbps), BITRATE_ALLOWED_VARIATION_BAND);
+											}
+										}
+										curlDownloadTimeoutMS = mNetworkTimeoutMs;
+									}
+								}
+								break;
+							}
+						}
+						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
+					}
+
+					/*
+					 * Assigning curl error to http_code, for sending the error code as
+					 * part of error event if required
+					 * We can distinguish curl error and http error based on value
+					 * curl errors are below 100 and http error starts from 100
+					 */
+					if( res == CURLE_FILE_COULDNT_READ_FILE )
+					{
+						http_code = 404; // translate file not found to URL not found
+					}
+					else if(abortReason > eCURL_ABORT_REASON_NONE)
+					{
+						http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured timeouts(start/lowBW/stall)
+					}
+					else
+					{
+						http_code = res;
+					}
+				}
+				double connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
+				long reqSize, downloadbps = 0;
+				AAMP_LogLevel reqEndLogLevel = eLOGLEVEL_INFO;
+				if(downloadTimeMS != 0 && buffer->GetLen() != 0)
+				{
+					downloadbps = ((long)(buffer->GetLen() / downloadTimeMS)*8000);
+				}
+				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
+				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
+				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
+				startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
+				connectTime = connect;
+				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
+				{
+					reqEndLogLevel = eLOGLEVEL_WARN;
+				}
+				if (mAampLLDashServiceData.lowLatencyMode && http_code == 206 && mediaType == eMEDIATYPE_VIDEO)
+				{
+					// In low latency mode, this is treated as a successful partial download
+					// But log at warning level to indicate partial download
+					reqEndLogLevel = eLOGLEVEL_WARN;
+				}
+				// Store the CMCD data irrespective of logging level
+				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
+				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
+				if(IsTuneTypeNew)
+				{
+					reqEndLogLevel = eLOGLEVEL_MIL;
+				}
+				appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
+				preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
+				redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
+				if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
+				{
+					AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d",
+						   mediaType,
+						   appConnect,
+						   redirect,
+						   http_code );
+				}
+				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
+				{
+					double totalPerformRequest = (double)(downloadTimeMS)/1000;
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+					dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
+					reqSize = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
+
+					std::string appName, timeoutClass;
+					if (!mAppName.empty())
+					{
+						// append app name with class data
+						appName = mAppName + ",";
+					}
+					if ( IsCurlTimeoutFailure(res) || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+					{
+						// introduce  extra marker for connection status curl 7/18/28,
+						// example 18(0) if connection failure with PARTIAL_FILE code
+						timeoutClass = "(" + to_string(reqSize > 0) + ")";
+					}
+
+					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
+							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
+					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
+									range?";":"", range?range:"");
+					if (context.processDelay > 0)
+					{
+						AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
+					}
+					if(ui32CurlTrace < 10 )
+					{
+						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
+								ui32CurlTrace, resolve, connect, appConnect, redirect, preTransfer, startTransfer, curl,((res==CURLE_OK)?effectiveUrl.c_str():remoteUrl.c_str()));
+						++ui32CurlTrace;
+					}
+				}
+				//To handle initial fragment download delays before ABR starts
+				if(GetLLDashServiceData()->lowLatencyMode && mediaType == eMEDIATYPE_VIDEO)
+				{
+					double downloadTime = (double)(downloadTimeMS)/1000;
+					//DownloadTime greater than 60% of fragmentDuration are categorized as Delay in download
+					//DownloadTime greater than 105% means there is a huge chance of buffer underflow
+					if(downloadTime > (fragmentDurationS/100) * 105) /** If download time is greater */
+					{
+						mDownloadDelay += 3; /** Increment faster way to avoid buffer drain*/
+					}
+					else if(downloadTime > (fragmentDurationS/100) * 60)
+					{
+						mDownloadDelay++;
+					}
+					else
+					{
+						mDownloadDelay = 0;
+					}
+
+				}
+				if(!loopAgain)
+					break;
+			}
+		}
+
+		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
+		{
+			if ( IsCurlTimeoutFailure (http_code) && buffer->GetLen() > 0)
+			{
+				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer->GetLen(), downloadTimeMS, isDownloadStalled);
+			}
+
+			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
+			{
+				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
+				ABRManager::CurlAbortReason hybridAbortReason = (ABRManager::CurlAbortReason) abortReason;
+				if((buffer->GetLen() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
+							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
+				{
+					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
+					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->GetLen(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
+					{
+						std::lock_guard<std::recursive_mutex> guard(mLock);
+						mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(mAbrBitrateData,downloadbps,false);
+					}
+				}
+			}
+		}
+		if (http_code == 200 || http_code == 206)
+		{
+			if((mHarvestCountLimit > 0) && (mHarvestConfig & getHarvestConfigForMedia(mediaType)))
+			{
+				/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */
+				if(mediaType == eMEDIATYPE_MANIFEST || mediaType == eMEDIATYPE_PLAYLIST_AUDIO
+				|| mediaType == eMEDIATYPE_PLAYLIST_IFRAME || mediaType == eMEDIATYPE_PLAYLIST_SUBTITLE || mediaType == eMEDIATYPE_PLAYLIST_VIDEO )
+				{
+					mManifestRefreshCount++;
+				}
+
+				AAMPLOG_WARN("aamp harvestCountLimit: %d mManifestRefreshCount %d", mHarvestCountLimit,mManifestRefreshCount);
+				std::string harvestPath = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+				if(harvestPath.empty() )
+				{
+					getDefaultHarvestPath(harvestPath);
+					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
+				}
+				if(buffer->GetPtr() )
+				{
+					if(aamp_WriteFile(remoteUrl, buffer->GetPtr(), buffer->GetLen(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
+						mHarvestCountLimit--;
+				}  //CID:168113 - forward null
+			}
+			ret = true; // default
+			if( !context.downloadIsEncoded )
+			{
+				double expectedContentLength;
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+				expectedContentLength = aamp_CurlEasyGetinfoOffset(curl,CURLINFO_CONTENT_LENGTH_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+				expectedContentLength = aamp_CurlEasyGetInfoDouble(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+#endif
+				if( (static_cast<int>(lround(expectedContentLength)) > 0) &&
+				   (static_cast<int>(lround(expectedContentLength)) != (int)buffer->GetLen()) )
+				{
+					//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
+					AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->GetLen() );
+					http_code       =       416; // Range Not Satisfiable
+					ret             =       false; // redundant, but harmless
+					buffer->Free();
+				}
+			}
 		}
 		else
 		{
-			AAMPLOG_WARN("StreamLock not available to get early abort/profile bps");
+			if (AampLogManager::isLogworthyErrorCode(res))
+			{
+				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
+			}
+			buffer->Free();
+			if (rate != 1.0)
+			{
+				mediaType = eMEDIATYPE_IFRAME;
+			}
+
+			// don't generate anomaly reports for write and aborted errors
+			// these are generated after trick play options,
+			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
+			{
+				if(failureReason != nullptr)
+				{
+					SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s reason: %s", (mFogTSBEnabled ? "FOG" : "CDN"),
+									 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str(),failureReason);
+				}
+				else
+				{
+					SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mFogTSBEnabled ? "FOG" : "CDN"),
+									 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
+				}
+			}
+
+			if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_XREASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
+			{
+				AAMPLOG_WARN("Received X-Reason header from %s: '%s'", mFogTSBEnabled?"Fog":"CDN Server", httpRespHeaders[curlInstance].data.c_str());
+				SendAnomalyEvent(ANOMALY_WARNING, "%s X-Reason:%s", mFogTSBEnabled ? "Fog" : "CDN", httpRespHeaders[curlInstance].data.c_str());
+			}
+			else if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_FOG_REASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
+			{
+				//extract error and url used by fog to download content from cdn
+				// it is part of fog-reason
+				if(fogError)
+				{
+					std::regex errRegx("-(.*),");
+					std::smatch match;
+					if (std::regex_search(httpRespHeaders[curlInstance].data, match, errRegx) && match.size() > 1) {
+						if (!match.str(1).empty())
+						{
+							*fogError = std::stoi(match.str(1));
+							AAMPLOG_INFO("Received FOG-Reason fogError: '%d'", *fogError);
+						}
+					}
+				}
+
+				//	get failed url from fog reason and update effectiveUrl
+				if(!effectiveUrl.empty())
+				{
+					std::regex fromRegx("from:(.*),");
+					std::smatch match;
+
+					if (std::regex_search(httpRespHeaders[curlInstance].data, match, fromRegx) && match.size() > 1) {
+						if (!match.str(1).empty())
+						{
+							effectiveUrl.assign(match.str(1).c_str());
+							AAMPLOG_INFO("Received FOG-Reason effectiveUrl: '%s'", effectiveUrl.c_str());
+						}
+					}
+				}
+
+				if(http_code == 512 && mediaType == eMEDIATYPE_MANIFEST && httpRespHeaders[curlInstance].data.length() > 0){
+					mFogDownloadFailReason.clear();
+					mFogDownloadFailReason = httpRespHeaders[curlInstance].data.c_str();
+				}
+
+
+				AAMPLOG_WARN("Received FOG-Reason header: '%s'", httpRespHeaders[curlInstance].data.c_str());
+				SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", httpRespHeaders[curlInstance].data.c_str());
+			}
 		}
-	}
 
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
+		if (bitrate && (context.bitrate > 0))
+		{
+			AAMPLOG_INFO("Received getfile Bitrate : %" BITSPERSECOND_FORMAT, context.bitrate);
+			*bitrate = context.bitrate;
+		}
 
-	// ---- SSL options (match your existing behavior) ----
-	if (!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer))
-	{
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+		if(abortReason != eCURL_ABORT_REASON_NONE && abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+		{
+			http_code = PARTIAL_FILE_START_STALL_TIMEOUT_AAMP;
+		}
+		else if (connectTime == 0.0)
+		{ // curl connection failure
+			if(CURLE_PARTIAL_FILE == http_code)
+			{
+				http_code = PARTIAL_FILE_CONNECTIVITY_AAMP;
+			}
+			else if( IsCurlTimeoutFailure( http_code ) )
+			{
+				http_code = OPERATION_TIMEOUT_CONNECTIVITY_AAMP;
+			}
+		}
+		else if (CURLE_PARTIAL_FILE == http_code)
+		{
+			// download time expired with partial file for playlists/init fragments
+			http_code = PARTIAL_FILE_DOWNLOAD_TIME_EXPIRED_AAMP;
+		}
 	}
 	else
 	{
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-		CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+		AAMPLOG_WARN("downloads disabled");
 	}
 
-	// ---- progress callback context ----
-	CurlProgressCbContext progressCtx;
-	progressCtx.aamp = this;
-	progressCtx.mediaType = mediaType;
-	progressCtx.dlStarted = true;
-	progressCtx.fragmentDurationMs = fragmentDurationMs;
-	if ((mediaType == eMEDIATYPE_VIDEO) && (mAampLLDashServiceData.lowLatencyMode))
+	if (http_error)
 	{
-		progressCtx.remoteUrl = remoteUrl;
-	}
-
-	SetCMCDTrackData(mediaType);  // updates CMCD context for this track
-
-	// ---- timeouts (start/stall/low-BW) ----
-	if (mediaType == eMEDIATYPE_MANIFEST ||
-		mediaType == eMEDIATYPE_PLAYLIST_VIDEO ||
-		mediaType == eMEDIATYPE_PLAYLIST_AUDIO ||
-		mediaType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
-		mediaType == eMEDIATYPE_PLAYLIST_IFRAME)
-	{
-		progressCtx.startTimeout = 0; // manifests/playlists: don't enforce start timeout
-	}
-	else
-	{
-		progressCtx.startTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadStartTimeout);
-
-		int lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout);
-		if ((0 == lowBWTimeout) && (AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_CurlDownloadLowBWTimeout)))
+		*http_error = http_code;
+		if(downloadTimeS)
 		{
-			lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
-			lowBWTimeout = std::max(DEFAULT_LOW_BW_TIMEOUT, lowBWTimeout);
+			*downloadTimeS = total;
 		}
-		// Disable low-BW timeout if already at lowest profile video
-		if (lowBWTimeout > 0 && mediaType == eMEDIATYPE_VIDEO && earlyAbortUpdated && !context.earlyAbortEnabled)
-		{
-			lowBWTimeout = 0;
-			AAMPLOG_DEBUG("Disable low bandwidth timeout for lowest profile video fragment");
+	}
+	if (httpHeaders != NULL)
+	{
+		curl_slist_free_all(httpHeaders);
+	}
+	if (mIsFirstRequestToFOG)
+	{
+		mIsFirstRequestToFOG = false;
+	}
+
+	// Strip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
+	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && NULL != buffer->GetPtr() && FORMAT_ISO_BMFF == this->mVideoFormat)
+	{
+		AAMPLOG_INFO( "Received HTTP 200 for ranged request (chunked iframe: %s: %s), starting to strip the fragment", range, remoteUrl.c_str() );
+		size_t start;
+		size_t end;
+		try {
+			if(2 == sscanf(range, "%zu-%zu", &start, &end))
+			{
+				// #EXT-X-BYTERANGE:19301@88 from manifest is equivalent to 88-19388 in HTTP range request
+				size_t len = (end - start) + 1;
+				if( buffer->GetLen() >= len)
+				{
+					buffer->Clear();
+					buffer->AppendBytes(buffer->GetPtr() + start, len);
+				}
+
+				// hack - repair wrong size in box
+				IsoBmffBuffer repair;
+				repair.setBuffer((uint8_t *)buffer->GetPtr(), buffer->GetLen() );
+				repair.parseBuffer(true);  //correctBoxSize=true
+				AAMPLOG_INFO("Stripping the fragment for range request completed");
+			}
+			else
+			{
+				AAMPLOG_ERR("Stripping the fragment for range request failed, failed to parse range string");
+			}
 		}
-		if (mFogTSBEnabled) { AAMPLOG_DEBUG("Disable low bandwidth timeout in aamp; FOG handles it"); progressCtx.lowBWTimeout = 0; }
-		else                { progressCtx.lowBWTimeout = lowBWTimeout; }
-	}
-	progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
-	AAMPLOG_INFO("lowBWTimeout:%d, stallTimeout:%d", progressCtx.lowBWTimeout, progressCtx.stallTimeout);
-
-	// ---- Range header (sanitize empty string) ----
-	if (range && *range=='\0') range = NULL;
-	CURL_EASY_SETOPT_STRING(curl, CURLOPT_RANGE, range);
-
-	// ---- Cookies (from prior response) ----
-	if ((httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_COOKIE) && (httpRespHeaders[curlInstance].data.length() > 0))
-	{
-		AAMPLOG_TRACE("Appending cookie headers to HTTP request");
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_COOKIE, httpRespHeaders[curlInstance].data.c_str());
-	}
-
-	// ---- CMCD custom headers (existing) ----
-	{
-		std::vector<std::string> cmcdCustomHeader;
-		AampMediaType mmediaT = (mediaType == eMEDIATYPE_INIT_VIDEO) ? eMEDIATYPE_VIDEO :
-								(mediaType == eMEDIATYPE_INIT_AUDIO) ? eMEDIATYPE_AUDIO : mediaType;
-		mCMCDCollector->CMCDGetHeaders(mmediaT, cmcdCustomHeader);
-		for (auto &h : cmcdCustomHeader)
+		catch (std::exception &e)
 		{
-			AAMPLOG_TRACE("CMCD Header:[%s]", h.c_str());
-			httpHeaders = curl_slist_append(httpHeaders, h.c_str());
+				AAMPLOG_ERR("Stripping the fragment for ranged request failed (%s)", e.what());
 		}
 	}
 
-	// ---- Attach libcurl callbacks ----
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_XFERINFODATA, &progressCtx);
-	CURL_EASY_SETOPT_LONG   (curl, CURLOPT_NOPROGRESS, 0L);
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERFUNCTION, &PrivateInstanceAAMP::HandleSSLHeaderCallback);
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEFUNCTION,  &PrivateInstanceAAMP::HandleSSLWriteCallback);
-	CURL_EASY_SETOPT_POINTER(curl, CURLOPT_XFERINFOFUNCTION,&PrivateInstanceAAMP::HandleSSLProgressCallback);
-
-	// ---- Add any accumulated request headers to curl ----
-	if (httpHeaders)
+	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
-		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HTTPHEADER, httpHeaders);
+		if( !ret )
+		{
+			profiler.ProfileError(bucketType, *http_error);
+		}
+		profiler.ProfileEnd(bucketType);
 	}
-
-	// =========================
-	// Hook up the NetTrace
-	// =========================
-#ifdef AAMP_NET_TRACE
-	context.net = &net;
-#endif
-
-	// =========================
-	// Perform the download
-	// =========================
-	long http_code_local = -1;
-	double t_total=0, t_starttransfer=0, t_connect=0, t_namelookup=0, t_appconnect=0, t_pretransfer=0, t_redirect=0;
-	char* primary_ip = nullptr;
-	long local_port = 0;
-	long num_connects = 0;
-	double size_download = 0;
-
-	// NOTE: Your original implementation has a retry loop and detailed post-processing.
-	// This replacement preserves the single-perform section and reads back all timings.
-	res = curl_easy_perform(curl);
-
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,     &http_code_local);
-	curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME,        &t_total);
-	curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME,&t_starttransfer);
-	curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,      &t_connect);
-	curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,   &t_namelookup);
-	curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,   &t_appconnect);
-	curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME,  &t_pretransfer);
-	curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME,     &t_redirect);
-	curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP,        &primary_ip);
-	curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,        &local_port);
-	curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,      &num_connects);
-	curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,     &size_download);
-
-	total_time_s = t_total;
-	http_code = (int)http_code_local;
-
-	// =========================
-	// Finalize instrumentation
-	// =========================
-#ifdef AAMP_NET_TRACE
-	if (context.net) {
-		context.net->on_complete_bytes();
-		const bool reused = (num_connects == 0);
-		context.net->set_curl_timings(
-			t_namelookup, t_connect, t_appconnect, t_pretransfer,
-			t_starttransfer, t_total, http_code_local, reused,
-			primary_ip ? std::string(primary_ip) : std::string(), local_port,
-			(size_t)size_download);
-		// If you later estimate cadence/jitter, you can call classify_gaps(cadence_s, jitter_s)
-		context.net->flush_csv();
-	}
-#endif
-
-	// =========================
-	// Existing post-processing
-	// =========================
-
-	// Map common failure conditions the same way you do today
-	if (res != CURLE_OK)
-	{
-		AAMPLOG_WARN("curl_easy_perform failed: code=%d (%s), http=%d url=%s",
-					 (int)res, curl_easy_strerror(res), http_code, remoteUrl.c_str());
-
-		// Preserve your mapping of timeouts/partial files to http_error
-		if (http_error) *http_error = (int)res;
-		if (downloadTimeS) *downloadTimeS = total_time_s;
-
-		// Profiler/end
-		if (bucketType!=PROFILE_BUCKET_TYPE_COUNT) { profiler.ProfileError(bucketType); }
-		ret = false;
-		goto cleanup;
-	}
-
-	// Success path: accept 200/204/206 etc. Preserve buffer/content-length checks from your code.
-	if (http_code >= 200 && http_code < 300)
-	{
-		// effective URL (redirects)
-		char* eff_url = nullptr;
-		curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &eff_url);
-		if (eff_url) effectiveUrl.assign(eff_url);
-
-		// Optionally validate Content-Length vs buffer->GetLen() for non-encoded transfers, as in your code.
-		// (Your existing HandleSSLHeaderCallback caches contentLength in context; you can compare here if needed.)
-
-		ret = true;
-	}
-	else
-	{
-		AAMPLOG_WARN("HTTP error %d for %s", http_code, remoteUrl.c_str());
-		if (http_error) *http_error = http_code;
-		if (bucketType!=PROFILE_BUCKET_TYPE_COUNT) { profiler.ProfileError(bucketType); }
-		ret = false;
-	}
-
-	if (downloadTimeS) *downloadTimeS = total_time_s;
-	if (bitrate && total_time_s > 0.0 && buffer && buffer->GetLen() > 0)
-	{
-		// effective end-to-end throughput (not used for simulator fitting; you’ll use burst-only CSVs)
-		*bitrate = (BitsPerSecond)((double)buffer->GetLen() * 8.0 / total_time_s);
-	}
-
-cleanup:
-	if (httpHeaders) { curl_slist_free_all(httpHeaders); httpHeaders = nullptr; }
-	if (http_error && *http_error == 0 && !ret) { *http_error = http_code; } // ensure caller sees failure
-	if (bucketType!=PROFILE_BUCKET_TYPE_COUNT && ret) { profiler.ProfileEnd(bucketType); }
-
 	return ret;
 }
-
 
 /**
  * @brief Download VideoEnd Session statistics from fog
@@ -5992,7 +6566,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		AampStreamSinkManager::GetInstance().CreateStreamSink( this,
 											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
-											   			 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
+														 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
 	}
 
 	if (autoPlay)
@@ -7363,7 +7937,7 @@ long long PrivateInstanceAAMP::GetDurationMs()
 
 	if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 	{
-	 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			ms = sink->GetDurationMilliseconds();
@@ -12329,8 +12903,8 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
  * @param[in] target Track to find
  * @return Index of track (0-based), or -1 if not found
  */
-int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
-                                            const TextTrackInfo& target) const
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks,
+											const TextTrackInfo& target) const
 {
 	int index = -1;
 	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
@@ -14084,7 +14658,7 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
 	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
-	    IsLocalAAMPTsbInjection() &&
+		IsLocalAAMPTsbInjection() &&
 		(rate != AAMP_NORMAL_PLAY_RATE))
 	{
 		audioOutputFormat = FORMAT_INVALID;
