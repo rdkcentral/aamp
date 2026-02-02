@@ -1,0 +1,5 @@
+if(EXISTS "/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/InterfacePlayerTests/InterfacePlayerTest[1]_tests.cmake")
+  include("/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/InterfacePlayerTests/InterfacePlayerTest[1]_tests.cmake")
+else()
+  add_test(InterfacePlayerTest_NOT_BUILT InterfacePlayerTest_NOT_BUILT)
+endif()

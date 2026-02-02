@@ -1,0 +1,5 @@
+if(EXISTS "/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/GstHandlerControlTests/GstHandlerControlTests[1]_tests.cmake")
+  include("/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/GstHandlerControlTests/GstHandlerControlTests[1]_tests.cmake")
+else()
+  add_test(GstHandlerControlTests_NOT_BUILT GstHandlerControlTests_NOT_BUILT)
+endif()

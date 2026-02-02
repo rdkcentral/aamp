@@ -1,0 +1,3 @@
+add_test([=[DrmSecureClient:AampDrmSessionTests.TestDashPlayReadySessionSecClient]=]  [==[/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/DrmSecureClient/DrmSecureClient]==] [==[--gtest_filter=AampDrmSessionTests.TestDashPlayReadySessionSecClient]==] --gtest_also_run_disabled_tests)
+set_tests_properties([=[DrmSecureClient:AampDrmSessionTests.TestDashPlayReadySessionSecClient]=]  PROPERTIES WORKING_DIRECTORY [==[/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/DrmSecureClient]==] SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+set(  DrmSecureClient_TESTS DrmSecureClient:AampDrmSessionTests.TestDashPlayReadySessionSecClient)

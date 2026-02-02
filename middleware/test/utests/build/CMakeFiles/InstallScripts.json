@@ -1,0 +1,24 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/fakes/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/GstUtilsTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/GstPlayer/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/GstHandlerControlTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/TextStyleAttributes/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/OcdmBasicSessionAdapterTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/OCDMSessionAdapter/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/DrmSecureClient/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/DrmOcdm/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/DrmUrlTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/base16Tests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/Base64PLAYER/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/PluginsTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/InterfacePlayerTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/DrmSessionManagerTests/cmake_install.cmake",
+		"/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/PlayerUtilsTests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

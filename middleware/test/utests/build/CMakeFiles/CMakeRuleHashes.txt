@@ -1,0 +1,4 @@
+# Hashes of file build rules.
+f4f212ceee8f294ff1734c2ae08f7984 tests/DrmOcdm/CMakeFiles/DrmOcdm_coverage
+e6e989bfd7faa5bfbe490baed53acd9d tests/OCDMSessionAdapter/CMakeFiles/OCDMSessionAdapterTests_coverage
+af4e7f0cc73c1af227f21a8cdba1b565 tests/OcdmBasicSessionAdapterTests/CMakeFiles/OcdmBasicSessionAdapterTests_coverage

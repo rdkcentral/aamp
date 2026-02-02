@@ -1,0 +1,5 @@
+if(EXISTS "/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/Base64PLAYER/Base64PLAYER[1]_tests.cmake")
+  include("/Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/middleware/test/utests/build/tests/Base64PLAYER/Base64PLAYER[1]_tests.cmake")
+else()
+  add_test(Base64PLAYER_NOT_BUILT Base64PLAYER_NOT_BUILT)
+endif()
