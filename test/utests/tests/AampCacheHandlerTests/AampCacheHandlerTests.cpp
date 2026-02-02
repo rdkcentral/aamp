@@ -321,7 +321,7 @@ TEST_F(AampCacheHandlerTest_1, TestAsyncCacheCleanUpTask)
 	mTestableAampCacheHandler->CallAsyncCacheCleanUpTask();
 }
 
-TEST_F(AampCacheHandlerTest, InitFragCacheLRU_t)
+TEST_F(AampCacheHandlerTest, InitFragCacheLRU)
 {
 	handler->SetMaxInitFragCacheSize(3);
 
