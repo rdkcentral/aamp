@@ -494,7 +494,7 @@ public:
 	 * @param[out] effectiveUrl The effective URL associated with the cached entry (returned on hit)
 	 * @return true if entry found and buffer/effectiveUrl were set, false otherwise
 	 */
-	bool RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t> &buffer, std::string &effectiveUrl);
+	bool RetrieveFromInitFragmentCache(const std::string &url, std::vector<uint8_t> &buffer, std::string &effectiveUrl);
 
 	/**
 	 *   @brief set max initialization fragments allowed in cache (per track)
