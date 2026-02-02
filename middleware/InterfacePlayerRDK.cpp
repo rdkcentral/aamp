@@ -94,6 +94,7 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 	interfacePlayerPriv = new InterfacePlayerPriv();
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
+	interfacePlayerPriv->gstPrivateContext->subtitleMuted = m_gstConfigParam->disableWebVTT;
 	pthread_mutex_init(&mProtectionLock, NULL);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	pthread_mutex_init(&interfacePlayerPriv->gstPrivateContext->stream[i].sourceLock, NULL);
@@ -1485,7 +1486,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	// Reset mute and volume params
 	interfacePlayerPriv->gstPrivateContext->audioMuted = false;
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
-	interfacePlayerPriv->gstPrivateContext->subtitleMuted = false;
+	interfacePlayerPriv->gstPrivateContext->subtitleMuted = m_gstConfigParam->disableWebVTT;
 	interfacePlayerPriv->gstPrivateContext->audioVolume = 1.0;
 
 	// Reset mp4demux playback semantic shim on pipeline event reset
