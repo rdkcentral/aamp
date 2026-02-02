@@ -452,7 +452,7 @@ public:
 	 * @param[in] mediaType Expected media type for this lookup (guards cache matching)
 	 * @return true if entry found and buffer/effectiveUrl were set, false otherwise
 	 */
-	bool RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t> &buffer, std::string &effectiveUrl, AampMediaType mediaType);
+	bool RetrieveFromPlaylistCache(const std::string &url, std::vector<uint8_t> &buffer, std::string &effectiveUrl, AampMediaType mediaType);
 
 	/**
 	 * @brief Remove playlist from cache
