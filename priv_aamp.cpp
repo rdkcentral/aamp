@@ -1699,7 +1699,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 		lastUnderFlowTimeMs[i] = 0;
 		mProcessingDiscontinuity[i] = false;
 		mIsDiscontinuityIgnored[i] = false;
-		mbNewSegmentEvtSent[i] = true;
 	}
 	{
 		std::lock_guard<std::mutex> guard(gMutex);
@@ -5568,13 +5567,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// from a clean, disabled state for new content.
 		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
 		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
-	}
-	if(SocUtils::ResetNewSegmentEvent())
-	{
-		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
-		// this shouldn't impact seekplay or ADs
-		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
-			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
 	}
 	ui32CurlTrace=0;
 

@@ -42,8 +42,6 @@
 #include "GstUtils.h"
 
 #define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
-#define GST_TRACK_COUNT 3 /**< internal use - audio+video+sub track */
-#define VIDEO_COORDINATES_SIZE 32
 #define GST_TASK_ID_INVALID 0
 #define GST_NORMAL_PLAY_RATE 1
 #define GST_ERROR_DESCRIPTION_LENGTH 256
@@ -76,17 +74,6 @@ typedef enum
 	eGST_PLAY_FLAG_DEINTERLACE = (1 << 9),           /**< value is 0x200 */
 	eGST_PLAY_FLAG_SOFT_COLORBALANCE = (1 << 10) /**< value is 0x400 */
 } eGstPlayFlags;
-
-enum GstVideoZoomMode
-{
-	GST_VIDEO_ZOOM_NONE = 0,                   /**< Video Zoom None */
-	GST_VIDEO_ZOOM_DIRECT = 1,                 /**< Video Zoom Direct */
-	GST_VIDEO_ZOOM_NORMAL = 2,                 /**< Video Zoom Normal */
-	GST_VIDEO_ZOOM_16X9_STRETCH = 3,   /**< Video Zoom 16x9 stretch */
-	GST_VIDEO_ZOOM_4x3_PILLAR_BOX = 4, /**< Video Zoom 4x3 pillar box */
-	GST_VIDEO_ZOOM_FULL = 5,                   /**< Video Zoom Full */
-	GST_VIDEO_ZOOM_GLOBAL = 6                  /**< Video Zoom Global */
-};
 
 enum GstEOSInjectionModeCode
 {

@@ -38,6 +38,9 @@
 #include "GstUtils.h"
 #include "DemuxDataTypes.h"
 
+#define GST_TRACK_COUNT 3 /**< internal use - audio+video+sub track */
+#define VIDEO_COORDINATES_SIZE 32
+
 class InterfacePlayerPriv;
 
 struct MonitorAVState
@@ -68,6 +71,17 @@ struct GstTaskControlData
         bool taskIsPending;
         std::string taskName;
         GstTaskControlData(const char *taskIdent) : taskID(0), taskIsPending(false), taskName(taskIdent ? taskIdent : "undefined") {};
+};
+
+enum GstVideoZoomMode
+{
+	GST_VIDEO_ZOOM_NONE = 0,                   /**< Video Zoom None */
+	GST_VIDEO_ZOOM_DIRECT = 1,                 /**< Video Zoom Direct */
+	GST_VIDEO_ZOOM_NORMAL = 2,                 /**< Video Zoom Normal */
+	GST_VIDEO_ZOOM_16X9_STRETCH = 3,   /**< Video Zoom 16x9 stretch */
+	GST_VIDEO_ZOOM_4x3_PILLAR_BOX = 4, /**< Video Zoom 4x3 pillar box */
+	GST_VIDEO_ZOOM_FULL = 5,                   /**< Video Zoom Full */
+	GST_VIDEO_ZOOM_GLOBAL = 6                  /**< Video Zoom Global */
 };
 
 /*
@@ -158,41 +172,6 @@ static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable 
 	{
 		{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
 		{"ac-4", {"omxac4dec"}}};
-
-struct gst_media_stream
-{
-	GstElement *sinkbin;		  /**< Sink element to consume data */
-	GstElement *source;			  /**< to provide data to the pipleline */
-	GstStreamOutputFormat format; /**< Stream output format for this stream */
-	bool pendingSeek;			  /**< Flag denotes if a seek event has to be sent to the source */
-	bool resetPosition;			  /**< To indicate that the position of the stream is reset */
-	bool bufferUnderrun;
-	bool eosReached;	   /**< To indicate the status of End of Stream reached */
-	bool sourceConfigured; /**< To indicate that the current source is initialized and configured */
-	pthread_mutex_t sourceLock;
-	uint32_t timeScale;
-	int32_t trackId;		   /**< Current Audio Track Id,so far it is implemented for AC4 track selection only */
-	bool firstBufferProcessed; /**< Indicates if the first buffer is processed in this stream */
-	GstPad *demuxPad;		   /**< Demux src pad >*/
-	gulong demuxProbeId;	   /**< Demux pad probe ID >*/
-
-	gst_media_stream() : sinkbin(NULL), source(NULL), format(GST_FORMAT_INVALID),
-						 pendingSeek(false), resetPosition(false),
-						 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER),
-						 timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
-	{
-	}
-
-	~gst_media_stream()
-	{
-		g_clear_object(&sinkbin);
-		g_clear_object(&source);
-	}
-
-	gst_media_stream(const gst_media_stream &) = delete;
-
-	gst_media_stream &operator=(const gst_media_stream &) = delete;
-};
 
 /**
  * @struct GstPlayerPriv
