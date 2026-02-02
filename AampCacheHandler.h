@@ -305,7 +305,7 @@ public:
 
 	void Clear(void)
 	{
-		// unique_ptr owned entries are destructed automatically
+		// smart ptr owned entries are destructed automatically
 		cache.clear();
 		totalCachedBytes = 0;
 	}
