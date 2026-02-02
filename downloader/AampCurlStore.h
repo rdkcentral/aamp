@@ -241,12 +241,20 @@ enum class ChunkedTransferState
 	ERROR
 };
 
+#ifdef AAMP_NET_TRACE
+#include "net_trace.h"
+#endif
+
 /**
  * @struct CurlCallbackContext
  * @brief context during curl callbacks
  */
 struct CurlCallbackContext
 {
+#ifdef AAMP_NET_TRACE
+	aamptrace::NetTrace* net = nullptr;
+#endif
+	
 	// HTTP/1.1 Chunked Transfer Protocol
 	
 	size_t m_ChunkedBytesRemaining = 0;
