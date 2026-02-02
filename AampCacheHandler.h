@@ -241,7 +241,7 @@ public:
 						this->totalCachedBytes -= bytes;
 						delete ptr;
 					});
-				// Update total cached bytes for the buffer as if a latter allocation fails the dtor will then decrement it again leaving it correct.
+				// Update total cached bytes for the buffer as if a later allocation fails the dtor will then decrement it again leaving it correct.
 				totalCachedBytes += bytes;
 
 				auto cachedData = std::make_shared<AampCachedData>(effectiveUrl, cachedBuf, mediaType);
