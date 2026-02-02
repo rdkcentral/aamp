@@ -3238,7 +3238,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-		if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aamp->GetManifestUrl(), mainManifest.GetVector(), aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST))
+	if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aamp->GetManifestUrl(), mainManifest.GetVector(), aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST))
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Main manifest retrieved from cache");
 	}
