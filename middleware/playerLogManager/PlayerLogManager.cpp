@@ -96,7 +96,8 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
 {
 	// Increment log counter for each log line, wrap at 1000 for consistent 3-digit formatting
 	uint32_t logSeqNum = gMwLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
-	
+	uint32_t logerr = 0;	
+
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
 	if( PlayerLogManager::disableLogRedirection )
@@ -106,20 +107,22 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
 		snprintf(timestamp, sizeof(timestamp), MW_CLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
 	}
 	char *format_ptr = NULL;
-        int format_bytes = 0;
-        for( int pass=0; pass<2; pass++ )
+ 	int format_bytes = 0, ret = 0;
+       for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
                                                            "%s[PLAYER_IF][%03u][%s][%zx][%s][%d]%s\n",
                                                            timestamp,
                                                            logSeqNum,
+														   logerr,
                                                            mLogLevelStr[logLevelIndex],
 							   GetPlayerPrintableThreadID(),
                                                            func, line,
                                                            format );
             if( format_bytes<=0 )
             { // should never happen!
-                break;
+         		logerr=+100;
+				break;
             }
             if( pass==0 )
             {
@@ -157,8 +160,12 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
 					    ethanLogLevel = ETHAN_LOG_MILESTONE;
 					    break;
 			    }
-			    vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
-		    }
+				
+				ret = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				if( ret<0 )
+				{
+					logerr++;
+				}		    }
 		    else
 		    {
 			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)

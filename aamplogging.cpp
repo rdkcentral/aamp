@@ -117,7 +117,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 							   format );
 		if( format_bytes<=0 )
 		{ // should never happen!
-			logerr++;
+			logerr=+100;
 			break;
 		}
 		if( pass==0 )
