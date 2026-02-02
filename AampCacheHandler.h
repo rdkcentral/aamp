@@ -60,7 +60,7 @@ public:
 	 * use_count() on this shared_ptr provides an O(1) way to see
 	 * how many URLs are currently redirected to the same effectiveUrl.
 	 */
-	std::shared_ptr<AampCachedData> eUrlCachedDataPtr;
+	std::shared_ptr<AampCachedData> eUrlCachedDataPtr{nullptr};
 
 	~AampCachedData() {};
 
