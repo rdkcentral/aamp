@@ -59,7 +59,7 @@ void AampCacheHandler::StopPlaylistCache( void )
 	mCondVar.notify_one();
 }
 
-bool AampCacheHandler::RetrieveFromPlaylistCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl, AampMediaType mediaType)
+bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string &url, std::vector<uint8_t>& buffer, std::string& effectiveUrl, AampMediaType mediaType)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
