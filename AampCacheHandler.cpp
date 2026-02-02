@@ -115,7 +115,7 @@ void AampCacheHandler::InsertToInitFragCache( const std::string &url, const std:
 	mInitFragmentCache.Insert( url, buffer, effectiveUrl, mediaType );
 }
 
-bool AampCacheHandler::RetrieveFromInitFragmentCache(std::string url, std::vector<uint8_t>& buffer, std::string& effectiveUrl)
+bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, std::vector<uint8_t>& buffer, std::string& effectiveUrl)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
