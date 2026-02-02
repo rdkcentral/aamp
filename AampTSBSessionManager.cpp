@@ -837,12 +837,12 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 	}
 	else							// Rewind
 	{
-		if (fragment->prev)
+		if (auto prevShared = fragment->prev.lock()) 
 		{
-			fragment = fragment->prev;
+			fragment = prevShared;
 			success = true;
-		}
-		if (!(fragment->prev))
+		}	
+		else
 		{
 			// Don't skip the first fragment in the TSB so BoS is detected correctly
 			AAMPLOG_INFO("Reached beginning of TSB during rewind");

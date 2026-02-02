@@ -110,15 +110,13 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 							double vPTS = other->GetFirstPTS();
 							while (firstFragmentToFetch && firstFragmentToFetch->GetPTS() > vPTS)
 							{
-								if (!firstFragmentToFetch->prev)
+								auto prevFragment = firstFragmentToFetch->prev.lock();
+								if (!prevFragment || firstFragmentToFetch->GetPeriodId() != prevFragment->GetPeriodId())
 								{
-									break; // Break if no previous fragment exists
+									break; // Break if no previous fragment exists or if at period boundary
 								}
-								if (firstFragmentToFetch->GetPeriodId() != firstFragmentToFetch->prev->GetPeriodId())
-								{
-									break; // Break if at period boundary
-								}
-								firstFragmentToFetch = firstFragmentToFetch->prev;
+
+								firstFragmentToFetch = prevFragment;
 							}
 						}
 					}
@@ -211,7 +209,7 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			if (mCurrentRate < 0.0) // reverse playback
 			{
 				// For reverse playback, get the previous fragment in the linked list
-				ret = mCurrentFragment->prev;
+				ret = mCurrentFragment->prev.lock();
 			}
 			else // forward or normal playback
 			{
@@ -259,7 +257,7 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 		}
 		else if (mCurrentRate < 0.0)
 		{
-			mEosReached = !nextFragmentData->prev;
+			mEosReached = !nextFragmentData->prev.lock();
 		}
 		else
 		{
@@ -296,9 +294,14 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 		else
 		{ // read in reverse direction
 			// When nextFragmentData->prev becomes nullptr, eos will be set, and no more reads will happen for this rate as we reached the very first fragment in tsb and segments never gets added to the beginning of tsb.
-			mUpcomingFragmentPosition = (nextFragmentData->prev) ?
-				nextFragmentData->prev->GetAbsolutePosition() :
-				nextFragmentData->GetAbsolutePosition();
+			if (auto prevFragment = nextFragmentData->prev.lock())
+			{
+				mUpcomingFragmentPosition = prevFragment->GetAbsolutePosition();
+			}
+			else
+			{
+				mUpcomingFragmentPosition = nextFragmentData->GetAbsolutePosition();
+			}
 		}
 
 		AAMPLOG_INFO("[%s] Fragment: absPos %lfs next %lfs eos %d initWaiting %d mIsNextFragmentDisc %d mIsPeriodBoundary %d mTrickModePositionEOS %lfs rate %f",
@@ -347,7 +350,7 @@ void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
 	if (mIsPeriodBoundary && (AAMP_NORMAL_PLAY_RATE == mCurrentRate))
 	{
 		// Get the fragment immediately preceding the current one to check for continuity.
-		TsbFragmentDataPtr adjFragment = currFragment->prev;
+		TsbFragmentDataPtr adjFragment = currFragment->prev.lock();
 		if (adjFragment)
 		{
 			// Calculate the expected PTS of the current fragment by adding the
