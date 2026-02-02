@@ -3268,6 +3268,14 @@ int PrivateInstanceAAMP::GetCurrentAudioTrackId()
  */
 void PrivateInstanceAAMP::PlayFromTsbStart()
 {
+	// Try to acquire the lock with a timeout to avoid deadlock
+	// If we can't get the lock, another operation is in progress
+	if (!TryStreamLock())
+	{
+		AAMPLOG_WARN("Could not acquire stream lock for PlayFromTsbStart, operation already in progress");
+		return;
+	}
+
 	seek_pos_seconds = culledSeconds;
 	AAMPLOG_MIL("Updated seek_pos_seconds %f on start of TSB", seek_pos_seconds);
 	if (trickStartUTCMS == -1)
@@ -3278,7 +3286,6 @@ void PrivateInstanceAAMP::PlayFromTsbStart()
 		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
 	}
 	rate = AAMP_NORMAL_PLAY_RATE;
-	AcquireStreamLock();
 	TuneHelper(eTUNETYPE_SEEK);
 	ReleaseStreamLock();
 	NotifySpeedChanged(rate);
@@ -4851,28 +4858,39 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	lock.unlock();
 	if (mpStreamAbstractionAAMP)
 	{
-		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AcquireStreamLock();
-		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		// Save pointer to stream abstraction and clear it while holding lock
+		// to prevent new operations from starting
+		StreamAbstractionAAMP* pStreamAbstraction = NULL;
+		ContentType contentType = mContentType;
+		bool isLocalTsb = IsLocalAAMPTsb();
 
-		if(mContentType == ContentType_HDMIIN)
+		AcquireStreamLock();
+		pStreamAbstraction = mpStreamAbstractionAAMP;
+		mpStreamAbstractionAAMP = NULL;
+		ReleaseStreamLock();
+
+		// Call Stop() without holding the lock to avoid deadlock
+		// Stop() can block waiting for worker threads to join
+		if (pStreamAbstraction)
 		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else if(mContentType == ContentType_COMPOSITEIN)
-		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			if(!IsLocalAAMPTsb())
+			pStreamAbstraction->Stop(disableDownloads);
+
+			if(contentType == ContentType_HDMIIN)
 			{
-				SAFE_DELETE(mpStreamAbstractionAAMP);
+				StreamAbstractionAAMP_HDMIIN::ResetInstance();
+			}
+			else if(contentType == ContentType_COMPOSITEIN)
+			{
+				StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+			}
+			else
+			{
+				if(!isLocalTsb)
+				{
+					delete pStreamAbstraction;
+				}
 			}
 		}
-		ReleaseStreamLock();
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
