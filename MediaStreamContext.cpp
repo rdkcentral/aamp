@@ -804,6 +804,12 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 			{
 				updateSkipPoint((dlInfo->pts + dlInfo->fragmentDurationSec), dlInfo->fragmentDurationSec);
 			}
+			auto timeBasedBufferManager = GetTimeBasedBufferManager();
+			if(timeBasedBufferManager)
+			{
+				// Consume the buffer for the segment duration as segment is skipped
+				timeBasedBufferManager->ConsumeBuffer(dlInfo->fragmentDurationSec);
+			}
 		}
 	}
 }
