@@ -1,3 +1,21 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 // net_trace.h
 #pragma once
 #include <vector>
@@ -8,6 +26,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#if defined(__unix__) || defined(__APPLE__)
+#include <unistd.h>   // getpid()
+#endif
 
 namespace aamptrace {
 
@@ -30,25 +51,28 @@ struct Burst {
 // --------- Recorder for one request -----
 class NetTrace {
 public:
+	// Minimum non-zero span to assign to any burst duration
+	static constexpr double kMinBurstDurS = 0.001; // 1 ms
+	
 	explicit NetTrace(uint64_t req_id,
 					  const std::string& url_path,
 					  const std::string& media_type,
 					  bool chunked_hdr_seen,
 					  double gap_threshold_s,
 					  double late_gap_extra_s_threshold)
-		: req_id_(req_id),
-		  url_path_(url_path),
-		  media_type_(media_type),
-		  gap_threshold_s_(gap_threshold_s),
-		  late_extra_s_threshold_(late_gap_extra_s_threshold),
-		  t0_(now_monotonic_s()),
-		  chunked_hdr_seen_(chunked_hdr_seen) {}
-
+	: req_id_(req_id),
+	url_path_(url_path),
+	media_type_(media_type),
+	gap_threshold_s_(gap_threshold_s),
+	late_extra_s_threshold_(late_gap_extra_s_threshold),
+	t0_(now_monotonic_s()),
+	chunked_hdr_seen_(chunked_hdr_seen) {}
+	
 	// Called in header callback if Transfer-Encoding: chunked is seen
 	void mark_chunked() { chunked_hdr_seen_ = true; }
-
+	
 	// Called in write callback; returns "true" if a new burst just started
-	bool on_write(size_t nbytes, double t_now_s) {
+	bool on_write(size_t num_bytes, double t_now_s) {
 		if (first_payload_time_s_ < 0) first_payload_time_s_ = t_now_s;
 		bool new_burst = false;
 		if (!in_burst_) {
@@ -58,26 +82,31 @@ public:
 			// detect split if there's an idle gap mid-write stream
 			double idle = last_cb_time_s_ > 0 ? std::max(0.0, t_now_s - last_cb_time_s_) : 0.0;
 			if (idle > gap_threshold_s_) { // close previous, open new
-				close_burst(last_cb_time_s_);
+				// Close the previous burst at the *current* ingress time to avoid 0-span bursts.
+				close_burst(t_now_s);
 				open_burst(t_now_s, idle);
 				new_burst = true;
 			}
 		}
 		// account
 		if (!bursts_.empty()) {
-			bursts_.back().bytes += int(nbytes);
+			bursts_.back().bytes += int(num_bytes);
 		}
 		last_cb_time_s_ = t_now_s;
 		return new_burst;
 	}
-
+	
 	// Called at end of write stream
 	void on_complete_bytes() {
 		if (in_burst_) {
-			close_burst(last_cb_time_s_);
+			// If we only saw a single callback, last_cb_time_s_ can equal open time.
+			// Use a minimal non-zero duration floor.
+			double t_end = last_cb_time_s_;
+			if (t_end <= 0.0) t_end = now_monotonic_s();
+			close_burst(t_end);
 		}
 	}
-
+	
 	// Fill-in curl/cdn timing after curl_easy_perform
 	void set_curl_timings(double name_s, double connect_s, double appconnect_s,
 						  double pre_xfer_s, double start_xfer_s, double total_s,
@@ -91,8 +120,8 @@ public:
 		bytes_total_ = bytes_total;
 		total_done_time_s_ = now_monotonic_s();
 	}
-
-	// Write two CSV rowsets (requests + bursts)
+	
+	// Write two CSV row sets (requests + bursts)
 	void flush_csv() {
 		ensure_files_open();
 		// aggregate
@@ -104,30 +133,30 @@ public:
 			late_count   += b.is_late ? 1 : 0;
 		}
 		double avg_burst_rate_Bps = (burst_time_s > 0) ? (bytes / burst_time_s) : 0.0;
-
+		
 		// request row
 		req_ofs_ <<
-			req_id_ << ',' << t0_ << ',' << url_path_ << ',' << media_type_ << ',' <<
-			bytes_total_ << ',' << http_code_ << ',' << conn_reused_ << ',' <<
-			primary_ip_ << ',' << local_port_ << ',' <<
-			start_xfer_s_ << ',' << total_s_ << ',' <<
-			name_s_ << ',' << connect_s_ << ',' << appconnect_s_ << ',' <<
-			pre_xfer_s_ << ',' << redirect_s_ << ',' <<
-			(chunked_hdr_seen_ ? 1 : 0) << ',' <<
-			gap_time_s << ',' << burst_time_s << ',' <<
-			bursts_.size() << ',' << late_count << ',' << avg_burst_rate_Bps <<
-			'\n';
-
+		req_id_ << ',' << t0_ << ',' << url_path_ << ',' << media_type_ << ',' <<
+		bytes_total_ << ',' << http_code_ << ',' << conn_reused_ << ',' <<
+		primary_ip_ << ',' << local_port_ << ',' <<
+		start_xfer_s_ << ',' << total_s_ << ',' <<
+		name_s_ << ',' << connect_s_ << ',' << appconnect_s_ << ',' <<
+		pre_xfer_s_ << ',' << redirect_s_ << ',' <<
+		(chunked_hdr_seen_ ? 1 : 0) << ',' <<
+		gap_time_s << ',' << burst_time_s << ',' <<
+		bursts_.size() << ',' << late_count << ',' << avg_burst_rate_Bps <<
+		'\n';
+		
 		// burst rows
 		for (auto& b : bursts_) {
 			burst_ofs_ << req_id_ << ',' << b.idx << ',' << b.t_start_s << ',' <<
-						  b.dur_s << ',' << b.bytes << ',' << b.gap_before_s << ',' <<
-						  (b.is_late ? "late" : "normal") << '\n';
+			b.dur_s << ',' << b.bytes << ',' << b.gap_before_s << ',' <<
+			(b.is_late ? "late" : "normal") << '\n';
 		}
 		req_ofs_.flush();
 		burst_ofs_.flush();
 	}
-
+	
 	// Configure a "late" gap classifier (optional)
 	void classify_gaps(double cadence_s, double jitter_s) {
 		double late_thr = cadence_s + 2.0*std::max(0.010, jitter_s);
@@ -135,14 +164,31 @@ public:
 			if (b.gap_before_s > late_thr) b.is_late = true;
 		}
 	}
-
+	
 	// static configuration
-	static void set_paths(const std::string& req_path, const std::string& burst_path) {
+	static void set_paths_old(const std::string& req_path, const std::string& burst_path) {
 		std::lock_guard<std::mutex> g(file_m_);
 		req_path_ = req_path; burst_path_ = burst_path;
 		// (lazy open)
 	}
-
+	
+	
+	// NEW: per-process CSVs to avoid cross-process interleaving/appends.
+	// Produces: <path>.PID (e.g., /tmp/aamp_net_requests.csv.12345)
+	static void set_paths_with_pid(const std::string& req_path, const std::string& burst_path) {
+#if defined(__unix__) || defined(__APPLE__)
+		pid_t pid = getpid();
+		{
+			std::lock_guard<std::mutex> g(file_m_);
+			req_path_= req_path+ "." + std::to_string(pid);
+			burst_path_ = burst_path + "." + std::to_string(pid);
+		}
+#else
+		// Fallback (non-UNIX): no PID suffix
+		set_paths(req_path, burst_path);
+#endif
+	}
+	
 private:
 	void open_burst(double t_start_abs_s, double gap_before_s) {
 		in_burst_ = true;
@@ -155,7 +201,10 @@ private:
 	void close_burst(double t_end_abs_s) {
 		if (!in_burst_ || bursts_.empty()) return;
 		auto &b = bursts_.back();
-		b.dur_s = std::max(0.0, t_end_abs_s - (t0_ + b.t_start_s));
+		// Floor durations to avoid zero-time bursts from single write callbacks.
+		double raw = t_end_abs_s - (t0_ + b.t_start_s);
+		if (raw < kMinBurstDurS) raw = kMinBurstDurS;
+		b.dur_s = raw;
 		last_end_time_s_ = t_end_abs_s;
 		in_burst_ = false;
 	}
@@ -174,13 +223,13 @@ private:
 			}
 		}
 	}
-
+	
 	// request identity
 	uint64_t req_id_;
 	std::string url_path_, media_type_;
 	double t0_;
 	bool chunked_hdr_seen_ = false;
-
+	
 	// write/burst state
 	bool   in_burst_ = false;
 	double last_cb_time_s_ = 0.0;
@@ -189,7 +238,7 @@ private:
 	double gap_threshold_s_;
 	double late_extra_s_threshold_;
 	std::vector<Burst> bursts_;
-
+	
 	// curl results
 	long   http_code_ = -1;
 	int    conn_reused_ = 0;
@@ -198,7 +247,7 @@ private:
 	size_t bytes_total_ = 0;
 	double name_s_=0, connect_s_=0, appconnect_s_=0, pre_xfer_s_=0, start_xfer_s_=0, total_s_=0, redirect_s_=0;
 	double total_done_time_s_ = 0.0;
-
+	
 	// global CSV files
 	static std::mutex file_m_;
 	static std::string req_path_, burst_path_;

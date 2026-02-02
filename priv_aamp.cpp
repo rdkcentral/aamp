@@ -4460,37 +4460,42 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
 		CurlCallbackContext context;
 		
-		    // ==== Begin additive instrumentation – no behavior change ====
-		#ifdef AAMP_NET_TRACE
-		    using aamptrace::NetTrace;
-		    static std::atomic<uint64_t> g_req_id{1};
-		    // Allow overriding CSV paths via env; otherwise default to /tmp
-		    if (const char* R = std::getenv("AAMP_REQ_CSV")) {
-		        if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::set_paths(R, B);
-		        else NetTrace::set_paths(R, "/tmp/aamp_net_bursts.csv");
-		    } else {
-		        NetTrace::set_paths("/tmp/aamp_net_requests.csv","/tmp/aamp_net_bursts.csv");
-		    }
-		    auto pathOnly = [](const std::string& u)->std::string {
-		        size_t s = 0, p = u.find("://");
-		        s = (p==std::string::npos) ? 0 : (p+3);
-		        s = u.find('/', s);
-		        return (s==std::string::npos) ? u : u.substr(s);
-		    };
-		    const char* mt_str =
-		       (mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-		       (mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-		       (mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-		       (mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-		    // Split bursts on >5ms idle in write-callback; mark very long gaps as "late"
-		    const double GAP_THR_S  = 0.005;
-		    const double LATE_GAP_S = 0.120;
-		    NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
-		                 /*chunked=*/false, GAP_THR_S, LATE_GAP_S);
-		    // Make recorder available to header/write callbacks through the context
-		    context.net = &net;
-		#endif
-		    // ==== End additive instrumentation ====
+		// ==== Begin additive instrumentation – no behavior change ====
+#ifdef AAMP_NET_TRACE
+		using aamptrace::NetTrace;
+		static std::atomic<uint64_t> g_req_id{1};
+		// Per-PID CSV files to prevent cross-process interleaving/garbling.
+		// Env override supported; otherwise default to /tmp
+		if (const char* R = std::getenv("AAMP_REQ_CSV")) {
+			if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::set_paths_with_pid(R, B);
+			else NetTrace::set_paths_with_pid(R,
+											  "/tmp/aamp_net_bursts.csv");
+		}
+		else
+		{
+			NetTrace::set_paths_with_pid("/tmp/aamp_net_requests.csv","/tmp/aamp_net_bursts.csv");
+		}
+		
+		auto pathOnly = [](const std::string& u)->std::string {
+			size_t s = 0, p = u.find("://");
+			s = (p==std::string::npos) ? 0 : (p+3);
+			s = u.find('/', s);
+			return (s==std::string::npos) ? u : u.substr(s);
+		};
+		const char* mt_str =
+		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
+		// Split bursts on >5ms idle in write-callback; mark very long gaps as "late"
+		const double GAP_THR_S  = 0.005;
+		const double LATE_GAP_S = 0.120;
+		NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
+					 /*chunked=*/false, GAP_THR_S, LATE_GAP_S);
+		// Make recorder available to header/write callbacks through the context
+		context.net = &net;
+#endif
+		// ==== End additive instrumentation ====
 		
 		if (curl)
 		{
