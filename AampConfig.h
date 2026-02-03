@@ -86,11 +86,11 @@
 typedef enum
 {
 	eAAMPConfig_EnableABR,						/**< Enable/Disable adaptive bitrate logic*/
-	eAAMPConfig_Fog, 							/**< Enable / Disable FOG*/
+	eAAMPConfig_Fog,							/**< Enable / Disable FOG*/
 	eAAMPConfig_PrefetchIFramePlaylistDL,					/**< Enabled prefetching of I-Frame playlist*/
 	eAAMPConfig_Throttle,							/**< Regulate output data flow*/
 	eAAMPConfig_DemuxAudioBeforeVideo,					/**< Demux video track from HLS transport stream track mode*/
-	eAAMPConfig_DisableEC3, 						/**< Disable DDPlus*/
+	eAAMPConfig_DisableEC3,							/**< Disable DDPlus*/
 	eAAMPConfig_DisableATMOS,						/**< Disable Dolby ATMOS*/
 	eAAMPConfig_DisableAC4,							/**< Disable AC4 Audio */
 	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS.  */
@@ -104,7 +104,7 @@ typedef enum
 	eAAMPConfig_MPDDiscontinuityHandling,					/**< Enable MPD discontinuity handling*/
 	eAAMPConfig_MPDDiscontinuityHandlingCdvr,				/**< Enable MPD discontinuity handling for CDVR*/
 	eAAMPConfig_ForceHttp,							/**< Force HTTP*/
-	eAAMPConfig_InternalReTune, 						/**< Internal re-tune on underflows/ pts errors*/
+	eAAMPConfig_InternalReTune,						/**< Internal re-tune on underflows/ pts errors*/
 	eAAMPConfig_AudioOnlyPlayback,						/**< AAMP Audio Only Playback*/
 	eAAMPConfig_Base64LicenseWrapping,					/**< Encode and decode the license data in base64 format*/
 	eAAMPConfig_GStreamerBufferingBeforePlay,				/**< Enable pre buffering logic which ensures minimum buffering is done before pipeline play*/
@@ -115,7 +115,7 @@ typedef enum
 	eAAMPConfig_PlayAdFromCDN,						/**< Play Ad from CDN. Not from FOG.*/
 	eAAMPConfig_EnableVideoEndEvent,					/**< Enable or disable videoend events */
 	eAAMPConfig_EnableRectPropertyCfg,					/**< To allow or deny rectangle property set for sink element*/
-	eAAMPConfig_ReportVideoPTS, 						/**< Enables Video PTS reporting */
+	eAAMPConfig_ReportVideoPTS,						/**< Enables Video PTS reporting */
 	eAAMPConfig_DecoderUnavailableStrict,					/**< Reports decoder unavailable GST Warning as aamp error*/
 	eAAMPConfig_UseAppSrcForProgressivePlayback,				/**< Enables appsrc for playing progressive AV type */
 	eAAMPConfig_DescriptiveAudioTrack,					/**< advertise audio tracks using <langcode>-<role> instead of just <langcode> */
@@ -128,60 +128,60 @@ typedef enum
 	eAAMPConfig_GSTLogging,							/**< Enables Gstreamer logging */
 	eAAMPConfig_ProgressLogging,						/**< Enables Progress logging */
 	eAAMPConfig_CurlLogging,						/**< Enables Curl logging */
-	eAAMPConfig_CurlLicenseLogging, 					/**< Enable verbose curl logging for license request (non-secclient) */
+	eAAMPConfig_CurlLicenseLogging,						/**< Enable verbose curl logging for license request (non-secclient) */
 	eAAMPConfig_MetadataLogging,						/**< Enable timed metadata logging */
-	eAAMPConfig_CurlHeader, 						/**< enable curl header response logging on curl errors*/
+	eAAMPConfig_CurlHeader,							/**< enable curl header response logging on curl errors*/
 	eAAMPConfig_StreamLogging,						/**< Enables HLS Playlist content logging */
-	eAAMPConfig_ID3Logging,        						/**< Enables ID3 logging */
-	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events */
-	eAAMPConfig_MidFragmentSeek,                                            /**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
+	eAAMPConfig_ID3Logging,							/**< Enables ID3 logging */
+	eAAMPConfig_EnableGstPositionQuery,					/**< GStreamer position query will be used for progress report events */
+	eAAMPConfig_MidFragmentSeek,						/**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
 	eAAMPConfig_PropagateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
-	eAAMPConfig_UseWesterosSink, 						/**< Enable/Disable player to use westeros sink based video decoding */
+	eAAMPConfig_UseWesterosSink,						/**< Enable/Disable player to use westeros sink based video decoding */
 	eAAMPConfig_RetuneForUnpairDiscontinuity,				/**< disable unpaired discontinuity retune functionality*/
 	eAAMPConfig_RetuneForGSTError,						/**< disable retune mitigation for gst pipeline internal data stream error*/
 	eAAMPConfig_MatchBaseUrl,						/**< Enable host of main url will be matched with host of base url*/
 	eAAMPConfig_WifiCurlHeader,
 	eAAMPConfig_EnableSeekRange,						/**< Enable seekable range reporting via progress events */
-	eAAMPConfig_EnableLiveLatencyCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed */
+	eAAMPConfig_EnableLiveLatencyCorrection,				/**< Enable the live latency (drift) correction by adjusting the playback speed */
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
 	eAAMPConfig_FragMp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
 	eAAMPConfig_ABRBufferCheckEnabled,					/**< Flag to enable/disable buffer based ABR handling*/
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
-	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
+	eAAMPConfig_BulkTimedMetaReport,					/**< Enabled Bulk event reporting for TimedMetadata*/
 	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
 	eAAMPConfig_NativeCCRendering,						/**< If native CC rendering to be supported */
 	eAAMPConfig_Subtec_subtitle,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_WebVTTNative,						/**< Enable subtec-based subtitles */
-	eAAMPConfig_AsyncTune,						 	/**< To enable Asynchronous tune */
-	eAAMPConfig_DisableUnderflow,                                           /**< Enable/Disable Underflow processing*/
+	eAAMPConfig_AsyncTune,							/**< To enable Asynchronous tune */
+	eAAMPConfig_DisableUnderflow,						/**< Enable/Disable Underflow processing*/
 	eAAMPConfig_LimitResolution,                                            /**< Flag to indicate if display resolution based profile selection to be done */
 	eAAMPConfig_UseAbsoluteTimeline,					/**< Enable Report Progress report position based on Availability Start Time **/
 	eAAMPConfig_EnableAccessAttributes,					/**< Usage of Access Attributes in VSS */
-	eAAMPConfig_WideVineKIDWorkaround,                         		/**< partner-specific workaround to use WV DRM KeyId from alternate location */
+	eAAMPConfig_WideVineKIDWorkaround,					/**< partner-specific workaround to use WV DRM KeyId from alternate location */
 	eAAMPConfig_RepairIframes,						/**< Enable fragment repair (Stripping and box size correction) for iframe tracks */
 	eAAMPConfig_SEITimeCode,						/**< Enables SEI Time Code handling */
 	eAAMPConfig_Disable4K,							/**< Enable/Disable 4K stream support*/
-	eAAMPConfig_EnableSharedSSLSession,                                     /**< Enable/Disable config for shared ssl session reuse */
+	eAAMPConfig_EnableSharedSSLSession,					/**< Enable/Disable config for shared ssl session reuse */
 	eAAMPConfig_InterruptHandling,						/**< Enables Config for network interrupt handling*/
-	eAAMPConfig_EnableLowLatencyDash,                           		/**< Enables Low Latency Dash */
+	eAAMPConfig_EnableLowLatencyDash,					/**< Enables Low Latency Dash */
 	eAAMPConfig_DisableLowLatencyABR,					/**< Enables Low Latency ABR handling */
-	eAAMPConfig_EnableLowLatencyCorrection,                    		/**< Enables Low Latency Correction handling */
-	eAAMPConfig_EnableLowLatencyOffsetMin,                                  /**< Enables Low Latency Offset Min handling */
+	eAAMPConfig_EnableLowLatencyCorrection,					/**< Enables Low Latency Correction handling */
+	eAAMPConfig_EnableLowLatencyOffsetMin,					/**< Enables Low Latency Offset Min handling */
 	eAAMPConfig_SyncAudioFragments,						/**< Flag to enable Audio Video Fragment Sync */
-	eAAMPConfig_EnableIgnoreEosSmallFragment,                               /**< Enable/Disable Small fragment ignore based on minimum duration Threshold at period End*/
-	eAAMPConfig_UseSecManager,                                              /**< Enable/Disable secmanager instead of secclient for license acquisition */
-	eAAMPConfig_EnablePTO,								/**< Enable/Disable PTO Handling */
-	eAAMPConfig_EnableAampConfigToFog,                                      /**< Enable/Disable player config to Fog on every tune*/
+	eAAMPConfig_EnableIgnoreEosSmallFragment,				/**< Enable/Disable Small fragment ignore based on minimum duration Threshold at period End*/
+	eAAMPConfig_UseSecManager,						/**< Enable/Disable secmanager instead of secclient for license acquisition */
+	eAAMPConfig_EnablePTO,							/**< Enable/Disable PTO Handling */
+	eAAMPConfig_EnableAampConfigToFog,					/**< Enable/Disable player config to Fog on every tune*/
 	eAAMPConfig_GstSubtecEnabled,								/**< Force Gstreamer subtec */
 	eAAMPConfig_AllowPageHeaders,						/**< Allow page http headers*/
 	eAAMPConfig_PersistHighNetworkBandwidth,				/** Flag to enable Persist High Network Bandwidth across Tunes */
 	eAAMPConfig_PersistLowNetworkBandwidth,					/** Flag to enable Persist Low Network Bandwidth across Tunes */
 	eAAMPConfig_ChangeTrackWithoutRetune,					/**< Flag to enable audio track change without disturbing video pipeline */
 	eAAMPConfig_EnableCurlStore,						/**< Enable/Disable CurlStore to save/reuse curl fds */
-	eAAMPConfig_RuntimeDRMConfig,                                           /**< Enable/Disable Dynamic DRM config feature */
+	eAAMPConfig_RuntimeDRMConfig,						/**< Enable/Disable Dynamic DRM config feature */
 	eAAMPConfig_EnablePublishingMuxedAudio,					/**< Enable/Disable publishing the audio track info from muxed contents */
 	eAAMPConfig_EnableCMCD,							/**< Enable/Disable CMCD config feature */
 	eAAMPConfig_EnableSlowMotion,						/**< Enable/Disable Slowmotion playback */
@@ -189,7 +189,7 @@ typedef enum
 	eAAMPConfig_JsInfoLogging,						/**< Enable/disable jsinfo logging       */
 	eAAMPConfig_IgnoreAppLiveOffset,					/**< Config to ignore the liveOffset from App for LLD */
 	eAAMPConfig_useTCPServerSink,						/**< Route audio/video to tcpserversink, suppressing decode and presentation */
-	eAAMPConfig_enableDisconnectSignals,			/** When enabled (true which is the default) gstreamer signals are disconnected in AAMPGstPlayer::DisconnectSignals()*/
+	eAAMPConfig_enableDisconnectSignals,				/**< When enabled (true which is the default) gstreamer signals are disconnected in AAMPGstPlayer::DisconnectSignals()*/
 	eAAMPConfig_SendLicenseResponseHeaders,					/**<Config to enable adding license response headers with drm metadata event */
 	eAAMPConfig_SuppressDecode,					/**< To Suppress Decode of segments for playback . Test only Downloader */
 	eAAMPConfig_ReconfigPipelineOnDiscontinuity,				/*** Enable/Disable reconfigure pipeline on discontinuity */
@@ -201,8 +201,8 @@ typedef enum
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
-	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
+	eAAMPConfig_useRialtoSink,						/**< Enable/Disable player to use Rialto sink based video and audio pipeline */
+	eAAMPConfig_LocalTSBEnabled,						/**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
@@ -215,8 +215,8 @@ typedef enum
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
 	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
-	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
-	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
+	eAAMPConfig_DisableWebVTT,					/**< When true, disables/excludes WebVTT tracks; when false, WebVTT tracks are enabled (config default: false/enabled, but may be overridden per-app at runtime) */
+	eAAMPConfig_BoolMaxValue					/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
@@ -314,8 +314,8 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
-	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
-	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
+	eAAMPConfig_EarlyAbortProfileBandwidthPercent,			/**< Early abort threshold as percentage of profile bandwidth */
+	eAAMPConfig_IntMaxValue						/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
 
@@ -338,7 +338,7 @@ typedef enum
 	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
-	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
+	eAAMPConfig_FloatMaxValue					/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
 
@@ -357,7 +357,7 @@ typedef enum
 	eAAMPConfig_LicenseProxy,						/**< License Proxy */
 	eAAMPConfig_AuthToken,							/**< Session Token  */
 	eAAMPConfig_LogLevel,							/**< New Configuration to overide info/debug/trace */
-	eAAMPConfig_CustomHeaderLicense,                       			/**< custom header string data to be appended to curl License request*/
+	eAAMPConfig_CustomHeaderLicense,				/**< custom header string data to be appended to curl License request*/
 	eAAMPConfig_PreferredAudioRendition,					/**< New Configuration to save preferred Audio rendition/role descriptor field; support only single string value*/
 	eAAMPConfig_PreferredAudioCodec,					/**< New Configuration to save preferred Audio codecs values; support comma separated multiple string values*/
 	eAAMPConfig_PreferredAudioLanguage,					/**< New Configuration to save preferred Audio languages; support comma separated multiple string values*/
@@ -367,15 +367,15 @@ typedef enum
 	eAAMPConfig_PreferredTextLanguage,					/**<  New Configuration to save preferred Text languages; support comma separated multiple string values*/
 	eAAMPConfig_PreferredTextLabel,						/**< New Configuration to save preferred Text label field; Label is a textual description of the content. Support only single string value*/
 	eAAMPConfig_PreferredTextType,						/**< New Configuration to save preferred Text Type field; type indicate the accessibility type of text track*/
-	eAAMPConfig_CustomLicenseData,                      /**< Custom Data for License Request */
+	eAAMPConfig_CustomLicenseData,					/**< Custom Data for License Request */
 	eAAMPConfig_SchemeIdUriDaiStream,					/**< Scheme Id URI String for DAI Stream */
 	eAAMPConfig_SchemeIdUriVssStream,					/**< Scheme Id URI String for VSS Stream */
 	eAAMPConfig_LRHAcceptValue,							/**< Custom License Request Header Data */
 	eAAMPConfig_LRHContentType,							/**< Custom License Request ContentType Data */
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
 	eAAMPConfig_TsbType,
-	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
-	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
+	eAAMPConfig_TsbLocation,						/**< tsbType location for local TSB storage*/
+	eAAMPConfig_StringMaxValue					/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)
 
