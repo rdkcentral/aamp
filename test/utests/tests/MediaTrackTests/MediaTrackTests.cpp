@@ -60,7 +60,7 @@ AampConfig* gpGlobalConfig{nullptr};
 MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
 {
 	const AampGrowableBuffer& buffer = bufferStdConstRef.get();
-	return std::memcmp(arg.GetPtr(), buffer.GetPtr(), buffer.GetLen()) == 0;
+	return std::memcmp(arg.GetPtr(), buffer.GetPtr(), buffer.size()) == 0;
 }
 
 MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
@@ -170,7 +170,7 @@ protected:
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
 			mediaTrack.numberOfFragmentsCached = 1;
 		}
-		bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
+		bufferedFragment->Copy(&testFragment, testFragment.fragment.size());
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
 			// Make the buffer parser return the correct position and duration

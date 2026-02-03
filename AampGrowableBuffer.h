@@ -36,39 +36,44 @@
 class AampGrowableBuffer
 {
 public:
-	AampGrowableBuffer( const char *name="?" ):buffer(),name(name){}
+	AampGrowableBuffer(const char *name = "?") : buffer(), name(name) {}
 	~AampGrowableBuffer();
-	
+
 	// Copy constructor
-	AampGrowableBuffer(const AampGrowableBuffer & other)
-	: buffer(other.buffer),
-	name{other.name}
-	{ // never reached/used?
+	AampGrowableBuffer(const AampGrowableBuffer &other)
+		: buffer(other.buffer),
+		  name{other.name}
+	{
+		// If the copied buffer has allocated capacity, account for it.
+		if (buffer.capacity() > 0)
+		{
+			NETMEMORY_PLUS();
+		}
 	}
-	
+
 	// Copy assignment
-	AampGrowableBuffer& operator=(const AampGrowableBuffer & other)
-	{ // never reached/used?
-		buffer = other.buffer;
+	AampGrowableBuffer &operator=(AampGrowableBuffer other)
+	{
+		swap(*this, other);
 		return *this;
 	}
-	
+
 	// Move constructor
-	AampGrowableBuffer(AampGrowableBuffer && other) noexcept
-	: buffer(std::move(other.buffer)),
-	name{other.name}
-	{ // never reached/used
+	AampGrowableBuffer(AampGrowableBuffer &&other) noexcept
+		: buffer(std::move(other.buffer)),
+		  name{other.name}
+	{
 	}
-	
-	// Move assignment
-	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
-	{ // never reached/used
-		buffer = std::move(other.buffer);
-		return *this;
+
+	friend void swap(AampGrowableBuffer &first, AampGrowableBuffer &second) noexcept
+	{
+		using std::swap;
+		swap(first.buffer, second.buffer);
+		swap(first.name, second.name);
 	}
-	
-	void Free( void );
-	void ReserveBytes( size_t len );
+
+	void Free(void);
+	void ReserveBytes(size_t len);
 	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
 	void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
 	void Replace( AampGrowableBuffer *src );
@@ -97,16 +102,40 @@ public:
 	size_t GetAvail( void ) const { return buffer.capacity(); } // should be opaque, but used in logging
 	void SetLen( size_t l ) { assert(l<=buffer.capacity()); buffer.resize(l); }
 
-    static void EnableLogging( bool enable );
-    
+	// Vector-like convenience wrappers (lower-case names to match std::vector)
+	void clear() { Clear(); } // If used may need to call NETMEMORY_MINUS()
+	bool empty() const { return buffer.empty(); }
+	size_t size() const { return buffer.size(); }
+	size_t capacity() const { return buffer.capacity(); }
+	void shrink_to_fit() { buffer.shrink_to_fit(); }	// If used may need to call NETMEMORY_MINUS()
+	void reserve(size_t n) { buffer.reserve(n); }		// If used may need to call NETMEMORY_PLUS()
+	void resize(size_t n)
+	{
+		const size_t prevCap = buffer.capacity();
+
+		buffer.resize(n);
+		if (prevCap == 0 && buffer.capacity() > 0)
+		{
+			NETMEMORY_PLUS();
+		}
+	}
+	void insert( typename std::vector<uint8_t>::const_iterator pos, const uint8_t* first, const uint8_t* last )
+	{
+		buffer.insert( pos, first, last );
+	}
+	uint8_t *data() { return buffer.data(); }
+	const uint8_t *data() const { return buffer.data(); }
+
+	static void EnableLogging( bool enable );
+
 private:
-    const char *name;
+	const char *name;
 	std::vector<uint8_t> buffer;  /**< Vector holding buffer data */
-	
-    static bool gbEnableLogging;
+
+	static bool gbEnableLogging;
 	static int gNetMemoryCount;
 	static int gNetMemoryHighWatermark;
-    
+
 	static void NETMEMORY_PLUS( void )
 	{
 		gNetMemoryCount++;

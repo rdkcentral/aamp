@@ -1617,7 +1617,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					unsigned int firstOffset;
 					ParseSegmentIndexBox(
 										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->IDX.size(),
 										 0,
 										 NULL,
 										 NULL,
@@ -1634,7 +1634,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						if (ParseSegmentIndexBox(
 												 pMediaStreamContext->IDX.GetPtr(),
-												 pMediaStreamContext->IDX.GetLen(),
+												 pMediaStreamContext->IDX.size(),
 												 i,
 												 &referenced_size,
 												 &fragmentDuration,
@@ -1651,7 +1651,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(
 										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->IDX.size(),
 										 pMediaStreamContext->fragmentIndex++,
 										 &referenced_size,
 										 &fragmentDuration,
@@ -1665,7 +1665,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					uint64_t nextfragmentOffset;
 					if (ParseSegmentIndexBox(
 							pMediaStreamContext->IDX.GetPtr(),
-							pMediaStreamContext->IDX.GetLen(),
+							pMediaStreamContext->IDX.size(),
 							pMediaStreamContext->fragmentIndex,
 							&nextReferencedSize,
 							&nextfragmentDuration,
@@ -2447,7 +2447,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				{
 					if (ParseSegmentIndexBox(
 											 pMediaStreamContext->IDX.GetPtr(),
-											 pMediaStreamContext->IDX.GetLen(),
+											 pMediaStreamContext->IDX.size(),
 											 fragmentIndex++,
 											 &referenced_size,
 											 &fragmentDuration,
@@ -8272,7 +8272,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								float fragmentDuration;
 								if (ParseSegmentIndexBox(
 										pMediaStreamContext->IDX.GetPtr(),
-										pMediaStreamContext->IDX.GetLen(),
+										pMediaStreamContext->IDX.size(),
 										pMediaStreamContext->fragmentIndex,
 										&referenced_size,
 										&fragmentDuration,
