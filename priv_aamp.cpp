@@ -63,6 +63,7 @@
 #include <unordered_set>
 
 #include <sys/time.h>
+#include <chrono>
 #include <cmath>
 #include <regex>
 #include <fstream>
@@ -4435,7 +4436,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 	if (mDownloadsEnabled)
 	{
-		int downloadTimeMS = 0;
+		double downloadTimeMS = 0.0;
+		int downloadTimeMSInt = 0;
 		bool isDownloadStalled = false;
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
@@ -4619,7 +4621,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				isDownloadStalled = false;
 				abortReason = eCURL_ABORT_REASON_NONE;
 
-				long long tStartTime = NOW_STEADY_TS_MS;
+				const auto performStartTime = std::chrono::steady_clock::now();
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
 				if( res == CURLE_OPERATION_TIMEDOUT)
@@ -4637,11 +4639,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						interruptibleMsSleep( insertDownloadDelay );
 					}
 				}
-
-				long long tEndTime = NOW_STEADY_TS_MS;
+				const auto performEndTime = std::chrono::steady_clock::now();
 				downloadAttempt++;
-
-				downloadTimeMS = (int)(tEndTime - tStartTime);
+				downloadTimeMS = std::chrono::duration<double, std::milli>(
+					performEndTime - performStartTime).count();
+				downloadTimeMSInt = static_cast<int>(downloadTimeMS + 0.5); //to feed an integer-millisecond value into existing interfaces/logic that are typed as int (e.g., ABR calculations and some latency logging)
 				bool loopAgain = false;
 				if (res == CURLE_OK)
 				{ // all data collected
@@ -4717,12 +4719,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						/*in case of fetch fragment this will be non zero value */
 						if (downloadTimeMS > fragmentDurationMs )
 						{
-							AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, mediaType);
+							AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMSInt, fragmentDurationMs, mediaType);
 						}
 					}
 					else if (downloadTimeMS > FRAGMENT_DOWNLOAD_WARNING_THRESHOLD )
 					{
-						AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, mediaType);
+						AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMSInt, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
 
@@ -4869,7 +4871,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 									{
 										if (buffer->GetLen())
 										{
-											long downloadbps = ((long)(buffer->GetLen() / downloadTimeMS) * 8000);
+											long downloadbps = static_cast<long>(
+												(static_cast<double>(buffer->GetLen()) /
+													downloadTimeMS) * BYTES_PER_MS_TO_BITS_PER_SEC);
 											long currentProfilebps = mpStreamAbstractionAAMP->GetVideoBitrate();
 											if (currentProfilebps - downloadbps > BITRATE_ALLOWED_VARIATION_BAND)
 											{
@@ -4908,9 +4912,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				double connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
 				long reqSize, downloadbps = 0;
 				AAMP_LogLevel reqEndLogLevel = eLOGLEVEL_INFO;
-				if(downloadTimeMS != 0 && buffer->GetLen() != 0)
+				if(downloadTimeMS > 0.0 && buffer->GetLen() != 0)
 				{
-					downloadbps = ((long)(buffer->GetLen() / downloadTimeMS)*8000);
+					downloadbps = static_cast<long>(
+						(static_cast<double>(buffer->GetLen()) /
+							downloadTimeMS) * BYTES_PER_MS_TO_BITS_PER_SEC);
 				}
 				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
 				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
@@ -4947,7 +4953,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
-					double totalPerformRequest = (double)(downloadTimeMS)/1000;
+					double totalPerformRequest = (downloadTimeMS > 0.0) ?
+						(downloadTimeMS / 1000.0) : total;
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
@@ -4970,7 +4977,22 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 
 					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
-							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
+							appName.c_str(),
+							mediaTypeTelemetry,
+							mediaType, 
+							http_code, 
+							timeoutClass.c_str(), 
+							totalPerformRequest, 
+							total, 
+							connect, 
+							startTransfer, 
+							resolve, 
+							appConnect, 
+							preTransfer, 
+							redirect, 
+							dlSize, 
+							reqSize, 
+							downloadbps,
 					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
 					if (context.processDelay > 0)
@@ -4987,7 +5009,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			 	//To handle initial fragment download delays before ABR starts
 				if(GetLLDashServiceData()->lowLatencyMode && mediaType == eMEDIATYPE_VIDEO)
 				{
-					double downloadTime = (double)(downloadTimeMS)/1000;
+					double downloadTime = downloadTimeMS / 1000.0;
 					//DownloadTime greater than 60% of fragmentDuration are categorized as Delay in download
 					//DownloadTime greater than 105% means there is a huge chance of buffer underflow
 					if(downloadTime > (fragmentDurationS/100) * 105) /** If download time is greater */
@@ -5013,10 +5035,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		{
 			if ( IsCurlTimeoutFailure (http_code) && buffer->GetLen() > 0)
 			{
-				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer->GetLen(), downloadTimeMS, isDownloadStalled);
+				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer->GetLen(), downloadTimeMSInt, isDownloadStalled);
 			}
 
-			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
+			if (downloadTimeMSInt > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
 				ABRManager::CurlAbortReason hybridAbortReason = (ABRManager::CurlAbortReason) abortReason;
@@ -5024,7 +5046,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
 					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
-					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->GetLen(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
+					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->GetLen(),downloadTimeMSInt,currentProfilebps,fragmentDurationMs,hybridAbortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
 						mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(mAbrBitrateData,downloadbps,false);

@@ -29,6 +29,8 @@
 #include "AampLogManager.h"
 #include <inttypes.h>
 
+#include <chrono>
+
 
 
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
@@ -352,7 +354,7 @@ void AampMPDDownloader::downloadMPDThread1()
 	{
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
 		bool doPush = true;
-		long long tStartTime = NOW_STEADY_TS_MS;
+		const auto startTime = std::chrono::steady_clock::now();
 		{
 			std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 			if(mReleaseCalled)
@@ -483,8 +485,10 @@ void AampMPDDownloader::downloadMPDThread1()
 				mMPDData->mMPDDownloadResponse->show();
 			}
 		}
-		long long tEndTime = NOW_STEADY_TS_MS;
-		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
+		const auto endTime = std::chrono::steady_clock::now();
+		double totalPerformanceTimeMs = std::chrono::duration<double, std::milli>(
+			endTime - startTime).count();
+		showDownloadMetrics(mMPDData->mMPDDownloadResponse, totalPerformanceTimeMs);
 		if(doPush)
 		{
 			// Push the output to Queue for Consumer to take
@@ -589,11 +593,11 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 * @params DownloadResponse pointer ,totalPerformanceTime
 * @return void
 */
-void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime)
+void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, double totalPerformanceTimeMs)
 {
 	int http_code			=	dnldPtr->iHttpRetValue;
 	double total			=	dnldPtr->downloadCompleteMetrics.total;
-	double totalPerformRequest	= (double)(totalPerformanceTime)/1000;	// in sec
+	double totalPerformRequest	= totalPerformanceTimeMs / 1000.0;
 	AAMP_LogLevel reqEndLogLevel	=	eLOGLEVEL_INFO;
 
 	std::string appName, timeoutClass;

@@ -35,6 +35,8 @@
 #include "PlayerUtils.h"
 #include "PlayerSecInterface.h"
 
+#include <chrono>
+
 #include "AAMPAnomalyMessageType.h"
 #include "AuthTokenErrors.h"
 
@@ -566,7 +568,7 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
  * @param[in] eventHandle - DRM Metadata event handle
  * @param[in] respData - download response data
  */
-void AampDRMLicenseManager::UpdateLicenseMetrics(DrmRequestType requestType, int32_t statusCode, std::string licenseRequestUrl, long long downloadTimeMS, DrmMetaDataEventPtr eventHandle, DownloadResponsePtr respData )
+void AampDRMLicenseManager::UpdateLicenseMetrics(DrmRequestType requestType, int32_t statusCode, std::string licenseRequestUrl, double downloadTimeMS, DrmMetaDataEventPtr eventHandle, DownloadResponsePtr respData )
 {
 	//Convert to JSON format
 	cJSON *item = nullptr;
@@ -580,7 +582,7 @@ void AampDRMLicenseManager::UpdateLicenseMetrics(DrmRequestType requestType, int
 	{
 		cJSON_AddNumberToObject(item, "req",requestType);
 		cJSON_AddNumberToObject(item, "res", statusCode);
-		cJSON_AddNumberToObject(item, "tot",downloadTimeMS);
+		cJSON_AddNumberToObject(item, "tot", downloadTimeMS);
 		cJSON_AddStringToObject(item, "url",licenseRequestUrl.c_str());
 
 		if( (nullptr != respData) && (DRM_GET_LICENSE == requestType))
@@ -956,17 +958,18 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
 
 	unsigned int attemptCount = 0;
-	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
+	const auto startTimeWithRetry = std::chrono::steady_clock::now();
 	/* Check whether stopped or not before looping - download will be disabled */
 	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort.load(std::memory_order_acquire))
 	{
 		bool loopAgain = false;
 		attemptCount++;
 
-		long long tStartTime = NOW_STEADY_TS_MS;
+		const auto startTime = std::chrono::steady_clock::now();
 		pLicenseDownloader->Download(licenseRequest.url, respData);
-		long long tEndTime = NOW_STEADY_TS_MS;
-		long long downloadTimeMS = tEndTime - tStartTime;
+		const auto endTime = std::chrono::steady_clock::now();
+		double downloadTimeMS = std::chrono::duration<double, std::milli>(
+			endTime - startTime).count();
 		
 		/** Restrict further processing license if stop called in between  */
 		if(licenseRequestAbort.load(std::memory_order_acquire))
@@ -1028,7 +1031,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 			}
 		}
 		
-		double totalPerformRequest = (double)(downloadTimeMS)/1000;
+		double totalPerformRequest = downloadTimeMS / 1000.0;
 		std::string appName, timeoutClass;
 		if (!aampInstance->GetAppName().empty())
 		{
@@ -1058,8 +1061,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		if(!loopAgain)
 			break;
 	}
-	long long tEndTimeWithRetry = NOW_STEADY_TS_MS;
-	long long totalDownloadTimeMS = tEndTimeWithRetry - tStartTimeWithRetry;
+	const auto endTimeWithRetry = std::chrono::steady_clock::now();
+	double totalDownloadTimeMS = std::chrono::duration<double, std::milli>(
+		endTimeWithRetry - startTimeWithRetry).count();
 
 	UpdateLicenseMetrics(DRM_GET_LICENSE, *httpCode, licenseRequest.url.c_str(), totalDownloadTimeMS, eventHandle, respData );
 

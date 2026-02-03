@@ -366,7 +366,7 @@ private:
 	*	@fn showDownloadMetrics
 	*	@brief Function to show download Metrics
 	*/
-	void showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime);
+	void showDownloadMetrics(DownloadResponsePtr dnldPtr, double totalPerformanceTimeMs);
 	/**
 	*	@fn stichToCachedManifest
 	*	@brief Function called to Stich the cached manifest with downloaded manifest
