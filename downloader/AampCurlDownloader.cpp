@@ -153,6 +153,7 @@ AampCurlDownloader::~AampCurlDownloader()
 
 bool AampCurlDownloader::IsDownloadActive()
 {
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	return mDownloadActive;
 }
 
@@ -351,31 +352,34 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 	// Release and reset and previously called values
 	Release();
 
-	std::lock_guard<std::mutex> lock(mCurlMutex);
-	mDnldCfg = dnldCfg;
-	//mDnldCfg->show();
-	if (!mDnldCfg->pCurl)
+	CleanupCurlHeaderResources(); // internally, this temporarily acquires mCurlMutex
+	
 	{
-		if(mCurl == NULL)
+		std::lock_guard<std::mutex> lock(mCurlMutex);
+		mDnldCfg = std::move(dnldCfg);
+		//mDnldCfg->show();
+		if (!mDnldCfg->pCurl)
 		{
-			mCurl = curl_easy_init();
-			mCreatedNewFd = true;
+			if(mCurl == NULL)
+			{
+				mCurl = curl_easy_init();
+				mCreatedNewFd = true;
+			}
+			
 		}
-
-	}
-	else
-	{
-		if(mCreatedNewFd && mCurl)
+		else
 		{
-			// Whatever created by this module should be freed by this module
-			// AampCurlDownloader is not responsible for the curl handles provided for download
-			curl_easy_cleanup(mCurl);
-			mCreatedNewFd = false;
+			if(mCreatedNewFd && mCurl)
+			{
+				// Whatever created by this module should be freed by this module
+				// AampCurlDownloader is not responsible for the curl handles provided for download
+				curl_easy_cleanup(mCurl);
+				mCreatedNewFd = false;
+			}
+			mCurl =	mDnldCfg->pCurl;
 		}
-		mCurl =	mDnldCfg->pCurl;
+		updateCurlParams();
 	}
-	updateCurlParams();
-
 }
 
 
@@ -383,6 +387,11 @@ void AampCurlDownloader::Release()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
+}
+
+void AampCurlDownloader::CleanupCurlHeaderResources()
+{
+	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;
 	mWriteCallbackBufferSize = 0;
