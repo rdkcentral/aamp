@@ -80,9 +80,20 @@ public:
 	 */
 	std::vector<uint8_t> ExtractVector( void );
 
-	char *GetPtr( void ) { return buffer.capacity() ? reinterpret_cast<char*>(buffer.data()) : nullptr; }
-	const char *GetPtr( void ) const { return buffer.capacity() ? reinterpret_cast<const char*>(buffer.data()) : nullptr; }
-	size_t GetLen( void ) const { return buffer.size(); } // accessor function for current logical growable buffer size
+	/**
+	 * @brief Access the internal storage vector by reference.
+	 *	This returns a reference to the internal std::vector<uint8_t> so callers
+	 * can pass it directly to APIs that accept a vector reference without
+	 * performing an extra copy. Prefer using the const overload if mutation is
+	 * not required.
+	 */
+	std::vector<uint8_t>& GetVector() { return buffer; }
+	const std::vector<uint8_t>& GetVector() const { return buffer; }
+
+  char *GetPtr( void ) { return buffer.capacity() ? reinterpret_cast<char*>(buffer.data()) : nullptr; }
+  const char *GetPtr( void ) const { return buffer.capacity() ? reinterpret_cast<const char*>(buffer.data()) : nullptr; }
+  
+  size_t GetLen( void ) const { return buffer.size(); } // accessor function for current logical growable buffer size
 	size_t GetAvail( void ) const { return buffer.capacity(); } // should be opaque, but used in logging
 	void SetLen( size_t l ) { assert(l<=buffer.capacity()); buffer.resize(l); }
 

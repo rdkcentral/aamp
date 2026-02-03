@@ -10483,7 +10483,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						if(ret != false)
 						{
 							// If successful download , then insert into Cache
-							getAampCacheHandler()->InsertToPlaylistCache(newelem.url, &playlistStore, playlistEffectiveUrl, false, newelem.type);
+							getAampCacheHandler()->InsertToPlaylistCache(newelem.url, playlistStore.GetVector(), playlistEffectiveUrl, false, newelem.type);
 							playlistStore.Free();
 						}
 					}
