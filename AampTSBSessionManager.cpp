@@ -841,7 +841,7 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 		{
 			fragment = prevShared;
 			success = true;
-		}	
+		}
 		else
 		{
 			// Don't skip the first fragment in the TSB so BoS is detected correctly
