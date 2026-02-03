@@ -113,7 +113,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 								auto prevFragment = firstFragmentToFetch->prev.lock();
 								if (!prevFragment || firstFragmentToFetch->GetPeriodId() != prevFragment->GetPeriodId())
 								{
-									break; // Break if no previous fragment exists or if at period boundary
+									break; // Break if no previous fragment exists OR if at a period boundary
 								}
 
 								firstFragmentToFetch = prevFragment;
