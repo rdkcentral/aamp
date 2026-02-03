@@ -150,10 +150,9 @@ public:
 	/**
 	 *   @brief Stop playback and release resources.
 	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
-	 *   @param[in]  forceCleanup - true to force DRM handle cleanup for Deep Sleep scenarios (default false)
 	 *   @return void
 	 */
-	void Stop(bool sendStateChangeEvent = true, bool forceCleanup = false);
+	void Stop(bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn ResetConfiguration
@@ -1485,10 +1484,9 @@ private:
 	 *   @fn StopInternal
 	 *
 	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
-	 *   @param[in]  forceCleanup - true to force DRM handle cleanup for Deep Sleep scenarios
 	 *   @return void
 	 */
-	void StopInternal(bool sendStateChangeEvent, bool forceCleanup);
+	void StopInternal(bool sendStateChangeEvent);
 
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */
