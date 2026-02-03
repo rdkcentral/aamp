@@ -104,6 +104,7 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
 	{
 		mLicenseDownloader[i].Release();
+		mLicenseDownloader[i].CleanupCurlHeaderResources();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
