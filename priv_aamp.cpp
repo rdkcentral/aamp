@@ -4460,7 +4460,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
 		CurlCallbackContext context;
 		
-		// ==== Begin additive instrumentation – no behavior change ====
+		// ==== Begin additive instrumentation - no behavior change ====
 #ifdef AAMP_NET_TRACE
 		using aamptrace::NetTrace;
 		static std::atomic<uint64_t> g_req_id{1};
