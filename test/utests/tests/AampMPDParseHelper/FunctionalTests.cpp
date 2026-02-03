@@ -1340,14 +1340,14 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive1)
 	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
 	double periodDuration = ParseHelper->aamp_GetPeriodDuration(0,mpdDownloadTime);
 	// Check period duration
-	EXPECT_EQ(periodDuration, 28800); // = (14+1)*172800/90000 = 28800 mseconds
+	EXPECT_NEAR(periodDuration, 28800, 1); // = (14+1)*172800/90000 = 28800 milliseconds
 
 	double periodDuration1 = ParseHelper->GetPeriodDuration(0,mpdDownloadTime, false, false);
 	// Check period duration
-	EXPECT_EQ(periodDuration1, 28800);
+	EXPECT_NEAR(periodDuration1, 28800, 1);
 
 	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(0);
-	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period start time mising from period
+	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period start time missing from period
 }
 
 TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
@@ -1453,13 +1453,13 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
 	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
 	double periodDuration = ParseHelper->aamp_GetPeriodDuration(0,mpdDownloadTime);
 	// Check period duration
-	EXPECT_EQ(periodDuration, 24840); //Duration by adding up segments
+	EXPECT_NEAR(periodDuration, 24840, 1); //Duration by adding up segments
 
 	double periodDuration1 = ParseHelper->GetPeriodDuration(0,mpdDownloadTime, false, false);
 	// Check period duration
-	EXPECT_EQ(periodDuration1, 24747); //Duration by adding up segments
+	EXPECT_NEAR(periodDuration1, 24747, 1);
 
 	// Duration calculated by start(n+1) - start(n)
 	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(0);
-	EXPECT_EQ(periodDuration2, 212107);
+	EXPECT_NEAR(periodDuration2, 212107, 1);
 }

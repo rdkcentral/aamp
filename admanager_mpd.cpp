@@ -580,7 +580,6 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						// diff > OFFSET_ALIGN_FACTOR, in which case its a partial ad.
 						// diff < OFFSET_ALIGN_FACTOR, in which case we have to align to next period.
 						// So check if next period available with valid duration
-
 						for (iter = iter + 1; iter < periods.size(); iter++)
 						{
 							if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
@@ -590,7 +589,6 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						}
 						if (iter < periods.size())
 						{
-
 							auto nextPeriod = periods.at(iter);
 							// done with Adjustment
 							abObj.adjustEndPeriodOffset = false;
@@ -607,7 +605,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 										 diff, currPeriodDuration);
 						}
 					}
-					// --> Inserted Ads finishes >= 2 seconds from end of current period
+					// --> Inserted Ads finishes >= 2 seconds in current period : Channel playback starts from that position in the current period.
 					// OR we do not know when current period ends, have not established duration
 					else
 					{

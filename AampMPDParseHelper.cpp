@@ -1198,7 +1198,7 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 
 	double durationMs = 0;
 	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
-	if ((periodIndex + 1) < periods.size())
+	if ((periodIndex + 1) < periods.size() && periodIndex >= 0)
 	{
 		std::string periodStartStr = periods.at(periodIndex)->GetStart();
 		std::string nextPeriodStartStr = periods.at(periodIndex + 1)->GetStart();
@@ -1223,7 +1223,7 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 	}
 	else
 	{
-		AAMPLOG_TRACE("Cannot get period duration from start times for the last period or invalid period index");
+		AAMPLOG_TRACE("Cannot get duration periods %zu periodIndex %d", periods.size(), periodIndex);
 	}
 	return durationMs;
 }
