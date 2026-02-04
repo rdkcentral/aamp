@@ -129,6 +129,28 @@ public:
 			NETMEMORY_PLUS();
 		}
 	}
+
+	/**
+	 * @brief Helper for external code to account NETMEMORY for capacity transitions
+	 *
+	 * Some callers copy cached data into an external std::vector which then
+	 * becomes the backing storage for an AampGrowableBuffer. This helper lets
+	 * external code notify the global accounting about a capacity change.
+	 *
+	 * @param prevCap previous capacity of the destination vector
+	 * @param newCap new capacity after the copy
+	 */
+	static void AccountCapacityTransition(size_t prevCap, size_t newCap)
+	{
+		if (prevCap == 0 && newCap > 0)
+		{
+			NETMEMORY_PLUS();
+		}
+		else if (prevCap > 0 && newCap == 0)
+		{
+			NETMEMORY_MINUS();
+		}
+	}
 	uint8_t *data() { return buffer.data(); }
 	const uint8_t *data() const { return buffer.data(); }
 
