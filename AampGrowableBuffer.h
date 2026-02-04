@@ -119,9 +119,15 @@ public:
 			NETMEMORY_PLUS();
 		}
 	}
-	void insert( typename std::vector<uint8_t>::const_iterator pos, const uint8_t* first, const uint8_t* last )
+	void insert(typename std::vector<uint8_t>::const_iterator pos, const uint8_t *first, const uint8_t *last)
 	{
-		buffer.insert( pos, first, last );
+		const size_t oldCap = buffer.capacity();
+
+		buffer.insert(pos, first, last);
+		if (oldCap == 0 && buffer.capacity() > 0)
+		{
+			NETMEMORY_PLUS();
+		}
 	}
 	uint8_t *data() { return buffer.data(); }
 	const uint8_t *data() const { return buffer.data(); }
