@@ -569,7 +569,7 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_BoS)
 
 	// Mock data manager
 	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
-	firstFragment->prev = nullptr;
+	firstFragment->prev.reset();
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(firstFragment));
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(firstFragment));
 

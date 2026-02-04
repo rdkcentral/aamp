@@ -1829,7 +1829,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						int segment_http_error = 0;
 						double segment_downloadTime = 0;
 						AAMPLOG_INFO("Fetching init header %s for %s adId:%s periodId:%s", fragmentUrl.c_str(), GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
-						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit.get(), fragmentUrl);
+						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit->GetVector(), fragmentUrl);
 						if(!gotInit)
 						{
 							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit.get(), fragmentUrl, &segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
@@ -1838,7 +1838,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						if (gotInit)
 						{
 							AAMPLOG_INFO("Init header fetched successfully for %s adId:%s periodId:%s", GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
-							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit.get(), fragmentUrl, actualMediaType);
+							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit->GetVector(), fragmentUrl, actualMediaType);
 							adInit->Free();
 							initFragmentFetched = true;
 							break;
