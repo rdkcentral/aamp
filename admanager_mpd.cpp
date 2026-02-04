@@ -648,29 +648,25 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				ss<<", endPeriodId: "<<abObj.endPeriodId;
 				ss<<", endPeriodOffset: "<<abObj.endPeriodOffset;
 				ss<<", #Ads: "<<abObj.ads->size() << ",[";
-				AAMPLOG_MIL("[CDAI] Placement Done: %s.",  ss.str().c_str());
-
 				for(int k=0;k<abObj.ads->size();k++)
 				{
 					AdNode &ad = abObj.ads->at(k);
-					ss = std::stringstream();
-					ss <<"{AdIdx:"<<k <<",AdId:"<<ad.adId<<",duration:"<<ad.duration<<",basePeriodId:"<<ad.basePeriodId<<", basePeriodOffset:"<<ad.basePeriodOffset<<"},";
-					AAMPLOG_MIL("[CDAI] %s",  ss.str().c_str());
+					ss<<"\n{AdIdx:"<<k <<",AdId:"<<ad.adId<<",duration:"<<ad.duration<<",basePeriodId:"<<ad.basePeriodId<<", basePeriodOffset:"<<ad.basePeriodOffset<<"},";
 				}
-				ss=std::stringstream();
+				ss<<"],\nUnderlyingPeriods:[ ";
 				for(auto it = mPeriodMap.begin();it != mPeriodMap.end();it++)
 				{
 					if(it->second.adBreakId == mPlacementObj.pendingAdbrkId)
 					{
-						ss<<"{PeriodId:"<<it->first<<", duration:"<<it->second.duration;
+						ss<<"\n{PeriodId:"<<it->first<<", duration:"<<it->second.duration;
 						for(auto pit = it->second.offset2Ad.begin(); pit != it->second.offset2Ad.end() ;pit++)
 						{
 							ss<<", offset["<<pit->first<<"]=> Ad["<<pit->second.adIdx<<"@"<<pit->second.adStartOffset<<"]";
 						}
 					}
 				}
-				ss<<"}";
-				AAMPLOG_MIL("[CDAI] UnderlyingPeriods:[%s]",  ss.str().c_str());
+				ss<<"]}";
+				AAMPLOG_MIL("[CDAI] Placement Done: %s.",  ss.str().c_str());
 			}
 		}
 		if(-1 == mPlacementObj.curAdIdx)
