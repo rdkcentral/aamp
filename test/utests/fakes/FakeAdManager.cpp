@@ -151,6 +151,13 @@ void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 {
 }
 
+void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (g_MockPrivateCDAIObjectMPD)
+	{
+		g_MockPrivateCDAIObjectMPD->NotifyReservationComplete(reservationId);
+	}
+}
 
 void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {

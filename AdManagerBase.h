@@ -106,10 +106,17 @@ public:
 	}
 
 	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	virtual void NotifyReservationComplete(const std::string& reservationId) {}
+
+	/**
 	 * @brief Cancel ad reservation
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 */
 	virtual void CancelReservation(const std::string& cancelAtReservationId) {}
+
 };
 
 

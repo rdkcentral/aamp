@@ -93,10 +93,17 @@ public:
 	virtual void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url, uint64_t startMS=0, uint32_t breakdur=0) override;
 
 	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	virtual void NotifyReservationComplete(const std::string& reservationId) override;
+
+	/**
 	 * @brief Request cancellation for the adbreak currently in progress
 	 * @param[in] cancelAtReservationId The reservation identifier at which cancellation should occur; applied to the AdBreak (not individual ads)
 	 */
 	virtual void CancelReservation(const std::string& cancelAtReservationId) override;
+
 };
 
 
@@ -413,10 +420,17 @@ public:
 	void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur=0);
 
 	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
 	 * @brief Cancel ad reservation
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 */
 	void CancelReservation(const std::string& cancelAtReservationId);
+
 	/**
 	 * @fn FulFillAdObject
 	 *
