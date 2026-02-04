@@ -1034,6 +1034,8 @@ public:
 										   "width", G_TYPE_INT, video.width,
 										   "height", G_TYPE_INT, video.height,
 										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+										   "framerate", GST_TYPE_FRACTION, 30, 1,
+										   "interlace-mode", G_TYPE_STRING, "progressive",
 										   NULL );
 				break;
 				

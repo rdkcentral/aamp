@@ -264,8 +264,8 @@ public:
 						context->pipeline->SendBufferES( mediaType, ptr, len,
 														dur,
 														pts+pts_offset,
-														dts+pts_offset,
-														metadata );
+														dts+pts_offset );
+														// metadata );
 					}
 				}
 			}
