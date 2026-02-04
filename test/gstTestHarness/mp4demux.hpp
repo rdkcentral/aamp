@@ -1040,25 +1040,27 @@ public:
 			case MultiChar_Constant("avcC"):
 				caps = gst_caps_new_simple(
 										   "video/x-h264",
-										   "stream-format", G_TYPE_STRING, "avc",
-										   "alignment", G_TYPE_STRING, "au",
-										   "codec_data", GST_TYPE_BUFFER, buf,
-										   "width", G_TYPE_INT, video.width,
-										   "height", G_TYPE_INT, video.height,
-										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-										   NULL );
+											"stream-format", G_TYPE_STRING, "avc",
+											"alignment", G_TYPE_STRING, "au",
+											"codec_data", GST_TYPE_BUFFER, buf,
+											"width", G_TYPE_INT, video.width,
+											"height", G_TYPE_INT, video.height,
+											"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+											"framerate", GST_TYPE_FRACTION, 30, 1,
+											"interlace-mode", G_TYPE_STRING, "progressive",
+											NULL );
 				break;
 				
 			case MultiChar_Constant("esds"):
 				caps = gst_caps_new_simple(
-					"audio/mpeg",
-					"mpegversion", G_TYPE_INT, 4,
-					"framed", G_TYPE_BOOLEAN, TRUE,
-					"stream-format", G_TYPE_STRING, "raw",
-					"rate", G_TYPE_INT, audio.samplerate,
-					"channels", G_TYPE_INT, audio.channel_count,
-					"codec_data", GST_TYPE_BUFFER, buf,
-					NULL );
+										"audio/mpeg",
+										"mpegversion", G_TYPE_INT, 4,
+										"framed", G_TYPE_BOOLEAN, TRUE,
+										"stream-format", G_TYPE_STRING, "adts",
+										"rate", G_TYPE_INT, audio.samplerate,
+										"channels", G_TYPE_INT, audio.channel_count,
+										"codec_data", GST_TYPE_BUFFER, buf,
+										NULL );
 				break;
 				
 			case MultiChar_Constant("dec3"):
