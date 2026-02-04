@@ -157,7 +157,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 	}
 }
 
-void AampGrowableBuffer::Clear( void )
+void AampGrowableBuffer::clear( void )
 {
 	buffer.clear();
 }

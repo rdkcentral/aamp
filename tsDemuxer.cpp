@@ -85,7 +85,7 @@ bool Demuxer::CheckForSteadyState()
 		{
 			AAMPLOG_WARN("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 				type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.size() );
-			es.Clear();
+			es.clear();
 			return false;
 		}
 
@@ -93,7 +93,7 @@ bool Demuxer::CheckForSteadyState()
 		{
 			AAMPLOG_WARN("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 				type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
-			es.Clear();
+			es.clear();
 			return false;
 		}
 		reached_steady_state = true;
@@ -143,7 +143,7 @@ void Demuxer::send()
 		{
 			aamp->SendStreamCopy(type, es.GetPtr(), es.size(), info.pts_s, info.dts_s, duration);
 		}
-		es.Clear();
+		es.clear();
 	}
 }
 
@@ -166,7 +166,7 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 			const auto info {UpdateSegmentInfo()};
 			buf.assign(data_ptr, data_ptr + len);
 			processor(type, std::move(info), std::move(buf));
-			es.Clear();
+			es.clear();
 		}
 	}
 	else
@@ -433,7 +433,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 			if (PAYLOAD_UNIT_START(packetStart))
 			{
 				pes_state = PES_STATE_GETTING_HEADER;
-				pes_header.Clear();
+				pes_header.clear();
 				AAMPLOG_DEBUG("Payload Unit Start");
 			}
 

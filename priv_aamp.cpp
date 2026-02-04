@@ -4430,7 +4430,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 	if (resetBuffer)
 	{
-		buffer->Clear();
+		buffer->clear();
 	}
 
 	if (mDownloadsEnabled)
@@ -4613,7 +4613,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
 				if(buffer->GetPtr() != NULL)
 				{
-					buffer->Clear();
+					buffer->clear();
 				}
 
 				isDownloadStalled = false;
@@ -5215,7 +5215,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				size_t len = (end - start) + 1;
 				if( buffer->size() >= len)
 				{
-					buffer->Clear();
+					buffer->clear();
 					buffer->AppendBytes(buffer->GetPtr() + start, len);
 				}
 

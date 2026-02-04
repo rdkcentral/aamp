@@ -1418,7 +1418,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.Clear();
+						cachedFragment->fragment.clear();
 						cachedFragment->fragment.AppendBytes(str.data(),str.size());
 						if(mSubtitleParser)
 						{
@@ -1841,7 +1841,7 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 		{
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
-		cachedFragment->fragment.Clear();
+		cachedFragment->fragment.clear();
 		//memset(&cachedFragment->fragment, 0x00, sizeof(AampGrowableBuffer));
 	}
 	return cachedFragment;
@@ -1869,7 +1869,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 		{
 			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
 		}
-		cachedFragment->fragment.Clear();
+		cachedFragment->fragment.clear();
 	}
 	return cachedFragment;
 }
@@ -4377,7 +4377,7 @@ void MediaTrack::PlaylistDownloader()
 			bool gotManifest = false;
 			int http_error = 0;
 			double downloadTime;
-			manifest.Clear();
+			manifest.clear();
 
 			/*
 			 *

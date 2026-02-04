@@ -122,7 +122,7 @@ public:
   bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
   {
     /* Setup fake AampGrowableBuffer contents. */
-    buffer->Clear();
+    buffer->clear();
     buffer->AppendBytes((char *)mManifest, strlen(mManifest));
     effectiveUrl = remoteUrl;
     *httpError = 200;
@@ -975,7 +975,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
         {
-            buffer->Clear();
+            buffer->clear();
             buffer->AppendBytes((char*)manifest, strlen(manifest));
             *httpError = 200;
             effectiveUrl = remoteUrl;

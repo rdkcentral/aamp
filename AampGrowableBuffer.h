@@ -75,7 +75,7 @@ public:
 	void Free(void);
 	void ReserveBytes(size_t len);
 	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
-	void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
+	void clear( void ) {buffer.clear();}; // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
 	void Replace( AampGrowableBuffer *src );
 
 	/**
@@ -92,23 +92,23 @@ public:
 	 * performing an extra copy. Prefer using the const overload if mutation is
 	 * not required.
 	 */
-	std::vector<uint8_t>& GetVector() { return buffer; }
-	const std::vector<uint8_t>& GetVector() const { return buffer; }
+	std::vector<uint8_t> &GetVector() { return buffer; }
+	const std::vector<uint8_t> &GetVector() const { return buffer; }
 
-  char *GetPtr( void ) { return buffer.capacity() ? reinterpret_cast<char*>(buffer.data()) : nullptr; }
-  const char *GetPtr( void ) const { return buffer.capacity() ? reinterpret_cast<const char*>(buffer.data()) : nullptr; }
-  
-  size_t GetLen( void ) const { return buffer.size(); } // accessor function for current logical growable buffer size
-	size_t GetAvail( void ) const { return buffer.capacity(); } // should be opaque, but used in logging
-	void SetLen( size_t l ) { assert(l<=buffer.capacity()); buffer.resize(l); }
+	char *GetPtr(void) { return buffer.capacity() ? reinterpret_cast<char *>(buffer.data()) : nullptr; }
+	const char *GetPtr(void) const { return buffer.capacity() ? reinterpret_cast<const char *>(buffer.data()) : nullptr; }
+	size_t size() const { return buffer.size(); }
+	size_t capacity(void) const { return buffer.capacity(); } // should be opaque, but used in logging
+	void SetLen(size_t l)
+	{
+		assert(l <= buffer.capacity());
+		buffer.resize(l);
+	}
 
 	// Vector-like convenience wrappers (lower-case names to match std::vector)
-	void clear() { Clear(); } // If used may need to call NETMEMORY_MINUS()
 	bool empty() const { return buffer.empty(); }
-	size_t size() const { return buffer.size(); }
-	size_t capacity() const { return buffer.capacity(); }
-	void shrink_to_fit() { buffer.shrink_to_fit(); }	// If used may need to call NETMEMORY_MINUS()
-	void reserve(size_t n) { buffer.reserve(n); }		// If used may need to call NETMEMORY_PLUS()
+	void shrink_to_fit() { buffer.shrink_to_fit(); } // If used may need to call NETMEMORY_MINUS()
+	void reserve(size_t n) { buffer.reserve(n); }	 // If used may need to call NETMEMORY_PLUS()
 	void resize(size_t n)
 	{
 		const size_t prevCap = buffer.capacity();

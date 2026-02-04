@@ -3231,7 +3231,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	aamp->IsTuneTypeNew = newTune;
 
 	int http_error = 0;   //CID:81873 - Initialization
-	mainManifest.Clear();
+	mainManifest.clear();
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -4834,7 +4834,7 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		,fragmentEncChange(false)
 		,demuxOp(eStreamOp_NONE)
 {
-	playlist.Clear();
+	playlist.clear();
 	index.clear();
 	startTimeForPlaylistSync = 0.0;
 	mDrmMetaDataIndex.clear();

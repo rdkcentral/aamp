@@ -69,7 +69,7 @@ TEST_F(FunctionalTests, FreeTest)
 
 	// Assert: Check that properties are reset and memory is freed
 	EXPECT_EQ(buffer.GetPtr(), nullptr); // Check if pointer is null
-	EXPECT_EQ(buffer.GetLen(), 0);       // Check if length is reset
+	EXPECT_EQ(buffer.size(), 0);       // Check if length is reset
 }
 
 TEST_F(FunctionalTests, ReserveBytesTest)
@@ -86,8 +86,8 @@ TEST_F(FunctionalTests, ReserveBytesTest)
 
 	// Assert: Check the effects of the ReserveBytes function
 	EXPECT_NE(buffer.GetPtr(), nullptr);
-	EXPECT_EQ(buffer.GetLen(), 0);             // Check if length remains 0
-	EXPECT_GE(buffer.GetAvail(), numBytesToReserve); // Capacity should be at least what we reserved
+	EXPECT_EQ(buffer.size(), 0);             // Check if length remains 0
+	EXPECT_GE(buffer.capacity(), numBytesToReserve); // Capacity should be at least what we reserved
 }
 
 TEST_F(FunctionalTests, AppendBytesTest)
@@ -110,7 +110,7 @@ TEST_F(FunctionalTests, AppendBytesTest)
 	// No g_free expectation needed - std::vector RAII handles cleanup
 
 	EXPECT_EQ(result, 0);                     // Check if data was appended correctly
-	EXPECT_EQ(buffer.GetLen(), srcLen);       // Check if length is set correctly
+	EXPECT_EQ(buffer.size(), srcLen);       // Check if length is set correctly
 	// Note: GetAvail() no longer exists - std::vector manages capacity internally
 }
 
@@ -123,10 +123,10 @@ TEST_F(FunctionalTests, ClearTest)
 	buffer.AppendBytes("Test Data", 9);
 
 	// Act: Call the Clear function
-	buffer.Clear();
+	buffer.clear();
 
 	// Assert: Check that the length is reset to 0
-	EXPECT_EQ(buffer.GetLen(), 0);
+	EXPECT_EQ(buffer.size(), 0);
 }
 
 TEST_F(FunctionalTests, ReserveAndClearTest)
@@ -135,7 +135,7 @@ TEST_F(FunctionalTests, ReserveAndClearTest)
 
 	buffer.ReserveBytes(1024);
 
-	buffer.Clear();
+	buffer.clear();
 
 	EXPECT_NE(buffer.GetPtr(), nullptr);
 }
@@ -158,12 +158,12 @@ TEST_F(FunctionalTests, ReplaceTest)
 
 	// Assert: Check the effects of the Replace function on the destination buffer
 	EXPECT_EQ(memcmp(buffer.GetPtr(), "Hello", 5), 0);
-	EXPECT_EQ(buffer.GetLen(), 5);                    // Check if length is replaced
+	EXPECT_EQ(buffer.size(), 5);                    // Check if length is replaced
 	// Note: GetAvail() no longer exists - std::vector manages capacity internally
 
 	// Assert: Check the effects of the Replace function on the source buffer
 	EXPECT_EQ(sourceBuffer.GetPtr(), nullptr); // Check if source pointer is reset
-	EXPECT_EQ(sourceBuffer.GetLen(), 0);       // Check if source length is reset
+	EXPECT_EQ(sourceBuffer.size(), 0);       // Check if source length is reset
 }
 
 TEST_F(FunctionalTests, ExtractVectorNonEmptyTest)
@@ -176,7 +176,7 @@ TEST_F(FunctionalTests, ExtractVectorNonEmptyTest)
 
 	// Store pointer and length before transfer (simulating what GStreamer does)
 	const void* dataPtr = buffer.GetPtr();
-	size_t dataLen = buffer.GetLen();
+	size_t dataLen = buffer.size();
 
 	// Verify data is present
 	EXPECT_NE(dataPtr, nullptr);
@@ -193,7 +193,7 @@ TEST_F(FunctionalTests, ExtractVectorNonEmptyTest)
 
 	// Assert: Check that the properties are reset after extraction
 	EXPECT_EQ(buffer.GetPtr(), nullptr); // Check if the pointer is null
-	EXPECT_EQ(buffer.GetLen(), 0);       // Check if the length is reset
+	EXPECT_EQ(buffer.size(), 0);       // Check if the length is reset
 }
 
 ////Test case is getting FAIL for UINT_MAX
@@ -224,8 +224,8 @@ TEST_F(FunctionalTests, Reserve1KBytesTest)
 
 	// Assert: Check the effects of the ReserveBytes function
 	EXPECT_NE(buffer.GetPtr(), nullptr);
-	EXPECT_EQ(buffer.GetLen(), 0);                // Check if length remains 0
-	EXPECT_GE(buffer.GetAvail(), numBytesToReserve); // Capacity should be at least what we reserved
+	EXPECT_EQ(buffer.size(), 0);                // Check if length remains 0
+	EXPECT_GE(buffer.capacity(), numBytesToReserve); // Capacity should be at least what we reserved
 }
 
 TEST_F(FunctionalTests, Reserve8KBytesTest)
@@ -242,8 +242,8 @@ TEST_F(FunctionalTests, Reserve8KBytesTest)
 
 	// Assert: Check the effects of the ReserveBytes function
 	EXPECT_NE(buffer.GetPtr(), nullptr);
-	EXPECT_EQ(buffer.GetLen(), 0);                // Check if length remains 0
-	EXPECT_GE(buffer.GetAvail(), numBytesToReserve); // Capacity should be at least what we reserved
+	EXPECT_EQ(buffer.size(), 0);                // Check if length remains 0
+	EXPECT_GE(buffer.capacity(), numBytesToReserve); // Capacity should be at least what we reserved
 }
 
 TEST_F(FunctionalTests, Reserve32KBytesTest)
@@ -255,13 +255,13 @@ TEST_F(FunctionalTests, Reserve32KBytesTest)
 
 	// Act: Call the ReserveBytes function
 	buffer.ReserveBytes(numBytesToReserve);
-
+ 
 	// No g_free expectation needed - std::vector RAII handles cleanup
 
 	// Assert: Check the effects of the ReserveBytes function
 	EXPECT_NE(buffer.GetPtr(), nullptr);
-	EXPECT_EQ(buffer.GetLen(), 0);                // Check if length remains 0
-	EXPECT_GE(buffer.GetAvail(), numBytesToReserve); // Capacity should be at least what we reserved
+	EXPECT_EQ(buffer.size(), 0);                // Check if length remains 0
+	EXPECT_GE(buffer.capacity(), numBytesToReserve); // Capacity should be at least what we reserved
 }
 
 // These test cases cover a series of appends
@@ -285,7 +285,7 @@ TEST_F(FunctionalTests, SeriesOfAppendsTest)
 
 	// No g_free expectation needed - std::vector RAII handles cleanup
 
-	EXPECT_EQ(buffer.GetLen(), 13299);// Total length after 10 appends
+	EXPECT_EQ(buffer.size(), 13299);// Total length after 10 appends
 	// Note: GetAvail() no longer exists - std::vector automatically resizes
 }
 
@@ -308,10 +308,10 @@ TEST_F(FunctionalTests, SetLenPositiveTest)
 	int result = memcmp(buffer.GetPtr(), srcData, srcLen);
 
 	EXPECT_EQ(result, 0);                   // Check if data was appended correctly
-	EXPECT_EQ(buffer.GetLen(), srcLen);     // Check if length is set correctly
+	EXPECT_EQ(buffer.size(), srcLen);     // Check if length is set correctly
 
 	buffer.SetLen(srcNewLen);
-	EXPECT_EQ(buffer.GetLen(), srcNewLen);
+	EXPECT_EQ(buffer.size(), srcNewLen);
 }
 
 TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
@@ -326,10 +326,10 @@ TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 		// No g_malloc expectation needed - std::vector manages its own memory
 		testBuf.ReserveBytes(10);
 		testBuf.SetLen(9);
-		EXPECT_EQ(testBuf.GetLen(), 9);
+		EXPECT_EQ(testBuf.size(), 9);
 
 		EXPECT_DEATH(testBuf.SetLen(11), _);
-		EXPECT_EQ(testBuf.GetLen(), 9);
+		EXPECT_EQ(testBuf.size(), 9);
 	}
 }
 
@@ -354,9 +354,9 @@ TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
 	int result = memcmp(buffer.GetPtr(), srcData, srcLen);
 
 	EXPECT_EQ(result, 0);                   // Check if data was appended correctly
-	EXPECT_EQ(buffer.GetLen(), srcLen);     // Check if length is set correctly
+	EXPECT_EQ(buffer.size(), srcLen);     // Check if length is set correctly
 
 	// attempt to set length bigger than available size
 	EXPECT_DEATH(buffer.SetLen(100), _);
-	EXPECT_EQ(buffer.GetLen(), srcLen);     // Check that length has not changed
+	EXPECT_EQ(buffer.size(), srcLen);     // Check that length has not changed
 }
