@@ -590,7 +590,7 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 
 /**
 * @fn showDownloadMetrics - fn to log downloadresponse
-* @params DownloadResponse pointer ,totalPerformanceTime
+* @params DownloadResponse pointer ,totalPerformanceTimeMs (in milliseconds)
 * @return void
 */
 void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, double totalPerformanceTimeMs)
