@@ -8650,6 +8650,22 @@ void PrivateInstanceAAMP::UpdateProfileCappedStatus(void)
 }
 
 /**
+ * @brief Notify AAMP that ad reservation is complete for a given reservationId
+ * @param[in] reservationId The reservation identifier
+ */
+void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->NotifyReservationComplete(reservationId);
+	}
+	else
+	{
+		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot notify reservation complete for reservationId: %s ", reservationId.c_str());
+	}
+}
+
+/**
  * @brief Cancel ad reservation
  * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
  */

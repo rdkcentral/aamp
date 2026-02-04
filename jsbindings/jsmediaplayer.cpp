@@ -3041,7 +3041,8 @@ static JSValueRef AAMPMediaPlayerJS_notifyReservationCompletion(JSContextRef ctx
 		long time = (long) JSValueToNumber(ctx, arguments[1], exception);
 		//Need an API in AAMP to notify that placements for this reservation are over and AAMP might have to trim
 		//the ads to the period duration or not depending on time param
-         	LOG_WARN(privObj,"Called reservation close for periodId:%s and time:%ld", reservationId, time);
+		LOG_WARN(privObj,"Called reservation close for periodId:%s and time:%ld", reservationId, time);
+		privObj->_aamp->NotifyReservationComplete(reservationId);
 		SAFE_DELETE_ARRAY(reservationId);
 	}
 	else

@@ -171,7 +171,13 @@ public:
 	void SetRate(float rate, int overshootcorrection=0);
 
 	/**
-	 * @brief Cancel ad reservation
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
+	 *   @brief Cancel ad reservation
 	 *   @param[in]  cancelAtReservationId - Reservation Id at which the cancellation has to be done.
 	 *   @return void
 	 */
