@@ -112,7 +112,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
        for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[PLAYER_IF][%03u][%s][%zx][%s][%d]%s\n",
+                                                           "%s[PLAYER_IF][%03u][Err = %d][%s][%zx][%s][%d]%s\n",
                                                            timestamp,
                                                            logSeqNum,
 														   gmwlogerr,
