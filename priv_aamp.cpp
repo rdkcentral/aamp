@@ -4498,9 +4498,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 			else
 			{
-				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 			}
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
 
 			CurlProgressCbContext progressCtx;
 			progressCtx.aamp = this;
@@ -14088,6 +14088,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->userAgentString = GETCONFIGVALUE_PRIV(eAAMPConfig_UserAgent);
 	inpData->mDnldConfig->proxyName       = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkProxy);
 	inpData->mDnldConfig->bSSLVerifyPeer = ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer);
+	inpData->mDnldConfig->lSupportedTLSVersion = mSupportedTLSVersion;
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
 
