@@ -90,6 +90,10 @@ public:
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
+	MOCK_METHOD(bool, IsAtLivePoint, ());
+	MOCK_METHOD(bool, IsLiveStream, ());
+	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
+	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

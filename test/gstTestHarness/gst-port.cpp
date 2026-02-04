@@ -27,8 +27,12 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <cmath>
 
 #define MY_PIPELINE_NAME "test-pipeline"
+
+// Epsilon for floating-point comparison tolerance
+static constexpr double SEEK_POSITION_EPSILON = 0.001; // 1ms tolerance
 
 // Logging category for this module
 GST_DEBUG_CATEGORY_STATIC(gstport_cat);
@@ -113,6 +117,33 @@ public:
 		return gstutils_GetMediaTypeName(mediaType);
 	}
 	
+	void Seek( const SeekParam &req )
+	{
+		const gint64 start = (gint64)(req.start_seconds * GST_SECOND);
+		const gint64 stop  = (gint64)(req.stop_seconds  * GST_SECOND);
+		GstSeekFlags flags = GST_SEEK_FLAG_NONE;
+		if (req.flush)
+		{
+			flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_FLUSH);
+		}
+		if (req.segment)
+		{
+			flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
+		}
+		bool open = std::fabs(req.stop_seconds - req.start_seconds) < SEEK_POSITION_EPSILON;
+		const gboolean ok = gst_element_seek( (GstElement *)appsrc,
+											 req.playback_rate,
+											 GST_FORMAT_TIME,
+											 flags,
+											 GST_SEEK_TYPE_SET, start,
+											 open? GST_SEEK_TYPE_NONE : GST_SEEK_TYPE_SET,
+											 open? GST_CLOCK_TIME_NONE : stop );
+		if( !ok )
+		{
+			printf( "gst_element_seek failed\n" );
+		}
+	}
+
 	void SendBuffer( gpointer ptr, gsize len, double duration )
 	{
 		if (ptr && appsrc)
@@ -492,6 +523,24 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	}
 }
 
+/**
+ * @brief retrieve seek parameters to apply after configurating AV pipeline
+ *
+ * @retval eldest queued SeekParam
+ * @retval return default SeekParam (1x speed, starting at 0.0s) if if mSegmentEndSeekQueue is empty
+ */
+SeekParam Pipeline::PopSeek()
+{
+	SeekParam param;
+	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
+	if( !context->mSegmentEndSeekQueue.empty() )
+	{
+		param = context->mSegmentEndSeekQueue.front();
+		context->mSegmentEndSeekQueue.pop();
+	}
+	return param;
+}
+
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )
 {
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
@@ -504,26 +553,10 @@ size_t Pipeline::GetNumPendingSeek(void) const
 	return context->mSegmentEndSeekQueue.size();
 }
 
-void Pipeline::Configure( MediaType mediaType )
+void Pipeline::Configure( MediaType mediaType, const SeekParam &seekParam )
 {
 	mediaStream[mediaType]->Configure(pipeline);
-	// Increment count and perform initial seek if both branches are configured
-	// All operations protected by mutex to prevent race conditions
-	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	
-	// Increment the configured stream count (protected by mutex above)
-	int count = ++context->configured_stream_count;
-	
-	// When both branches are configured and initial seek hasn't been performed yet
-	if (count == NUM_MEDIA_TYPES &&
-	   !context->initial_seek_performed &&
-	   !context->mSegmentEndSeekQueue.empty())
-	{
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		context->mSegmentEndSeekQueue.pop();
-		(void)DoSeekNow(param);
-		context->initial_seek_performed = true;
-	}
+	mediaStream[mediaType]->Seek(seekParam);
 }
 
 void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
@@ -604,7 +637,7 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 	{
 		flags = static_cast<GstSeekFlags>(flags|GST_SEEK_FLAG_SEGMENT);
 	}
-	bool open = (req.stop_seconds==req.start_seconds);
+	bool open = std::fabs(req.stop_seconds - req.start_seconds) < SEEK_POSITION_EPSILON;
 	const gboolean ok = gst_element_seek( pipeline,
 										 req.playback_rate,
 										 GST_FORMAT_TIME,
@@ -630,8 +663,21 @@ bool Pipeline::DoSeekNow( const SeekParam& req )
 void Pipeline::Reset( void )
 {
 	std::lock_guard<std::mutex> lock(context->segment_seek_mutex);
-	std::queue<SeekParam> empty; std::swap( context->mSegmentEndSeekQueue, empty );
-	GST_DEBUG_OBJECT(pipeline, "Reset seek queue");
+	
+	// Clear seek queue
+	std::queue<SeekParam> empty;
+	std::swap(context->mSegmentEndSeekQueue, empty);
+	
+	// Clear injected buffer counters
+	for (auto& ms : mediaStream)
+	{
+		if (ms)
+		{
+			ms->ClearInjectedSeconds();
+		}
+	}
+	
+	GST_DEBUG_OBJECT(pipeline, "Reset complete: cleared seek queue, config state, and buffer counters");
 }
 
 long long Pipeline::GetPositionMilliseconds( MediaType /*mediaType*/ ) const

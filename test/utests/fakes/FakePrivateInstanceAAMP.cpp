@@ -273,6 +273,14 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	}
 }
 
+void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifyReservationComplete(reservationId);
+	}
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
@@ -423,7 +431,12 @@ long PrivateInstanceAAMP::GetCurrentLatency()
 
 bool PrivateInstanceAAMP::IsAtLivePoint()
 {
-	return false;
+	bool result = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsAtLivePoint();
+	}
+	return result;
 }
 
 ContentType PrivateInstanceAAMP::GetContentType() const
@@ -523,7 +536,12 @@ std::string PrivateInstanceAAMP::GetAppName()
 
 int PrivateInstanceAAMP::GetAudioTrack()
 {
-	return 0;
+	int retValue = 0;
+	if(g_mockPrivateInstanceAAMP != nullptr) 
+	{
+		retValue = g_mockPrivateInstanceAAMP->GetAudioTrack();
+	}
+	return retValue;
 }
 
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
@@ -1128,7 +1146,12 @@ void PrivateInstanceAAMP::StopBuffering(bool forceStop)
 
 bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 {
-    return true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->TrackDownloadsAreEnabled(type);
+	}
+
+	return true;
 }
 
 void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
@@ -1195,7 +1218,12 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 
 bool PrivateInstanceAAMP::IsLiveStream(void)
 {
-	return mIsLiveStream;
+	bool result = mIsLiveStream;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsLiveStream();
+	}
+	return result;
 }
 
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
@@ -1745,4 +1773,9 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaS
 	{
 		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, sample);
 	}
+}
+
+bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
+{
+	return false;
 }

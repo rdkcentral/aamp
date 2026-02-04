@@ -103,7 +103,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		bool bReadfromcache = false;
 		if (initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,cachedFragment->fragment.GetVector(),effectiveUrl);
 		}
 		if (!bReadfromcache)
 		{
@@ -125,7 +125,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
+				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetVector(), effectiveUrl, actualType);
 			}
 			if (ret)
 			{
@@ -792,6 +792,12 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 			{
 				updateSkipPoint((dlInfo->pts + dlInfo->fragmentDurationSec), dlInfo->fragmentDurationSec);
 			}
+			auto timeBasedBufferManager = GetTimeBasedBufferManager();
+			if(timeBasedBufferManager)
+			{
+				// Consume the buffer for the segment duration as segment is skipped
+				timeBasedBufferManager->ConsumeBuffer(dlInfo->fragmentDurationSec);
+			}
 		}
 	}
 }
@@ -957,15 +963,35 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			mActiveDownloadInfo = dlInfo;
 		}
 		int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); // Max cached fragments per track
+		auto DownloadsEnabled = [this]()
+		{
+			return aamp->DownloadsAreEnabled() && !abort;
+		};
+		// In low-latency mode, wait for needData/enoughData signals before
+		// downloading the next fragment. Skip this wait when injecting from
+		// the local AAMP TSB.
+		auto WaitForLowLatencyDashDownloads = [this, DownloadsEnabled]()
+		{
+			return DownloadsEnabled() &&
+				   !aamp->IsLocalAAMPTsbInjection() &&
+				   aamp->GetLLDashServiceData()->lowLatencyMode &&
+				   !aamp->TrackDownloadsAreEnabled(mediaType);
+		};
 		// Wait for free fragment only if the number of fragments cached is equal to the max cached fragments per track
 		if (numberOfFragmentsCached == maxCachedFragmentsPerTrack)
 		{
-			while (!WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS) && aamp->DownloadsAreEnabled() && !abort)
+			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
 			{
 				AAMPLOG_TRACE("Waiting for free fragment");
 			}
 		}
-		if (aamp->DownloadsAreEnabled() && !abort)
+		while (WaitForLowLatencyDashDownloads())
+		{
+			// Avoid tight loop for low latency mode when track downloads are disabled
+			aamp->interruptibleMsSleep(100);
+			AAMPLOG_TRACE("Waiting for track downloads to be enabled in low latency mode");
+		}
+		if (DownloadsEnabled())
 		{
 			retval = CacheFragment(dlInfo->url, dlInfo->curlInstance, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->range.c_str(), dlInfo->isInitSegment, dlInfo->isDiscontinuity, dlInfo->isPlayingAd, dlInfo->timeScale);
 		}

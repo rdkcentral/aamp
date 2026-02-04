@@ -46,6 +46,9 @@
 #include "AampTrackWorkerManager.hpp"
 #include "AampDownloadInfo.hpp"
 
+// Sentinel for invalid base period offset in ad nodes
+constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
+
 using namespace dash;
 using namespace std;
 using namespace dash::mpd;
@@ -1251,6 +1254,27 @@ protected:
 	 * @return The timeline segment repeat count or zero
 	 */
 	uint32_t GetSegmentRepeatCount(MediaStreamContext *pMediaStreamContext, int timeLineIndex);
+
+	/**
+	 * @fn UpdateStartTimeOfFirstPTS
+	 * @brief Recalculate and update mStartTimeOfFirstPTS.
+	 * @return void
+	 */
+	void UpdateStartTimeOfFirstPTS();
+
+	/**
+	 * @fn ShouldCheckOnlyIframeAdaptation
+	 * @brief Helper function to determine if only iframe adaptations should be checked
+	 * @retval Return true if only iframe adaptations should be checked, false otherwise
+	 */
+	bool ShouldCheckOnlyIframeAdaptation() const;
+
+	/**
+	 * @fn IsEmptyPeriod
+	 * @param[in] iPeriodIndex Index of the period to check whether it is empty
+	 * @retval Return true on empty Period
+	 */
+	bool IsEmptyPeriod(int iPeriodIndex) const;
 
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;

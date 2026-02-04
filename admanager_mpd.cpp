@@ -55,6 +55,17 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
 	mPrivObj->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 }
 
+/**
+ * @brief Mark reservation as complete for a given reservationId
+ * @param[in] reservationId The reservation identifier
+ */
+void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (mPrivObj)
+	{
+		mPrivObj->NotifyReservationComplete(reservationId);
+	}
+}
 
 /**
  * @brief PrivateCDAIObjectMPD constructor
@@ -314,7 +325,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						p2AdData.duration += diffInDurationMs;
 					}
 					AAMPLOG_INFO("periodDelta = %" PRId64 " p2AdData.duration = [%" PRIu64 "] mPlacementObj.adNextOffset = %u periodId = %s",periodDelta,p2AdData.duration,mPlacementObj.adNextOffset, periodId.c_str());
-					bool isSrcdurnotequalstoaddur = false;
+					bool sourceAdDurationMismatch = false;
 					if ((periodDelta == 0) && (nextPeriodDur > 0))
 					{
 						IPeriod* nextPeriod = periods.at(nextPeriodIter);
@@ -384,7 +395,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							{
 								AAMPLOG_INFO("nextPeriodDur = %" PRId64 " currPeriodDur = %" PRId64 " curAd.duration = [%" PRIu64 "] periodDurationAvailable:%" PRId64" adDurationToPlaceInBreak:%" PRId64 "",
 									nextPeriodDur,currPeriodDur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInBreak);
-								isSrcdurnotequalstoaddur = true;
+								sourceAdDurationMismatch = true;
 								// An ad exceeding the current period duration by more than 2 seconds is considered a split period
 								// Source period duration should be more than tiny period to be treated as split period
 								// If the tiny period just happens to be within a split period, then split period marker will be set which is expected as of now
@@ -395,7 +406,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							}
 						}
 					}
-					while(periodDelta > 0 || isSrcdurnotequalstoaddur)
+					while(periodDelta > 0 || sourceAdDurationMismatch)
 					{
 						if( !abObj.ads )
 						{
@@ -407,7 +418,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						if(periodDelta < (curAd.duration - mPlacementObj.adNextOffset))
 						{
 							mPlacementObj.adNextOffset += periodDelta;
-							if(isSrcdurnotequalstoaddur)
+							if(sourceAdDurationMismatch)
 							{
 								IPeriod* nextPeriod = periods.at(nextPeriodIter);
 								// check if the current source period duration < current period ad duration and it is lest than offset factor
@@ -469,7 +480,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								AAMPLOG_ERR("[CDAI] remainingAdDuration[%" PRId64 "] is -ve, not expected, adDuration:%" PRIu64 " nextOffset:%" PRIu32 ,
 									remainingAdDuration, curAd.duration, mPlacementObj.adNextOffset);
 							}
-							isSrcdurnotequalstoaddur = false;
+							sourceAdDurationMismatch = false;
 							// If another ad exists in this ad break
 							if(mPlacementObj.curAdIdx+1 < abObj.ads->size())
 							{
@@ -1635,7 +1646,7 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 {
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
-	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
+	AAMPLOG_INFO("Attempting to wait for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
 	if (isAdBreakObjectExist(periodId))
 	{
 		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, periodId] {
@@ -1818,7 +1829,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						int segment_http_error = 0;
 						double segment_downloadTime = 0;
 						AAMPLOG_INFO("Fetching init header %s for %s adId:%s periodId:%s", fragmentUrl.c_str(), GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
-						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit.get(), fragmentUrl);
+						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit->GetVector(), fragmentUrl);
 						if(!gotInit)
 						{
 							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit.get(), fragmentUrl, &segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
@@ -1827,7 +1838,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						if (gotInit)
 						{
 							AAMPLOG_INFO("Init header fetched successfully for %s adId:%s periodId:%s", GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
-							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit.get(), fragmentUrl, actualMediaType);
+							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit->GetVector(), fragmentUrl, actualMediaType);
 							adInit->Free();
 							initFragmentFetched = true;
 							break;
@@ -1871,4 +1882,30 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 		}
 	}
 	return ret;
+}
+
+/**
+ * @brief Mark the reservation as complete for the ad break
+ * @param[in] reservationId Ad break ID
+ * @param[in] time Time to mark the reservation complete
+ */
+void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx);
+	if (isAdBreakObjectExist(reservationId))
+	{
+		AdBreakObject& abObj = mAdBreaks[reservationId];
+		abObj.resolved = true;
+		AAMPLOG_INFO("[CDAI] Marked reservation complete for adBreakId: %s", reservationId.c_str());
+		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
+		if (!abObj.ads || abObj.ads->empty())
+		{
+			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play.", reservationId.c_str());
+			AbortWaitForNextAdResolved();
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
+	}
 }

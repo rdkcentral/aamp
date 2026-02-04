@@ -335,9 +335,12 @@ public :
 	bool IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType );
 	
 	/**
-	 * @fn GetPeriodDuration
-	 * @param mpd : pointer manifest
-	 * @param periodIndex Index of the current period
+	 * @brief Get duration of current period
+	 * @param[in] periodIndex Index of the period
+	 * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
+	 * @param[in] checkIFrame If true, check only iframe adaptations; if false, check all adaptations when determining if a period is empty
+	 * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
+	 * @retval current period's duration in milliseconds
 	 */
 	double GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB);
 
@@ -373,15 +376,20 @@ public :
 
 	/**
 	 * @brief Get end time of current period
-	 * @retval current period's end time
+	 * @param[in] periodIndex Index of the period
+	 * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
+	 * @param[in] checkIFrame If true, check only iframe adaptations; if false, check all adaptations when determining if a period is empty
+	 * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
+	 * @retval current period's end time in seconds
 	 */
 	double GetPeriodEndTime(int periodIndex,  uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB);
 
 	/**
-	 * @fn UpdateBoundaryPeriod - to  Calculate Upper and lower boundary of playable periods
-	 * @params - Is trickplay mode
+	 * @fn UpdateBoundaryPeriod
+	 * @brief Calculate upper and lower boundary of playable periods by discarding empty periods at the start and end
+	 * @param checkOnlyIframeAdaptation Flag indicating whether to check only iframe adaptations when determining if a period is empty
 	 */
-	void UpdateBoundaryPeriod(bool IsTrickMode);
+	void UpdateBoundaryPeriod(bool checkOnlyIframeAdaptation);
 
 	/**
 	 * @fn getPeriodIdx

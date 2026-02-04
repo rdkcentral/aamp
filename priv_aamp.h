@@ -80,6 +80,9 @@
 // forward declaration to avoid circular dependency
 class AampMPDDownloader;
 
+// forward declaration
+struct CurlCallbackContext;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -1374,7 +1377,13 @@ public:
 	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
 	 * @return true iff successful
 	 */
-	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
+				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				int *http_error = NULL, double *downloadTime = NULL,
+				const char *range = NULL, unsigned int curlInstance = 0,
+				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
+				int *fogError = NULL, double fragmentDurationS = 0,
+				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
 
 	/**
 	 * @fn getUUID
@@ -1585,6 +1594,12 @@ public:
 	 * @return void
 	 */
 	void NotifyOnEnteringLive();
+
+	/**
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
 
 	/**
 	 * @fn getLastInjectedPosition
@@ -4025,6 +4040,13 @@ public:
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 protected:
+
+	/**
+	 * @brief Check if chunk download should be aborted early based on transfer rate
+	 * @param context Curl callback context
+	 * @retval true if chunk download should be aborted
+	 */
+	bool CheckForChunkEarlyAbort(CurlCallbackContext *context);
 
 	/**
 	 *   @fn IsWideVineKIDWorkaround

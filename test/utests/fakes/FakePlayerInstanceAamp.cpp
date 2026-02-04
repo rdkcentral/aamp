@@ -127,7 +127,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
 	void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList) {  }
-	void PlayerInstanceAAMP::SetPreferredLabels(const char *lableList) {  }
+	void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList) {  }
 	void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList) {  }
 	void PlayerInstanceAAMP::SetTuneEventConfig(int tuneEventType) {  }
 	void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty) {  }
@@ -168,6 +168,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }
 	void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported) {  }
+	void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId) {  }
 	bool PlayerInstanceAAMP::IsLive() { return false; }
 	bool PlayerInstanceAAMP::GetVideoMute(void) { return false; }
 	bool PlayerInstanceAAMP::GetCCStatus(void) { return false; }

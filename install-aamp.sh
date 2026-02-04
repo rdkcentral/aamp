@@ -117,7 +117,6 @@ if [ ! -d ${LOCAL_DEPS_BUILD_DIR} ]; then
     mkdir ${LOCAL_DEPS_BUILD_DIR}
 fi
 
-
 # Install prebuilt dependencies
 #
 if [ ${OPTION_QUICK} = false ] ; then

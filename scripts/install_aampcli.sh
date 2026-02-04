@@ -56,9 +56,13 @@ function aampcli_install_prebuild_fn()
         mkdir -p build
         touch build/install_manifest.txt
         if [[ "$OSTYPE" == "darwin"* ]]; then
+            # Create directories and mark them as managed by Xcode build system
+            # This allows Xcode's "Clean Build Folder" to delete them properly
             mkdir -p build/Debug
-            # allow XCode to clean build folder
-            xattr -w com.apple.xcode.CreatedByBuildSystem true build
+            xattr -w com.apple.xcode.CreatedByBuildSystem true build/Debug
+            
+            mkdir -p build/XcodeDerivedData
+            xattr -w com.apple.xcode.CreatedByBuildSystem true build/XcodeDerivedData
         fi
     fi
 
@@ -95,7 +99,15 @@ function aampcli_install_build_darwin_fn()
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
-    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -G Xcode ../
+    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCOVERAGE_ENABLED=${OPTION_COVERAGE} \
+        -DUTEST_ENABLED=ON \
+        -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 \
+        -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE \
+        -DCMAKE_XCODE_ATTRIBUTE_SYMROOT="${AAMP_DIR}/build/XcodeDerivedData" \
+        -DCMAKE_XCODE_ATTRIBUTE_OBJROOT="${AAMP_DIR}/build/XcodeDerivedData" \
+        -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch
