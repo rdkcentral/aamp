@@ -157,11 +157,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 	}
 }
 
-void AampGrowableBuffer::clear( void )
-{
-	buffer.clear();
-}
-
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
 	buffer = std::move(src->buffer);

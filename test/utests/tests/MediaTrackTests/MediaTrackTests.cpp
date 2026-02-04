@@ -65,7 +65,7 @@ MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
 
 MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
 {
-	return std::memcmp(arg->GetPtr(), bufferPtr->GetPtr(), bufferPtr->GetLen()) == 0;
+	return std::memcmp(arg->GetPtr(), bufferPtr->GetPtr(), bufferPtr->size()) == 0;
 }
 
 // MediaTrack is an abstract base class, so must be tested via a derived class
