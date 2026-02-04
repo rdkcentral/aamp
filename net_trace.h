@@ -165,28 +165,15 @@ public:
 		}
 	}
 	
-	// static configuration
-	static void set_paths_old(const std::string& req_path, const std::string& burst_path) {
-		std::lock_guard<std::mutex> g(file_m_);
-		req_path_ = req_path; burst_path_ = burst_path;
-		// (lazy open)
-	}
-	
-	
 	// NEW: per-process CSVs to avoid cross-process interleaving/appends.
 	// Produces: <path>.PID (e.g., /tmp/aamp_net_requests.csv.12345)
 	static void set_paths_with_pid(const std::string& req_path, const std::string& burst_path) {
-#if defined(__unix__) || defined(__APPLE__)
 		pid_t pid = getpid();
 		{
 			std::lock_guard<std::mutex> g(file_m_);
 			req_path_= req_path+ "." + std::to_string(pid);
 			burst_path_ = burst_path + "." + std::to_string(pid);
 		}
-#else
-		// Fallback (non-UNIX): no PID suffix
-		set_paths(req_path, burst_path);
-#endif
 	}
 	
 private:
