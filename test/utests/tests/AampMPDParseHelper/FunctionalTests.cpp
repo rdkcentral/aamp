@@ -1337,7 +1337,7 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive1)
 	EXPECT_NEAR(periodDuration1, 28800, 1);
 
 	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(0);
-	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period since not 2nd period and 1st period may be still ongoing
+	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period since no 2nd period and 1st period may be still ongoing
 }
 
 TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
@@ -1476,8 +1476,6 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
 
 TEST_F(FunctionalTests, Multiperiod_StartTimeLive3)
 {
-	AAMPStatusType status;
-	std::string fragmentUrl;
 	dash::mpd::IMPD *mpd;
 
 	//Harvested manifest with 30S TSB, Has 2 periods both with start time and segments.

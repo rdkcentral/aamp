@@ -667,6 +667,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				}
 				ss<<"]}";
 				AAMPLOG_MIL("[CDAI] Placement Done: %s.",  ss.str().c_str());
+
 			}
 		}
 		if(-1 == mPlacementObj.curAdIdx)

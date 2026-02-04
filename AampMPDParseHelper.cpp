@@ -1186,19 +1186,19 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 /**
  *   @brief  Get Period Duration from start time of this period and next
  *   @param  periodIndex
- *
  *   @retval period duration in milliseconds, 0 if not obtainable
  */
 double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 {
-	// Get duration of current period WITHOUT totaling up segment durations.
+	// Get duration of current period based on "start" attribute.
+	// WITHOUT totaling up segment durations.
 	// A live manifest with timeShiftBufferDepth="PT0H0M30.000S"
 	// then the total of segment times will only ever be 30 seconds or less although
 	// the period duration may be longer.
 
 	double durationMs = 0;
 	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
-	if ((periodIndex + 1) < periods.size() && periodIndex >= 0)
+	if (periodIndex >= 0 && (periodIndex + 1) < periods.size())
 	{
 		std::string periodStartStr = periods.at(periodIndex)->GetStart();
 		std::string nextPeriodStartStr = periods.at(periodIndex + 1)->GetStart();
