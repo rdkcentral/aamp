@@ -28,11 +28,7 @@
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include <inttypes.h>
-
 #include <chrono>
-
-
-
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
 
 void _manifestDownloadResponse::show()
