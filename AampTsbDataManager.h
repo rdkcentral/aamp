@@ -179,7 +179,7 @@ private:
 	/* data */
 public:
 	std::shared_ptr<TsbFragmentData> next; /**< Link list next node for easy access*/
-	std::shared_ptr<TsbFragmentData> prev; /**< Link list previous node for easy access*/
+	std::weak_ptr<TsbFragmentData> prev; /**< Non-owning link to previous node for easy access, and to avoid circular references*/
 	/**
 	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
