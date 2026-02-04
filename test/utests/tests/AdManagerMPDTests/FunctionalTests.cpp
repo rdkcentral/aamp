@@ -217,10 +217,10 @@ public:
 
 /**
  * @brief Tests the functionality of inserting into the period map.
- * 
+ *
  * This test case verifies that the insertion of elements into the period map is working correctly.
  * It checks if the elements are inserted in the expected order and if the map size is updated accordingly.
- * 
+ *
  * @note This test case is part of the AdManagerMPDTests fixture.
  */
 TEST_F(AdManagerMPDTests, InsertToPeriodMapTest)
@@ -239,11 +239,11 @@ TEST_F(AdManagerMPDTests, InsertToPeriodMapTest)
 
 /**
  * @brief Tests the functionality of pruning the period maps.
- * 
+ *
  * This test case verifies that the `PrunePeriodMaps` function correctly removes ad breaks and periods
  * that are not present in the provided list of new period IDs.
  * This test case also verifies that the `ClearMaps` function correctly removes all ad breaks and periods
- * 
+ *
  * @note This test case is part of the AdManagerMPDTests fixture.
  */
 TEST_F(AdManagerMPDTests, PrunePeriodMapsTest)
@@ -285,10 +285,10 @@ TEST_F(AdManagerMPDTests, PrunePeriodMapsTest)
 
 /**
  * @brief Tests the functionality of the UpdatePlacementObj function when adBrkId equals endPeriodId.
- * 
+ *
  * This test case verifies that the `UpdatePlacementObj` function correctly sets the next placement object
  * when the ad break ID is the same as the end period ID.
- * 
+ *
  * @note This test case is part of the AdManagerMPDTests fixture.
  */
 TEST_F(AdManagerMPDTests, UpdatePlacementObjTest)
@@ -339,7 +339,7 @@ TEST_F(AdManagerMPDTests, UpdatePlacementObjTest)
 }
 
 /**
- * @brief Tests the functionality of the SetAlternateContents method 
+ * @brief Tests the functionality of the SetAlternateContents method
  * 1. when adId and url are empty.
  * 2. when adId and url are not empty and ad break object doesn't exists.
  */
@@ -963,7 +963,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
          "<MPD><Period id=\"1\"><AdaptationSet contentType=\"video\"><Representation><SegmentTemplate media=\"video.mp4\" initialization=\"video_init.mp4\"/></Representation></AdaptationSet>"
          "<AdaptationSet contentType=\"audio\"><Representation><SegmentTemplate media=\"audio.mp4\" initialization=\"audio_init.mp4\"/></Representation></AdaptationSet></Period></MPD>";
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
-  
+
     // Set up GetFile expectations for video and audio init segments
     std::string videoInitUrl = TEST_AD_MANIFEST_HOST + std::string("video_init.mp4");
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
@@ -988,12 +988,12 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
 
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
         .Times(1);
-    
+
     // Create initial ad break
-    
+
     // Try to add the ad that should fail with timeout
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    
+
     // Wait for async operations
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -1010,7 +1010,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
 
 /**
  * @brief Test error scenario for FulFillAdObject when manifest contains multiple periods.
- * 
+ *
  * This test ensures that if the ad manifest contains more than one period,
  * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_INVALID_MEDIA.
  */
@@ -1026,7 +1026,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
 
     // Create an ad break object and add the test ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
- 
+
     // Prepare manifest with multiple periods - should trigger error
     const char *manifest =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -1038,7 +1038,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
         "</MPD>";
 
     InitializeAdMPD(manifest);
-    
+
     // Expect error event due to multiple periods
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
 
@@ -1048,7 +1048,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Assert
-    // mAdBreak updated and placementObj not created 
+    // mAdBreak updated and placementObj not created
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadID.joinable());
     EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
@@ -1529,7 +1529,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration, 0); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, "testPeriodId2");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodOffset, 0);
 }
@@ -1684,7 +1684,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       </Representation>
     </AdaptationSet>
   </Period>
-  <Period id="testPeriodId1" start="PT30S">
+  <Period id="testPeriodId1" start="PT34S">
     <AdaptationSet id="1" contentType="video">
       <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
         <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
@@ -1724,13 +1724,13 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 30000); // placement completed and ending in same period ID
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 34000); // in ms
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak placed
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 34000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, "testPeriodId0");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0);
 
 
   // Update with same mpd again, and the params should not change
@@ -1743,7 +1743,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 34000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, "testPeriodId0");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodOffset, 0);
@@ -1775,8 +1775,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       </Representation>
     </AdaptationSet>
   </Period>
-  <Period id="testPeriodId1" start="PT30S">
-  </Period>
 </MPD>
 )";
 
@@ -1802,13 +1800,17 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 
   std::string periodId = "testPeriodId0";
-  // testPeriodId1 has 3 fragments added in the mock
   ProcessSourceMPD(manifest1);
   // Set curEndNumber to 9, adNextOffset = (9)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.push_back(mPrivateCDAIObjectMPD->mPlacementObj);
   mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber = 9;
   mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset = 18000;
+  // Have placed 18.0 Seconds of Ad and we know the period is at least 21.0 seconds long
+  // Increase Ad to 20.0 or provide Ad of 20.0 Seconds??
+  // From manifest1 we cannot determine when the period ends
+  // Expect add insertion to complete and
+  // [PlaceAds][612][CDAI] diff [-20000] NOT close to period end, period:testPeriodId0 duration[0]
 
   // Add ads to the adBreak
   mPrivateCDAIObjectMPD->mAdBreaks = {
@@ -1822,12 +1824,12 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 11);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
   // This is because ad is placed, and hence we will increment curAdIdx
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak not placed
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak not placed
 
   // Update with same mpd again, and the params should not change
   ProcessSourceMPD(manifest2);
@@ -1842,9 +1844,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, "testPeriodId0");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodId,periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodOffset, 0);
+
 }
 
 /** @brief Tests the functionality of CheckForAdTerminate method with different params
@@ -2032,7 +2035,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 10000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, "testPeriodId2"); // next period
@@ -2191,14 +2194,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 20000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodId, "testPeriodId1");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodOffset, 0);
   // TODO: There is a bug here, actually (int diff = (int)(currPeriodDuration - abObj.endPeriodOffset)) is coming as -ve here
   // Hence this is passing for now.
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, "testPeriodId2"); // next period
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 20000);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, "testPeriodId1"); // next period
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak placed
 }
 
@@ -2505,7 +2508,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid1 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2); // open period changed to periodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 18000); // 3sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 15000); // ad starts from 15sec in periodId2
@@ -2524,7 +2527,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration,15000); //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1); //adbreak share from periodId1
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000);
 
 }
 
@@ -2668,19 +2671,19 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).placed, true);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid1 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[10000].adIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[10000].adStartOffset, 0);
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration,15000); //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 1);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 5000); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 5000);
+
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId3);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
@@ -2825,23 +2828,23 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true); // split period identified
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true); // ad1 is placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).placed, true); // ad2 is placed
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId3);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0);
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration,15000); //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 1);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0);
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodId, "testPeriodId1");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodId, "testPeriodId2");
@@ -2978,17 +2981,17 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, false);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
+
   //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 15000);
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2); // open period changed to periodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 18000); // 3sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 15000); // ad starts from 15sec in periodId2
@@ -3203,17 +3206,17 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod, true); // split period is identified only once periodDelta becomes zero
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,10000); //periodmap of periodid1
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
-  
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration,10000); //periodmap of periodid2 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
+
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration,10000); //periodmap of periodid2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 10000); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 10000);
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2); // open period changed to periodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 20000); // 10sec from periodId2 also placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 10000); // ad starts from 10sec in periodId2
@@ -3221,12 +3224,12 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   ProcessSourceMPD(manifest3);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 3); // periodId3 map created
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId3].duration,10000); //periodmap of periodid3
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId3].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId3].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId3].offset2Ad[0].adStartOffset, 20000); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId3].offset2Ad[0].adStartOffset, 20000);
+
   //mPlacementObj is reset after placing ads, no EXPECT calls for same
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
@@ -3317,8 +3320,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   //periodmap of periodid1 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx,0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0); 
-  
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adStartOffset, 0);
+
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak placed
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod); // should not be marked as split period
 
@@ -3330,7 +3333,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0); 
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 0);
 }
 
 /**
@@ -3519,7 +3522,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).placed, true); // since periodDelta==0, it advances to periodId2
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced); // adBreak not placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap.size(), 2); // periodId2 map created
-  
+
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration,15000); //periodmap of periodid1 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
@@ -3709,7 +3712,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).invalid, true); //invalid since its tiny period
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodId, ""); // second ad in break is not set
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(1).basePeriodOffset, -1); // second ad in break is not placed
-  
+
   // periodmap is reset as endPeriodOffset is less than 2*OFFSET_ALIGN_FACTOR
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 0); //periodmap of periodid2 duration
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, ""); // periodmap is reset
