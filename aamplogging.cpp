@@ -164,7 +164,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 				ret = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 				if( ret<0 )
 				{
-					logerr++;
+					glogerr++;
 				}
 
 			}
