@@ -1577,6 +1577,12 @@ public:
 	void NotifyOnEnteringLive();
 
 	/**
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
 	 * @brief Cancel ad reservation
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 * @return void

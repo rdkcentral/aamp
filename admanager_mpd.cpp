@@ -54,6 +54,17 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
 	mPrivObj->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 }
 
+/**
+ * @brief Mark reservation as complete for a given reservationId
+ * @param[in] reservationId The reservation identifier
+ */
+void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (mPrivObj)
+	{
+		mPrivObj->NotifyReservationComplete(reservationId);
+	}
+}
 
 /**
  * @brief Cancel ad reservation
@@ -1683,7 +1694,7 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 {
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
-	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
+	AAMPLOG_INFO("Attempting to wait for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
 	if (isAdBreakObjectExist(periodId))
 	{
 		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, periodId] {
@@ -1807,5 +1818,31 @@ void PrivateCDAIObjectMPD::CancelReservation(const std::string& cancelAtReservat
 	{
 		AAMPLOG_WARN("[CDAI] CancelReservation: adBreakId %s not found; no state updated",
 			mPlacementObj.pendingAdbrkId.c_str());
+	}
+}
+
+/**
+ * @brief Mark the reservation as complete for the ad break
+ * @param[in] reservationId Ad break ID
+ * @param[in] time Time to mark the reservation complete
+ */
+void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx);
+	if (isAdBreakObjectExist(reservationId))
+	{
+		AdBreakObject& abObj = mAdBreaks[reservationId];
+		abObj.resolved = true;
+		AAMPLOG_INFO("[CDAI] Marked reservation complete for adBreakId: %s", reservationId.c_str());
+		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
+		if (!abObj.ads || abObj.ads->empty())
+		{
+			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play.", reservationId.c_str());
+			AbortWaitForNextAdResolved();
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
 	}
 }
