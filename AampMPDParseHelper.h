@@ -76,11 +76,11 @@ class PeriodElement
 private:
 	const IRepresentation *pRepresentation; // primary (representation)
 	const IAdaptationSet *pAdaptationSet; // secondary (adaptation set)
-	
+
 public:
 	PeriodElement(const PeriodElement &other) = delete;
 	PeriodElement& operator=(const PeriodElement& other) = delete;
-	
+
 	PeriodElement(const IAdaptationSet *adaptationSet, const IRepresentation *representation ):
 	pAdaptationSet(NULL),pRepresentation(NULL)
 	{
@@ -90,7 +90,7 @@ public:
 	~PeriodElement()
 	{
 	}
-	
+
 	std::string GetMimeType()
 	{
 		std::string mimeType;
@@ -109,7 +109,7 @@ class SegmentTemplates
 private:
 	const ISegmentTemplate *segmentTemplate1; // primary (representation)
 	const ISegmentTemplate *segmentTemplate2; // secondary (adaptation set)
-	
+
 public:
 	SegmentTemplates(const SegmentTemplates &other) = delete;
 	SegmentTemplates& operator=(const SegmentTemplates& other) = delete;
@@ -127,7 +127,7 @@ public:
 	{
 		return segmentTemplate1 || segmentTemplate2;
 	}
-	
+
 	std::string Getmedia()
 	{
 		std::string media;
@@ -135,7 +135,7 @@ public:
 		if( media.empty() && segmentTemplate2 ) media = segmentTemplate2->Getmedia();
 		return media;
 	}
-	
+
 	const ISegmentTimeline *GetSegmentTimeline()
 	{
 		const ISegmentTimeline *segmentTimeline = NULL;
@@ -143,7 +143,7 @@ public:
 		if( !segmentTimeline && segmentTemplate2 ) segmentTimeline = segmentTemplate2->GetSegmentTimeline();
 		return segmentTimeline;
 	}
-	
+
 	uint32_t GetTimescale()
 	{
 		uint32_t timeScale = 0;
@@ -160,7 +160,7 @@ public:
 		if( duration==0 && segmentTemplate2 ) duration = segmentTemplate2->GetDuration();
 		return duration;
 	}
-	
+
 	long GetStartNumber()
 	{
 		long startNumber = 0;
@@ -176,7 +176,7 @@ public:
 		if( presentationOffset==0 && segmentTemplate2) presentationOffset = segmentTemplate2->GetPresentationTimeOffset();
 		return presentationOffset;
 	}
-	
+
 	std::string Getinitialization()
 	{
 		std::string initialization;
@@ -216,37 +216,37 @@ public :
 	 *  @brief Copy assignment operator
 	 */
 	AampMPDParseHelper& operator=(const AampMPDParseHelper&) = delete;
-	
+
 	/**
 	*   @fn Initialize
-	*   @brief  Initialize the parser with MPD instance 
+	*   @brief  Initialize the parser with MPD instance
 	* 	@param[in] instance - MPD instance to parse
  	* 	@retval None
 	*/
 	void Initialize(dash::mpd::IMPD *instance);
 	/**
 	*   @fn Clear
-	*   @brief  Clear the parsed values in the helper 
+	*   @brief  Clear the parsed values in the helper
  	* 	@retval None
 	*/
 	void Clear();
 	/**
 	*   @fn IsLiveManifest
-	*   @brief  Returns if Manifest is Live Stream or not 
+	*   @brief  Returns if Manifest is Live Stream or not
  	* 	@retval bool . True if Live , False if VOD
 	*/
 	bool IsLiveManifest() { return mIsLiveManifest;}
 	/**
 	*   @fn GetMinUpdateDurationMs
-	*   @brief  Returns MinUpdateDuration from the manifest  
+	*   @brief  Returns MinUpdateDuration from the manifest
  	* 	@retval uint64_t Minimum Update Duration
 	*/
 	uint64_t GetMinUpdateDurationMs() { return mMinUpdateDurationMs;}
 	/**
 	*   @fn GetAvailabilityStartTime
-	*   @brief  Returns AvailabilityStartTime from the manifest  
+	*   @brief  Returns AvailabilityStartTime from the manifest
  	* 	@retval double . AvailabilityStartTime
-	*/	
+	*/
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
 	/**
 	*
@@ -257,37 +257,37 @@ public :
 	double GetPublishTime() { return mPublishTime; }
 	/**
 	*   @fn GetSegmentDurationSeconds
-	*   @brief  Returns SegmentDuration from the manifest  
+	*   @brief  Returns SegmentDuration from the manifest
  	* 	@retval uint64_t . SegmentDuration
 	*/
 	uint64_t GetSegmentDurationSeconds() { return mSegmentDurationSeconds;}
 	/**
 	*   @fn GetTSBDepth
-	*   @brief  Returns TSBDepth from the manifest  
+	*   @brief  Returns TSBDepth from the manifest
  	* 	@retval double . TSB Depth
 	*/
 	double GetTSBDepth() { return mTSBDepth;}
 	/**
 	*   @fn GetPresentationOffsetDelay
-	*   @brief  Returns PresentationOffsetDelay from the manifest  
+	*   @brief  Returns PresentationOffsetDelay from the manifest
  	* 	@retval double . OffsetDelay
 	*/
 	double GetPresentationOffsetDelay() { return mPresentationOffsetDelay;}
 	/**
 	*   @fn GetMediaPresentationDuration
-	*   @brief  Returns mediaPresentationDuration from the manifest  
+	*   @brief  Returns mediaPresentationDuration from the manifest
  	* 	@retval uint64_t . duration
 	*/
 	uint64_t GetMediaPresentationDuration()  {  return mMediaPresentationDuration;}
 	/**
 	*   @fn GetNumberOfPeriods
-	*   @brief  Returns Number of Periods from the manifest  
- 	* 	@retval int  
+	*   @brief  Returns Number of Periods from the manifest
+ 	* 	@retval int
 	*/
 	int GetNumberOfPeriods() { return mNumberOfPeriods;}
 	/**
 	*   @fn IsFogMPD
-	*   @brief  Returns Check if the manifest is from Fog  
+	*   @brief  Returns Check if the manifest is from Fog
  	* 	@retval bool . True if Fog , False if not Fog MPD
 	*/
 	bool IsFogMPD() { return mIsFogMPD;}
@@ -301,18 +301,18 @@ public :
 	/**
 	 * @fn GetContentProtection
 	 * @param[In] adaptation set and media type
-	 */	
+	 */
 	std::vector<IDescriptor*> GetContentProtection(const IAdaptationSet *adaptationSet);
 	/**
 	 * @fn IsEmptyPeriod
 	 * @param period period to check whether it is empty
-	 * @param checkIframe check only for Iframe Adaptation	 
+	 * @param checkIframe check only for Iframe Adaptation
 	 * @retval Return true on empty Period
 	 */
 	bool IsEmptyPeriod(int iPeriodIndex, bool checkIframe);
 	/**
 	 * @fn IsEmptyAdaptation
-	 * @param Adaptation Adaptation to check whether it is empty	 
+	 * @param Adaptation Adaptation to check whether it is empty
 	 */
 	bool IsEmptyAdaptation(IAdaptationSet *adaptationSet);
 	/**
@@ -327,13 +327,13 @@ public :
 	 *   @retval period duration in milliseconds
 	 */
 	double aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime);
-	
+
 	/**
  	  * @brief Check if adaptation set is of a given media type
 	  * @retval true if adaptation set is of the given media type
 	  */
 	bool IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType );
-	
+
 	/**
 	 * @fn GetPeriodDuration
 	 * @param mpd : pointer manifest
@@ -360,7 +360,7 @@ public :
 	bool GetLiveTimeFragmentSync() {return mLiveTimeFragmentSync;}
 
 	/**
-	 * @brief SetHasServerUtcTime 
+	 * @brief SetHasServerUtcTime
 	 * @param True - if UTCTiming element is available in the manifest else false
 	 */
 	void SetHasServerUtcTime(bool hasServerUtcTime) { mHasServerUtcTime = hasServerUtcTime; }
@@ -474,6 +474,14 @@ public :
     bool aamp_HasSegmentTimeline(IPeriod * period);
 
 	/**
+	 *   @brief  Get Period Duration from start time of this period and next
+	 *   @param  periodIndex
+	 *
+	 *   @retval period duration in milliseconds, 0 if not obtainable
+	 */
+	double GetPeriodDurationFromStart(int periodIndex);
+
+	/**
 	 * @brief Get the MPD instance.
 	 *
 	 * @return const dash::mpd::IMPD* A pointer to the MPD instance.
@@ -515,7 +523,7 @@ private:
 	PeriodEncryptedMap	mPeriodEncryptionMap;
 	/* Container to store Period Empty map for MPD */
 	PeriodEmptyMap		mPeriodEmptyMap;
-	
+
 	bool mLiveTimeFragmentSync;
 	/*To check whether UTCTiming element is available in the manifest */
 	bool mHasServerUtcTime;
