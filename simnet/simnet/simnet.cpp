@@ -228,10 +228,16 @@ struct NetworkModel {
 		if (assigned != size_bytes) {
 			long long diff = static_cast<long long>(size_bytes) - static_cast<long long>(assigned);
 			int idx = 0;
-			while (diff != 0 && k > 0) {
+			int max_iterations = k * 2; // Safety limit to prevent infinite loop
+			while (diff != 0 && k > 0 && max_iterations > 0) {
 				if (diff > 0) { bytes[idx % k]++; diff--; }
 				else if (bytes[idx % k] > 0) { bytes[idx % k]--; diff++; }
 				idx++;
+				max_iterations--;
+			}
+			// If we couldn't fully correct the drift, assign remainder to first chunk
+			if (diff != 0 && k > 0) {
+				bytes[0] += diff; // safe: diff can be negative only if bytes[0] has room
 			}
 		}
 		

@@ -43,7 +43,7 @@ struct Burst {
 	int    idx = 0;
 	double t_start_s = 0.0;   // relative to request start
 	double dur_s     = 0.0;
-	int    bytes     = 0;
+	size_t bytes     = 0;
 	double gap_before_s = 0.0;
 	bool   is_late   = false;
 };
@@ -90,7 +90,7 @@ public:
 		}
 		// account
 		if (!bursts_.empty()) {
-			bursts_.back().bytes += int(num_bytes);
+			bursts_.back().bytes += num_bytes;
 		}
 		last_cb_time_s_ = t_now_s;
 		return new_burst;
@@ -125,14 +125,14 @@ public:
 	void flush_csv() {
 		ensure_files_open();
 		// aggregate
-		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; double bytes = 0;
+		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
 		for (auto& b : bursts_) {
 			gap_time_s   += b.gap_before_s;
 			burst_time_s += b.dur_s;
 			bytes        += b.bytes;
 			late_count   += b.is_late ? 1 : 0;
 		}
-		double avg_burst_rate_Bps = (burst_time_s > 0) ? (bytes / burst_time_s) : 0.0;
+		double avg_burst_rate_Bps = (burst_time_s > 0) ? (static_cast<double>(bytes) / burst_time_s) : 0.0;
 		
 		// request row
 		req_ofs_ <<
