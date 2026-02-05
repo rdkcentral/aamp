@@ -4252,3 +4252,26 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_DisableDownloadsBeforeWait)
   // Fail if it actually waited for more than 500ms (indicating it did not abort immediately)
   EXPECT_LT(elapsedMs, 500) << "WaitForNextAdResolved did not abort immediately, waited for " << elapsedMs << " ms";
 }
+
+/**
+* @brief Test NotifyReservationComplete for empty ad break: should resolve and notify waiting threads.
+*/
+TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndResolves)
+{
+    std::string periodId = "testPeriodId";
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId] = AdBreakObject(10000, nullptr, "", 0, 0);
+ 
+    // Start a thread that waits for ad resolution (should be notified by NotifyReservationComplete)
+    bool completed = false;
+    std::thread waiter([&] {
+      completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000, periodId);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+ 
+    waiter.join();
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
+    // The waiting thread should have completed (not timed out)
+    EXPECT_TRUE(completed);
+}

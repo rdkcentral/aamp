@@ -272,6 +272,13 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	}
 }
 
+/**
+ *  @brief Notify AAMP that ad reservation is complete for a given reservationId
+ */
+void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	aamp->NotifyReservationComplete(reservationId);
+}
 
 /**
  *   @brief API to reset configuration across tunes for single player instance
