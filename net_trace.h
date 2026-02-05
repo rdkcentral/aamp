@@ -101,7 +101,7 @@ public:
 	 * Purpose: Called from curl header callback when Transfer-Encoding: chunked is detected.
 	 * This metadata is recorded in the request CSV.
 	 */
-	void mark_chunked() { chunked_hdr_seen_ = true; }
+	void MarkChunked() { chunked_hdr_seen_ = true; }
 	
 	/**
 	 * @brief Record data ingress from curl write callback
@@ -113,7 +113,7 @@ public:
 	 * @param[in] t_now_s Current monotonic timestamp (seconds)
 	 * @return True if a new burst was started, false if continuing existing burst
 	 */
-	bool on_write(size_t num_bytes, double t_now_s) {
+	bool OnWrite(size_t num_bytes, double t_now_s) {
 		if (first_payload_time_s_ < 0) first_payload_time_s_ = t_now_s;
 		bool new_burst = false;
 		if (!in_burst_) {
@@ -143,7 +143,7 @@ public:
 	 * Purpose: Closes the final burst and applies minimum duration floor if needed.
 	 * Must be called after all write callbacks complete.
 	 */
-	void on_complete_bytes() {
+	void OnCompleteBytes() {
 		if (in_burst_) {
 			// If we only saw a single callback, last_cb_time_s_ can equal open time.
 			// Use a minimal non-zero duration floor.
@@ -171,7 +171,7 @@ public:
 	 * @param[in] local_port Local port number
 	 * @param[in] bytes_total Total bytes transferred
 	 */
-	void set_curl_timings(double name_s, double connect_s, double appconnect_s,
+	void SetCurlTimings(double name_s, double connect_s, double appconnect_s,
 						  double pre_xfer_s, double start_xfer_s, double total_s,
 						  long http_code, bool conn_reused,
 						  const std::string& primary_ip, long local_port,
@@ -193,7 +193,7 @@ public:
 	 * 
 	 * Thread Safety: Protected by mutex in shared FileState.
 	 */
-	void flush_csv() {
+	void FlushCsv() {
 		EnsureFilesOpen();
 		auto& state = get_file_state();
 		// aggregate
@@ -238,7 +238,7 @@ public:
 	 * @param[in] cadence_s Expected inter-burst cadence (seconds)
 	 * @param[in] jitter_s Expected jitter/variance (seconds)
 	 */
-	void classify_gaps(double cadence_s, double jitter_s) {
+	void ClassifyGaps(double cadence_s, double jitter_s) {
 		double late_thr = cadence_s + 2.0*std::max(0.010, jitter_s);
 		for (auto& b : bursts_) {
 			if (b.gapBeforeS > late_thr) b.isLate = true;
@@ -259,7 +259,7 @@ public:
 	 * 
 	 * Thread Safety: Protected by internal mutex.
 	 */
-	static void set_paths_with_pid(const std::string& req_path, const std::string& burst_path) {
+	static void SetPathsWithPid(const std::string& req_path, const std::string& burst_path) {
 		pid_t pid = getpid();
 		auto& state = get_file_state();
 		std::lock_guard<std::mutex> g(state.mutex);
@@ -360,7 +360,7 @@ private:
 	uint64_t req_id_;
 	std::string url_path_, media_type_;
 	double t0_;
-	bool chunked_hdr_seen_ = false;
+	bool chunked_hdr_seen_;
 	
 	// write/burst state
 	bool   in_burst_ = false;

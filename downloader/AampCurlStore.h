@@ -33,6 +33,12 @@
 #include <glib.h>
 #include <mutex>
 
+#ifdef AAMP_NET_TRACE
+namespace aamptrace {
+	class NetTrace;
+}
+#endif
+
 #define eCURL_MAX_AGE_TIME			( (300) * (1000) )			/**< 5 mins - 300 secs - Max age for a connection */
 
 /**
@@ -240,12 +246,6 @@ enum class ChunkedTransferState
 	DONE,                     // download complete; final empty chunk has been received
 	ERROR
 };
-
-#ifdef AAMP_NET_TRACE
-namespace aamptrace {
-	class NetTrace;
-}
-#endif
 
 /**
  * @struct CurlCallbackContext

@@ -82,7 +82,7 @@ struct NetworkCharacteristics {
 // We keep a trivial flat-number parser to avoid dependencies.
 // Accepts a flat JSON with numeric values, e.g. {"base_rtt_ms": 175, ...}
 
-static bool findNumber(const std::string& s, const std::string& key, double &out) {
+static bool FindNumber(const std::string& s, const std::string& key, double &out) {
 	const std::string kq = "\"" + key + "\"";
 	size_t kp = s.find(kq);
 	if (kp == std::string::npos) return false;
@@ -96,14 +96,14 @@ static bool findNumber(const std::string& s, const std::string& key, double &out
 	return true;
 }
 
-static bool findInt(const std::string& s, const std::string& key, int &out) {
+static bool FindInt(const std::string& s, const std::string& key, int &out) {
 	double d;
-	if (!findNumber(s, key, d)) return false;
+	if (!FindNumber(s, key, d)) return false;
 	out = static_cast<int>(std::llround(d));
 	return true;
 }
 
-static NetworkCharacteristics loadPersonaFromJson(const std::string& path) {
+static NetworkCharacteristics LoadPersonaFromJson(const std::string& path) {
 	NetworkCharacteristics nc;
 	std::ifstream f(path);
 	if (!f.is_open()) {
@@ -114,30 +114,30 @@ static NetworkCharacteristics loadPersonaFromJson(const std::string& path) {
 	std::string s = buf.str();
 	
 	// Populate from JSON if present; otherwise keep defaults
-	findNumber(s, "base_rtt_ms", nc.base_rtt_ms);
-	findNumber(s, "rtt_jitter_ms", nc.rtt_jitter_ms);
-	findNumber(s, "ttfb_spike_p", nc.ttfb_spike_p);
-	findNumber(s, "ttfb_spike_ms", nc.ttfb_spike_ms);
+	FindNumber(s, "base_rtt_ms", nc.base_rtt_ms);
+	FindNumber(s, "rtt_jitter_ms", nc.rtt_jitter_ms);
+	FindNumber(s, "ttfb_spike_p", nc.ttfb_spike_p);
+	FindNumber(s, "ttfb_spike_ms", nc.ttfb_spike_ms);
 	
-	findNumber(s, "mean_thr_mbps", nc.mean_thr_mbps);
-	findNumber(s, "thr_sigma_ln", nc.thr_sigma_ln);
-	findNumber(s, "thr_rho", nc.thr_rho);
+	FindNumber(s, "mean_thr_mbps", nc.mean_thr_mbps);
+	FindNumber(s, "thr_sigma_ln", nc.thr_sigma_ln);
+	FindNumber(s, "thr_rho", nc.thr_rho);
 	
-	findInt(s, "bursts_per_segment", nc.bursts_per_segment);
-	findNumber(s, "burst_bytes_cv", nc.burst_bytes_cv);
+	FindInt(s, "bursts_per_segment", nc.bursts_per_segment);
+	FindNumber(s, "burst_bytes_cv", nc.burst_bytes_cv);
 	
-	findNumber(s, "cadence_ms", nc.cadence_ms);
-	findNumber(s, "cadence_jitter_ms", nc.cadence_jitter_ms);
-	findNumber(s, "flush_jitter_ms", nc.flush_jitter_ms);
-	findNumber(s, "late_chunk_p", nc.late_chunk_p);
-	findNumber(s, "late_chunk_extra_ms", nc.late_chunk_extra_ms);
+	FindNumber(s, "cadence_ms", nc.cadence_ms);
+	FindNumber(s, "cadence_jitter_ms", nc.cadence_jitter_ms);
+	FindNumber(s, "flush_jitter_ms", nc.flush_jitter_ms);
+	FindNumber(s, "late_chunk_p", nc.late_chunk_p);
+	FindNumber(s, "late_chunk_extra_ms", nc.late_chunk_extra_ms);
 	
-	findNumber(s, "p_conn_reuse", nc.p_conn_reuse);
-	findNumber(s, "new_conn_penalty_ms", nc.new_conn_penalty_ms);
+	FindNumber(s, "p_conn_reuse", nc.p_conn_reuse);
+	FindNumber(s, "new_conn_penalty_ms", nc.new_conn_penalty_ms);
 	
-	findNumber(s, "capacity_drop_p", nc.capacity_drop_p);
-	findNumber(s, "capacity_drop_factor", nc.capacity_drop_factor);
-	findNumber(s, "rtt_inflation_ms", nc.rtt_inflation_ms);
+	FindNumber(s, "capacity_drop_p", nc.capacity_drop_p);
+	FindNumber(s, "capacity_drop_factor", nc.capacity_drop_factor);
+	FindNumber(s, "rtt_inflation_ms", nc.rtt_inflation_ms);
 	
 	return nc;
 }
@@ -367,7 +367,7 @@ struct CLI {
 	std::uint64_t seed = 0;
 };
 
-static bool parseCLI(int argc, char** argv, CLI& cli) {
+static bool ParseCLI(int argc, char** argv, CLI& cli) {
 	for (int i = 1; i < argc; ++i) {
 		std::string a = argv[i];
 		auto need = [&](int n){ return (i + n) < argc; };
@@ -404,7 +404,7 @@ static bool parseCLI(int argc, char** argv, CLI& cli) {
 	return true;
 }
 
-static bool loadSizesFromFile(const std::string& path, std::vector<std::uint64_t>& out) {
+static bool LoadSizesFromFile(const std::string& path, std::vector<std::uint64_t>& out) {
 	std::ifstream f(path);
 	if (!f.is_open()) {
 		std::cerr << "[simnet] Could not open sizes file: " << path << "\n";
@@ -425,16 +425,16 @@ int main(int argc, char** argv) {
 	std::ios::sync_with_stdio(false);
 	
 	CLI cli;
-	if (!parseCLI(argc, argv, cli)) { printUsage(); return 2; }
+	if (!ParseCLI(argc, argv, cli)) { printUsage(); return 2; }
 	if (!cli.sizesFile.empty()) {
-		if (!loadSizesFromFile(cli.sizesFile, cli.sizes)) return 3;
+		if (!LoadSizesFromFile(cli.sizesFile, cli.sizes)) return 3;
 	}
 	if (cli.sizes.empty()) {
 		std::cerr << "[simnet] No sizes provided after reading file.\n";
 		return 4;
 	}
 	
-	NetworkCharacteristics nc = loadPersonaFromJson(cli.personaPath);
+	NetworkCharacteristics nc = LoadPersonaFromJson(cli.personaPath);
 	NetworkModel model(nc, cli.seed);
 	
 	// Open outputs

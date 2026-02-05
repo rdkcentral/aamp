@@ -433,6 +433,7 @@ set(LIBAAMP_SOURCES
 	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
 	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
+	net_trace.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)

@@ -1036,7 +1036,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 #ifdef AAMP_NET_TRACE
 			// Record burst timing BEFORE appending bytes; this captures ingress cadence
 			if (context->net) {
-				context->net->on_write(size*nmemb, aamptrace::now_monotonic_s());
+				context->net->OnWrite(size*nmemb, aamptrace::now_monotonic_s());
 			}
 #endif
 			if (context->buffer->GetLen() == 0)
@@ -1248,7 +1248,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 #ifdef AAMP_NET_TRACE
 			// Mark request as chunked for the recorder (request-level metadata)
 			if (context->net) {
-				context->net->mark_chunked();
+				context->net->MarkChunked();
 			}
 #endif
 		}
@@ -4471,16 +4471,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		static std::once_flag init_paths_flag;
 		std::call_once(init_paths_flag, []() {
 			if (const char* R = std::getenv("AAMP_REQ_CSV")) {
-				if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::set_paths_with_pid(R, B);
-				else NetTrace::set_paths_with_pid(R, "/tmp/aamp_net_bursts.csv");
+				if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::SetPathsWithPid(R, B);
+				else NetTrace::SetPathsWithPid(R, "/tmp/aamp_net_bursts.csv");
 			}
 			else {
-				NetTrace::set_paths_with_pid("/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
+				NetTrace::SetPathsWithPid("/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
 			}
 		});
 		
 		// extract path component (after domain) from URL
-		auto pathOnly = [](const std::string& u)->std::string {
+		static const auto pathOnly = [](const std::string& u)->std::string {
 			size_t s = 0, p = u.find("://");
 			s = (p==std::string::npos) ? 0 : (p+3);
 			s = u.find('/', s);
@@ -5338,6 +5338,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		profiler.ProfileEnd(bucketType);
 	}
+#ifdef AAMP_NET_TRACE
+	// Critical: Null out context.net before returning to prevent dangling pointer
+	// The stack-local 'net' object goes out of scope when this function returns
+	context.net = nullptr;
+#endif
 	return ret;
 }
 
