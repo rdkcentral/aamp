@@ -89,8 +89,11 @@ else()
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
-message("AAMP_NET_TRACE set")
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
+option(ENABLE_AAMP_NET_TRACE "Enable network activity tracing instrumentation" OFF)
+if(ENABLE_AAMP_NET_TRACE)
+	message("AAMP_NET_TRACE set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
+endif()
 
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
