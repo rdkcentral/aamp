@@ -633,14 +633,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	}
 	else
 	{
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost)
-		{
-			ret = (size*nmemb);
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace write_callback - interrupted, ret:%zu", ret);
-		}
+		AAMPLOG_WARN("interrupted");
 	}
 	return ret;
 }
@@ -885,10 +878,11 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
  * @param ultotal total number of bytes libcurl expects to upload
  * @param ulnow number of bytes uploaded so far
  *
- * @retval -1 to cancel in progress download
+ * @retval 1 to cancel in progress download
  */
 int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
+	int rc = 0;
 	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
 	PrivateInstanceAAMP *aamp = context->aamp;
 	AampConfig *mConfig = context->aamp->mConfig;
@@ -898,12 +892,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		context->aamp->CheckABREnabled() &&
 		!(ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR)))
 	{
-		//AAMPLOG_WARN("[%d] dltotal: %.0f , dlnow: %.0f, ultotal: %.0f, ulnow: %.0f, time: %.0f\n", context->mediaType,
-		//	dltotal, dlnow, ultotal, ulnow, difftime(time(NULL), 0));
-
-		// int AbrChunkThresholdSize = GETCONFIGVALUE(eAAMPConfig_ABRChunkThresholdSize);
-
-		if (/*(dlnow > AbrChunkThresholdSize) &&*/ (context->downloadNow != dlnow))
+		if( context->downloadNow != dlnow )
 		{
 			long downloadbps = 0;
 
@@ -938,11 +927,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 	}
 
-	int rc = 0;
 	context->aamp->SyncBegin();
 	if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		rc = -1; // CURLE_ABORTED_BY_CALLBACK
+		rc = 1; // CURLE_ABORTED_BY_CALLBACK
 	}
 
 	context->aamp->SyncEnd();
@@ -964,7 +952,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 					{ // no change for at least <stallTimeout> seconds - consider download stalled and abort
 						AAMPLOG_WARN("Abort download as mid-download stall detected for %.2f seconds, download size:%.2f bytes", timeElapsedSinceLastUpdate, dlnow);
 						context->abortReason = eCURL_ABORT_REASON_STALL_TIMEDOUT;
-						rc = -1;
+						rc = 1; // CURLE_ABORTED_BY_CALLBACK
 					}
 				}
 				else
@@ -981,7 +969,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			{
 				AAMPLOG_WARN("Abort download as no data received for %.2f seconds", timeElapsedInSec);
 				context->abortReason = eCURL_ABORT_REASON_START_TIMEDOUT;
-				rc = -1;
+				rc = 1; // CURLE_ABORTED_BY_CALLBACK
 			}
 		}
 		if (dlnow > 0 && context->lowBWTimeout> 0 && eMEDIATYPE_VIDEO == context->mediaType)
@@ -999,7 +987,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 								predictedTotalDownloadTimeMs/1000.0,
 								aamp->mNetworkTimeoutMs/1000.0 );
 						context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-						rc = -1;
+						rc = 1; // CURLE_ABORTED_BY_CALLBACK
 					}
 				}
 				else
@@ -1015,7 +1003,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 							{
 								AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
 								context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-								rc = -1;
+								rc = 1; // CURLE_ABORTED_BY_CALLBACK
 							}
 						}
 					}
@@ -1024,18 +1012,9 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			}
 		}
 	}
-
 	if(rc)
 	{
-		if( !( eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT == context->abortReason || eCURL_ABORT_REASON_START_TIMEDOUT == context->abortReason ||\
-			eCURL_ABORT_REASON_STALL_TIMEDOUT == context->abortReason ) && (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost ) )
-		{
-			rc = 0;
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace Progress interrupted, ret:%d", rc);
-		}
+		AAMPLOG_WARN( "interrupted" );
 	}
 	return rc;
 }
@@ -1192,6 +1171,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
+	, mApplyCachedCCStatus(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -5518,6 +5498,20 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					mApplyCachedVideoMute = false;
 					CacheAndApplySubtitleMute(video_muted);
 				}
+				if (mApplyCachedCCStatus)
+				{
+					AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted, mApplyCachedCCStatus);
+					mApplyCachedCCStatus = false;
+					if (mpStreamAbstractionAAMP)
+					{
+						mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+						if (HasSidecarData())
+						{ // has sidecar data
+							mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+						}
+					}
+					SetSubtitleMute(subtitles_muted);
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6112,7 +6106,22 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			CacheAndApplySubtitleMute(video_muted);
 		}
 	}
+	if (mApplyCachedCCStatus)
+	{
+		AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted, mApplyCachedCCStatus);
+		mApplyCachedCCStatus = false;
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			}
+		}
+		SetSubtitleMute(subtitles_muted);
+	}
 	ReleaseStreamLock();
+	AAMPLOG_WARN("*TuneJSt - Released stream lock during tune");	/* leave at warn until JS stop during tune is stabilised */
 
 	// To check and apply stored video rectangle properties
 	if (mApplyVideoRect)
@@ -7448,6 +7457,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop()
 {
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
+	mApplyCachedCCStatus = false;
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
 	{
@@ -7490,6 +7500,9 @@ void PrivateInstanceAAMP::Stop()
 
 	UnblockWaitForDiscontinuityProcessToComplete();
 	StopRateCorrectionWorkerThread();
+
+	// Protect against TearDownStream in another thread
+	AcquireStreamLock();
 	if(mTelemetryInterval > 0)
 	{
 		double bufferedDuration = 0.0;
@@ -7508,9 +7521,10 @@ void PrivateInstanceAAMP::Stop()
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
 	// Stopping the playback, release all DRM context
+	
+	//AcquireStreamLock();
 	if (mpStreamAbstractionAAMP)
 	{
-		AcquireStreamLock();
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
@@ -7520,8 +7534,8 @@ void PrivateInstanceAAMP::Stop()
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
-		ReleaseStreamLock();
 	}
+	ReleaseStreamLock();
 	TeardownStream(true,true); //disable download as well
 
 	// stop the mpd update immediately after Stream abstraction delete
@@ -10873,18 +10887,50 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
-	AcquireStreamLock();
+
+	auto playerState=GetState();
+	bool streamLockTaken=false;
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication = ((playerState == eSTATE_IDLE)         ||
+					 (playerState == eSTATE_INITIALIZING) ||
+					 (playerState == eSTATE_INITIALIZED)  ||
+					 (playerState == eSTATE_PREPARING)    ||
+					 (playerState == eSTATE_PREPARED)
+					);
+
 	subtitles_muted = !enabled;
-	if (mpStreamAbstractionAAMP)
+
+	if(allowDeferredApplication)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
-		}
+		streamLockTaken=TryStreamLock();
 	}
-	SetSubtitleMute(subtitles_muted);
-	ReleaseStreamLock();
+	else
+	{
+		AcquireStreamLock();
+		streamLockTaken=true;
+	}
+
+	if (streamLockTaken)
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			}
+		}
+		SetSubtitleMute(subtitles_muted);
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d, playerState=%d", subtitles_muted, playerState);
+		mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+	}
 }
 
 /**
