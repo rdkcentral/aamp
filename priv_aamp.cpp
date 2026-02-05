@@ -6093,7 +6093,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
 		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
+		AAMPLOG_INFO("[INBAND_CC_FLOW] Tune start: Captured CC state - previousCCEnabled=%d, mIsInbandCC=%d", previousCCEnabled, mIsInbandCC);
+		AAMPLOG_WARN("[INBAND_CC_FLOW] previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
 
 		if (!mbUsingExternalPlayer)
 		{
@@ -6204,17 +6205,36 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	if(!mIsFakeTune)
 	{
-		AAMPLOG_INFO("mCCId: %d",mCCId);
+		AAMPLOG_INFO("[INBAND_CC_FLOW] After tune: mCCId=%d, mIsInbandCC=%d, previousCCEnabled=%d",mCCId, mIsInbandCC, previousCCEnabled);
 		// if mCCId has non zero value means it is same instance and cc release was not callee then don't get id. if zero then call getid.
 		if(mCCId == 0 )
 		{
+			AAMPLOG_INFO("[INBAND_CC_FLOW] Getting new CC manager ID");
 			mCCId = PlayerCCManager::GetInstance()->GetId();
+			AAMPLOG_INFO("[INBAND_CC_FLOW] CC manager ID obtained: %d", mCCId);
 		}
+		else
+		{
+			AAMPLOG_INFO("[INBAND_CC_FLOW] Reusing existing CC manager ID: %d", mCCId);
+		}
+
+		MW_LOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> DETECTED INBAND CC=============", mCCId);
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
+			AAMPLOG_INFO("[INBAND_CC_FLOW] Inband CC detected! Restoring previous CC state: previousCCEnabled=%d", previousCCEnabled);
+			MW_LOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> RESTORING INBAND CC=============", mCCId);
 			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
+			AAMPLOG_INFO("[INBAND_CC_FLOW] RestoreCC completed for CC ID: %d", mCCId);
 		}
+		else
+		{
+			AAMPLOG_INFO("[INBAND_CC_FLOW] No inband CC detected (mIsInbandCC=false), RestoreCC NOT called");
+		}
+	}
+	else
+	{
+		AAMPLOG_INFO("[INBAND_CC_FLOW] Fake tune detected, skipping CC restoration");
 	}
 
 	if (newTune && !mIsFakeTune)
@@ -11468,6 +11488,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
+					AAMO_LOG_DEBUG("========INBAND CC DETECTED======")
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
@@ -11542,25 +11563,29 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
  */
 void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 {
+	AAMPLOG_INFO("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: ENTRY - track.instreamId=%s, track.language=%s, mMediaFormat=%d", track.instreamId.c_str(), track.language.c_str(), mMediaFormat);
 
 	if (track.instreamId.empty())
 	{
-		AAMPLOG_ERR("PrivateInstanceAAMP: Track number/instreamId is empty, skip operation");
+		AAMPLOG_ERR("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: Track number/instreamId is empty, skip operation");
 	}
 	else
 	{
 		CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
 		// PlayerCCManager expects the CC type, ie 608 or 708
 		// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
+		AAMPLOG_DEBUG("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: Initial format=%d, rendition=%s", format, track.rendition.c_str());
 		if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
 		{
 			if (track.rendition.find("608") != std::string::npos)
 			{
 				format = eCLOSEDCAPTION_FORMAT_608;
+				AAMPLOG_DEBUG("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: Detected CEA-608 format");
 			}
 			else if (track.rendition.find("708") != std::string::npos)
 			{
 				format = eCLOSEDCAPTION_FORMAT_708;
+				AAMPLOG_DEBUG("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: Detected CEA-708 format");
 			}
 		}
 
@@ -11569,10 +11594,11 @@ void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 		if (overrideCfg != -1)
 		{
 			format = (CCFormat)(overrideCfg & 1);
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
+			AAMPLOG_WARN("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: CC format override present, override format to: %d", format);
 		}
-		AAMPLOG_INFO("instreamId %s format %d", track.instreamId.c_str(), format);
+		AAMPLOG_INFO("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: Calling PlayerCCManager::SetTrack() with instreamId=%s, format=%d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
+		AAMPLOG_INFO("[INBAND_CC_FLOW] SetClosedCaptionsFromTextTrack: PlayerCCManager::SetTrack() completed");
 	}
 }
 
@@ -11594,25 +11620,31 @@ int PrivateInstanceAAMP::GetTextTrack()
 {
 	int idx = -1;
 	AcquireStreamLock();
+	AAMPLOG_DEBUG("[INBAND_CC_FLOW] GetTextTrack: ENTRY - CCManager status=%d, subtitles_muted=%d", PlayerCCManager::GetInstance()->GetStatus(), subtitles_muted.load());
 	if (PlayerCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
 	{
 		std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
+		AAMPLOG_DEBUG("[INBAND_CC_FLOW] GetTextTrack: CCManager trackId=%s", trackId.c_str());
 		if (!trackId.empty())
 		{
 			std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+			AAMPLOG_DEBUG("[INBAND_CC_FLOW] GetTextTrack: Found %zu available tracks", tracks.size());
 			for (auto it = tracks.begin(); it != tracks.end(); it++)
 			{
 				if (it->instreamId == trackId)
 				{
 					idx = static_cast<int>( std::distance(tracks.begin(), it) );
+					AAMPLOG_INFO("[INBAND_CC_FLOW] GetTextTrack: Found matching track at index %d", idx);
 				}
 			}
 		}
 	}
 	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
 	{
+		AAMPLOG_DEBUG("[INBAND_CC_FLOW] GetTextTrack: Falling back to stream abstraction GetTextTrack()");
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
+	AAMPLOG_INFO("[INBAND_CC_FLOW] GetTextTrack: EXIT - returning idx=%d", idx);
 	ReleaseStreamLock();
 	return idx;
 }
@@ -11631,28 +11663,34 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
 	// StreamLock is recursive, so it is fine to call this method with it locked.
 	AcquireStreamLock();
+	AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: ENTRY - mIsInbandCC=%d, video_muted=%d, subtitles_muted=%d", mIsInbandCC, video_muted.load(), subtitles_muted.load());
 	if (mpStreamAbstractionAAMP)
 	{
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+		AAMPLOG_TRACE("[INBAND_CC_FLOW] SetCCStatusInternal: mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
 					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
 
 		if (mIsInbandCC || !isGstSubtecEnabled)
 		{
+			AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: Using PlayerCCManager path - setting status to %d", !mute_subtitles_applied);
 			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+			AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: PlayerCCManager::SetStatus() completed");
 		}
 		else
 		{
+			AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: Using stream abstraction path - mute_subtitles_applied=%d", mute_subtitles_applied);
 			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 			if (HasSidecarData())
 			{ // has sidecar data
+				AAMPLOG_DEBUG("[INBAND_CC_FLOW] SetCCStatusInternal: Muting sidecar subtitles");
 				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 			}
 			SetSubtitleMuteInternal(mute_subtitles_applied);
 		}
 	}
+	AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: EXIT");
 	ReleaseStreamLock();
 }
 

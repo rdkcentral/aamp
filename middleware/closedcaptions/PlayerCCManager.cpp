@@ -566,26 +566,30 @@ void PlayerCCManagerBase::Start()
  */
 int PlayerCCManagerBase::Init(void *handle)
 {
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: ENTRY - handle=%p", handle);
 	if (handle == NULL)
 	{
-		MW_LOG_WARN("PlayerCCManagerBase:: NULL handle");
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: NULL handle");
 		return -1;
 	}
 
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: Calling Initialize(%p)", handle);
 	if (Initialize(handle) != 0)
 	{
-		MW_LOG_WARN("PlayerCCManagerBase::Initialize failure");
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: Initialize failure");
 		return -1;
 	}
 
-	MW_LOG_WARN("PlayerCCManagerBase:: Start CC with video dec handle: %p and mEnabled: %d", handle, mEnabled);
+	MW_LOG_WARN("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: Start CC with video dec handle: %p and mEnabled: %d", handle, mEnabled);
 
 	if (mEnabled)
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: Calling Start()");
 		Start();
 	}
 	else
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerCCManagerBase::Init: Calling Stop()");
 		Stop();
 	}
 
@@ -734,25 +738,42 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
  */
 void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
+	MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: ENTRY - shouldRestoreCC=%d, mEnabled=%d, mTrickplayStarted=%d, mParentalCtrlLocked=%d", 
+			shouldRestoreCC, mEnabled, mTrickplayStarted, mParentalCtrlLocked);
+	
 	if(!mEnabled && shouldRestoreCC)
 	{
 		mEnabled = shouldRestoreCC;
+		MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: Re-enabled CC (mEnabled was false, now true)");
 	}
-	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
+	else if(!shouldRestoreCC)
+	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: NOT restoring CC - shouldRestoreCC is false");
+	}
+	else
+	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: CC already enabled, no change needed");
+	}
+
+	MW_LOG_WARN("[INBAND_CC_FLOW] RestoreCC: Current state - mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 
 	std::string trackId = GetTrack();
+	MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: Current track ID = %s", trackId.c_str());
 
 	const auto& textTracks = getLastTextTracks();
 	bool matchFound = false;
+
+	MW_LOG_DEBUG("[INBAND_CC_FLOW] RestoreCC: Total available text tracks = %zu", textTracks.size());
 
 	if(!textTracks.empty())
 	{
 		for(const auto& track : textTracks)
 		{
+			MW_LOG_DEBUG("[INBAND_CC_FLOW] RestoreCC: Checking track instreamId=%s against current=%s", track.instreamId.c_str(), trackId.c_str());
 			if(trackId == track.instreamId)
 			{
-				MW_LOG_WARN("PlayerCCManagerBase::matching id found in available tracks");
+				MW_LOG_WARN("[INBAND_CC_FLOW] RestoreCC: matching id found in available tracks");
 				matchFound = true;
 				break;
 			}
@@ -762,16 +783,18 @@ void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 		{
 			std::string defaultTrack = textTracks.front().instreamId;
 			trackId = defaultTrack.empty() ? "CC1" : defaultTrack;
-			MW_LOG_WARN("PlayerCCManagerBase::matching id not found, selecting %s as default", trackId.c_str());
+			MW_LOG_WARN("[INBAND_CC_FLOW] RestoreCC: matching id not found, selecting %s as default", trackId.c_str());
 		}
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerCCManagerBase::tracklist empty selecting CC1 as default");
+		MW_LOG_WARN("[INBAND_CC_FLOW] RestoreCC: tracklist empty selecting CC1 as default");
 		trackId = "CC1";
 	}
 
+	MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: Calling SetTrack(%s)", trackId.c_str());
 	SetTrack(trackId);
+	MW_LOG_INFO("[INBAND_CC_FLOW] RestoreCC: EXIT");
 }
 
 /**
@@ -781,7 +804,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 {
 	int ret = 0;
 	mEnabled = enable;
-	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
+	MW_LOG_WARN("[INBAND_CC_FLOW] PlayerCCManagerBase::SetStatus: ENTRY - enable=%d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 	if (mEnabled)
 		IsCCOnFlag = 1;
@@ -795,12 +818,19 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 		// called when the required operations are completed
 		if (mEnabled)
 		{
+			MW_LOG_INFO("[INBAND_CC_FLOW] PlayerCCManagerBase::SetStatus: Calling Start()");
 			Start();
 		}
 		else
 		{
+			MW_LOG_INFO("[INBAND_CC_FLOW] PlayerCCManagerBase::SetStatus: Calling Stop()");
 			Stop();
 		}
+	}
+	else
+	{
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerCCManagerBase::SetStatus: Cannot start/stop - TrickplayStarted=%d, ParentalCtrlLocked=%d, CCHandle=%s", 
+				mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 	}
 	return ret;
 }

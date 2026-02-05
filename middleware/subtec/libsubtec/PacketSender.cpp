@@ -62,6 +62,7 @@ void PacketSender::Flush()
 
 bool PacketSender::Init()
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::Init: ENTRY - using default socket path");
     return Init(SOCKET_PATH);
 }
 
@@ -70,21 +71,27 @@ bool PacketSender::Init(const char *socket_path)
     bool ret = true;
     std::unique_lock<std::mutex> lock(mStartMutex);
 
-    MW_LOG_INFO("PacketSender::Init with %s", socket_path);
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::Init: ENTRY - socket_path=%s", socket_path ? socket_path : "NULL");
 
     if (!running)
     {
+        MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::Init: Not running yet, initializing socket and sender task");
         mSocketPath = socket_path;
         ret = initSocket(socket_path) && initSenderTask();
         if (!ret) {
-            MW_LOG_WARN("SenderTask failed to init");
+            MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::Init: SenderTask failed to init");
         }
         else
-        MW_LOG_WARN("senderTask started");
+        {
+            MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::Init: senderTask started successfully");
+        }
     }
     else
-    MW_LOG_WARN("PacketSender::Init already running");
-        
+    {
+        MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::Init: already running, returning true");
+    }
+    
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::Init: EXIT - returning %d", ret);
     return ret;
 }
 
@@ -184,15 +191,18 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 
 bool PacketSender::initSenderTask()
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::initSenderTask: ENTRY - creating sender thread");
     try {
         mSendThread = std::thread(runWorkerTask, this);
-        MW_LOG_INFO("Thread created for runWorkerTask [%zx]", std::hash<std::thread::id>()(mSendThread.get_id()));
+        running = true;
+        MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::initSenderTask: Thread created successfully for runWorkerTask [%zx]", std::hash<std::thread::id>()(mSendThread.get_id()));
     }
     catch (const std::exception& e) {
-        MW_LOG_WARN("PacketSender: Error in initSenderTask: %s", e.what());
+        MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::initSenderTask: Error in initSenderTask: %s", e.what());
         return false;
     }
     
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::initSenderTask: EXIT - returning true");
     return true;
 }
 
@@ -212,12 +222,15 @@ void PacketSender::closeSenderTask()
 
 bool PacketSender::initSocket(const char *socket_path)
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::initSocket: ENTRY - socket_path=%s", socket_path ? socket_path : "NULL");
+    
     mSubtecSocketHandle = ::socket(AF_UNIX, SOCK_DGRAM, 0);
     if (mSubtecSocketHandle == -1)
     {
-        MW_LOG_WARN("PacketSender: Unable to init socket");
+        MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::initSocket: Unable to init socket - socket() failed, errno=%d", errno);
         return false;
     }
+    MW_LOG_DEBUG("[INBAND_CC_FLOW] PacketSender::initSocket: Socket created successfully, handle=%d", mSubtecSocketHandle);
     
     struct sockaddr_un addr;
     
@@ -225,22 +238,24 @@ bool PacketSender::initSocket(const char *socket_path)
     addr.sun_family = AF_UNIX;
     (void) std::strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path));
     addr.sun_path[sizeof(addr.sun_path) - 1] = 0;
+    MW_LOG_DEBUG("[INBAND_CC_FLOW] PacketSender::initSocket: Address configured - sun_path=%s", addr.sun_path);
 
     socklen_t optlen = sizeof(mSockBufSize);
     if(::getsockopt(mSubtecSocketHandle, SOL_SOCKET, SO_SNDBUF, &mSockBufSize, &optlen) != 0)
     {
-	    MW_LOG_WARN("PacketSender: getsockopt Fails");
+	    MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::initSocket: getsockopt Fails - errno=%d", errno);
     }
     mSockBufSize = mSockBufSize / 2;  //kernel returns twice the value of actual buffer
-    MW_LOG_INFO("SockBuffer size : %d", mSockBufSize);
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::initSocket: SockBuffer size : %d bytes", mSockBufSize);
 
     if (::connect(mSubtecSocketHandle, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0)
     {
+        MW_LOG_WARN("[INBAND_CC_FLOW] PacketSender::initSocket: Failed to connect to address '%s' - errno=%d", socket_path, errno);
         ::close(mSubtecSocketHandle);
-        MW_LOG_WARN("PacketSender: cannot connect to address \'%s\'", socket_path);
+        mSubtecSocketHandle = -1;
         return false;
     }
-    MW_LOG_INFO("PacketSender: Initialized with socket_path %s", socket_path);
+    MW_LOG_INFO("[INBAND_CC_FLOW] PacketSender::initSocket: Connected successfully to socket_path=%s, handle=%d", socket_path, mSubtecSocketHandle);
 
     return true;
 }

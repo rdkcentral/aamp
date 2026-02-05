@@ -6205,7 +6205,8 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	if (selAdaptationSetIndex != -1)
 	{
 		aamp->mIsInbandCC = false;
-		AAMPLOG_WARN("SDW config set %d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
+		AAMPLOG_INFO("[INBAND_CC_FLOW] MPD: Set mIsInbandCC=false, SDW config=%d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
+		AAMPLOG_WARN("[INBAND_CC_FLOW] MPD: SDW config set %d", ISCONFIGSET(eAAMPConfig_GstSubtecEnabled));
 		if (!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 		{
 			const IAdaptationSet *pAdaptationSet = period->GetAdaptationSets().at(selAdaptationSetIndex);
@@ -10550,6 +10551,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			// presenting inband CC with PTS restamping enabled
 			else if(isInBandCcAvailable())
 			{
+				AAMPLOG_INFO("[INBAND_CC_FLOW] MPD: Detected inband CC available, setting FORMAT_INVALID");
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
 			else
@@ -12432,9 +12434,11 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
 
 	std::vector<TextTrackInfo> textTracksCopy;
 	std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
+	AAMPLOG_INFO("[INBAND_CC_FLOW] MPD::PopulateAudioAndTextTracks: Found %zu CC tracks from total %zu text tracks", textTracksCopy.size(), mTextTracks.size());
 
 	std::vector<CCTrackInfo> updatedTextTracks;
 	aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+	AAMPLOG_INFO("[INBAND_CC_FLOW] MPD::PopulateAudioAndTextTracks: Updated CC tracks count=%zu, calling PlayerCCManager::updateLastTextTracks()", updatedTextTracks.size());
 	PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 
 	if (tracksChanged)

@@ -47,16 +47,23 @@ void PlayerSubtecCCManager::EnsureHALInitialized()
 {
 	if(not mHALInitialized || mHandleUpdated)
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::EnsureHALInitialized: ENTRY - mHALInitialized=%d, mHandleUpdated=%d, mCCHandle=%p", 
+				mHALInitialized, mHandleUpdated, mCCHandle);
 		if(subtecConnector::initHal((void *)mCCHandle) == CC_VL_OS_API_RESULT_SUCCESS)
 		{
-			MW_LOG_WARN("PlayerSubtecCCManager::calling subtecConnector::initHal() - success");
+			MW_LOG_WARN("[INBAND_CC_FLOW] PlayerSubtecCCManager::calling subtecConnector::initHal() - success");
 			mHALInitialized = true;
 			mHandleUpdated = false;
+			MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::EnsureHALInitialized: HAL initialized successfully");
 		}
 		else
 		{
-			MW_LOG_WARN("PlayerSubtecCCManager::calling subtecConnector::initHal() - failure");
+			MW_LOG_WARN("[INBAND_CC_FLOW] PlayerSubtecCCManager::calling subtecConnector::initHal() - failure");
 		}
+	}
+	else
+	{
+		MW_LOG_DEBUG("[INBAND_CC_FLOW] PlayerSubtecCCManager::EnsureHALInitialized: Already initialized, skipping");
 	}
 };
 
@@ -67,15 +74,21 @@ void PlayerSubtecCCManager::EnsureRendererCommsInitialized()
 {
 	if(not mRendererInitialized)
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::EnsureRendererCommsInitialized: ENTRY - mRendererInitialized=%d", mRendererInitialized);
 		if(subtecConnector::initPacketSender() == CC_VL_OS_API_RESULT_SUCCESS)
 		{
-			MW_LOG_WARN("PlayerSubtecCCManager::calling subtecConnector::initPacketSender() - success");
+			MW_LOG_WARN("[INBAND_CC_FLOW] PlayerSubtecCCManager::calling subtecConnector::initPacketSender() - success");
 			mRendererInitialized = true;
+			MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::EnsureRendererCommsInitialized: Packet sender initialized successfully");
 		}
 		else
 		{
-			MW_LOG_WARN("PlayerSubtecCCManager::calling subtecConnector::initPacketSender() - failure");
+			MW_LOG_WARN("[INBAND_CC_FLOW] PlayerSubtecCCManager::calling subtecConnector::initPacketSender() - failure");
 		}
+	}
+	else
+	{
+		MW_LOG_DEBUG("[INBAND_CC_FLOW] PlayerSubtecCCManager::EnsureRendererCommsInitialized: Already initialized, skipping");
 	}
 };
 
@@ -84,9 +97,14 @@ void PlayerSubtecCCManager::EnsureRendererCommsInitialized()
  */
 int PlayerSubtecCCManager::Initialize(void * handle)
 {
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::Initialize: ENTRY - handle=%p, previous mCCHandle=%p", handle, mCCHandle);
 	if (mCCHandle != handle)
+	{
 		mHandleUpdated = true;
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::Initialize: Handle changed, setting mHandleUpdated=true");
+	}
 	mCCHandle = handle;
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerSubtecCCManager::Initialize: EXIT - mCCHandle now set to %p", mCCHandle);
 
 	return 0;
 }

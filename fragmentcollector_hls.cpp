@@ -6986,8 +6986,9 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	if(currentTextTrackProfileIndex > -1 )
 	{
 		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
+		AAMPLOG_INFO("[INBAND_CC_FLOW] HLS::SelectSubtitleTrack: Set mIsInbandCC=%d for track index=%d", aamp->mIsInbandCC, currentTextTrackProfileIndex);
 	}
-	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
+	AAMPLOG_WARN("[INBAND_CC_FLOW] HLS::SelectSubtitleTrack: currentTextTrackProfileIndex=%d, mIsInbandCC=%d", currentTextTrackProfileIndex, aamp->mIsInbandCC);
 }
 /**
  * @brief Stops the Track Injection,Restarts once the track has been changed
@@ -7149,7 +7150,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
-				AAMPLOG_INFO("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
+				AAMPLOG_INFO("[INBAND_CC_FLOW] HLS::PopulateAudioAndTextTracks: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
 				mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;

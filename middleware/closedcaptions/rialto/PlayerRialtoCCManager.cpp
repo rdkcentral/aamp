@@ -32,25 +32,28 @@
  */
 int PlayerRialtoCCManager::Initialize(void * handle)
 {
-	MW_LOG_INFO("PlayerRialtoCCManager::Initialize(%p) called", handle);
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Initialize(%p) called", handle);
 
 	bool changedHandle = (handle != mSubtitleControlHandle);
 
 	mSubtitleControlHandle = handle;
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Initialize: mSubtitleControlHandle set to %p, changedHandle=%d", mSubtitleControlHandle, changedHandle);
 
 	if (GetTrack().empty())
 	{
 		// Apps expect to render default CC as CC1, so set that here in case
 		// they do not explicitly call SetTrack().
-		MW_LOG_INFO("PlayerRialtoCCManager::Setting default to \"CC1\"");
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Setting default to \"CC1\"");
 		(void) SetTrack("CC1");
 	}
 	else if (changedHandle)
 	{
 		// Configure the new handle.
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Handle changed, reconfiguring track: %s", GetTrack().c_str());
 		(void) SetTrack(GetTrack());
 	}
 
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Initialize: EXIT - returning 0");
 	return 0;
 }
 
@@ -62,7 +65,7 @@ int PlayerRialtoCCManager::GetId()
     std::lock_guard<std::mutex> lock(mIdLock);
     mId++;
     mIdSet.insert(mId);
-	MW_LOG_INFO("PlayerRialtoCCManager::id:%d,users:%d", mId, mIdSet.size());
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::GetId: Returning id=%d, total users=%d", mId, mIdSet.size());
     return mId;
 }
 
@@ -85,7 +88,7 @@ void PlayerRialtoCCManager::Release(int id)
     if (mIdSet.erase(id) > 0)
     {
 		int id_size = mIdSet.size();
-		MW_LOG_INFO("PlayerRialtoCCManager::users:%d", id_size);
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Release: Removed id=%d, remaining users=%d", id, id_size);
 
 		if (0 == id_size)
 		{
@@ -93,12 +96,13 @@ void PlayerRialtoCCManager::Release(int id)
 			// Note that this instance can be re-used later.
 			// Therefore, ensure the state is reset so that it is the same as a
 			// newly constructed instance.
+			MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Release: Last user released, resetting state");
 			ResetState();
 		}
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerRialtoCCManager::ID:%d not found", id);
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerRialtoCCManager::Release: ID=%d not found in tracked users", id);
 	}
 
 	return;
@@ -111,15 +115,17 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
 {
 	mTrack = track;	// For PlayerCCManager::GetTrack()
 
-	MW_LOG_INFO("PlayerRialtoCCManager::set track \"%s\"", track.c_str());
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: ENTRY - track=\"%s\", format=%d", track.c_str(), format);
 
 	if (nullptr != mSubtitleControlHandle)
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: Calling g_object_set with text-track-identifier=\"%s\"", track.c_str());
 		g_object_set(mSubtitleControlHandle, "text-track-identifier", track.c_str(), NULL);
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: g_object_set completed successfully");
 	}
 	else
 	{
-		MW_LOG_INFO("PlayerRialtoCCManager::No current handle - track \"%s\" cached", track.c_str());
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: mSubtitleControlHandle is NULL! Track \"%s\" cached (will be applied later)", track.c_str());
 	}
 
 	return 0;
@@ -130,15 +136,17 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
  */
 void PlayerRialtoCCManager::StartRendering()
 {
-	MW_LOG_INFO("PlayerRialtoCCManager::unmuting");
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::StartRendering: ENTRY");
 
 	if (nullptr != mSubtitleControlHandle)
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::StartRendering: Calling g_object_set to unmute subtitles");
 		g_object_set(mSubtitleControlHandle, "mute", FALSE, NULL);
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::StartRendering: Unmute completed");
 	}
 	else
 	{
-		MW_LOG_INFO("PlayerRialtoCCManager::Failed to unmute");
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerRialtoCCManager::StartRendering: mSubtitleControlHandle is NULL! Cannot unmute");
 	}
 	return;
 }
@@ -148,15 +156,17 @@ void PlayerRialtoCCManager::StartRendering()
  */
 void PlayerRialtoCCManager::StopRendering()
 {
-	MW_LOG_INFO("PlayerRialtoCCManager::muting");
+	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::StopRendering: ENTRY");
 
 	if (nullptr != mSubtitleControlHandle)
 	{
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::StopRendering: Calling g_object_set to mute subtitles");
 		g_object_set(mSubtitleControlHandle, "mute", TRUE, NULL);
+		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::StopRendering: Mute completed");
 	}
 	else
 	{
-		MW_LOG_INFO("PlayerRialtoCCManager::Failed to mute");
+		MW_LOG_WARN("[INBAND_CC_FLOW] PlayerRialtoCCManager::StopRendering: mSubtitleControlHandle is NULL! Cannot mute");
 	}
 	return;
 }

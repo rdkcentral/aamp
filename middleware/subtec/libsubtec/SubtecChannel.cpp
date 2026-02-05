@@ -61,22 +61,34 @@ std::unique_ptr<SubtecChannel> SubtecChannel::SubtecChannelFactory(ChannelType t
 
 bool SubtecChannel::InitComms()
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms: ENTRY - no socket_path provided, getting from env");
     std::string playerName = GetPlayerName();
     std::string subtitleSocket = player_ConvertToUpperCase(playerName) + "_SUBTITLE_SOCKET"; // Prefixing PlayerName to subtitleSocket
-    MW_LOG_INFO("Subtitle Socket Path ENV:[%s]",subtitleSocket.c_str());
+    MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms: Looking for env variable: %s", subtitleSocket.c_str());
     const char *socket_path = ::getenv(subtitleSocket.c_str());
 
     if (!socket_path)
     {
+        MW_LOG_WARN("[INBAND_CC_FLOW] SubtecChannel::InitComms: Env variable '%s' not found, using default SOCKET_PATH", subtitleSocket.c_str());
         socket_path = SOCKET_PATH;
     }
+    else
+    {
+        MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms: Found socket_path from env: %s", socket_path);
+    }
 
-    return InitComms(socket_path);
+    MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms: Calling InitComms(%s)", socket_path);
+    bool result = InitComms(socket_path);
+    MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms: EXIT - result=%d", result);
+    return result;
 }
 
 bool SubtecChannel::InitComms(const char* socket_path)
 {
-    return PacketSender::Instance()->Init(socket_path);
+    MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms(const char*): ENTRY - socket_path=%s", socket_path ? socket_path : "NULL");
+    bool result = PacketSender::Instance()->Init(socket_path);
+    MW_LOG_INFO("[INBAND_CC_FLOW] SubtecChannel::InitComms(const char*): EXIT - result=%d", result);
+    return result;
 }
 
 
