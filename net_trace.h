@@ -196,6 +196,8 @@ public:
 	void FlushCsv() {
 		EnsureFilesOpen();
 		auto& state = get_file_state();
+		std::lock_guard<std::mutex> g(state.mutex);
+		
 		// aggregate
 		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
 		for (auto& b : bursts_) {

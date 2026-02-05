@@ -37,6 +37,24 @@
 #include "MediaStreamContext.h"
 #ifdef AAMP_NET_TRACE
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
+
+/**
+ * @brief Network trace burst detection threshold (seconds)
+ * 
+ * Purpose: Minimum idle time in curl write callbacks to trigger burst splitting.
+ * Value of 5ms chosen to distinguish network-level bursts from application buffering.
+ * Bursts separated by gaps exceeding this threshold are recorded as separate entries.
+ */
+static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
+
+/**
+ * @brief Network trace late gap threshold (seconds)
+ * 
+ * Purpose: Gaps exceeding this threshold mark bursts as "late" for QoS analysis.
+ * Value of 120ms chosen to identify bursts delayed beyond typical buffering jitter.
+ * Late bursts indicate potential network congestion or server-side delays.
+ */
+static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #endif
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
@@ -4491,11 +4509,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
 		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
 		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-		// Split bursts on >5ms idle in write-callback; mark very long gaps as "late"
-		const double GAP_THR_S  = 0.005;
-		const double LATE_GAP_S = 0.120;
+		
 		NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
-					 /*chunked=*/false, GAP_THR_S, LATE_GAP_S);
+					 /*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
 		// Make recorder available to header/write callbacks through the context
 		// CRITICAL: 'net' is a stack-local variable; it MUST outlive all curl operations
 		// that use context.net. The pointer becomes invalid if this function returns early
@@ -4705,7 +4721,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
 					curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,      &size_download);
 					if (context.net) {
-						context.net->on_complete_bytes();
+						context.net->OnCompleteBytes();
 						context.net->set_curl_timings(
 													  t_namelookup, t_connect, t_appconnect, t_pretransfer,
 													  t_starttransfer, t_total, http_code_local, (num_connects==0),

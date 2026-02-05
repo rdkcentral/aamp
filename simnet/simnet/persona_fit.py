@@ -117,7 +117,7 @@ def fit_bursts(bur_csv, guard_low=0.10, guard_high=0.50):
         x_curr = x[1:]
         # (simple OLS for AR(1) with intercept)
         A = np.vstack([np.ones_like(x_prev), x_prev]).T
-        coef = np.linalg.lstsq(A, x_curr, rcond=None)[0]
+        coef = np.linalg.lstsq(A, x_curr, rcond=-1)[0]
         c_hat, rho_hat = float(coef[0]), float(coef[1])
         mu_hat = c_hat / (1.0 - rho_hat) if abs(1.0 - rho_hat) > 1e-6 else float(np.nan)
         resid = x_curr - (c_hat + rho_hat * x_prev)
