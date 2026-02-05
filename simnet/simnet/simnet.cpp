@@ -235,9 +235,19 @@ struct NetworkModel {
 				idx++;
 				max_iterations--;
 			}
-			// If we couldn't fully correct the drift, assign remainder to first chunk
+			// If we couldn't fully correct the drift, safely assign any small remainder to first chunk
 			if (diff != 0 && k > 0) {
-				bytes[0] += diff; // safe: diff can be negative only if bytes[0] has room
+				if (diff > 0) {
+					// Positive remainder: increase first chunk by remaining bytes
+					bytes[0] += static_cast<std::uint64_t>(diff);
+				} else {
+					// Negative remainder: only reduce first chunk if it has enough bytes
+					std::uint64_t absDiff = static_cast<std::uint64_t>(-diff);
+					if (bytes[0] >= absDiff) {
+						bytes[0] -= absDiff;
+					}
+					// If bytes[0] < absDiff, skip correction to avoid underflow; total may remain slightly off
+				}
 			}
 		}
 		
