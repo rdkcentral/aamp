@@ -165,6 +165,7 @@ static int xferinfo_callback(
 	return ret;
 }
 #else
+#warning CURL version < 7.32.0
 /**
  * @brief
  * @param clientp app-specific as optionally set with CURLOPT_PROGRESSDATA

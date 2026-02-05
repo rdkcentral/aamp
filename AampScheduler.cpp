@@ -28,7 +28,7 @@
 /**
  * @brief AampScheduler Constructor
  */
-AampScheduler::AampScheduler() : mTaskQueue(), mQMutex(), mQCond(),
+AampScheduler::AampScheduler() : mInterruptableTaskInProgress(false), mTaskQueue(), mQMutex(), mQCond(),
 	mSchedulerRunning(false), mSchedulerThread(), mExMutex(),
 	mExLock(mExMutex, std::defer_lock), mNextTaskId(AAMP_SCHEDULER_ID_DEFAULT),
 	mCurrentTaskId(AAMP_TASK_ID_INVALID), mLockOut(false), mState(eSTATE_IDLE),mPlayerId(-1)
@@ -145,10 +145,20 @@ void AampScheduler::ExecuteAsyncTask()
 						//Unlock so that new entries can be added to queue while function executes
 						queueLock.unlock();
 
+						// extensibility - add slow tasks that we want to be interruptable by an external Stop() here (e.g. seek/setrate) once they are modified for suitability
+						if ( (0 == obj.mTaskName.compare("Tune"))
+						   )
+						{
+							AAMPLOG_WARN("Scheduler found an interruptable task '%s' is about to run, taskId: %d.", obj.mTaskName.c_str(), obj.mId);
+							mInterruptableTaskInProgress=true;
+						}
+
 						AAMPLOG_WARN("SchedulerTask Execution:%s taskId:%d",obj.mTaskName.c_str(),obj.mId);
 						//Execute function
 						obj.mTask(obj.mData);
 						//May be used in a wait() in future loops, it needs to be locked
+
+						mInterruptableTaskInProgress=false;
 						queueLock.lock();
 					}
 				}
@@ -205,13 +215,37 @@ void AampScheduler::StopScheduler()
 }
 
 /**
- * @brief To acquire execution lock for synchronization purposes
+ * @brief To suspend the scheduler, optionally waiting for current task completion first
+ * 
+ * @param[in] duringStop - true if we want to suspend prior to current async task completing (if allowed)
+ * @return bool true if we blocked until current async task was executed (execution mutex was taken)
  */
-void AampScheduler::SuspendScheduler()
+bool AampScheduler::SuspendScheduler(bool duringStop)
 {
-	mExLock.lock();
+	bool currentTaskWasTerminated=false;
+	bool blockOnCurrentTaskCompletion=true;
+
+	if (duringStop)
+	{
+		std::lock_guard<std::mutex>lock(mQMutex);
+		blockOnCurrentTaskCompletion = !mInterruptableTaskInProgress;
+	}
+
+	if (blockOnCurrentTaskCompletion)
+	{
+		// Note: during stop we cannot always wait for the current task to complete (it may be tune).
+		// If called from stop we will potentially lock this later by calling SuspendScheduler(false).
+		mExLock.lock();
+		currentTaskWasTerminated=true;
+	}
+	else
+	{
+		AAMPLOG_WARN("Called from player Stop() and an InterruptableTaskInProgress (e.g. Tune) is in progress. Do not block (mExLock mutex) during completion, to allow abort.");
+		currentTaskWasTerminated=false;
+	}
 	std::lock_guard<std::mutex>lock(mQMutex);
 	mLockOut = true;
+	return currentTaskWasTerminated;
 }
 
 /**
