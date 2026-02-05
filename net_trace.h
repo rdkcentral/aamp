@@ -38,22 +38,48 @@ inline double now_monotonic_s() {
 	return std::chrono::duration<double>(t).count();
 }
 
-// --------- Per-burst structure -----------
+/**
+ * @struct Burst
+ * @brief Represents a single data burst within a network request
+ * 
+ * Purpose: Captures timing and size metrics for individual bursts of data received
+ * during a network download. Bursts are separated by idle gaps in the write callback stream.
+ */
 struct Burst {
-	int    idx = 0;
-	double t_start_s = 0.0;   // relative to request start
-	double dur_s     = 0.0;
-	size_t bytes     = 0;
-	double gap_before_s = 0.0;
-	bool   is_late   = false;
+	int    idx = 0;              ///< Burst index within the request
+	double t_start_s = 0.0;      ///< Burst start time relative to request start (seconds)
+	double dur_s     = 0.0;      ///< Burst duration (seconds)
+	size_t bytes     = 0;        ///< Total bytes received in this burst
+	double gap_before_s = 0.0;   ///< Idle gap before this burst (seconds)
+	bool   is_late   = false;    ///< True if gap_before_s exceeds late threshold
 };
 
-// --------- Recorder for one request -----
+/**
+ * @class NetTrace
+ * @brief Network activity tracer for AAMP HTTP requests
+ * 
+ * Purpose: Instruments network downloads to capture detailed timing, burst patterns,
+ * and throughput metrics. Records data ingress timing from curl callbacks and produces
+ * CSV output for performance analysis and network persona modeling.
+ * 
+ * Thread Safety: Individual NetTrace instances are not thread-safe. File I/O is
+ * protected by internal mutex in the shared FileState singleton.
+ */
 class NetTrace {
 public:
-	// Minimum non-zero span to assign to any burst duration
-	static constexpr double kMinBurstDurS = 0.001; // 1 ms
+	/// Minimum non-zero duration assigned to any burst (1 ms)
+	static constexpr double kMinBurstDurS = 0.001;
 	
+	/**
+	 * @brief Construct a network trace recorder for a single HTTP request
+	 * 
+	 * @param[in] req_id Unique request identifier
+	 * @param[in] url_path URL path component (after domain)
+	 * @param[in] media_type Media type string ("video", "audio", "manifest", etc.)
+	 * @param[in] chunked_hdr_seen True if Transfer-Encoding: chunked header is present
+	 * @param[in] gap_threshold_s Minimum idle time to split bursts (seconds)
+	 * @param[in] late_gap_extra_s_threshold Gap threshold to mark bursts as "late" (seconds)
+	 */
 	explicit NetTrace(uint64_t req_id,
 					  const std::string& url_path,
 					  const std::string& media_type,
@@ -68,10 +94,24 @@ public:
 	t0_(now_monotonic_s()),
 	chunked_hdr_seen_(chunked_hdr_seen) {}
 	
-	// Called in header callback if Transfer-Encoding: chunked is seen
+	/**
+	 * @brief Mark this request as using chunked transfer encoding
+	 * 
+	 * Purpose: Called from curl header callback when Transfer-Encoding: chunked is detected.
+	 * This metadata is recorded in the request CSV.
+	 */
 	void mark_chunked() { chunked_hdr_seen_ = true; }
 	
-	// Called in write callback; returns "true" if a new burst just started
+	/**
+	 * @brief Record data ingress from curl write callback
+	 * 
+	 * Purpose: Tracks byte arrival timing and automatically splits bursts when idle
+	 * gaps exceed the configured threshold. Must be called for each write callback.
+	 * 
+	 * @param[in] num_bytes Number of bytes received in this callback
+	 * @param[in] t_now_s Current monotonic timestamp (seconds)
+	 * @return True if a new burst was started, false if continuing existing burst
+	 */
 	bool on_write(size_t num_bytes, double t_now_s) {
 		if (first_payload_time_s_ < 0) first_payload_time_s_ = t_now_s;
 		bool new_burst = false;
@@ -96,7 +136,12 @@ public:
 		return new_burst;
 	}
 	
-	// Called at end of write stream
+	/**
+	 * @brief Finalize burst recording at end of data transfer
+	 * 
+	 * Purpose: Closes the final burst and applies minimum duration floor if needed.
+	 * Must be called after all write callbacks complete.
+	 */
 	void on_complete_bytes() {
 		if (in_burst_) {
 			// If we only saw a single callback, last_cb_time_s_ can equal open time.
@@ -107,7 +152,24 @@ public:
 		}
 	}
 	
-	// Fill-in curl/cdn timing after curl_easy_perform
+	/**
+	 * @brief Record curl timing metrics after request completion
+	 * 
+	 * Purpose: Captures HTTP/TCP/TLS timing details from curl_easy_getinfo() calls.
+	 * These timings are written to the request CSV row.
+	 * 
+	 * @param[in] name_s DNS lookup time (seconds)
+	 * @param[in] connect_s TCP connect time (seconds)
+	 * @param[in] appconnect_s TLS handshake time (seconds)
+	 * @param[in] pre_xfer_s Time until transfer ready (seconds)
+	 * @param[in] start_xfer_s Time to first byte / TTFB (seconds)
+	 * @param[in] total_s Total request time (seconds)
+	 * @param[in] http_code HTTP response code
+	 * @param[in] conn_reused True if connection was reused from pool
+	 * @param[in] primary_ip Server IP address
+	 * @param[in] local_port Local port number
+	 * @param[in] bytes_total Total bytes transferred
+	 */
 	void set_curl_timings(double name_s, double connect_s, double appconnect_s,
 						  double pre_xfer_s, double start_xfer_s, double total_s,
 						  long http_code, bool conn_reused,
@@ -121,9 +183,18 @@ public:
 		total_done_time_s_ = now_monotonic_s();
 	}
 	
-	// Write two CSV row sets (requests + bursts)
+	/**
+	 * @brief Write collected metrics to CSV files
+	 * 
+	 * Purpose: Outputs one row to the requests CSV (aggregated metrics) and
+	 * multiple rows to the bursts CSV (per-burst details). Files are created
+	 * with headers on first write and appended thereafter.
+	 * 
+	 * Thread Safety: Protected by mutex in shared FileState.
+	 */
 	void flush_csv() {
 		ensure_files_open();
+		auto& state = get_file_state();
 		// aggregate
 		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
 		for (auto& b : bursts_) {
@@ -135,7 +206,7 @@ public:
 		double avg_burst_rate_Bps = (burst_time_s > 0) ? (static_cast<double>(bytes) / burst_time_s) : 0.0;
 		
 		// request row
-		req_ofs_ <<
+		state.req_ofs <<
 		req_id_ << ',' << t0_ << ',' << url_path_ << ',' << media_type_ << ',' <<
 		bytes_total_ << ',' << http_code_ << ',' << conn_reused_ << ',' <<
 		primary_ip_ << ',' << local_port_ << ',' <<
@@ -149,15 +220,23 @@ public:
 		
 		// burst rows
 		for (auto& b : bursts_) {
-			burst_ofs_ << req_id_ << ',' << b.idx << ',' << b.t_start_s << ',' <<
+			state.burst_ofs << req_id_ << ',' << b.idx << ',' << b.t_start_s << ',' <<
 			b.dur_s << ',' << b.bytes << ',' << b.gap_before_s << ',' <<
 			(b.is_late ? "late" : "normal") << '\n';
 		}
-		req_ofs_.flush();
-		burst_ofs_.flush();
+		state.req_ofs.flush();
+		state.burst_ofs.flush();
 	}
 	
-	// Configure a "late" gap classifier (optional)
+	/**
+	 * @brief Reclassify bursts as "late" based on expected cadence
+	 * 
+	 * Purpose: Optional post-processing to mark bursts with gaps exceeding
+	 * cadence + 2*jitter as late. Overrides the constructor's late threshold.
+	 * 
+	 * @param[in] cadence_s Expected inter-burst cadence (seconds)
+	 * @param[in] jitter_s Expected jitter/variance (seconds)
+	 */
 	void classify_gaps(double cadence_s, double jitter_s) {
 		double late_thr = cadence_s + 2.0*std::max(0.010, jitter_s);
 		for (auto& b : bursts_) {
@@ -165,18 +244,42 @@ public:
 		}
 	}
 	
-	// NEW: per-process CSVs to avoid cross-process interleaving/appends.
-	// Produces: <path>.PID (e.g., /tmp/aamp_net_requests.csv.12345)
+	/**
+	 * @brief Configure per-process CSV file paths
+	 * 
+	 * Purpose: Appends process ID to file paths to prevent cross-process interleaving.
+	 * For example: /tmp/aamp_net_requests.csv becomes /tmp/aamp_net_requests.csv.12345
+	 * 
+	 * Must be called once before any NetTrace objects flush data. Typically called
+	 * during initialization via std::call_once.
+	 * 
+	 * @param[in] req_path Base path for requests CSV file
+	 * @param[in] burst_path Base path for bursts CSV file
+	 * 
+	 * Thread Safety: Protected by internal mutex.
+	 */
 	static void set_paths_with_pid(const std::string& req_path, const std::string& burst_path) {
 		pid_t pid = getpid();
-		{
-			std::lock_guard<std::mutex> g(file_m_);
-			req_path_= req_path+ "." + std::to_string(pid);
-			burst_path_ = burst_path + "." + std::to_string(pid);
-		}
+		auto& state = get_file_state();
+		std::lock_guard<std::mutex> g(state.mutex);
+		state.req_path = req_path + "." + std::to_string(pid);
+		state.burst_path = burst_path + "." + std::to_string(pid);
 	}
 	
 private:
+	// Meyer's singleton pattern for shared file state
+	struct FileState {
+		std::mutex mutex;
+		std::string req_path = "/tmp/aamp_net_requests.csv";
+		std::string burst_path = "/tmp/aamp_net_bursts.csv";
+		std::ofstream req_ofs;
+		std::ofstream burst_ofs;
+	};
+	
+	static FileState& get_file_state() {
+		static FileState state;
+		return state;
+	}
 	void open_burst(double t_start_abs_s, double gap_before_s) {
 		in_burst_ = true;
 		Burst b;
@@ -198,17 +301,18 @@ private:
 		in_burst_ = false;
 	}
 	static void ensure_files_open() {
-		std::lock_guard<std::mutex> g(file_m_);
-		if (!req_ofs_.is_open()) {
-			req_ofs_.open(req_path_, std::ios::app);
-			if (req_ofs_.tellp() == 0) {
-				req_ofs_ << "req_id,when_start_s,url_path,media_type,bytes_total,http_code,conn_reused,primary_ip,local_port,ttfb_s,total_s,namelookup_s,connect_s,appconnect_s,pretransfer_s,redirect_s,chunked,gap_time_s,burst_time_s,burst_count,late_gap_count,avg_burst_rate_Bps\n";
+		auto& state = get_file_state();
+		std::lock_guard<std::mutex> g(state.mutex);
+		if (!state.req_ofs.is_open()) {
+			state.req_ofs.open(state.req_path, std::ios::app);
+			if (state.req_ofs.tellp() == 0) {
+				state.req_ofs << "req_id,when_start_s,url_path,media_type,bytes_total,http_code,conn_reused,primary_ip,local_port,ttfb_s,total_s,namelookup_s,connect_s,appconnect_s,pretransfer_s,redirect_s,chunked,gap_time_s,burst_time_s,burst_count,late_gap_count,avg_burst_rate_Bps\n";
 			}
 		}
-		if (!burst_ofs_.is_open()) {
-			burst_ofs_.open(burst_path_, std::ios::app);
-			if (burst_ofs_.tellp() == 0) {
-				burst_ofs_ << "req_id,burst_idx,t_start_s,duration_s,bytes,gap_before_s,class\n";
+		if (!state.burst_ofs.is_open()) {
+			state.burst_ofs.open(state.burst_path, std::ios::app);
+			if (state.burst_ofs.tellp() == 0) {
+				state.burst_ofs << "req_id,burst_idx,t_start_s,duration_s,bytes,gap_before_s,class\n";
 			}
 		}
 	}
@@ -236,18 +340,6 @@ private:
 	size_t bytes_total_ = 0;
 	double name_s_=0, connect_s_=0, appconnect_s_=0, pre_xfer_s_=0, start_xfer_s_=0, total_s_=0, redirect_s_=0;
 	double total_done_time_s_ = 0.0;
-	
-	// global CSV files
-	static std::mutex file_m_;
-	static std::string req_path_, burst_path_;
-	static std::ofstream req_ofs_, burst_ofs_;
 };
-
-// static members
-inline std::mutex NetTrace::file_m_;
-inline std::string NetTrace::req_path_  = "/tmp/aamp_net_requests.csv";
-inline std::string NetTrace::burst_path_= "/tmp/aamp_net_bursts.csv";
-inline std::ofstream NetTrace::req_ofs_;
-inline std::ofstream NetTrace::burst_ofs_;
 
 } // namespace aamptrace
