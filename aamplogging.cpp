@@ -170,7 +170,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 					{
 						glogerr++;
 					}
-
+				}
 			}
 			else
 			{

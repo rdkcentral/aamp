@@ -165,11 +165,11 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
 				ret = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 				if( ret<0 )
 				{
-					glogerr++;
+					gmwlogerr++;
 					ret = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 					if( ret<0 )
 					{
-						glogerr++;
+						gmwlogerr++;
 					}
 				}
 		    }
