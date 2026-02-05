@@ -27,6 +27,10 @@
 #include "AampUtils.h"
 #include <mutex>
 
+#ifdef AAMP_NET_TRACE
+#include "net_trace.h"
+#endif
+
 // Curl callback functions
 static std::mutex gCurlShMutex;
 

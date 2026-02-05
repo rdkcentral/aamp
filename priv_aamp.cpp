@@ -64,6 +64,7 @@
 
 #include <iomanip>
 #include <unordered_set>
+#include <mutex>
 
 #include <sys/time.h>
 #include <cmath>
@@ -1032,12 +1033,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		ret = numBytesForBlock;
 		if(ptr && numBytesForBlock > 0)
 		{
-			#ifdef AAMP_NET_TRACE
-			        // Record burst timing BEFORE appending bytes; this captures ingress cadence
-			        if (context->net) {
-			            context->net->on_write(size*nmemb, aamptrace::now_monotonic_s());
-			        }
-			#endif
+#ifdef AAMP_NET_TRACE
+			// Record burst timing BEFORE appending bytes; this captures ingress cadence
+			if (context->net) {
+				context->net->on_write(size*nmemb, aamptrace::now_monotonic_s());
+			}
+#endif
 			if (context->buffer->GetLen() == 0)
 			{
 				// First byte received, record data transfer start time
@@ -1244,12 +1245,12 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		{
 			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
-			#ifdef AAMP_NET_TRACE
-			            // Mark request as chunked for the recorder (request-level metadata)
-			            if (context->net) {
-			                context->net->mark_chunked();
-			            }
-			#endif
+#ifdef AAMP_NET_TRACE
+			// Mark request as chunked for the recorder (request-level metadata)
+			if (context->net) {
+				context->net->mark_chunked();
+			}
+#endif
 		}
 		else if (0 == context->buffer->GetAvail() )
 		{
@@ -4466,16 +4467,19 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		static std::atomic<uint64_t> g_req_id{1};
 		// Per-PID CSV files to prevent cross-process interleaving/garbling.
 		// Env override supported; otherwise default to /tmp
-		if (const char* R = std::getenv("AAMP_REQ_CSV")) {
-			if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::set_paths_with_pid(R, B);
-			else NetTrace::set_paths_with_pid(R,
-											  "/tmp/aamp_net_bursts.csv");
-		}
-		else
-		{
-			NetTrace::set_paths_with_pid("/tmp/aamp_net_requests.csv","/tmp/aamp_net_bursts.csv");
-		}
+		// Use std::call_once to initialize paths only once per process
+		static std::once_flag init_paths_flag;
+		std::call_once(init_paths_flag, []() {
+			if (const char* R = std::getenv("AAMP_REQ_CSV")) {
+				if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::set_paths_with_pid(R, B);
+				else NetTrace::set_paths_with_pid(R, "/tmp/aamp_net_bursts.csv");
+			}
+			else {
+				NetTrace::set_paths_with_pid("/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
+			}
+		});
 		
+		// extract path component (after domain) from URL
 		auto pathOnly = [](const std::string& u)->std::string {
 			size_t s = 0, p = u.find("://");
 			s = (p==std::string::npos) ? 0 : (p+3);
@@ -4675,38 +4679,38 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				long long tStartTime = NOW_STEADY_TS_MS;
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
-				    // ---- Finalize recorder immediately after the perform ----
-				#ifdef AAMP_NET_TRACE
-				    {
-				        double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
-				        double t_starttransfer=0, t_total=0, t_redirect=0;
-				        char*  primary_ip = nullptr;
-				        long   local_port = 0, num_connects = 0;
-				        long   http_code_local = -1;
-				        double size_download = 0;
-				        curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,    &t_namelookup);
-				        curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,       &t_connect);
-				        curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,    &t_appconnect);
-				        curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME,   &t_pretransfer);
-				        curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &t_starttransfer);
-				        curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME,         &t_total);
-				        curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME,      &t_redirect);
-				        curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP,         &primary_ip);
-				        curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
-				        curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
-				        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
-				        curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,      &size_download);
-				        if (context.net) {
-				            context.net->on_complete_bytes();
-				            context.net->set_curl_timings(
-				                t_namelookup, t_connect, t_appconnect, t_pretransfer,
-				                t_starttransfer, t_total, http_code_local, (num_connects==0),
-				                primary_ip?std::string(primary_ip):std::string(), local_port,
-				                (size_t)size_download);
-				            context.net->flush_csv();
-				        }
-				    }
-				#endif
+				// ---- Finalize recorder immediately after the perform ----
+#ifdef AAMP_NET_TRACE
+				{
+					double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
+					double t_starttransfer=0, t_total=0, t_redirect=0;
+					char*  primary_ip = nullptr;
+					long   local_port = 0, num_connects = 0;
+					long   http_code_local = -1;
+					double size_download = 0;
+					curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,    &t_namelookup);
+					curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,       &t_connect);
+					curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,    &t_appconnect);
+					curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME,   &t_pretransfer);
+					curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &t_starttransfer);
+					curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME,         &t_total);
+					curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME,      &t_redirect);
+					curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP,         &primary_ip);
+					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
+					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
+					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
+					curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,      &size_download);
+					if (context.net) {
+						context.net->on_complete_bytes();
+						context.net->set_curl_timings(
+													  t_namelookup, t_connect, t_appconnect, t_pretransfer,
+													  t_starttransfer, t_total, http_code_local, (num_connects==0),
+													  primary_ip?std::string(primary_ip):std::string(), local_port,
+													  (size_t)size_download);
+						context.net->flush_csv();
+					}
+				}
+#endif
 				
 				if( res == CURLE_OPERATION_TIMEDOUT)
 				{

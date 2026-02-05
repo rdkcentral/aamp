@@ -242,7 +242,9 @@ enum class ChunkedTransferState
 };
 
 #ifdef AAMP_NET_TRACE
-#include "net_trace.h"
+namespace aamptrace {
+	class NetTrace;
+}
 #endif
 
 /**
