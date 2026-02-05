@@ -183,6 +183,8 @@ private:
 		b.idx = int(bursts_.size());
 		b.t_start_s = t_start_abs_s - t0_;
 		b.gap_before_s = gap_before_s;
+		// Mark burst as late if gap exceeds the configured threshold
+		b.is_late = (gap_before_s > late_extra_s_threshold_);
 		bursts_.push_back(b);
 	}
 	void close_burst(double t_end_abs_s) {

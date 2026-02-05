@@ -4497,6 +4497,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
 					 /*chunked=*/false, GAP_THR_S, LATE_GAP_S);
 		// Make recorder available to header/write callbacks through the context
+		// CRITICAL: 'net' is a stack-local variable; it MUST outlive all curl operations
+		// that use context.net. The pointer becomes invalid if this function returns early
+		// or if curl callbacks execute after 'net' goes out of scope.
+		// All callbacks must check (context->net != nullptr) before dereferencing.
 		context.net = &net;
 #endif
 		// ==== End additive instrumentation ====
