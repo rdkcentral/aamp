@@ -130,10 +130,11 @@ public:
 
 	/**
 	 * @fn SuspendScheduler
-	 *
-	 * @return void
-	 */
-	void SuspendScheduler();
+	* 
+	* @param[in] duringStop - true if we want to suspend prior to current async task completing (if allowed)
+	* @return bool true if we blocked until current async task was executed (execution mutex was taken)
+	*/
+	bool SuspendScheduler(bool duringStop=false);
 
 	/**
 	 * @fn ResumeScheduler
@@ -163,6 +164,7 @@ protected:
 	 */
 	void ExecuteAsyncTask();
 
+	bool mInterruptableTaskInProgress;	/**< Special case to allow abort (stop) of allowed asynchronous tasks; access under mQMutex */
 	std::deque<AsyncTaskObj> mTaskQueue;	/**< Queue for storing scheduled tasks */
 	std::mutex mQMutex;			/**< Mutex for accessing mTaskQueue */
 	std::condition_variable mQCond;		/**< To notify when a task is queued in mTaskQueue */

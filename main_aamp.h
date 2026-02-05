@@ -92,7 +92,9 @@ public: // FIXME: this should be private, but some tests access it
 	const std::vector<TimedMetadata> & GetTimedMetadata( void ) const;
 
 private:
-	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
+	std::shared_ptr<PrivateInstanceAAMP> sp_aamp;	  /**< shared pointer for aamp resource */
+	std::mutex mStopInternalMutex;			  /**< only protects StopInternal calls */
+	bool mStopInProgress;				  /**< signals that player stop is in progress; protect with mStopInternalMutex */
 
 public:
 	AampConfig mConfig;

@@ -102,7 +102,7 @@ void doFakeTune()
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mStopInternalMutex(), mStopInProgress(false), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -299,35 +299,62 @@ void PlayerInstanceAAMP::ResetConfiguration()
  */
 void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
+	AAMPLOG_WARN("+StopJSt");			/* leave at warn until JS stop during tune is stabilised */
 	if (aamp)
 	{
+		mStopInternalMutex.lock();
+		mStopInProgress=true;			// this will prevent us calling TuneInternal() in async thread and re-enabling downloads
+		mStopInternalMutex.unlock();
+
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
 
-		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned
-		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
-		// 3. Restart the scheduler , needed if same instance is used for tune again
+		// 1. Ensure scheduler does not run new tasks. If not an interruptable task (e.g. tune) then also block until that is complete.
+		// 2. Check for state ,if already in Idle / Released , ignore StopInternal
+		// 3. If current asynchronous task was not stopped earlier, then pend on it aborting and exiting before returning
+		// 4. Restart the scheduler , needed if same instance is used for tune again
 
-		mScheduler.SuspendScheduler();
-		mScheduler.RemoveAllTasks();
+		bool currentTaskWasTerminated=false;
+
+		currentTaskWasTerminated = mScheduler.SuspendScheduler(true); 	// don't block on current task so that any tune in progress can be aborted, but block new tasks from running
+										// note: does not take async task execution mutex
+                mScheduler.RemoveAllTasks();
+
+		AAMPLOG_WARN("*StopJSt");		/* leave at warn until JS stop during tune is stabilised */
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			StopInternal(sendStateChangeEvent, forceCleanup);
+			mStopInternalMutex.lock();
+			// Note: If stopping during tune, this may eventually block on streamLock until tuneInternal releases it. But it will disable downloads to abort earlier.
+			//       mStopInProgress flag should prevent Tune() starting if it has not got that far.
+			StopInternal(sendStateChangeEvent, false);
+			mStopInternalMutex.unlock();
+			if (!currentTaskWasTerminated)
+			{
+				mScheduler.SuspendScheduler();  //  block on current task this time
+								// i.e. ensure active async tasks like tune will end (since stop was requested) before we return
+								// note: takes async task execution mutex
+			}
+			// Enhanced DRM cleanup for Deep Sleep scenarios
+			// Must be done AFTER StopInternal() to ensure GStreamer pipeline is torn down
+			// and all encrypted buffers are flushed before destroying DRM sessions
+			if (forceCleanup && aamp->mDRMLicenseManager)
+			{
+				AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
+				aamp->mDRMLicenseManager->clearDrmSession(true);
+				aamp->mDRMLicenseManager->clearFailedKeyIds();
+			}
 		}
-		// Enhanced DRM cleanup for Deep Sleep scenarios
-		// Must be done AFTER StopInternal() to ensure GStreamer pipeline is torn down
-		// and all encrypted buffers are flushed before destroying DRM sessions
-		if (forceCleanup && aamp->mDRMLicenseManager)
-		{
-			AAMPLOG_WARN("Force cleanup: Clearing DRM sessions and failed key IDs for Deep Sleep");
-			aamp->mDRMLicenseManager->clearDrmSession(true);
-			aamp->mDRMLicenseManager->clearFailedKeyIds();
-		}
+
 		//Release lock
 		mScheduler.ResumeScheduler();
+
+		mStopInternalMutex.lock();
+		mStopInProgress=false;
+		mStopInternalMutex.unlock();
 	}
+	AAMPLOG_WARN("-StopJSt");			/* leave at warn until JS stop during tune is stabilised */
 }
 
 /**
@@ -395,10 +422,11 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										const char* manifestData
 										)
 {
+	AAMPLOG_WARN("+TuneJSt");			/* leave at warn until JS stop during tune is stabilised */
 	if(aamp){
 		UsingPlayerId playerId(aamp->mPlayerId);
 
-	/* Set single pipeline according to the configuration */
+		/* Set single pipeline according to the configuration */
 		aamp->UpdateUseSinglePipeline();
 
 		aamp->StopPausePositionMonitoring("Tune() called");
@@ -416,14 +444,31 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			}
 		}
 
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
+		// Stop also calls StopInternal. It's not re-entrant.
+		bool stopInProgress=false;
+
+		mStopInternalMutex.lock();
+		stopInProgress=mStopInProgress;	// if player stop is being called from JS thread, don't tune. StopInternal() is ok..
+						//  (mutex protected) and ensures that anything this thread does in future is undone
+		
+		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) )
 		{
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
 		}
-		aamp->getAampCacheHandler()->StartPlaylistCache();
-		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
+		mStopInternalMutex.unlock();
+
+		if (!stopInProgress)
+		{
+			aamp->getAampCacheHandler()->StartPlaylistCache();
+			aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
+		}
+		else
+		{
+			AAMPLOG_WARN("Stop was is in progress, so tune was aborted.");
+		}
 	}
+	AAMPLOG_WARN("-TuneJSt");			/* leave at warn until JS stop during tune is stabilised */
 }
 
 /**
@@ -2634,7 +2679,9 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
  */
 void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
+	AAMPLOG_TRACE("+SetPreferredLanguagesJSt");
 	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem, preferredName);
+	AAMPLOG_TRACE("-SetPreferredLanguagesJSt");
 }
 
 /**
@@ -2955,7 +3002,9 @@ int PlayerInstanceAAMP::GetTextTrack()
  */
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
+	AAMPLOG_TRACE("+SetCCStatusJSt");
 	aamp->SetCCStatus(enabled);
+	AAMPLOG_TRACE("-SetCCStatusJSt");
 }
 
 /**
