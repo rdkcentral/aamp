@@ -255,7 +255,7 @@ TEST_F(FunctionalTests, Reserve32KBytesTest)
 
 	// Act: Call the ReserveBytes function
 	buffer.ReserveBytes(numBytesToReserve);
- 
+
 	// No g_free expectation needed - std::vector RAII handles cleanup
 
 	// Assert: Check the effects of the ReserveBytes function
