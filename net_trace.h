@@ -20,6 +20,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <string_view>
 #include <atomic>
 #include <mutex>
 #include <fstream>
@@ -32,7 +33,7 @@
 
 namespace aamptrace {
 
-inline double now_monotonic_s() {
+static inline double now_monotonic_s() {
 	using C = std::chrono::steady_clock;
 	auto t = C::now().time_since_epoch();
 	return std::chrono::duration<double>(t).count();
@@ -47,11 +48,11 @@ inline double now_monotonic_s() {
  */
 struct Burst {
 	int    idx = 0;              ///< Burst index within the request
-	double t_start_s = 0.0;      ///< Burst start time relative to request start (seconds)
-	double dur_s     = 0.0;      ///< Burst duration (seconds)
+	double tStartS = 0.0;        ///< Burst start time relative to request start (seconds)
+	double durS     = 0.0;       ///< Burst duration (seconds)
 	size_t bytes     = 0;        ///< Total bytes received in this burst
-	double gap_before_s = 0.0;   ///< Idle gap before this burst (seconds)
-	bool   is_late   = false;    ///< True if gap_before_s exceeds late threshold
+	double gapBeforeS = 0.0;     ///< Idle gap before this burst (seconds)
+	bool   isLate   = false;     ///< True if gapBeforeS exceeds late threshold
 };
 
 /**
@@ -81,8 +82,8 @@ public:
 	 * @param[in] late_gap_extra_s_threshold Gap threshold to mark bursts as "late" (seconds)
 	 */
 	explicit NetTrace(uint64_t req_id,
-					  const std::string& url_path,
-					  const std::string& media_type,
+					  std::string_view url_path,
+					  std::string_view media_type,
 					  bool chunked_hdr_seen,
 					  double gap_threshold_s,
 					  double late_gap_extra_s_threshold)
@@ -116,15 +117,15 @@ public:
 		if (first_payload_time_s_ < 0) first_payload_time_s_ = t_now_s;
 		bool new_burst = false;
 		if (!in_burst_) {
-			open_burst(t_now_s, /*gap_before*/ last_end_time_s_ > 0 ? std::max(0.0, t_now_s - last_end_time_s_) : 0.0);
+			OpenBurst(t_now_s, /*gap_before*/ last_end_time_s_ > 0 ? std::max(0.0, t_now_s - last_end_time_s_) : 0.0);
 			new_burst = true;
 		} else {
 			// detect split if there's an idle gap mid-write stream
 			double idle = last_cb_time_s_ > 0 ? std::max(0.0, t_now_s - last_cb_time_s_) : 0.0;
 			if (idle > gap_threshold_s_) { // close previous, open new
 				// Close the previous burst at the *current* ingress time to avoid 0-span bursts.
-				close_burst(t_now_s);
-				open_burst(t_now_s, idle);
+				CloseBurst(t_now_s);
+				OpenBurst(t_now_s, idle);
 				new_burst = true;
 			}
 		}
@@ -148,7 +149,7 @@ public:
 			// Use a minimal non-zero duration floor.
 			double t_end = last_cb_time_s_;
 			if (t_end <= 0.0) t_end = now_monotonic_s();
-			close_burst(t_end);
+			CloseBurst(t_end);
 		}
 	}
 	
@@ -193,15 +194,15 @@ public:
 	 * Thread Safety: Protected by mutex in shared FileState.
 	 */
 	void flush_csv() {
-		ensure_files_open();
+		EnsureFilesOpen();
 		auto& state = get_file_state();
 		// aggregate
 		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
 		for (auto& b : bursts_) {
-			gap_time_s   += b.gap_before_s;
-			burst_time_s += b.dur_s;
+			gap_time_s   += b.gapBeforeS;
+			burst_time_s += b.durS;
 			bytes        += b.bytes;
-			late_count   += b.is_late ? 1 : 0;
+			late_count   += b.isLate ? 1 : 0;
 		}
 		double avg_burst_rate_Bps = (burst_time_s > 0) ? (static_cast<double>(bytes) / burst_time_s) : 0.0;
 		
@@ -220,9 +221,9 @@ public:
 		
 		// burst rows
 		for (auto& b : bursts_) {
-			state.burst_ofs << req_id_ << ',' << b.idx << ',' << b.t_start_s << ',' <<
-			b.dur_s << ',' << b.bytes << ',' << b.gap_before_s << ',' <<
-			(b.is_late ? "late" : "normal") << '\n';
+			state.burst_ofs << req_id_ << ',' << b.idx << ',' << b.tStartS << ',' <<
+			b.durS << ',' << b.bytes << ',' << b.gapBeforeS << ',' <<
+			(b.isLate ? "late" : "normal") << '\n';
 		}
 		state.req_ofs.flush();
 		state.burst_ofs.flush();
@@ -240,7 +241,7 @@ public:
 	void classify_gaps(double cadence_s, double jitter_s) {
 		double late_thr = cadence_s + 2.0*std::max(0.010, jitter_s);
 		for (auto& b : bursts_) {
-			if (b.gap_before_s > late_thr) b.is_late = true;
+			if (b.gapBeforeS > late_thr) b.isLate = true;
 		}
 	}
 	
@@ -276,31 +277,69 @@ private:
 		std::ofstream burst_ofs;
 	};
 	
+	/**
+	 * @brief Access the singleton FileState instance
+	 * 
+	 * Purpose: Provides thread-safe access to shared file state using Meyer's singleton.
+	 * All NetTrace instances write to the same CSV files within a process.
+	 * 
+	 * @return Reference to the singleton FileState instance
+	 */
 	static FileState& get_file_state() {
 		static FileState state;
 		return state;
 	}
-	void open_burst(double t_start_abs_s, double gap_before_s) {
+	
+	/**
+	 * @brief Start a new burst record
+	 * 
+	 * Purpose: Creates a new Burst entry and marks it as late if the gap before
+	 * exceeds the configured threshold. Called when first write callback arrives
+	 * or when idle gap exceeds gap_threshold_s.
+	 * 
+	 * @param[in] t_start_abs_s Absolute monotonic start time (seconds)
+	 * @param[in] gap_before_s Idle gap duration before this burst (seconds)
+	 */
+	void OpenBurst(double t_start_abs_s, double gap_before_s) {
 		in_burst_ = true;
 		Burst b;
 		b.idx = int(bursts_.size());
-		b.t_start_s = t_start_abs_s - t0_;
-		b.gap_before_s = gap_before_s;
+		b.tStartS = t_start_abs_s - t0_;
+		b.gapBeforeS = gap_before_s;
 		// Mark burst as late if gap exceeds the configured threshold
-		b.is_late = (gap_before_s > late_extra_s_threshold_);
+		b.isLate = (gap_before_s > late_extra_s_threshold_);
 		bursts_.push_back(b);
 	}
-	void close_burst(double t_end_abs_s) {
+	
+	/**
+	 * @brief Close the current burst record
+	 * 
+	 * Purpose: Finalizes the active burst by computing its duration with a minimum
+	 * floor to avoid zero-duration bursts. Updates last_end_time_s_ for gap calculation.
+	 * 
+	 * @param[in] t_end_abs_s Absolute monotonic end time (seconds)
+	 */
+	void CloseBurst(double t_end_abs_s) {
 		if (!in_burst_ || bursts_.empty()) return;
 		auto &b = bursts_.back();
 		// Floor durations to avoid zero-time bursts from single write callbacks.
-		double raw = t_end_abs_s - (t0_ + b.t_start_s);
+		double raw = t_end_abs_s - (t0_ + b.tStartS);
 		if (raw < kMinBurstDurS) raw = kMinBurstDurS;
-		b.dur_s = raw;
+		b.durS = raw;
 		last_end_time_s_ = t_end_abs_s;
 		in_burst_ = false;
 	}
-	static void ensure_files_open() {
+	
+	/**
+	 * @brief Open CSV output files if not already open
+	 * 
+	 * Purpose: Lazily opens requests and bursts CSV files and writes headers if
+	 * files are new. Uses append mode to preserve existing data. Thread-safe via
+	 * mutex protection.
+	 * 
+	 * Thread Safety: Protected by FileState::mutex
+	 */
+	static void EnsureFilesOpen() {
 		auto& state = get_file_state();
 		std::lock_guard<std::mutex> g(state.mutex);
 		if (!state.req_ofs.is_open()) {

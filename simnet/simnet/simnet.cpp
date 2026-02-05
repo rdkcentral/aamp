@@ -319,23 +319,31 @@ private:
 	// Marsaglia-Tsang Gamma for shape>0
 	double sampleGamma(double shape, double scale) {
 		if (shape <= 0.0) return 0.0;
+		
+		// Handle shape < 1.0 iteratively to avoid recursion
+		double correction = 1.0;
 		if (shape < 1.0) {
 			// Johnk's generator: Gamma(shape) = Gamma(shape+1) * U^(1/shape)
 			double u = std::max(unif01_(rng_), 1e-12);
-			return sampleGamma(shape + 1.0, scale) * std::pow(u, 1.0 / shape);
+			correction = std::pow(u, 1.0 / shape);
+			shape += 1.0;
 		}
-		// Marsaglia and Tsang method
+		
+		// Marsaglia and Tsang method for shape >= 1.0
 		double d = shape - 1.0 / 3.0;
 		double c = 1.0 / std::sqrt(9.0 * d);
-		while (true) {
+		constexpr int kMaxIterations = 10000;
+		for (int iter = 0; iter < kMaxIterations; ++iter) {
 			double x = norm01_(rng_);
 			double v = 1.0 + c * x;
 			if (v <= 0) continue;
 			v = v * v * v;
 			double u = unif01_(rng_);
-			if (u < 1.0 - 0.0331 * (x * x) * (x * x)) return (d * v) * scale;
-			if (std::log(u) < 0.5 * x * x + d * (1 - v + std::log(v))) return (d * v) * scale;
+			if (u < 1.0 - 0.0331 * (x * x) * (x * x)) return (d * v) * scale * correction;
+			if (std::log(u) < 0.5 * x * x + d * (1 - v + std::log(v))) return (d * v) * scale * correction;
 		}
+		// Fallback: return mean of gamma distribution if max iterations exceeded
+		return (shape * scale) * correction;
 	}
 };
 
