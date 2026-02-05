@@ -7071,9 +7071,25 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
 	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
 
-	/* Getting Gstreamer Play position */
-	offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
-	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
+	/* Use the last injected position to maintain seamless audio continuity.
+	 * The last injected position represents where audio was actually sent to the pipeline.
+	 * We must ensure the new track starts at or before this point to avoid gaps.
+	 * Since SkipFragments rounds to segment boundaries and may overshoot, we need to
+	 * position slightly before the target to ensure we don't skip past the continuity point.
+	 */
+	double lastInjectedPosition = pMediaStreamContext->GetLastInjectedPosition();
+	double targetPosition = lastInjectedPosition - aamp->culledSeconds;
+	
+	// Get typical fragment duration to adjust for SkipFragments rounding behavior
+	double fragmentDurationHint = pMediaStreamContext->fragmentDurationSeconds;
+	if (fragmentDurationHint <= 0) {
+		fragmentDurationHint = 2.0; // Default typical fragment duration
+	}
+	
+	// Position before the target by half a fragment to account for rounding
+	offsetFromStart = targetPosition - (fragmentDurationHint * 0.5);
+	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf] lastInjectedPosition[%lf] fragmentDurationHint[%lf]",
+	              offsetFromStart, aamp->culledSeconds, lastInjectedPosition, fragmentDurationHint );
 
 	UpdateSeekPeriodOffset(offsetFromStart);
 	AAMPLOG_INFO( "Updated pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
@@ -7085,11 +7101,13 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 		pMediaStreamContext->NotifyCachedAudioFragmentAvailable();
 		return;
 	}
-	/* Skipping the old fragments and moving to the corresponding Audio playlist position
-	* for fetching and injecting during seamless audio switch.
-	* Skipping the audio fragments to reach the current position for fetching
-	* */
+	
+	/* Skip fragments to position audio track at last injected position for seamless switching.
+	 * UpdateMediaTrackInfo resets fragmentTime to period start, offsetFromStart tells
+	 * SkipFragments how far to advance from there to reach the continuity point.
+	 */
 	SkipFragments(pMediaStreamContext, offsetFromStart, true);
+	
 	/* Getting current fragment duration, for calculating the injected duration timestamp, because the current injected time
 	 * calculation requires the start time of the fragment which is downloaded, so subtracting the fragment duration for identification
 	 * the starttime of the downloaded fragment.
@@ -7107,17 +7125,23 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 
 
 
-	/* Calculating the start time of the downloaded fragment */
-	newInjectedPosition = ( pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration )/pMediaStreamContext->fragmentDescriptor.TimeScale;
+	/* New track hasn't injected anything yet, starts fresh */
+	newInjectedPosition = pMediaStreamContext->fragmentTime;
 
 	/*Calculating the difference in Fetched duration, injected duration and diff in Media Sequence number */
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
-	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
+	
+	/* For seamless audio switching, calculate the delta between last injected position
+	 * and where the new track is starting. This should be small (ideally 0 to one fragment duration).
+	 * A positive value means some overlap (acceptable), negative means a gap (problematic).
+	 */
+	double newPlaylistPosition = pMediaStreamContext->fragmentTime;
+	diffInInjectedDuration = lastInjectedPosition - newPlaylistPosition;
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
 
-	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf] diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
+	AAMPLOG_INFO("Calculated an [%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf] diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d] injectfragmetplaylistposition[%lf]",
 			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(),
-			fragmentDuration, newInjectedPosition, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
+			fragmentDuration, newInjectedPosition, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded,newPlaylistPosition);
 
 	pMediaStreamContext->resetAbort(false);
 	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
@@ -10449,7 +10473,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		// Need to check if same last Manifest is given or new refresh happened
 		if( tmpManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK )
 		{
-			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
+			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance )
 			{
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
