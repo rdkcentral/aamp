@@ -75,7 +75,7 @@ public:
 	void Free(void);
 	void ReserveBytes(size_t len);
 	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
-	void clear( void ) {buffer.clear();}; // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
+	void clear( void ) { buffer.clear(); } // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
 	void Replace( AampGrowableBuffer *src );
 
 	/**
