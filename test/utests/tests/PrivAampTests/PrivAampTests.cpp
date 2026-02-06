@@ -949,7 +949,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = 0;
-	context.chunkBoundary = buffer.GetLen(); // Simulate end of chunk
+	context.chunkBoundary = buffer.size(); // Simulate end of chunk
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
@@ -1112,7 +1112,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	char initialData[] = "dummy data";
 	buffer.AppendBytes(initialData, strlen(initialData));
 
-	size_t startBufferOffset = buffer.GetLen();
+	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
 	CurlCallbackContext context(p_aamp, &buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
@@ -1158,7 +1158,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	EXPECT_EQ(context.bufferOffset, startBufferOffset);
 	// chunkBoundary should be updated to mdat start + mdat size
 	EXPECT_EQ(context.chunkBoundary, chunkBoundary);
-	EXPECT_EQ(buffer.GetLen(), startBufferOffset + strlen(testDataPart1));
+	EXPECT_EQ(buffer.size(), startBufferOffset + strlen(testDataPart1));
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
 	// Result should be size*nmemb
@@ -1167,7 +1167,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	EXPECT_EQ(context.bufferOffset, chunkBoundary);
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
-	EXPECT_EQ(buffer.GetLen(), startBufferOffset + totalBufSize);
+	EXPECT_EQ(buffer.size(), startBufferOffset + totalBufSize);
 	// guard destructor will call AampGrowableBuffer_EnableMemoryCopying(false)
 }
 
@@ -1262,7 +1262,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	EXPECT_EQ(context.bufferOffset, lastMdatBoundary);
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
-	EXPECT_EQ(buffer.GetLen(), strlen(testData) + additionalData.size());
+	EXPECT_EQ(buffer.size(), strlen(testData) + additionalData.size());
 }
 
 // Test HandleSSLWriteCallback when CheckForChunkEarlyAbort returns true
