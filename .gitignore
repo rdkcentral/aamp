@@ -26,3 +26,4 @@ test/l2test/result/
 test/l2test/data/aamp/*
 **/*.swp
 qtdemuxAnalyzer
+middleware/test/utests/build

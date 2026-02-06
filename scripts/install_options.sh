@@ -19,6 +19,8 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_1"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="269f2b1a38492c26f2f7cfb41d194029a8ea88d2"
+OPTION_PLAYER_INTERFACE_SOURCE="internal"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
@@ -38,6 +40,33 @@ OPTION_UBUNTU_SANITIZER=false
 
 function install_options_fn()
 {
+  
+  # Parse long-form options first to avoid getopts limitations
+  local remaining_args=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --player-interface-source=*)
+        OPTION_PLAYER_INTERFACE_SOURCE="${1#*=}"
+        if [[ "${OPTION_PLAYER_INTERFACE_SOURCE}" != "internal" && "${OPTION_PLAYER_INTERFACE_SOURCE}" != "external" ]]; then
+          echo "Error: --player-interface-source must be 'internal' or 'external'"
+          return 1
+        fi
+        echo "Player interface source: ${OPTION_PLAYER_INTERFACE_SOURCE}"
+        ;;
+      --middleware-player-interface-commit-id=*)
+        OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${1#*=}"
+        echo "Middleware player interface commit ID: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        ;;
+      *)
+        remaining_args+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  # Set remaining arguments for getopts processing
+  set -- "${remaining_args[@]}"
+
   # Parse optional command line parameters
   while getopts ":d:b:cf:np:r:g:qsktu" OPT; do
     case ${OPT} in
@@ -106,6 +135,8 @@ function install_options_fn()
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
+        [--player-interface-source=internal|external] Choose player interface source (default: internal)
+        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 269f2b1a38492c26f2f7cfb41d194029a8ea88d2)
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"
 
