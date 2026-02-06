@@ -209,7 +209,11 @@ void DumpBlob(const unsigned char *ptr, size_t len)
 
 void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 {
-	(void)buffering;
+	// Forward to Google Mock when available so tests can assert calls
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetBufferingState(buffering);
+	}
 }
 
 void PrivateInstanceAAMP::UpdateUseSinglePipeline(void)
@@ -974,6 +978,11 @@ bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
 
 bool PrivateInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
 {
+	// Forward to Google Mock when available
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsSinkCacheEmpty(mediaType);
+	}
 	return true;
 }
 
@@ -1019,6 +1028,11 @@ void PrivateInstanceAAMP::StopBuffering(bool forceStop)
 
 bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 {
+	// Forward to Google Mock when available
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->TrackDownloadsAreEnabled(type);
+	}
 	return true;
 }
 
@@ -1197,7 +1211,7 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType mediaType)
 {
 }
 

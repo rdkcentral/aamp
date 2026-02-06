@@ -30,6 +30,15 @@ public:
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
 	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
+
+	// Player state and timing
+	MOCK_METHOD(AAMPPlayerState, GetState, ());
+	MOCK_METHOD(void, SetState, (AAMPPlayerState state));
+
+	// Underflow monitor interactions
+	MOCK_METHOD(void, SetBufferingState, (bool buffering));
+	MOCK_METHOD(bool, IsSinkCacheEmpty, (AampMediaType mediaType));
+	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

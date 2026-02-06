@@ -177,6 +177,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 {
 	(void)buffering;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetBufferingState(buffering);
+	}
 }
 
 void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
@@ -1111,7 +1115,11 @@ bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
 
 bool PrivateInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
 {
-    return true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsSinkCacheEmpty(mediaType);
+	}
+	return true;
 }
 
 void PrivateInstanceAAMP::NotifyBitRateChangeEvent( BitsPerSecond bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
@@ -1397,7 +1405,7 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType mediaType)
 {
 }
 

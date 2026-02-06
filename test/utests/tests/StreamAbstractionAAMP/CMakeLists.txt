@@ -35,10 +35,12 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/utils/Path.cpp)
 
 set(TEST_SOURCES FunctionalTests.cpp
-                 StreamAbstractionAAMP.cpp)
+                 StreamAbstractionAAMP.cpp
+                 AampUnderflowMonitorTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp )
-
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp
+                 ${AAMP_ROOT}/AampUnderflowMonitor.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})

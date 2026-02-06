@@ -591,3 +591,16 @@ bool StreamAbstractionAAMP::IsCurrentProfileLowest()
 		return false;
 	}
 }
+
+void StreamAbstractionAAMP::StartUnderflowMonitor()
+{
+}
+
+void StreamAbstractionAAMP::StopUnderflowMonitor()
+{
+}
+
+bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
+{
+	return false;
+}
