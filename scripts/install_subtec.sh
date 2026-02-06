@@ -19,36 +19,110 @@
 function subtec_install_fn() {
 
     # Need AAMP_DIR passed in so we can find patch files
-    if [ -z "${1}" ] ; then
-        echo "AAMP directory parameter is empty, can not find patch files."
+    if [ -z "${1}" ]; then
+        echo "ERROR: AAMP directory parameter is required but not provided"
+        echo "Usage: subtec_install_fn <AAMP_DIR> <LOCAL_DEPS_BUILD_DIR>"
         return 1
-    fi 
+    fi
+    if [ ! -d "${1}" ]; then
+        echo "ERROR: AAMP directory does not exist or is not a directory: '${1}'"
+        return 1
+    fi
+    
     # Need LOCAL_DEPS_BUILD_DIR passed in so we can patch the location of glib
-    if [ -z "${2}" ] ; then
-        echo "Dependency directory parameter is empty, can not patch subtec-app CMakeLists.txt"
+    if [ -z "${2}" ]; then
+        echo "ERROR: Dependency directory parameter is required but not provided"
+        echo "Usage: subtec_install_fn <AAMP_DIR> <LOCAL_DEPS_BUILD_DIR>"
+        return 1
+    fi
+    if [ ! -d "${2}" ]; then
+        echo "ERROR: Dependency directory does not exist or is not a directory: '${2}'"
         return 1
     fi 
 
     echo "Cloning subtec-app..."
-    do_clone_fn "https://code.rdkcentral.com/r/components/generic/subtec-app"
-    git -C subtec-app checkout a95f7591fff3fb8777781dfdc76d95fc0a1c382b
+    do_clone_fn "https://code.rdkcentral.com/r/components/generic/subtec-app" || {
+        echo "ERROR: Failed to clone subtec-app repository"
+        return 1
+    }
+    
+    # Checkout known stable commit - last version verified compatible with AAMP patches
+    # Commit a95f7591: Stable version before breaking changes (verified 2024-01)
+    git -C subtec-app checkout a95f7591fff3fb8777781dfdc76d95fc0a1c382b || {
+        echo "ERROR: Failed to checkout subtec-app commit a95f7591"
+        return 1
+    }
 
     echo
     echo "Cloning websocket-ipplayer2-utils..."
-    do_clone_fn https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils
-    git -C subtec-app/websocket-ipplayer2-utils checkout 2287fea4d1af0a632aed5f1b8bfba8babbdade1f
+    do_clone_fn https://code.rdkcentral.com/r/components/generic/websocket-ipplayer2-utils subtec-app/websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to clone websocket-ipplayer2-utils repository"
+        return 1
+    }
+    
+    # Checkout known stable commit - required for compatibility with subtec-app
+    # Commit 2287fea4: Version with required websocket protocol support
+    git -C subtec-app/websocket-ipplayer2-utils checkout 2287fea4d1af0a632aed5f1b8bfba8babbdade1f || {
+        echo "ERROR: Failed to checkout websocket-ipplayer2-utils commit 2287fea4"
+        return 1
+    }
 
 
-    pushd subtec-app
+    pushd subtec-app || {
+        echo "ERROR: Failed to change to subtec-app directory"
+        return 1
+    }
+    
     echo "Patching subtec-app from ${1}"
-    git apply -p1 ${1}/OSX/patches/subttxrend-app-xkbcommon.patch
-    git apply -p1 ${1}/OSX/patches/subttxrend-app-packet.patch
-    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-link.patch --directory websocket-ipplayer2-utils
-    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-typescpp.patch --directory websocket-ipplayer2-utils
-    cp ${1}/OSX/patches/RDKLogoBlack.png subttxrend-gfx/quartzcpp/assets/RDKLogo.png
-    git apply -p1 ${1}/OSX/patches/subttxrend-app-ubuntu_24_04_build.patch
-    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-ubuntu_24_04_build.patch --directory websocket-ipplayer2-utils
-    git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-mac_sequoia_build.patch --directory websocket-ipplayer2-utils
+    
+    # Apply critical patches for AAMP compatibility
+    git apply -p1 "${1}/OSX/patches/subttxrend-app-xkbcommon.patch" || {
+        echo "ERROR: Failed to apply subttxrend-app-xkbcommon.patch"
+        popd
+        return 1
+    }
+    
+    git apply -p1 "${1}/OSX/patches/subttxrend-app-packet.patch" || {
+        echo "ERROR: Failed to apply subttxrend-app-packet.patch"
+        popd
+        return 1
+    }
+    
+    git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-link.patch" --directory websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to apply websocket-ipplayer2-link.patch"
+        popd
+        return 1
+    }
+    
+    git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-typescpp.patch" --directory websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to apply websocket-ipplayer2-typescpp.patch"
+        popd
+        return 1
+    }
+    
+    cp "${1}/OSX/patches/RDKLogoBlack.png" subttxrend-gfx/quartzcpp/assets/RDKLogo.png || {
+        echo "ERROR: Failed to copy RDKLogoBlack.png"
+        popd
+        return 1
+    }
+    
+    git apply -p1 "${1}/OSX/patches/subttxrend-app-ubuntu_24_04_build.patch" || {
+        echo "ERROR: Failed to apply subttxrend-app-ubuntu_24_04_build.patch"
+        popd
+        return 1
+    }
+    
+    git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-ubuntu_24_04_build.patch" --directory websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to apply websocket-ipplayer2-ubuntu_24_04_build.patch"
+        popd
+        return 1
+    }
+    
+    git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-mac_sequoia_build.patch" --directory websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to apply websocket-ipplayer2-mac_sequoia_build.patch"
+        popd
+        return 1
+    }
  
     echo "subtec-app source prepared"
     popd

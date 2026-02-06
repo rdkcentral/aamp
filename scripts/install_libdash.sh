@@ -35,46 +35,72 @@ function install_build_libdash_fn()
         INSTALL_STATUS_ARR+=("libdash was already installed.")
     else
         echo "Installing libdash..."
-        git clone https://github.com/bitmovin/libdash.git
+        git clone https://github.com/bitmovin/libdash.git || {
+            echo "ERROR: Failed to clone libdash from bitmovin/libdash.git"
+            return 1
+        }
 
-        cd libdash/libdash || { echo "Failed to change to libdash/libdash directory"; return 1; }
-        git checkout stable_3_0
-        git clone https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext -b rdk-next
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0001-libdash-build.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0002-libdash-starttime-uint64.patch 
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0003-libdash-presentationTimeOffset-uint64.patch 
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0004-Support-of-EventStream.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0005-DELIA-39460-libdash-memleak.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0006-RDK-32003-LLD-Support.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0007-DELIA-51645-Event-Stream-RawAttributes-Support.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0008-DELIA-53263-Use-Label-TAG.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0009-RDK-35134-Support-for-FailoverContent.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch	
-        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch
+        cd libdash/libdash || { echo "ERROR: Failed to change to libdash/libdash directory"; return 1; }
+        
+        git checkout stable_3_0 || {
+            echo "ERROR: Failed to checkout stable_3_0 branch"
+            return 1
+        }
+        
+        git clone https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext -b rdk-next || {
+            echo "ERROR: Failed to clone meta-rdk-ext repository"
+            return 1
+        }
+        
+        # Apply RDK patches - critical for AAMP compatibility
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0001-libdash-build.patch || { echo "ERROR: Failed to apply patch 0001"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0002-libdash-starttime-uint64.patch || { echo "ERROR: Failed to apply patch 0002"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0003-libdash-presentationTimeOffset-uint64.patch || { echo "ERROR: Failed to apply patch 0003"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0004-Support-of-EventStream.patch || { echo "ERROR: Failed to apply patch 0004"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0005-DELIA-39460-libdash-memleak.patch || { echo "ERROR: Failed to apply patch 0005"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0006-RDK-32003-LLD-Support.patch || { echo "ERROR: Failed to apply patch 0006"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0007-DELIA-51645-Event-Stream-RawAttributes-Support.patch || { echo "ERROR: Failed to apply patch 0007"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0008-DELIA-53263-Use-Label-TAG.patch || { echo "ERROR: Failed to apply patch 0008"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0009-RDK-35134-Support-for-FailoverContent.patch || { echo "ERROR: Failed to apply patch 0009"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch || { echo "ERROR: Failed to apply patch 0010"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch || { echo "ERROR: Failed to apply patch 0011"; return 1; }
+        patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch || { echo "ERROR: Failed to apply patch 0012"; return 1; }
+        
         mkdir -p build
-        cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_MACOSX_RPATH=TRUE
-        make
-        make install
+        cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
+        
+        cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_MACOSX_RPATH=TRUE || {
+            echo "ERROR: CMake configuration failed"
+            return 1
+        }
+        
+        make || {
+            echo "ERROR: Make build failed"
+            return 1
+        }
+        
+        make install || {
+            echo "ERROR: Make install failed"
+            return 1
+        }
 
         # why doesn't make install do this for us
         cd .. || { echo "Failed to navigate to parent directory"; return 1; }
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/xml
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/mpd
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/network
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/portable
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/helpers
-        mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/metrics
-        cp -p libdash/include/* $LOCAL_DEPS_BUILD_DIR/include/libdash
-        cp -p libdash/source/xml/*.h $LOCAL_DEPS_BUILD_DIR/include/libdash/xml
-        cp -p libdash/source/mpd/*.h $LOCAL_DEPS_BUILD_DIR/include/libdash/mpd
-        cp -p libdash/source/network/*.h $LOCAL_DEPS_BUILD_DIR/include/libdash/network
-        cp -p libdash/source/portable/*.h $LOCAL_DEPS_BUILD_DIR/include/libdash/portable
-        cp -p libdash/source/helpers/*.h $LOCAL_DEPS_BUILD_DIR/include/libdash/helpers
-        cp -p libdash/source/metrics/*.h $LOCAL_DEPS_BUILD_DIR/include/libdash/metrics
-        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include/libdash \n \nName: libdash \nDescription: ISO/IEC MPEG-DASH library \nVersion: 3.0 \nRequires: libxml-2.0 \nLibs: -L${libdir} -ldash \nLibs.private: -lxml2 \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libdash.pc
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash"
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash/xml"
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash/mpd"
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash/network"
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash/portable"
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash/helpers"
+        mkdir -p "${LOCAL_DEPS_BUILD_DIR}/include/libdash/metrics"
+        cp -p libdash/include/* "${LOCAL_DEPS_BUILD_DIR}/include/libdash"
+        cp -p libdash/source/xml/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/xml"
+        cp -p libdash/source/mpd/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/mpd"
+        cp -p libdash/source/network/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/network"
+        cp -p libdash/source/portable/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/portable"
+        cp -p libdash/source/helpers/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/helpers"
+        cp -p libdash/source/metrics/*.h "${LOCAL_DEPS_BUILD_DIR}/include/libdash/metrics"
+        echo -e "prefix=${LOCAL_DEPS_BUILD_DIR}/lib \nexec_prefix=${LOCAL_DEPS_BUILD_DIR} \nlibdir=${LOCAL_DEPS_BUILD_DIR}/lib \nincludedir=${LOCAL_DEPS_BUILD_DIR}/include/libdash \n \nName: libdash \nDescription: ISO/IEC MPEG-DASH library \nVersion: 3.0 \nRequires: libxml-2.0 \nLibs: -L\${libdir} -ldash \nLibs.private: -lxml2 \nCflags: -I\${includedir}" > "${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig/libdash.pc"
 
         INSTALL_STATUS_ARR+=("libdash was successfully installed.")
     fi

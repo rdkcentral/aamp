@@ -30,6 +30,18 @@ export CMAKE_POLICY_VERSION_MINIMUM=3.5
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
 
+# Detect and cache platform to avoid repeated checks
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    readonly PLATFORM="darwin"
+elif [[ "$OSTYPE" == "linux"* ]]; then
+    readonly PLATFORM="linux"
+else
+    echo "ERROR: Unsupported platform: $OSTYPE"
+    echo "Supported platforms: macOS (darwin), Linux"
+    exit 1
+fi
+export PLATFORM
+
 # All include files should be done here
 #
 # tools and OS specifics

@@ -32,22 +32,24 @@ function install_pkgs_darwin_fn()
     local INSTALLED_PKGCONFIG=""
     for PKG in "$@";
     do
-        if brew ls --versions $PKG > /dev/null; then
+        # Cache the brew check result to avoid redundant calls
+        local PKG_VERSION
+        PKG_VERSION=$(brew ls --versions "$PKG" 2>/dev/null) || true
+        
+        if [ -n "$PKG_VERSION" ]; then
             echo "${PKG} is already installed."
             INSTALL_STATUS_ARR+=("${PKG} is already installed.")
         else
             echo "Installing ${PKG}"
-            brew install $PKG
-            #update summery
-            if brew ls --versions $PKG > /dev/null; then
-                #The package is successfully installed
-                INSTALL_STATUS_ARR+=("The package was ${PKG} was successfully installed.")
-
+            if brew install "$PKG"; then
+                # Package successfully installed
+                INSTALL_STATUS_ARR+=("The package ${PKG} was successfully installed.")
             else
-                #The package is failed to be installed
+                # Package failed to install
                 INSTALL_STATUS_ARR+=("The package ${PKG} FAILED to be installed.")
             fi
         fi
+        
         #if pkg is openssl and its successfully installed every time ensure to symlink to the latest version
         if [ "${PKG}" = "${DEFAULT_OPENSSL_VERSION}" ]; then
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
