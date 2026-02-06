@@ -810,7 +810,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
 
-	if(cachedFragment->fragment.GetPtr())
+	if(cachedFragment->fragment.capacity() != 0)
 	{
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
@@ -942,7 +942,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	class StreamAbstractionAAMP* pContext = GetContext();
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
-	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
+	if(cachedFragment != NULL && cachedFragment->fragment.capacity() == 0)
 	{
 		if(!SignalIfEOSReached())
 		{
@@ -987,7 +987,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		cachedFragment->initFragment = false;
 		return true;
 	}
-	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
+	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.capacity() != 0))
 	{
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%" PRIu64 "] != currentdownloadtime[%" PRIu64 "]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
 		unparsedBufferChunk.Free();

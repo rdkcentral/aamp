@@ -1035,7 +1035,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
 	if (context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		if ((NULL == context->buffer->GetPtr() ) && (context->contentLength > 0))
+		if ((context->buffer->capacity() == 0) && (context->contentLength > 0))
 		{
 			size_t len = context->contentLength;
 			if(context->downloadIsEncoded && (len < DEFAULT_ENCODED_CONTENT_BUFFER_SIZE))
@@ -4578,14 +4578,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				// so that timing/monitoring logic has a valid start timestamp in every case.
 				context.downloadStartTime = progressCtx.downloadStartTime;
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-				if(buffer->GetPtr() != NULL)
+				if (buffer->capacity() != 0)
 				{
 					buffer->clear();
 				}
 
 				isDownloadStalled = false;
 				abortReason = eCURL_ABORT_REASON_NONE;
-
 				long long tStartTime = NOW_STEADY_TS_MS;
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
@@ -4694,7 +4693,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 
 					// Do the empty buffer check only for successful downloads
-					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->size() == 0))
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && buffer->empty())
 					{
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
@@ -4703,8 +4702,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
 #endif
 						long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
-						AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
-									buffer->GetPtr(), buffer->size(), dlSize,reqSize,
+						AAMPLOG_WARN("Invalid buffer (empty) - Dlsize : %lf ,Reqsize : %ld, Url: %s",
+									dlSize,reqSize,
 									(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
 						// Treat empty buffer as a network error, to trigger rampdown
 						// Use CURLE_PARTIAL_FILE to avoid bandwidth recalculation
@@ -5179,7 +5178,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	}
 
 	// Strip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
-	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && NULL != buffer->GetPtr() && FORMAT_ISO_BMFF == this->mVideoFormat)
+	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && buffer->capacity() != 0 && FORMAT_ISO_BMFF == this->mVideoFormat)
 	{
 		AAMPLOG_INFO( "Received HTTP 200 for ranged request (chunked iframe: %s: %s), starting to strip the fragment", range, remoteUrl.c_str() );
 		size_t start;
