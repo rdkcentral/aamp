@@ -3791,12 +3791,35 @@ TEST_F(PrivAampTests,SetAudTimeScaleTest)
  	EXPECT_EQ(val,val1);
 }
 
-TEST_F(PrivAampTests,SetLLDashSpeedCacheTest)
+TEST_F(PrivAampTests,GetLLDashSpeedCacheTest)
 {
-	struct SpeedCache spCache;
-	p_aamp->SetLLDashSpeedCache(spCache);
-
-	struct SpeedCache *pCache1 = p_aamp->GetLLDashSpeedCache();
+	// Test that GetLLDashSpeedCache returns a valid pointer and can be modified
+	struct SpeedCache *pCache = p_aamp->GetLLDashSpeedCache();
+	
+	ASSERT_NE(pCache, nullptr);
+	
+	pCache->last_sample_time_val = 12345;
+	pCache->speed_now = 5000000; // 5 Mbps
+	pCache->totalDownloaded = 1024000;
+	pCache->bStart = true;
+	pCache->mChunkSpeedData.push_back(std::make_pair(1.5, 4000000));
+	
+	struct SpeedCache *pCache2 = p_aamp->GetLLDashSpeedCache();
+	EXPECT_EQ(pCache2->last_sample_time_val, 12345);
+	EXPECT_EQ(pCache2->speed_now, 5000000);
+	EXPECT_EQ(pCache2->totalDownloaded, 1024000);
+	EXPECT_TRUE(pCache2->bStart);
+	EXPECT_EQ(pCache2->mChunkSpeedData.size(), 1);
+	
+	// Test resetting the cache 
+	*pCache = SpeedCache();
+	
+	// Verify reset worked
+	EXPECT_EQ(pCache->last_sample_time_val, 0);
+	EXPECT_EQ(pCache->speed_now, 0);
+	EXPECT_EQ(pCache->totalDownloaded, 0);
+	EXPECT_FALSE(pCache->bStart);
+	EXPECT_TRUE(pCache->mChunkSpeedData.empty());
 }
 
 TEST_F(PrivAampTests,SetLiveOffsetAppRequestTest)
