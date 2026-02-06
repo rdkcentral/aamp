@@ -6218,12 +6218,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			AAMPLOG_INFO("[INBAND_CC_FLOW] Reusing existing CC manager ID: %d", mCCId);
 		}
 
-		MW_LOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> DETECTED INBAND CC=============", mCCId);
+		AAMPLOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> DETECTED INBAND CC=============", mCCId);
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
 			AAMPLOG_INFO("[INBAND_CC_FLOW] Inband CC detected! Restoring previous CC state: previousCCEnabled=%d", previousCCEnabled);
-			MW_LOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> RESTORING INBAND CC=============", mCCId);
+			AAMPLOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> RESTORING INBAND CC=============", mCCId);
 			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
 			AAMPLOG_INFO("[INBAND_CC_FLOW] RestoreCC completed for CC ID: %d", mCCId);
 		}
@@ -11488,7 +11488,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-					AAMO_LOG_DEBUG("========INBAND CC DETECTED======")
+					AAMPLOG_DEBUG("========INBAND CC DETECTED======")
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
