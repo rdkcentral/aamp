@@ -4733,7 +4733,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
 #endif
 						long reqSize = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
-						AAMPLOG_WARN("Invalid empty buffer - Dlsize : %lf ,Reqsize : %ld, Url: %s",
+						AAMPLOG_WARN("Invalid buffer (empty) - Dlsize : %lf ,Reqsize : %ld, Url: %s",
 									 dlSize, reqSize, (res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
 						// Treat empty buffer as a network error, to trigger rampdown
 						// Use CURLE_PARTIAL_FILE to avoid bandwidth recalculation
