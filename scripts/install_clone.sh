@@ -29,10 +29,8 @@ function do_clone_fn()
     done
 
     echo && echo "Executing: 'git clone $ARGLIST'"
-    git clone $ARGLIST
-
-    if [ $? != 0 ]; then
-        echo "'git clone $ARGLIST' FAILED"
+    if ! git clone $ARGLIST; then
+        echo "ERROR: 'git clone $ARGLIST' FAILED"
         return 1
     fi
 }
