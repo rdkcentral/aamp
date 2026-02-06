@@ -874,7 +874,7 @@ private:
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
 	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
-	long long prevDownloadStartTime;		/**< Previous file download Start time*/
+	uint64_t prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/

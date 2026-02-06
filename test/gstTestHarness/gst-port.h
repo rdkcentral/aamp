@@ -51,18 +51,16 @@ struct SeekParam {
 class PipelineContext
 {
 	public:
-	PipelineContext() : configured_stream_count(0), initial_seek_performed(false) {}
+	PipelineContext(){};
 	virtual ~PipelineContext(){};
 	virtual void NeedData( MediaType mediaType ) = 0;
 	virtual void EnoughData( MediaType mediaType ) = 0;
 	/**
-	 * 1. initial lazy seek when both appsrc branches are configured
+	 * 1. initial seek done as each appsrc is configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
 	 */
 	std::mutex segment_seek_mutex;
 	std::queue<SeekParam> mSegmentEndSeekQueue;
-	int configured_stream_count; // Protected by segment_seek_mutex
-	bool initial_seek_performed; // Protected by segment_seek_mutex
 };
 
 class Pipeline
@@ -76,7 +74,7 @@ class Pipeline
 	long long GetPositionMilliseconds( MediaType mediaType ) const;
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void ) const;
-	void Configure( MediaType mediaType );
+	void Configure( MediaType mediaType, const SeekParam &seekParam = SeekParam() );
 	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void ) const;
@@ -85,12 +83,12 @@ class Pipeline
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
 	void Step( void );
+	SeekParam PopSeek();
 	void ScheduleSeek( const SeekParam & );
 	size_t GetNumPendingSeek(void) const;
 	bool DoSeekNow(const SeekParam & );
 	void Reset( void );
 	private:
-	void Seek( MediaType mediaType, const SeekParam &param );
 	void ReachedEOS( void );
 	class PipelineContext *context;
 	std::array<std::unique_ptr<class MediaStream>, NUM_MEDIA_TYPES> mediaStream;

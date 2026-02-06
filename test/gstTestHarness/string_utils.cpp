@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 #include "string_utils.hpp"
+#include "gst-test.h"
 #include <ctime>
 #include <cstdlib>
 #include <iostream>
@@ -26,13 +27,10 @@ uint64_t Number( const std::string &string )
 	try {
 		return std::stoull( string );
 	} catch (const std::invalid_argument& e) {
-		std::cerr << "ERROR: Number() - Invalid argument for string: '" << string << "' - " << e.what() << std::endl;
-		std::exit(EXIT_FAILURE);
+		throw TestHarnessException("Number() - Invalid argument for string: '" + string + "' - " + e.what());
 	} catch (const std::out_of_range& e) {
-		std::cerr << "ERROR: Number() - Out of range for string: '" << string << "' - " << e.what() << std::endl;
-		std::exit(EXIT_FAILURE);
+		throw TestHarnessException("Number() - Out of range for string: '" + string + "' - " + e.what());
 	}
-	return 0;
 }
 
 double parseFloat( const std::string &string )
@@ -40,13 +38,10 @@ double parseFloat( const std::string &string )
 	try {
 		return std::stod( string );
 	} catch (const std::invalid_argument& e) {
-		std::cerr << "ERROR: parseFloat() - Invalid argument for string: '" << string << "' - " << e.what() << std::endl;
-		std::exit(EXIT_FAILURE);
+		throw TestHarnessException("parseFloat() - Invalid argument for string: '" + string + "' - " + e.what());
 	} catch (const std::out_of_range& e) {
-		std::cerr << "ERROR: parseFloat() - Out of range for string: '" << string << "' - " << e.what() << std::endl;
-		std::exit(EXIT_FAILURE);
+		throw TestHarnessException("parseFloat() - Out of range for string: '" + string + "' - " + e.what());
 	}
-	return 0;
 }
 
 std::vector<std::string> splitString( const std::string &string, char c )
@@ -105,8 +100,7 @@ static double ISO8601DateTimeToUTCSeconds(const char *ptr)
 				double ms = std::stod(std::string(msString-1)); // back up and parse as float
 				timeSeconds += ms; // include ms granularity
 			} catch (const std::exception& e) {
-				std::cerr << "ERROR: ISO8601DateTimeToUTCSeconds() - Failed to parse milliseconds: " << e.what() << std::endl;
-				std::exit(EXIT_FAILURE);
+				throw TestHarnessException( "ERROR: ISO8601DateTimeToUTCSeconds() - Failed to parse milliseconds" );
 			}
 		}
 	}
@@ -206,8 +200,9 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 				//if( format.startsWith("0") && format.endsWith("d") )
 				{ // leading zeros, decimal
 					if (format.size() < 2) {
-						std::cerr << "ERROR: ExpandURL() - Invalid format string length: '" << format << "'" << std::endl;
-						std::exit(EXIT_FAILURE);
+						throw TestHarnessException(
+							"ExpandURL() - Invalid format string length for format: '" + format + "'"
+						);
 					}
 					int num = static_cast<int>(Number(param[key]));
 					int numDigits = static_cast<int>(Number(format.substr(1,format.size()-2)));
@@ -215,7 +210,7 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 				}
 				else
 				{
-					//alert( "unsupported url format" );
+					throw TestHarnessException( "unsupported url format" );
 				}
 			}
 			rc += value;
