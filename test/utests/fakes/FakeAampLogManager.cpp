@@ -52,7 +52,7 @@ bool AampLogManager::locked = true;
 
 thread_local int gPlayerId = -1;
 
-void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
+void logprintf(AAMP_LogLevel level, const char* func, int line, const char *format, ...)
 {
 	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
@@ -72,7 +72,7 @@ void logprintf(AAMP_LogLevel level, const char* file, int line, const char *form
 							   gPlayerId,
 							   mLogLevelStr[level],
 							   std_thread_hasher( std::this_thread::get_id() ),
-							   file, line,
+							   func, line,
 							   format );
 		assert( format_bytes>0 );
 		if( pass==0 )
