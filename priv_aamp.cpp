@@ -4689,12 +4689,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,      &size_download);
 					if (context.net) {
 						context.net->OnCompleteBytes();
-						context.net->set_curl_timings(
+						context.net->SetCurlTimings(
 													  t_namelookup, t_connect, t_appconnect, t_pretransfer,
 													  t_starttransfer, t_total, http_code_local, (num_connects==0),
 													  primary_ip?std::string(primary_ip):std::string(), local_port,
 													  (size_t)size_download);
-						context.net->flush_csv();
+						context.net->FlushCsv();
 					}
 				}
 #endif
