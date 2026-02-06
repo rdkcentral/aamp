@@ -3166,8 +3166,8 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceClean
 	}
 	AAMPLOG_MIL("aamp_stop PlayerState=%d forceCleanup=%d", state, forceCleanup);
 	
-	// Negate sendStateChangeEvent since no need to send state change event on destructor call
-	aamp->Stop(!sendStateChangeEvent);
+	// Stop events won't be sent if sendStateChangeEvent is false.
+	aamp->Stop(sendStateChangeEvent);
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
