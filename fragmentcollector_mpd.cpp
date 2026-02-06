@@ -116,7 +116,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	: StreamAbstractionAAMP(aamp, std::move(id3Handler)),
 	mLangList(), seekPosition(seek_pos), mPlayRate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
-	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
+	mStreamInfo(), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
 	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false),
@@ -7146,7 +7146,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	AAMPLOG_INFO("Selected Period index %d, id %s", mCurrentPeriodIdx, period->GetId().c_str());
 	for( int i = 0; i < mMaxTracks; i++ )
 	{
-		mMediaStreamContext[i]->enabled = false;
+		if( mMediaStreamContext[i] )
+		{
+			mMediaStreamContext[i]->enabled = false;
+		}
 	}
 
 	mMultiVideoAdaptationPresent = false;
@@ -7524,14 +7527,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					mUpdateStreamInfo = false;
 					vector<Representation *> representations = mMPDParseHelper->GetBitrateInfoFromCustomMpd(pMediaStreamContext->adaptationSet);
-					int representationCount = (int)representations.size();
-					if ((representationCount != mBitrateIndexVector.size()) && mStreamInfo)
+					size_t representationCount = representations.size();
+					if (representationCount != mBitrateIndexVector.size())
 					{
-						SAFE_DELETE_ARRAY(mStreamInfo);
+						mStreamInfo.clear();
 					}
-					if (!mStreamInfo)
+					if (mStreamInfo.empty())
 					{
-						mStreamInfo = new StreamInfo[representationCount];
+						mStreamInfo.resize(representationCount);
 					}
 					GetABRManager().clearProfiles();
 					mBitrateIndexVector.clear();
@@ -7654,16 +7657,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
-					if ( periodChanged && mStreamInfo != nullptr )
+					if ( periodChanged && !mStreamInfo.empty() )
 					{
-						SAFE_DELETE_ARRAY(mStreamInfo);
+						mStreamInfo.clear();
 						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
 						pMediaStreamContext->representationIndex = -1;
 						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
 					}
-					if (!mStreamInfo)
+					if (mStreamInfo.empty())
 					{
-						mStreamInfo = new StreamInfo[representationCount];
+						mStreamInfo.resize(representationCount);
 					}
 					GetABRManager().clearProfiles();
 					mBitrateIndexVector.clear();
@@ -7953,6 +7956,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						else
 						{
 							currentProfileIndex = GetABRManager().getClosestProfileIndexByBandwidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+							// Set profileIdxForBandwidthNotification to match the current profile index after stream switch or period change
+							profileIdxForBandwidthNotification = currentProfileIndex;
 						}
 						AAMPLOG_INFO("Desired profile index updated [%d]",currentProfileIndex);
 						// Adaptation Set Index corresponding to a particular profile
@@ -8016,6 +8021,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if(0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 			{
 				pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
+				// Update current bandwidth to handle changes between periods
+				pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 			}
 			pMediaStreamContext->fragmentDescriptor.RepresentationID.assign(pMediaStreamContext->representation->GetId());
 			pMediaStreamContext->fragmentDescriptor.Time = 0;
@@ -10664,7 +10671,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 	aamp->SyncBegin();
 
-	SAFE_DELETE_ARRAY(mStreamInfo);
+	// mStreamInfo is now a vector and will be automatically destroyed
 	deIndexTileInfo(indexedTileInfo);
 	if(!thumbnailtrack.empty())
 	{
@@ -11123,25 +11130,46 @@ int StreamAbstractionAAMP_MPD::GetProfileIndexForBandwidth( BitsPerSecond mTsbBa
  *
  *   @retval stream information corresponding to index.
  */
-StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
+StreamInfo *StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 {
+	StreamInfo *result = nullptr;
 	bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
 	if (isFogTsb)
 	{
-		return &mStreamInfo[idx];
+		// Direct index access for FOG TSB
+		if (idx >= 0 && idx < static_cast<int>(mStreamInfo.size()))
+		{
+			result = &mStreamInfo[idx];
+		}
+		else
+		{
+			AAMPLOG_ERR("GetStreamInfo: Invalid index %d, available profiles: %zu",
+						idx, mStreamInfo.size());
+		}
 	}
 	else
 	{
-		int userData = 0;
+		// Non-FOG TSB: use ABR manager to get user data index
+		int profileIndex = 0;
 
-		if (GetProfileCount() && !aamp->IsFogTSBSupported()) // avoid calling getUserDataOfProfile() for playlist only URL playback.
+		if (GetProfileCount() && !aamp->IsFogTSBSupported())
 		{
-			userData = GetABRManager().getUserDataOfProfile(idx);
+			profileIndex = GetABRManager().getUserDataOfProfile(idx);
 		}
-		return &mStreamInfo[userData];
-	}
-}
 
+		if (profileIndex >= 0 && profileIndex < static_cast<int>(mStreamInfo.size()))
+		{
+			result = &mStreamInfo[profileIndex];
+		}
+		else
+		{
+			AAMPLOG_ERR("GetStreamInfo: Invalid userData index %d for profile %d, available profiles: %zu",
+						profileIndex, idx, mStreamInfo.size());
+		}
+	}
+
+	return result;
+}
 
 /**
  *   @brief  Get (restamped) PTS of first sample.

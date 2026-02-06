@@ -1149,7 +1149,7 @@ protected:
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
 	bool mUpdateManifestState;
-	StreamInfo* mStreamInfo;
+	std::vector<StreamInfo> mStreamInfo;	/**< Stream information for all profiles */
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;
 	std::string mPrevLastSegurlMedia;
