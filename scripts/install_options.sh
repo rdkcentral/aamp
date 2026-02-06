@@ -19,8 +19,8 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_1"
-#update default middleware branch to develop after RDKEMW-11881 is merged
-OPTION_MIDDLEWARE_PLAYER_INTERFACE_BRANCH="feature/RDKEMW-11881"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="1a08be8dac7470d4d8850ed4d80da392c93482e3"
+OPTION_PLAYER_INTERFACE_SOURCE="internal"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
@@ -41,8 +41,34 @@ OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
 
 function install_options_fn()
 {
+  # Parse long-form options first to avoid getopts limitations
+  local remaining_args=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --player-interface-source=*)
+        OPTION_PLAYER_INTERFACE_SOURCE="${1#*=}"
+        if [[ "${OPTION_PLAYER_INTERFACE_SOURCE}" != "internal" && "${OPTION_PLAYER_INTERFACE_SOURCE}" != "external" ]]; then
+          echo "Error: --player-interface-source must be 'internal' or 'external'"
+          return 1
+        fi
+        echo "Player interface source: ${OPTION_PLAYER_INTERFACE_SOURCE}"
+        ;;
+      --middleware-player-interface-commit-id=*)
+        OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${1#*=}"
+        echo "Middleware player interface commit ID: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        ;;
+      *)
+        remaining_args+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  # Set remaining arguments for getopts processing
+  set -- "${remaining_args[@]}"
+
   # Parse optional command line parameters
-  while getopts ":d:b:m:cf:np:r:g:qskt" OPT; do
+  while getopts ":d:b:cf:np:r:g:qskt" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -50,9 +76,6 @@ function install_options_fn()
         ;;
       b ) # process option b code branch name
         OPTION_AAMP_BRANCH=${OPTARG}
-        ;;
-      m ) # process option m middleware player interface branch name
-        OPTION_MIDDLEWARE_PLAYER_INTERFACE_BRANCH=${OPTARG}
         ;;
       c ) # process option c coverage
         OPTION_COVERAGE=ON
@@ -99,7 +122,6 @@ function install_options_fn()
       * )
         echo "'Usage: No flags/options specified - build AAMP with default options
         [-b] Specify aamp branch name (default: current sprint branch)
-        [-m] Specify middleware player interface branch name (default: feature/RDKEMW-11881)
         [-d] Local setup directory name (default: current working directory)
         [-c] Test coverage scan on
         [-f] Add compiler flags
@@ -112,6 +134,8 @@ function install_options_fn()
         [-t] Remove .libs and build directories before build (full rebuild)"
         
         echo "
+        [--player-interface-source=internal|external] Choose player interface source (default: internal)
+        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 1a08be8dac7470d4d8850ed4d80da392c93482e3)
         [-r] Specify rialto to be built
         [-p] Specify protobuf branch name] (Linux only)"
 

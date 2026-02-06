@@ -35,8 +35,8 @@ function install_build_middleware_interface_fn()
         return 1
     fi
 
-    if [[ -z "$MIDDLEWARE_PLAYER_INTERFACE_BRANCH" ]]; then
-        echo "Error: MIDDLEWARE_PLAYER_INTERFACE_BRANCH variable is not set"
+    if [[ -z "$MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID" ]]; then
+        echo "Error: MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID variable is not set"
         return 1
     fi
 
@@ -105,10 +105,11 @@ function install_build_middleware_interface_fn()
             return 1
         }
         
-        local middleware_branch="${MIDDLEWARE_PLAYER_INTERFACE_BRANCH}"
-        echo "Checking out branch: $middleware_branch"
-        if ! git checkout "$middleware_branch"; then
-            echo "Error: Failed to checkout branch '$middleware_branch'"
+        local middleware_commit_id="${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        
+        echo "Checking out commit: $middleware_commit_id"
+        if ! git checkout "$middleware_commit_id"; then
+            echo "Error: Failed to checkout commit '$middleware_commit_id'"
             return 1
         fi
         
@@ -145,38 +146,6 @@ function install_build_middleware_interface_fn()
             echo "Error: Failed to create pkgconfig directory"
             return 1
         }
-
-        echo "Creating pkg-config files..."
-        
-        # Create libplayerfbinterface.pc
-        if ! echo -e 'prefix='"$LOCAL_DEPS_BUILD_DIR"'/lib \nexec_prefix='"$LOCAL_DEPS_BUILD_DIR"' \nlibdir='"$LOCAL_DEPS_BUILD_DIR"'/lib \nincludedir='"$LOCAL_DEPS_BUILD_DIR"'/include \n \nName: playerfbinterface \nDescription: player externals interface library \nVersion: 1.0 \nLibs: -L${libdir} -lplayerfbinterface \nCflags: -I${includedir}' > "$LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libplayerfbinterface.pc"; then
-            echo "Error: Failed to create libplayerfbinterface.pc"
-            return 1
-        fi
-        
-        # Create libbaseconversion.pc
-        if ! echo -e 'prefix='"$LOCAL_DEPS_BUILD_DIR"'/lib \nexec_prefix='"$LOCAL_DEPS_BUILD_DIR"' \nlibdir='"$LOCAL_DEPS_BUILD_DIR"'/lib \nincludedir='"$LOCAL_DEPS_BUILD_DIR"'/include \n \nName: baseconversion \nDescription: base 16 and 64 conversion library \nVersion: 1.0 \nLibs: -L${libdir} -lbaseconversion \nCflags: -I${includedir}' > "$LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libbaseconversion.pc"; then
-            echo "Error: Failed to create libbaseconversion.pc"
-            return 1
-        fi
-        
-        # Create libplayerlogmanager.pc
-        if ! echo -e 'prefix='"$LOCAL_DEPS_BUILD_DIR"'/lib \nexec_prefix='"$LOCAL_DEPS_BUILD_DIR"' \nlibdir='"$LOCAL_DEPS_BUILD_DIR"'/lib \nincludedir='"$LOCAL_DEPS_BUILD_DIR"'/include \n \nName: playerlogmanager \nDescription: player log manager library \nVersion: 1.0 \nLibs: -L${libdir} -lplayerlogmanager \nCflags: -I${includedir}' > "$LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libplayerlogmanager.pc"; then
-            echo "Error: Failed to create libplayerlogmanager.pc"
-            return 1
-        fi
-        
-        # Create libplayergstinterface.pc
-        if ! echo -e 'prefix='"$LOCAL_DEPS_BUILD_DIR"'/lib \nexec_prefix='"$LOCAL_DEPS_BUILD_DIR"' \nlibdir='"$LOCAL_DEPS_BUILD_DIR"'/lib \nincludedir='"$LOCAL_DEPS_BUILD_DIR"'/include \n \nName: playergstinterface \nDescription: player gstreamer interfaces library \nVersion: 1.0 \nLibs: -L${libdir} -lplayergstinterface \nCflags: -I${includedir}' > "$LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libplayergstinterface.pc"; then
-            echo "Error: Failed to create libplayergstinterface.pc"
-            return 1
-        fi
-        
-        # Create libsubtec.pc
-        if ! echo -e 'prefix='"$LOCAL_DEPS_BUILD_DIR"'/lib \nexec_prefix='"$LOCAL_DEPS_BUILD_DIR"' \nlibdir='"$LOCAL_DEPS_BUILD_DIR"'/lib \nincludedir='"$LOCAL_DEPS_BUILD_DIR"'/include \n \nName: subtec \nDescription: player subtitle and teletext processing library \nVersion: 1.0 \nLibs: -L${libdir} -lsubtec \nCflags: -I${includedir}' > "$LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libsubtec.pc"; then
-            echo "Error: Failed to create libsubtec.pc"
-            return 1
-        fi
 
         echo "middleware-player-interface installation completed successfully"
         INSTALL_STATUS_ARR+=("middleware was successfully installed.")
