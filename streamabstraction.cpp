@@ -1079,10 +1079,13 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			else
 			{
-				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+				if( !ISCONFIGSET(eAAMPConfig_UseMp4Demux) )
+				{
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
 												 name, cachedFragment->timeScale);
-				fpts += cachedFragment->PTSOffsetSec;
+					fpts += cachedFragment->PTSOffsetSec;
+				}
 			}
 		}
 
@@ -1366,18 +1369,26 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 			else
 			{
-				if (!cachedFragment->initFragment)
+				/*
+				 * Ignore restamping for mp4demux here as the restamping will be done in the mp4demux
+				 * after parsing the segment before sending to gstreamer.
+				 */
+				if( !ISCONFIGSET(eAAMPConfig_UseMp4Demux) )
 				{
-					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
-					// would then be missing and it is important for l2 tests
-					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-													 cachedFragment->uri, name,
-													 cachedFragment->timeScale);
-				}
-				else
-				{
-					ClearMediaHeaderDuration(cachedFragment);
+					if (!cachedFragment->initFragment)
+					{
+						// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+						// would then be missing and it is important for l2 tests
+						int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+
+						(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+														cachedFragment->uri, name,
+														cachedFragment->timeScale);
+					}
+					else
+					{
+						ClearMediaHeaderDuration(cachedFragment);
+					}
 				}
 			}
 		}
@@ -4197,7 +4208,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
-					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i);
+					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
 				}
 				else
 				{
