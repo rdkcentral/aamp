@@ -29,6 +29,7 @@ function install_pkgs_darwin_fn()
 {
     # Check if brew package $1 is installed
     # http://stackoverflow.com/a/20802425/1573477
+    local INSTALLED_PKGCONFIG=""
     for PKG in "$@";
     do
         if brew ls --versions $PKG > /dev/null; then
@@ -48,7 +49,7 @@ function install_pkgs_darwin_fn()
             fi
         fi
         #if pkg is openssl and its successfully installed every time ensure to symlink to the latest version
-        if [ $PKG = "${DEFAULT_OPENSSL_VERSION}" ]; then
+        if [ "${PKG}" = "${DEFAULT_OPENSSL_VERSION}" ]; then
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
             # link may not exist so don't fail
             OPENSSL_CUR_PATH=`readlink /usr/local/ssl` || true
@@ -61,7 +62,7 @@ function install_pkgs_darwin_fn()
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
 
 	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
-        if [ $PKG = "openldap" ] || [ $PKG = "krb5" ]; then
+        if [ "${PKG}" = "openldap" ] || [ "${PKG}" = "krb5" ]; then
             brew link $PKG --force
             if [ "$(uname -m)" = "arm64" ]; then
                 export PKG_CONFIG_PATH="/opt/homebrew/opt/krb5/lib/pkgconfig:/opt/homebrew/opt/openldap/lib/pkgconfig:$PKG_CONFIG_PATH"
