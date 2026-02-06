@@ -11674,7 +11674,8 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 
 		if (mIsInbandCC || !isGstSubtecEnabled)
 		{
-			AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: Using PlayerCCManager path - setting status to %d", !mute_subtitles_applied);
+			AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: Using PlayerCCManager path - video_muted=%d, subtitles_muted=%d, mute_subtitles_applied=%d, calling SetStatus(%d)", 
+					video_muted.load(), subtitles_muted.load(), mute_subtitles_applied, !mute_subtitles_applied);
 			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
 			AAMPLOG_INFO("[INBAND_CC_FLOW] SetCCStatusInternal: PlayerCCManager::SetStatus() completed");
 		}

@@ -43,29 +43,44 @@ namespace subtecConnector
 {
     mrcc_Error initHal(void * handle)
     {
+        MW_LOG_INFO("[INBAND_CC_FLOW] SubtecConnector::initHal: ENTRY - handle=%p", handle);
+        
         const auto registerResult = vlhal_cc_Register(0, CCDataController::Instance(), closedCaptionDataCb, closedCaptionDecodeCb);
-        MW_LOG_WARN("vlhal_cc_Register return value = %d", registerResult);
+        MW_LOG_WARN("[INBAND_CC_FLOW] SubtecConnector::initHal: vlhal_cc_Register return value = %d", registerResult);
 
         if(registerResult != 0)
+        {
+            MW_LOG_WARN("[INBAND_CC_FLOW] SubtecConnector::initHal: vlhal_cc_Register FAILED, returning CC_VL_OS_API_RESULT_FAILED");
             return CC_VL_OS_API_RESULT_FAILED;
+        }
 
-		 const auto startResult = media_closeCaptionStart(handle);
-         MW_LOG_WARN("media_closeCaptionStart return value = %d", startResult);
+        MW_LOG_INFO("[INBAND_CC_FLOW] SubtecConnector::initHal: vlhal_cc_Register SUCCESS, calling media_closeCaptionStart");
+		const auto startResult = media_closeCaptionStart(handle);
+        MW_LOG_WARN("[INBAND_CC_FLOW] SubtecConnector::initHal: media_closeCaptionStart return value = %d", startResult);
 
         if(startResult != 0)
+        {
+            MW_LOG_WARN("[INBAND_CC_FLOW] SubtecConnector::initHal: media_closeCaptionStart FAILED, returning CC_VL_OS_API_RESULT_FAILED");
             return CC_VL_OS_API_RESULT_FAILED;
+        }
         
+        MW_LOG_INFO("[INBAND_CC_FLOW] SubtecConnector::initHal: EXIT - SUCCESS");
         return CC_VL_OS_API_RESULT_SUCCESS;
     }
 
     mrcc_Error initPacketSender()
     {
+        MW_LOG_INFO("[INBAND_CC_FLOW] SubtecConnector::initPacketSender: ENTRY");
         const auto packetSenderStartResult = ClosedCaptionsChannel::InitComms();
-        MW_LOG_WARN("CCDataController::Instance()->InitComms() return value = %d", (int)packetSenderStartResult);
+        MW_LOG_WARN("[INBAND_CC_FLOW] SubtecConnector::initPacketSender: CCDataController::Instance()->InitComms() return value = %d", (int)packetSenderStartResult);
 
         if(!packetSenderStartResult)
+        {
+            MW_LOG_WARN("[INBAND_CC_FLOW] SubtecConnector::initPacketSender: InitComms FAILED, returning CC_VL_OS_API_RESULT_FAILED");
             return CC_VL_OS_API_RESULT_FAILED;
+        }
 
+        MW_LOG_INFO("[INBAND_CC_FLOW] SubtecConnector::initPacketSender: EXIT - SUCCESS");
         return CC_VL_OS_API_RESULT_SUCCESS;
     }
     void resetChannel()

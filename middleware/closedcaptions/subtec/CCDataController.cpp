@@ -71,21 +71,26 @@ CCDataController* CCDataController::Instance()
 void CCDataController::closedCaptionDataCb (int decoderIndex, VL_CC_DATA_TYPE eType, unsigned char* ccData,
                                 unsigned dataLength, int sequenceNumber, long long localPts)
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] CCDataController::closedCaptionDataCb: HAL delivering CC data - decoderIndex=%d, type=%d, dataLength=%u, seqNum=%d, pts=%lld", 
+                decoderIndex, (int)eType, dataLength, sequenceNumber, localPts);
     channel.SendDataPacketWithPTS(localPts, ccData, dataLength);
+    MW_LOG_INFO("[INBAND_CC_FLOW] CCDataController::closedCaptionDataCb: Data sent to renderer via channel");
 }
 
 void CCDataController::closedCaptionDecodeCb(int decoderIndex, int event)
 {
-    MW_LOG_WARN("closedCaptionDecodeCb decoderIndex = %d, event = %d", decoderIndex, event);
+    MW_LOG_WARN("[INBAND_CC_FLOW] CCDataController::closedCaptionDecodeCb: decoderIndex = %d, event = %d", decoderIndex, event);
 }
 
 void CCDataController::sendMute()
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] CCDataController::sendMute: Sending mute packet to renderer");
     channel.SendMutePacket();
 }
 
 void CCDataController::sendUnmute()
 {
+    MW_LOG_INFO("[INBAND_CC_FLOW] CCDataController::sendUnmute: Sending unmute packet to renderer");
     channel.SendUnmutePacket();
 }
 
