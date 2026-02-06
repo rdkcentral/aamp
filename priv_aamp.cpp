@@ -597,6 +597,26 @@ static bool replace(std::string &str, const char *existingSubStringToReplace, co
 	return rc;
 }
 
+void PrivateInstanceAAMP::UpdatePersistBandwidth(BitsPerSecond bandwidth)
+{
+	// Store the PersistBandwidth and UpdatedTime on ABRManager.
+	// Bitrate update only for foreground player.
+	if (!(
+		ISCONFIGSET_PRIV(eAAMPConfig_PersistLowNetworkBandwidth) ||
+		ISCONFIGSET_PRIV(eAAMPConfig_PersistHighNetworkBandwidth)))
+	{
+		return;
+	}
+
+	if (bandwidth <= 0 || !mbPlayEnabled)
+	{
+		return;
+	}
+
+	ABRManager::setPersistBandwidth(bandwidth);
+	ABRManager::mPersistBandwidthUpdatedTime = aamp_GetCurrentTimeMS();
+}
+
 /**
  * @brief convert https to https in recordedUrl part of manifestUrl
  * @param[in][out] dst Buffer containing URL
@@ -1421,11 +1441,15 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				aamp->mhAbrManager.SetLowLatencyStartABR(true);
 			}
 
-			if(downloadbps)
-			{
-				std::lock_guard<std::recursive_mutex> guard(context->aamp->mLock);
-				aamp->mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(context->aamp->mAbrBitrateData,downloadbps,true);
-			}
+			std::lock_guard<std::recursive_mutex> guard(context->aamp->mLock);
+			DownloadProgressInfo progressInfo;
+			progressInfo.m_now_seconds = NOW_STEADY_TS_MS / 1000.0;
+			progressInfo.m_total_bytes =
+				static_cast<std::size_t>(dltotal);
+			progressInfo.m_now_bytes =
+				static_cast<std::size_t>(dlnow);
+			aamp->mhAbrManager.ReportDownloadProgress(
+				downloadbps, true, progressInfo);
 		}
 	}
 
@@ -1527,7 +1551,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 /**
  * @brief PrivateInstanceAAMP Constructor
  */
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mAbrBitrateData(), mLock(),
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
@@ -1536,7 +1560,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mEventListener(NULL), mNewSeekInfo(), discardEnteringLiveEvt(false),
 	mIsRetuneInProgress(false), mCondDiscontinuity(), mDiscontinuityTuneOperationId(0), mIsVSS(false),
 	m_fd(-1), mIsLive(false), mIsAudioContextSkipped(false), mLogTune(false), mTuneCompleted(false), mFirstTune(true), mfirstTuneFmt(-1), mTuneAttempts(0), mPlayerLoadTime(0),
-	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0), mAvailableBandwidth(0),
+	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
 	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
 	mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
@@ -1558,7 +1582,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mDrmDecryptFailCount(MAX_SEG_DRM_DECRYPT_FAIL_COUNT)
 	,mPlaylistTimeoutMs(-1)
 	,mMutexPlaystart()
-	,mNetworkBandwidth(0)
 	,mTimeToTopProfile(0)
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, createDRMSessionThreadID()
@@ -2630,10 +2653,10 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 		}
 
-		if(GetCurrentlyAvailableBandwidth() != -1)
-		{
-			mNetworkBandwidth = GetCurrentlyAvailableBandwidth();
-		}
+		const BitsPerSecond availableBandwidth = mhAbrManager.GetCurrentlyAvailableBandwidth();
+		const BitsPerSecond networkBandwidth = mhAbrManager.GetNetworkBandwidth();
+
+		UpdatePersistBandwidth(availableBandwidth);
 
 		double currentRate;
 		if(pipeline_paused)
@@ -2667,7 +2690,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, networkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2712,7 +2735,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						(double)(latency / 1000.0),
 						seiTimecode.c_str(),
 						bps,
-						mNetworkBandwidth,
+						networkBandwidth,
 						currentRate);
 				}
 			}
@@ -2722,7 +2745,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			if(mTelemetryInterval > 0 && (diff > mTelemetryInterval))
 			{
 				mLastTelemetryTimeMS = currTimeMS;
-				profiler.SetLatencyParam(latency, (double)(videoBufferedDuration/1000.0), currentRate, mNetworkBandwidth);
+				profiler.SetLatencyParam(latency, (double)(videoBufferedDuration/1000.0), currentRate, networkBandwidth);
 				profiler.GetTelemetryParam();
 			}
 
@@ -4276,62 +4299,6 @@ AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type
 }
 
 /**
- * @brief Reset bandwidth value
- * Artificially resetting the bandwidth. Low for quicker tune times
- */
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
-{
-	std::lock_guard<std::recursive_mutex> guard(mLock);
-	if (mAbrBitrateData.size())
-	{
-		mAbrBitrateData.erase(mAbrBitrateData.begin(),mAbrBitrateData.end());
-	}
-}
-
-/**
- * @brief Get the current network bandwidth
- * using most recently recorded 3 samples
- * @return Available bandwidth in bps
- */
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-	// 1. Check for any old bitrate beyond threshold time . remove those before calculation
-	// 2. Sort and get median
-	// 3. if any outliers  , remove those entries based on a threshold value.
-	// 4. Get the average of remaining data.
-	// 5. if no item in the list , return -1 . Caller to ignore bandwidth based processing
-
-	std::vector<BitsPerSecond> tmpData;
-	long ret = -1;
-	{
-		std::lock_guard<std::recursive_mutex> guard(mLock);
-		mhAbrManager.UpdateABRBitrateDataBasedOnCacheLife(mAbrBitrateData,tmpData);
-	}
-	if (tmpData.size())
-	{
-		//AAMPLOG_WARN("NwBW with newlogic size[%d] avg[%ld] ",tmpData.size(), avg/tmpData.size());
-		ret =mhAbrManager.UpdateABRBitrateDataBasedOnCacheOutlier(tmpData);
-		mAvailableBandwidth = ret;
-		//Store the PersistBandwidth and UpdatedTime on ABRManager
-		//Bitrate Update only for foreground player
-		if(ISCONFIGSET_PRIV(eAAMPConfig_PersistLowNetworkBandwidth)||ISCONFIGSET_PRIV(eAAMPConfig_PersistHighNetworkBandwidth))
-		{
-			if(mAvailableBandwidth  > 0 && mbPlayEnabled)
-			{
-				ABRManager::setPersistBandwidth(mAvailableBandwidth );
-				ABRManager::mPersistBandwidthUpdatedTime = aamp_GetCurrentTimeMS();
-			}
-		}
-	}
-	else
-	{
-		//AAMPLOG_WARN("No prior data available for abr , return -1 ");
-		ret = -1;
-	}
-	return ret;
-}
-
-/**
  * @brief Set track data for CMCD data collection
  *
  * @param mediaType Type of media track (video or audio)
@@ -5027,7 +4994,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->GetLen(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
-						mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(mAbrBitrateData,downloadbps,false);
+						DownloadMetrics downloadMetrics;
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+						downloadMetrics.m_size_download_bytes = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+						downloadMetrics.m_size_download_bytes = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
+						downloadMetrics.m_total_time_seconds = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
+						downloadMetrics.m_time_to_first_byte_seconds = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
+						mhAbrManager.ReportDownloadComplete(downloadbps, false, downloadMetrics);
 					}
 				}
 			}
@@ -8203,7 +8179,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatency();
-		profiler.SetLatencyParam(latency, bufferedDuration, rate, mNetworkBandwidth);
+		profiler.SetLatencyParam(latency, bufferedDuration, rate, mhAbrManager.GetNetworkBandwidth());
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
 	}
@@ -13926,6 +13902,7 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 	mhAampAbrConfig.abrMinBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
 	mhAampAbrConfig.abrCacheOutlier = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheOutlier);
 	mhAampAbrConfig.abrBufferCounter = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRBufferCounter);
+	mhAampAbrConfig.bandwidthEstimatorType = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRBandwidthEstimator);
 
 	// Logging level support on aampabr
 

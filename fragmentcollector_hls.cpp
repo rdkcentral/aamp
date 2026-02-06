@@ -3348,7 +3348,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		{
 			if (!newTune)
 			{
-				long persistedBandwidth = aamp->GetPersistedBandwidth();
+				long persistedBandwidth = static_cast<long>(aamp->mhAbrManager.GetNetworkBandwidth());
 				long defaultBitRate 	= aamp->GetDefaultBitrate();
 				//We were tuning to a lesser profile previously, so we use it as starting profile
 				// If bitrate to be persisted during trickplay is true, set persisted BW as default init BW
@@ -3440,7 +3440,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
 			BitsPerSecond bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
-			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
+			aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
 			AAMPLOG_INFO("Selected BitRate: %" BITSPERSECOND_FORMAT ", Max BitRate: %" BITSPERSECOND_FORMAT, bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 		}
@@ -3524,9 +3524,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 					}else if (video->playlist.GetLen()){
 						BitsPerSecond bandwidthBitsPerSecond = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
-						aamp->ResetCurrentlyAvailableBandwidth(
-							bandwidthBitsPerSecond,
-							trickplayMode,currentProfileIndex);
+						aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 						aamp->profiler.SetBandwidthBitsPerSecondVideo(
 							bandwidthBitsPerSecond);
 						AAMPLOG_INFO("Selected BitRate: %" BITSPERSECOND_FORMAT ", Max BitRate: %" BITSPERSECOND_FORMAT,

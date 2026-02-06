@@ -20,6 +20,9 @@
  ***************************************************/
 
 #include "abr.h"
+#include "RollingMedianOutlierEstimator.h"
+#include "HarmonicEwmaEstimator.h"
+#include "BandwidthEstimatorBase.h"
 #include <vector>
 #include <map>
 #include <string>
@@ -33,7 +36,6 @@
 
 //#define DEBUG_ENABLED
 
-#define DEFAULT_ABR_CHUNK_CACHE_LENGTH	10					/**< Default ABR chunk cache length */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE	100			/**< Duration(ms) to check Chunk Speed */
 #define MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE 10
 
@@ -41,6 +43,163 @@ ABRManager::AampAbrConfig eAAMPAbrConfig;
 
 BitsPerSecond ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
+
+ABRManager::ABRManager()
+	: bLowLatencyStartABR(false),
+	  bLowLatencyServiceConfigured(false),
+	  mProfiles(),
+	  mSortedBWProfileList(),
+	  mProfileLock(),
+	  mBandwidthState(),
+	  mBandwidthEstimationAlgorithm(BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER),
+	  mBandwidthEstimator(),
+	  mBandwidthEstimatorLock()
+{
+	SelectBandwidthEstimationAlgorithm(mBandwidthEstimationAlgorithm);
+}
+
+ABRManager::~ABRManager() = default;
+
+void ABRManager::SelectBandwidthEstimationAlgorithm(BandwidthEstimationAlgorithm type)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	mBandwidthEstimationAlgorithm = type;
+
+	switch (type)
+	{
+		case BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA:
+			mBandwidthEstimator.reset(new HarmonicEwmaEstimator());
+			break;
+
+		case BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER:
+		default:
+		{
+			mBandwidthEstimator.reset(new RollingMedianOutlierEstimator());
+		}
+		break;
+	}
+	AAMPLOG_WARN("Setting ABR Bandwidth Estimator type to %s", mBandwidthEstimator->GetNetworkEstimatorName());
+
+	// This is to initialize the bandwidth state from the newly created estimator
+	(void)UpdateBandwidthStateFromEstimatorLocked();
+}
+
+BandwidthEstimationAlgorithm ABRManager::GetBandwidthEstimationAlgorithm() const
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	return mBandwidthEstimationAlgorithm;
+}
+
+void ABRManager::AddBandwidthSample(BitsPerSecond downloadbps, bool lowLatencyMode)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (mBandwidthEstimator)
+	{
+		mBandwidthEstimator->AddBandwidthSample(downloadbps, lowLatencyMode);
+		(void)UpdateBandwidthStateFromEstimatorLocked();
+	}
+}
+
+void ABRManager::ReportDownloadComplete(
+	BitsPerSecond downloadbps,
+	bool lowLatencyMode,
+	const DownloadMetrics &metrics)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (!mBandwidthEstimator)
+	{
+		return;
+	}
+	if (downloadbps > 0)
+	{
+		mBandwidthEstimator->AddBandwidthSample(downloadbps, lowLatencyMode);
+	}
+	mBandwidthEstimator->UpdateDownloadMetrics(metrics);
+	(void)UpdateBandwidthStateFromEstimatorLocked();
+}
+
+void ABRManager::ReportDownloadProgress(
+	BitsPerSecond downloadbps,
+	bool lowLatencyMode,
+	const DownloadProgressInfo &progressInfo)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (!mBandwidthEstimator)
+	{
+		return;
+	}
+	mBandwidthEstimator->UpdateDownloadProgress(progressInfo);
+	if (downloadbps > 0)
+	{
+		mBandwidthEstimator->AddBandwidthSample(downloadbps, lowLatencyMode);
+	}
+	(void)UpdateBandwidthStateFromEstimatorLocked();
+}
+
+BitsPerSecond ABRManager::UpdateBandwidthStateFromEstimatorLocked()
+{
+	if (!mBandwidthEstimator)
+	{
+		mBandwidthState.availableBandwidth = static_cast<BitsPerSecond>(-1);
+		return mBandwidthState.availableBandwidth;
+	}
+
+	const BitsPerSecond estimate = mBandwidthEstimator->GetBandwidthBitsPerSecond();
+	mBandwidthState.availableBandwidth = estimate;
+	if (estimate != static_cast<BitsPerSecond>(-1))
+	{
+		mBandwidthState.networkBandwidth = estimate;
+	}
+	return estimate;
+}
+
+void ABRManager::SetInitialBandwidthForProfile(BitsPerSecond bitsPerSecond, bool trickPlay, int profile)
+{
+	(void)trickPlay;
+	(void)profile;
+
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	mBandwidthState.availableBandwidth = bitsPerSecond;
+	mBandwidthState.networkBandwidth = bitsPerSecond;
+
+	if (mBandwidthEstimator)
+	{
+		mBandwidthEstimator->Reset();
+		if (bitsPerSecond > 0)
+		{
+			mBandwidthEstimator->AddBandwidthSample(bitsPerSecond, false);
+		}
+		(void)UpdateBandwidthStateFromEstimatorLocked();
+	}
+}
+
+void ABRManager::ResetCurrentlyAvailableBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (mBandwidthEstimator)
+	{
+		mBandwidthEstimator->ResetCurrentlyAvailableBandwidth();
+	}
+}
+
+BitsPerSecond ABRManager::GetCurrentlyAvailableBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	return UpdateBandwidthStateFromEstimatorLocked();
+}
+
+BitsPerSecond ABRManager::GetNetworkBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	(void)UpdateBandwidthStateFromEstimatorLocked();
+	return mBandwidthState.networkBandwidth;
+}
+
+bool ABRManager::HasBandwidthEstimator() const
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	return (mBandwidthEstimator != nullptr);
+}
 
 /**
  * @brief Get initial profile index, choose the medium profile or
@@ -706,6 +865,7 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	eAAMPAbrConfig.abrMinBuffer     =  mAampAbrConfig->abrMinBuffer;
 	eAAMPAbrConfig.abrCacheOutlier  =  mAampAbrConfig->abrCacheOutlier;
 	eAAMPAbrConfig.abrBufferCounter =  mAampAbrConfig->abrBufferCounter;
+	eAAMPAbrConfig.bandwidthEstimatorType = mAampAbrConfig->bandwidthEstimatorType;
 	
 	//Logging Level
 	
@@ -713,7 +873,45 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	eAAMPAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
 	eAAMPAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
 	eAAMPAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
-	AAMPLOG_MIL("ABRCacheLife %d, ABRCacheLength %d, ABRSkipDuration %d, ABRNwConsistency %d, ABRThresholdSize %d, ABRMaxBuffer %d, ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
+	AAMPLOG_MIL("ABRCacheLife %d, ABRCacheLength %d, ABRSkipDuration %d, ABRNwConsistency %d, ABRThresholdSize %d, ABRMaxBuffer %d, ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ABRBandwidthEstimator %d",eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter,eAAMPAbrConfig.bandwidthEstimatorType);
+
+	if (eAAMPAbrConfig.bandwidthEstimatorType < BANDWIDTH_ESTIMATION_ALGORITHM_MAX)
+	{
+		const auto ConfigureEstimator = [&]()
+		{
+			if(mBandwidthEstimator)
+			{
+				BandwidthEstimatorConfig config;
+				config.mAbrCacheLife = eAAMPAbrConfig.abrCacheLife;
+				config.mAbrCacheLength = eAAMPAbrConfig.abrCacheLength;
+				config.mAbrCacheOutlier = eAAMPAbrConfig.abrCacheOutlier;
+				config.mLowLatencyCacheLength = DEFAULT_ABR_CHUNK_CACHE_LENGTH;
+				mBandwidthEstimator->SetConfig(config);
+			}
+		};
+
+		const auto newEstimatorType = static_cast<BandwidthEstimationAlgorithm>(eAAMPAbrConfig.bandwidthEstimatorType);
+		bool needNewEstimator = false;
+		{
+			std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+			// Check if we need to create a new estimator
+			needNewEstimator = (!mBandwidthEstimator ||	(mBandwidthEstimationAlgorithm != newEstimatorType));
+			if (!needNewEstimator)
+			{
+				// Just reconfigure existing estimator
+				ConfigureEstimator();
+			}
+		}
+
+		if (needNewEstimator)
+		{
+			// Create new estimator and configure it
+			SelectBandwidthEstimationAlgorithm(newEstimatorType);
+			// Protect mBandwidthEstimator configuration change
+			std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+			ConfigureEstimator();
+		}
+	}
 }
 
 /**
@@ -743,101 +941,6 @@ BitsPerSecond ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeM
 		}
 	}
 	return downloadbps;
-}
-
-/**
- * @brief Function to Update Persisted Recent Download Statistics Based on Cache Length
- * @return none
- */
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector <std::pair<long long,BitsPerSecond>> &mAbrBitrateData, BitsPerSecond downloadbps, bool LowLatencyMode)
-{
-	mAbrBitrateData.push_back(std::make_pair(ABRGetCurrentTimeMS(), downloadbps));
-	if(LowLatencyMode)
-	{
-		if(mAbrBitrateData.size() > DEFAULT_ABR_CHUNK_CACHE_LENGTH)
-			mAbrBitrateData.erase(mAbrBitrateData.begin());
-	}
-	else
-	{
-		if(mAbrBitrateData.size() > eAAMPAbrConfig.abrCacheLength)
-			mAbrBitrateData.erase(mAbrBitrateData.begin());
-	}
-}
-
-/**
- * @brief Function to Update Persisted Recent Download Statistics Based on abrCacheLife
- * @return none
- */
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector<std::pair<long long,BitsPerSecond>> &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData)
-{
-	std::vector<std::pair<long long,BitsPerSecond>>::iterator bitrateIter;
-	long long presentTime = ABRGetCurrentTimeMS();
-	for (bitrateIter = mAbrBitrateData.begin(); bitrateIter != mAbrBitrateData.end();)
-	{
-		if ((bitrateIter->first <= 0) || (presentTime - bitrateIter->first > eAAMPAbrConfig.abrCacheLife))
-		{
-			bitrateIter = mAbrBitrateData.erase(bitrateIter);
-		}
-		else
-		{
-			tmpData.push_back(bitrateIter->second);
-			bitrateIter++;
-		}
-	}
-}
-
-/**
- * @brief Function to Update Persisted Recent Download Statistics Based on ABRCacheOutlier and calculate bw
- * @return Available bandwidth in bps
- */
-BitsPerSecond ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
-{
-	BitsPerSecond ret = -1;
-	std::vector<BitsPerSecond>::iterator tmpDataIter;
-	BitsPerSecond medianbps=0;
-	
-	std::sort(tmpData.begin(),tmpData.end());
-	if (tmpData.size()%2)
-	{ // odd - pick middle
-		medianbps = tmpData.at(tmpData.size()/2);
-	}
-	else
-	{
-		BitsPerSecond m1 = tmpData.at(tmpData.size()/2 - 1);
-		BitsPerSecond m2 = tmpData.at(tmpData.size()/2);
-		medianbps = (m1+m2)/2;
-	}
-	
-	long diffOutlier = 0;
-	BitsPerSecond avg = 0;
-	int abrOutlierDiffBytes = eAAMPAbrConfig.abrCacheOutlier ;
-	for (tmpDataIter = tmpData.begin();tmpDataIter != tmpData.end();)
-	{
-		diffOutlier = (*tmpDataIter) > medianbps ? (*tmpDataIter) - medianbps : medianbps - (*tmpDataIter);
-		if (diffOutlier > abrOutlierDiffBytes)
-		{
-			//AAMPLOG_WARN("Outlier found[%ld]>[%ld] erasing ....",diffOutlier,abrOutlierDiffBytes);
-			tmpDataIter = tmpData.erase(tmpDataIter);
-		}
-		else
-		{
-			avg += (*tmpDataIter);
-			tmpDataIter++;
-		}
-	}
-	if (tmpData.size())
-	{
-		//AAMPLOG_WARN("NwBW with newlogic size[%d] avg[%ld] ",tmpData.size(), avg/tmpData.size());
-		ret = (avg/tmpData.size());
-		//Store the PersistBandwidth and UpdatedTime on ABRManager
-		//Bitrate Update only for foreground player
-	}
-	else
-	{
-		//AAMPLOG_WARN("No prior data available for abr, return -1 ");
-		ret = -1;
-	}
-	return ret;
 }
 
 /*

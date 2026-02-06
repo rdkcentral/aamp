@@ -31,6 +31,7 @@
 #include "PlayerRfc.h"
 #include "PlayerExternalsInterface.h"
 #include "PlayerSecInterface.h"
+#include "abr.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -471,6 +472,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
 	{DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC,"utcSyncMinIntervalSec",eAAMPConfig_UTCSyncMinIntervalSec,true },
+	{DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM, "abrBandwidthEstimator", eAAMPConfig_ABRBandwidthEstimator, false, eCONFIG_RANGE_ANY},
 	{DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT,"earlyAbortProfileBandwidthPercent",eAAMPConfig_EarlyAbortProfileBandwidthPercent,true},
 	// Add new integer config entries above this line, before the aliases section.
 	//

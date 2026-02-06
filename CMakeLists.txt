@@ -389,7 +389,9 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
-	abr/abr.cpp abr/abr.h abr/NetworkBandwidthEstimator.cpp abr/NetworkBandwidthEstimator.h
+	abr/abr.cpp abr/abr.h
+	abr/RollingMedianOutlierEstimator.cpp abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.cpp abr/HarmonicEwmaEstimator.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
@@ -586,6 +588,9 @@ install(FILES
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	AampDemuxDataTypes.h
 	abr/abr.h
+	abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.h
+	abr/BandwidthEstimatorBase.h
 	DESTINATION include
 )
 
