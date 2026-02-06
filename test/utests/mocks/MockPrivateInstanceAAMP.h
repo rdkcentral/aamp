@@ -95,6 +95,9 @@ public:
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
+	// Hooks needed by AampUnderflowMonitor tests
+	MOCK_METHOD(void, SetBufferingState, (bool buffering));
+	MOCK_METHOD(bool, IsSinkCacheEmpty, (AampMediaType mediaType));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
