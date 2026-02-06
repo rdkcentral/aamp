@@ -60,7 +60,6 @@ source scripts/install_jsbindings.sh
 # Elapsed time
 SECONDS=0
 
-declare ARCH=""
 # Collect summary to be printed at the end of execution
 declare -a INSTALL_STATUS_ARR
 #
@@ -75,7 +74,7 @@ declare LOCAL_DEPS_BUILD_DIR
 # Get and process install options
 install_options_fn "$@" 
 
-if [ ${OPTION_CLEAN_BUILD} = true ] ; then
+if [ "${OPTION_CLEAN_BUILD}" = true ] ; then
     echo "Clean build selected - removing build and libs directories"
     sudo rm -rf .libs
     sudo rm -rf build
@@ -113,8 +112,8 @@ aampcli_install_prebuild_fn ${OPTION_CLEAN}
 LOCAL_DEPS_BUILD_DIR="${AAMP_DIR}/.libs"
 echo ""
 echo "Building dependencies in ${LOCAL_DEPS_BUILD_DIR}"
-if [ ! -d ${LOCAL_DEPS_BUILD_DIR} ]; then
-    mkdir ${LOCAL_DEPS_BUILD_DIR}
+if [ ! -d "${LOCAL_DEPS_BUILD_DIR}" ]; then
+    mkdir -p "${LOCAL_DEPS_BUILD_DIR}"
 fi
 
 # Install prebuilt dependencies

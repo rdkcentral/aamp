@@ -118,7 +118,7 @@ function subtec_install_build_fn() {
     cd $LOCAL_DEPS_BUILD_DIR
 
     # OPTION_CLEAN == true
-    if [ $1 = true ] ; then
+    if [ "${1}" = true ] ; then
         echo "subtec clean"
         rm -rf subtec-app
     fi
@@ -134,7 +134,7 @@ function subtec_install_build_fn() {
     fi
     
     # Build
-    cd subtec-app/subttxrend-app/x86_builder/
+    cd subtec-app/subttxrend-app/x86_builder/ || { echo "Failed to change to subtec build directory"; return 1; }
 
     if [ ! -d build/install ] ; then
         PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast

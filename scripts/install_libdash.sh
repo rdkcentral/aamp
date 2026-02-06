@@ -18,10 +18,10 @@
 
 function install_build_libdash_fn()
 {
-    cd $LOCAL_DEPS_BUILD_DIR
+    cd "$LOCAL_DEPS_BUILD_DIR" || { echo "Failed to change to LOCAL_DEPS_BUILD_DIR: ${LOCAL_DEPS_BUILD_DIR}"; return 1; }
 
     # $OPTION_CLEAN == true
-    if [ $1 = true ] ; then
+    if [ "${1}" = true ] ; then
         echo "libdash clean"
         if [ -d libdash ] ; then
             rm -rf libdash
@@ -37,7 +37,7 @@ function install_build_libdash_fn()
         echo "Installing libdash..."
         git clone https://github.com/bitmovin/libdash.git
 
-        cd libdash/libdash
+        cd libdash/libdash || { echo "Failed to change to libdash/libdash directory"; return 1; }
         git checkout stable_3_0
         git clone https://code.rdkcentral.com/r/rdk/components/generic/rdk-oe/meta-rdk-ext -b rdk-next
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0001-libdash-build.patch
@@ -59,7 +59,7 @@ function install_build_libdash_fn()
         make install
 
         # why doesn't make install do this for us
-        cd ..
+        cd .. || { echo "Failed to navigate to parent directory"; return 1; }
         mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash
         mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/xml
         mkdir -p $LOCAL_DEPS_BUILD_DIR/include/libdash/mpd
