@@ -7703,6 +7703,11 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
+			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
+			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
+			// of StreamAbstractionAamp.
+			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
