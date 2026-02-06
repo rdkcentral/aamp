@@ -26,7 +26,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <cstdlib>
 
 /**
  * @brief Main entry point for ISO 639 Map test suite

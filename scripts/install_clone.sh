@@ -22,15 +22,15 @@
 # If the clone fails then exit the script
 function do_clone_fn()
 {
-    ARGLIST=""
+    local -a ARGLIST=()
     while [ "$1" ]; do
-        ARGLIST+=" $1"
+        ARGLIST+=("$1")
         shift
     done
 
-    echo && echo "Executing: 'git clone $ARGLIST'"
-    if ! git clone $ARGLIST; then
-        echo "ERROR: 'git clone $ARGLIST' FAILED"
+    echo && echo "Executing: 'git clone ${ARGLIST[*]}'"
+    if ! git clone "${ARGLIST[@]}"; then
+        echo "ERROR: 'git clone ${ARGLIST[*]}' FAILED"
         return 1
     fi
 }
