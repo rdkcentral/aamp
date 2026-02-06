@@ -73,8 +73,8 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	this->discontinuityIndex = other->discontinuityIndex;
 	
 	// Copy fragment data up to specified length
-	if (other && other->fragment.GetPtr() && len > 0) {
-		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
+	if (other && !other->fragment.empty() && len > 0) {
+		this->fragment.AppendBytes(other->fragment.data(), len);
 	}
 }
 

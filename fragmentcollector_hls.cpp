@@ -1658,7 +1658,7 @@ void TrackState::FetchFragment()
 		}
 
 		CachedFragment* cachedFragment = GetFetchBuffer(false);
-		if (cachedFragment->fragment.GetPtr())
+		if (cachedFragment->fragment.capacity())
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
@@ -2378,7 +2378,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 	else
 	{
 		// Clear data if any
-		if (newPlaylist.GetPtr() )
+		if (newPlaylist.capacity())
 		{
 			newPlaylist.Free();
 		}
@@ -5402,7 +5402,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	std::vector<ThumbnailData> data{};
 	HlsStreamInfo &streamInfo = streamInfoStore[aamp->mthumbIndexValue];
 	ContentType type = aamp->GetContentType();
-	if(!thumbnailManifest.GetPtr() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
+	if(!thumbnailManifest.capacity() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
 		thumbnailManifest.Free();
 		std::string tmpurl;
@@ -6088,7 +6088,7 @@ void TrackState::FetchInitFragment()
 			aamp->profiler.ProfileEnd(bucketType);
 
 			CachedFragment* cachedFragment = GetFetchBuffer(false);
-			if (cachedFragment->fragment.GetPtr())
+			if (cachedFragment->fragment.capacity())
 			{
 				cachedFragment->duration = 0;
 				cachedFragment->position = playTarget.inSeconds() - playTargetOffset.inSeconds();
