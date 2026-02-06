@@ -19,7 +19,7 @@
 
 function aampcli_install_postbuild_fn()
 {
-    cd "$AAMP_DIR/build" || { echo "Failed to change to build directory: $AAMP_DIR/build"; return 1; }
+    cd "$AAMP_DIR/build" || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
 
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo ""
@@ -34,7 +34,7 @@ function aampcli_install_postbuild_fn()
 
 function aampcli_install_prebuild_fn()
 {
-    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: $AAMP_DIR"; return 1; }
+    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: ${AAMP_DIR}"; return 1; }
 
     # $OPTION_CLEAN == true
     if [ "${1}" = true ] ; then
@@ -157,7 +157,7 @@ function aampcli_install_build_linux_fn
 {
     echo "Build aamp-cli"
 
-    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: $AAMP_DIR"; return 1; }
+    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: ${AAMP_DIR}"; return 1; }
 
     # Local built dependencies
     PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"

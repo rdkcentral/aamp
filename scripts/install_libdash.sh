@@ -18,7 +18,7 @@
 
 function install_build_libdash_fn()
 {
-    cd "$LOCAL_DEPS_BUILD_DIR" || { echo "Failed to change to LOCAL_DEPS_BUILD_DIR: $LOCAL_DEPS_BUILD_DIR"; return 1; }
+    cd "$LOCAL_DEPS_BUILD_DIR" || { echo "Failed to change to LOCAL_DEPS_BUILD_DIR: ${LOCAL_DEPS_BUILD_DIR}"; return 1; }
 
     # $OPTION_CLEAN == true
     if [ "${1}" = true ] ; then

@@ -45,13 +45,13 @@ function install_dir_fn()
   if [[ ! -d "$AAMP_DIR" ]]; then
     echo "Creating aamp build directory under $AAMP_DIR";
     mkdir -p "$AAMP_DIR"
-    cd "$AAMP_DIR" || { echo "Failed to change to directory $AAMP_DIR"; return 1; }
+    cd "$AAMP_DIR" || { echo "Failed to change to directory: ${AAMP_DIR}"; return 1; }
 
     do_clone_rdk_repo_fn $OPTION_AAMP_BRANCH aamp
     cd aamp || { echo "Failed to change to aamp directory"; return 1; }
     AAMP_DIR="$(pwd -P)"
   else
-    cd "$AAMP_DIR" || { echo "Failed to change to directory $AAMP_DIR"; return 1; }
+    cd "$AAMP_DIR" || { echo "Failed to change to directory: ${AAMP_DIR}"; return 1; }
   fi
 
   pwd
