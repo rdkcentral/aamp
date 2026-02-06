@@ -23,6 +23,31 @@ limitations under the License.
 
 AAMP provides extensive configuration options to control player behavior. Configuration can be set at multiple levels, with later configurations overriding earlier ones.
 
+## Table of Contents
+
+- [Configuration Priority Order](#configuration-priority-order)
+- [Configuration Methods](#configuration-methods)
+  - [UVE JavaScript API](#uve-javascript-api)
+  - [Environment Variables](#environment-variables)
+  - [Configuration Files](#configuration-files)
+- [Configuration Reference](#configuration-reference)
+  - [Network Timeouts](#network-timeouts)
+  - [Adaptive Bitrate (ABR)](#adaptive-bitrate-abr)
+  - [Low Latency Playback](#low-latency-playback)
+  - [Buffering & Playback](#buffering--playback)
+  - [Playlist & Fragment](#playlist--fragment)
+  - [Audio Track Demultiplexing](#audio-track-demultiplexing)
+  - [Audio Codec & Format](#audio-codec--format)
+  - [Video Profile](#video-profile)
+  - [DRM & License](#drm--license)
+  - [Captions & Timed Metadata](#captions--timed-metadata)
+  - [Streaming Format Options](#streaming-format-options)
+  - [Network & Protocol](#network--protocol)
+  - [Events & Reporting](#events--reporting)
+  - [Miscellaneous](#miscellaneous)
+- [Best Practices](#best-practices)
+- [See Also](#see-also)
+
 ## Configuration Priority Order
 
 **Lowest to Highest Priority:**
@@ -75,6 +100,31 @@ enableLowLatencyDash=true
 ```
 
 ## Configuration Reference
+
+### Network Timeouts
+
+Network timeout configurations control how long AAMP waits for various network operations before timing out. All timeout values are in seconds.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `networkTimeout` | Number | 10 | General network timeout for fragment downloads (seconds) |
+| `manifestTimeout` | Number | 10 | Timeout for manifest/playlist downloads (seconds) |
+| `playlistTimeout` | Number | 0 | Specific timeout for playlist operations (0 = use manifestTimeout) |
+| `connectTimeout` | Number | 3 | TCP socket connection timeout (seconds) |
+| `dnsCacheTimeout` | Number | 180 | DNS resolution cache lifetime (seconds, default 3 minutes) |
+| `downloadStallTimeout` | Number | 0 | Timeout when download stalls with no progress (0 = disabled) |
+| `downloadStartTimeout` | Number | 0 | Timeout waiting for download to start (0 = disabled) |
+| `downloadLowBWTimeout` | Number | 0 | Timeout when bandwidth drops below threshold (0 = disabled) |
+
+**Usage Notes:**
+- **networkTimeout**: Primary timeout for media fragment downloads. Adjust based on network conditions and fragment sizes.
+- **manifestTimeout**: Should be shorter than networkTimeout for faster failure detection on manifest issues.
+- **playlistTimeout**: When set to 0, inherits value from manifestTimeout. Use for protocol-specific tuning.
+- **connectTimeout**: Critical for handling slow DNS or network connection issues. Keep relatively short (2-5s).
+- **dnsCacheTimeout**: Longer values improve performance but may delay updates. Default 180s balances efficiency and freshness.
+- **downloadStallTimeout**: Detects stalled connections when data stops flowing mid-transfer. Useful for poor network conditions.
+- **downloadStartTimeout**: Catches hung connections that never begin transferring data.
+- **downloadLowBWTimeout**: Advanced setting for detecting sustained low bandwidth conditions.
 
 ### Adaptive Bitrate (ABR)
 

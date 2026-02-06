@@ -194,7 +194,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, cachedFragment->fragment.GetVector(), effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
@@ -837,12 +837,12 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 	}
 	else							// Rewind
 	{
-		if (fragment->prev)
+		if (auto prevShared = fragment->prev.lock()) 
 		{
-			fragment = fragment->prev;
+			fragment = prevShared;
 			success = true;
 		}
-		if (!(fragment->prev))
+		else
 		{
 			// Don't skip the first fragment in the TSB so BoS is detected correctly
 			AAMPLOG_INFO("Reached beginning of TSB during rewind");

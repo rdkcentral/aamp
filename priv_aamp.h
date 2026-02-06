@@ -1594,6 +1594,12 @@ public:
 	void NotifyOnEnteringLive();
 
 	/**
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
 	 * @fn getLastInjectedPosition
 	 *
 	 * @return last injected position

@@ -278,6 +278,14 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	}
 }
 
+void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifyReservationComplete(reservationId);
+	}
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
