@@ -197,7 +197,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetState(state);
+		g_mockPrivateInstanceAAMP->SetState(state, sendStateChangeEvent);
 	}
 }
 
