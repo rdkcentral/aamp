@@ -187,11 +187,11 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_INIT_FAILED_PLAYLIST_VIDEO_DNLD_ERROR, 10, 5, "AAMP: init failed (unable to download video playlist)"},
 	{AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR, 10, 6, "AAMP: init failed (unable to download audio playlist)"},
 	{AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR, 10, 7, "AAMP: init failed (unsynchronized tracks)"},
-	
-	
+
+
     //Resource failure
 	{AAMP_TUNE_CONTENT_NOT_FOUND, 20, 1, "AAMP: Resource was not found at the URL(HTTP 404)"},
-	
+
 	//Download failure
 	{AAMP_TUNE_MANIFEST_REQ_FAILED, 30, 1, "AAMP: Manifest Download failed"}, //"Playlist refresh failed"
 	{AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, 30, 2, "AAMP: fragment download failures"},
@@ -225,7 +225,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_DRM_KEY_UPDATE_FAILED, 50, 16, "AAMP: Failed to process DRM key"},
 	{AAMP_TUNE_DRM_SESSION_CREATE_FAILED, 50, 17, "AAMP: OCDM session construction failed"},
 
-	
+
 	//Provisioning failure
 	{AAMP_TUNE_DEVICE_NOT_PROVISIONED, 51, 1, "AAMP: Device not provisioned"},
 
@@ -242,7 +242,7 @@ static TuneFailureMap tuneFailureMap[] =
 
 	//Playback failure
 	{AAMP_TUNE_PLAYBACK_STALLED, 7600, 1, "AAMP: Playback was stalled due to lack of new fragments"},
-	
+
 	//Unknown failure
 	{AAMP_TUNE_FAILURE_UNKNOWN, 100, 1, "AAMP: Unknown Failure"}
 };
@@ -842,7 +842,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 			}
 				break;
-				
+
 			case ChunkedTransferState::PENDING_EXTENSION_END_LF:
 				if( *ptr++ != '\n' )
 				{
@@ -854,7 +854,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					context->m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_DATA;
 				}
 				break;
-				
+
 			case ChunkedTransferState::READING_CHUNK_SIZE:
 			{
 				char code = *ptr++;
@@ -883,7 +883,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 			}
 				break;
-				
+
 			case ChunkedTransferState::PENDING_CHUNK_START_LF:
 				if( *ptr++ != '\n' )
 				{
@@ -904,7 +904,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					}
 				}
 				break;
-				
+
 			case ChunkedTransferState::READING_CHUNK_DATA:
 			{
 				size_t n = fin - ptr;
@@ -923,7 +923,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				}
 			}
 				break;
-				
+
 			case ChunkedTransferState::PENDING_CHUNK_END_CR:
 				if( *ptr++ != '\r' )
 				{
@@ -935,7 +935,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					context->m_ChunkedTransferState = ChunkedTransferState::PENDING_CHUNK_END_LF;
 				}
 				break;
-				
+
 			case ChunkedTransferState::PENDING_CHUNK_END_LF:
 				if( *ptr++ != '\n' )
 				{
@@ -952,7 +952,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					}
 				}
 				break;
-				
+
 			case ChunkedTransferState::DONE:
 			{
 				char c = *ptr++;
@@ -964,7 +964,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 			}
 				break;
-				
+
 			case ChunkedTransferState::ERROR:
 				AAMPLOG_ERR( "Aborting chunked transfer parsing due to previous error" );
 				ptr = fin; // consume remaining bytes to exit loop
@@ -1065,7 +1065,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 					ret = 0;
 					return ret;
 				}
-				ptr = context->buffer->GetPtr() + prev_len;
+				ptr = reinterpret_cast<char*>(context->buffer->data()) + prev_len;
 				numBytesForBlock = context->buffer->size() - prev_len;
 			}
 			else
@@ -1114,7 +1114,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						}
 						if (ret > 0)
 						{
-							const char *bufferPtr = context->buffer->GetPtr() + context->bufferOffset;
+							const char *bufferPtr = reinterpret_cast<const char*>(context->buffer->data()) + context->bufferOffset;
 							if (context->chunkBoundary > context->bufferOffset)
 							{
 								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
@@ -4414,7 +4414,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		if (curl)
 		{
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
-			
+
 			//  by default libcurl handles chunked transfer encoding transparently
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) )
 			{
@@ -4773,9 +4773,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
-							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
-							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
@@ -4788,7 +4788,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
-						
+
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -5191,13 +5191,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				size_t len = (end - start) + 1;
 				if( buffer->size() >= len)
 				{
-					buffer->clear();
-					buffer->AppendBytes(buffer->GetPtr() + start, len);
+					std::memmove(buffer->data(), buffer->data() + start, len);
+					buffer->resize(len);
 				}
-
 				// hack - repair wrong size in box
 				IsoBmffBuffer repair;
-				repair.setBuffer((uint8_t *)buffer->GetPtr(), buffer->size() );
+				repair.setBuffer(buffer->data(), buffer->size() );
 				repair.parseBuffer(true);  //correctBoxSize=true
 				AAMPLOG_INFO("Stripping the fragment for range request completed");
 			}
@@ -12821,17 +12820,17 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
  * @param[in] target Track to find
  * @return Index of track (0-based), or -1 if not found
  */
-int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks,
                                             const TextTrackInfo& target) const
 {
 	int index = -1;
 	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
-	
+
 	if (iter != tracks.cend())
 	{
 		index = static_cast<int>(std::distance(tracks.cbegin(), iter));
 	}
-	
+
 	return index;
 }
 
