@@ -4578,13 +4578,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				// so that timing/monitoring logic has a valid start timestamp in every case.
 				context.downloadStartTime = progressCtx.downloadStartTime;
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-				if (buffer->capacity() != 0)
-				{
-					buffer->clear();
-				}
+
+				buffer->clear();
 
 				isDownloadStalled = false;
 				abortReason = eCURL_ABORT_REASON_NONE;
+
 				long long tStartTime = NOW_STEADY_TS_MS;
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
@@ -5025,7 +5024,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					getDefaultHarvestPath(harvestPath);
 					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
 				}
-				if(buffer->GetPtr() )
+				if(buffer->capacity() != 0)
 				{
 					if(aamp_WriteFile(remoteUrl, buffer->GetPtr(), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 						mHarvestCountLimit--;

@@ -1523,9 +1523,9 @@ bool MediaTrack::InjectFragment()
 		}
 
 		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
-					 name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
+					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
 
-		if (cachedFragment->fragment.GetPtr())
+		if (cachedFragment->fragment.capacity() != 0)
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
 			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
@@ -1837,7 +1837,7 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
 	if(initialize)
 	{
-		if (cachedFragment->fragment.GetPtr() )
+		if (cachedFragment->fragment.capacity() != 0)
 		{
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
@@ -1865,7 +1865,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 
 	if(initialize && cachedFragment)
 	{
-		if (cachedFragment->fragment.GetPtr() )
+		if (cachedFragment->fragment.capacity() != 0)
 		{
 			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
 		}

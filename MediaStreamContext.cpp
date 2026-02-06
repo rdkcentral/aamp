@@ -90,7 +90,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		setDiscontinuityState(true);
 	}
 
-	if (!initSegment && mDownloadedFragment.GetPtr())
+	if (!initSegment && mDownloadedFragment.capacity() != 0)
 	{
 		ret = true;
 		cachedFragment->fragment.Replace(&mDownloadedFragment);
@@ -490,18 +490,18 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
+	if(fragment->fragment.capacity() != 0 && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-		if(cachedFragment->fragment.GetPtr())
+		if(cachedFragment->fragment.capacity() != 0)
 		{
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
 		cachedFragment->fragment.clear();
 		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
-		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.size() > 0)
+		if(cachedFragment->fragment.capacity() != 0 && cachedFragment->fragment.size() > 0)
 		{
 			ret = true;
 			UpdateTSAfterChunkFetch();
@@ -857,7 +857,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		{
 			dlInfo->fragmentOffset = 0;
 			dlInfo->fragmentOffset++; // first byte following packed index
-			if (IDX.GetPtr() )
+			if (IDX.capacity() != 0)
 			{
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
@@ -869,7 +869,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 										&firstOffset);
 				dlInfo->fragmentOffset += firstOffset;
 			}
-			if (dlInfo->fragmentOffset != 0 && IDX.GetPtr() )
+			if (dlInfo->fragmentOffset != 0 && IDX.capacity() != 0)
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;
