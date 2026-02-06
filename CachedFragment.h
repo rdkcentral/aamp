@@ -28,6 +28,7 @@
 #include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
+#include <cstdint>
 #include <string>
 #include <utility>  // For std::swap and std::move
 
@@ -79,8 +80,8 @@ public:
 	std::string uri;					/**< for debug */
 	StreamInfo cacheFragStreamInfo;		/**< Bitrate information associated with this fragment */
 	AampMediaType type;					/**< AampMediaType info of the fragment */
-	long long downloadStartTime;		/**< The start time of file download */
-	long long discontinuityIndex;		/**< Discontinuity index */
+	uint64_t downloadStartTime;			/**< The start time of file download */
+	uint64_t discontinuityIndex;		/**< Discontinuity index */
 	double PTSOffsetSec; 				/**< PTS offset to apply for this segment */
 	double absPosition;					/**< Absolute position in seconds */
 
