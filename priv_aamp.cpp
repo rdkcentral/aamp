@@ -5024,11 +5024,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					getDefaultHarvestPath(harvestPath);
 					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
 				}
-				if(buffer->capacity() != 0)
+				if (buffer->capacity() != 0)
 				{
 					if(aamp_WriteFile(remoteUrl, buffer->GetPtr(), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 						mHarvestCountLimit--;
-				}  //CID:168113 - forward null
+				} // CID:168113 - forward null
 			}
 			ret = true; // default
 			if( !context.downloadIsEncoded )
@@ -6882,7 +6882,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 			else
 			{
 				rc = eMEDIAFORMAT_PROGRESSIVE; // default
-				const char *ptr = sniffedBytes.GetPtr();
+				const char *ptr = reinterpret_cast<const char *>(sniffedBytes.data());
 				const char *fin = ptr + sniffedBytes.size();
 				while( ptr < fin )
 				{

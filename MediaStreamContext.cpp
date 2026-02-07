@@ -850,7 +850,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
-	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && IDX.GetPtr() && uriInfo.range.empty())
+	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && IDX.capacity() != 0 && uriInfo.range.empty())
 	{
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)

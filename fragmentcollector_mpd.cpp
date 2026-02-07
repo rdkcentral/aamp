@@ -13928,7 +13928,7 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 	auto pMediaStreamContext = mMediaStreamContext[downloadInfo->mediaType];
 	if (pMediaStreamContext)
 	{
-		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr())
+		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.capacity() != 0)
 		{
 			pMediaStreamContext->profileChanged = true;
 			profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
