@@ -47,12 +47,12 @@ static inline double now_monotonic_s() {
  * during a network download. Bursts are separated by idle gaps in the write callback stream.
  */
 struct Burst {
-	int    idx = 0;              ///< Burst index within the request
-	double tStartS = 0.0;        ///< Burst start time relative to request start (seconds)
-	double durS     = 0.0;       ///< Burst duration (seconds)
-	size_t bytes     = 0;        ///< Total bytes received in this burst
-	double gapBeforeS = 0.0;     ///< Idle gap before this burst (seconds)
-	bool   isLate   = false;     ///< True if gapBeforeS exceeds late threshold
+	int    index = 0;            ///< Burst index within the request
+	double startTime = 0.0;      ///< Burst start time relative to request start (seconds)
+	double duration = 0.0;       ///< Burst duration (seconds)
+	size_t bytes = 0;            ///< Total bytes received in this burst
+	double gapBefore = 0.0;      ///< Idle gap before this burst (seconds)
+	bool   isLate = false;       ///< True if gapBefore exceeds late threshold
 };
 
 /**
@@ -87,13 +87,13 @@ public:
 					  bool chunked_hdr_seen,
 					  double gap_threshold_s,
 					  double late_gap_extra_s_threshold)
-	: req_id_(req_id),
-	url_path_(url_path),
-	media_type_(media_type),
-	gap_threshold_s_(gap_threshold_s),
-	late_extra_s_threshold_(late_gap_extra_s_threshold),
-	t0_(now_monotonic_s()),
-	chunked_hdr_seen_(chunked_hdr_seen) {}
+	: mReqId(req_id),
+	mUrlPath(url_path),
+	mMediaType(media_type),
+	mGapThresholdS(gap_threshold_s),
+	mLateExtraThresholdS(late_gap_extra_s_threshold),
+	mT0(now_monotonic_s()),
+	mChunkedHdrSeen(chunked_hdr_seen) {}
 	
 	/**
 	 * @brief Mark this request as using chunked transfer encoding
@@ -101,7 +101,7 @@ public:
 	 * Purpose: Called from curl header callback when Transfer-Encoding: chunked is detected.
 	 * This metadata is recorded in the request CSV.
 	 */
-	void MarkChunked() { chunked_hdr_seen_ = true; }
+	void MarkChunked() { mChunkedHdrSeen = true; }
 	
 	/**
 	 * @brief Record data ingress from curl write callback
@@ -114,15 +114,15 @@ public:
 	 * @return True if a new burst was started, false if continuing existing burst
 	 */
 	bool OnWrite(size_t num_bytes, double t_now_s) {
-		if (first_payload_time_s_ < 0) first_payload_time_s_ = t_now_s;
+		if (mFirstPayloadTimeS < 0) mFirstPayloadTimeS = t_now_s;
 		bool new_burst = false;
-		if (!in_burst_) {
-			OpenBurst(t_now_s, /*gap_before*/ last_end_time_s_ > 0 ? std::max(0.0, t_now_s - last_end_time_s_) : 0.0);
+		if (!mInBurst) {
+			OpenBurst(t_now_s, /*gap_before*/ mLastEndTimeS > 0 ? std::max(0.0, t_now_s - mLastEndTimeS) : 0.0);
 			new_burst = true;
 		} else {
 			// detect split if there's an idle gap mid-write stream
-			double idle = last_cb_time_s_ > 0 ? std::max(0.0, t_now_s - last_cb_time_s_) : 0.0;
-			if (idle > gap_threshold_s_) { // close previous, open new
+			double idle = mLastCbTimeS > 0 ? std::max(0.0, t_now_s - mLastCbTimeS) : 0.0;
+			if (idle > mGapThresholdS) { // close previous, open new
 				// Close the previous burst at the *current* ingress time to avoid 0-span bursts.
 				CloseBurst(t_now_s);
 				OpenBurst(t_now_s, idle);
@@ -130,10 +130,10 @@ public:
 			}
 		}
 		// account
-		if (!bursts_.empty()) {
-			bursts_.back().bytes += num_bytes;
+		if (!mBursts.empty()) {
+			mBursts.back().bytes += num_bytes;
 		}
-		last_cb_time_s_ = t_now_s;
+		mLastCbTimeS = t_now_s;
 		return new_burst;
 	}
 	
@@ -144,10 +144,10 @@ public:
 	 * Must be called after all write callbacks complete.
 	 */
 	void OnCompleteBytes() {
-		if (in_burst_) {
-			// If we only saw a single callback, last_cb_time_s_ can equal open time.
+		if (mInBurst) {
+			// If we only saw a single callback, mLastCbTimeS can equal open time.
 			// Use a minimal non-zero duration floor.
-			double t_end = last_cb_time_s_;
+			double t_end = mLastCbTimeS;
 			if (t_end <= 0.0) t_end = now_monotonic_s();
 			CloseBurst(t_end);
 		}
@@ -176,12 +176,12 @@ public:
 						  long http_code, bool conn_reused,
 						  const std::string& primary_ip, long local_port,
 						  size_t bytes_total) {
-		name_s_ = name_s; connect_s_ = connect_s; appconnect_s_ = appconnect_s;
-		pre_xfer_s_ = pre_xfer_s; start_xfer_s_ = start_xfer_s; total_s_ = total_s;
-		http_code_ = http_code; conn_reused_ = conn_reused ? 1 : 0;
-		primary_ip_ = primary_ip; local_port_ = local_port;
-		bytes_total_ = bytes_total;
-		total_done_time_s_ = now_monotonic_s();
+		mNameS = name_s; mConnectS = connect_s; mAppconnectS = appconnect_s;
+		mPreXferS = pre_xfer_s; mStartXferS = start_xfer_s; mTotalS = total_s;
+		mHttpCode = http_code; mConnReused = conn_reused ? 1 : 0;
+		mPrimaryIp = primary_ip; mLocalPort = local_port;
+		mBytesTotal = bytes_total;
+		mTotalDoneTimeS = now_monotonic_s();
 	}
 	
 	/**
@@ -195,14 +195,14 @@ public:
 	 */
 	void FlushCsv() {
 		EnsureFilesOpen();
-		auto& state = get_file_state();
+		auto& state = GetFileState();
 		std::lock_guard<std::mutex> g(state.mutex);
 		
 		// aggregate
 		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
-		for (auto& b : bursts_) {
-			gap_time_s   += b.gapBeforeS;
-			burst_time_s += b.durS;
+		for (auto& b : mBursts) {
+			gap_time_s   += b.gapBefore;
+			burst_time_s += b.duration;
 			bytes        += b.bytes;
 			late_count   += b.isLate ? 1 : 0;
 		}
@@ -210,21 +210,21 @@ public:
 		
 		// request row
 		state.req_ofs <<
-		req_id_ << ',' << t0_ << ',' << url_path_ << ',' << media_type_ << ',' <<
-		bytes_total_ << ',' << http_code_ << ',' << conn_reused_ << ',' <<
-		primary_ip_ << ',' << local_port_ << ',' <<
-		start_xfer_s_ << ',' << total_s_ << ',' <<
-		name_s_ << ',' << connect_s_ << ',' << appconnect_s_ << ',' <<
-		pre_xfer_s_ << ',' << redirect_s_ << ',' <<
-		(chunked_hdr_seen_ ? 1 : 0) << ',' <<
+		mReqId << ',' << mT0 << ',' << mUrlPath << ',' << mMediaType << ',' <<
+		mBytesTotal << ',' << mHttpCode << ',' << mConnReused << ',' <<
+		mPrimaryIp << ',' << mLocalPort << ',' <<
+		mStartXferS << ',' << mTotalS << ',' <<
+		mNameS << ',' << mConnectS << ',' << mAppconnectS << ',' <<
+		mPreXferS << ',' << mRedirectS << ',' <<
+		(mChunkedHdrSeen ? 1 : 0) << ',' <<
 		gap_time_s << ',' << burst_time_s << ',' <<
-		bursts_.size() << ',' << late_count << ',' << avg_burst_rate_Bps <<
+		mBursts.size() << ',' << late_count << ',' << avg_burst_rate_Bps <<
 		'\n';
 		
 		// burst rows
-		for (auto& b : bursts_) {
-			state.burst_ofs << req_id_ << ',' << b.idx << ',' << b.tStartS << ',' <<
-			b.durS << ',' << b.bytes << ',' << b.gapBeforeS << ',' <<
+		for (auto& b : mBursts) {
+			state.burst_ofs << mReqId << ',' << b.index << ',' << b.startTime << ',' <<
+			b.duration << ',' << b.bytes << ',' << b.gapBefore << ',' <<
 			(b.isLate ? "late" : "normal") << '\n';
 		}
 		state.req_ofs.flush();
@@ -242,8 +242,8 @@ public:
 	 */
 	void ClassifyGaps(double cadence_s, double jitter_s) {
 		double late_thr = cadence_s + 2.0*std::max(0.010, jitter_s);
-		for (auto& b : bursts_) {
-			if (b.gapBeforeS > late_thr) b.isLate = true;
+		for (auto& b : mBursts) {
+			if (b.gapBefore > late_thr) b.isLate = true;
 		}
 	}
 	
@@ -263,7 +263,7 @@ public:
 	 */
 	static void SetPathsWithPid(const std::string& req_path, const std::string& burst_path) {
 		pid_t pid = getpid();
-		auto& state = get_file_state();
+		auto& state = GetFileState();
 		std::lock_guard<std::mutex> g(state.mutex);
 		state.req_path = req_path + "." + std::to_string(pid);
 		state.burst_path = burst_path + "." + std::to_string(pid);
@@ -287,7 +287,7 @@ private:
 	 * 
 	 * @return Reference to the singleton FileState instance
 	 */
-	static FileState& get_file_state() {
+	static FileState& GetFileState() {
 		static FileState state;
 		return state;
 	}
@@ -303,33 +303,33 @@ private:
 	 * @param[in] gap_before_s Idle gap duration before this burst (seconds)
 	 */
 	void OpenBurst(double t_start_abs_s, double gap_before_s) {
-		in_burst_ = true;
+		mInBurst = true;
 		Burst b;
-		b.idx = int(bursts_.size());
-		b.tStartS = t_start_abs_s - t0_;
-		b.gapBeforeS = gap_before_s;
+		b.index = int(mBursts.size());
+		b.startTime = t_start_abs_s - mT0;
+		b.gapBefore = gap_before_s;
 		// Mark burst as late if gap exceeds the configured threshold
-		b.isLate = (gap_before_s > late_extra_s_threshold_);
-		bursts_.push_back(b);
+		b.isLate = (gap_before_s > mLateExtraThresholdS);
+		mBursts.push_back(b);
 	}
 	
 	/**
 	 * @brief Close the current burst record
 	 * 
 	 * Purpose: Finalizes the active burst by computing its duration with a minimum
-	 * floor to avoid zero-duration bursts. Updates last_end_time_s_ for gap calculation.
+	 * floor to avoid zero-duration bursts. Updates mLastEndTimeS for gap calculation.
 	 * 
 	 * @param[in] t_end_abs_s Absolute monotonic end time (seconds)
 	 */
 	void CloseBurst(double t_end_abs_s) {
-		if (!in_burst_ || bursts_.empty()) return;
-		auto &b = bursts_.back();
+		if (!mInBurst || mBursts.empty()) return;
+		auto &b = mBursts.back();
 		// Floor durations to avoid zero-time bursts from single write callbacks.
-		double raw = t_end_abs_s - (t0_ + b.tStartS);
+		double raw = t_end_abs_s - (mT0 + b.startTime);
 		if (raw < kMinBurstDurS) raw = kMinBurstDurS;
-		b.durS = raw;
-		last_end_time_s_ = t_end_abs_s;
-		in_burst_ = false;
+		b.duration = raw;
+		mLastEndTimeS = t_end_abs_s;
+		mInBurst = false;
 	}
 	
 	/**
@@ -342,7 +342,7 @@ private:
 	 * Thread Safety: Protected by FileState::mutex
 	 */
 	static void EnsureFilesOpen() {
-		auto& state = get_file_state();
+		auto& state = GetFileState();
 		std::lock_guard<std::mutex> g(state.mutex);
 		if (!state.req_ofs.is_open()) {
 			state.req_ofs.open(state.req_path, std::ios::app);
@@ -359,28 +359,28 @@ private:
 	}
 	
 	// request identity
-	uint64_t req_id_;
-	std::string url_path_, media_type_;
-	double t0_;
-	bool chunked_hdr_seen_;
+	uint64_t mReqId;
+	std::string mUrlPath, mMediaType;
+	double mT0;
+	bool mChunkedHdrSeen;
 	
 	// write/burst state
-	bool   in_burst_ = false;
-	double last_cb_time_s_ = 0.0;
-	double last_end_time_s_ = 0.0;
-	double first_payload_time_s_ = -1.0;
-	double gap_threshold_s_;
-	double late_extra_s_threshold_;
-	std::vector<Burst> bursts_;
+	bool   mInBurst = false;
+	double mLastCbTimeS = 0.0;
+	double mLastEndTimeS = 0.0;
+	double mFirstPayloadTimeS = -1.0;
+	double mGapThresholdS;
+	double mLateExtraThresholdS;
+	std::vector<Burst> mBursts;
 	
 	// curl results
-	long   http_code_ = -1;
-	int    conn_reused_ = 0;
-	std::string primary_ip_;
-	long   local_port_ = 0;
-	size_t bytes_total_ = 0;
-	double name_s_=0, connect_s_=0, appconnect_s_=0, pre_xfer_s_=0, start_xfer_s_=0, total_s_=0, redirect_s_=0;
-	double total_done_time_s_ = 0.0;
+	long   mHttpCode = -1;
+	int    mConnReused = 0;
+	std::string mPrimaryIp;
+	long   mLocalPort = 0;
+	size_t mBytesTotal = 0;
+	double mNameS=0, mConnectS=0, mAppconnectS=0, mPreXferS=0, mStartXferS=0, mTotalS=0, mRedirectS=0;
+	double mTotalDoneTimeS = 0.0;
 };
 
 } // namespace aamptrace
