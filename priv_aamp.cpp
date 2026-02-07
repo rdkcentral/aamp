@@ -4479,12 +4479,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		
 		NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
 					 /*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
-		// Make recorder available to header/write callbacks through the context
-		// CRITICAL: 'net' is a stack-local variable; it MUST outlive all curl operations
-		// that use context.net. The pointer becomes invalid if this function returns early
-		// or if curl callbacks execute after 'net' goes out of scope.
-		// All callbacks must check (context->net != nullptr) before dereferencing.
-		context.net = &net;
+		
+		// RAII guard to ensure context.net is automatically nulled when 'net' goes out of scope
+		// This prevents dangling pointer issues on all return paths (normal and early returns)
+		struct NetTraceGuard {
+			aamptrace::NetTrace** ptrRef;
+			NetTraceGuard(aamptrace::NetTrace** ref, aamptrace::NetTrace* obj) : ptrRef(ref) { *ptrRef = obj; }
+			~NetTraceGuard() { *ptrRef = nullptr; }
+		};
+		NetTraceGuard netGuard(&context.net, &net);
 #endif
 		// ==== End additive instrumentation ====
 		
@@ -5318,7 +5321,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		catch (std::exception &e)
 		{
-				AAMPLOG_ERR("Stripping the fragment for ranged request failed (%s)", e.what());
+			AAMPLOG_ERR("Stripping the fragment for ranged request failed (%s)", e.what());
 		}
 	}
 
@@ -5330,11 +5333,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		profiler.ProfileEnd(bucketType);
 	}
-#ifdef AAMP_NET_TRACE
-	// Critical: Null out context.net before returning to prevent dangling pointer
-	// The stack-local 'net' object goes out of scope when this function returns
-	context.net = nullptr;
-#endif
+	// Note: context.net is automatically nulled by NetTraceGuard destructor
 	return ret;
 }
 

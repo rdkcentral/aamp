@@ -5759,9 +5759,14 @@ TEST_F(PrivAampTests, NetTrace_CompilationTest)
 	// 2. net_trace.h is included
 	// 3. aamptrace namespace is available
 	
-	// We can't easily instantiate NetTrace here without mocking curl operations,
-	// but we can verify the types are available
-	static_assert(sizeof(aamptrace::NetTrace*) > 0, "NetTrace type should be available");
+	// Verify NetTrace is a complete type (not just a forward declaration)
+	// Using sizeof() on the actual type (not pointer) requires the type to be fully defined
+	static_assert(sizeof(aamptrace::NetTrace) > 0, "NetTrace must be a complete type");
+	
+	// Additional compile-time checks to verify the type has expected members
+	// These will fail if NetTrace is incomplete or incorrectly defined
+	static_assert(std::is_class<aamptrace::NetTrace>::value, "NetTrace must be a class type");
+	static_assert(!std::is_abstract<aamptrace::NetTrace>::value, "NetTrace must be instantiable");
 	
 	SUCCEED() << "NetTrace types are available when AAMP_NET_TRACE is defined";
 }
