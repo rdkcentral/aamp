@@ -45,7 +45,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
+		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
@@ -142,7 +142,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// so upon upgrade to it or introduced a patch in qtdemux,
 			// this portion can be reverted
 			IsoBmffBuffer buffer;
-			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
+			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size());
 			buffer.parseBuffer();
 			uint32_t track_id = 0;
 			buffer.getTrack_id(track_id);
@@ -499,9 +499,9 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
-		cachedFragment->fragment.Clear();
-		cachedFragment->Copy(fragment.get(), fragment->fragment.GetLen());
-		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.GetLen() > 0)
+		cachedFragment->fragment.clear();
+		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
+		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.size() > 0)
 		{
 			ret = true;
 			UpdateTSAfterChunkFetch();
@@ -570,10 +570,10 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		context->mRampDownCount = 0;
 	}
 
-	if(tsbSessionManager && cachedFragment->fragment.GetLen())
+	if(tsbSessionManager && cachedFragment->fragment.size())
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
+		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
 		if(fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -607,14 +607,14 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		tsbSessionManager->EnqueueWrite(std::move(dlInfo->url), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());
 	}
 	// Added the duplicate conditional statements, to log only for localAAMPTSB cases.
-	else if (tsbSessionManager && cachedFragment->fragment.GetLen() == 0)
+	else if (tsbSessionManager && cachedFragment->fragment.size() == 0)
 	{
 		AAMPLOG_WARN("Type[%d] Empty cachedFragment ignored!! fragmentUrl %s fragmentTime %f discontinuity %d scale %u duration %f", type, dlInfo->url.c_str(), dlInfo->pts, dlInfo->isDiscontinuity, dlInfo->timeScale, dlInfo->fragmentDurationSec);
 	}
 	else if (aamp->GetLLDashChunkMode() && dlInfo->isInitSegment)
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
+		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
 		if (fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -647,7 +647,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
 		{
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
-			fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
+			fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.size());
 			CacheTsbFragment(std::move(fragmentToCache));
 		}
 
@@ -862,7 +862,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
 										IDX.GetPtr(),
-										IDX.GetLen(),
+										IDX.size(),
 										0,
 										NULL,
 										NULL,
@@ -879,7 +879,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				{
 					if (ParseSegmentIndexBox(
 												IDX.GetPtr(),
-												IDX.GetLen(),
+												IDX.size(),
 												i,
 												&referenced_size,
 												&fragmentDuration,
@@ -893,7 +893,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			float fragmentDuration;
 			if (ParseSegmentIndexBox(
 										IDX.GetPtr(),
-										IDX.GetLen(),
+										IDX.size(),
 										dlInfo->fragmentIndex,
 										&referenced_size,
 										&fragmentDuration,
