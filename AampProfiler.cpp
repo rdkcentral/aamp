@@ -298,7 +298,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	}
 	if (!appName.empty())
 	{
-		if (gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
+		if (gpGlobalConfig && gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
 		{
 			appName += "_VIPA";
 		}
