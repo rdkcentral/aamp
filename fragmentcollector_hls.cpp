@@ -5205,7 +5205,6 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 		{
 			aamp->mDRMLicenseManager->notifyCleanup();
 		}
-		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 	}
 	if(!clearChannelData)
 	{
