@@ -2638,11 +2638,19 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// position in milliseconds at that same update. Their difference
 				// yields how far (in ms) the player is behind the live edge.
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition());
+				if(latency < 0)
+				{
+					AAMPLOG_WARN("Dash Live Latency calculated is negative: Latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition());
+				}
 			}
 			else
 			{
 				// For HLS Live, calculate latency based on live edge; round to nearest ms
 				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
+				if(latency < 0)
+				{
+					AAMPLOG_WARN("HLS Live Latency calculated is negative: Latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+				}
 			}
 			SetCurrentLatency(latency);
 			// update available buffer to Manifest refresh cycle .
