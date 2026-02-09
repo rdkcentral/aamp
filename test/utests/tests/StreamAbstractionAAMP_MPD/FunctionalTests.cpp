@@ -226,7 +226,7 @@ public:
 		EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
 
 		/* Setup fake AampGrowableBuffer contents. */
-		buffer->Clear();
+		buffer->clear();
 		buffer->AppendBytes((char *)mManifest, strlen(mManifest));
 
 		return true;

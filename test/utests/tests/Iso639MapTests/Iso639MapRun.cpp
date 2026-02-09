@@ -17,10 +17,25 @@
 * limitations under the License.
 */
 
+/**
+ * @file Iso639MapRun.cpp
+ * @brief Google Test runner for ISO 639 language code mapping tests
+ *
+ * This is the main entry point for the Iso639MapTests test suite.
+ * It initializes Google Test framework and executes all registered tests.
+ */
+
 #include <gtest/gtest.h>
 
+/**
+ * @brief Main entry point for ISO 639 Map test suite
+ * @param argc Argument count passed from command line
+ * @param argv Argument values passed from command line
+ * @return Exit code: 0 for success, non-zero for test failures
+ */
 int main(int argc, char** argv)
 {
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+	testing::InitGoogleTest(&argc, argv);
+	const int result = RUN_ALL_TESTS();
+	return result;
 }

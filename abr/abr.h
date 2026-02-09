@@ -26,13 +26,41 @@
 #include <map>
 #include <string>
 #include <cstdio>
+#include <memory>
 #include <mutex>
 #include "AampMediaType.h"
+#include "BandwidthEstimatorBase.h"
+
+enum BandwidthEstimationAlgorithm
+{
+	BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER = 0,
+	BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA = 1,
+	BANDWIDTH_ESTIMATION_ALGORITHM_MAX = 2
+};
 
 class ABRManager
 {
 public:
-	~ABRManager() = default;
+	ABRManager();
+	~ABRManager();
+
+	void SelectBandwidthEstimationAlgorithm(BandwidthEstimationAlgorithm type);
+	BandwidthEstimationAlgorithm GetBandwidthEstimationAlgorithm() const;
+
+	void AddBandwidthSample(BitsPerSecond downloadbps, bool lowLatencyMode);
+	void ReportDownloadComplete(
+		BitsPerSecond downloadbps,
+		bool lowLatencyMode,
+		const DownloadMetrics &metrics);
+	void ReportDownloadProgress(
+		BitsPerSecond downloadbps,
+		bool lowLatencyMode,
+		const DownloadProgressInfo &progressInfo);
+	void SetInitialBandwidthForProfile(BitsPerSecond bitsPerSecond, bool trickPlay, int profile = 0);
+	void ResetCurrentlyAvailableBandwidth();
+	BitsPerSecond GetCurrentlyAvailableBandwidth();
+	BitsPerSecond GetNetworkBandwidth();
+	bool HasBandwidthEstimator() const;
 	
 	struct ProfileInfo {
 		/**
@@ -334,13 +362,18 @@ public:
 		 * @brief Enables Debug Logging
 		 */
 		bool debuglogging;
+
+		/**
+		 * @brief Sets Bandwidth Estimator Configurations
+		 */
+		int bandwidthEstimatorType;
 		
 		// Constructor to initialize all members
 		AampAbrConfig()
 		: abrCacheLife(0), abrCacheLength(0), abrSkipDuration(0), abrNwConsistency(0),
 		abrThresholdSize(0), abrMaxBuffer(0), abrMinBuffer(0), abrCacheOutlier(0),
 		abrBufferCounter(0), infologging(false), tracelogging(false),
-		warnlogging(false), debuglogging(false) {}
+		warnlogging(false), debuglogging(false), bandwidthEstimatorType(0) {}
 	};
 	
 	/**
@@ -392,29 +425,6 @@ public:
 	 * @return downloadbps
 	 */
 	BitsPerSecond CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, BitsPerSecond currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason);
-	
-	/**
-	 * @brief to update Bitrate Data
-	 * @param mAbrBitrateData collection of recent (timestamp, estimated network bandwidth) samples
-	 * @param downloadbps most recent estimate of network bandwidth
-	 * @param lowLatencyMode true if playing low-latency stream
-	 */
-	void UpdateABRBitrateDataBasedOnCacheLength(std::vector<std::pair<long long,BitsPerSecond>> &mAbrBitrateData, BitsPerSecond downloadbps, bool LowLatencyMode );
-	
-	/**
-	 * @brief Update Bitrate Data based on ABR CacheLife
-	 * @param BitrateData vector
-	 * @param tmpData vector
-	 * @return none
-	 */
-	void UpdateABRBitrateDataBasedOnCacheLife(std::vector<std::pair<long long,BitsPerSecond>> &mAbrBitrateData, std::vector<BitsPerSecond> &tmpData);
-	
-	/**
-	 * @brief Update Bitrate Data based on ABRCacheOutlier
-	 * @param tmpData vector
-	 * @return none
-	 */
-	BitsPerSecond UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData);
 	
 	/**
 	 * @brief Checks if a profile change is needed based on the most recently recorded network bandwidth samples and total fetched fragment duration.
@@ -607,5 +617,24 @@ private:
 	 * @brief Mutex for make internal structures thread safe
 	 */
 	std::mutex mProfileLock;
+
+	struct BandwidthState
+	{
+		BandwidthState()
+			: availableBandwidth(0)
+			, networkBandwidth(0)
+		{
+		}
+
+		BitsPerSecond availableBandwidth;
+		BitsPerSecond networkBandwidth;
+	};
+
+	BitsPerSecond UpdateBandwidthStateFromEstimatorLocked();
+	BandwidthState mBandwidthState;
+	BandwidthEstimationAlgorithm mBandwidthEstimationAlgorithm;
+
+	std::unique_ptr<BandwidthEstimatorBase> mBandwidthEstimator;
+	mutable std::mutex mBandwidthEstimatorLock;
 };
 #endif // !ABR_H

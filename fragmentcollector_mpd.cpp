@@ -1617,7 +1617,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					unsigned int firstOffset;
 					ParseSegmentIndexBox(
 										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->IDX.size(),
 										 0,
 										 NULL,
 										 NULL,
@@ -1634,7 +1634,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						if (ParseSegmentIndexBox(
 												 pMediaStreamContext->IDX.GetPtr(),
-												 pMediaStreamContext->IDX.GetLen(),
+												 pMediaStreamContext->IDX.size(),
 												 i,
 												 &referenced_size,
 												 &fragmentDuration,
@@ -1651,7 +1651,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(
 										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->IDX.size(),
 										 pMediaStreamContext->fragmentIndex++,
 										 &referenced_size,
 										 &fragmentDuration,
@@ -1665,7 +1665,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					uint64_t nextfragmentOffset;
 					if (ParseSegmentIndexBox(
 							pMediaStreamContext->IDX.GetPtr(),
-							pMediaStreamContext->IDX.GetLen(),
+							pMediaStreamContext->IDX.size(),
 							pMediaStreamContext->fragmentIndex,
 							&nextReferencedSize,
 							&nextfragmentDuration,
@@ -2447,7 +2447,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				{
 					if (ParseSegmentIndexBox(
 											 pMediaStreamContext->IDX.GetPtr(),
-											 pMediaStreamContext->IDX.GetLen(),
+											 pMediaStreamContext->IDX.size(),
 											 fragmentIndex++,
 											 &referenced_size,
 											 &fragmentDuration,
@@ -7521,7 +7521,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 					if (modifyDefaultBW)
 					{	// Not for new tune ( for Seek / Trickplay)
-						long persistedBandwidth = aamp->GetPersistedBandwidth();
+						BitsPerSecond persistedBandwidth = aamp->mhAbrManager.GetNetworkBandwidth();
 						// If Bitrate persisted over trickplay is true, set persisted BW as default init BW
 						if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitrate || aamp->IsBitRatePersistedOverSeek()))
 						{
@@ -7607,7 +7607,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 						IRepresentation *selectedRepresentation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
 						// for the profile selected ,reset the abr values with default bandwidth values
-						aamp->ResetCurrentlyAvailableBandwidth(selectedRepresentation->GetBandwidth(),trickplayMode,currentProfileIndex);
+						aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 						aamp->profiler.SetBandwidthBitsPerSecondVideo(selectedRepresentation->GetBandwidth());
 					}
 					else
@@ -8273,7 +8273,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								float fragmentDuration;
 								if (ParseSegmentIndexBox(
 										pMediaStreamContext->IDX.GetPtr(),
-										pMediaStreamContext->IDX.GetLen(),
+										pMediaStreamContext->IDX.size(),
 										pMediaStreamContext->fragmentIndex,
 										&referenced_size,
 										&fragmentDuration,
@@ -12865,7 +12865,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								bufferLowHit = true;
 								bufferLowHitCount++;
 								/** Buffer Low hit so push the data to telemetry*/
-								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
+								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mhAbrManager.GetNetworkBandwidth(), bufferLowHitCount);
 								bufferLowCount = 0;
 							}
 						}

@@ -49,7 +49,7 @@ bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer,double positio
 {
 	ptsError = false;
 	bool ret = true;
-	ret = setTuneTimePTS(pBuffer->GetPtr(), pBuffer->GetLen(), position, duration, discontinuous, ptsError);
+	ret = setTuneTimePTS(pBuffer->GetPtr(), pBuffer->size(), position, duration, discontinuous, ptsError);
 	if (ret)
 	{
 		AAMPLOG_INFO("IsoBmffProcessor:: eMEDIATYPE_SUBTITLE sending segment at pos:%f dur:%f", position, duration);
@@ -69,7 +69,7 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
+		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->size(), position, position, duration);
 	}
 }
 
