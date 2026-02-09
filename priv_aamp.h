@@ -887,7 +887,6 @@ public:
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
-	std::vector< std::pair<long long,BitsPerSecond>> mAbrBitrateData;
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
@@ -939,7 +938,6 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-	BitsPerSecond mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1628,14 +1626,28 @@ public:
 	 * @param[in] bandwidth - Bandwidth in bps
 	 * @return void
 	 */
-	void SetPersistedBandwidth(BitsPerSecond bandwidth) {mAvailableBandwidth = bandwidth;}
+	void SetPersistedBandwidth(BitsPerSecond bandwidth)
+	{
+		mhAbrManager.SetInitialBandwidthForProfile(bandwidth, false, 0);
+	}
 
 	/**
 	 * @brief Get persisted bandwidth
 	 *
 	 * @return Bandwidth
 	 */
-	BitsPerSecond GetPersistedBandwidth(){return mAvailableBandwidth;}
+	BitsPerSecond GetPersistedBandwidth()
+	{
+		return mhAbrManager.GetNetworkBandwidth();
+	}
+
+	/**
+	 * @brief Update ABR persisted bandwidth/time (across tunes) if enabled.
+	 *
+	 * @param[in] bandwidth - Available bandwidth in bps
+	 * @return void
+	 */
+	void UpdatePersistBandwidth(BitsPerSecond bandwidth);
 
 	/**
 	 * @fn UpdateDuration
@@ -2133,21 +2145,6 @@ public:
 	 * @return Position in seconds
 	 */
 	double GetSeekBase(void);
-
-	/**
-	 * @fn ResetCurrentlyAvailableBandwidth
-	 *
-	 * @param[in] bitsPerSecond - bps
-	 * @param[in] trickPlay		- Is trickplay mode
-	 * @param[in] profile		- Profile id.
-	 * @return void
-	 */
-	void ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,bool trickPlay,int profile=0);
-
-	/**
-	 * @fn GetCurrentlyAvailableBandwidth
-	 */
-	BitsPerSecond GetCurrentlyAvailableBandwidth(void);
 
 	/**
 	 * @fn DisableDownloads
@@ -4199,7 +4196,6 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	BitsPerSecond mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;

@@ -780,10 +780,6 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,
-														   bool trickPlay, int profile)
-{
-}
 
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
@@ -924,11 +920,6 @@ uint32_t PrivateInstanceAAMP::GetAudTimeScale(void)
 uint32_t PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
-}
-
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-	return 0;
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()

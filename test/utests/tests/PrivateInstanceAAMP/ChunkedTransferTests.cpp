@@ -52,7 +52,7 @@ struct ChunkHarness {
 	
 	std::string GetBufferAsString()
 	{
-		return std::string( buffer.GetPtr(), buffer.GetLen() );
+		return std::string( buffer.GetPtr(), buffer.size() );
 	}
 };
 

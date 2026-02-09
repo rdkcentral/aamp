@@ -20,10 +20,88 @@
 #include "abr.h"
 #include "MockABRManager.h"
 
-long ABRManager::mPersistBandwidth = 0;
+BitsPerSecond ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 
 MockABRManager *g_mockABRManager = nullptr;
+
+ABRManager::ABRManager() : bLowLatencyStartABR(false) , bLowLatencyServiceConfigured(false) , mBandwidthEstimationAlgorithm(BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER)
+{
+}
+
+ABRManager::~ABRManager()
+{
+}
+
+void ABRManager::SelectBandwidthEstimationAlgorithm(BandwidthEstimationAlgorithm type)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	mBandwidthEstimationAlgorithm = type;
+}
+
+BandwidthEstimationAlgorithm ABRManager::GetBandwidthEstimationAlgorithm() const
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	return mBandwidthEstimationAlgorithm;
+}
+
+void ABRManager::AddBandwidthSample(BitsPerSecond downloadbps, bool lowLatencyMode)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (downloadbps > 0)
+	{
+		mBandwidthState.availableBandwidth = downloadbps;
+		mBandwidthState.networkBandwidth = downloadbps;
+	}
+}
+
+void ABRManager::ReportDownloadComplete(BitsPerSecond downloadbps, bool lowLatencyMode,	const DownloadMetrics &metrics)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (downloadbps > 0)
+	{
+		mBandwidthState.availableBandwidth = downloadbps;
+		mBandwidthState.networkBandwidth = downloadbps;
+	}
+}
+
+void ABRManager::ReportDownloadProgress(BitsPerSecond downloadbps, bool lowLatencyMode,	const DownloadProgressInfo &progressInfo)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (downloadbps > 0)
+	{
+		mBandwidthState.availableBandwidth = downloadbps;
+		mBandwidthState.networkBandwidth = downloadbps;
+	}
+}
+
+void ABRManager::SetInitialBandwidthForProfile(BitsPerSecond bitsPerSecond, bool trickPlay,	int profile)
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	mBandwidthState.availableBandwidth = bitsPerSecond;
+	mBandwidthState.networkBandwidth = bitsPerSecond;
+}
+
+void ABRManager::ResetCurrentlyAvailableBandwidth()
+{
+}
+
+BitsPerSecond ABRManager::GetCurrentlyAvailableBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	return mBandwidthState.availableBandwidth;
+}
+
+BitsPerSecond ABRManager::GetNetworkBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	return mBandwidthState.networkBandwidth;
+}
+
+bool ABRManager::HasBandwidthEstimator() const
+{
+	return true;
+}
 
 int ABRManager::getProfileCount()
 {
@@ -46,6 +124,12 @@ int ABRManager::getMaxBandwidthProfile(const std::string& periodId)
 
 BitsPerSecond ABRManager::getBandwidthOfProfile(int profileIndex)
 {
+	return 0;
+}
+
+int ABRManager::getProfileOfBandwidth(BitsPerSecond bandwidth)
+{
+	(void)bandwidth;
 	return 0;
 }
 
@@ -72,8 +156,9 @@ int ABRManager::getUserDataOfProfile(int currentProfileIndex)
 	return 0;
 }
 
-void ABRManager::setDefaultInitBitrate(long defaultInitBitrate)
+void ABRManager::setDefaultInitBitrate(BitsPerSecond defaultInitBitrate)
 {
+	(void)defaultInitBitrate;
 }
 
 void ABRManager::updateProfile()
@@ -110,8 +195,9 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
 	return true;
 }
 
-void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate)
+void ABRManager::setDefaultIframeBitrate(BitsPerSecond defaultIframeBitrate)
 {
+	(void)defaultIframeBitrate;
 }
 
 int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int currentProfileIndex, const std::string& periodId)
@@ -124,8 +210,9 @@ int  ABRManager::getProfileIndexForLowestBandwidth()
 	return 0;
 }
 
-int ABRManager::getClosestProfileIndexByBandwidth( long inputBandwidth )
+int ABRManager::getClosestProfileIndexByBandwidth(BitsPerSecond inputBandwidth)
 {
+	(void)inputBandwidth;
 	return 0;
 }
 
@@ -133,26 +220,21 @@ void ABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 {
 }
 
-long ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
+BitsPerSecond ABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs, BitsPerSecond currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason)
 {
+	(void)bufferlen;
+	(void)downloadTimeMs;
+	(void)currentProfilebps;
+	(void)fragmentDurationMs;
+	(void)abortReason;
 	return 0;
 }
 
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std::pair<long long,long> > &mAbrBitrateData,long downloadbps,bool LowLatencyMode)
+bool ABRManager::CheckProfileChange(double totalFetchedDuration, int currProfileIndex, BitsPerSecond availBW)
 {
-}
-
-void ABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::pair<long long,long> > &mAbrBitrateData , std::vector<BitsPerSecond> &tmpData)
-{
-}
-
-long ABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
-{
-	return 0;
-}
-
-bool ABRManager::CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW)
-{
+	(void)totalFetchedDuration;
+	(void)currProfileIndex;
+	(void)availBW;
 	return false;
 }
 
@@ -161,8 +243,16 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 }
 
 
-void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
+void ABRManager::CheckRampupFromSteadyState(int currProfileIndex, int &newProfileIndex, BitsPerSecond nwBandwidth, double bufferValue, BitsPerSecond newBandwidth, BitrateChangeReason &mhBitrateReason, int &mMaxBufferCountCheck, const std::string& periodId)
 {
+	(void)currProfileIndex;
+	(void)newProfileIndex;
+	(void)nwBandwidth;
+	(void)bufferValue;
+	(void)newBandwidth;
+	(void)mhBitrateReason;
+	(void)mMaxBufferCountCheck;
+	(void)periodId;
 }
 
 void ABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
@@ -197,11 +287,19 @@ bool ABRManager::IsABRDataGoodToEstimate(long time_diff)
 	return false;
 }
 
-void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,long &bitsPerSecond,long time_now,long total_dl_diff,long time_diff,long currentTotalDownloaded)
+void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache, BitsPerSecond &bitsPerSecond, long time_now, long total_dl_diff, long time_diff, long currentTotalDownloaded)
 {
+	(void)speedcache;
+	(void)bitsPerSecond;
+	(void)time_now;
+	(void)total_dl_diff;
+	(void)time_diff;
+	(void)currentTotalDownloaded;
 }
 
-long ABRManager::FragmentfailureRampdown(int buffer,int currentprofileindex)
+BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
+	(void)currentBuffer;
+	(void)currentProfileIndex;
 	return 0;
 }
