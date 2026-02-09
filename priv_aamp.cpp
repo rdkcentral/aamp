@@ -4677,7 +4677,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					char*  primary_ip = nullptr;
 					long   local_port = 0, num_connects = 0;
 					long   http_code_local = -1;
-					double size_download = 0;
+					curl_off_t size_download = 0;
 					curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,    &t_namelookup);
 					curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,       &t_connect);
 					curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,    &t_appconnect);
@@ -4689,25 +4689,24 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
 					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
-					curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD,      &size_download);
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+					size_download = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+					size_download = static_cast<curl_off_t>(aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD));
+#endif
 					if (context.net) {
 						context.net->OnCompleteBytes();
 						context.net->SetCurlTimings(
 													  t_namelookup, t_connect, t_appconnect, t_pretransfer,
-													  t_starttransfer, t_total, http_code_local, (num_connects==0),
+													  t_starttransfer, t_total, t_redirect,
+													  http_code_local, (num_connects==0),
 													  primary_ip?std::string(primary_ip):std::string(), local_port,
-													  (size_t)size_download);
-						context.net->FlushCsv();
+													  size_download);
+						// Note: FlushCsv() moved outside retry loop to ensure only one CSV row per GetFile call
 					}
 				}
 #endif
 				
-				if( res == CURLE_OPERATION_TIMEDOUT)
-				{
-					AAMPLOG_INFO("Curl Timeout detected(%d)", res);
-					res = (CURLcode)GetCurlTimeoutFailureReason(curl);
-				}
-
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
 					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
@@ -5087,6 +5086,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if(!loopAgain)
 					break;
 			}
+		}
+
+		// Flush NetTrace CSV after retry loop completes (success or terminal failure)
+		// This ensures only one CSV row per GetFile call, regardless of retry attempts
+		if (context.net) {
+			context.net->FlushCsv();
 		}
 
 		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )

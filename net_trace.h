@@ -165,6 +165,7 @@ public:
 	 * @param[in] pre_xfer_s Time until transfer ready (seconds)
 	 * @param[in] start_xfer_s Time to first byte / TTFB (seconds)
 	 * @param[in] total_s Total request time (seconds)
+	 * @param[in] redirect_s Redirect time for 3xx responses (seconds)
 	 * @param[in] http_code HTTP response code
 	 * @param[in] conn_reused True if connection was reused from pool
 	 * @param[in] primary_ip Server IP address
@@ -173,11 +174,13 @@ public:
 	 */
 	void SetCurlTimings(double name_s, double connect_s, double appconnect_s,
 						  double pre_xfer_s, double start_xfer_s, double total_s,
+						  double redirect_s,
 						  long http_code, bool conn_reused,
 						  const std::string& primary_ip, long local_port,
-						  size_t bytes_total) {
+					  std::uint64_t bytes_total) {
 		mNameS = name_s; mConnectS = connect_s; mAppconnectS = appconnect_s;
 		mPreXferS = pre_xfer_s; mStartXferS = start_xfer_s; mTotalS = total_s;
+		mRedirectS = redirect_s;
 		mHttpCode = http_code; mConnReused = conn_reused ? 1 : 0;
 		mPrimaryIp = primary_ip; mLocalPort = local_port;
 		mBytesTotal = bytes_total;
@@ -210,9 +213,9 @@ public:
 		
 		// request row
 		state.req_ofs <<
-		mReqId << ',' << mT0 << ',' << mUrlPath << ',' << mMediaType << ',' <<
+		mReqId << ',' << mT0 << ',' << CsvEscape(mUrlPath) << ',' << CsvEscape(mMediaType) << ',' <<
 		mBytesTotal << ',' << mHttpCode << ',' << mConnReused << ',' <<
-		mPrimaryIp << ',' << mLocalPort << ',' <<
+		CsvEscape(mPrimaryIp) << ',' << mLocalPort << ',' <<
 		mStartXferS << ',' << mTotalS << ',' <<
 		mNameS << ',' << mConnectS << ',' << mAppconnectS << ',' <<
 		mPreXferS << ',' << mRedirectS << ',' <<
@@ -270,6 +273,29 @@ public:
 	}
 	
 private:
+	/**
+	 * @brief Escape a string field for safe CSV output
+	 * 
+	 * Purpose: Quotes fields containing commas, quotes, or newlines and escapes
+	 * embedded quotes by doubling them (RFC 4180). Prevents CSV corruption from
+	 * arbitrary user input (URLs with query params, IP addresses, etc.).
+	 * 
+	 * @param[in] s String to escape
+	 * @return Escaped string suitable for CSV output
+	 */
+	static std::string CsvEscape(const std::string& s) {
+		if (s.find_first_of(",\"\n\r") == std::string::npos) {
+			return s;  // No special chars, return as-is
+		}
+		std::string escaped = "\"";
+		for (char c : s) {
+			if (c == '"') escaped += "\"\"";
+			else escaped += c;
+		}
+		escaped += "\"";
+		return escaped;
+	}
+	
 	// Meyer's singleton pattern for shared file state
 	struct FileState {
 		std::mutex mutex;
@@ -378,7 +404,7 @@ private:
 	int    mConnReused = 0;
 	std::string mPrimaryIp;
 	long   mLocalPort = 0;
-	size_t mBytesTotal = 0;
+	std::uint64_t mBytesTotal = 0;
 	double mNameS=0, mConnectS=0, mAppconnectS=0, mPreXferS=0, mStartXferS=0, mTotalS=0, mRedirectS=0;
 	double mTotalDoneTimeS = 0.0;
 };
