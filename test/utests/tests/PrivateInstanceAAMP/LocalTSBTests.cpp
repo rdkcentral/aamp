@@ -354,7 +354,7 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 				});
 
 	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
-	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(true));// uninteresting expect call
 
 	//trickplay case

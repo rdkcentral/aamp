@@ -8118,15 +8118,13 @@ bool PrivateInstanceAAMP::IsLiveStream()
  * @brief Stop playback and release resources.
  *
  */
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
-	if( !isDestructing )
-	{
-		SetState(eSTATE_STOPPING);
-	}
+	// Set state to STOPPING irrespective of sending state change event or not
+	SetState(eSTATE_STOPPING, sendStateChangeEvent);
 
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
@@ -8267,11 +8265,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-
-	if( !isDestructing )
-	{
-		SetState(eSTATE_IDLE);
-	}
+	// Set state to IDLE irrespective of sending state change event or not
+	SetState(eSTATE_IDLE, sendStateChangeEvent);
 
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
@@ -8875,7 +8870,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 /**
  * @brief Set player state
  */
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 	//bool sentSync = true;
 
@@ -8896,7 +8891,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	}
 
 	mScheduler->SetState(mState);
-	if (mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+	if (sendStateChangeEvent && mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 	{
 		if (mState == eSTATE_PREPARING)
 		{
