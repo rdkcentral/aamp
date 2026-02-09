@@ -280,14 +280,22 @@ private:
 
 class PlaybackBuffer {
 public:
-	PlaybackBuffer(double targetBufferS = 30.0, double minBufferS = 2.0)
+	PlaybackBuffer(double targetBufferS = 30.0, double minBufferS = 2.0, bool isLive = false, double maxBufferS = 0.0)
 	: mTargetBufferS(targetBufferS), mMinBufferS(minBufferS), 
+	  mMaxBufferS(maxBufferS > 0.0 ? maxBufferS : targetBufferS),
+	  mIsLive(isLive),
 	  mCurrentBufferS(0.0), mIsRebuffering(false), 
-	  mTotalRebufferEvents(0), mTotalRebufferTimeS(0.0) {}
+	  mTotalRebufferEvents(0), mTotalRebufferTimeS(0.0),
+	  mMaxLatencyS(0.0), mMinLatencyS(999999.0), mTotalLatencyS(0.0), mLatencySamples(0) {}
 	
 	// Add a downloaded segment to buffer
 	void addSegment(double segmentDurationS) {
 		mCurrentBufferS += segmentDurationS;
+		
+		// For live streaming, cap buffer at max allowed
+		if (mIsLive && mCurrentBufferS > mMaxBufferS) {
+			mCurrentBufferS = mMaxBufferS;
+		}
 	}
 	
 	// Simulate playback consuming buffer during download
@@ -310,6 +318,14 @@ public:
 		}
 	}
 	
+	// Track latency from live edge (for live streaming)
+	void recordLatency(double latencyS) {
+		if (latencyS > mMaxLatencyS) mMaxLatencyS = latencyS;
+		if (latencyS < mMinLatencyS) mMinLatencyS = latencyS;
+		mTotalLatencyS += latencyS;
+		mLatencySamples++;
+	}
+	
 	double getCurrentBuffer() const { return mCurrentBufferS; }
 	bool isRebuffering() const { return mIsRebuffering; }
 	bool needsSegment() const { return mCurrentBufferS < mTargetBufferS; }
@@ -318,13 +334,25 @@ public:
 	int getTotalRebufferEvents() const { return mTotalRebufferEvents; }
 	double getTotalRebufferTime() const { return mTotalRebufferTimeS; }
 	
+	double getMaxLatency() const { return mMaxLatencyS; }
+	double getMinLatency() const { return mLatencySamples > 0 ? mMinLatencyS : 0.0; }
+	double getAvgLatency() const { return mLatencySamples > 0 ? mTotalLatencyS / mLatencySamples : 0.0; }
+	
 private:
 	double mTargetBufferS;
 	double mMinBufferS;
+	double mMaxBufferS;       // For live: cap on buffer (distance from live edge)
+	bool mIsLive;
 	double mCurrentBufferS;
 	bool mIsRebuffering;
 	int mTotalRebufferEvents;
 	double mTotalRebufferTimeS;
+	
+	// Live streaming latency tracking
+	double mMaxLatencyS;
+	double mMinLatencyS;
+	double mTotalLatencyS;
+	int mLatencySamples;
 };
 
 // =============================================================================
@@ -473,22 +501,61 @@ class ABRSimulator {
 public:
 	ABRSimulator(const VideoProfileLadder& ladder, 
 	             const NetworkCharacteristics& netChar,
+	             bool isLive = false,
+	             double targetLatencyS = 8.0,
+	             double maxBufferS = 20.0,
 	             uint64_t seed = 0)
 	: mLadder(ladder), mNetSim(netChar, seed), 
-	  mBuffer(30.0, 2.0), mCurrentProfile(0), 
-	  mSimTimeS(0.0), mRealClockS(0.0) {
+	  mBuffer(isLive ? targetLatencyS : maxBufferS, 2.0, true, isLive ? targetLatencyS : maxBufferS),
+	  mIsLive(isLive), mTargetLatencyS(targetLatencyS), mMaxBufferS(maxBufferS),
+	  mLiveEdgeS(0.0), mCurrentSegmentNum(0),
+	  mCurrentProfile(0), mSimTimeS(0.0), mRealClockS(0.0) {
 		
 		// Start with mid-range profile
 		mCurrentProfile = ladder.profiles.size() / 2;
 	}
 	
 	void run(double durationS) {
-		std::cout << "Starting ABR simulation for " << durationS << " seconds...\n";
+		if (mIsLive) {
+			std::cout << "Starting LIVE ABR simulation for " << durationS << " seconds...\n";
+			std::cout << "Target latency: " << mTargetLatencyS << "s from live edge\n";
+		} else {
+			std::cout << "Starting VOD ABR simulation for " << durationS << " seconds...\n";
+			std::cout << "Max buffer: " << mMaxBufferS << "s\n";
+		}
 		
 		auto startTime = std::chrono::steady_clock::now();
 		
 		int segmentCount = 0;
 		while (mSimTimeS < durationS) {
+			// For live streaming, update live edge and track latency
+			if (mIsLive) {
+				// Live edge advances in real-time (simulated time)
+				mLiveEdgeS = mSimTimeS + mTargetLatencyS;
+				
+				// Calculate playback position (sim time - buffer)
+				double playbackPosS = mSimTimeS - mBuffer.getCurrentBuffer();
+				
+				// Current latency = distance from playback position to live edge
+				double currentLatencyS = mLiveEdgeS - playbackPosS;
+				mBuffer.recordLatency(currentLatencyS);
+			}
+			
+			// Decide if we need to download
+			bool shouldDownload = true;
+			if (mIsLive) {
+				// For live: buffer is capped at target latency, so download if buffer < target
+				shouldDownload = mBuffer.needsSegment();
+			}
+			
+			if (!shouldDownload) {
+				// Wait a bit and continue
+				double waitTime = 0.1;
+				mBuffer.consumeBuffer(waitTime);
+				mSimTimeS += waitTime;
+				continue;
+			}
+			
 			// Download next segment
 			const VideoProfile* profile = mLadder.getProfile(mCurrentProfile);
 			if (!profile) {
@@ -519,12 +586,13 @@ public:
 				mLogger.log(rebufferEvent);
 			}
 			
-			// Add segment to buffer
+			// Add segment to buffer (capped at max for live)
 			mBuffer.addSegment(mLadder.segmentDurationS);
 			mBuffer.endRebuffering();
 			
 			// Time advances by download duration
 			mSimTimeS += downloadTimeS;
+			mCurrentSegmentNum++;
 			
 			// Log download event
 			SimulationEvent downloadEvent{};
@@ -534,7 +602,13 @@ public:
 			downloadEvent.downloadTimeMs = result.durationMs;
 			downloadEvent.throughputBps = result.throughputBps;
 			downloadEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-			downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + " kbps";
+			if (mIsLive) {
+				double latency = mLiveEdgeS - (mSimTimeS - mBuffer.getCurrentBuffer());
+				downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + 
+				                            " kbps, Latency: " + std::to_string(static_cast<int>(latency)) + "s";
+			} else {
+				downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + " kbps";
+			}
 			mLogger.log(downloadEvent);
 			
 			// Simple ABR decision
@@ -580,7 +654,31 @@ public:
 		std::cout << "  Rebuffer events: " << mBuffer.getTotalRebufferEvents() << "\n";
 		std::cout << "  Total rebuffer time: " << std::fixed << std::setprecision(2)
 		          << mBuffer.getTotalRebufferTime() << " seconds\n";
-		std::cout << "  Final buffer level: " << mBuffer.getCurrentBuffer() << " seconds\n";
+		std::cout << "  Final buffer level: " << std::fixed << std::setprecision(2) 
+		          << mBuffer.getCurrentBuffer() << " seconds\n";
+		
+		if (mIsLive) {
+			std::cout << "\nLive Streaming Latency:\n";
+			std::cout << "  Target latency: " << std::fixed << std::setprecision(2) 
+			          << mTargetLatencyS << " seconds\n";
+			std::cout << "  Average latency: " << std::fixed << std::setprecision(2) 
+			          << mBuffer.getAvgLatency() << " seconds\n";
+			std::cout << "  Min latency: " << std::fixed << std::setprecision(2) 
+			          << mBuffer.getMinLatency() << " seconds\n";
+			std::cout << "  Max latency: " << std::fixed << std::setprecision(2) 
+			          << mBuffer.getMaxLatency() << " seconds\n";
+			double drift = mBuffer.getAvgLatency() - mTargetLatencyS;
+			std::cout << "  Latency drift: " << std::fixed << std::setprecision(2) 
+			          << (drift >= 0 ? "+" : "") << drift << " seconds ";
+			if (std::abs(drift) < 1.0) {
+				std::cout << "(good)";
+			} else if (std::abs(drift) < 3.0) {
+				std::cout << "(acceptable)";
+			} else {
+				std::cout << "(poor)";
+			}
+			std::cout << "\n";
+		}
 	}
 	
 private:
@@ -592,6 +690,13 @@ private:
 	double mSimTimeS;
 	double mRealClockS;
 	std::mt19937_64 mRng;
+	
+	// Live streaming state
+	bool mIsLive;
+	double mTargetLatencyS;   // Target distance from live edge
+	double mMaxBufferS;       // Max buffer cap (VOD mode)
+	double mLiveEdgeS;        // Current live edge position
+	int mCurrentSegmentNum;   // Segment number being downloaded
 	
 	// Simplified ABR decision logic (placeholder for real ABRManager integration)
 	int makeABRDecision(const NetworkSimulator::DownloadResult& result, 
@@ -634,13 +739,17 @@ private:
 void printUsage(const char* progName) {
 	std::cout << "Usage: " << progName << " [options]\n"
 	          << "Options:\n"
-	          << "  --persona <file>   Network persona JSON file\n"
-	          << "  --duration <secs>  Simulation duration in seconds (default: 3600)\n"
-	          << "  --out <file>       Output CSV filename (default: abrsim.csv)\n"
-	          << "  --seed <n>         Random seed (default: random)\n"
-	          << "  --help             Show this help\n"
-	          << "\nExample:\n"
-	          << "  " << progName << " --persona network.json --duration 7200 --out report.csv\n";
+	          << "  --persona <file>      Network persona JSON file\n"
+	          << "  --duration <secs>     Simulation duration in seconds (default: 3600)\n"
+	          << "  --out <file>          Output CSV filename (default: abrsim.csv)\n"
+	          << "  --seed <n>            Random seed (default: random)\n"
+	          << "  --live                Enable live streaming mode (default: VOD)\n"
+	          << "  --target-latency <s>  Target latency from live edge in seconds (default: 8.0)\n"
+	          << "  --max-buffer <s>      Max buffer size in seconds for VOD mode (default: 20.0)\n"
+	          << "  --help                Show this help\n"
+	          << "\nExamples:\n"
+	          << "  VOD:  " << progName << " --persona network.json --max-buffer 20 --duration 7200\n"
+	          << "  Live: " << progName << " --persona network.json --live --target-latency 8 --duration 3600\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -648,6 +757,9 @@ int main(int argc, char* argv[]) {
 	double durationS = 3600.0;
 	std::string outFile = "abrsim.csv";
 	uint64_t seed = 0;
+	bool isLive = false;
+	double targetLatencyS = 8.0;
+	double maxBufferS = 20.0;
 	
 	// Parse command line arguments
 	for (int i = 1; i < argc; ++i) {
@@ -660,6 +772,12 @@ int main(int argc, char* argv[]) {
 			outFile = argv[++i];
 		} else if (arg == "--seed" && i + 1 < argc) {
 			seed = std::stoull(argv[++i]);
+		} else if (arg == "--live") {
+			isLive = true;
+		} else if (arg == "--target-latency" && i + 1 < argc) {
+			targetLatencyS = std::stod(argv[++i]);
+		} else if (arg == "--max-buffer" && i + 1 < argc) {
+			maxBufferS = std::stod(argv[++i]);
 		} else if (arg == "--help") {
 			printUsage(argv[0]);
 			return 0;
@@ -700,7 +818,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "Created profile ladder with " << ladder.profiles.size() << " profiles\n";
 	
 	// Run simulation
-	ABRSimulator sim(ladder, netChar, seed);
+	ABRSimulator sim(ladder, netChar, isLive, targetLatencyS, maxBufferS, seed);
 	sim.run(durationS);
 	sim.generateReport(outFile);
 	

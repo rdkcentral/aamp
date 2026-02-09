@@ -38,22 +38,38 @@ head -20 first_run.csv
 
 ## Testing Different Network Conditions
 
-### Mobile 3G (Challenging)
+### VOD Mode
 
+**Mobile 3G (Challenging):**
 ```bash
-./abrsim --persona personas/mobile_3g.json --duration 3600 --out mobile.csv
+./abrsim --persona personas/mobile_3g.json --duration 3600 --out mobile_vod.csv
 ```
 
-### Gigabit Fiber (Ideal)
-
+**Gigabit Fiber (Ideal):**
 ```bash
-./abrsim --persona personas/fiber_gigabit.json --duration 3600 --out fiber.csv
+./abrsim --persona personas/fiber_gigabit.json --duration 3600 --out fiber_vod.csv
 ```
 
-### Congested WiFi (Variable)
-
+**Congested WiFi (Variable):**
 ```bash
-./abrsim --persona personas/wifi_congested.json --duration 3600 --out wifi.csv
+./abrsim --persona personas/wifi_congested.json --duration 3600 --out wifi_vod.csv
+```
+
+### Live Streaming Mode
+
+**Mobile 3G with 8s latency target:**
+```bash
+./abrsim --persona personas/mobile_3g.json --live --target-latency 8 --duration 3600 --out mobile_live.csv
+```
+
+**Fiber with low latency (4s):**
+```bash
+./abrsim --persona personas/fiber_gigabit.json --live --target-latency 4 --duration 3600 --out fiber_live.csv
+```
+
+**WiFi with moderate latency (12s):**
+```bash
+./abrsim --persona personas/wifi_congested.json --live --target-latency 12 --duration 3600 --out wifi_live.csv
 ```
 
 ## Testing ABR Changes

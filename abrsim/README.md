@@ -7,6 +7,7 @@
 ## Features
 
 - **Faster-than-real-time simulation**: Simulate hours of playback in seconds
+- **Live streaming support**: Model live streams with target latency and buffer capping
 - **Realistic network modeling**: Uses NetTrace persona format for authentic network behavior
 - **DASH manifest abstraction**: Models typical video profile ladders with configurable bitrates
 - **Video-focused**: Concentrates on video segment downloads (ignores manifest refreshes and audio)
@@ -36,10 +37,20 @@ Note: Full ABR integration requires resolving dependencies on AAMP's config and 
 
 ### Basic Usage
 
+**VOD (Video on Demand) Mode:**
 ```bash
 ./abrsim --persona ../simnet/personas/network.json \
          --duration 3600 \
          --out simulation_report.csv
+```
+
+**Live Streaming Mode:**
+```bash
+./abrsim --persona ../simnet/personas/network.json \
+         --live \
+         --target-latency 8 \
+         --duration 3600 \
+         --out live_simulation.csv
 ```
 
 ### Options
@@ -48,14 +59,49 @@ Note: Full ABR integration requires resolving dependencies on AAMP's config and 
 - `--duration <secs>`: Simulation duration in seconds (default: 3600)
 - `--out <file>`: Output CSV filename (default: abrsim.csv)
 - `--seed <n>`: Random seed for reproducibility (default: random)
+- `--live`: Enable live streaming mode (default: VOD mode)
+- `--target-latency <secs>`: Target distance from live edge in seconds (default: 8.0, only used in live mode)
+- `--max-buffer <secs>`: Maximum buffer size in seconds for VOD mode (default: 20.0)
 - `--help`: Show usage information
+
+### Live vs VOD Mode
+
+**VOD Modis capped at `--max-buffer` seconds (default: 20s)
+- Simulates on-demand video playback with memory constraints
+- Prevents unrealistic buffer growth on fast networks
+- Useful for finding optimal buffer size vs memory tradeoff
+
+**Live Mode** (`--live` flag):
+- Buffer is capped at `--target-latency` seconds
+- Simulates maintaining a fixed distance from live edge
+- Tracks latency drift from target
+- More realistic for live streaming scenarios
+- The `--max-buffer` option is ignored in live mode
+
+**Memory vs Stability Tradeoff:**
+- **Smaller buffer** (5-10s): Lower memory usage, higher rebuffering risk
+- **Moderate buffer** (15-25s): Balanced approach, recommended default
+- **Larger buffer** (30-50s): More resilient to network hiccups, uses more memory
+
+Example showing buffer cap effect:
+```bash
+# Small buffer: Uses less memory but may rebuffer more on variable networks
+./abrsim --persona sample_network.json --max-buffer 10 --duration 3600 --out small_buf.csv
+
+# Default: Balanced 20-second buffer
+./abrsim --persona sample_network.json --duration 3600 --out default_buf.csv
+
+# Large buffer: More resilient but uses more memory
+./abrsim --persona sample_network.json --max-buffer 40 --duration 3600 --out large_buf
+./abrsim --persona sample_network.json --live --target-latency 8 --duration 3600 --out live.csv
+```
 
 ### Example: Multi-Hour Simulation
 
-Simulate 2 hours of playback with a specific network persona:
+Simulate 2 hours of live playback with a slow network:
 
 ```bash
-./abrsim --persona network_slow.json --duration 7200 --out slow_network_2hr.csv
+./abrsim --persona network_slow.json --live --target-latency 8 --duration 7200 --out slow_live_2hr.csv
 ```
 
 ## Network Persona Format

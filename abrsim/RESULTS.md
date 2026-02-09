@@ -1,7 +1,22 @@
 # ABR Simulator Test Results
 
 ## Overview
-The ABR simulator successfully tests AAMP's adaptive bitrate heuristics in faster-than-real-time without requiring actual stream playback.
+The ABR simulator tests AAMP's adaptive bitrate heuristics in faster-than-real-time without requiring actual stream playback. Supports both **VOD (Video on Demand)** and **Live Streaming** modes.
+
+## Streaming Modes
+
+### VOD Mode (Default)
+- Buffer can grow indefinitely
+- Downloads run as fast as network allows  
+- Suitable for testing on-demand content
+- **Issue**: Buffer can grow to unrealistic sizes (e.g., 275 seconds) on fast networks
+
+### Live Mode (`--live`)
+- Buffer capped at `--target-latency` (default: 8 seconds)
+- Simulates maintaining fixed distance from live edge
+- Tracks latency drift from target
+- **Realistic** for live streaming scenarios
+- Buffer never exceeds target latency
 
 ## Performance
 - **Speed-up factor**: ~600,000x to 2,000,000x faster than real-time
@@ -11,18 +26,52 @@ The ABR simulator successfully tests AAMP's adaptive bitrate heuristics in faste
 ## Test Results by Network Type
 
 ### 500 Mbps Fiber (Excellent Connection)
+
+**VOD Mode:**
 ```
 Duration: 60 seconds
 Segments downloaded: 64
 Profile changes: 3 (upshifted from 1400 → 2800 → 5000 → 8000 kbps)
 Rebuffer events: 1 (initial startup only, 0.93s)
-Final buffer level: 68.79 seconds
+Final buffer level: 68.79 seconds (grows without limit)
 ```
-**Behavior**: Quickly upshifts to highest quality (8 Mbps) and maintains it.
 
-### 25 Mbps Broadband (Good Connection)
+**Live Mode (8s target latency):**
 ```
 Duration: 60 seconds
+Segments downloaded: 60
+Profile changes: 0 (stayed at starting profile)
+Rebuffer events: 1 (initial startup only, 0.93s)
+Final buffer level: 8.00 seconds (capped at target)
+Average latency: 15.71 seconds
+Latency drift: +7.71 seconds (poor - needs tuning)
+```
+
+**Behavior**: Quickly upshifts to highest quality and maintains it. Live mode successfully caps buffer.
+
+### 25 Mbps Broadband (Good Connection)
+
+**VOD Mode:**
+```
+Duration: 60 seconds
+Segments downloaded: 32
+Profile changes: 3 (downshifted from 1400 → 750 → 375 → 235 kbps)
+Rebuffer events: 1 (initial startup, 2.02s)
+Final buffer level: 5.33 seconds
+```
+
+**Live Mode (8s target latency):**
+```
+Duration: 60 seconds
+Segments downloaded: 32
+Profile changes: 3 (downshifted from 1400 → 750 → 375 → 235 kbps)
+Rebuffer events: 1 (initial startup, 2.02s)
+Final buffer level: 5.33 seconds (under target)
+Average latency: 11.64 seconds
+Latency drift: +3.64 seconds (acceptable)
+```
+
+**Behavior**: Downshifts to lowest profile but plays smoothly. Similar behavior in both modes.
 Segments downloaded: 32
 Profile changes: 3 (downshifted from 1400 → 750 → 375 → 235 kbps)
 Rebuffer events: 1 (initial startup, 2.02s)
