@@ -54,7 +54,7 @@ public:
 	std::string accessToken;
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
-	bool licenseRequestAbort;
+	std::atomic<bool> licenseRequestAbort{ false };
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampCurlDownloader mAccessTokenConnector;
