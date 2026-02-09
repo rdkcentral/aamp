@@ -251,21 +251,21 @@ public:
 	void CallNotifyFirstBufferProcessed()
 	{
 		bool mFirstVideoFrameDisplayedEnabled = false;
-		SetState(eSTATE_SEEKING);
+		SetState(eSTATE_SEEKING, true);
 		NotifyFirstBufferProcessed(std::string());
 	}
 	void CallNotifyFirstVideoFrameDisplayed()
 	{
 		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
 		TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-		SetState(eSTATE_PAUSED);
+		SetState(eSTATE_PAUSED, true);
 		NotifyFirstVideoFrameDisplayed();
 	}
 	void CallNotifyFirstVideoFrameDisplayed_1()
 	{
 		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
 		TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-		SetState(eSTATE_SEEKING);
+		SetState(eSTATE_SEEKING, true);
 		NotifyFirstVideoFrameDisplayed();
 	}
 	void CallGetContentTypString()
@@ -429,7 +429,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	testp_aamp->SetContentType("LINEAR_TV");
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
@@ -486,7 +486,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	testp_aamp->SetContentType("LINEAR_TV");
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
@@ -2152,7 +2152,7 @@ TEST_F(PrivAampTests,EndOfStreamReachedTest)
 
 TEST_F(PrivAampTests,EndOfStreamReachedTest_1)
 {
-	p_aamp->SetState(eSTATE_BUFFERING);
+	p_aamp->SetState(eSTATE_BUFFERING, true);
 	p_aamp->EndOfStreamReached(eMEDIATYPE_VIDEO);
 }
 
@@ -2277,7 +2277,7 @@ TEST_F(PrivAampTests,SetVideoRectangleTest_1)
 
 TEST_F(PrivAampTests,SetVideoRectangleTest_2)
 {
-	p_aamp->SetState(eSTATE_PAUSED);
+	p_aamp->SetState(eSTATE_PAUSED, true);
 
 	p_aamp->mMediaFormat = eMEDIAFORMAT_OTA;
 	p_aamp->SetVideoRectangle(100,200,300,400);
@@ -2404,7 +2404,7 @@ TEST_F(PrivAampTests,UnlockGetPositionMsTest)
 
 TEST_F(PrivAampTests,GetPositionRelativeToSeekMillisecondsTest)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	long long val  = p_aamp->GetPositionRelativeToSeekMilliseconds();
 	EXPECT_EQ(val,0);
 }
@@ -2412,7 +2412,7 @@ TEST_F(PrivAampTests,GetPositionRelativeToSeekMillisecondsTest)
 TEST_F(PrivAampTests,GetPositionRelativeToSeekMillisecondsTest_1)
 {
 	p_aamp->seek_pos_seconds = 123450;
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	long long val  = p_aamp->GetPositionRelativeToSeekMilliseconds();
 	EXPECT_EQ(val,0);
 }
@@ -2560,7 +2560,7 @@ TEST_F(PrivAampTests, NotifyFirstFrameReceivedTest)
 
 TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_1)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstFrameReceived(0);
 }
 
@@ -2576,7 +2576,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_2)
 
 TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_3)
 {
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
@@ -2603,7 +2603,7 @@ TEST_F(PrivAampTests,ScheduleRetuneTest)
 
 TEST_F(PrivAampTests,ScheduleRetuneTest_1)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 	p_aamp->TuneHelper(tuneType, true);
 		p_aamp->ScheduleRetune(eGST_ERROR_PTS,eMEDIATYPE_VIDEO);
@@ -2613,19 +2613,19 @@ TEST_F(PrivAampTests,ScheduleRetuneTest_1)
 
 TEST_F(PrivAampTests,ScheduleRetuneTest_2)
 {
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING,eMEDIATYPE_VIDEO);
 	EXPECT_EQ(p_aamp->mDiscontinuityTuneOperationId,0);
 }
 
 TEST_F(PrivAampTests,GetStateTest)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 
 	AAMPPlayerState state = p_aamp->GetState();
 
 	state = p_aamp->GetState();
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 
 	state = p_aamp->GetState();
 }
@@ -2648,7 +2648,7 @@ TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest)
 
 TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest_1)
 {
-	p_aamp->SetState(eSTATE_BUFFERING);
+	p_aamp->SetState(eSTATE_BUFFERING, true);
 
 	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,5);
@@ -2825,7 +2825,7 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest_VideoRectangleEmpty)
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 
 	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,0);
@@ -2833,7 +2833,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);//true
@@ -2844,7 +2844,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_3)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
@@ -3489,7 +3489,7 @@ TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest1)
 }
 TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest2)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	p_aamp->UpdateMaxDRMSessions();
 }
 TEST_F(PrivAampTests,GetVideoPlaybackQualityTest)
@@ -3946,7 +3946,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest15)
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest1)
 {
 	//covering if condition when state == eSTATE_IDLE
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstBufferProcessed(std::string());
 }
 TEST_F(PrivAampPrivTests,NotifyFirstBufferProcessedTest2)
@@ -4004,7 +4004,7 @@ TEST_F(PrivAampTests,IsFirstVideoFrameDisplayedRequiredTest1)
 TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest1)
 {
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest2)
@@ -4019,7 +4019,7 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest3)
 TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest3)
 {
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-	p_aamp->SetState(eSTATE_PAUSED);
+	p_aamp->SetState(eSTATE_PAUSED, true);
 	p_aamp->SetStateBufferingIfRequired();
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
@@ -4144,7 +4144,7 @@ TEST_F(PrivAampTests,SendErrorEventTest11)
 {
 	p_aamp->mFogTSBEnabled = true;
 	p_aamp->IsFogTSBSupported();
-	p_aamp->SetState(eSTATE_INITIALIZED);
+	p_aamp->SetState(eSTATE_INITIALIZED, true);
 	p_aamp->SendErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,"DESCRIPTION",true,11,12,13,"responseString");
 }
 
@@ -4160,6 +4160,41 @@ TEST_F(PrivAampTests,stopTest_11)
 	p_aamp->mFogTSBEnabled = true;
 	p_aamp->IsFogTSBSupported();
 	p_aamp->Stop();
+}
+
+TEST_F(PrivAampTests, Stop_StateTransition_WithStateChangeEvent)
+{
+	// Setup: Register for AAMP_EVENT_STATE_CHANGED event
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillRepeatedly(Return(true));
+
+	// Expect: AAMP_EVENT_STATE_CHANGED should be sent for both STOPPING and IDLE states
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), _))
+		.Times(2);
+
+	// Action: Call Stop with sendStateChangeEvent = true
+	p_aamp->Stop(true);
+
+	// Verify: Final state should be IDLE after Stop() completes
+	AAMPPlayerState finalState = p_aamp->GetState();
+	EXPECT_EQ(finalState, eSTATE_IDLE);
+}
+
+TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
+{
+	// Setup: Register for AAMP_EVENT_STATE_CHANGED event
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillRepeatedly(Return(true));
+
+	// Expect: AAMP_EVENT_STATE_CHANGED should NOT be sent when sendStateChangeEvent = false
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), _)).Times(0);
+
+	// Action: Call Stop with sendStateChangeEvent = false
+	p_aamp->Stop(false);
+
+	// Verify: Final state should be IDLE even without sending events
+	AAMPPlayerState finalState = p_aamp->GetState();
+	EXPECT_EQ(finalState, eSTATE_IDLE);
 }
 
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
@@ -4443,7 +4478,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	testp_aamp->SetLocalAAMPTsbInjection(true);
 	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
 	testp_aamp->culledSeconds = SEEK_POS;
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 	::testing::Sequence s;
 	AampLLDashServiceData stAampLLDashServiceData;
 	stAampLLDashServiceData.lowLatencyMode = true;
