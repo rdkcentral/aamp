@@ -17,19 +17,26 @@
  * limitations under the License.
  */
 
-// simnet.cpp
-// Self-contained LL-DASH network persona simulator.
-// Build: g++ -std=gnu++17 -O2 -o simnet simnet.cpp
-// Usage:
-// ./simnet --persona personas/lldash_persona_fitted.json \
-// --sizes 1400000 24000 1400000 24000 \
-// --out sim --seed 123
-// Or: ./simnet --persona personas/lldash_persona_fitted.json \
-// --sizes-file sizes.txt --out sim
-//
-// Output:
-// sim-requests.csv : one row per simulated request
-// sim-bursts.csv : per-burst timing/size rows
+/*
+ Self-contained LL-DASH network persona simulator.
+ Build: g++ -std=gnu++17 -O2 -o simnet simnet.cpp
+ 
+ Usage:
+		./simnet
+			--persona /tmp/persona.json \
+			--sizes 1400000 24000 1400000 24000 \
+			--out sim
+			--seed 123
+ or:
+		./simnet
+			--persona /tmp/persons.json \
+			--sizes-file sizes.txt
+ 			--out sim
+
+Output:
+	sim-requests.csv	// one row per simulated request
+	sim-bursts.csv 		// per-burst timing/size rows
+*/
 
 #include <algorithm>
 #include <chrono>
@@ -374,7 +381,7 @@ struct CLI {
 	std::string personaPath;
 	std::vector<std::uint64_t> sizes;
 	std::string sizesFile;
-	std::string outPrefix = "sim";
+	std::string outPrefix = "/tmp/sim";
 	std::uint64_t seed = 0;
 };
 
@@ -432,9 +439,9 @@ static bool LoadSizesFromFile(const std::string& path, std::vector<std::uint64_t
 	return true;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 	std::ios::sync_with_stdio(false);
-	
 	CLI cli;
 	if (!ParseCLI(argc, argv, cli)) { printUsage(); return 2; }
 	if (!cli.sizesFile.empty()) {
