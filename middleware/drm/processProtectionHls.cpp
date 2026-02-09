@@ -211,7 +211,7 @@ shared_ptr<DrmHelper> ProcessContentProtection( std::string attrName, bool propa
 		}
 		else
 		{
-			data = base64_Decode(psshData, &dataLength);
+			data = base64_Decode(psshData, &dataLength, strlen(psshData));
 			/* No more use */
 			free(psshData);
 			psshData = NULL;

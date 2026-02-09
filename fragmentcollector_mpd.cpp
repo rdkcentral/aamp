@@ -3240,7 +3240,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 				if (tagName.find("pssh") != std::string::npos)
 				{
 					string psshData = node.at(i)->GetText();
-					data = base64_Decode(psshData.c_str(), &dataLength);
+					data = base64_Decode( psshData.c_str(), &dataLength, psshData.length() );
 					if (0 == dataLength)
 					{
 						AAMPLOG_WARN("base64_Decode of pssh resulted in 0 length");

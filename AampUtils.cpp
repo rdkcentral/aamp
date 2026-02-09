@@ -326,9 +326,6 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 	char *temp = (char *)malloc(srcLen+3);
 	if( temp )
 	{
-		temp[srcLen+2] = '\0';
-		temp[srcLen+1] = '=';
-		temp[srcLen+0] = '=';
 		for( int iter = 0; iter < srcLen; iter++ )
 		{
 			char c = src[iter];
@@ -345,7 +342,10 @@ unsigned char *aamp_Base64_URL_Decode(const char *src, size_t *len, size_t srcLe
 			}
 			temp[iter] = c;
 		}
-		rc = base64_Decode(temp, len );
+		temp[srcLen++] = '=';
+		temp[srcLen++] = '=';
+		temp[srcLen] = '\0';
+		rc = base64_Decode(temp, len, srcLen );
 		free(temp);
 	}
 	else

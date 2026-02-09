@@ -201,7 +201,7 @@ char * DeviceIARMInterface::GetTR181Config(const char * paramName, size_t & iCon
 
 				iConfigLen = param.paramLen;
 				const char *src = (const char*)(param.paramValue);
-				strConfig = (char * ) base64_Decode(src,&iConfigLen);
+				strConfig = (char * ) base64_Decode(src,&iConfigLen,strlen(src));
 
 				MW_LOG_INFO("GetTR181PlayerConfig: Got:%s En-Len:%d Dec-len:%d\n",strforLog.c_str(),param.paramLen,iConfigLen);
 			}
