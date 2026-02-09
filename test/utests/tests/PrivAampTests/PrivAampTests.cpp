@@ -2992,7 +2992,8 @@ TEST_F(PrivAampTests,GetPositionMillisecondsTest)
 
 TEST_F(PrivAampTests,SendStreamCopyTest)
 {
-	EXPECT_FALSE(p_aamp->SendStreamCopy(eMEDIATYPE_VIDEO,NULL,20,12.34,34.567,465.7696));
+	std::vector<uint8_t> emptyBuffer;
+	EXPECT_FALSE(p_aamp->SendStreamCopy(eMEDIATYPE_VIDEO, emptyBuffer, 12.34, 34.567, 465.7696));
 }
 
 // DISABLED - this is not actually testing anything, just calling the method to ensure no crash
@@ -4165,7 +4166,8 @@ TEST_F(PrivAampTests,GetCustomHeadersTest)
 
 TEST_F(PrivAampTests,ProcessID3MetadataTest)
 {
- p_aamp->ProcessID3Metadata(NULL,10,eMEDIATYPE_VIDEO,12431);
+	std::vector<uint8_t> emptyBuffer;
+	p_aamp->ProcessID3Metadata(emptyBuffer, eMEDIATYPE_VIDEO, 12431);
 }
 
 TEST_F(PrivAampTests,GetPauseOnFirstVideoFrameDispTest)

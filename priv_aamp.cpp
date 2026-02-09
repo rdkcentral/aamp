@@ -700,7 +700,9 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buf
 	chunkBoundaryOffset = 0;
 
 	IsoBmffBuffer isobmffBuffer;
-	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->size() - bufferOffset);
+	const auto& fullBuffer = buffer->GetVector();
+	std::vector<uint8_t> offsetBuffer(fullBuffer.begin() + bufferOffset, fullBuffer.end());
+	isobmffBuffer.setBuffer(offsetBuffer);
 
 	try
 	{
@@ -5197,7 +5199,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 				// hack - repair wrong size in box
 				IsoBmffBuffer repair;
-				repair.setBuffer((uint8_t *)buffer->GetPtr(), buffer->size() );
+				repair.setBuffer(buffer->GetVector());
 				repair.parseBuffer(true);  //correctBoxSize=true
 				AAMPLOG_INFO("Stripping the fragment for range request completed");
 			}
@@ -8049,14 +8051,31 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 /**
  * @brief  API to send audio/video stream into the sink.
  */
+bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink && !buffer.empty())
+	{
+		return sink->SendCopy(mediaType, std::vector<uint8_t>(buffer), fpts, fdts, fDuration);
+	}
+	else
+	{
+		AAMPLOG_WARN("SendStreamCopy: Invalid parameters or Sink not available buffer.size()=%zu", buffer.size());
+	}
+	return false;
+}
+
+/**
+ * @brief  API to send audio/video stream into the sink.
+ */
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink && ptr && len > 0)
 	{
-		return sink->SendCopy(mediaType,
-							  std::vector<uint8_t>(static_cast<const uint8_t *>(ptr),
-												   static_cast<const uint8_t *>(ptr) + len),
+		return sink->SendCopy(mediaType, 
+							  std::vector<uint8_t>(static_cast<const uint8_t*>(ptr), 
+												   static_cast<const uint8_t*>(ptr) + len),
 							  fpts, fdts, fDuration);
 	}
 	else
@@ -13427,18 +13446,22 @@ void PrivateInstanceAAMP::ID3MetadataHandler(AampMediaType mediaType, const uint
 /**
  * @brief Process the ID3 metadata from segment
  */
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 
+	if (segment.empty())
+	{
+		AAMPLOG_WARN("ProcessID3Metadata: Empty segment buffer");
+		return;
+	}
+
 	// Logic for ID3 metadata
 	const auto early_processing = mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
-	if (!early_processing && segment && mEventManager->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
+	if (!early_processing && mEventManager->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
 	{
-		uint8_t * seg_buffer = reinterpret_cast<uint8_t *>(segment);
-
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(seg_buffer, size);
+		buffer.setBuffer(segment);
 		buffer.parseBuffer();
 		if(!buffer.isInitSegment())
 		{

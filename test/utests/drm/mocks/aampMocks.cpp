@@ -797,6 +797,12 @@ void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const ch
 {
 }
 
+bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer,
+										 double fpts, double fdts, double fDuration)
+{
+	return true;
+}
+
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len,
 										 double fpts, double fdts, double fDuration)
 {
@@ -1166,11 +1172,10 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type,
-											 uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type,
+		uint64_t timeStampOffset)
 {
 }
-
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
 }

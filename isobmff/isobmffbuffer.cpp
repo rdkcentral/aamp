@@ -47,10 +47,19 @@ IsoBmffBuffer::~IsoBmffBuffer()
 /**
  *  @brief Set buffer
  */
-void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
+void IsoBmffBuffer::setBuffer(const std::vector<uint8_t>& buffer)
 {
-	buffer = buf;
-	bufSize = sz;
+	this->buffer = const_cast<uint8_t*>(buffer.data());
+	this->bufSize = buffer.size();
+}
+
+/**
+ *  @brief Set buffer from pointer and size
+ */
+void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
+{
+	this->buffer = buffer;
+	this->bufSize = bufferLen;
 }
 
 /**

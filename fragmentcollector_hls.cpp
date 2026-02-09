@@ -1761,11 +1761,10 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 			else
 			{
-				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+				aamp->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
 			}
 		};
-
-		if( demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+		if (demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 		{
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 			{ // compute muxed AV track pts offset and save for use by subtitle track
@@ -1791,12 +1790,11 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 	{
 		fragmentDiscarded = false;
 		aamp->SendStreamCopy(
-							 (AampMediaType)type,
-							 cachedFragment->fragment.GetPtr(),
-							 cachedFragment->fragment.size(),
-							 cachedFragment->position,
-							 cachedFragment->position,
-							 cachedFragment->duration);
+			(AampMediaType)type,
+			cachedFragment->fragment.GetVector(),
+			cachedFragment->position,
+			cachedFragment->position,
+			cachedFragment->duration);
 	}
 } // InjectFragmentInternal
 
