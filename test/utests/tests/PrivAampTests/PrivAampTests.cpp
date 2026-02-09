@@ -4916,6 +4916,41 @@ TEST_F(PrivAampTests,stopTest_11)
 	p_aamp->Stop();
 }
 
+TEST_F(PrivAampTests, Stop_StateTransition_WithStateChangeEvent)
+{
+	// Setup: Register for AAMP_EVENT_STATE_CHANGED event
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillRepeatedly(Return(true));
+
+	// Expect: AAMP_EVENT_STATE_CHANGED should be sent for both STOPPING and IDLE states
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), _))
+		.Times(2);
+
+	// Action: Call Stop with sendStateChangeEvent = true
+	p_aamp->Stop(true);
+
+	// Verify: Final state should be IDLE after Stop() completes
+	AAMPPlayerState finalState = p_aamp->GetState();
+	EXPECT_EQ(finalState, eSTATE_IDLE);
+}
+
+TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
+{
+	// Setup: Register for AAMP_EVENT_STATE_CHANGED event
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillRepeatedly(Return(true));
+
+	// Expect: AAMP_EVENT_STATE_CHANGED should NOT be sent when sendStateChangeEvent = false
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), _)).Times(0);
+
+	// Action: Call Stop with sendStateChangeEvent = false
+	p_aamp->Stop(false);
+
+	// Verify: Final state should be IDLE even without sending events
+	AAMPPlayerState finalState = p_aamp->GetState();
+	EXPECT_EQ(finalState, eSTATE_IDLE);
+}
+
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 {
 	std::string manifest;
