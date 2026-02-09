@@ -122,14 +122,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 }
 
 /**
- * @brief reset AampGrowableBuffer logical length without releasing reserved memory
- */
-void AampGrowableBuffer::Clear( void )
-{
-	buffer.clear();
-}
-
-/**
  * @brief transfer content of one AampGrowableBuffer into another
  * @param src AampGrowableBuffer to transfer
  */

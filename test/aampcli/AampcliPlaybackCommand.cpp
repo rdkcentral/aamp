@@ -1165,8 +1165,8 @@ void PlaybackCommand::parse( const char *path )
 							for (auto &sample : samples)
 							{
 								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf, DRM:%d\n",
-										sample.mData.GetPtr(),
-										sample.mData.GetLen(),
+										sample.mData.data(),
+										sample.mData.size(),
 										(double)sample.mPts,
 										(double)sample.mDts,
 										(double)sample.mDuration,
