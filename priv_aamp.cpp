@@ -11464,7 +11464,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-					AAMPLOG_DEBUG("========INBAND CC DETECTED======")
+					AAMPLOG_DEBUG("========INBAND CC DETECTED======");
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
