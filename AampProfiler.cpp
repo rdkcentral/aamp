@@ -274,7 +274,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	}
 	enabled = false;
 	unsigned int licenseAcqNWTime = bucketDuration(PROFILE_BUCKET_LA_NETWORK);
-	char tuneTimeStrPrefix[64];
+	char tuneTimeStrPrefix[128];
 	memset(tuneTimeStrPrefix, '\0', sizeof(tuneTimeStrPrefix));
 	int mTotalTime;
  	int mTimedMetadataStartTime = static_cast<int> (mTuneEndMetrics.mTimedMetadataStartTime - tuneStartMonotonicBase);
@@ -297,6 +297,9 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	}
 	if (!appName.empty())
 	{
+		if (gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) {
+			appName += "_VIPA";
+		}
 		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] APP: %s IP_AAMP_TUNETIME", playerActiveMode.c_str(),playerId,appName.c_str());
 	}
 	else
