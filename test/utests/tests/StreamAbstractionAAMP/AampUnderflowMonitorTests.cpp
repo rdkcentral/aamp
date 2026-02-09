@@ -119,7 +119,6 @@ protected:
         delete aamp; aamp = nullptr;
         delete g_mockPrivateInstanceAAMP; g_mockPrivateInstanceAAMP = nullptr;
         delete g_mockAampConfig; g_mockAampConfig = nullptr;
-        delete gLocalConfig; gLocalConfig = nullptr;
     }
 };
 
