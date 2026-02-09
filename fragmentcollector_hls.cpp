@@ -1719,7 +1719,7 @@ void TrackState::FetchFragment()
 		}
 		else
 		{
-			AAMPLOG_WARN("%s cachedFragment->fragment.ptr is NULL", name);
+			AAMPLOG_WARN("%s cachedFragment->fragment is empty", name);
 		}
 		mSkipAbr = false; //To enable ABR since we have cached fragment after init fragment
 		UpdateTSAfterFetch(false);

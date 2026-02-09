@@ -501,7 +501,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 		}
 		cachedFragment->fragment.clear();
 		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
-		if(cachedFragment->fragment.capacity() != 0 && cachedFragment->fragment.size() > 0)
+		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
 			UpdateTSAfterChunkFetch();
