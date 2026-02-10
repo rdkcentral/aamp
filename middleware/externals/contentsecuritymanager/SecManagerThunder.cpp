@@ -962,14 +962,15 @@ void SecManagerThunder::ModifyWatermarkPalette(int graphicId, int clutKey, int i
 
 bool SecManagerThunder::CancelLicense(ContentSecurityManagerSession &session)
 {
+    MW_LOG_WARN("[TTT]CancelLicense: called secManager");
     if (!session.isSessionValid())
     {
-        MW_LOG_WARN("CancelLicense: session is not valid");
+        MW_LOG_WARN("[TTT]CancelLicense: session is not valid");
         return false;
     }
 
     int64_t sessionId = session.getSessionID();
-    MW_LOG_WARN("CancelLicense: closing session ID: %" PRId64, sessionId);
+    MW_LOG_WARN("[TTT]CancelLicense: closing session ID: %" PRId64, sessionId);
 
     // Closing the session should cause AcquireLicense to return
     CloseDrmSession(sessionId);

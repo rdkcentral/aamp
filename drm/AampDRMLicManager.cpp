@@ -168,7 +168,7 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 	{
 		 if (mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		 {
-			 MW_LOG_WARN("Cancelling ongoing license request");
+			 MW_LOG_WARN("[TTT]Cancelling ongoing license request");
 			 ContentSecurityManager::GetInstance()->CancelLicense(mDrmSessionManager->mContentSecurityManagerSession);
 		 }
 	}
@@ -1183,7 +1183,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		downloadTimeMS = tEndTime - tStartTime;
 		if (licenseRequestAbort.load(std::memory_order_acquire))
 		{
-			AAMPLOG_WARN("License request aborted during AcquireLicense, discarding response");
+			AAMPLOG_WARN("[TTT]License request aborted during AcquireLicense, discarding response");
 			if (licenseResponseStr)
 			{
 				free(licenseResponseStr);
@@ -1194,6 +1194,10 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 			 free(encodedData);
 			 free(encodedChallengeData);
 			 return licenseResponse;
+		}
+		else
+		{
+			AAMPLOG_WARN("[TTT]License request processed successfully not discarding");
 		}
 		if (res)
 		{
