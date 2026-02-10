@@ -867,7 +867,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 	initFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
 	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&initFragment, initFragment.fragment.GetLen());
+	bufferedFragment->Copy(&initFragment, initFragment.fragment.size());
 	ASSERT_TRUE(videoTrack.InjectFragment());
 
 	// Now inject a media fragment with a valid timescale
@@ -881,7 +881,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 
 	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
 	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
+	bufferedFragment->Copy(&testFragment, testFragment.fragment.size());
 
 	// Key assertion: ParseChunkData should be called with the fragment's timescale
 	EXPECT_CALL(*g_mockIsoBmffBuffer,
@@ -933,7 +933,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkWithZeroTimescale)
 	initFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
 	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&initFragment, initFragment.fragment.GetLen());
+	bufferedFragment->Copy(&initFragment, initFragment.fragment.size());
 	ASSERT_TRUE(videoTrack.InjectFragment());
 
 	// Now inject a media fragment with zero timescale (edge case)
@@ -947,7 +947,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkWithZeroTimescale)
 
 	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
 	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
+	bufferedFragment->Copy(&testFragment, testFragment.fragment.size());
 
 	// When timescale is 0, ProcessFragmentChunk returns early without calling ParseChunkData
 	EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _)).Times(0);
