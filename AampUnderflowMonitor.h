@@ -44,14 +44,11 @@ public:
     * @param[in] aamp   AAMP instance used for coordination (downloads, buffering
     *                   state) and event emission.
     * @note Ownership: The caller retains ownership of both `stream` and `aamp`.
-    *       These raw pointers are not owned by `AampUnderflowMonitor` and must
-    *       remain valid for the entire lifetime of the monitor. The monitor's
-    *       background thread will dereference these pointers; destroying
-    *       the referenced objects while the monitor is running leads to
-    *       undefined behavior.
-    * @note Lifetime requirements: Call `Stop()` and ensure the monitoring
-    *       thread has fully joined (i.e., `Stop()` returns) before destroying
-    *       the `StreamAbstractionAAMP` or `PrivateInstanceAAMP` instances passed here.
+    *       All pointer accesses are protected by an internal mutex to prevent
+    *       TOCTOU races during shutdown.
+    * @note Thread Safety: `Stop()` safely terminates the monitoring thread and
+    *       prevents further pointer access. Call `Stop()` before destroying the
+    *       `StreamAbstractionAAMP` or `PrivateInstanceAAMP` instances.
      */
     AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp);
 
@@ -71,11 +68,11 @@ public:
     /**
       * @fn Stop
       * @brief Request the monitoring thread to stop and join it if joinable.
-      *        Safe to call multiple times.
+      *        Safe to call multiple times. Nullifies internal pointers after
+      *        thread termination to prevent use-after-free.
       * @return void
-      * @note The caller should invoke `Stop()` before destroying the associated
-      *       `StreamAbstractionAAMP` or `PrivateInstanceAAMP` objects to satisfy the
-      *       lifetime requirements documented above.
+      * @note After `Stop()` returns, the monitoring thread has fully terminated
+      *       and will not access `StreamAbstractionAAMP` or `PrivateInstanceAAMP`.
      */
     void Stop();
 
@@ -98,7 +95,7 @@ private:
     PrivateInstanceAAMP* mAamp; /** AAMP instance used to emit events, control downloads, and query state. */
     std::thread mThread;    /** Background thread that performs underflow monitoring. */
     std::atomic<bool> mRunning{false};   /** Atomic running flag indicating thread active state. */
-    std::mutex mMutex; /** Serialize Start/Stop transitions within monitor. */
+    std::mutex mMutex; /** Protects pointer access in Run() and serializes Start/Stop. */
 };
 
 #endif // AAMP_UNDERFLOW_MONITOR_H

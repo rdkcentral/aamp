@@ -103,7 +103,6 @@ void AampUnderflowMonitor::Stop()
 
 void AampUnderflowMonitor::Run()
 {
-    PrivateInstanceAAMP* aamp = mAamp;
     // Resolve configurable thresholds and polling intervals once
     const double kUnderflowDetectThresholdSec = GETCONFIGVALUE(eAAMPConfig_UnderflowDetectThresholdSec);
     const double kUnderflowResumeThresholdSec = GETCONFIGVALUE(eAAMPConfig_UnderflowResumeThresholdSec);
@@ -115,40 +114,75 @@ void AampUnderflowMonitor::Run()
 
     // Wait until playback enters PLAYING state or underflow becomes active; exit if playback stops
     while (mRunning.load()) {
-        AAMPPlayerState state = mAamp->GetState();
-        if (state == eSTATE_STOPPED || state == eSTATE_RELEASED || state == eSTATE_ERROR) {
-            mRunning.store(false);
-            return;
+        AAMPPlayerState state;
+        bool shouldBreak = false;
+        bool underflowStatus = false;
+        
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            if (!mAamp) return; // Stop() was called
+            
+            state = mAamp->GetState();
+            if (state == eSTATE_STOPPED || state == eSTATE_RELEASED || state == eSTATE_ERROR) {
+                mRunning.store(false);
+                return;
+            }
+            underflowStatus = mAamp->GetBufUnderFlowStatus();
+            shouldBreak = (state == eSTATE_PLAYING || underflowStatus);
         }
-        if (state == eSTATE_PLAYING || mAamp->GetBufUnderFlowStatus()) {
+        
+        if (shouldBreak) {
             break;
         }
-        mAamp->interruptibleMsSleep(100);
+        
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            if (!mAamp) return;
+            mAamp->interruptibleMsSleep(100);
+        }
     }
 
     while (mRunning.load()) {
-        // Check player state and underflow status
-        const bool underflowActive = mAamp->GetBufUnderFlowStatus();
-        const AAMPPlayerState playerState = mAamp->GetState();
-        // Exit when playback transitions to stopped/released/error/idle
-        if (playerState == eSTATE_STOPPED || playerState == eSTATE_RELEASED || playerState == eSTATE_ERROR || playerState == eSTATE_IDLE) {
-            break;
+        // Check player state and underflow status under mutex
+        bool underflowActive;
+        AAMPPlayerState playerState;
+        float currentRate;
+        double bufferedTimeSec;
+        
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            if (!mAamp || !mStream) return; // Stop() was called
+            
+            underflowActive = mAamp->GetBufUnderFlowStatus();
+            playerState = mAamp->GetState();
+            // Exit when playback transitions to stopped/released/error/idle
+            if (playerState == eSTATE_STOPPED || playerState == eSTATE_RELEASED || playerState == eSTATE_ERROR || playerState == eSTATE_IDLE) {
+                break;
+            }
+            
+            // Skip buffer-based underflow checks during trickplay or seeking
+            currentRate = mAamp->rate;
+            
+            // Query buffered duration once and reuse for detection and sleep cadence
+            bufferedTimeSec = mStream->GetBufferedVideoDurationSec();
+            if (bufferedTimeSec < 0.0) bufferedTimeSec = 0.0;
         }
+        
         const bool inPlayOrUnderflow = (playerState == eSTATE_PLAYING) || underflowActive;
-
-        // Skip buffer-based underflow checks during trickplay or seeking
-        const float currentRate = mAamp->rate;
         const bool isTrickplay = (currentRate != AAMP_NORMAL_PLAY_RATE && currentRate != AAMP_SLOWMOTION_RATE && currentRate != AAMP_RATE_PAUSE);
         const bool isSeekingState = (playerState == eSTATE_SEEKING);
 
-        // Query buffered duration once and reuse for detection and sleep cadence
-        double bufferedTimeSec = mStream->GetBufferedVideoDurationSec();
-        if (bufferedTimeSec < 0.0) bufferedTimeSec = 0.0;
-
         if (inPlayOrUnderflow) {
-            // Video underflow detection/resume
-            const bool trackDownloadsEnabled = mAamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO);
-            bool sinkCacheEmpty = mAamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
+            // Video underflow detection/resume (query under mutex)
+            bool trackDownloadsEnabled;
+            bool sinkCacheEmpty;
+            
+            {
+                std::lock_guard<std::mutex> lock(mMutex);
+                if (!mAamp) return;
+                trackDownloadsEnabled = mAamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO);
+                sinkCacheEmpty = mAamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
+            }
 
             // Only evaluate buffer threshold when not in trickplay/seeking; still honor sink cache emptiness
             const bool allowBufferCheck = (!isTrickplay && !isSeekingState);
@@ -157,6 +191,9 @@ void AampUnderflowMonitor::Run()
                 if (!underflowActive)
                 {
                     AAMPLOG_INFO("[video] underflow detected. buffered=%.3f cacheEmpty=%d (rate=%.2f, trickplay=%d, seeking=%d)", bufferedTimeSec, (int)sinkCacheEmpty, currentRate, (int)isTrickplay, (int)isSeekingState);
+                    
+                    std::lock_guard<std::mutex> lock(mMutex);
+                    if (!mAamp) return;
                     mAamp->SetBufferingState(true);
                     PlaybackErrorType errorType = eGST_ERROR_UNDERFLOW;
                     mAamp->SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(eMEDIATYPE_VIDEO), mAamp->getStringForPlaybackError(errorType));
@@ -166,6 +203,8 @@ void AampUnderflowMonitor::Run()
                     if (!trackDownloadsEnabled && sinkCacheEmpty)
                     {
                         AAMPLOG_WARN("[video] downloads blocked with empty cache during underflow; resuming");
+                        std::lock_guard<std::mutex> lock(mMutex);
+                        if (!mAamp) return;
                         mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
                     }
                 }
@@ -178,11 +217,21 @@ void AampUnderflowMonitor::Run()
                     AAMPLOG_TRACE("[video] skipping buffer-based underflow check (rate=%.2f, trickplay=%d, seeking=%d). cacheEmpty=%d buffered=%.3f",
                                    currentRate, (int)isTrickplay, (int)isSeekingState, (int)sinkCacheEmpty, bufferedTimeSec);
                 }
-                if (underflowActive && mAamp->pipeline_paused)
+                
+                bool pipelinePaused = false;
+                {
+                    std::lock_guard<std::mutex> lock(mMutex);
+                    if (!mAamp) return;
+                    pipelinePaused = mAamp->pipeline_paused;
+                }
+                
+                if (underflowActive && pipelinePaused)
                 {
                     if (bufferedTimeSec >= kUnderflowResumeThresholdSec && !sinkCacheEmpty)
                     {
                         AAMPLOG_INFO("[video] underflow ended. buffered=%.3f cacheEmpty=%d", bufferedTimeSec, (int)sinkCacheEmpty);
+                        std::lock_guard<std::mutex> lock(mMutex);
+                        if (!mAamp) return;
                         mAamp->SetBufferingState(false);
                     }
                     else
@@ -193,6 +242,8 @@ void AampUnderflowMonitor::Run()
                 else if (underflowActive && !trackDownloadsEnabled && sinkCacheEmpty)
                 {
                     AAMPLOG_WARN("[video] underflow ongoing, downloads blocked and cache empty; resuming track downloads");
+                    std::lock_guard<std::mutex> lock(mMutex);
+                    if (!mAamp) return;
                     mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
                 }
             }
@@ -203,7 +254,12 @@ void AampUnderflowMonitor::Run()
         const int sleepMs = (bufferedTimeSec < kLowBufferSec) ? kLowBufferPollMs
                              : (bufferedTimeSec >= kHighBufferSec) ? kHighBufferPollMs
                              : kMediumBufferPollMs;
-        mAamp->interruptibleMsSleep(sleepMs);
+        
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            if (!mAamp) return;
+            mAamp->interruptibleMsSleep(sleepMs);
+        }
     }
     mRunning.store(false);
 }
