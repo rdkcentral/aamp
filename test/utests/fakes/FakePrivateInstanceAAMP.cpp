@@ -275,6 +275,11 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	}
 }
 
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
