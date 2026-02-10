@@ -5195,10 +5195,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				size_t len = (end - start) + 1;
 				if( buffer->size() >= len)
 				{
-					// Extract the range into a temporary vector to avoid self-copy issues
-					std::vector<uint8_t> rangeData(buffer->data() + start, buffer->data() + start + len);
 					buffer->clear();
-					buffer->assign(rangeData.data(), rangeData.data() + rangeData.size());
+					buffer->AppendBytes(buffer->GetPtr() + start, len);
 				}
 
 				// hack - repair wrong size in box

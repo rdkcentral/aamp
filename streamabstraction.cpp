@@ -996,17 +996,9 @@ bool MediaTrack::ProcessFragmentChunk()
 	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.size(), unparsedBufferChunk.size(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	if (unparsedBufferChunk.empty())
-	{
-		unparsedBufferChunk.assign(reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()),
-				reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()) + cachedFragment->fragment.size());
-	}
-	else
-	{
-		unparsedBufferChunk.insert(unparsedBufferChunk.GetVector().end(),
-				reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()),
-				reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()) + cachedFragment->fragment.size());
-	}
+	unparsedBufferChunk.insert(unparsedBufferChunk.GetVector().end(),
+			reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()),
+			reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()) + cachedFragment->fragment.size());
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
