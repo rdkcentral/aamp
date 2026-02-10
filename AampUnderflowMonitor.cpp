@@ -28,6 +28,7 @@
 #include "AampConfig.h"
 #include "AampLogManager.h"
 #include "AampUtils.h"
+#include <stdexcept>
 
 
 AampUnderflowMonitor::AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp)
