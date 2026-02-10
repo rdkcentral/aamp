@@ -535,7 +535,7 @@ public:
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING))
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true))
 			.Times(AnyNumber());
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
 			.Times(AnyNumber())
