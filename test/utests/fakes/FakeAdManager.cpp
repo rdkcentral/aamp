@@ -162,3 +162,7 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 		g_MockPrivateCDAIObjectMPD->NotifyReservationComplete(reservationId);
 	}
 }
+
+void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+}
