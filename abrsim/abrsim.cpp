@@ -163,7 +163,7 @@ public:
 	// Simulate downloading a segment and return download metrics
 	struct DownloadResult {
 		double durationMs;       // Total download time in milliseconds
-		double throughputBps;    // Measured throughput in bytes/second
+		double throughputBps;    // Measured throughput in bits/second
 		bool hadStall;           // Whether download encountered a stall
 		int numBursts;           // Number of bursts during download
 	};
@@ -509,7 +509,8 @@ public:
 	  mBuffer(isLive ? targetLatencyS : maxBufferS, 2.0, true, isLive ? targetLatencyS : maxBufferS),
 	  mIsLive(isLive), mTargetLatencyS(targetLatencyS), mMaxBufferS(maxBufferS),
 	  mLiveEdgeS(0.0), mCurrentSegmentNum(0),
-	  mCurrentProfile(0), mSimTimeS(0.0), mRealClockS(0.0) {
+	  mCurrentProfile(0), mSimTimeS(0.0), mRealClockS(0.0),
+	  mRng(seed ? seed : std::random_device{}()) {
 		
 		// Start with mid-range profile
 		mCurrentProfile = ladder.profiles.size() / 2;

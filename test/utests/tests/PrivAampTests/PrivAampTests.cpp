@@ -21,6 +21,7 @@
 #include <iostream>
 #include <string>
 #include <string.h>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -5754,10 +5755,10 @@ TEST_F(PrivAampTests, NetTrace_ContextPointerNulledAfterGetFile)
 	BitsPerSecond bitrate = 0;
 	int fogError = 0;
 	
-	// Attempt a file download (will fail in test environment, but that's okay)
-	// The important part is verifying cleanup happens
-	p_aamp->GetFile("https://example.com/test.m3u8", 
-					eMEDIATYPE_MANIFEST, 
+	// Attempt a download to localhost; the request is expected to fail quickly,
+	// but the important part is verifying that NetTrace cleanup happens.
+	p_aamp->GetFile("http://127.0.0.1:0/test.m3u8"
+					eMEDIATYPE_MANIFEST,
 					&gBuff, 
 					effectiveUrl,
 					&httpError, 

@@ -51,6 +51,7 @@ Output:
 #include <vector>
 #include <cstdlib>
 
+
 // ----------------------------- Persona types ------------------------------
 
 struct NetworkCharacteristics {

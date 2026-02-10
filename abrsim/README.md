@@ -66,7 +66,7 @@ Note: Full ABR integration requires resolving dependencies on AAMP's config and 
 
 ### Live vs VOD Mode
 
-**VOD Modis capped at `--max-buffer` seconds (default: 20s)
+**VOD Mode** capped at `--max-buffer` seconds (default: 20s)
 - Simulates on-demand video playback with memory constraints
 - Prevents unrealistic buffer growth on fast networks
 - Useful for finding optimal buffer size vs memory tradeoff
