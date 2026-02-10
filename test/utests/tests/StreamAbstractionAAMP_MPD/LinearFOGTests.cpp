@@ -395,7 +395,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _))
 			.WillOnce([pMediaStreamContext]()
 					  {
-						  pMediaStreamContext->mDownloadedFragment.AppendBytes("0x0a", 2);
+						  pMediaStreamContext->mDownloadedFragment.assign(reinterpret_cast<const uint8_t*>("0x0a"), reinterpret_cast<const uint8_t*>("0x0a") + 2);
 						  return false;
 					  });
 		EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())

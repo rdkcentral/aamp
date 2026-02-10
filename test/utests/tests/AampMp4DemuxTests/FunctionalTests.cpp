@@ -90,7 +90,8 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 {
 	// Create test buffer - use ReserveBytes then manual data copy to avoid AppendBytes issues
 	AampGrowableBuffer buffer("videoBuffer");
-	buffer.AppendBytes("video_data", 10);
+	buffer.assign(reinterpret_cast<const uint8_t*>("video_data"),
+			reinterpret_cast<const uint8_t*>("video_data") + 10);
 
 	// Set expectations for Mp4Demux mock
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
@@ -169,14 +170,16 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 	AampMp4Demuxer *audDemuxer = new AampMp4Demuxer(reinterpret_cast<PrivateInstanceAAMP*>(g_mockPrivateInstanceAAMP), eMEDIATYPE_AUDIO);
 
 	AampGrowableBuffer buffer("audioBuffer");
-	buffer.AppendBytes("audio_data", 10);
+	buffer.assign(reinterpret_cast<const uint8_t*>("audio_data"),
+			reinterpret_cast<const uint8_t*>("audio_data") + 10);
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> samples;
 			AampMediaSample sample;
-			sample.mData.AppendBytes("audio_sample", 12);
+			sample.mData.assign(reinterpret_cast<const uint8_t*>("audio_sample"),
+					reinterpret_cast<const uint8_t*>("audio_sample") + 12);
 			samples.push_back(std::move(sample));
 			return samples;
 		}));
@@ -196,7 +199,8 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 {
 	// Send an init segment that results in no samples
 	AampGrowableBuffer initBuffer("initBuffer");
-	initBuffer.AppendBytes("init_data", 9);
+	initBuffer.assign(reinterpret_cast<const uint8_t*>("init_data"),
+			reinterpret_cast<const uint8_t*>("init_data") + 9);
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
@@ -226,7 +230,8 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 {
 	// Send an init segment that results in no samples
 	AampGrowableBuffer initBuffer("initBuffer");
-	initBuffer.AppendBytes("init_data", 9);
+	initBuffer.assign(reinterpret_cast<const uint8_t*>("init_data"),
+			reinterpret_cast<const uint8_t*>("init_data") + 9);
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
@@ -257,7 +262,8 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 {
 	// Create test buffer
 	AampGrowableBuffer buffer("videoBuffer");
-	buffer.AppendBytes("video_data", 10);
+	buffer.assign(reinterpret_cast<const uint8_t*>("video_data"),
+			reinterpret_cast<const uint8_t*>("video_data") + 10);
 
 	// Set expectations for Mp4Demux mock to simulate parse failure
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))

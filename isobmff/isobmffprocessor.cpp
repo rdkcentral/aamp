@@ -1183,7 +1183,8 @@ void IsoBmffProcessor::cacheRestampInitSegment(AampMediaType type,char *segment,
 	stInitRestampSegment *pSt = new stInitRestampSegment;
 	memset(pSt,0,sizeof(stInitRestampSegment));
 	pSt->buffer =  new AampGrowableBuffer("cached-restamp-init-segment");
-	pSt->buffer->AppendBytes(segment, size);
+	pSt->buffer->assign(reinterpret_cast<const uint8_t*>(segment), 
+	                    reinterpret_cast<const uint8_t*>(segment) + size);
 	pSt->type = type;
 	pSt->position = pos;
 	pSt->duration = duration;
@@ -1200,7 +1201,8 @@ void IsoBmffProcessor::cacheInitSegment(char *segment, size_t size)
 	// Save init segment for later. Init segment will be pushed once basePTS is calculated
 	AAMPLOG_INFO("IsoBmffProcessor::[%s] Caching init fragment", IsoBmffProcessorTypeName[type]);
 	AampGrowableBuffer *buffer = new AampGrowableBuffer("cached-init-segment");
-	buffer->AppendBytes(segment, size);
+	buffer->assign(reinterpret_cast<const uint8_t*>(segment), 
+	               reinterpret_cast<const uint8_t*>(segment) + size);
 	initSegment.push_back(buffer);
 }
 

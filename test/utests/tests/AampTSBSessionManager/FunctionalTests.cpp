@@ -170,7 +170,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
 	cachedFragment->absPosition = 1234.0;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA), reinterpret_cast<const uint8_t*>(TEST_DATA) + strlen(TEST_DATA));
 
 	// Add video init fragment to TSB successfullly
 	const std::string INIT_URL = std::string(TEST_BASE_URL) + std::string("vinit.mp4");
@@ -261,7 +261,7 @@ TEST_F(FunctionalTests, Cullsegments)
 	double MANIFEST_DURATION = 30.0;
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA), reinterpret_cast<const uint8_t*>(TEST_DATA) + strlen(TEST_DATA));
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
@@ -341,7 +341,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
 	cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, TEST_DATA_LEN);
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA), reinterpret_cast<const uint8_t*>(TEST_DATA) + TEST_DATA_LEN);
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));

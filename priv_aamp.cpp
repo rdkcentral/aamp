@@ -912,7 +912,9 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{ // clamp - more bytes in write_callback than needed to complete current chunk
 					n = context->m_ChunkedBytesRemaining;
 				}
-				context->buffer->AppendBytes( ptr, n );
+				context->buffer->insert(context->buffer->GetVector().end(),
+						reinterpret_cast<const uint8_t*>(ptr),
+						reinterpret_cast<const uint8_t*>(ptr) + n);
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
 				if( context->m_ChunkedBytesRemaining == 0 )
@@ -1070,7 +1072,9 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			}
 			else
 			{
-				context->buffer->AppendBytes( ptr, numBytesForBlock );
+				context->buffer->insert(context->buffer->GetVector().end(),
+						reinterpret_cast<const uint8_t*>(ptr),
+						reinterpret_cast<const uint8_t*>(ptr) + numBytesForBlock);
 			}
 		}
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
@@ -5191,8 +5195,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				size_t len = (end - start) + 1;
 				if( buffer->size() >= len)
 				{
+					// Extract the range into a temporary vector to avoid self-copy issues
+					std::vector<uint8_t> rangeData(buffer->data() + start, buffer->data() + start + len);
 					buffer->clear();
-					buffer->AppendBytes(buffer->GetPtr() + start, len);
+					buffer->assign(rangeData.data(), rangeData.data() + rangeData.size());
 				}
 
 				// hack - repair wrong size in box

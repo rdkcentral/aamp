@@ -941,7 +941,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 
 	// Create a buffer for the context
 	AampGrowableBuffer buffer("test_buffer");
-	buffer.AppendBytes("dummy data", strlen("dummy data"));
+	buffer.assign(reinterpret_cast<const uint8_t*>("dummy data"), reinterpret_cast<const uint8_t*>("dummy data") + strlen("dummy data"));
 
 	// Create a valid curl context
 	CurlCallbackContext context(p_aamp, &buffer);
@@ -1110,7 +1110,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	AampGrowableBuffer buffer("test_buffer");
 	buffer.ReserveBytes(1024);
 	char initialData[] = "dummy data";
-	buffer.AppendBytes(initialData, strlen(initialData));
+	buffer.assign(reinterpret_cast<const uint8_t*>(initialData), reinterpret_cast<const uint8_t*>(initialData) + strlen(initialData));
 
 	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
@@ -1298,7 +1298,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	// Create a buffer for the context
 	AampGrowableBuffer buffer("test_buffer");
 	char testData[] = "dummy data";
-	buffer.AppendBytes(testData, strlen(testData));
+	buffer.assign(reinterpret_cast<const uint8_t*>(testData), reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
 	char inputData[] = "test data with chunk early abort";
 	buffer.ReserveBytes(1024);
 
@@ -2438,7 +2438,11 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		// add dummy buffer in gBuff to simulate a successful request
-		.WillOnce([&gBuff] () -> CURLcode { gBuff.AppendBytes("0x0a", 4); return CURLE_OK; });
+		.WillOnce([&gBuff] () -> CURLcode { 
+			gBuff.assign(reinterpret_cast<const uint8_t*>("0x0a"),
+					reinterpret_cast<const uint8_t*>("0x0a") + 4);
+			return CURLE_OK; 
+		});
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
@@ -5494,7 +5498,8 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 	AampGrowableBuffer buffer("test_data");
 	CurlCallbackContext context(aamp, &buffer);
 	char testData[] = "dummy data";
-	context.buffer->AppendBytes(testData, strlen(testData));
+	context.buffer->assign(reinterpret_cast<const uint8_t*>(testData),
+			reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
 	context.earlyAbortEnabled = true;
 	context.profileBps = 0;
 
@@ -5518,7 +5523,8 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
 	AampGrowableBuffer buffer("test_data");
 	CurlCallbackContext context(aamp, &buffer);
 	char testData[] = "dummy data";
-	context.buffer->AppendBytes(testData, strlen(testData));
+	context.buffer->assign(reinterpret_cast<const uint8_t*>(testData),
+			reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
 	context.earlyAbortEnabled = true;
 	context.profileBps = 12000;
 

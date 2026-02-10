@@ -129,7 +129,21 @@ public:
 			NETMEMORY_PLUS();
 		}
 	}
+	void assign(const uint8_t *first, const uint8_t *last)
+	{
+		const size_t oldCap = buffer.capacity();
 
+		// Perform the actual vector assignment
+		buffer.assign(first, last);
+
+		const size_t newCap = buffer.capacity();
+
+		// Honour the AAMP memory tracking logic
+		if (oldCap == 0 && newCap > 0)
+		{
+			NETMEMORY_PLUS();
+		}
+	}
 	/**
 	 * @brief Helper for external code to account NETMEMORY for capacity transitions
 	 *

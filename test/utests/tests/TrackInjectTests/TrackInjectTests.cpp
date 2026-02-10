@@ -129,7 +129,8 @@ public:
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
-		cachFragment->fragment.AppendBytes(data, sizeof(data));
+		cachFragment->fragment.assign(reinterpret_cast<const uint8_t*>(data),
+				reinterpret_cast<const uint8_t*>(data) + sizeof(data));
 		if (isLLD)
 		{
 			UpdateTSAfterChunkFetch();
