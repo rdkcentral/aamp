@@ -138,7 +138,7 @@ total_bytes(0), n_audio(0), current_audio(0),
 periodicProgressCallbackIdleTaskId(GST_TASK_ID_INVALID),
 bufferingTimeoutTimerId(GST_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL), TaskControlMutex(), firstProgressCallbackIdleTask("FirstProgressCallback"),
 video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL), task_pool(NULL),
-rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
+rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(true),
 audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
@@ -749,7 +749,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	}
 	else
 	{
-		MW_LOG_WARN( "gst_element_get_state %d", state );
+		MW_LOG_WARN( "gst_element_get_state %d, rc=%d", state, rc );
 	}
 }
 
@@ -2592,44 +2592,79 @@ void InterfacePlayerRDK::ResetFirstFrame(void)
 	interfacePlayerPriv->gstPrivateContext->firstFrameReceived = false;
 }
 
+/**
+ *  @brief Get rendered and dropped frames count when gst element state is GST_STATE_CHANGE_SUCCESS
+ *  with pipeline in playing or paused state.
+ *  Returns NULL during pipeline state transition, and any states other than the above mentioned ones.
+ */
 GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 {
-	GstStructure *stats= 0;
+	GstStructure *stats = nullptr;
 	GstElement *element;
-	if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
+	GstState current{};
+	GstState pending{};
+	constexpr GstClockTime timeout = 0;
+	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
+	if( ret == GST_STATE_CHANGE_SUCCESS )
 	{
-		element = interfacePlayerPriv->gstPrivateContext->video_sink;
-	}
-	else
-	{
-		element = interfacePlayerPriv->gstPrivateContext->video_dec;
-	}
-	if( element )
-	{
-		g_object_get( G_OBJECT(element), "stats", &stats, NULL );
-		if ( stats )
+		if(current == GST_STATE_PLAYING || current == GST_STATE_PAUSED)
 		{
-			const GValue *value;
-			value= gst_structure_get_value( stats, "rendered" );
-			if ( value )
+			if((interfacePlayerPriv->socInterface->IsPlaybackQualityFromSink()))
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered= g_value_get_uint64( value );
+				element = interfacePlayerPriv->gstPrivateContext->video_sink;
 			}
-			value= gst_structure_get_value( stats, "dropped" );
-			if ( value )
+			else
 			{
-				interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped= g_value_get_uint64( value );
+				element = interfacePlayerPriv->gstPrivateContext->video_dec;
 			}
-			MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
-			gst_structure_free( stats );
-			return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+			if( element )
+			{
+				g_object_get( G_OBJECT(element), "stats", &stats, NULL );
+				if ( stats )
+				{
+					const GValue *value;
+					value = gst_structure_get_value( stats, "rendered" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered = 0;
+					}
+					value = gst_structure_get_value( stats, "dropped" );
+					if ( value )
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = g_value_get_uint64( value );
+					}
+					else
+					{
+						interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped = 0;
+					}
+					MW_LOG_MIL("rendered %lld dropped %lld", interfacePlayerPriv->gstPrivateContext->playbackQuality.rendered, interfacePlayerPriv->gstPrivateContext->playbackQuality.dropped);
+					gst_structure_free( stats );
+					return &interfacePlayerPriv->gstPrivateContext->playbackQuality;
+				}
+				else
+				{
+					MW_LOG_ERR("Failed to get sink stats");
+				}
+			}
 		}
 		else
 		{
-			MW_LOG_ERR("Failed to get sink stats");
+			MW_LOG_INFO("gst_element_get_state current=%d is not PLAYING or PAUSED, pending=%d: can't query playback quality now", current, pending);
 		}
 	}
-	return NULL;
+	else if (ret == GST_STATE_CHANGE_ASYNC)
+	{
+		MW_LOG_INFO("gst_element_get_state async: state transition in progress (current state=%d, pending=%d), can't query playback quality now", current, pending);
+	}
+	else
+	{
+		MW_LOG_INFO("gst_element_get_state ret=%d: can't query playback quality now", ret);
+	}
+	return nullptr;
 }
 
 /**

@@ -22,6 +22,8 @@
 #include "AampMPDDownloader.h"
 #include "AampStreamSinkManager.h"
 
+#include "BandwidthEstimatorBase.h"
+
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
@@ -49,7 +51,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsAudioContextSkipped(false),
 	mMediaFormat(eMEDIAFORMAT_HLS),
 	mPersistedProfileIndex(0),
-	mAvailableBandwidth(0),
 	mContentType(ContentType_UNKNOWN),
 	mManifestUrl(""),
 	mServiceZone(),
@@ -144,6 +145,10 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 }
 
+void PrivateInstanceAAMP::UpdatePersistBandwidth(BitsPerSecond bandwidth)
+{
+}
+
 double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
 {
     double pts = 0.0;
@@ -193,15 +198,15 @@ AAMPPlayerState PrivateInstanceAAMP::GetState()
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetState(state);
+		g_mockPrivateInstanceAAMP->SetState(state, sendStateChangeEvent);
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 }
 
@@ -270,6 +275,14 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->NotifySpeedChanged(rate, changeState);
+	}
+}
+
+void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifyReservationComplete(reservationId);
 	}
 }
 
@@ -423,7 +436,12 @@ long PrivateInstanceAAMP::GetCurrentLatency()
 
 bool PrivateInstanceAAMP::IsAtLivePoint()
 {
-	return false;
+	bool result = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsAtLivePoint();
+	}
+	return result;
 }
 
 ContentType PrivateInstanceAAMP::GetContentType() const
@@ -523,7 +541,12 @@ std::string PrivateInstanceAAMP::GetAppName()
 
 int PrivateInstanceAAMP::GetAudioTrack()
 {
-	return 0;
+	int retValue = 0;
+	if(g_mockPrivateInstanceAAMP != nullptr) 
+	{
+		retValue = g_mockPrivateInstanceAAMP->GetAudioTrack();
+	}
+	return retValue;
 }
 
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
@@ -882,9 +905,6 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
-{
-}
 
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
@@ -1029,11 +1049,6 @@ uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
 	return 0u;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-    return 0;
-}
-
 BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
 {
     return 0;
@@ -1128,7 +1143,12 @@ void PrivateInstanceAAMP::StopBuffering(bool forceStop)
 
 bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 {
-    return true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->TrackDownloadsAreEnabled(type);
+	}
+
+	return true;
 }
 
 void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
@@ -1195,7 +1215,12 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 
 bool PrivateInstanceAAMP::IsLiveStream(void)
 {
-	return mIsLiveStream;
+	bool result = mIsLiveStream;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsLiveStream();
+	}
+	return result;
 }
 
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
@@ -1745,4 +1770,9 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaS
 	{
 		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, sample);
 	}
+}
+
+bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
+{
+	return false;
 }

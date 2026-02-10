@@ -256,10 +256,13 @@ public:
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))

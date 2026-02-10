@@ -36,7 +36,7 @@ public:
 
 	MOCK_METHOD(AAMPPlayerState, GetState, ());
 
-	MOCK_METHOD(void, SetState, (AAMPPlayerState state));
+	MOCK_METHOD(void, SetState, (AAMPPlayerState state, bool sendStateChangeEvent));
 
 	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
 				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
@@ -90,6 +90,10 @@ public:
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
+	MOCK_METHOD(bool, IsAtLivePoint, ());
+	MOCK_METHOD(bool, IsLiveStream, ());
+	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
+	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

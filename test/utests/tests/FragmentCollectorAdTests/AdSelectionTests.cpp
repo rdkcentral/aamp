@@ -535,11 +535,14 @@ public:
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(false));
 		// For the time being return the same manifest again
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillRepeatedly(WithoutArgs(Invoke(this, &AdSelectionTests::GetManifestForMPDDownloader)));

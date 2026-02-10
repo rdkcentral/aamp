@@ -876,7 +876,7 @@ private:
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
 	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
-	long long prevDownloadStartTime;		/**< Previous file download Start time*/
+	uint64_t prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
@@ -1193,12 +1193,11 @@ public:
 	}
 
 	/**
-	 *   @fn IsLowestProfile
+	 *   @fn IsCurrentProfileLowest
 	 *
-	 *   @param currentProfileIndex - current profile index to be checked.
-	 *   @return true if the given profile index is lowest.
+	 *   @return true if the current selected profile is the lowest.
 	 */
-	bool IsLowestProfile(int currentProfileIndex);
+	bool IsCurrentProfileLowest();
 
 	/**
 	 *   @fn getOriginalCurlError
@@ -1282,6 +1281,13 @@ public:
 	 *   @return true if we are at live point.
 	 */
 	bool IsStreamerAtLivePoint(double seekPosition = 0 );
+
+	/**
+	 *   @brief Set whether we are playing at live point or not.
+	 *
+	 *   @param[in] isAtLivePoint true if at live point, false otherwise.
+	 */
+	void SetIsAtLivePoint(bool isAtLivePoint);
 
 	/**
 	 *   @brief Whether we seeked to live offset range or not.

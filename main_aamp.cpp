@@ -272,6 +272,13 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	}
 }
 
+/**
+ *  @brief Notify AAMP that ad reservation is complete for a given reservationId
+ */
+void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	aamp->NotifyReservationComplete(reservationId);
+}
 
 /**
  *   @brief API to reset configuration across tunes for single player instance
@@ -689,7 +696,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE); // Send speed change event to XRE to reset the speed to normal play since the trickplay ignored at player level.
 				return;
 			}
-
 			// Special case where playback has not started due to autoplay being false and
 			// first rate is paused, set to pause with first frame shown
 			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
@@ -729,9 +735,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 			}
 			bool retValue = true;
-			if ( AAMP_SLOWMOTION_RATE != rate && rate > 0 && aamp->IsLive() && aamp->mpStreamAbstractionAAMP->IsStreamerAtLivePoint() && aamp->rate >= AAMP_NORMAL_PLAY_RATE && !aamp->mbDetached)
+
+			if (rate >= AAMP_NORMAL_PLAY_RATE &&
+				aamp->IsAtLivePoint() &&
+				!aamp->mbDetached)
 			{
-				AAMPLOG_WARN("Already at logical live point, hence skipping operation");
+				AAMPLOG_WARN("Already at logical live point, hence skipping operation (rate=%.2f)", rate);
 				aamp->NotifyOnEnteringLive();
 				return;
 			}
@@ -743,6 +752,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused, rate);
 				return;
 			}
+
+			// Not at live edge, so clear the flag
+			aamp->mpStreamAbstractionAAMP->SetIsAtLivePoint(false);
 
 			//-- Get the trick play to a closer position
 			//Logic adapted
@@ -3161,8 +3173,8 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceClean
 	}
 	AAMPLOG_MIL("aamp_stop PlayerState=%d forceCleanup=%d", state, forceCleanup);
 	
-	// Negate sendStateChangeEvent since no need to send state change event on destructor call
-	aamp->Stop(!sendStateChangeEvent);
+	// State change events won't be sent if sendStateChangeEvent is false.
+	aamp->Stop(sendStateChangeEvent);
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);

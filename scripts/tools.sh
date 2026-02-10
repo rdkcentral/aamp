@@ -144,9 +144,9 @@ echo "********AAMP install summary end*************"
 
 echo -n "build completed $(date) elapsed time "
 if [[ "${OSTYPE}" == "darwin"* ]]; then    
-    date -ju -f "%s" ${SECONDS}  +%T
+    date -ju -f "%s" "${SECONDS}" +%T
 else
-    date -u -d "@$SECONDS" +%T
+    date -u -d "@${SECONDS}" +%T
 fi
 echo ""
 }

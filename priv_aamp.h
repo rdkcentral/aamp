@@ -80,6 +80,9 @@
 // forward declaration to avoid circular dependency
 class AampMPDDownloader;
 
+// forward declaration
+struct CurlCallbackContext;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -884,7 +887,6 @@ public:
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
-	std::vector< std::pair<long long,BitsPerSecond>> mAbrBitrateData;
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
@@ -936,7 +938,6 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-	BitsPerSecond mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1374,7 +1375,13 @@ public:
 	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
 	 * @return true iff successful
 	 */
-	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
+				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				int *http_error = NULL, double *downloadTime = NULL,
+				const char *range = NULL, unsigned int curlInstance = 0,
+				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
+				int *fogError = NULL, double fragmentDurationS = 0,
+				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
 
 	/**
 	 * @fn getUUID
@@ -1587,6 +1594,12 @@ public:
 	void NotifyOnEnteringLive();
 
 	/**
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
 	 * @fn getLastInjectedPosition
 	 *
 	 * @return last injected position
@@ -1613,14 +1626,28 @@ public:
 	 * @param[in] bandwidth - Bandwidth in bps
 	 * @return void
 	 */
-	void SetPersistedBandwidth(BitsPerSecond bandwidth) {mAvailableBandwidth = bandwidth;}
+	void SetPersistedBandwidth(BitsPerSecond bandwidth)
+	{
+		mhAbrManager.SetInitialBandwidthForProfile(bandwidth, false, 0);
+	}
 
 	/**
 	 * @brief Get persisted bandwidth
 	 *
 	 * @return Bandwidth
 	 */
-	BitsPerSecond GetPersistedBandwidth(){return mAvailableBandwidth;}
+	BitsPerSecond GetPersistedBandwidth()
+	{
+		return mhAbrManager.GetNetworkBandwidth();
+	}
+
+	/**
+	 * @brief Update ABR persisted bandwidth/time (across tunes) if enabled.
+	 *
+	 * @param[in] bandwidth - Available bandwidth in bps
+	 * @return void
+	 */
+	void UpdatePersistBandwidth(BitsPerSecond bandwidth);
 
 	/**
 	 * @fn UpdateDuration
@@ -1822,9 +1849,10 @@ public:
 	/**
 	 * @fn Stop
 	 *
+	 * @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 * @return void
 	 */
-	void Stop( bool isDestructing = false );
+	void Stop( bool sendStateChangeEvent = true );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -2119,21 +2147,6 @@ public:
 	double GetSeekBase(void);
 
 	/**
-	 * @fn ResetCurrentlyAvailableBandwidth
-	 *
-	 * @param[in] bitsPerSecond - bps
-	 * @param[in] trickPlay		- Is trickplay mode
-	 * @param[in] profile		- Profile id.
-	 * @return void
-	 */
-	void ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,bool trickPlay,int profile=0);
-
-	/**
-	 * @fn GetCurrentlyAvailableBandwidth
-	 */
-	BitsPerSecond GetCurrentlyAvailableBandwidth(void);
-
-	/**
 	 * @fn DisableDownloads
 	 *
 	 * @return void
@@ -2327,9 +2340,10 @@ public:
 	 *   @fn SetState
 	 *
 	 *   @param[in] state - New state
+	 *   @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 *   @return void
 	 */
-	void SetState(AAMPPlayerState state);
+	void SetState(AAMPPlayerState state, bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn GetState
@@ -4027,6 +4041,13 @@ public:
 protected:
 
 	/**
+	 * @brief Check if chunk download should be aborted early based on transfer rate
+	 * @param context Curl callback context
+	 * @retval true if chunk download should be aborted
+	 */
+	bool CheckForChunkEarlyAbort(CurlCallbackContext *context);
+
+	/**
 	 *   @fn IsWideVineKIDWorkaround
 	 *
 	 *   @param[in] url - url info
@@ -4175,7 +4196,6 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	BitsPerSecond mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;

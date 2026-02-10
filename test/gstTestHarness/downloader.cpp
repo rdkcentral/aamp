@@ -17,6 +17,7 @@
  * limitations under the License.
  */
 #include "downloader.hpp"
+#include "gst-test.h"
 #include <stdlib.h>
 #include <curl/curl.h>
 #include "string_utils.hpp"
@@ -82,8 +83,10 @@ public:
 		{
 			context->capacity = context->size + total;
 			context->buffer = (char *)g_realloc(context->buffer, context->capacity);
+			if (context->buffer == NULL) {
+				throw TestHarnessException("CurlContext::write_callback - g_realloc failed");
+			}
 		}
-		assert( context->buffer != NULL );
 		(void)memcpy(&context->buffer[context->size], ptr, total);
 		context->size += total;
 		return total;
@@ -107,6 +110,7 @@ public:
  */
 gpointer LoadUrl( const std::string &url, gsize *pLen )
 {
+	printf( "LoadUrl(%s)\n", url.c_str() );
 	gpointer ptr = NULL;
 	gsize len = 0;
 	
@@ -165,18 +169,15 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 					len = context.size;
 					break;
 				default:
-					printf( "LoadUrl(%s)\n", url.c_str() );
-					printf( "->http error: %ld\n", response_code );
-					
+					printf( "http error: %ld\n", response_code );
 					g_free(context.buffer);
 					context.buffer = NULL;
 					break;
 			}
 		}
 		else
-		{ // curl failure
-			printf( "LoadUrl(%s)\n", url.c_str() );
-			printf( "->curl error: %d\n", rc );
+		{
+			printf( "curl error: %d\n", rc );
 			g_free(context.buffer);
 			context.buffer = NULL;
 		}
@@ -196,10 +197,9 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			f = fopen( prefix.c_str(), "rb" );
 			if( !f )
 			{ // file not found
-				printf( "file not found!\n" );
+				printf( "failed to open file\n" );
 				return NULL;
 			}
-			//assert( f );
 			fseek( f, 0, SEEK_END );
 			len = ftell(f);
 		}
@@ -207,11 +207,21 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 		{
 			std::string prefix = url.substr(start,delim-start);
 			f = fopen( prefix.c_str(), "rb" );
-			assert( f );
+			if (!f) {
+				throw TestHarnessException("failed to open file: " + prefix);
+			}
 			delim = range.find('-');
-			assert( delim != std::string::npos );
-			offs = atol( range.substr(0,delim).c_str() );
-			len = atol( range.substr(delim+1).c_str() ) + 1 - offs;
+			if (delim == std::string::npos) {
+				fclose(f);
+				throw TestHarnessException("Invalid range format (missing '-'): " + range);
+			}
+			try {
+				offs = std::stol(range.substr(0,delim));
+				len = std::stol(range.substr(delim+1)) + 1 - offs;
+			} catch (const std::exception& e) {
+				fclose(f);
+				throw TestHarnessException("Failed to parse range values: " + range + " - " + e.what());
+			}
 		}
 		if( f )
 		{

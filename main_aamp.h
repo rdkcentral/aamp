@@ -183,6 +183,12 @@ public:
 	void SetRate(float rate, int overshootcorrection=0);
 
 	/**
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
 	 *   @fn SetUserAgent
 	 *
 	 *   @param[in]  userAgent - userAgent value read from browser
@@ -1009,11 +1015,11 @@ public:
 
 	/**
 	 *   @fn SetPreferredLabels
-	 *   @param[in] lableList - string with array with label list
+	 *   @param[in] labelList - string with array with label list
 	 *
 	 *   @return void
 	 */
-	void SetPreferredLabels(const char *lableList);
+	void SetPreferredLabels(const char *labelList);
 
 	/**
 	 *   @fn SetPreferredRenditions

@@ -759,6 +759,10 @@ guint64 g_value_get_uint64(const GValue *value)
 void gst_structure_free(GstStructure *structure)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_structure_free(structure);
+	}
 }
 
 gboolean gst_init_check(int *argc, char **argv[], GError **error)

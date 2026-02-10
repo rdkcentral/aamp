@@ -122,7 +122,7 @@ public:
   bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
   {
     /* Setup fake AampGrowableBuffer contents. */
-    buffer->Clear();
+    buffer->clear();
     buffer->AppendBytes((char *)mManifest, strlen(mManifest));
     effectiveUrl = remoteUrl;
     *httpError = 200;
@@ -975,7 +975,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
         {
-            buffer->Clear();
+            buffer->clear();
             buffer->AppendBytes((char*)manifest, strlen(manifest));
             *httpError = 200;
             effectiveUrl = remoteUrl;
@@ -1437,7 +1437,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
- * @brief Tests the functionality of the PlaceAds method when isSrcdurnotequalstoaddur is true
+ * @brief Tests the functionality of the PlaceAds method when sourceAdDurationMismatch is true
  * If the duration of ad outside source period is greater than 2sec, its treated as split period
  * This test validates the scenario when duration of ad outside source period is equal to 2sec
  */
@@ -1492,7 +1492,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 32000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId1 ad duration is set to 32000 to force mismatch for sourceAdDurationMismatch
   // Also setting brkDuration to 32 sec as well
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(32000, std::make_shared<std::vector<AdNode>>(), "", 0, 32000)},
@@ -1616,7 +1616,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 14, 0, 28000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId1 ad duration is set to 35000 to force mismatch for sourceAdDurationMismatch
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(60000, std::make_shared<std::vector<AdNode>>(), "", 0, 60000)},
   };
@@ -3291,7 +3291,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 29000 to force mismatch for isSrcdurnotequalstoaddur
+  // testPeriodId1 ad duration is set to 29000 to force mismatch for sourceAdDurationMismatch
   // testPeriodId2 ad duration is set to 30000
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(29000, std::make_shared<std::vector<AdNode>>(), "", 0, 29000)},
@@ -4251,4 +4251,27 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_DisableDownloadsBeforeWait)
   EXPECT_TRUE(result);
   // Fail if it actually waited for more than 500ms (indicating it did not abort immediately)
   EXPECT_LT(elapsedMs, 500) << "WaitForNextAdResolved did not abort immediately, waited for " << elapsedMs << " ms";
+}
+
+/**
+* @brief Test NotifyReservationComplete for empty ad break: should resolve and notify waiting threads.
+*/
+TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndResolves)
+{
+    std::string periodId = "testPeriodId";
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId] = AdBreakObject(10000, nullptr, "", 0, 0);
+ 
+    // Start a thread that waits for ad resolution (should be notified by NotifyReservationComplete)
+    bool completed = false;
+    std::thread waiter([&] {
+      completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000, periodId);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+ 
+    waiter.join();
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
+    // The waiting thread should have completed (not timed out)
+    EXPECT_TRUE(completed);
 }

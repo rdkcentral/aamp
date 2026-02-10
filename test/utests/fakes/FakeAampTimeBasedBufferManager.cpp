@@ -17,6 +17,9 @@
  * limitations under the License.
  */
 #include "AampTimeBasedBufferManager.hpp"
+#include "MockAampTimeBasedBufferManager.h"
+
+aamp::MockAampTimeBasedBufferManager *g_mockAampTimeBasedBufferManager = nullptr;
 
 namespace aamp
 {
@@ -38,6 +41,10 @@ namespace aamp
 	 */
 	void AampTimeBasedBufferManager::PopulateBuffer(double fragmentDuration)
 	{
+		if (g_mockAampTimeBasedBufferManager != nullptr)
+		{
+			g_mockAampTimeBasedBufferManager->PopulateBuffer(fragmentDuration);
+		}
 	}
 
 	/**
@@ -47,6 +54,10 @@ namespace aamp
 	 */
 	void AampTimeBasedBufferManager::ConsumeBuffer(double timeToConsume)
 	{
+		if (g_mockAampTimeBasedBufferManager != nullptr)
+		{
+			g_mockAampTimeBasedBufferManager->ConsumeBuffer(timeToConsume);
+		}
 	}
 
 	/**
@@ -56,6 +67,10 @@ namespace aamp
 	 */
 	bool AampTimeBasedBufferManager::IsFull() const
 	{
+		if (g_mockAampTimeBasedBufferManager != nullptr)
+		{
+			return g_mockAampTimeBasedBufferManager->IsFull();
+		}
 		return false;
 	}
 
@@ -64,5 +79,9 @@ namespace aamp
 	 */
 	void AampTimeBasedBufferManager::ClearBuffer()
 	{
+		if (g_mockAampTimeBasedBufferManager != nullptr)
+		{
+			g_mockAampTimeBasedBufferManager->ClearBuffer();
+		}
 	}
 } // namespace aamp

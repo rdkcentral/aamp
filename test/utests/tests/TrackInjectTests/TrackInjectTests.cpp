@@ -118,7 +118,7 @@ public:
 		if (isLLD)
 		{
 			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-			cachFragment->fragment.Clear();
+			cachFragment->fragment.clear();
 		}
 		else
 		{

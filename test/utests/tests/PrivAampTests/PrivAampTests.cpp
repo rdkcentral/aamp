@@ -44,6 +44,7 @@
 #include "MockCurl.h"
 #include "MockAampCurlStore.h"
 #include "MockAampJsonObject.h"
+#include "MockAampUtils.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
 #include "fragmentcollector_mpd.h"
@@ -56,6 +57,7 @@
 using ::testing::An;
 using ::testing::DoAll;
 using ::testing::InvokeWithoutArgs;
+using ::testing::Invoke;
 using ::testing::Matcher;
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -85,6 +87,10 @@ public:
 protected:
 	void SetUp() override
 	{
+		// Ensure PlayerCCManager starts in a clean state for each test
+		// This prevents order-dependent failures where mEnabled state persists
+		PlayerCCManager::DestroyInstance();
+
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
@@ -102,12 +108,11 @@ protected:
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
 		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
 	}
 
 	void TearDown() override
 	{
-		g_mockPlayerCCManager.reset();
-
 		delete g_MockPrivateCDAIObjectMPD;
 		g_MockPrivateCDAIObjectMPD = nullptr;
 		
@@ -146,11 +151,17 @@ protected:
 		delete g_mockIsoBmffBuffer;
 		g_mockIsoBmffBuffer = nullptr;
 
+		delete g_mockAampUtils;
+		g_mockAampUtils = nullptr;
+
 		delete (int*)mCurlEasyHandle;
 		mCurlEasyHandle = nullptr;
 
 		delete p_aamp;
 		p_aamp = nullptr;
+
+		PlayerCCManager::DestroyInstance();
+		g_mockPlayerCCManager.reset();
 
 		delete config;
 		config = nullptr;
@@ -265,21 +276,21 @@ public:
 	void CallNotifyFirstBufferProcessed()
 	{
 		bool mFirstVideoFrameDisplayedEnabled = false;
-		SetState(eSTATE_SEEKING);
+		SetState(eSTATE_SEEKING, true);
 		NotifyFirstBufferProcessed(std::string());
 	}
 	void CallNotifyFirstVideoFrameDisplayed()
 	{
 		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
 		TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-		SetState(eSTATE_PAUSED);
+		SetState(eSTATE_PAUSED, true);
 		NotifyFirstVideoFrameDisplayed();
 	}
 	void CallNotifyFirstVideoFrameDisplayed_1()
 	{
 		TestablePrivAamp::mPauseOnFirstVideoFrameDisp = true;
 		TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-		SetState(eSTATE_SEEKING);
+		SetState(eSTATE_SEEKING, true);
 		NotifyFirstVideoFrameDisplayed();
 	}
 	void CallGetContentTypString()
@@ -350,10 +361,10 @@ public:
 	}
 	void GetAvailableTracks_obj()
 	{
-		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		static std::vector<AudioTrackInfo> mockAudio;
+		EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+			.WillRepeatedly(ReturnRef(mockAudio));
 
-		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
 	}
 	void InitStreamAbstraction()
@@ -388,9 +399,20 @@ public:
 	{
 		return mLocalAAMPTsbFromConfig;
 	}
+	bool CallCheckForChunkEarlyAbort(CurlCallbackContext *context)
+	{
+		return CheckForChunkEarlyAbort(context);
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
+
+// RAII guard to ensure memory copying is disabled on test exit
+struct MemoryCopyingGuard {
+	MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
+	~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
+};
+
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
 {
 	testp_aamp->GetAvailableTracks_obj();
@@ -443,7 +465,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	testp_aamp->SetContentType("LINEAR_TV");
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
@@ -500,7 +522,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	testp_aamp->SetContentType("LINEAR_TV");
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
@@ -927,7 +949,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = 0;
-	context.chunkBoundary = buffer.GetLen(); // Simulate end of chunk
+	context.chunkBoundary = buffer.size(); // Simulate end of chunk
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
 		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
@@ -954,8 +976,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 // Test HandleSSLWriteCallback when ParseBuffer API call fails in chunkInjection mode
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Setting up");
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -975,9 +995,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 		.Times(0);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(false));
+		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
-		.WillRepeatedly(Return(false)); // return no mdat for now
+		.Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.Times(0);
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
@@ -994,13 +1016,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	context.bufferOffset = 0;
 	context.chunkBoundary = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Calling HandleSSLWriteCallback");
-
 	// Call with valid context - ptr is not NULL, so data processing happens
 	char testData[] = "test data with parse failure";
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
-
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithParseBufferFailure - Result: %zu", result);
 	// Result should be size*nmemb
 	EXPECT_EQ(result, strlen(testData));
 	// Verify that bufferOffset and chunkBoundary remain unchanged
@@ -1011,8 +1029,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 // Test HandleSSLWriteCallback when no mdat detected in chunkInjection mode
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Setting up");
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1032,9 +1048,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 		.Times(0);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(true));
+		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
-		.WillRepeatedly(Return(false)); // return no mdat for now
+		.WillOnce(Return(false)); // return no mdat for now
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.WillOnce(Return(false)); // return no mdat info
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
@@ -1051,13 +1069,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	context.bufferOffset = 0;
 	context.chunkBoundary = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Calling HandleSSLWriteCallback");
-
 	// Call with valid context - ptr is not NULL, so data processing happens
 	char testData[] = "test data with zero mdat";
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
-
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithoutMdat - Result: %zu", result);
 	// Result should be size*nmemb
 	EXPECT_EQ(result, strlen(testData));
 	// Verify that bufferOffset and chunkBoundary remain unchanged
@@ -1065,17 +1079,14 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	EXPECT_EQ(context.chunkBoundary, 0);
 }
 
-// Test HandleSSLWriteCallback when full mdat is received in chunkInjection mode
-// Done in 2 iterations to simulate data arriving in parts
-TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
+// Test HandleSSLWriteCallback when a chunked (incomplete) MDAT box is received
+// in chunkInjection mode and detected via getChunkedMdatBoxInfo() rather than
+// as a complete MDAT counted by getMdatBoxCount(). The 2 iterations simulate
+// the chunked MDAT data arriving over multiple callbacks.
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Setting up");
-
 	// RAII guard to ensure memory copying is disabled on test exit (success or failure)
-	struct MemoryCopyingGuard {
-		MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
-		~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
-	} guard;
+	MemoryCopyingGuard guard;
 
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
@@ -1101,7 +1112,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
 	char initialData[] = "dummy data";
 	buffer.AppendBytes(initialData, strlen(initialData));
 
-	size_t startBufferOffset = buffer.GetLen();
+	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
 	CurlCallbackContext context(p_aamp, &buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
@@ -1112,70 +1123,59 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMp4ChunkBoundary)
 	context.bufferOffset = startBufferOffset;
 	context.chunkBoundary = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Calling HandleSSLWriteCallback");
-
-	// Call HandleSSLWriteCallback twice with incremental data to simulate full mdat reception
-	char testDataPart1[] = "test data with mdat full chunk part 1";
-	char testDataPart2[] = "test data with mdat full chunk part 2";
+	// Call HandleSSLWriteCallback twice with incremental data to simulate partial (chunked) mdat reception
+	char testDataPart1[] = "test data with partial mdat chunk part 1";
+	char testDataPart2[] = "test data with partial mdat chunk part 2";
 	size_t totalBufSize = strlen(testDataPart1) + strlen(testDataPart2);
-	// Lets assume mdat starts from offset 10 to end of buffer
-	size_t mdatStart = 10;
+	// Lets assume mdat starts from offset 20 to end of buffer
+	size_t mdatStart = 20;
 	size_t mdatSize = totalBufSize - mdatStart;
 	size_t chunkBoundary = startBufferOffset + mdatStart + mdatSize;
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(true));
+		.WillOnce(Return(true));
 	// Return mdat count as 1
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(Return(false));
+	// Return chunked mdat info
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
 		.WillOnce(DoAll(
-			SetArgReferee<0>(static_cast<size_t>(1)),
-			Return(true)
-		));
-	// Return mdat info
-	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxInfo(0, _, _))
-		.WillOnce(DoAll(
-			SetArgReferee<1>(static_cast<size_t>(mdatStart)), // mdat start
-			SetArgReferee<2>(static_cast<size_t>(mdatSize)), // mdat size
+			SetArgReferee<0>(static_cast<size_t>(mdatStart)), // mdat start
+			SetArgReferee<1>(static_cast<size_t>(mdatSize)), // mdat size
 			Return(true)
 		));
 
-	// In this test, CacheFragmentChunk() should be called exactly once when full mdat is received
+	// In this test, CacheFragmentChunk() should be called exactly once when chunked mdat boundary is detected
 	// Lets make this a strict check using expected values
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.GetPtr() + startBufferOffset, chunkBoundary - startBufferOffset, _, _))
 		.Times(1);
 
 	size_t result1 = p_aamp->HandleSSLWriteCallback(testDataPart1, strlen(testDataPart1), 1, &context);
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Intermediate Result: %zu", result1);
+	// Result should be size*nmemb
 	EXPECT_EQ(result1, strlen(testDataPart1));
 	// bufferOffset should still be startBufferOffset
 	EXPECT_EQ(context.bufferOffset, startBufferOffset);
 	// chunkBoundary should be updated to mdat start + mdat size
 	EXPECT_EQ(context.chunkBoundary, chunkBoundary);
-	EXPECT_EQ(buffer.GetLen(), startBufferOffset + strlen(testDataPart1));
+	EXPECT_EQ(buffer.size(), startBufferOffset + strlen(testDataPart1));
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMp4ChunkBoundary - Result: %zu", result);
 	// Result should be size*nmemb
 	EXPECT_EQ(result, strlen(testDataPart2));
 	// Verify that bufferOffset is updated to total mdat size
 	EXPECT_EQ(context.bufferOffset, chunkBoundary);
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
-	EXPECT_EQ(buffer.GetLen(), startBufferOffset + totalBufSize);
+	EXPECT_EQ(buffer.size(), startBufferOffset + totalBufSize);
 	// guard destructor will call AampGrowableBuffer_EnableMemoryCopying(false)
 }
 
 // Test HandleSSLWriteCallback when multiple mdat boxes are received
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 {
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Setting up");
-
 	// RAII guard to ensure memory copying is disabled on test exit
-	struct MemoryCopyingGuard {
-		MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
-		~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
-	} guard;
+	MemoryCopyingGuard guard;
 
 	// Enable LL DASH chunk mode
 	AampLLDashServiceData llData;
@@ -1222,7 +1222,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	size_t lastMdatBoundary = thirdMdatStart + thirdMdatSize; // Should use the last mdat
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillRepeatedly(Return(true));
+		.WillOnce(Return(true));
 
 	// Return mdat count as 3 (multiple fragments in buffer)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
@@ -1238,6 +1238,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 			SetArgReferee<2>(static_cast<size_t>(thirdMdatSize)),
 			Return(true)
 		));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.Times(0); // Not expected to be called in this test
 
 	// CacheFragmentChunk should be called once with data up to the last mdat boundary
 	EXPECT_CALL(*g_mockMediaStreamContext,
@@ -1245,8 +1247,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 		.Times(1);
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
-
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithMultipleMdatBoxes - Result: %zu", result);
 	EXPECT_EQ(result, strlen(testData));
 
 	// Verify that chunkBoundary was identified as the last mdat boundary
@@ -1262,7 +1262,71 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	EXPECT_EQ(context.bufferOffset, lastMdatBoundary);
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
-	EXPECT_EQ(buffer.GetLen(), strlen(testData) + additionalData.size());
+	EXPECT_EQ(buffer.size(), strlen(testData) + additionalData.size());
+}
+
+// Test HandleSSLWriteCallback when CheckForChunkEarlyAbort returns true
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Setting up");
+
+	// RAII guard to ensure memory copying is disabled on test exit
+	MemoryCopyingGuard guard;
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our mock MediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+	// In this test, CheckForChunkEarlyAbort() returns true, so CacheFragmentChunk() should not be called
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+		.Times(0);
+
+	// No need to mock IsoBmffBuffer APIs
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	AampGrowableBuffer buffer("test_buffer");
+	char testData[] = "dummy data";
+	buffer.AppendBytes(testData, strlen(testData));
+	char inputData[] = "test data with chunk early abort";
+	buffer.ReserveBytes(1024);
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, &buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = NOW_STEADY_TS_MS - 1000;
+	context.bufferOffset = 0; // CheckForChunkEarlyAbort() is called when bufferOffset == 0
+	context.chunkBoundary = strlen(testData) + strlen(inputData); // simulates first chunk fully downloaded
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10; //10ms - shorter time reduces sensitivity to scheduling jitter
+	context.earlyAbortEnabled = true;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+		.WillOnce(Return(80));
+	// bps = 42 bytes * 8000 / 10ms = 33600
+	context.profileBps = 50000; // 50000*0.8 = 40000 is greater than bps, triggering early abort
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Calling HandleSSLWriteCallback");
+
+	size_t result = p_aamp->HandleSSLWriteCallback(inputData, strlen(inputData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Result: %zu", result);
+	// Result should be 0 as callback was aborted
+	EXPECT_EQ(result, 0);
+	// Verify that bufferOffset remain unchanged and abortReason updated
+	EXPECT_EQ(context.bufferOffset, 0);
+	EXPECT_EQ(context.abortReason, eCURL_ABORT_REASON_FIRST_CHUNK_SLOW);
 }
 
 TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
@@ -1397,7 +1461,7 @@ TEST_F(PrivAampTests,MonitorProgressTest5)
 {
 	bool sync = true;
 	bool beginningOfStream = true;
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	p_aamp->MonitorProgress(sync,beginningOfStream);
 }
 TEST_F(PrivAampTests,MonitorProgressTest6)
@@ -1406,7 +1470,7 @@ TEST_F(PrivAampTests,MonitorProgressTest6)
 	bool beginningOfStream = true;
 
 	bool mDownloadsEnabled = true;
-	p_aamp->SetState(eSTATE_PAUSED);
+	p_aamp->SetState(eSTATE_PAUSED, true);
 
 	p_aamp->ReportAdProgress(sync);
 
@@ -1430,7 +1494,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB)
 	p_aamp->durationSeconds = DURATION_SECONDS;
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->pipeline_paused = false;
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 
@@ -1473,7 +1537,7 @@ TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
 	p_aamp->durationSeconds = DURATION_SECONDS;
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->pipeline_paused = false;
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 
@@ -1682,10 +1746,10 @@ TEST_F(PrivAampTests,SendErrorEventTest)
 
 TEST_F(PrivAampTests,SendErrorEventTest_1)
 {
-	p_aamp->SetState(eSTATE_PREPARED);
+	p_aamp->SetState(eSTATE_PREPARED, true);
 	p_aamp->ReloadTSB();
 
-	p_aamp->SetState(eSTATE_PREPARED);
+	p_aamp->SetState(eSTATE_PREPARED, true);
 
 	p_aamp->SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, "UNKNOWNString");
 	p_aamp->SendErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN);
@@ -2141,47 +2205,6 @@ TEST_F(PrivAampTests,GetPlaylistCurlInstanceTest_2)
 	EXPECT_EQ(6,retVar);
 }
 
-TEST_F(PrivAampTests,ResetCurrentlyAvailableBandwidthTest)
-{
-	p_aamp->ResetCurrentlyAvailableBandwidth(123564756,true,15);
-	EXPECT_EQ(p_aamp->mAbrBitrateData.size(),0);
-}
-
-TEST_F(PrivAampTests,ResetCurrentlyAvailableBWTest_1)
-{
-	long bitsPerSecond = 123564756;
-	bool trickPlay = true;
-	int profile = 15;
-	p_aamp->ResetCurrentlyAvailableBandwidth(bitsPerSecond,trickPlay,profile);
-}
-
-TEST_F(PrivAampTests,ResetCurrentlyAvailableBWTest_2)
-{
-	long bitsPerSecond = 123564756;
-	bool trickPlay = true;
-	int profile = 15;
-	std::vector< std::pair<long long,long> > mAbrBitrateData;
-	mAbrBitrateData.push_back(std::make_pair(243475656835,433554345343));
-
-	p_aamp->ResetCurrentlyAvailableBandwidth(bitsPerSecond,trickPlay,profile);
-}
-
-TEST_F(PrivAampTests,GetCurrentlyAvailableBandwidthTest)
-{
-	long val = p_aamp->GetCurrentlyAvailableBandwidth();
-	EXPECT_NE(0,val);
-}
-
-TEST_F(PrivAampTests,GetCurrentlyAvailableBandwidthTest_1)
-{
-	std::vector<BitsPerSecond> tmpData;
-	tmpData.push_back(13242352);
-	tmpData.push_back(13312242352);
-
-	long val = p_aamp->GetCurrentlyAvailableBandwidth();
-	EXPECT_NE(0,val);
-}
-
 TEST_F(PrivAampTests,GetFileTest)
 {
 	const char *url;
@@ -2465,7 +2488,7 @@ TEST_F(PrivAampTests,TeardownStreamTest_2)
 
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 	AAMPPlayerState state = eSTATE_IDLE;
-	p_aamp->SetState(state);
+	p_aamp->SetState(state, true);
 	p_aamp->ScheduleRetune(errorType,trackType);
 
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
@@ -2695,7 +2718,7 @@ TEST_F(PrivAampTests,EndOfStreamReachedTest)
 
 TEST_F(PrivAampTests,EndOfStreamReachedTest_1)
 {
-	p_aamp->SetState(eSTATE_BUFFERING);
+	p_aamp->SetState(eSTATE_BUFFERING, true);
 	p_aamp->EndOfStreamReached(eMEDIATYPE_VIDEO);
 }
 
@@ -2820,7 +2843,7 @@ TEST_F(PrivAampTests,SetVideoRectangleTest_1)
 
 TEST_F(PrivAampTests,SetVideoRectangleTest_2)
 {
-	p_aamp->SetState(eSTATE_PAUSED);
+	p_aamp->SetState(eSTATE_PAUSED, true);
 
 	p_aamp->mMediaFormat = eMEDIAFORMAT_OTA;
 	p_aamp->SetVideoRectangle(100,200,300,400);
@@ -2947,7 +2970,7 @@ TEST_F(PrivAampTests,UnlockGetPositionMsTest)
 
 TEST_F(PrivAampTests,GetPositionRelativeToSeekMillisecondsTest)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	long long val  = p_aamp->GetPositionRelativeToSeekMilliseconds();
 	EXPECT_EQ(val,0);
 }
@@ -2955,7 +2978,7 @@ TEST_F(PrivAampTests,GetPositionRelativeToSeekMillisecondsTest)
 TEST_F(PrivAampTests,GetPositionRelativeToSeekMillisecondsTest_1)
 {
 	p_aamp->seek_pos_seconds = 123450;
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	long long val  = p_aamp->GetPositionRelativeToSeekMilliseconds();
 	EXPECT_EQ(val,0);
 }
@@ -3107,7 +3130,7 @@ TEST_F(PrivAampTests, NotifyFirstFrameReceivedTest)
 
 TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_1)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstFrameReceived(0);
 }
 
@@ -3123,7 +3146,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_2)
 
 TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_3)
 {
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
@@ -3150,7 +3173,7 @@ TEST_F(PrivAampTests,ScheduleRetuneTest)
 
 TEST_F(PrivAampTests,ScheduleRetuneTest_1)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 	p_aamp->TuneHelper(tuneType, true);
 		p_aamp->ScheduleRetune(eGST_ERROR_PTS,eMEDIATYPE_VIDEO);
@@ -3160,19 +3183,19 @@ TEST_F(PrivAampTests,ScheduleRetuneTest_1)
 
 TEST_F(PrivAampTests,ScheduleRetuneTest_2)
 {
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING,eMEDIATYPE_VIDEO);
 	EXPECT_EQ(p_aamp->mDiscontinuityTuneOperationId,0);
 }
 
 TEST_F(PrivAampTests,GetStateTest)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 
 	AAMPPlayerState state = p_aamp->GetState();
 
 	state = p_aamp->GetState();
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 
 	state = p_aamp->GetState();
 }
@@ -3195,7 +3218,7 @@ TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest)
 
 TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest_1)
 {
-	p_aamp->SetState(eSTATE_BUFFERING);
+	p_aamp->SetState(eSTATE_BUFFERING, true);
 
 	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,5);
@@ -3372,7 +3395,7 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest_VideoRectangleEmpty)
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 {
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 
 	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,0);
@@ -3380,7 +3403,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);//true
@@ -3391,7 +3414,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_3)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
@@ -3940,6 +3963,78 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 }
 
+TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
+{
+	// Test that RestoreCC(true) is called when CC was enabled before tune
+	p_aamp->mIsInbandCC = true;
+
+	// Initial tune - SetStatus(false) is called in SetCCStatusInternal during TuneHelper
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// Enable CC after tune - SetStatus(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Now tune again (simulating a new content tune)
+	// RestoreCC(true) should be called based on the tracked state
+	// SetCCStatusInternal is called during tune setup which calls SetStatus(true)
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+}
+
+TEST_F(PrivAampTests,RestoreCCWhenCCWasDisabledBeforeTune)
+{
+	// Test that RestoreCC(false) is called when CC was disabled before tune
+	p_aamp->mIsInbandCC = true;
+
+	// Initial state - CC is disabled by default
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Call TuneHelper - SetStatus(false) is called first, then RestoreCC(false) should be called since CC is disabled
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+}
+
+TEST_F(PrivAampTests,RestoreCCPreservesStateAcrossMultipleTunes)
+{
+	// Test that CC state is preserved and RestoreCC is called on consecutive tunes
+	p_aamp->mIsInbandCC = true;
+
+	// Initial tune - SetStatus(false) is called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// Enable CC - SetStatus(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Second tune - SetStatus(true) and RestoreCC(true) should be called
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// CC should still be enabled after second tune
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Third tune - SetStatus(true) and RestoreCC(true) should be called again
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
+	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+	
+	// CC should still be enabled after third tune
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+}
+
 TEST_F(PrivAampTests,NotifyAudioTracksChangedTest)
 {
 	p_aamp->NotifyAudioTracksChanged();
@@ -4041,7 +4136,7 @@ TEST_F(PrivAampTests,ResetDiscontinuityInTracksTest)
 TEST_F(PrivAampTests,SetPreferredLanguagesTest)
 {
 	Accessibility *accessibilityItem;
-	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LableList",accessibilityItem);
+	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LabelList", accessibilityItem);
 }
 
 TEST_F(PrivAampTests,EnableMediaDownloadsTest)
@@ -4199,7 +4294,7 @@ TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest1)
 }
 TEST_F(PrivAampTests,UpdateMaxDRMSessionsTest2)
 {
-	p_aamp->SetState(eSTATE_SEEKING);
+	p_aamp->SetState(eSTATE_SEEKING, true);
 	p_aamp->UpdateMaxDRMSessions();
 }
 TEST_F(PrivAampTests,GetVideoPlaybackQualityTest)
@@ -4605,7 +4700,7 @@ TEST_F(PrivAampTests,UpdateVideoEndMetricsTest15)
 TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest1)
 {
 	//covering if condition when state == eSTATE_IDLE
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstBufferProcessed(std::string());
 }
 TEST_F(PrivAampPrivTests,NotifyFirstBufferProcessedTest2)
@@ -4663,7 +4758,7 @@ TEST_F(PrivAampTests,IsFirstVideoFrameDisplayedRequiredTest1)
 TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest1)
 {
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-	p_aamp->SetState(eSTATE_IDLE);
+	p_aamp->SetState(eSTATE_IDLE, true);
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
 TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest2)
@@ -4678,7 +4773,7 @@ TEST_F(PrivAampPrivTests,NotifyFirstVideoFrameDisplayedTest3)
 TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest3)
 {
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE,true);
-	p_aamp->SetState(eSTATE_PAUSED);
+	p_aamp->SetState(eSTATE_PAUSED, true);
 	p_aamp->SetStateBufferingIfRequired();
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
@@ -4803,7 +4898,7 @@ TEST_F(PrivAampTests,SendErrorEventTest11)
 {
 	p_aamp->mFogTSBEnabled = true;
 	p_aamp->IsFogTSBSupported();
-	p_aamp->SetState(eSTATE_INITIALIZED);
+	p_aamp->SetState(eSTATE_INITIALIZED, true);
 	p_aamp->SendErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,"DESCRIPTION",true,11,12,13,"responseString");
 }
 
@@ -4819,6 +4914,41 @@ TEST_F(PrivAampTests,stopTest_11)
 	p_aamp->mFogTSBEnabled = true;
 	p_aamp->IsFogTSBSupported();
 	p_aamp->Stop();
+}
+
+TEST_F(PrivAampTests, Stop_StateTransition_WithStateChangeEvent)
+{
+	// Setup: Register for AAMP_EVENT_STATE_CHANGED event
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillRepeatedly(Return(true));
+
+	// Expect: AAMP_EVENT_STATE_CHANGED should be sent for both STOPPING and IDLE states
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), _))
+		.Times(2);
+
+	// Action: Call Stop with sendStateChangeEvent = true
+	p_aamp->Stop(true);
+
+	// Verify: Final state should be IDLE after Stop() completes
+	AAMPPlayerState finalState = p_aamp->GetState();
+	EXPECT_EQ(finalState, eSTATE_IDLE);
+}
+
+TEST_F(PrivAampTests, Stop_StateTransition_WithoutStateChangeEvent)
+{
+	// Setup: Register for AAMP_EVENT_STATE_CHANGED event
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillRepeatedly(Return(true));
+
+	// Expect: AAMP_EVENT_STATE_CHANGED should NOT be sent when sendStateChangeEvent = false
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), _)).Times(0);
+
+	// Action: Call Stop with sendStateChangeEvent = false
+	p_aamp->Stop(false);
+
+	// Verify: Final state should be IDLE even without sending events
+	AAMPPlayerState finalState = p_aamp->GetState();
+	EXPECT_EQ(finalState, eSTATE_IDLE);
 }
 
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
@@ -5102,7 +5232,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	testp_aamp->SetLocalAAMPTsbInjection(true);
 	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
 	testp_aamp->culledSeconds = SEEK_POS;
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 	::testing::Sequence s;
 	AampLLDashServiceData stAampLLDashServiceData;
 	stAampLLDashServiceData.lowLatencyMode = true;
@@ -5149,7 +5279,7 @@ TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
 
 	// Setup required for MonitorProgress() to execute properly
 	p_aamp->mDownloadsEnabled = true;
-	p_aamp->SetState(eSTATE_PLAYING);
+	p_aamp->SetState(eSTATE_PLAYING, true);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
@@ -5260,6 +5390,153 @@ TEST_F(PrivAampTests,VerifyPausedBehavior)
         p_aamp->Tune("sampleUrl",false,NULL,true,false,NULL,true,NULL,0, session_id,NULL);
         EXPECT_FALSE(p_aamp->mSeekFromPausedState);
 }
+
+// Validates that low bandwidth timeout is enabled if the video is not at the lowest profile
+TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
+{
+	std::string effectiveUrl;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	AampMediaType mType = eMEDIATYPE_VIDEO;
+	const int lowBWTimeoutValue = 2; // 2 seconds
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000; // 2000ms timeout
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	// By default lets, return 2s for lowBWTimeout
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(lowBWTimeoutValue));
+	// Set IsCurrentProfileLowest to false
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
+		.WillOnce(Invoke([lowBWTimeoutValue](void* handle, CURLoption option, const void* param) -> CURLcode {
+			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			EXPECT_EQ(ctx->lowBWTimeout, lowBWTimeoutValue);
+			return CURLE_OK;
+		}));
+
+	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+}
+
+// Validates that low bandwidth timeout is disabled if the video is at the lowest profile
+TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
+{
+	std::string effectiveUrl;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	AampMediaType mType = eMEDIATYPE_VIDEO;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000; // 2000ms timeout
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	// By default lets, return 2s for lowBWTimeout
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout)).WillRepeatedly(Return(2));
+	// Set IsCurrentProfileLowest to true
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, CURLOPT_PROGRESSDATA, _))
+		.WillOnce(Invoke([](void* handle, CURLoption option, const void* param) -> CURLcode {
+			const CurlProgressCbContext* ctx = static_cast<const CurlProgressCbContext*>(param);
+			EXPECT_EQ(ctx->lowBWTimeout, 0);
+			return CURLE_OK;
+		}));
+
+	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+}
+
+// Pass null pointer as CurlCallbackContext and abort should be false
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.Times(0);
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(nullptr));
+}
+
+// Pass CurlCallbackContext with dataTransferTime = -1 or earlyAbortEnabled = false
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
+{
+	AampGrowableBuffer buffer("test_data");
+	CurlCallbackContext context(aamp, &buffer);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.Times(0);
+
+	context.dataTransferStartTime = -1;
+	context.earlyAbortEnabled = true;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+
+	context.dataTransferStartTime = 10000;
+	context.earlyAbortEnabled = false;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+	// Can't simulate dataTransferTime = 0, since we are using NOW_STEADY_TS_MS which is not mockable
+}
+
+// Pass valid CurlCallbackContext with profileBps = 0 or coeff = 0
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
+{
+	AampGrowableBuffer buffer("test_data");
+	CurlCallbackContext context(aamp, &buffer);
+	char testData[] = "dummy data";
+	context.buffer->AppendBytes(testData, strlen(testData));
+	context.earlyAbortEnabled = true;
+	context.profileBps = 0;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(80)); // 80% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+
+	context.profileBps = 10000;
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(0)); // 0% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+}
+
+// Pass valid CurlCallbackContext with different params
+TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
+{
+	AampGrowableBuffer buffer("test_data");
+	CurlCallbackContext context(aamp, &buffer);
+	char testData[] = "dummy data";
+	context.buffer->AppendBytes(testData, strlen(testData));
+	context.earlyAbortEnabled = true;
+	context.profileBps = 12000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(80)); // 80% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	// bps = 8000bps (10bytes * 8000 / 10ms) and profileBps*coeff = 9600bps
+	EXPECT_TRUE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
+			.WillOnce(Return(50)); // 50% as profileBps coefficient
+	// 10ms - shorter time reduces sensitivity to scheduling jitter
+	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10;
+	// bps = 8000bps (10bytes * 8000 / 10ms) and profileBps*coeff = 6000bps
+	EXPECT_FALSE(testp_aamp->CallCheckForChunkEarlyAbort(&context));
+}
+
 // Test parameters structure for GetStreamFormat tests
 struct GetStreamFormatTestParams {
 	double rate;
@@ -5282,6 +5559,94 @@ struct GetStreamFormatTestParams {
 		return ss.str();
 	}
 };
+
+
+/**
+ * @brief Validate UpdatePersistBandwidth updates ABR statics when enabled.
+ */
+TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_UpdatesAbrStatics)
+{
+	ABRManager::mPersistBandwidth = 0;
+	ABRManager::mPersistBandwidthUpdatedTime = 0;
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillOnce(Return(1234));
+
+	p_aamp->mbPlayEnabled = true;
+	p_aamp->UpdatePersistBandwidth(5000);
+
+	EXPECT_EQ(ABRManager::getPersistBandwidth(), 5000);
+	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 1234);
+}
+
+/**
+ * @brief Validate UpdatePersistBandwidth does nothing when config disabled.
+ */
+TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStatics)
+{
+	ABRManager::mPersistBandwidth = 123;
+	ABRManager::mPersistBandwidthUpdatedTime = 999;
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
+		.WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistHighNetworkBandwidth))
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).Times(0);
+
+	p_aamp->mbPlayEnabled = true;
+	p_aamp->UpdatePersistBandwidth(5000);
+
+	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
+	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+}
+
+/**
+ * @brief Validate UpdatePersistBandwidth does nothing when playback disabled.
+ */
+TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrStatics)
+{
+	ABRManager::mPersistBandwidth = 123;
+	ABRManager::mPersistBandwidthUpdatedTime = 999;
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).Times(0);
+
+	p_aamp->mbPlayEnabled = false;
+	p_aamp->UpdatePersistBandwidth(5000);
+
+	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
+	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+}
+
+/**
+ * @brief Validate UpdatePersistBandwidth does nothing when bandwidth invalid.
+ */
+TEST_F(PrivAampTests, UpdatePersistBandwidth_ZeroBandwidth_DoesNotUpdateAbrStatics)
+{
+	ABRManager::mPersistBandwidth = 123;
+	ABRManager::mPersistBandwidthUpdatedTime = 999;
+
+	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).Times(0);
+
+	p_aamp->mbPlayEnabled = true;
+	p_aamp->UpdatePersistBandwidth(0);
+
+	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
+	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+}
 
 // This function is used by Google Test to print the parameter value.
 void PrintTo(const GetStreamFormatTestParams& params, ::std::ostream* os)
