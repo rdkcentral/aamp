@@ -146,7 +146,7 @@ public:
           * @return void
           */
 
-	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) {};
+	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset = 0) {};
 	/**
 	 * @brief Abort all operations
 	 *

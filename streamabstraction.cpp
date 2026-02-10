@@ -527,7 +527,8 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		if(playContext)
 		{
-			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+			AAMPLOG_INFO("HariPriya UpdateTSAfterFetch called with loadNewAudio true, calling resetPTSOnAudioSwitch with fragment position %f", cachedFragment->position);
+			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position,cachedFragment->PTSOffsetSec);
 		}
 		else
 		{

@@ -174,7 +174,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 /**
  *  @brief Update PTS and send pts for flush audio
  */
-void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position,double ptsOffset)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -211,7 +211,8 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 
 		if(buffer.getFirstPTS(currentPTS))
 		{
-			double pos = (double)currentPTS / (double)currTimeScale;
+			AAMPLOG_INFO("IsoBmffProcessor %s First PTS from buffer is %" PRIu64 " with offset %lf", IsoBmffProcessorTypeName[type], currentPTS, ptsOffset);
+			double pos = ((double)currentPTS  / (double)currTimeScale) + ptsOffset;
 			p_aamp->FlushTrack((AampMediaType)type,pos);
 			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
 		}

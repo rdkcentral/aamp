@@ -437,6 +437,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		else
 		{
 			// Update buffer index after fetch for injection
+			AAMPLOG_INFO("HariPriya UpdateTSAfterFetch called with %d", initSegment);
 			UpdateTSAfterFetch(initSegment);
 
 			// With AAMP TSB enabled, the chunk cache is used for any content type (SLD or LLD)
