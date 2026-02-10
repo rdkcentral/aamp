@@ -89,16 +89,20 @@ void AampUnderflowMonitor::Start() {
 
 void AampUnderflowMonitor::Stop()
 {
-    // Always request stop, then join if thread is joinable
-    {
-        std::lock_guard<std::mutex> lock(mMutex);
-        mRunning.store(false);
-    }
+    // Signal thread to stop
+    mRunning.store(false);
+    
+    // Wait for thread to terminate
     if (mThread.joinable())
     {
         mThread.join();
         AAMPLOG_INFO("AampUnderflowMonitor thread joined");
     }
+    
+    // Nullify pointers under mutex to prevent any race with thread cleanup
+    std::lock_guard<std::mutex> lock(mMutex);
+    mAamp = nullptr;
+    mStream = nullptr;
 }
 
 void AampUnderflowMonitor::Run()
