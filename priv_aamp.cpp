@@ -5088,11 +5088,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
+#ifdef AAMP_NET_TRACE
 		// Flush NetTrace CSV after retry loop completes (success or terminal failure)
 		// This ensures only one CSV row per GetFile call, regardless of retry attempts
 		if (context.net) {
 			context.net->FlushCsv();
 		}
+#endif
 
 		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
 		{
