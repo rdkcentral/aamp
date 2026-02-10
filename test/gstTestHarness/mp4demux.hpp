@@ -129,6 +129,72 @@ public: // temp workaround - used directly in rialtoTest
 	size_t sampleOffset;
 	bool sencPresent;
 	bool verbose;
+	uint32_t frame_duration_units;
+	bool got_frame_duration_units;
+	bool frame_duration_units_consistent;
+
+	static uint32_t gcd_u32( uint32_t a, uint32_t b )
+	{
+		while( b )
+		{
+			uint32_t t = a % b;
+			a = b;
+			b = t;
+		}
+		return a;
+	}
+
+	bool IsVideoCodec( void ) const
+	{
+		return ( codec_type == MultiChar_Constant("hvcC") ) ||
+			( codec_type == MultiChar_Constant("avcC") );
+	}
+
+	void SetFrameDurationUnits( uint32_t sample_duration )
+	{
+		if( !IsVideoCodec() )
+		{
+			return;
+		}
+		if( !sample_duration || !timescale )
+		{
+			return;
+		}
+		if( !got_frame_duration_units )
+		{
+			frame_duration_units = sample_duration;
+			got_frame_duration_units = true;
+			frame_duration_units_consistent = true;
+		}
+		else if( frame_duration_units != sample_duration )
+		{
+			frame_duration_units_consistent = false;
+		}
+	}
+
+	void SetCapsFrameRate( GstCaps *caps ) const
+	{
+		if( !caps || !got_frame_duration_units )
+		{
+			gst_caps_set_simple( caps,
+			"framerate", GST_TYPE_FRACTION, 30, 1,
+			NULL ); // default to 30fps if we don't have frame duration information
+				return;
+		}
+		if( !frame_duration_units_consistent || !frame_duration_units || !timescale )
+		{
+			gst_caps_set_simple( caps,
+			"framerate", GST_TYPE_FRACTION, 30, 1,
+			NULL ); // default to 30fps if we don't have consistent frame duration information
+			return;
+		}
+		uint32_t g = gcd_u32( timescale, frame_duration_units );
+		uint32_t num = timescale / g;
+		uint32_t den = frame_duration_units / g;
+		gst_caps_set_simple( caps,
+			"framerate", GST_TYPE_FRACTION, (int)num, (int)den,
+			NULL );
+	}
 	
 	GstBuffer * _gst_buffer_new_memdup(gconstpointer data, gsize size)
 	{
@@ -538,6 +604,7 @@ public: // temp workaround - used directly in rialtoTest
 			{
 				sample_duration = ReadU32();
 			}
+			SetFrameDurationUnits( sample_duration );
 			if (flags & 0x0200)
 			{
 				uint32_t sample_size = ReadU32();
@@ -935,6 +1002,9 @@ public:
 		cenc_aux_info_sizes.clear();
 		got_auxiliary_information_offset = false;
 		moof_ptr = NULL;
+		frame_duration_units = 0;
+		got_frame_duration_units = false;
+		frame_duration_units_consistent = true;
 		if( ptr )
 		{
 			this->ptr = (const uint8_t *)ptr;
@@ -960,7 +1030,9 @@ public:
 		duration(), rate(), volume(),
 		matrix{}, layer(), alternate_group(),
 		width_fixed(), height_fixed(), language(),
-		verbose(verbose), sampleOffset(), sencPresent(false)
+		verbose(verbose), sampleOffset(), sencPresent(false),
+		frame_duration_units(), got_frame_duration_units(),
+		frame_duration_units_consistent(true)
 	{
 	}
 	
@@ -1034,9 +1106,9 @@ public:
 										   "width", G_TYPE_INT, video.width,
 										   "height", G_TYPE_INT, video.height,
 										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-										   "framerate", GST_TYPE_FRACTION, 30, 1,
 										   "interlace-mode", G_TYPE_STRING, "progressive",
 										   NULL );
+				SetCapsFrameRate( caps );
 				break;
 				
 			case MultiChar_Constant("avcC"):
@@ -1048,9 +1120,9 @@ public:
 											"width", G_TYPE_INT, video.width,
 											"height", G_TYPE_INT, video.height,
 											"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-											"framerate", GST_TYPE_FRACTION, 30, 1,
 											"interlace-mode", G_TYPE_STRING, "progressive",
 											NULL );
+				SetCapsFrameRate( caps );
 				break;
 				
 			case MultiChar_Constant("esds"):
@@ -1058,7 +1130,7 @@ public:
 										"audio/mpeg",
 										"mpegversion", G_TYPE_INT, 4,
 										"framed", G_TYPE_BOOLEAN, TRUE,
-										"stream-format", G_TYPE_STRING, "adts",
+									"stream-format", G_TYPE_STRING, "raw",
 										"rate", G_TYPE_INT, audio.samplerate,
 										"channels", G_TYPE_INT, audio.channel_count,
 										"codec_data", GST_TYPE_BUFFER, buf,
