@@ -862,7 +862,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 								  mStreamAbstractionAAMP_MPD};
 
 	// First inject an init fragment (required before media fragments)
-	CachedFragment initFragment;
+	CachedFragment initFragment{};
 	initFragment.initFragment = true;
 	initFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
 	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
@@ -871,7 +871,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 	ASSERT_TRUE(videoTrack.InjectFragment());
 
 	// Now inject a media fragment with a valid timescale
-	CachedFragment testFragment;
+	CachedFragment testFragment{};
 	testFragment.initFragment = false;
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	testFragment.position = FIRST_PTS.inSeconds();

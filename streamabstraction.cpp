@@ -1040,6 +1040,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(!timeScale)
 	{
 		AAMPLOG_ERR("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
+		// Return true so the chunk will be removed from the cached fragment chunk buffer
 		return true;
 	}
 	double fpts = 0.0, fduration = 0.0;
