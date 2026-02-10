@@ -63,6 +63,11 @@ set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
 	playerJsonObject/PlayerJsonObject.cpp
 	)
 
+if(CMAKE_RDK_SVP)
+	message("CMAKE_RDK_SVP Set")
+	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_SVP=1")
+endif()
+
 if(CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_PLATFORM_UBUNTU set")
     link_directories(${CMAKE_LIBRARY_PATH})
@@ -90,7 +95,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     execute_process (
         COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    set(OS_CXX_FLAGS "${OS_CXX_FLAGS}  -std=c++14 -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
+	set(OS_CXX_FLAGS "${OS_CXX_FLAGS}  -std=c++17 -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
     string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
@@ -130,8 +135,9 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	vendor/realtek/RealtekSocInterface.h
 	vendor/brcm/BrcmSocInterface.h
 	vendor/default/DefaultSocInterface.h
-        subtitle/vttCue.h
+	subtitle/vttCue.h
 	ProcessHandler.h
+	DemuxDataTypes.h
 	)
 
 install(FILES closedcaptions/CCTrackInfo.h
@@ -167,6 +173,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 	subtec/libsubtec/SubtecPacket.hpp
 	playerisobmff/playerisobmffbuffer.h
 	playerisobmff/playerisobmffbox.h
+	DemuxDataTypes.h
 	DESTINATION include)
 
 set(SOURCES
@@ -370,7 +377,7 @@ target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
-if (NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+if (CMAKE_RDK_SVP)
 	target_link_libraries(playergstinterface gstsvpext)
 endif()
 

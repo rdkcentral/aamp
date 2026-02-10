@@ -174,32 +174,32 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					break;
 
 				case 6:
-					AAMPCLI_PRINTF("[AAMPCLI] CURRENT VIDEO PROFILE BITRATE = %ld\n",
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT VIDEO PROFILE BITRATE = %" BITSPERSECOND_FORMAT "\n",
 							playerInstanceAamp->GetVideoBitrate());
 					break;
 
 				case 7:
-					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BITRATE = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BITRATE = %" BITSPERSECOND_FORMAT "\n",
 							playerInstanceAamp->GetInitialBitrate());
 					break;
 
 				case 8:
-					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BITRATE 4K = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BITRATE 4K = %" BITSPERSECOND_FORMAT "\n",
 							playerInstanceAamp->GetInitialBitrate4k());
 					break;
 
 				case 9:
-					AAMPCLI_PRINTF("[AAMPCLI] MINIMUM BITRATE = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] MINIMUM BITRATE = %" BITSPERSECOND_FORMAT "\n",
 							playerInstanceAamp->GetMinimumBitrate());
 					break;
 
 				case 10:
-					AAMPCLI_PRINTF("[AAMPCLI] MAXIMUM BITRATE = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] MAXIMUM BITRATE = %" BITSPERSECOND_FORMAT "\n",
 							playerInstanceAamp->GetMaximumBitrate());
 					break;
 
 				case 11:
-					AAMPCLI_PRINTF("[AAMPCLI] AUDIO BITRATE = %ld\n",
+					AAMPCLI_PRINTF("[AAMPCLI] AUDIO BITRATE = %" BITSPERSECOND_FORMAT "\n",
 							playerInstanceAamp->GetAudioBitrate());
 					break;
 
@@ -225,7 +225,7 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 16:
 					{
-						std::vector<long int> videoBitrates;
+						std::vector<BitsPerSecond> videoBitrates;
 						std::string temp = "[AAMPCLI] VIDEO BITRATES = [ ";
 						videoBitrates = playerInstanceAamp->GetVideoBitrates();
 						for(int i=0; i < videoBitrates.size(); i++){
@@ -239,7 +239,7 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 17:
 					{
-						std::vector<long int> audioBitrates;
+						std::vector<BitsPerSecond> audioBitrates;
 						std::string temp = "[AAMPCLI] AUDIO BITRATES = [ ";
 						audioBitrates = playerInstanceAamp->GetAudioBitrates();
 						for(int i=0; i < audioBitrates.size(); i++){

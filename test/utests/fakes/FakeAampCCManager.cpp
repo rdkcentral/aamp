@@ -29,12 +29,23 @@ std::shared_ptr<MockPlayerCCManager> g_mockPlayerCCManager{};
 class TestPlayerCCManager : public PlayerCCManagerBase
 {
 public:
+	TestPlayerCCManager() : PlayerCCManagerBase()
+	{
+		// Initialize mEnabled to false
+		mEnabled = false;
+	}
+
 	int SetStatus(bool enable) override
 	{
 		int result = 0;
 		if (g_mockPlayerCCManager)
 		{
 			result = g_mockPlayerCCManager->SetStatus(enable);
+		}
+		// Track mEnabled state to support GetStatus()
+		if (result == 0)
+		{
+			mEnabled = enable;
 		}
 		return result;
 	}
@@ -61,8 +72,17 @@ int PlayerCCManagerBase::Init(void *handle)
 {
 	return 0;
 }
-void PlayerCCManagerBase::RestoreCC()
+void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
+	if (g_mockPlayerCCManager)
+	{
+		g_mockPlayerCCManager->RestoreCC(shouldRestoreCC);
+	}
+	// Update mEnabled state as the real implementation does
+	if (!mEnabled && shouldRestoreCC)
+	{
+		mEnabled = shouldRestoreCC;
+	}
 }
 void PlayerCCManagerBase::Release(int iID)
 {
@@ -112,6 +132,7 @@ int PlayerCCManagerBase::SetAnalogChannel(unsigned int id)
 void PlayerCCManager::DestroyInstance()
 {
 	delete mInstance;
+	mInstance = nullptr;
 }
 
 void PlayerCCManager::SetRialto(bool state)

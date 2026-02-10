@@ -122,7 +122,7 @@ namespace base64Test {
 		char *result;
 
 		// padded output used truncated input of length 4
-		result = (char *)::base64_Decode(base64Exp1, &len);
+		result = (char *)::base64_Decode( base64Exp1, &len, strlen(base64Exp1) );
 		int cmp = strncmp(result, (char*)base64Inp1, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp1 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp1)) << "The base64 decode of " << base64Exp1 << " is not correct";
@@ -130,7 +130,7 @@ namespace base64Test {
 		free(result);
 
 		// all supported characters full length
-		result = (char *)::base64_Decode(base64Exp3, &len);
+		result = (char *)::base64_Decode( base64Exp3, &len, strlen(base64Exp3) );
 		cmp = strncmp(result, (char*)base64Inp2, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp2 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp2)) << "The base64 decode of " << base64Exp2 << " is not correct";
@@ -138,7 +138,7 @@ namespace base64Test {
 		free(result);
 
 		// unsupported character should return empty result?
-		result = (char *)::base64_Decode(base64Exp4, &len);
+		result = (char *)::base64_Decode( base64Exp4, &len, strlen(base64Exp4) );
 		EXPECT_EQ(memcmp(result, base64Inp4, strlen((char *)base64Inp4)), 0) << "The base64 decode of " << base64Exp4 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp4)) << "The base64 decode of " << base64Exp4 << " is not correct";
 		memset(result, 0, len);
@@ -169,7 +169,7 @@ namespace base64Test {
 		//EXPECT_STREQ(result, (char *)base64Inp2) << "The base64 decode of NULL is not correct";
 		//free(result);
 
-		result = (char *)::base64_Decode(base64Exp6, &len);
+		result = (char *)::base64_Decode( base64Exp6, &len,strlen(base64Exp6) );
 		cmp = strncmp(result, (char*)base64Inp6, len);
 		EXPECT_EQ(cmp, 0) << "The base64 decode of " << base64Exp6 << " is not correct";
 		EXPECT_EQ(len, strlen((char *)base64Inp6)) << "The base64 decode of " << base64Exp6 << " is not correct";

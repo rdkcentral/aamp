@@ -121,7 +121,7 @@ static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr
 static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
 	size_t ret = 0;
-	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
+	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(userdata);
 	if(context)
 	{
 		ret = context->aamp->HandleSSLWriteCallback( ptr, size, nmemb, userdata);
@@ -232,17 +232,7 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 		size_t len = size;
 		while( len>0 && data[len-1]<' ' ) len--;
 		std::string printable(data,len);
-		switch (type)
-		{
-		case CURLINFO_TEXT:
-			AAMPLOG_WARN("curl: %s", printable.c_str() );
-			break;
-		case CURLINFO_HEADER_IN:
-			AAMPLOG_WARN("curl header: %s", printable.c_str() );
-			break;
-		default:
-			break; //CID:94999 - Resolve deadcode
-		}
+		AAMPLOG_MIL("curl debug type:%d info:%s", type, printable.c_str() );
 	}
 	return 0;
 }

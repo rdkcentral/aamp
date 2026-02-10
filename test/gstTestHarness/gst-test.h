@@ -18,6 +18,19 @@
  */
 #include "gst-port.h"
 #include <queue>
+#include <memory>
+#include <stdexcept>
+#include <string>
+
+/**
+ * @brief Exception thrown when a fatal error occurs in the test harness
+ */
+class TestHarnessException final : public std::runtime_error
+{
+public:
+	explicit TestHarnessException(const std::string& message) noexcept
+	: std::runtime_error(message) {}
+};
 
 typedef enum
 {
@@ -38,7 +51,7 @@ public:
 	uint32_t timeScale; // needed here?
 	bool needsData;
 	bool gstreamerReadyForInjection;
-	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
+	std::unique_ptr<std::queue<class TrackEvent *>> queue; // sequential segments/commands, not yet injected
 	
 	Track();
 	~Track();
@@ -54,10 +67,10 @@ public:
 	Track& operator=(const Track&)=delete;
 };
 
-class MyPipelineContext : PipelineContext
+class MyPipelineContext : public PipelineContext
 {
 public:
-	class Pipeline *pipeline;
+	std::unique_ptr<Pipeline> pipeline;
 	double seekPos;
 	double nextPTS;
 	double nextTime;
@@ -65,8 +78,8 @@ public:
 	MyPipelineContext( void );
 	~MyPipelineContext();
 	void ReachedEOS( void );
-	void NeedData( MediaType mediaType );
-	void EnoughData( MediaType mediaType );
+	void NeedData( MediaType mediaType ) override;
+	void EnoughData( MediaType mediaType ) override;
 	void PadProbeCallback( MediaType mediaType );
 	
 	MyPipelineContext(const MyPipelineContext&)=delete;

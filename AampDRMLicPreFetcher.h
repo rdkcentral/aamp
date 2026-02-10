@@ -175,7 +175,7 @@ public:
 	 * 
 	 * @return none
 	 */
-	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance) { mFetchInstance = fetcherInstance; }
+	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance);
 
 	/**
 	 * @brief Set the Common Key Duration object
@@ -206,7 +206,7 @@ public:
          */
 
 	void VssPreFetchThread();
-private:
+protected:
 
 	/**
 	 * @brief To notify DRM failure to player after proper checks
@@ -228,20 +228,22 @@ private:
 	std::thread mPreFetchThread;                        /** Thread for pre-fetching license*/
 	std::deque<LicensePreFetchObjectPtr> mFetchQueue;   /** Queue for storing content protection objects*/
 	std::mutex mQMutex;                                 /** Mutex for accessing the mFetchQueue*/
-	std::condition_variable mQCond;                     /** Conditional variable to notify addition of an obj to mFetchQueue*/
-	bool mPreFetchThreadStarted;                        /** Flag denotes if thread started*/
 	bool mExitLoop;                                     /** Flag denotes if pre-fetch thread has to be exited*/
-	int mCommonKeyDuration;                             /** Common key duration for deferred license acquisition*/
 	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquisition for tracks*/
+
+	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
+	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/
+	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
+private:
+
+	std::condition_variable mQCond;                     /** Conditional variable to notify addition of an obj to mFetchQueue*/
+	int mCommonKeyDuration;                             /** Common key duration for deferred license acquisition*/
 	bool mSendErrorOnFailure;                           /** To send error event when session creation fails without additional checks*/
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
 	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
-	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
-	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/
-	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
+	std::mutex mLicenseAcquisitionMutex;                /** Mutex for serializing license acquisition flow, coordinating start/stop operations, and protecting mFetchInstance access*/
 	std::condition_variable mQVssCond;                  /** Conditional variable to notify addition of an obj to mVssFetchQueue*/
-	bool mVssPreFetchThreadStarted;                     /** Flag denotes if Vss thread started*/
 	bool mIsSecClientError;
 };
 

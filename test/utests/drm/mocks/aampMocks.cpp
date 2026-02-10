@@ -60,10 +60,18 @@ void PrivateInstanceAAMP::GetCustomLicenseHeaders(
 
 void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRetryEnabled)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDrmErrorEvent(event, isRetryEnabled);
+	}
 }
 
 void PrivateInstanceAAMP::SendDRMMetaData(DrmMetaDataEventPtr e)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDRMMetaData(e);
+	}
 }
 
 void PrivateInstanceAAMP::Individualization(const std::string &payload)
@@ -78,7 +86,7 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 {
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 }
 
@@ -161,11 +169,6 @@ void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	return true;
-}
-
 static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 {
 	"TRACE", // eLOGLEVEL_TRACE
@@ -181,7 +184,7 @@ bool AampLogManager::enableEthanLogRedirection = false;
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 bool AampLogManager::locked = false;
 
-void logprintf(AAMP_LogLevel level, const char *file, int line, const char *format,
+void logprintf(AAMP_LogLevel level, const char *func, int line, const char *format,
 			   ...)
 {
 	int playerId = -1;
@@ -193,7 +196,7 @@ void logprintf(AAMP_LogLevel level, const char *file, int line, const char *form
 			 "[AAMP-PLAYER][%d][%s][%s][%d]%s\n",
 			 playerId,
 			 mLogLevelStr[level],
-			 file,
+			 func,
 			 line,
 			 format );
 	vprintf(fmt, args);
@@ -220,7 +223,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 }
 
@@ -246,6 +249,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 {
 	// Set the Fog TSB flag based on the URL.
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
+}
+
+void PrivateInstanceAAMP::enableEventProcessing()
+{
+}
+
+void PrivateInstanceAAMP::disableEventProcessing()
+{
 }
 
 void PrivateInstanceAAMP::detach()
@@ -346,11 +357,11 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener *eventListener)
+void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType,  std::shared_ptr<EventListener>& eventListener)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener *eventListener)
+void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
@@ -729,11 +740,6 @@ BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
 	return 0;
 }
 
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-	return true;
-}
-
 bool PrivateInstanceAAMP::IsPlayEnabled()
 {
 	return true;
@@ -774,10 +780,6 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,
-														   bool trickPlay, int profile)
-{
-}
 
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
@@ -918,11 +920,6 @@ uint32_t PrivateInstanceAAMP::GetAudTimeScale(void)
 uint32_t PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
-}
-
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-	return 0;
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()

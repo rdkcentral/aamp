@@ -48,7 +48,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 	mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(DEFAULT_DURATION), peerListeners(),
 	initSegmentTransferMutex(), skipMutex(), skipPointMap(),ptsDiscontinuity(false), nextPos(-1), passThroughMode(passThrough)
 {
-	AAMPLOG_WARN("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
+	AAMPLOG_MIL("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
 	if (peerProcessor)
 	{
 		peerProcessor->setPeerProcessor(this);
@@ -119,7 +119,7 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 		}
 		else
 		{
-			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
+			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->size(), (AampMediaType)type);
 			sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 		}
 	}
@@ -159,7 +159,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 	}
 	else
 	{
-		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->size());
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 		if(buffer.getFirstPTS(currentPTS))
@@ -205,7 +205,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 	}
 	else
 	{
-		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->size());
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 
@@ -236,7 +236,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 		if (ret && !processPTSComplete)
 		{
 			IsoBmffBuffer buffer;
-			buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
+			buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->size());
 			buffer.parseBuffer();
 
 			if (buffer.isInitSegment())
@@ -249,7 +249,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					AAMPLOG_INFO("IsoBmffProcessor %s TimeScale %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
 				}
 				AAMPLOG_INFO("IsoBmffProcessor %s caching init fragment %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
-				cacheInitSegment(fragBuffer->GetPtr(), fragBuffer->GetLen());
+				cacheInitSegment(fragBuffer->GetPtr(), fragBuffer->size());
 				ret = false;
 			}
 			else
@@ -297,7 +297,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	{
 		// We need to parse PTS from first buffer
 		IsoBmffBuffer buffer;
-		buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
+		buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->size());
 		buffer.parseBuffer();
 
 		if (buffer.isInitSegment())
@@ -309,7 +309,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				currTimeScale = tScale;
 			}
 			AAMPLOG_INFO("IsoBmffProcessor %s TimeScale (%u) (%u) ", IsoBmffProcessorTypeName[type], currTimeScale,timeScale);
-			cacheInitSegment(fragBuffer->GetPtr(), fragBuffer->GetLen());
+			cacheInitSegment(fragBuffer->GetPtr(), fragBuffer->size());
 			ret = false;
 		}
 		else
@@ -322,7 +322,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 
 				basePTS = fPts;
 				processPTSComplete = true;
-				AAMPLOG_WARN("IsoBmffProcessor %s Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
+				AAMPLOG_MIL("IsoBmffProcessor %s Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
 
 				if (timeScale == 0)
 				{
@@ -418,7 +418,7 @@ void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer, double position, 
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
+		p_aamp->SendStreamCopy((AampMediaType)type, pBuffer->GetPtr(), pBuffer->size(), position, position, duration);
 	}
 }
 
@@ -430,7 +430,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 	uint32_t tScale = 0;
 	bool ret = true;
 	IsoBmffBuffer buffer;
-	buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+	buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->size());
 	buffer.parseBuffer();
 
 	/* Step 1: Check is it Init fragment */
@@ -453,7 +453,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 								IsoBmffProcessorTypeName[type], timeScaleChangeState );
 
 				currTimeScale = timeScale;
-				p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
+				p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->size(), (AampMediaType)type);
 				sendStream(pBuffer,position,duration, 0.0, isDiscontinuity, isInit);
 			}
 			/*check is current time scale same. If same then save the init fragment*/
@@ -462,7 +462,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 				if( timeScaleChangeState == eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE)
 				{
 					clearRestampInitSegment();
-					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
+					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->size(), position, duration,isDiscontinuity);
 					/*
 					Here, eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE state indicates
 					already init fragment for  ad<->to<->content is cached,
@@ -478,13 +478,13 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 				}
 				else if(timeScaleChangeState == eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE )
 				{
-					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
+					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->size(), position, duration,isDiscontinuity);
 					AAMPLOG_INFO("IsoBmffProcessor %s  wait for main init push to complete ts-changeState: %d",IsoBmffProcessorTypeName[type], timeScaleChangeState);
 				}
 				else
 				{
 					clearRestampInitSegment();
-					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, duration,isDiscontinuity);
+					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetPtr(), pBuffer->size(), position, duration,isDiscontinuity);
 					timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_TIMESCALE; //Init fragment need to be pushed in same time scale
 					AAMPLOG_INFO("IsoBmffProcessor %s  continue in same time scale ts-changeState: %d",IsoBmffProcessorTypeName[type], timeScaleChangeState);
 				}
@@ -497,14 +497,14 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 								IsoBmffProcessorTypeName[type], currTimeScale, tScale, isDiscontinuity);
 
 				clearRestampInitSegment();
-				cacheRestampInitSegment((AampMediaType)type,pBuffer->GetPtr(), pBuffer->GetLen(),position,duration,isDiscontinuity);
+				cacheRestampInitSegment((AampMediaType)type,pBuffer->GetPtr(), pBuffer->size(),position,duration,isDiscontinuity);
 				timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE; //init fragment need to be pushed in different timescale
-				cacheInitBufferForRestampingPTS(pBuffer->GetPtr(), pBuffer->GetLen(),tScale,position,true); // timescale changed with abr scale the pts to continue push
+				cacheInitBufferForRestampingPTS(pBuffer->GetPtr(), pBuffer->size(),tScale,position,true); // timescale changed with abr scale the pts to continue push
 			}
 			else
 			{
 				//time scale is changed save the init buffer for new time scale*/
-				cacheInitBufferForRestampingPTS(pBuffer->GetPtr(), pBuffer->GetLen(),tScale,position);
+				cacheInitBufferForRestampingPTS(pBuffer->GetPtr(), pBuffer->size(),tScale,position);
 			}
 		}
 		AAMPLOG_WARN("IsoBmffProcessor %s timeScaleChangeState=%d",IsoBmffProcessorTypeName[type], timeScaleChangeState );
@@ -588,7 +588,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			}
 
 			//Step 6.Now time to restamp the PTS
-			buffer.restampPTS(sumPTS,currentPTS,(uint8_t *)(pBuffer->GetPtr()),(uint32_t)(pBuffer->GetLen()));
+			buffer.restampPTS(sumPTS,currentPTS,(uint8_t *)(pBuffer->GetPtr()),(uint32_t)(pBuffer->size()));
 			double newPos = ((double)sumPTS / (double) currTimeScale);
 			prevPTS = currentPTS;
 
@@ -598,7 +598,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type], durationFromFragment, currentPTS,
 							sumPTS-durationFromFragment, sumPTS, position, newPos);
 
-			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
+			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->size(), (AampMediaType)type);
 			sendStream(pBuffer, newPos, duration, 0.0, isDiscontinuity, isInit);
 		}
 		prevPosition = position;
@@ -1337,10 +1337,10 @@ bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuff
 {
 	bool ret = false;
 	std::unique_lock<std::mutex> lock(m_mutex);
-	if (pBuffer && pBuffer->GetPtr() && pBuffer->GetLen() > 0)
+	if (pBuffer && pBuffer->GetPtr() && pBuffer->size() > 0)
 	{
 		IsoBmffBuffer buffer;
-		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
+		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->size());
 		buffer.parseBuffer();
 		if(buffer.isInitSegment())
 		{
@@ -1360,7 +1360,7 @@ bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuff
 			{
 				basePTS = fPts;
 				processPTSComplete = true;
-				AAMPLOG_WARN("IsoBmffProcessor %s Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
+				AAMPLOG_MIL("IsoBmffProcessor %s Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
 				initSegmentProcessComplete = true;
 			}
 		}

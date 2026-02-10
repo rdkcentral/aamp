@@ -84,13 +84,6 @@ class AmlogicSocInterface : public SocInterface
 		GstPad* GetSourcePad(GstElement* element) override;
 
 		/**
-		 * @brief Set AC4 tracks.
-		 * @param src Source element.
-		 * @param trackId Track ID.
-		 */
-		void SetAC4Tracks(GstElement *src, int trackId) override;
-
-		/**
 		 * @brief Get SVP Context
 		 */
 		void SvpGetContext(void **svpCtx, int flags)override;
@@ -200,7 +193,6 @@ class AmlogicSocInterface : public SocInterface
 		 * @return false indicating the video is not the master stream.
 		 */
 		bool IsVideoMaster(GstElement *videoSink)override{return false;}
-
 };
 
 #endif

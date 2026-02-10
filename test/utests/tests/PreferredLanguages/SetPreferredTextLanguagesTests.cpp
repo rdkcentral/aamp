@@ -65,7 +65,7 @@ protected:
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -255,6 +255,11 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest2)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
 	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+
+	/* Verify SetPreferredTextTrack() was called and stored the track */
+	const TextTrackInfo& preferredTrack = mPrivateInstanceAAMP->GetPreferredTextTrack();
+	EXPECT_STREQ(preferredTrack.language.c_str(), "lang0");
+	EXPECT_STREQ(preferredTrack.index.c_str(), "idx0");
 }
 
 /**
@@ -452,14 +457,13 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
-		.Times(1);
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
 
 	/* Verify the preferred rendition list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend0");
-	g_mockStreamAbstractionAAMP = NULL;
 }
 
 /**
@@ -695,7 +699,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	testp_aamp->preferredTextLanguagesList.push_back("lang0");
 	testp_aamp->subtitles_muted = false;
 	testp_aamp->SetLocalAAMPTsb(true);
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -710,6 +714,8 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 
 	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).WillRepeatedly(Return());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
+		.Times(1);
 
 	testp_aamp->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
 
@@ -751,7 +757,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	testp_aamp->subtitles_muted = false;
 	testp_aamp->SetLocalAAMPTsb(true);
 	testp_aamp->SetTsbSessionManager();
-	testp_aamp->SetState(eSTATE_PLAYING);
+	testp_aamp->SetState(eSTATE_PLAYING, true);
 	g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp.get());
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
@@ -763,7 +769,9 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2).WillRepeatedly(Return());
-
+	// SetCurrentTextTrackIndex is called in TSB scenarios
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
+		.Times(1);
 	testp_aamp->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
 
 	/* Verify the preferred languages list. */
@@ -783,8 +791,8 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 
 /**
  * @brief Change between closed caption tracks
- * Check that a new closed caption track is selected in PlayerCCManager
- * There will be a channel change but this will be removed in future change
+ * Check that a new closed caption track is selected in PlayerCCManagerBase
+ * Check that there is no tune (Stop) called on StreamAbstractionAAMP
  */
 TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 {
@@ -803,10 +811,11 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
-		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
-
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
+	// SetCurrentTextTrackIndex is called for closed caption track changes
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
+		.Times(1);
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
 
@@ -814,6 +823,12 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
 	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+
+	/* Verify SetPreferredTextTrack() was called and stored the track */
+	const TextTrackInfo& preferredTrack = mPrivateInstanceAAMP->GetPreferredTextTrack();
+	EXPECT_STREQ(preferredTrack.language.c_str(), "lang1");
+	EXPECT_STREQ(preferredTrack.index.c_str(), "idx1");
+	EXPECT_TRUE(preferredTrack.isCC);
 
 }
 
@@ -870,34 +885,4 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"accessibility\":{\"scheme\":\"return_from_mock\",\"string_value\":\"return_from_mock\"}}");
 
-}
-/**
- * @brief Test new func pulled out through refactoring.
- * changing between closed caption tracks
- */
-TEST_F(SetPreferredTextLanguagesTests, CheckPreferredTextLanguages1)
-{
-	std::vector<TextTrackInfo> tracks;
-
-	//TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
-	tracks.push_back(TextTrackInfo("idx0", "lang0", true, "rend0", "trackName0", "CC0", "cha0", 0));
-	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "rend1", "trackName1", "CC1", "cha1", 1));
-
-	bool isSelectionChange = false;
-	bool isAvailableInManifest = false;
-	int closedCaptionTrackId = -1;
-
-	/*
-	 * The mock for GetTextTrack() will return 0 I.E the first entry in tracks
-	 * set preferred language to lang1 so a change is expected
-	 */
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang1";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang1");
-	mPrivateInstanceAAMP->subtitles_muted = false;
-
-	mPrivateInstanceAAMP->CheckPreferredTextLanguages(tracks, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
-
-	EXPECT_EQ(isAvailableInManifest, true);
-	EXPECT_EQ(isSelectionChange, true);
 }

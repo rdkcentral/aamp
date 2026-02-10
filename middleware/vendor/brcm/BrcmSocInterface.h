@@ -29,7 +29,7 @@
  */
 class BrcmSocInterface : public SocInterface
 {
-
+	
 public:
 	BrcmSocInterface();
 	
@@ -65,13 +65,6 @@ public:
 	 * @param sinkbin The GStreamer sinkbin.
 	 */
 	GstElement* GetVideoSink(GstElement* sinkbin) override;
-	
-	/**
-	 * @brief Set AC4 tracks.
-	 * @param src Source element.
-	 * @param trackId Track ID.
-	 */
-	void SetAC4Tracks(GstElement *src, int trackId) override{MW_LOG_WARN("AC4 support has not done for this platform - track Id: %d", trackId);}
 	
 	/**
 	 * @brief Set platform playback rate.

@@ -51,15 +51,12 @@ public:
 	~AampDRMLicenseManager();
 	DrmSessionManager *mDrmSessionManager;
 	AampCurlDownloader* mLicenseDownloader;
-
-	char* accessToken;
-	int accessTokenLen;
+	std::string accessToken;
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
-	bool licenseRequestAbort;
+	std::atomic<bool> licenseRequestAbort{ false };
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
-	AampCurlDownloader mAccessTokenConnector;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
 	/**
@@ -71,16 +68,14 @@ public:
 	/**
 	 *  @fn getAccessToken
 	 *
-	 *  @param[out] tokenLength - Gets updated with accessToken length.
-	 *  @return             Pointer to accessToken.
-	 *  @note               AccessToken memory is dynamically allocated, deallocation
-	 *                              should be handled at the caller side.
+	 *  @param[out] error_code error code if any associated with retrieving access token.
+	 *  @return Returns the access token as a string.
 	 */
-	const char* getAccessToken(int &tokenLength, int &error_code);
+	const std::string &getAccessToken(int &error_code);
 	/**
 	 * @fn acquireLicense
 	 */
-	KeyState acquireLicense(int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,  
+	KeyState acquireLicense(int& responseCode, const std::shared_ptr<DrmHelper>& drmHelper, int sessionSlot, int &cdmError,
 					AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal = false);
 
 
@@ -200,7 +195,7 @@ public:
 	/**
 	 * @fn ContentProtectionDataUpdate
 	 */
-	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType);
+	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, const std::vector<uint8_t>& keyId, AampMediaType streamType);
 	/**
 	 * @brief Set the Common Key Duration object
 	 * 
@@ -319,7 +314,7 @@ public:
 	 * @fn HandleContentProtectionData
 	 * @return string
 	 */
-	std::string HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd);
+	std::string HandleContentProtectionData(const std::shared_ptr<DrmHelper>& drmHelper, int streamType, const std::vector<uint8_t>& keyId, int contentProtectionUpd);
 
 	/** @fn 	Create the DRM session with DRM helper.
 	 * @param[in]   drmHelper shared ptr to drmhelper 

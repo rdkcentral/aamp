@@ -27,7 +27,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -50,6 +50,12 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+
+if(CMAKE_PREINIT_DECODER)
+       message("CMAKE_PREINIT_DECODER Set")
+       set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
+       set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_PREINIT_DECODING=1")
+endif()
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -148,8 +154,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings/PersistentWatermark)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtitle)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/mp4demux)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/abr)
 
 # Locally built/installed dependencies are here
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.libs/include)
@@ -170,7 +177,7 @@ set(LIBAAMP_DEPENDS
 	-ldl
 )
 
-# TDB needs to bring back for UT. 
+# TDB needs to bring back for UT.
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
 # Adding subdirectories for internal libraries
@@ -184,15 +191,16 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
 
 add_subdirectory(middleware)
+add_subdirectory(test/rialtoPOC)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
-	include_directories(support/aampabr)
 	include_directories(support/aampmetrics)
 
+	# Building ABR for other dependent modules
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics)
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
 endif()
 
 message("Adding tsb folder")
@@ -223,54 +231,115 @@ if(CMAKE_USE_ETHAN_LOG)
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 # Building jsbindings
-if(CMAKE_WPEWEBKIT_JSBINDINGS)
-	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
-	# Search for WPE WebKit libraries
-	pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
-	if(NOT WPE_WEBKIT_FOUND)
-		pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
-	endif()
-	# Check if any WPE WebKit library was found, if not, throw an error
-	if(NOT WPE_WEBKIT_FOUND)
-		message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
-	endif()
-
-	find_path(JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${WPE_WEBKIT_INCLUDEDIR} ${WPE_WEBKIT_INCLUDE_DIRS})
-	message("JSC_INCDIR is ${JSC_INCDIR}")
-	include_directories(${JSC_INCDIR})
-
-	message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
-	# Link WPE WebKit package to aampjsbindings
-	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
+    message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
-		jsbindings/jscontroller-jsbindings.cpp
-		jsbindings/jsbindings.cpp
-		jsbindings/jsutils.cpp
-		jsbindings/jsmediaplayer.cpp
-		jsbindings/jseventlistener.cpp
-		jsbindings/jsevent.cpp
-		jsbindings/PersistentWatermark/PersistentWatermark.cpp
-	)
-	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-		message("CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS set, adding PersistentWatermark sources")
-		set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
-		set(LIBJSBINDINGS_SOURCES
-			"${LIBJSBINDINGS_SOURCES}"
-			jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp
-			jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp
-			jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp
-			jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp
-		)
-	endif()
+            jsbindings/jscontroller-jsbindings.cpp
+            jsbindings/jsbindings.cpp
+            jsbindings/jsutils.cpp
+            jsbindings/jsmediaplayer.cpp
+            jsbindings/jseventlistener.cpp
+            jsbindings/jsevent.cpp
+            jsbindings/PersistentWatermark/PersistentWatermark.cpp
+        )
 
+	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
+			message("CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS set, adding PersistentWatermark sources")
+            set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
+            list(APPEND LIBJSBINDINGS_SOURCES
+                jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp
+                jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp
+                jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp
+                jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp
+            )
+        endif()
+	
 	add_library(aampjsbindings SHARED ${LIBJSBINDINGS_SOURCES})
-	target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
-	set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
-	install(TARGETS aampjsbindings
-			DESTINATION lib
-	)
+
+    if(APPLE)
+
+		set(LIBJSBINDINGS_SIMULATOR_SOURCES
+			test/jsBindingTest/UVEBinding.cpp)
+        
+        find_library(JSCORE_FRAMEWORK JavaScriptCore)
+        if(NOT JSCORE_FRAMEWORK)
+            message(FATAL_ERROR "JavaScriptCore framework not found on macOS")
+        endif()
+        message("Found JavaScriptCore.framework at ${JSCORE_FRAMEWORK}")
+
+        set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS}" ${JSCORE_FRAMEWORK})
+		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES
+            COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES} "
+            LINK_FLAGS "-framework JavaScriptCore"
+        )
+		
+		install(TARGETS
+		 		aampjsbindings DESTINATION lib
+		)
+
+		add_executable(uveExecuter
+			${LIBJSBINDINGS_SIMULATOR_SOURCES}
+		)
+
+		set_target_properties(uveExecuter
+		 	PROPERTIES COMPILE_FLAGS " ${OS_CXX_FLAGS} ${LIBAAMP_DEFINES}")
+
+		target_include_directories(uveExecuter PRIVATE
+			${GST_INCLUDE_DIRS}
+			${GLIB_INCLUDE_DIRS}
+		)
+
+		target_link_directories(uveExecuter PRIVATE
+			${GST_LIBRARY_DIRS}
+			${GLIB_LIBRARY_DIRS}
+		)
+
+		target_link_libraries(uveExecuter PRIVATE
+			aampjsbindings
+			${GST_LIBRARIES}
+			${GLIB_LIBRARIES}
+			${JSCORE_FRAMEWORK}
+		)
+
+		set_target_properties(uveExecuter PROPERTIES
+			BUILD_RPATH "@loader_path;${GST_LIBRARY_DIRS};${GLIB_LIBRARY_DIRS}"
+		)
+
+		xcode_define_schema(aampjsbindings)
+		xcode_define_schema(uveExecuter)
+
+    else()
+        pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
+        if(NOT WPE_WEBKIT_FOUND)
+            pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
+        endif()
+        if(NOT WPE_WEBKIT_FOUND)
+            message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
+        endif()
+
+        find_path(JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${WPE_WEBKIT_INCLUDEDIR} ${WPE_WEBKIT_INCLUDE_DIRS})
+		message("JSC_INCDIR is ${JSC_INCDIR}")
+        include_directories(${JSC_INCDIR})
+
+		message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
+		# Link WPE WebKit package to aampjsbindings
+        set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES})
+		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+
+		install(TARGETS
+		 		aampjsbindings DESTINATION lib
+		)
+    endif()
+
+	
+
 else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
@@ -320,6 +389,9 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
+	abr/abr.cpp abr/abr.h
+	abr/RollingMedianOutlierEstimator.cpp abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.cpp abr/HarmonicEwmaEstimator.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
@@ -351,7 +423,12 @@ set(LIBAAMP_SOURCES
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp AampTrackWorker.h
 	LangCodePreference.h
-	test/gstTestHarness/mp4demux.hpp
+	AampTrackWorkerManager.cpp
+	AampFragmentDescriptor.cpp
+	AampTimeBasedBufferManager.cpp
+	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
+	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
+	AampDemuxDataTypes.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -361,11 +438,15 @@ endif()
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT -DAAMP_BUILD_INFO='${buildinfo}' -DSUPPORTS_MP4DEMUX")
 
+if (SANITIZER_ENABLED AND CMAKE_PLATFORM_UBUNTU)
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -fsanitize=address")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -fsanitize=address -static-libasan")
+endif()
+
 if(CMAKE_USE_RDK_PLUGINS)
 	message("CMAKE_USE_RDK_PLUGINS set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
-
 
 # AAMP Telemetry 2.0 support
 if (CMAKE_TELEMETRY_2_0_REQUIRED)
@@ -387,12 +468,6 @@ endif()
 if (COVERAGE_ENABLED)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
-endif()
-
-
-if(CMAKE_AUXILIARY_AUDIO_ENABLED)
-	message("CMAKE_AUXILIARY_AUDIO_ENABLED set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_AUXILIARY_AUDIO_ENABLED")
 endif()
 
 if(CMAKE_ENABLE_PTS_RESTAMP)
@@ -434,7 +509,7 @@ install(TARGETS aamp-cli
 # XCode schema target
 xcode_define_schema(aamp-cli)
 
-if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
+if ((CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin) AND CMAKE_BUILD_KOTLIN_ENABLED)
 	set(AAMP_KOTLIN_SRC
 		${AAMP_CLI_SOURCES}
 		test/aampcli/aampcli_kmp.cpp
@@ -484,7 +559,7 @@ install(TARGETS gstTestHarness
 xcode_define_schema(gstTestHarness)
 
 #TODO: Decide which are the actual public headers
-install(FILES 
+install(FILES
 	Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h
 	AampDefine.h AampEventListener.h AampMediaType.h AampLogManager.h
 	subtitle/vttCue.h AampUtils.h
@@ -503,8 +578,19 @@ install(FILES
 	AampLLDASHData.h
 	AampTSBSessionManager.h
 	AampTsbReader.h
+	AampTrackWorker.hpp
+	AampTrackWorkerManager.hpp
+	AampDownloadInfo.hpp
+	AampFragmentDescriptor.hpp
+	AampTimeBasedBufferManager.hpp
+	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
+	AampDemuxDataTypes.h
+	abr/abr.h
+	abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.h
+	abr/BandwidthEstimatorBase.h
 	DESTINATION include
 )
 

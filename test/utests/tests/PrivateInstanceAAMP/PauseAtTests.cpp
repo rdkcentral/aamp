@@ -352,7 +352,7 @@ TEST_F(PauseAtTests, PausePosition_Playback)
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
 
-    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 
     ASSERT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
 
@@ -424,7 +424,7 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
 
-    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 
     ASSERT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
 

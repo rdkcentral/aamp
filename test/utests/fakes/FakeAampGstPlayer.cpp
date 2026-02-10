@@ -34,20 +34,20 @@ AAMPGstPlayer::~AAMPGstPlayer()
 {
 }
 
-void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
+void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		g_mockAampGstPlayer->Configure(format, audioFormat, auxFormat, subFormat, bESChangeStatus, forwardAudioToAux, setReadyAfterPipelineCreation);
+		g_mockAampGstPlayer->Configure(format, audioFormat, subFormat, bESChangeStatus, setReadyAfterPipelineCreation);
 	}
 }
 
-bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
+bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double duration)
 {
 	return true;
 }
 
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	return true;
 }
@@ -242,15 +242,6 @@ bool AAMPGstPlayer::SignalSubtitleClock( void )
 	return false;
 }
 
-bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
-{
-	if (g_mockAampGstPlayer != nullptr)
-	{
-		return g_mockAampGstPlayer->IsCodecSupported(codecName);
-	}
-	return false;
-}
-
 void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlData &data) const
 {
 }
@@ -268,4 +259,11 @@ void AAMPGstPlayer::NotifyInjectorToPause()
 }
 void AAMPGstPlayer::NotifyInjectorToResume()
 {
+}
+void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
+{
+}
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+{
+	return true;
 }

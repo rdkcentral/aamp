@@ -213,7 +213,10 @@ typedef enum
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
-	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
+	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
+	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
+	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
+	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
@@ -290,6 +293,7 @@ typedef enum
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
 	eAAMPConfig_TimeBasedBufferSeconds,
+	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
 	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */
@@ -309,6 +313,9 @@ typedef enum
 	eAAMPConfig_MonitorAVJumpThreshold,				/**< configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds*/
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
+	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
+	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator */
+	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -328,7 +335,7 @@ typedef enum
 	eAAMPConfig_Dns_CacheTimeout, 						/**< Curl life-time for DNS cache entries*/
 	eAAMPConfig_MinLatencyCorrectionPlaybackRate,       /**< Latency adjust/buffer correction min playback rate*/
 	eAAMPConfig_MaxLatencyCorrectionPlaybackRate,       /**< Latency correction max playback rate*/
-	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Nomral playback rate for LLD stream; backdoor for debug*/
+	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Normal playback rate for LLD stream; backdoor for debug*/
 	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
@@ -473,7 +480,7 @@ public:
     	 */
 	AampConfig();
 	/**
-         * @brief AampConfig Distructor function
+         * @brief AampConfig Destructor function
          *
          * @return None
          */

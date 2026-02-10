@@ -40,7 +40,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 }
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
 {
 }
 
@@ -114,6 +114,10 @@ void PrivateCDAIObjectMPD::NotifyAdLoopWait()
 {
 }
 
+void PrivateCDAIObjectMPD::StopFulfillAdLoop()
+{
+}
+
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 {
 	if(g_MockPrivateCDAIObjectMPD != nullptr)
@@ -149,4 +153,12 @@ void PrivateCDAIObjectMPD::ValidateAdManifest(AampMPDParseHelper& adMPDParseHelp
 
 void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 {
+}
+
+void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (g_MockPrivateCDAIObjectMPD)
+	{
+		g_MockPrivateCDAIObjectMPD->NotifyReservationComplete(reservationId);
+	}
 }

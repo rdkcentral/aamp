@@ -20,8 +20,6 @@ cmake_minimum_required(VERSION 3.10.3)
 # Project name
 project(CachedFragmentTests)
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 11)
 
 # Include GoogleTest module
 include(GoogleTest)
@@ -38,19 +36,8 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 link_directories(${LIBCJSON_LIBRARY_DIRS})
 
-# Include directories
-include_directories(${AAMP_ROOT})
-include_directories(${AAMP_ROOT}/drm)
-include_directories(${AAMP_ROOT}/drm/helper)
-include_directories(${AAMP_ROOT}/isobmff)
-include_directories(${AAMP_ROOT}/subtec)
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-include_directories(${AAMP_ROOT}/downloader)
-include_directories(${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/tsb/api)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 # Source files
 set(TEST_SOURCES

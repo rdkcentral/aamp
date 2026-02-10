@@ -52,8 +52,8 @@
 static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instance)
 {
 	/* Register the callback for acquire license data */
-	instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
-			return _this->acquireLicense(responseCode, std::move(drmHelper), sessionSlot, cdmError,
+	instance->RegisterLicenseDataCb([_this](int &responseCode, const std::shared_ptr<DrmHelper>& drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
+			return _this->acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,
 					(AampMediaType)streamType,metaDataPtr, false);
 			});
 
@@ -63,7 +63,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 			});
 
 	/** Content Protection Callback */
-	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string{
+	instance->RegisterHandleContentProtectionCb([_this](const std::shared_ptr<DrmHelper>& drmHelper, int streamType, const std::vector<uint8_t>& keyId, int contentProtectionUpd)->std::string{
 			return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
 			});
 	/**  Register the profiler update callback for TriggerProfileBeginCb */
@@ -112,8 +112,7 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
  *  @brief AampDRMLicenseManager constructor.
  */
 AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
-		aampInstance(aamp), mDrmSessionManager(NULL),
-		accessToken(NULL), accessTokenLen(0)
+		aampInstance(aamp), mDrmSessionManager(NULL), accessToken()
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
@@ -131,13 +130,13 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
  */
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
-        SAFE_DELETE(mLicensePrefetcher);
+	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDrmSessionManager);
 	releaseLicenseRenewalThreads();
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
-        {
-
-             mLicenseDownloader[i].Release();
+	{
+		mLicenseDownloader[i].Release();
+		mLicenseDownloader[i].CleanupCurlHeaderResources();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
@@ -162,9 +161,10 @@ void AampDRMLicenseManager::releaseLicenseRenewalThreads()
  */
 void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
-	mAccessTokenConnector.Release();
-	licenseRequestAbort = isAbort;
+	MW_LOG_INFO("isAbort : %s", isAbort ? "true" : "false");
+	licenseRequestAbort.store(isAbort, std::memory_order_release);
 }
+
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
 {
 	bool isSecClientError = false;
@@ -220,7 +220,7 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 /**
  * @brief sent license challenge to the DRM server and provide the response to CDM
  */
-KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
+KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::shared_ptr<DrmHelper>& drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
@@ -230,6 +230,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
 	KeyState code = KEY_ERROR;
+#ifdef USE_PREINIT_DECODING
+	if(aampInstance->mManifestUrl == FAKE_TUNE_URL)
+	{
+		return code;
+	}
+#endif
 	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
@@ -278,28 +284,26 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 			{
 				std::lock_guard<std::mutex> guard(accessTokenMutex);
 
-				int tokenLen = 0;
 				int tokenError = 0;
-				const char *sessionToken = NULL;
+				std::string sessionToken;
 				if(!usingAppDefinedAuthToken)
 				{ /* authToken not set externally by app */
-					sessionToken = getAccessToken(tokenLen, tokenError);
-					AAMPLOG_WARN("Access Token from AuthServer");
+					sessionToken = getAccessToken(tokenError);
+					AAMPLOG_MIL("Access Token from AuthServer");
 				}
 				else
 				{
-					sessionToken = aampInstance->mSessionToken.c_str();
-					tokenLen = (int)aampInstance->mSessionToken.size();
-					AAMPLOG_WARN("Got Access Token from External App");
+					sessionToken = aampInstance->mSessionToken;
+					AAMPLOG_MIL("Got Access Token from External App");
 				}
-				if (NULL == sessionToken)
+				if( sessionToken.empty() )
 				{
 					// Failed to get access token
 					// licenseAnonymousRequest is not set, Report failure
 					AAMPLOG_WARN("failed to get access token, Anonymous request not enabled");
 					eventHandle->setFailure(AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN);
 				 	eventHandle->setResponseCode(tokenError);
-					if(!licenseRequestAbort)
+					if(!licenseRequestAbort.load(std::memory_order_acquire))
 					{
 						// report error
 						return KEY_ERROR;
@@ -308,10 +312,10 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 				else
 				{
 					AAMPLOG_INFO("access token is available");
-					challengeInfo.accessToken = std::string(sessionToken, tokenLen);
+					challengeInfo.accessToken = std::move(sessionToken);
 				}
 			}
-			if(licenseRequestAbort)
+			if(licenseRequestAbort.load(std::memory_order_acquire))
 			{
 				AAMPLOG_ERR("Error!! License request was aborted. Resetting session slot %d", sessionSlot);
 				eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
@@ -355,22 +359,15 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					if (((412 == httpResponseCode && 401 == httpExtendedStatusCode) || sec_accessTokenExpired) && !usingAppDefinedAuthToken)
 					{
 						AAMPLOG_INFO("License Req failure by Expired access token httpResCode %d statusCode %d", httpResponseCode, httpExtendedStatusCode);
-						if(accessToken)
-						{
-							free(accessToken);
-							accessToken = NULL;
-							accessTokenLen = 0;
-						}
-						int tokenLen = 0;
+						accessToken.clear();
 						int tokenError = 0;
-						const char *sessionToken = getAccessToken(tokenLen, tokenError);
-						if (NULL != sessionToken)
+						std::string sessionToken = getAccessToken(tokenError);
+						if( !sessionToken.empty() )
 						{
 							AAMPLOG_INFO("Requesting License with new access token");
-							challengeInfo.accessToken = std::string(sessionToken, tokenLen);
+							challengeInfo.accessToken = std::move(sessionToken);
 							httpResponseCode = httpExtendedStatusCode = -1;
-
-                                                         licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
+							licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 						}
 					}
 				}
@@ -383,6 +380,16 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					
 				      eventHandle->setSecclientError(false);
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],std::move(licenseServerProxy)));
+				}
+
+				//Check if license req is aborted. If yes, ignore the response.
+				if(licenseRequestAbort.load(std::memory_order_acquire))
+				{
+					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response. Resetting session slot %d", sessionSlot);
+					eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
+					eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
+					responseCode = int(CURLE_ABORTED_BY_CALLBACK);
+					return KEY_ERROR;
 				}
 			}
 		}
@@ -625,28 +632,15 @@ string extractSubstring(string parentStr, string startStr, string endStr)
 /**
  *  @brief Get the accessToken from authService.
  */
-const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_code)
-{	
-	if(accessToken == NULL)
+const std::string &AampDRMLicenseManager::getAccessToken(int &error_code)
+{
+	if (accessToken.empty())
 	{
-		std::string token;
-		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
+		if (ContentSecurityManager::GetInstance()->getSessionToken(accessToken))
 		{
-			size_t len = token.length();
-			if(len > 0)
+			if(accessToken.length() > 0)
 			{
-				accessToken = (char*)malloc(len+1);
-				if(accessToken)
-				{
-					accessTokenLen = (int)len;
-					memcpy( accessToken, token.c_str(), len );
-					accessToken[len] = 0x00;
-					AAMPLOG_WARN(" Received session token from auth service");
-				}
-				else
-				{
-					AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
-				}
+				AAMPLOG_MIL(" Received session token from auth service");
 			}
 			else
 			{
@@ -660,8 +654,6 @@ const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_cod
 			error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 		}
 	}
-	
-	tokenLen = accessTokenLen;
 	return accessToken;
 }
 /**
@@ -767,7 +759,7 @@ bool AampDRMLicenseManager::configureLicenseServerParameters(std::shared_ptr<Drm
 
 	return isContentMetadataAvailable;
 }
-void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType)
+void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, const std::vector<uint8_t>& keyId, AampMediaType streamType)
 {
 	std::string contentType = GetMediaTypeName(streamType);
 	int iter1 = 0;
@@ -834,7 +826,7 @@ void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		}
 		else
 		{
-			AAMPLOG_WARN("%s:%d [WARN] cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
+			AAMPLOG_WARN("cond_timedwait(dynamicDrmUpdate) returned success!" );
 		}
 	}
 }
@@ -966,7 +958,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
 	/* Check whether stopped or not before looping - download will be disabled */
-	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort)
+	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort.load(std::memory_order_acquire))
 	{
 		bool loopAgain = false;
 		attemptCount++;
@@ -977,7 +969,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		long long downloadTimeMS = tEndTime - tStartTime;
 		
 		/** Restrict further processing license if stop called in between  */
-		if(licenseRequestAbort)
+		if(licenseRequestAbort.load(std::memory_order_acquire))
 		{
 			AAMPLOG_ERR(" Aborting License acquisition");
 			// Update httpCode as 42-curl abort, so that DRM error event will not be sent by upper layer
@@ -1385,10 +1377,10 @@ std::shared_ptr<void> AampDRMLicenseManager::TriggerDrmMetaDataEvent()
 	auto drmEventPtrWrapper = std::make_shared<DrmMetaDataEventPtr>(drmEvent);
 	return drmEventPtrWrapper;
 }
-std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int isContentProtectionSupported)
+std::string  AampDRMLicenseManager::HandleContentProtectionData(const std::shared_ptr<DrmHelper>& drmHelper, int streamType, const std::vector<uint8_t>& keyId, int isContentProtectionSupported)
 {
 	 /* To fetch correct codec type in tune time metrics when drm data is not given in manifest*/
-	 aampInstance->setCurrentDrm(std::move(drmHelper));
+	 aampInstance->setCurrentDrm(drmHelper);
 
 	bool RuntimeDRMConfigSupported = aampInstance->mConfig->IsConfigSet(eAAMPConfig_RuntimeDRMConfig);
 	if(isContentProtectionSupported)
@@ -1397,8 +1389,8 @@ std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<
 	    {
 	    	aampInstance->mcurrent_keyIdArray = keyId;
 	    	AAMPLOG_INFO("App registered the ContentProtectionDataEvent to send new drm config");
-	    	ContentProtectionDataUpdate(aampInstance, std::move(keyId), (AampMediaType)streamType);
-	    	aampInstance->mcurrent_keyIdArray.clear();
+			ContentProtectionDataUpdate(aampInstance, keyId, (AampMediaType)streamType);
+			aampInstance->mcurrent_keyIdArray.clear();
 	    }
 	}
 	std::string customData = aampInstance->GetLicenseCustomData();
@@ -1471,14 +1463,26 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
         mLicenseRenewalThreads.resize(maxSessions);
 }
 
+/**
+ * @brief Clear DRM sessions
+ *
+ * @param[in] forceClearSession if true, clear all sessions including valid ones
+ */
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
 	mDrmSessionManager->clearDrmSession(forceClearSession);
-	for(int i = 0 ; i < mMaxDRMSessions;i++)
-        {
-
-             mLicenseDownloader[i].Clear();
-        }
+	for (int i = 0; i < mMaxDRMSessions; i++)
+	{
+		bool isFailedKeyEntries = mDrmSessionManager->getFailedKeyIdStatus(i);
+		if ((mDrmSessionManager->drmSessionContexts != NULL && (isFailedKeyEntries || forceClearSession)))
+		{
+			if (mDrmSessionManager->drmSessionContexts[i].drmSession != NULL)
+			{
+				AAMPLOG_INFO("Clearing Session %d, isFailedKeyEntries=%d, forceClearSession=%d", i, isFailedKeyEntries, forceClearSession);
+				mLicenseDownloader[i].Clear();
+			}
+		}
+	}
 }
 
 /**
@@ -1523,14 +1527,16 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
+
 	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
-
-
-	 if(err != -1)
-	 {
-		 eventHandle->setFailure((AAMPTuneFailure)err);
-	 }
-	 return session;
+	// Check if session creation failed
+	if(err != -1)
+	{
+		// Map middleware DRM error to AAMP tune failure
+		eventHandle->setFailure(MapDrmToAampTuneFailure(static_cast<DrmTuneFailure>(err)));
+		AAMPLOG_ERR("DRM session creation failed with middleware error: %d", err);
+	}
+	return session;
 }
 
 /**
@@ -1550,11 +1556,13 @@ DrmSession * AampDRMLicenseManager::createDrmSession(
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
-        DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
+    DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
 
 	if(err != -1)
 	{
-		eventHandle->setFailure((AAMPTuneFailure)err);
+		// Map middleware DRM error to AAMP tune failure
+		eventHandle->setFailure(MapDrmToAampTuneFailure(static_cast<DrmTuneFailure>(err)));
+		AAMPLOG_ERR("DRM session creation failed with middleware error: %d", err);
 	}
 	return session;
 }
@@ -1566,6 +1574,7 @@ AAMPTuneFailure AampDRMLicenseManager::MapDrmToAampTuneFailure(DrmTuneFailure dr
         case MW_DRM_INIT_FAILED:            return AAMP_TUNE_DRM_INIT_FAILED;
         case MW_DRM_DATA_BIND_FAILED:       return AAMP_TUNE_DRM_DATA_BIND_FAILED;
         case MW_DRM_SESSIONID_EMPTY:        return AAMP_TUNE_DRM_SESSIONID_EMPTY;
+        case MW_DRM_SESSION_CREATE_FAILED:  return AAMP_TUNE_DRM_SESSION_CREATE_FAILED;
         case MW_DRM_CHALLENGE_FAILED:       return AAMP_TUNE_DRM_CHALLENGE_FAILED;
         case MW_INVALID_DRM_KEY:            return AAMP_TUNE_INVALID_DRM_KEY;
         case MW_CORRUPT_DRM_DATA:           return AAMP_TUNE_CORRUPT_DRM_DATA;

@@ -268,3 +268,27 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
         return false;
     }
 }
+
+bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getMdatBoxInfo(index, start, size);
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool IsoBmffBuffer::getChunkedMdatBoxInfo(size_t &start, size_t &size) const
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getChunkedMdatBoxInfo(start, size);
+    }
+    else
+    {
+        return false;
+    }
+}

@@ -25,6 +25,7 @@
 #include "admanager_mpd.h"
 #include "AampUtils.h"
 #include "fragmentcollector_mpd.h"
+#include "AampCacheHandler.h"
 #include <inttypes.h>
 
 #include <algorithm>
@@ -54,12 +55,23 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
 	mPrivObj->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 }
 
+/**
+ * @brief Mark reservation as complete for a given reservationId
+ * @param[in] reservationId The reservation identifier
+ */
+void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (mPrivObj)
+	{
+		mPrivObj->NotifyReservationComplete(reservationId);
+	}
+}
 
 /**
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
 	StartFulfillAdLoop();
@@ -313,7 +325,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						p2AdData.duration += diffInDurationMs;
 					}
 					AAMPLOG_INFO("periodDelta = %" PRId64 " p2AdData.duration = [%" PRIu64 "] mPlacementObj.adNextOffset = %u periodId = %s",periodDelta,p2AdData.duration,mPlacementObj.adNextOffset, periodId.c_str());
-					bool isSrcdurnotequalstoaddur = false;
+					bool sourceAdDurationMismatch = false;
 					if ((periodDelta == 0) && (nextPeriodDur > 0))
 					{
 						IPeriod* nextPeriod = periods.at(nextPeriodIter);
@@ -383,7 +395,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							{
 								AAMPLOG_INFO("nextPeriodDur = %" PRId64 " currPeriodDur = %" PRId64 " curAd.duration = [%" PRIu64 "] periodDurationAvailable:%" PRId64" adDurationToPlaceInBreak:%" PRId64 "",
 									nextPeriodDur,currPeriodDur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInBreak);
-								isSrcdurnotequalstoaddur = true;
+								sourceAdDurationMismatch = true;
 								// An ad exceeding the current period duration by more than 2 seconds is considered a split period
 								// Source period duration should be more than tiny period to be treated as split period
 								// If the tiny period just happens to be within a split period, then split period marker will be set which is expected as of now
@@ -394,7 +406,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							}
 						}
 					}
-					while(periodDelta > 0 || isSrcdurnotequalstoaddur)
+					while(periodDelta > 0 || sourceAdDurationMismatch)
 					{
 						if( !abObj.ads )
 						{
@@ -406,7 +418,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						if(periodDelta < (curAd.duration - mPlacementObj.adNextOffset))
 						{
 							mPlacementObj.adNextOffset += periodDelta;
-							if(isSrcdurnotequalstoaddur)
+							if(sourceAdDurationMismatch)
 							{
 								IPeriod* nextPeriod = periods.at(nextPeriodIter);
 								// check if the current source period duration < current period ad duration and it is lest than offset factor
@@ -468,7 +480,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								AAMPLOG_ERR("[CDAI] remainingAdDuration[%" PRId64 "] is -ve, not expected, adDuration:%" PRIu64 " nextOffset:%" PRIu32 ,
 									remainingAdDuration, curAd.duration, mPlacementObj.adNextOffset);
 							}
-							isSrcdurnotequalstoaddur = false;
+							sourceAdDurationMismatch = false;
 							// If another ad exists in this ad break
 							if(mPlacementObj.curAdIdx+1 < abObj.ads->size())
 							{
@@ -907,7 +919,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			finalManifest = true;
 		}
-		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
+		std::string manifestStr(manifest.GetPtr(), manifest.size());
+		xmlTextReaderPtr reader = xmlReaderForMemory(manifestStr.c_str(), (int) manifestStr.size(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
 			std::string channelUrl = mAamp->GetManifestUrl();	//TODO: Get FOG URL from channel URL
@@ -940,7 +953,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.GetLen(), NULL, NULL, 0);
+					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.size(), NULL, NULL, 0);
+					manifestStr.assign(fogManifest.GetPtr(), fogManifest.size());
 					manifest.Free();
 					manifest.Replace(&fogManifest);
 				}
@@ -962,71 +976,75 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		}
 		if (reader != NULL)
 		{
-			if (xmlTextReaderRead(reader))
+			// Cache the init headers before processing the manifest nodes
+			if (FetchAndCacheInitHeaders(manifestStr, manifestUrl, errorCode))
 			{
-				Node* root = MPDProcessNode(&reader, manifestUrl, true);
-				if (NULL != root)
+				if (xmlTextReaderRead(reader))
 				{
-					std::vector<Node*> children = root->GetSubNodes();
-					for (size_t i = 0; i < children.size(); i++)
+					Node *root = MPDProcessNode(&reader, manifestUrl, true);
+					if (NULL != root)
 					{
-						Node* child = children.at(i);
-						const std::string& name = child->GetName();
-						AAMPLOG_INFO("PrivateCDAIObjectMPD:: child->name %s", name.c_str());
-						if (name == "Period")
+						std::vector<Node *> children = root->GetSubNodes();
+						for (size_t i = 0; i < children.size(); i++)
 						{
-							AAMPLOG_INFO("PrivateCDAIObjectMPD:: found period");
-							std::vector<Node *> children = child->GetSubNodes();
-							bool hasBaseUrl = false;
-							for (size_t i = 0; i < children.size(); i++)
+							Node *child = children.at(i);
+							const std::string &name = child->GetName();
+							AAMPLOG_INFO("PrivateCDAIObjectMPD:: child->name %s", name.c_str());
+							if (name == "Period")
 							{
-								if (children.at(i)->GetName() == "BaseURL")
-								{
-									hasBaseUrl = true;
-								}
-							}
-							if (!hasBaseUrl)
-							{
-								// BaseUrl not found in the period. Get it from the root and put it in the period
-								children = root->GetSubNodes();
+								AAMPLOG_INFO("PrivateCDAIObjectMPD:: found period");
+								std::vector<Node *> children = child->GetSubNodes();
+								bool hasBaseUrl = false;
 								for (size_t i = 0; i < children.size(); i++)
 								{
 									if (children.at(i)->GetName() == "BaseURL")
 									{
-										Node* baseUrl = new Node(*children.at(i));
-										child->AddSubNode(baseUrl);
 										hasBaseUrl = true;
-										break;
 									}
 								}
+								if (!hasBaseUrl)
+								{
+									// BaseUrl not found in the period. Get it from the root and put it in the period
+									children = root->GetSubNodes();
+									for (size_t i = 0; i < children.size(); i++)
+									{
+										if (children.at(i)->GetName() == "BaseURL")
+										{
+											Node *baseUrl = new Node(*children.at(i));
+											child->AddSubNode(baseUrl);
+											hasBaseUrl = true;
+											break;
+										}
+									}
+								}
+								if (!hasBaseUrl)
+								{
+									std::string baseUrlStr = Path::GetDirectoryPath(manifestUrl);
+									Node *baseUrl = new Node();
+									baseUrl->SetName("BaseURL");
+									baseUrl->SetType(Text);
+									baseUrl->SetText(baseUrlStr);
+									AAMPLOG_INFO("PrivateCDAIObjectMPD:: manual adding BaseURL Node [%p] text %s",
+												 baseUrl, baseUrl->GetText().c_str());
+									child->AddSubNode(baseUrl);
+								}
+								break;
 							}
-							if (!hasBaseUrl)
-							{
-								std::string baseUrlStr = Path::GetDirectoryPath(manifestUrl);
-								Node* baseUrl = new Node();
-								baseUrl->SetName("BaseURL");
-								baseUrl->SetType(Text);
-								baseUrl->SetText(baseUrlStr);
-								AAMPLOG_INFO("PrivateCDAIObjectMPD:: manual adding BaseURL Node [%p] text %s",
-								         baseUrl, baseUrl->GetText().c_str());
-								child->AddSubNode(baseUrl);
-							}
-							break;
 						}
+						adMpd = root->ToMPD();
+						SAFE_DELETE(root);
 					}
-					adMpd = root->ToMPD();
-					SAFE_DELETE(root);
+					else
+					{
+						AAMPLOG_ERR("Could not create root node");
+						errorCode = eCDAI_ERROR_INVALID_MANIFEST;
+				}
 				}
 				else
 				{
-					AAMPLOG_ERR("Could not create root node");
 					errorCode = eCDAI_ERROR_INVALID_MANIFEST;
-				}
-			}
-			else
-			{
-				errorCode = eCDAI_ERROR_INVALID_MANIFEST;
 				AAMPLOG_ERR("xmlTextReaderRead failed");
+				}
 			}
 			xmlFreeTextReader(reader);
 		}
@@ -1038,14 +1056,14 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.GetLen(), manifest.GetPtr() );
+			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.size(), manifest.GetPtr() );
 		}
 		manifest.Free();
 	}
 	else
 	{
 		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
-		if(http_error != CURLE_ABORTED_BY_CALLBACK)
+		if (http_error != CURLE_ABORTED_BY_CALLBACK)
 		{
 			errorCode = (http_error<100)? eCDAI_ERROR_DELIVERY_ERROR : eCDAI_ERROR_DELIVERY_HTTP_ERROR;
 		}
@@ -1522,9 +1540,8 @@ void PrivateCDAIObjectMPD::FulfillAdLoop()
  */
 void PrivateCDAIObjectMPD::StartFulfillAdLoop()
 {
-	if(!mAdObjThreadStarted)
+	if(!mAdObjThreadID.joinable())
 	{
-		mAdObjThreadStarted = true;
 		mAdObjThreadID = std::thread(&PrivateCDAIObjectMPD::FulfillAdLoop, this);
 		AAMPLOG_INFO("Thread created mAdObjThreadID[%zx]", GetPrintableThreadID(mAdObjThreadID));
 	}
@@ -1535,12 +1552,12 @@ void PrivateCDAIObjectMPD::StartFulfillAdLoop()
  */
 void PrivateCDAIObjectMPD::StopFulfillAdLoop()
 {
-	if(mAdObjThreadStarted)
+	if(mAdObjThreadID.joinable())
 	{
 		mExitFulfillAdLoop = true;
 		NotifyAdLoopWait();
 		mAdObjThreadID.join();
-		mAdObjThreadStarted = false;
+		AAMPLOG_INFO("mAdObjThreadID joined.");
 	}
 }
 
@@ -1629,7 +1646,7 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 {
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
-	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
+	AAMPLOG_INFO("Attempting to wait for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
 	if (isAdBreakObjectExist(periodId))
 	{
 		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, periodId] {
@@ -1717,4 +1734,178 @@ bool PrivateCDAIObjectMPD::GetNextAdInBreakToPlace()
 	// New Ad's offset
 	mPlacementObj.adNextOffset = 0;
 	return ret;
+}
+
+/**
+ * @brief Getting all init headers for the Ad
+ * @param[in] manifestStr - Manifest string
+ * @param[in] manifestUrl - Manifest URL
+ * @param[out] errorCode - AAMPCDAIError Error code if any.
+ * @return true if all init headers are fetched and cached successfully, false otherwise
+ */
+bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, std::string& manifestUrl, AAMPCDAIError &errorCode)
+{
+	bool ret = true;
+	std::shared_ptr<DashMPDDocument> mpdDoc = std::make_shared<DashMPDDocument>(manifestStr);
+	if (!mpdDoc || !mpdDoc->getRoot())
+	{
+		ret = false;
+		errorCode = eCDAI_ERROR_INVALID_MANIFEST;
+		AAMPLOG_ERR("Failed to parse MPD document or root is null");
+	}
+	else
+	{
+		auto periods = mpdDoc->getRoot()->getPeriods();
+		if (periods.empty())
+		{
+			ret = false;
+			errorCode = eCDAI_ERROR_INVALID_MANIFEST;
+			AAMPLOG_ERR("No periods found in the MPD document");
+		}
+		else
+		{
+			const auto& period = periods.at(0);
+			if (!period)
+			{
+				ret = false;
+				errorCode = eCDAI_ERROR_INVALID_MEDIA;
+				AAMPLOG_ERR("Period is null in the MPD document");
+			}
+			else
+			{
+				const auto& adaptationSets = period->getAdaptationSets();
+				for (AampMediaType track = eMEDIATYPE_VIDEO; track < eMEDIATYPE_SUBTITLE; track = static_cast<AampMediaType>(static_cast<int>(track) + 1))
+				{
+					bool initFragmentFetched = false;
+					for (const auto& adaptationSet : adaptationSets)
+					{
+						std::string mediaType = adaptationSet->getMediaType();
+						AAMPLOG_INFO("AdaptationSet mediaType[%s] track[%s]", mediaType.c_str(), GetMediaTypeName(track));
+						if (!(mediaType.empty() || strcasecmp(mediaType.c_str(), GetMediaTypeName(track)) == 0 || IsCompatibleMimeType(mediaType, track)))
+						{
+							continue;
+						}
+						if (track == eMEDIATYPE_VIDEO && adaptationSet->isIframeTrack())
+						{
+							continue;
+						}
+						const auto& representations = adaptationSet->getRepresentations();
+						if (representations.empty())
+						{
+							continue;
+						}
+						const auto& representation = representations.at(0);
+						if (!representation)
+						{
+							continue;
+						}
+						auto segmentTemplate = representation->getSegmentTemplate();
+						if (!segmentTemplate)
+						{
+							AAMPLOG_ERR("No segment template available for ad representation");
+							continue;
+						}
+						std::string fragmentUrl;
+						std::unique_ptr<FragmentDescriptor> fragmentDescriptor = aamp_utils::make_unique<FragmentDescriptor>();
+						fragmentDescriptor->manifestUrl = manifestUrl;
+						fragmentDescriptor->Bandwidth = static_cast<uint32_t>(representation->getBandwidth());
+						fragmentDescriptor->RepresentationID = representation->getId();
+						fragmentDescriptor->ClearMatchingBaseUrl();
+						if (!representation->getBaseUrls().empty())
+						{
+							fragmentDescriptor->AppendMatchingBaseUrl(representation->getBaseUrls());
+						}
+						else
+						{
+							fragmentDescriptor->AppendMatchingBaseUrl({Path::GetDirectoryPath(manifestUrl)});
+						}
+						AampMediaType actualMediaType = static_cast<AampMediaType>(eMEDIATYPE_INIT_VIDEO + track);
+						ConstructFragmentURL(fragmentUrl, fragmentDescriptor.get(), segmentTemplate->getInitializationAttr(), mAamp->mConfig);
+						if (fragmentUrl.empty())
+						{
+							continue;
+						}
+						std::shared_ptr<AampGrowableBuffer> adInit = std::make_shared<AampGrowableBuffer>("adInit");
+						int segment_http_error = 0;
+						double segment_downloadTime = 0;
+						AAMPLOG_INFO("Fetching init header %s for %s adId:%s periodId:%s", fragmentUrl.c_str(), GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit->GetVector(), fragmentUrl);
+						if(!gotInit)
+						{
+							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit.get(), fragmentUrl, &segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
+							mAamp->UpdateVideoEndMetrics(actualMediaType, fragmentDescriptor->Bandwidth, segment_http_error, fragmentUrl, 0, segment_downloadTime);
+						}
+						if (gotInit)
+						{
+							AAMPLOG_INFO("Init header fetched successfully for %s adId:%s periodId:%s", GetMediaTypeName(actualMediaType), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+							mAamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, adInit->GetVector(), fragmentUrl, actualMediaType);
+							adInit->Free();
+							initFragmentFetched = true;
+							break;
+						}
+						else
+						{
+							AAMPLOG_ERR("Error on %s fragment fetch, error code: %d", GetMediaTypeName(actualMediaType), segment_http_error);
+							if (track == eMEDIATYPE_VIDEO)
+							{
+								break;
+							}
+						}
+					}
+					if (!initFragmentFetched)
+					{
+						if (isAdBreakObjectExist(mAdFulfillObj.periodId))
+						{
+							auto& adbreakObj = mAdBreaks[mAdFulfillObj.periodId];
+							if (adbreakObj.ads)
+							{
+								for (auto& node : *adbreakObj.ads)
+								{
+									if (node.adId == mAdFulfillObj.adId)
+									{
+										AAMPLOG_ERR("Failed to fetch init fragment for %s adId:%s periodId:%s", GetMediaTypeName(track), mAdFulfillObj.adId.c_str(), mAdFulfillObj.periodId.c_str());
+										node.resolved = true;
+										node.invalid = true;
+										errorCode = eCDAI_ERROR_INVALID_MEDIA;
+										ret = false;
+									}
+								}
+							}
+						}
+						if (track == eMEDIATYPE_VIDEO)
+						{
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+/**
+ * @brief Mark the reservation as complete for the ad break
+ * @param[in] reservationId Ad break ID
+ * @param[in] time Time to mark the reservation complete
+ */
+void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx);
+	if (isAdBreakObjectExist(reservationId))
+	{
+		AdBreakObject& abObj = mAdBreaks[reservationId];
+		abObj.resolved = true;
+		AAMPLOG_INFO("[CDAI] Marked reservation complete for adBreakId: %s", reservationId.c_str());
+		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
+		if (!abObj.ads || abObj.ads->empty())
+		{
+			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play.", reservationId.c_str());
+			AbortWaitForNextAdResolved();
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
+	}
 }

@@ -18,6 +18,10 @@
 */
 
 #include "AampEvent.h"
+#include "MockDrmMetaDataEvent.h"
+
+// Global pointer to mock DrmMetaDataEvent for testing
+MockDrmMetaDataEvent* g_mockDrmMetaDataEvent = nullptr;
 
 AAMPEventObject::AAMPEventObject(AAMPEventType type, std::string sid) : mType(type), mSessionID{std::move(sid)}
 {
@@ -138,10 +142,16 @@ int MediaMetadataEvent::getHeight(void) const{ return 0; }
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
     AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid))
 {
+
 }
 
 void DrmMetaDataEvent::setFailure(AAMPTuneFailure failure)
-{	
+{
+	// If a mock is set, call it for verification in tests
+	if (g_mockDrmMetaDataEvent)
+	{
+		g_mockDrmMetaDataEvent->setFailure(failure);
+	}
 }
 
 void DrmMetaDataEvent::setResponseCode(int code)
@@ -166,7 +176,12 @@ void DrmMetaDataEvent::setSecManagerReasonCode(int32_t code)
 
 AAMPTuneFailure DrmMetaDataEvent::getFailure() const
 {
-	return AAMP_TUNE_INIT_FAILED;
+	// If a mock is set, call it for verification in tests
+	if (g_mockDrmMetaDataEvent)
+	{
+		return g_mockDrmMetaDataEvent->getFailure();
+	}
+	return AAMP_TUNE_FAILURE_UNKNOWN;
 }
 
 int DrmMetaDataEvent::getResponseCode() const
@@ -328,7 +343,7 @@ int SupportedSpeedsChangedEvent::getSupportedSpeedCount() const
 	return 0;
 }
 
-MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
+MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, int subCode, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
 		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid))
 {
 }
@@ -336,6 +351,7 @@ bool MediaErrorEvent::shouldRetry(void) const { return false; }
 int32_t MediaErrorEvent::getBusinessStatus(void) const { return 0; }
 int32_t MediaErrorEvent::getClass(void) const { return 0; }
 int MediaErrorEvent::getCode(void) const { return 0; }
+int MediaErrorEvent::getSubCode(void) const { return 0; }
 
 BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight, std::string sid):
 		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED, std::move(sid))

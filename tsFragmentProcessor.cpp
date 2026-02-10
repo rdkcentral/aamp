@@ -139,7 +139,7 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 	MediaProcessor::process_fcn_t processor)
 {
 	constexpr int m_ttsSize {0};
-	const size_t frag_size = fragment.GetLen();
+	const size_t frag_size = fragment.size();
 	const uint8_t * base_frag_ptr = reinterpret_cast<const uint8_t *>(fragment.GetPtr());
 	uint8_t * curr_packet_ptr = const_cast<uint8_t *>(base_frag_ptr) + m_ttsSize;
 	size_t curr_packet_len = frag_size;
@@ -200,7 +200,7 @@ bool TSFragmentProcessor::ValidateFragment(const AampGrowableBuffer & fragment, 
 		{
 			AAMPLOG_ERR(" No valid ts packet found near the start of the segment");
 			curr_packet_ptr = const_cast<unsigned char *>(base_frag_ptr);
-			curr_len = fragment.GetLen();
+			curr_len = fragment.size();
 			break;
 		}
 	}
@@ -209,7 +209,7 @@ bool TSFragmentProcessor::ValidateFragment(const AampGrowableBuffer & fragment, 
 	if ((curr_packet_ptr[0] != 0x47) || ((curr_packet_ptr[1] & 0x80) != 0x00) || ((curr_packet_ptr[3] & 0xC0) != 0x00))
 	{
 		AAMPLOG_ERR(" Segment doesn't starts with valid TS packet, discarding. Dump first packet");
-		size_t n = fragment.GetLen();
+		size_t n = fragment.size();
 		if (n > ts_packet_size)
 		{
 			n = ts_packet_size;
@@ -562,7 +562,7 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 			/* Audio is not playing in particular hls file.
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
-			 * But in one particular hls file, we dont have PES data in the first audio pid.
+			 * But in one particular hls file, we don't have PES data in the first audio pid.
 			 * So, we have now modified to choose the next available audio pid index,
 			 * when there is no PES data available in the current audio pid.
 			 */
@@ -623,13 +623,11 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
-	char work[32];
+	char work[32] = {};
 
 	int version = ((section[2] >> 1) & 0x1F);
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
-
-	memset(work, 0, sizeof(work));
 
 	// Reset of old values
 	ResetAudioComponents();
@@ -817,15 +815,13 @@ void TSFragmentProcessor::ProcessPMTSection(uint8_t * section, size_t sectionLen
 
 void TSFragmentProcessor::ResetAudioComponents()
 {
-	// Reset of old values
 	for (auto & comp : m_audioComponents)
 	{
 		if (comp.associatedLanguage)
 		{
 			free(comp.associatedLanguage);
 		}
-		comp.associatedLanguage = nullptr;
-		memset(&comp, 0, sizeof(RecordingComponent));
+		comp = RecordingComponent();
 	}
 
 	m_audioComponentCount = 0;	
@@ -835,7 +831,7 @@ void TSFragmentProcessor::ResetVideoComponents()
 {
 	for (auto & comp : m_videoComponents)
 	{
-		memset(&comp, 0, sizeof(RecordingComponent));
+		comp = RecordingComponent();
 	}
 	m_videoComponentCount = 0;
 }

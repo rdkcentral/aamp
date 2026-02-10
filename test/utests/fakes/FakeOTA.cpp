@@ -34,7 +34,7 @@ void StreamAbstractionAAMP_OTA::Start() {  }
 
 void StreamAbstractionAAMP_OTA::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_OTA::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_OTA::GetFirstPTS() { return 0; }
 

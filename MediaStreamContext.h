@@ -27,6 +27,7 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
+#include "FragmentCacheDescriptor.h"
 
 /**
  * @class MediaStreamContext
@@ -54,13 +55,15 @@ public:
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
 	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
-	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex()
+	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex(), mActiveDownloadInfo(nullptr)
+           , mMediaStreamContextMutex()
     {
         AAMPLOG_INFO("[%s] Create new MediaStreamContext",
             GetMediaTypeName(mediaType));
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
         mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
+        mTimeBasedBufferManager = std::make_shared<aamp::AampTimeBasedBufferManager>(GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer), std::abs(aamp->rate), mediaType);
     }
 
     /**
@@ -70,6 +73,7 @@ public:
     {
         mDownloadedFragment.Free();
         mTempFragment.reset();
+        mTimeBasedBufferManager.reset();
     }
 
     /**
@@ -111,10 +115,9 @@ public:
      * @param playingAd flag if playing Ad
      * @param pto unscaled pto value from mpd
      * @param scale timeScale value from mpd
-	 * @param overWriteTrackId flag to overwrite the trackID of the init fragment  with the current one if those are different
      * @retval true on success
      */
-    bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, double pto = 0, uint32_t scale = 0, bool overWriteTrackId = false);
+    bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, uint32_t scale = 0);
 
     /**
      * @fn CacheTsbFragment
@@ -131,7 +134,17 @@ public:
      * @param remoteUrl url of fragment
      * @param dnldStartTime of the download
      */
-    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
+    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime);
+
+    /**
+     * @fn CacheFragmentData
+     * @brief Unified fragment caching API - handles both full fragments and chunks
+     * @param desc Fragment cache descriptor with all metadata and payload
+     * @retval true on success
+     * @note This is the unified internal implementation. External code should continue
+     *       using CacheFragment() or CacheFragmentChunk() wrapper methods.
+     */
+    bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 
     /**
      * @fn ABRProfileChanged
@@ -244,6 +257,41 @@ public:
         return GetLastInjectedFragmentPosition( );
     }
 
+    /**
+     * @fn OnFragmentDownloadSuccess
+     * @brief Function called on fragment download success
+     * @param[in] downloadInfo - download information
+     */
+    void OnFragmentDownloadSuccess(DownloadInfoPtr downloadInfo);
+
+    /**
+     * @fn OnFragmentDownloadFailed
+     * @brief Callback on fragment download failure
+     * @param[in] downloadInfo - download information
+     */
+    void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
+
+    /**
+     * @fn DownloadFragment
+     * @brief Download submitted fragment
+     * @param[in] downloadInfo - download information
+     *
+     * @return true on success
+     */
+    bool DownloadFragment(DownloadInfoPtr downloadInfo);
+
+    /**
+     * @fn AcquireMediaStreamContextLock
+     * @brief Acquire lock for MediaStreamContext
+     */
+    inline void AcquireMediaStreamContextLock() { mMediaStreamContextMutex.lock(); }
+
+    /**
+     * @fn ReleaseMediaStreamContextLock
+     * @brief Release lock for MediaStreamContext
+     */
+    inline void ReleaseMediaStreamContextLock() { mMediaStreamContextMutex.unlock(); }
+
     AampMediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;
     const IAdaptationSet *adaptationSet;
@@ -281,6 +329,8 @@ public:
     int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
     bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
     std::mutex fetchChunkBufferMutex;
+    DownloadInfoPtr mActiveDownloadInfo;
+    std::mutex mMediaStreamContextMutex;
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */

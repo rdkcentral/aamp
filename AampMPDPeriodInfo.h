@@ -42,10 +42,11 @@ struct PeriodInfo
 	int periodIndex;
 	double periodStartTime;
 	double periodEndTime;
+	bool isEmptyPeriod;
 
 	PeriodInfo()
 		: periodId(""), startTime(0), duration(0.0), timeScale(0), periodIndex(-1),
-		  periodStartTime(-1), periodEndTime(-1)
+		  periodStartTime(-1), periodEndTime(-1), isEmptyPeriod(false)
 	{
 	}
 };

@@ -43,8 +43,6 @@ public:
 
     MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *));
 
-    MOCK_METHOD(bool, IsCodecSupported, (const std::string &codecName));
-
 	MOCK_METHOD(void, Stop, (bool), (override));
 
     MOCK_METHOD(void, SetSubtitleMute, (bool), (override));
@@ -55,7 +53,7 @@ public:
 
     MOCK_METHOD(void, SeekStreamSink, (double , double ), (override));
 
-    MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation), (override));
+    MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
 };
 
 extern MockAAMPGstPlayer *g_mockAampGstPlayer;

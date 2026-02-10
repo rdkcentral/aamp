@@ -29,51 +29,23 @@
  * @brief To store Low Latency Service configurations
  */
 struct AampLLDashServiceData {
-	bool lowLatencyMode;        	/**< LL Playback mode enabled */
-	bool strictSpecConformance; 	/**< Check for Strict LL Dash spec conformance*/
-	double availabilityTimeOffset;  	/**< LL Availability Time Offset */
-	bool availabilityTimeComplete;  	/**< LL Availability Time Complete */
-	int targetLatency;          	/**< Target Latency of playback */
-	int minLatency;             	/**< Minimum Latency of playback */
-	int maxLatency;             	/**< Maximum Latency of playback */
-	int latencyThreshold;       	/**< Latency when play rate correction kicks-in */
-	double minPlaybackRate;     	/**< Minimum playback rate for playback */
-	double maxPlaybackRate;     	/**< Maximum playback rate for playback */
-	bool isSegTimeLineBased;		/**< Indicates is stream is segmenttimeline based */
-	double fragmentDuration;		/**< Maximum Fragment Duration */
-	UtcTiming utcTiming;		/**< Server UTC timings */
+	bool lowLatencyMode = false;				/**< LL Playback mode enabled */
+	bool strictSpecConformance = false;			/**< Check for Strict LL Dash spec conformance*/
+	double availabilityTimeOffset = 0.0;		/**< LL Availability Time Offset */
+	bool availabilityTimeComplete = false;		/**< LL Availability Time Complete */
+	int targetLatency = 0;						/**< Target Latency of playback */
+	int minLatency = 0;							/**< Minimum Latency of playback */
+	int maxLatency = 0;							/**< Maximum Latency of playback */
+	int latencyThreshold = 0;					/**< Latency when play rate correction kicks-in */
+	double minPlaybackRate = 0.0;				/**< Minimum playback rate for playback */
+	double maxPlaybackRate = 0.0;				/**< Maximum playback rate for playback */
+	bool isSegTimeLineBased = false;			/**< Indicates is stream is segmenttimeline based */
+	double fragmentDuration = 0.0;				/**< Maximum Fragment Duration */
+	UtcTiming utcTiming = eUTC_HTTP_INVALID;	/**< Server UTC timings */
 
-	AampLLDashServiceData() : lowLatencyMode(false),
-			strictSpecConformance(false),
-			availabilityTimeOffset(0.0),
-			availabilityTimeComplete(false),
-			targetLatency(0),
-			minLatency(0),
-			maxLatency(0),
-			latencyThreshold(0),
-			minPlaybackRate(0.0),
-			maxPlaybackRate(0.0),
-			isSegTimeLineBased(false),
-			fragmentDuration(0.0),
-			utcTiming(eUTC_HTTP_INVALID)
-			{
-			}
-	/**< API to reset the Data*/
-	void clear(void)
+	void clear()
 	{
-		lowLatencyMode =false;
-		strictSpecConformance = false;
-		availabilityTimeOffset = 0.0;
-		availabilityTimeComplete = false;
-		targetLatency = 0;
-		minLatency = 0;
-		maxLatency = 0;
-		latencyThreshold = 0;
-		minPlaybackRate = 0.0;
-		maxPlaybackRate = 0.0;
-		isSegTimeLineBased = false;
-		fragmentDuration = 0.0; 
-		utcTiming = eUTC_HTTP_INVALID;
+		*this = {};
 	}
 };
 

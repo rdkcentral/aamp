@@ -72,9 +72,7 @@ typedef enum
 	eStreamOp_NONE, 		/**< Normal operation when no demuxing is required*/
 	eStreamOp_DEMUX_AUDIO, 		/**< Demux and inject audio only*/
 	eStreamOp_DEMUX_VIDEO, 		/**< Demux and inject video only*/
-	eStreamOp_DEMUX_ALL, 		/**< Demux and inject audio and video*/
-	eStreamOp_DEMUX_AUX, 		/**< Demux and inject auxiliary audio only*/
-	eStreamOp_DEMUX_VIDEO_AND_AUX	/**< Demux and inject auxiliary audio and video*/
+	eStreamOp_DEMUX_ALL 		/**< Demux and inject audio and video*/
 
 } StreamOperation;
 
@@ -103,7 +101,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] track AampMediaType to be operated on. Not relavent for demux operation
        * @param[in] peerTSProcessor Peer TSProcessor used along with this in case of separate audio/video playlists
        */
-      TSProcessor(class PrivateInstanceAAMP *aamp, StreamOperation streamOperation, id3_callback_t id3_hdl, int track = 0, TSProcessor* peerTSProcessor = NULL, TSProcessor* auxTSProcessor = NULL);
+      TSProcessor(class PrivateInstanceAAMP *aamp, StreamOperation streamOperation, id3_callback_t id3_hdl, int track = 0, TSProcessor* peerTSProcessor = NULL);
       /**
        * @brief Copy constructor disabled
        *
@@ -362,7 +360,7 @@ class TSProcessor : public MediaProcessor
        * @fn processScalingList
        * @param[in] p buffer containing scaling list
        * @param[in] mask mask
-       * @param[in] size lenght of scaling list
+       * @param[in] size length of scaling list
        */
       void processScalingList( unsigned char *& p, int& mask, int size );
       /**
@@ -506,7 +504,7 @@ class TSProcessor : public MediaProcessor
       /**
        * @fn processBuffer
        * @param[in] buffer contains TS data
-       * @param[in] size lenght of the buffer
+       * @param[in] size length of the buffer
        * @param[out] insPatPmt indicates if PAT and PMT needs to inserted
        */
       bool processBuffer(unsigned char *buffer, int size, bool &insPatPmt, bool discontinuity_pending);
@@ -531,7 +529,7 @@ class TSProcessor : public MediaProcessor
       /**
        * @fn demuxAndSend
        * @param[in] ptr buffer containing TS data
-       * @param[in] len lenght of buffer
+       * @param[in] len length of buffer
        * @param[in] position position of segment in seconds
        * @param[in] duration duration of segment in seconds
        * @param[in] discontinuous true if segment is discontinuous
@@ -599,8 +597,6 @@ class TSProcessor : public MediaProcessor
       bool m_demuxInitialized;
       long long m_basePTSFromPeer;
       unsigned char m_AudioTrackIndexToPlay;
-      TSProcessor* m_auxTSProcessor;
-      bool m_auxiliaryAudio;
       std::string m_audioGroupId;
 };
 

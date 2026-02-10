@@ -22,16 +22,20 @@
 
 #include <gmock/gmock.h>
 #include "main_aamp.h"
+#include <vector>
+#include <cstdint>
 
 class MockStreamSink : public StreamSink
 {
 public:
 
-    MOCK_METHOD(bool, SendCopy, (AampMediaType, const void *, size_t, double, double, double));
+    MOCK_METHOD(bool, SendCopy, (AampMediaType, std::vector<uint8_t>&&, double, double, double));
 
-    MOCK_METHOD(bool, SendTransfer, (AampMediaType, void *, size_t, double, double, double, double, bool, bool));
+    MOCK_METHOD(bool, SendTransfer, (AampMediaType, std::vector<uint8_t>&&, double, double, double, double, bool, bool));
 
     MOCK_METHOD(bool, Discontinuity, (AampMediaType));
+
+    MOCK_METHOD(bool, SendSample, (AampMediaType, AampMediaSample&));
 
 };
 
