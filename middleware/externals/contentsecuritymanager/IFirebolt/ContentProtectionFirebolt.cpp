@@ -572,7 +572,7 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 				licenseRequest, initData);
 	if (drmSession)
 	{
-		MW_LOG_WARN("DRM session opened successfully with sessionId: '%s' with Response %s", drmSession->sessionId.c_str(), drmSession->openSessionResponse.c_str());
+		MW_LOG_WARN("[TTT]DRM session opened successfully with sessionId: '%s' with Response %s", drmSession->sessionId.c_str(), drmSession->openSessionResponse.c_str());
 		response = drmSession->openSessionResponse;
 		sessionId = std::stoll(drmSession->sessionId);
 		ret = true;

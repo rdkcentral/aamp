@@ -1201,7 +1201,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 		if (res)
 		{
-			AAMPLOG_WARN("acquireLicense via ContentSecurityManager SUCCESS!");
+			AAMPLOG_WARN("[TTT]acquireLicense via ContentSecurityManager SUCCESS!");
 			//TODO: Sort this out for backward compatibility
 			*httpCode = 200;
 			*httpExtStatusCode = 0;
