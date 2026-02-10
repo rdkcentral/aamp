@@ -1142,7 +1142,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						}
 						if (ret > 0)
 						{
-							const char *bufferPtr = reinterpret_cast<const char*>(context->buffer->data()) + context->bufferOffset; 
+							const char *bufferPtr = reinterpret_cast<const char*>(context->buffer->data()) + context->bufferOffset;
 							if (context->chunkBoundary > context->bufferOffset)
 							{
 								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
