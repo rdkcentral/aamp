@@ -610,3 +610,18 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &err
 	}
 	return ret;
 }
+
+bool ContentProtectionFirebolt::CancelLicense(ContentSecurityManagerSession &session)
+{
+    if (!session.isSessionValid())
+    {
+        MW_LOG_WARN("CancelLicense: session is not valid");
+        return false;
+    }
+
+    int64_t sessionId = session.getSessionID();
+    MW_LOG_WARN("CancelLicense: closing session ID: %" PRId64, sessionId);
+
+    CloseDrmSession(sessionId);
+    return true;
+}

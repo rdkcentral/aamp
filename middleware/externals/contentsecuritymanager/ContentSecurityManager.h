@@ -139,6 +139,8 @@ public:
 	 */
         virtual bool getSessionToken(std::string &token);
 
+	virtual bool CancelLicense(ContentSecurityManagerSession &session);
+
 	/**
 	 *   @fn SendWatermarkSessionEvent_CB
 	 */
@@ -276,6 +278,10 @@ public:
         void ReleaseSession(int64_t sessionId) override
 	{
 		
+	}
+	bool CancelLicense(ContentSecurityManagerSession &session) override
+	{
+		return true;
 	}
 };
 #endif /* __CONTENT_SECURITY_MANAGER_H__ */

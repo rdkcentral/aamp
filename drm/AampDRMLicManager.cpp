@@ -163,6 +163,15 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
 	MW_LOG_INFO("isAbort : %s", isAbort ? "true" : "false");
 	licenseRequestAbort.store(isAbort, std::memory_order_release);
+
+	if (isAbort && mDrmSessionManager != nullptr)
+	{
+		 if (mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
+		 {
+			 MW_LOG_WARN("Cancelling ongoing license request");
+			 ContentSecurityManager::GetInstance()->CancelLicense(mDrmSessionManager->mContentSecurityManagerSession);
+		 }
+	}
 }
 
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
@@ -1172,6 +1181,20 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 &statusCode, &reasonCode, &businessStatus, videoMuteState, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
+		if (licenseRequestAbort.load(std::memory_order_acquire))
+		{
+			AAMPLOG_WARN("License request aborted during AcquireLicense, discarding response");
+			if (licenseResponseStr)
+			{
+				free(licenseResponseStr);
+				licenseResponseStr = nullptr;
+			}
+			*httpCode = CURLE_ABORTED_BY_CALLBACK;
+			*httpExtStatusCode = 0;
+			 free(encodedData);
+			 free(encodedChallengeData);
+			 return licenseResponse;
+		}
 		if (res)
 		{
 			AAMPLOG_WARN("acquireLicense via ContentSecurityManager SUCCESS!");

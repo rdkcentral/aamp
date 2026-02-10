@@ -185,6 +185,8 @@ public:
 	void ShowWatermark(bool show, int64_t sessionId);
 
 	void HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId);
+
+	bool CancelLicense(ContentSecurityManagerSession &session);
 private:
 	/**
 	 * @brief Subscribes to Firebolt events (currently stub)

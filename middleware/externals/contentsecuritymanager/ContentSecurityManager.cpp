@@ -219,3 +219,8 @@ std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityMana
 	return SendWatermarkSessionEvent_CB;
 }
 
+bool ContentSecurityManager::CancelLicense(ContentSecurityManagerSession &session)
+{
+	MW_LOG_WARN("CancelLicense called on base class - no-op");
+	return false;
+}

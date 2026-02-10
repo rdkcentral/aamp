@@ -130,6 +130,8 @@ public:
          * @brief assignment operator disabled
          */
         SecManagerThunder* operator=(const SecManagerThunder&) = delete;
+
+	bool CancelLicense(ContentSecurityManagerSession &session) override;
 protected:
 	/*Event Handlers*/
 	/**
