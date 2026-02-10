@@ -70,7 +70,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <uuid/uuid.h>
-#include <string.h>
+#include <cstring>
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
 #include <sched.h>
