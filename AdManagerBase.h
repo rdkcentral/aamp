@@ -110,6 +110,13 @@ public:
 	 * @param[in] reservationId The reservation identifier
 	 */
 	virtual void NotifyReservationComplete(const std::string& reservationId) {}
+
+	/**
+	 * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+	 */
+	virtual void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) {}
 };
 
 
