@@ -272,6 +272,13 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	}
 }
 
+/**
+ *  @brief Notify AAMP that ad reservation is complete for a given reservationId
+ */
+void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	aamp->NotifyReservationComplete(reservationId);
+}
 
 /**
  *   @brief API to reset configuration across tunes for single player instance
@@ -3166,8 +3173,8 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceClean
 	}
 	AAMPLOG_MIL("aamp_stop PlayerState=%d forceCleanup=%d", state, forceCleanup);
 	
-	// Negate sendStateChangeEvent since no need to send state change event on destructor call
-	aamp->Stop(!sendStateChangeEvent);
+	// State change events won't be sent if sendStateChangeEvent is false.
+	aamp->Stop(sendStateChangeEvent);
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);

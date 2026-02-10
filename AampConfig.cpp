@@ -31,6 +31,7 @@
 #include "PlayerRfc.h"
 #include "PlayerExternalsInterface.h"
 #include "PlayerSecInterface.h"
+#include "abr.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -114,7 +115,7 @@ static const struct
 	{ 1, 5, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
 	{ 0, 50, eCONFIG_RANGE_TIMEOUT },
 	{ 1, 10, eCONFIG_RANGE_CURL_SOCK_STORE_SIZE },
-	{ CURL_SSLVERSION_DEFAULT, CURL_SSLVERSION_TLSv1_3, eCONFIG_RANGE_CURL_SSL_VERSION },
+	{ CURL_SSLVERSION_DEFAULT, CURL_SSLVERSION_MAX_LAST, eCONFIG_RANGE_CURL_SSL_VERSION },
 	{ eTUNED_EVENT_ON_PLAYLIST_INDEXED, eTUNED_EVENT_ON_GST_PLAYING, eCONFIG_RANGE_TUNED_EVENT_CODE },
 	{ 0, 50, eCONFIG_RANGE_LIVEOFFSET },
 	{ -1, 50, eCONFIG_RANGE_RAMPDOWN_LIMIT },
@@ -445,7 +446,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_DISCONTINUITY_TIMEOUT,"discontinuityTimeout",eAAMPConfig_DiscontinuityTimeout,false},
 	{0,"minBitrate",eAAMPConfig_MinBitrate,true},
 	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
-	{CURL_SSLVERSION_DEFAULT,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION}, // by default, allow libcurl to negotiate best version supported by client and server, typically TLS1.3
+	{CURL_SSLVERSION_TLSv1_2, "supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION}, // minimum required version, with libcurl allowed to negotiate best version supported by client and server, typically TLS1.3
 	{DEFAULT_DRM_NETWORK_TIMEOUT,"drmNetworkTimeout",eAAMPConfig_DrmNetworkTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStallTimeout",eAAMPConfig_DrmStallTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStartTimeout",eAAMPConfig_DrmStartTimeout,true,eCONFIG_RANGE_TIMEOUT},
@@ -471,6 +472,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
 	{DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC,"utcSyncMinIntervalSec",eAAMPConfig_UTCSyncMinIntervalSec,true },
+	{DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM, "abrBandwidthEstimator", eAAMPConfig_ABRBandwidthEstimator, false, eCONFIG_RANGE_ANY},
 	{DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT,"earlyAbortProfileBandwidthPercent",eAAMPConfig_EarlyAbortProfileBandwidthPercent,true},
 	// Add new integer config entries above this line, before the aliases section.
 	//

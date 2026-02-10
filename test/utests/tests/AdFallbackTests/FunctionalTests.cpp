@@ -267,7 +267,7 @@ class AdFallbackTests : public ::testing::Test
 		bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
 		{
 			/* Setup fake AampGrowableBuffer contents. */
-			buffer->Clear();
+			buffer->clear();
 			buffer->AppendBytes((char *)mAdManifest, strlen(mAdManifest));
 			effectiveUrl = remoteUrl;
 			*httpError = 200;
