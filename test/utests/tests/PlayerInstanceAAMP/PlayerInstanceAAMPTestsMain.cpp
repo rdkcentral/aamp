@@ -1452,7 +1452,7 @@ TEST_F(PlayerInstanceAAMPTests, GetManifestTest) {
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest2) {
-	mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	std::string result = mPlayerInstance->GetManifest();
@@ -1460,7 +1460,7 @@ TEST_F(PlayerInstanceAAMPTests, GetManifestTest2) {
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest3) {
-	mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+	mPrivateInstanceAAMP->SetState(eSTATE_ERROR, true);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	std::string result = mPlayerInstance->GetManifest();
@@ -1468,7 +1468,7 @@ TEST_F(PlayerInstanceAAMPTests, GetManifestTest3) {
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest4) {
-	mPrivateInstanceAAMP->SetState(eSTATE_RELEASED);
+	mPrivateInstanceAAMP->SetState(eSTATE_RELEASED, true);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_RELEASED));
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	std::string result = mPlayerInstance->GetManifest();
@@ -1476,7 +1476,7 @@ TEST_F(PlayerInstanceAAMPTests, GetManifestTest4) {
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetManifestTest5) {
-	mPrivateInstanceAAMP->SetState(eSTATE_STOPPED);
+	mPrivateInstanceAAMP->SetState(eSTATE_STOPPED, true);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_STOPPED));
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	std::string result = mPlayerInstance->GetManifest();
@@ -2331,7 +2331,7 @@ TEST_F(PlayerInstanceAAMPTests, GetAvailableVideoTracksTest)
 TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest1)
 {
 	std::string result;
-	mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+	mPrivateInstanceAAMP->SetState(eSTATE_ERROR, true);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
 	std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
 	EXPECT_STREQ(result.c_str(),availableTracks.c_str());
@@ -2340,7 +2340,7 @@ TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest1)
 TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest2)
 {
 	std::string result;
-	mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+	mPrivateInstanceAAMP->SetState(eSTATE_IDLE, true);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
 	std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
 	EXPECT_STREQ(result.c_str(),availableTracks.c_str());
@@ -2715,7 +2715,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(seek_pos_seconds));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_SEEKING)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_SEEKING, true)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, false)).Times(1);
 
 	mPlayerInstance->SetRate(1.0);
@@ -2737,7 +2737,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_, true)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(_, _)).Times(0);
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(false)).Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(1);
@@ -2761,7 +2761,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_, true)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0,_)).Times(1);
 	//calling AAMPGstPlayer::Pause(false,false) would cause the pipeline to play at x1

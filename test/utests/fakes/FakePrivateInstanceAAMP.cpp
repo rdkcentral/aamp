@@ -198,15 +198,15 @@ AAMPPlayerState PrivateInstanceAAMP::GetState()
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetState(state);
+		g_mockPrivateInstanceAAMP->SetState(state, sendStateChangeEvent);
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 }
 
