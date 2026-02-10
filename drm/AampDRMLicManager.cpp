@@ -1166,6 +1166,8 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 			appId = clientId;
 
 		}
+		AAMPLOG_WARN("[TEST] Simulating slow license server - sleeping 6 seconds");
+		std::this_thread::sleep_for(std::chrono::seconds(5));
 		AAMPLOG_INFO("Client ID %s App ID %s", clientId.c_str(), appId.c_str());
 		tStartTime = NOW_STEADY_TS_MS;
 		bool res = ContentSecurityManager::GetInstance()->AcquireLicense(std::move(clientId), std::move(appId), licenseRequest.url.c_str(),
