@@ -26,3 +26,7 @@ test/l2test/result/
 test/l2test/data/aamp/*
 **/*.swp
 qtdemuxAnalyzer
+
+# Build artifacts
+abrsim/abrsim
+simnet/simnet/simnet
