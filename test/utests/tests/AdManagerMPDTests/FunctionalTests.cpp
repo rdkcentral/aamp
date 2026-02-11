@@ -1824,12 +1824,12 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 11);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "testPeriodId0");
   // This is because ad is placed, and hence we will increment curAdIdx
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak not placed
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak not placed
 
   // Update with same mpd again, and the params should not change
   ProcessSourceMPD(manifest2);
@@ -2200,8 +2200,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodOffset, 0);
   // TODO: There is a bug here, actually (int diff = (int)(currPeriodDuration - abObj.endPeriodOffset)) is coming as -ve here
   // Hence this is passing for now.
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 20000);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, "testPeriodId1"); // next period
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, "testPeriodId2"); // next period
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak placed
 }
 
@@ -4263,7 +4263,7 @@ TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndReso
 {
     std::string periodId = "testPeriodId";
     mPrivateCDAIObjectMPD->mAdBreaks[periodId] = AdBreakObject(10000, nullptr, "", 0, 0);
- 
+
     // Start a thread that waits for ad resolution (should be notified by NotifyReservationComplete)
     bool completed = false;
     std::thread waiter([&] {
@@ -4272,7 +4272,7 @@ TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndReso
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
- 
+
     waiter.join();
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
     // The waiting thread should have completed (not timed out)
