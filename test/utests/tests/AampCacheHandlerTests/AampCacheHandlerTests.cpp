@@ -595,6 +595,31 @@ TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_ManifestInsertion)
 }
 
 /**
+ * @test AampCache_reduceCacheSize_ZeroCacheSize
+ * @brief Verify behavior when max cache size is set to zero
+ *
+ * Test validates edge case where maxPlaylistCacheBytes is 0.
+ * Manifest should still be cached but playlists may not be.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_ZeroCacheSize)
+{
+	// Set cache size to 0
+	handler->SetMaxPlaylistCacheSize(0);
+
+	// Try to insert manifest (special type, should succeed even with size 0)
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 100);
+
+	// Manifest insertion triggers Clear() for manifest type, so it will be inserted
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+
+	// Try to insert regular playlist - should fail due to size constraint
+	InsertTestPlaylist("http://example.com/audio.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+
+	// Audio playlist should not be cached (exceeds maxPlaylistCacheBytes of 0)
+	EXPECT_FALSE(IsCached("http://example.com/audio.m3u8"));
+}
+
+/**
  * @test AampCache_reduceCacheSize_LiveVsVOD
  * @brief Verify that live playlists are not cached (reduceCacheSize not triggered)
  *
@@ -708,7 +733,7 @@ TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_SecondPassTriggered)
 	// First pass will remove AUDIO playlists (only 50 bytes removed)
 	// After first pass BEFORE new insert: manifest(50) + video(200) = 250 bytes
 	// 250 > 100? YES - second pass SHOULD trigger
-	// Second pass will remove ALL non-manifest (video playlists removed).
+	// Second pass will remove ALL non-manifest (video playlists removed)
 	InsertTestPlaylist("http://example.com/audio2.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 200);
 
 	// Verify: New audio added
