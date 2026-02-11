@@ -4,14 +4,41 @@ This document provides a quick reference guide to the AAMP architecture and docu
 
 ## Documentation Structure
 
-1. **01_architecture_overview.html** - High-level system architecture
-2. **02_code_organization.html** - Code organization and folder structure (to be created)
-3. **03_apis_classes.html** - Important APIs and classes (to be created)
-4. **04_diagrams_flowcharts.html** - Flow charts and diagrams (to be created)
-5. **05_implementation_strategy.html** - Implementation strategy (to be created)
-4. **04_current_design_analysis.html** - Current design problems and issues
-5. **05_refactored_solutions.html** - Proposed refactoring solutions
-6. **06_patch_file.html** - C++11 patch file
+### Getting Started
+- **[README.md](README.md)** - Main entry point with navigation to all documents
+- **[SUMMARY.md](SUMMARY.md)** - This file - Quick reference guide
+
+### Core Architecture Documentation
+1. **[01-architecture-overview.md](01-architecture-overview.md)** - High-level system architecture
+2. **[02-code-organization.md](02-code-organization.md)** - Code organization and folder structure
+3. **[03-core-classes-interfaces.md](03-core-classes-interfaces.md)** - Important APIs and classes
+
+### System Components
+4. **[04-fragment-collection.md](04-fragment-collection.md)** - Fragment collection system
+5. **[05-adaptive-bitrate.md](05-adaptive-bitrate.md)** - Adaptive bitrate management
+6. **[06-buffer-management.md](06-buffer-management.md)** - Buffer management strategies
+7. **[07-drm-system.md](07-drm-system.md)** - DRM system architecture
+8. **[08-downloader-network.md](08-downloader-network.md)** - Network and download layer
+9. **[09-event-management.md](09-event-management.md)** - Event system architecture
+10. **[10-time-shift-buffer.md](10-time-shift-buffer.md)** - Time Shift Buffer (TSB) system
+
+### Integration & Platform
+11. **[11-gstreamer-integration.md](11-gstreamer-integration.md)** - GStreamer pipeline integration
+12. **[12-middleware-platform.md](12-middleware-platform.md)** - Middleware and platform integration
+13. **[13-configuration-system.md](13-configuration-system.md)** - Configuration management
+14. **[14-build-system.md](14-build-system.md)** - Build system and compilation
+
+### Execution & Development
+15. **[15-workflows-execution.md](15-workflows-execution.md)** - Workflows and execution flows
+16. **[16-javascript-bindings.md](16-javascript-bindings.md)** - JavaScript/WebKit bindings
+17. **[17-testing-quality.md](17-testing-quality.md)** - Testing and quality assurance
+
+### Guides
+18. **[18-beginners-guide.md](18-beginners-guide.md)** - Beginner's guide for new developers
+19. **[19-expert-deep-dive.md](19-expert-deep-dive.md)** - Advanced topics for experts
+
+### High-Level Design
+- **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)** - Comprehensive RDK-E design and usage
 
 ## Key Architecture Components
 
@@ -71,55 +98,42 @@ This document provides a quick reference guide to the AAMP architecture and docu
 6. Inject into GStreamer pipeline
 7. GStreamer decodes and renders
 
-## Key Design Problems Identified
+## Quick Reference by Topic
 
-1. **Monolithic Files** - Files with 7000+ lines
-2. **Raw Pointers** - Manual memory management
-3. **Recursive Mutexes** - Indicates design issues
-4. **God Object** - PrivateInstanceAAMP has too many responsibilities
-5. **Tight Coupling** - Direct dependencies between components
-6. **Long Methods** - Methods with 300+ lines
-7. **Mixed C/C++** - Legacy C-style code
+### Understanding Architecture
+- Start: **[18-beginners-guide.md](18-beginners-guide.md)**
+- Overview: **[01-architecture-overview.md](01-architecture-overview.md)**
+- Code Structure: **[02-code-organization.md](02-code-organization.md)**
+- Classes: **[03-core-classes-interfaces.md](03-core-classes-interfaces.md)**
 
-## Refactoring Solutions
+### Component Details
+- Fragments: **[04-fragment-collection.md](04-fragment-collection.md)**
+- ABR: **[05-adaptive-bitrate.md](05-adaptive-bitrate.md)**
+- Buffering: **[06-buffer-management.md](06-buffer-management.md)**
+- DRM: **[07-drm-system.md](07-drm-system.md)**
+- Network: **[08-downloader-network.md](08-downloader-network.md)**
+- Events: **[09-event-management.md](09-event-management.md)**
+- TSB: **[10-time-shift-buffer.md](10-time-shift-buffer.md)**
 
-1. **Smart Pointers** - Replace raw pointers with `std::unique_ptr`/`std::shared_ptr`
-2. **Class Decomposition** - Extract managers (ConfigManager, StreamFactory, etc.)
-3. **Method Decomposition** - Break large methods into smaller ones
-4. **Eliminate Recursive Mutexes** - Restructure to use regular mutexes
-5. **Interface-Based Design** - Program to interfaces
-6. **RAII** - Resource management through constructors/destructors
-7. **Exception Handling** - Standardize error handling
+### Integration
+- GStreamer: **[11-gstreamer-integration.md](11-gstreamer-integration.md)**
+- Platform: **[12-middleware-platform.md](12-middleware-platform.md)**
+- Config: **[13-configuration-system.md](13-configuration-system.md)**
+- Build: **[14-build-system.md](14-build-system.md)**
 
-## Implementation Priority
+### Development
+- Workflows: **[15-workflows-execution.md](15-workflows-execution.md)**
+- JS Bindings: **[16-javascript-bindings.md](16-javascript-bindings.md)**
+- Testing: **[17-testing-quality.md](17-testing-quality.md)**
+- Advanced: **[19-expert-deep-dive.md](19-expert-deep-dive.md)**
 
-### Phase 1: Critical (4-6 weeks)
-- Memory management (smart pointers)
-- Thread safety improvements
-- Basic class decomposition
+### RDK-E Integration
+- Design: **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
 
-### Phase 2: Important (6-8 weeks)
-- Method decomposition
-- Error handling standardization
-- Performance optimizations
+## Documentation Navigation Tips
 
-### Phase 3: Enhancement (4-6 weeks)
-- Interface abstractions
-- Advanced optimizations
-- Documentation updates
-
-## Testing Strategy
-
-1. **Unit Tests** - Test individual components in isolation
-2. **Integration Tests** - Test component interactions
-3. **Regression Tests** - Ensure existing functionality works
-4. **Performance Tests** - Verify performance improvements
-
-## Migration Strategy
-
-1. Create new refactored classes alongside existing code
-2. Gradually migrate functionality
-3. Maintain backward compatibility
-4. Comprehensive testing at each step
-5. Remove old code once migration complete
-
+- **New to AAMP?** → Start with **[18-beginners-guide.md](18-beginners-guide.md)**
+- **Need architecture overview?** → Read **[01-architecture-overview.md](01-architecture-overview.md)**
+- **Working on a specific component?** → Check the corresponding numbered document (04-17)
+- **RDK-E integration?** → See **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
+- **Advanced topics?** → Review **[19-expert-deep-dive.md](19-expert-deep-dive.md)**

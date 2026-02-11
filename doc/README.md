@@ -1,190 +1,230 @@
 # AAMP Documentation
 
-This directory contains comprehensive documentation for the AAMP (Advanced Adaptive Media Player) codebase, including architecture analysis, design documentation, and refactoring proposals.
+This directory contains comprehensive documentation for the AAMP (Advanced Adaptive Media Player) codebase, including architecture analysis, design documentation, and implementation guides.
 
 ## Documentation Structure
 
-### Core Documentation
+### Getting Started
 
-1. **[index.html](index.html)** - Main entry point with navigation to all documents (HTML version)
-1. **[README.md](README.md)** - This file - Main entry point with navigation to all documents (Markdown version)
+1. **[README.md](README.md)** - This file - Main entry point with navigation to all documents
+2. **[SUMMARY.md](SUMMARY.md)** - Quick reference guide to the documentation structure
 
-2. **[01_architecture_overview.md](01_architecture_overview.md)**
+### Core Architecture Documentation
+
+3. **[01-architecture-overview.md](01-architecture-overview.md)**
    - High-level system architecture
    - Component relationships
+   - Role in RDK infrastructure
+   - Design principles
    - Data flow architecture
-   - Threading model
-   - Configuration system
-   - Event system
 
-3. **[02_code_organization.md](02_code_organization.md)**
+4. **[02-code-organization.md](02-code-organization.md)**
    - Repository structure
    - Folder organization
+   - File-by-file breakdown
+   - Dependencies and relationships
    - Main entry points
-   - Execution flows (Tune API, Fragment Download, ABR)
-   - Class relationships
-   - Module interactions
-   - Threading model
 
-4. **[03_apis_classes.md](03_apis_classes.md)**
+5. **[03-core-classes-interfaces.md](03-core-classes-interfaces.md)**
    - Public API documentation (PlayerInstanceAAMP)
    - Core classes (PrivateInstanceAAMP, StreamAbstraction, etc.)
-   - Event system
-   - Configuration system
-   - DRM system
-   - Utility classes
+   - Class relationships and responsibilities
+   - Interface definitions
    - Code examples
 
-### Design Analysis & Refactoring
+### System Components
 
-5. **[04_current_design_analysis.md](04_current_design_analysis.md)**
-   - Code organization issues
-   - Memory management problems
-   - Thread safety issues
-   - Design pattern violations
-   - Code quality issues
-   - Performance issues
-   - C++11 compliance issues
-   - Specific code issues with line numbers
+6. **[04-fragment-collection.md](04-fragment-collection.md)**
+   - Fragment collection system architecture
+   - HLS fragment collector implementation
+   - DASH fragment collector implementation
+   - Progressive fragment collector
+   - Fragment lifecycle management
 
-6. **[05_refactored_solutions.md](05_refactored_solutions.md)**
-   - Memory management refactoring (smart pointers)
-   - Thread safety improvements
-   - Class decomposition
-   - Method decomposition
-   - Parameter object pattern
-   - Error handling improvements
-   - Performance optimizations
+7. **[05-adaptive-bitrate.md](05-adaptive-bitrate.md)**
+   - ABR (Adaptive Bitrate) system architecture
+   - Network bandwidth estimation
+   - Profile management and selection
+   - Quality switching algorithms
 
-7. **[06_patch_file.md](06_patch_file.md)**
-   - Actual C++11 refactored code patches
-   - Memory management changes
-   - Thread safety improvements
-   - New class implementations
-   - CMakeLists.txt updates
-   - Migration checklist
+8. **[06-buffer-management.md](06-buffer-management.md)**
+   - Buffer management strategies
+   - Time-based and byte-based buffering
+   - Buffer level monitoring
+   - Buffer optimization techniques
 
-8. **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
-   - Comprehensive high-level design overview
-   - RDK-E integration details and usage patterns
-   - Component interactions and data flows
-   - Deployment scenarios and performance optimizations
-   - Security considerations and monitoring
+9. **[07-drm-system.md](07-drm-system.md)**
+   - DRM system architecture and implementation
+   - License acquisition and management
+   - Multiple DRM system support (Widevine, PlayReady, ClearKey, etc.)
+   - Content decryption flow
 
-### Architecture Components
+10. **[08-downloader-network.md](08-downloader-network.md)**
+    - HTTP/HTTPS download management
+    - Network layer architecture
+    - Connection pooling and reuse
+    - Download optimization
 
-9. **[07_middleware_architecture.md](07_middleware_architecture.md)**
-   - Middleware layer architecture and codeflow
-   - GStreamer integration and SOC-specific implementations
-   - Platform detection and hardware acceleration
+11. **[09-event-management.md](09-event-management.md)**
+    - Event system architecture
+    - Event types and categories
+    - Event listener registration
+    - Event dispatching mechanism
 
-10. **[08_closedcaptions_architecture.md](08_closedcaptions_architecture.md)**
-    - Closed captions rendering and management
-    - CC decoder integration and style handling
+12. **[10-time-shift-buffer.md](10-time-shift-buffer.md)**
+    - Time Shift Buffer (TSB) architecture
+    - Local and remote TSB support
+    - TSB API and usage
+    - Buffer management for time-shifted playback
 
-11. **[09_drm_architecture.md](09_drm_architecture.md)**
-    - DRM system architecture and implementation
-    - License acquisition and content decryption
-    - Multiple DRM system support (Widevine, PlayReady, etc.)
+### Integration & Platform
 
-12. **[10_osx_build_support.md](10_osx_build_support.md)**
-    - macOS build support and patches
-    - Platform-specific configurations
+13. **[11-gstreamer-integration.md](11-gstreamer-integration.md)**
+    - GStreamer pipeline integration
+    - Media injection interface
+    - Pipeline configuration
+    - Low-level media processing
 
-13. **[11_subtec_architecture.md](11_subtec_architecture.md)**
-    - Subtec subtitle renderer implementation
-    - WebVTT and TTML support
+14. **[12-middleware-platform.md](12-middleware-platform.md)**
+    - Middleware layer architecture
+    - Platform-specific implementations
+    - Platform detection and hardware acceleration
+    - SOC-specific optimizations
 
-14. **[12_subtitle_architecture.md](12_subtitle_architecture.md)**
-    - Subtitle parsing base interface
-    - Subtitle data structures and APIs
+15. **[13-configuration-system.md](13-configuration-system.md)**
+    - Configuration management system
+    - Configuration options and defaults
+    - Runtime configuration changes
+    - Configuration validation
 
-15. **[13_contentsecuritymanager_architecture.md](13_contentsecuritymanager_architecture.md)**
-    - Content security manager implementation
-    - DRM license acquisition and watermarking
+16. **[14-build-system.md](14-build-system.md)**
+    - Build system architecture
+    - CMake configuration
+    - Platform-specific build options
+    - Dependency management
 
-16. **[14_playerisobmff_architecture.md](14_playerisobmff_architecture.md)**
-    - ISO BMFF container parsing
-    - DASH and HLS container support
+### Execution & Development
 
-17. **[15_playerjsonobject_architecture.md](15_playerjsonobject_architecture.md)**
-    - JSON object wrapper and utilities
-    - cJSON integration
+17. **[15-workflows-execution.md](15-workflows-execution.md)**
+    - Player lifecycle overview
+    - Initialization sequence
+    - Tune workflow
+    - Playback flow
+    - Seek workflow
+    - Error handling
 
-18. **[16_playerlogmanager_architecture.md](16_playerlogmanager_architecture.md)**
-    - Centralized logging system
-    - Log level management and output routing
+18. **[16-javascript-bindings.md](16-javascript-bindings.md)**
+    - JavaScript/WebKit bindings
+    - UVE (Universal Video Engine) API
+    - Binding implementation
+    - Web application integration
 
-19. **[17_aampabr_architecture.md](17_aampabr_architecture.md)**
-    - Adaptive bitrate management
-    - Network bandwidth detection and profile switching
+19. **[17-testing-quality.md](17-testing-quality.md)**
+    - Testing infrastructure
+    - Quality assurance processes
+    - Test coverage and strategies
+    - Performance testing
 
-20. **[18_aampmetrics_architecture.md](18_aampmetrics_architecture.md)**
-    - Session metrics and statistics
-    - JSON-based reporting
+### Guides
 
-21. **[SUMMARY.md](SUMMARY.md)**
-   - Quick reference guide
-   - Key architecture components
-   - Main execution flows
-   - Design problems summary
-   - Refactoring solutions overview
-   - Implementation priority
+20. **[18-beginners-guide.md](18-beginners-guide.md)**
+    - Introduction for new developers
+    - Key concepts and terminology
+    - Recommended learning path
+    - Common tasks and examples
+
+21. **[19-expert-deep-dive.md](19-expert-deep-dive.md)**
+    - Advanced topics for experienced developers
+    - Low-latency optimizations
+    - Performance tuning
+    - Memory optimization techniques
+
+### High-Level Design
+
+22. **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
+    - Comprehensive high-level design overview
+    - RDK-E integration details and usage patterns
+    - Component interactions and data flows
+    - Deployment scenarios and performance optimizations
+    - Security considerations and monitoring
 
 ## How to Use This Documentation
 
 ### For New Developers
-1. Start with [01_architecture_overview.md](01_architecture_overview.md) to understand the system
-2. Read [02_code_organization.md](02_code_organization.md) to understand code structure
-3. Review [03_apis_classes.md](03_apis_classes.md) for API usage
+1. Start with **[18-beginners-guide.md](18-beginners-guide.md)** for an introduction
+2. Read **[01-architecture-overview.md](01-architecture-overview.md)** to understand the system
+3. Review **[02-code-organization.md](02-code-organization.md)** to understand code structure
+4. Explore **[03-core-classes-interfaces.md](03-core-classes-interfaces.md)** for API usage
 
-### For Code Reviewers
-1. Review [04_current_design_analysis.md](04_current_design_analysis.md) for identified issues
-2. Check [05_refactored_solutions.md](05_refactored_solutions.md) for proposed fixes
-3. Verify [06_patch_file.md](06_patch_file.md) for actual code changes
+### For System Architects
+1. Review **[01-architecture-overview.md](01-architecture-overview.md)** for high-level design
+2. Read **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)** for RDK-E integration
+3. Study **[15-workflows-execution.md](15-workflows-execution.md)** for execution flows
+4. Check **[12-middleware-platform.md](12-middleware-platform.md)** for platform integration
+
+### For Component Developers
+1. Review component-specific documentation (e.g., **[04-fragment-collection.md](04-fragment-collection.md)**, **[05-adaptive-bitrate.md](05-adaptive-bitrate.md)**)
+2. Understand **[11-gstreamer-integration.md](11-gstreamer-integration.md)** for media pipeline
+3. Reference **[09-event-management.md](09-event-management.md)** for event handling
+4. Check **[13-configuration-system.md](13-configuration-system.md)** for configuration
 
 ### For RDK-E Developers
-1. Read [AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md) for RDK-E integration
-2. Review [07_middleware_architecture.md](07_middleware_architecture.md) for middleware details
-3. Check [09_drm_architecture.md](09_drm_architecture.md) for DRM integration
+1. Read **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)** for RDK-E integration
+2. Review **[12-middleware-platform.md](12-middleware-platform.md)** for middleware details
+3. Check **[07-drm-system.md](07-drm-system.md)** for DRM integration
+4. Study **[16-javascript-bindings.md](16-javascript-bindings.md)** for WebKit integration
 
-### For Refactoring Implementation
-1. Follow the migration checklist in [06_patch_file.md](06_patch_file.md)
-2. Reference [05_refactored_solutions.md](05_refactored_solutions.md) for design patterns
-3. Use [SUMMARY.md](SUMMARY.md) as a quick reference
+### For Advanced Developers
+1. Review **[19-expert-deep-dive.md](19-expert-deep-dive.md)** for advanced topics
+2. Study **[15-workflows-execution.md](15-workflows-execution.md)** for detailed execution flows
+3. Reference component-specific deep dives as needed
 
-## Key Findings
+## Key Architecture Components
 
-### Critical Issues
-- **Memory Management**: Raw pointer usage throughout codebase
-- **Thread Safety**: Recursive mutexes indicate design problems
-- **Code Organization**: Monolithic files (7000+ lines)
-- **Tight Coupling**: Direct dependencies between components
+### Public API Layer
+- **PlayerInstanceAAMP** (`main_aamp.h/cpp`) - Public C++ API
 
-### Proposed Solutions
-- **Smart Pointers**: Replace raw pointers with `std::unique_ptr`/`std::shared_ptr`
-- **Class Decomposition**: Extract managers (ConfigManager, StreamFactory)
-- **Eliminate Recursive Mutexes**: Restructure to use regular mutexes
-- **Method Decomposition**: Break large methods into smaller ones
+### Core Engine
+- **PrivateInstanceAAMP** (`priv_aamp.h/cpp`) - Core player implementation
+- **AampConfig** - Configuration management
+- **AampEventManager** - Event system
+- **AampScheduler** - Task scheduling
 
-## Implementation Timeline
+### Stream Abstraction
+- **StreamAbstractionAAMP** - Base class
+- **StreamAbstractionAAMP_HLS** - HLS implementation
+- **StreamAbstractionAAMP_MPD** - DASH implementation
+- **StreamAbstractionAAMP_Progressive** - Progressive download
 
-- **Phase 1 (4-6 weeks)**: Memory management, basic thread safety
-- **Phase 2 (6-8 weeks)**: Method decomposition, error handling
-- **Phase 3 (4-6 weeks)**: Interface abstractions, optimizations
+### Fragment Collection
+- **FragmentCollector_HLS** - HLS fragment collection
+- **FragmentCollector_MPD** - DASH fragment collection
+- **FragmentCollector_Progressive** - Progressive playback
 
-## Notes
+### Media Pipeline
+- **AAMPGstPlayer** - GStreamer integration
+- **StreamSink** - Media injection interface
+
+### DRM System
+- **AampDRMLicManager** - License management
+- **DrmInterface** - DRM abstraction
+
+### Network Layer
+- **AampCurlDownloader** - HTTP/HTTPS downloads
+- **AampCurlStore** - Connection management
+
+## Documentation Notes
 
 - All diagrams use Mermaid.js and render in modern browsers
 - Code examples follow C++11 standards
-- Line numbers refer to the analyzed codebase version
-- Patches should be applied incrementally with testing
+- File paths and line numbers refer to the current codebase version
+- Documentation is maintained alongside code changes
 
 ## Contributing
 
 When updating this documentation:
 1. Keep diagrams in Mermaid format for easy editing
-2. Include line numbers for code references
+2. Include file paths and line numbers for code references
 3. Update the summary document when adding new sections
-4. Maintain consistency in code examples
-
+4. Maintain consistency in code examples and formatting
+5. Follow the existing documentation structure and naming conventions
