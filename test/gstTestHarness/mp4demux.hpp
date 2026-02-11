@@ -1050,14 +1050,21 @@ public:
 				break;
 				
 			case MultiChar_Constant("esds"):
+			{
 				caps = gst_caps_new_simple(
-										   "audio/mpeg",
-										   "mpegversion",G_TYPE_INT,4,
-										   "framed", G_TYPE_BOOLEAN, TRUE,
-										   "stream-format",G_TYPE_STRING,"raw", // FIXME
-										   "codec_data", GST_TYPE_BUFFER, buf,
-										   NULL );
+					"audio/mpeg",
+					"mpegversion", G_TYPE_INT, 4,
+					"framed", G_TYPE_BOOLEAN, TRUE,
+					"stream-format", G_TYPE_STRING, "raw",
+					"profile", G_TYPE_STRING, "lc",         // Rialto workaround
+					"base-profile", G_TYPE_STRING, "lc",    // Rialto workaround
+					"level", G_TYPE_STRING, "2",            
+					"rate", G_TYPE_INT, audio.samplerate,
+					"channels", G_TYPE_INT, audio.channel_count,
+					"codec_data", GST_TYPE_BUFFER, buf,
+					NULL);
 				break;
+			}
 				
 			case MultiChar_Constant("dec3"):
 				caps = gst_caps_new_simple(
