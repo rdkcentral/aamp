@@ -1337,7 +1337,7 @@ bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuff
 {
 	bool ret = false;
 	std::unique_lock<std::mutex> lock(m_mutex);
-	if (pBuffer && pBuffer->GetPtr() && pBuffer->size() > 0)
+	if (pBuffer && !pBuffer->empty())
 	{
 		IsoBmffBuffer buffer;
 		buffer.setBuffer(pBuffer->GetVector());

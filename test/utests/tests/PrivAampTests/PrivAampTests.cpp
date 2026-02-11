@@ -1149,7 +1149,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// In this test, CacheFragmentChunk() should be called exactly once when chunked mdat boundary is detected
 	// Lets make this a strict check using expected values
 	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.GetPtr() + startBufferOffset, chunkBoundary - startBufferOffset, _, _))
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, reinterpret_cast<const char*>(buffer.data()) + startBufferOffset, chunkBoundary - startBufferOffset, _, _))
 		.Times(1);
 
 	size_t result1 = p_aamp->HandleSSLWriteCallback(testDataPart1, strlen(testDataPart1), 1, &context);
