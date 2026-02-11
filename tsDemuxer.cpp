@@ -457,7 +457,9 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						bytes_to_read = size;
 					}
 					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
-					pes_header.AppendBytes( data, bytes_to_read);
+					pes_header.insert(pes_header.GetVector().end(),
+							reinterpret_cast<const uint8_t*>(data),
+							reinterpret_cast<const uint8_t*>(data) + bytes_to_read);
 					data += bytes_to_read;
 					size -= bytes_to_read;
 					if (pes_header.size() == aamp_ts::pes_min_data)
@@ -505,7 +507,9 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
 					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
-					es.AppendBytes(data, size);
+ 					es.insert(es.GetVector().end(),
+							reinterpret_cast<const uint8_t*>(data),
+							reinterpret_cast<const uint8_t*>(data) + size);
 					size = 0;
 					break;
 				default:

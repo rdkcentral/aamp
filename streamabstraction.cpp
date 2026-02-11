@@ -996,7 +996,9 @@ bool MediaTrack::ProcessFragmentChunk()
 	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.size(), unparsedBufferChunk.size(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size() );
+	unparsedBufferChunk.insert(unparsedBufferChunk.GetVector().end(),
+			cachedFragment->fragment.data(),
+			cachedFragment->fragment.data() + cachedFragment->fragment.size());
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
@@ -1078,7 +1080,9 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(parsedBufferSize)
 	{
 		//Prepare parsed buffer
-		parsedBufferChunk.AppendBytes( unparsedBufferChunk.GetPtr(), parsedBufferSize);
+		parsedBufferChunk.insert(parsedBufferChunk.GetVector().end(),
+				unparsedBufferChunk.data(),
+				unparsedBufferChunk.data() + parsedBufferSize);
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			if (pContext && pContext->trickplayMode)
@@ -1118,9 +1122,11 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
 		AampGrowableBuffer tempBuffer("tempBuffer");
-		tempBuffer.AppendBytes(unParsedBuffer,unParsedBufferSize);
+		tempBuffer.assign(reinterpret_cast<const uint8_t*>(unParsedBuffer),
+				reinterpret_cast<const uint8_t*>(unParsedBuffer) + unParsedBufferSize);
 		unparsedBufferChunk.Free();
-		unparsedBufferChunk.AppendBytes(tempBuffer.GetPtr(),tempBuffer.size());
+		unparsedBufferChunk.assign(tempBuffer.GetVector().data(),
+				tempBuffer.GetVector().data() + tempBuffer.GetVector().size());
 		tempBuffer.Free();
 	}
 	else
@@ -1418,8 +1424,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.clear();
-						cachedFragment->fragment.AppendBytes(str.data(),str.size());
+						cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(str.data()),
+								reinterpret_cast<const uint8_t*>(str.data()) + str.size());
 						if(mSubtitleParser)
 						{
 							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);

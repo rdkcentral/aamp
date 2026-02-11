@@ -741,7 +741,7 @@ TEST_F(IsoBmffProcessorTests, PTMOnRestampOnTest)
 TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 {
 	AampGrowableBuffer buffer("IsoBmffProcessorPTMTests-passThroughTests1");
-	buffer.AppendBytes("SampleData", 10); // Dummy data to simulate a buffer
+	buffer.assign(reinterpret_cast<const uint8_t*>("SampleData"), reinterpret_cast<const uint8_t*>("SampleData") + 10); // Dummy data to simulate a buffer
 
 	double position = 0, duration = 0;
 	bool discontinuous = false, ptsError = false;

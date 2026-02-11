@@ -126,7 +126,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
 
 	test_data_t td = GetParam();
-	src_data.AppendBytes(td.input_data,  td.input_data_len);
+	src_data.assign(reinterpret_cast<const uint8_t*>(td.input_data), reinterpret_cast<const uint8_t*>(td.input_data) + td.input_data_len);
 
 	EXPECT_TRUE(helper->ConvertToKeyFrame(src_data));
 	EXPECT_EQ(src_data.size(), td.expected_data_len);
