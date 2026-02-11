@@ -1065,6 +1065,10 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
 				len = DEFAULT_ENCODED_CONTENT_BUFFER_SIZE;
 			}
+			if (!(context->buffer->empty() && context->buffer->capacity()))
+			{
+				AAMPLOG_INFO("Siva media type %d, context->buffer.empty() %d, context->buffer.capacity() %d", context->mediaType, context->buffer->empty(), context->buffer->capacity());
+			}
 			context->buffer->ReserveBytes(len);
 		}
 		size_t numBytesForBlock = size*nmemb;
