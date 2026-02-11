@@ -1050,7 +1050,6 @@ public:
 				break;
 				
 			case MultiChar_Constant("esds"):
-			{
 				caps = gst_caps_new_simple(
 					"audio/mpeg",
 					"mpegversion", G_TYPE_INT, 4,
@@ -1064,7 +1063,6 @@ public:
 					"codec_data", GST_TYPE_BUFFER, buf,
 					NULL);
 				break;
-			}
 				
 			case MultiChar_Constant("dec3"):
 				caps = gst_caps_new_simple(
