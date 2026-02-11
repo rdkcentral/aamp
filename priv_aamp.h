@@ -757,6 +757,16 @@ public:
 	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
 
 	/**
+	 * @fn SetBufferingState
+	 * @brief Convenience API to toggle buffering state and handle pipeline pause/resume and events.
+	 *        When buffering is true, sends buffer start event and pauses pipeline if not already paused.
+	 *        When buffering is false, resumes pipeline if paused, updates subtitle timestamp, and sends buffer end event.
+	 * @param[in] buffering - true to indicate buffering (underflow start), false to indicate buffering ended.
+	 * @return void
+	 */
+	void SetBufferingState(bool buffering);
+
+	/**
 	 * @fn mediaType2Bucket
 	 *
 	 * @param[in] mediaType - Media filetype
@@ -1542,10 +1552,10 @@ public:
 	void SendTuneMetricsEvent(std::string &timeMetricData);
 
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
-	bool mBufUnderFlowStatus;
-	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus; }
-	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus = statusFlag; }
-	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus = false;}
+	std::atomic<bool> mBufUnderFlowStatus{false};
+	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
+	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
+	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
 
 	/**
 	 * @fn SendEvent

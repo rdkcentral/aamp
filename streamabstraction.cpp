@@ -41,6 +41,7 @@
 #include "SubtecFactory.hpp"
 #include "AampUtils.h"
 #include "AampMp4Demuxer.h"
+#include "AampUnderflowMonitor.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -2999,6 +3000,68 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	}
 
 	return retVal;
+}
+
+void StreamAbstractionAAMP::StartUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	// Run underflow monitor only when explicitly enabled via config
+	if (!GETCONFIGVALUE(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		AAMPLOG_TRACE("UnderflowMonitor gated off by config; skipping");
+		return;
+	}
+	if (!GetMediaTrack(eTRACK_VIDEO))
+	{
+		AAMPLOG_WARN("StartUnderflowMonitor: video track unavailable");
+		return;
+	}
+	if (!mUnderflowMonitor)
+	{
+		try
+		{
+			mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(this, aamp);
+			mUnderflowMonitor->Start();
+			AAMPLOG_INFO("Started AampUnderflowMonitor for video");
+		}
+		catch (const std::exception &e)
+		{
+			AAMPLOG_ERR("Failed to create/start AampUnderflowMonitor: %s", e.what());
+			// Ensure future calls can attempt creation again
+			mUnderflowMonitor.reset();
+		}
+	}
+	else
+	{
+		// Attempt to start existing monitor; Start() is idempotent
+		try
+		{
+			mUnderflowMonitor->Start();
+		}
+		catch (const std::exception &e)
+		{
+			AAMPLOG_ERR("Failed to start existing AampUnderflowMonitor: %s", e.what());
+			// Reset to allow recreation on next call
+			mUnderflowMonitor.reset();
+		}
+	}
+}
+
+void StreamAbstractionAAMP::StopUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->Stop();
+		mUnderflowMonitor.reset();
+		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video");
+	}
+}
+
+bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	return (mUnderflowMonitor && mUnderflowMonitor->IsRunning());
 }
 /**
  *  @brief Check if playback has stalled and update related flags.
