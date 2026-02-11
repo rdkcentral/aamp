@@ -35,6 +35,27 @@
 #include "fragmentcollector_hls.h"
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
+#ifdef AAMP_NET_TRACE
+#include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
+
+/**
+ * @brief Network trace burst detection threshold (seconds)
+ * 
+ * Purpose: Minimum idle time in curl write callbacks to trigger burst splitting.
+ * Value of 5ms chosen to distinguish network-level bursts from application buffering.
+ * Bursts separated by gaps exceeding this threshold are recorded as separate entries.
+ */
+static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
+
+/**
+ * @brief Network trace late gap threshold (seconds)
+ * 
+ * Purpose: Gaps exceeding this threshold mark bursts as "late" for QoS analysis.
+ * Value of 120ms chosen to identify bursts delayed beyond typical buffering jitter.
+ * Late bursts indicate potential network congestion or server-side delays.
+ */
+static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
+#endif
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 #include "ota_shim.h"
@@ -61,6 +82,7 @@
 
 #include <iomanip>
 #include <unordered_set>
+#include <mutex>
 
 #include <sys/time.h>
 #include <cmath>
@@ -171,10 +193,10 @@ struct CurlCbContextSyncTime
  */
 struct TuneFailureMap
 {
-    AAMPTuneFailure tuneFailure;    /**< Failure ID */
-    int code;                       /**< Major Error code */
+	AAMPTuneFailure tuneFailure;    /**< Failure ID */
+	int code;                       /**< Major Error code */
 	int subCode;					/**< Minor Error code */
-    const char* description;        /**< Textual description */
+	const char* description;        /**< Textual description */
 };
 
 static TuneFailureMap tuneFailureMap[] =
@@ -189,7 +211,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR, 10, 7, "AAMP: init failed (unsynchronized tracks)"},
 	
 	
-    //Resource failure
+	//Resource failure
 	{AAMP_TUNE_CONTENT_NOT_FOUND, 20, 1, "AAMP: Resource was not found at the URL(HTTP 404)"},
 	
 	//Download failure
@@ -474,52 +496,52 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 
 double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len )
 {
-    double ret = 0;
-    uint32_t timeScale = 0;
-    switch( mediaType )
-    {
-    case eMEDIATYPE_VIDEO:
-        timeScale = GetVidTimeScale();
-        break;
-    case eMEDIATYPE_AUDIO:
-        timeScale = GetAudTimeScale();
-        break;
-    case eMEDIATYPE_SUBTITLE:
-        timeScale = GetSubTimeScale();
-        break;
-    default:
-        AAMPLOG_WARN("Invalid media type %d", mediaType);
-        break;
-    }
-    IsoBmffBuffer isobuf;
-    isobuf.setBuffer((uint8_t *)ptr, len);
-    bool bParse = false;
-    try
-    {
-        bParse = isobuf.parseBuffer();
-    }
-    catch( std::bad_alloc& ba)
-    {
-        AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-    }
-    catch( std::exception &e)
-    {
-        AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-    }
-    catch( ... )
-    {
-        AAMPLOG_ERR("Unknown exception");
-    }
-    if(bParse && (0 != timeScale))
-    {
-        uint64_t fPts = 0;
-        bool bParse = isobuf.getFirstPTS(fPts);
-        if (bParse)
-        {
-            ret = fPts/(timeScale*1.0);
-        }
-    }
-    return ret;
+	double ret = 0;
+	uint32_t timeScale = 0;
+	switch( mediaType )
+	{
+	case eMEDIATYPE_VIDEO:
+		timeScale = GetVidTimeScale();
+		break;
+	case eMEDIATYPE_AUDIO:
+		timeScale = GetAudTimeScale();
+		break;
+	case eMEDIATYPE_SUBTITLE:
+		timeScale = GetSubTimeScale();
+		break;
+	default:
+		AAMPLOG_WARN("Invalid media type %d", mediaType);
+		break;
+	}
+	IsoBmffBuffer isobuf;
+	isobuf.setBuffer((uint8_t *)ptr, len);
+	bool bParse = false;
+	try
+	{
+		bParse = isobuf.parseBuffer();
+	}
+	catch( std::bad_alloc& ba)
+	{
+		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
+	}
+	catch( std::exception &e)
+	{
+		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
+	}
+	catch( ... )
+	{
+		AAMPLOG_ERR("Unknown exception");
+	}
+	if(bParse && (0 != timeScale))
+	{
+		uint64_t fPts = 0;
+		bool bParse = isobuf.getFirstPTS(fPts);
+		if (bParse)
+		{
+			ret = fPts/(timeScale*1.0);
+		}
+	}
+	return ret;
 }
 
 /**
@@ -1051,6 +1073,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		ret = numBytesForBlock;
 		if(ptr && numBytesForBlock > 0)
 		{
+#ifdef AAMP_NET_TRACE
+			// Record burst timing BEFORE appending bytes; this captures ingress cadence
+			if (context->net) {
+				context->net->OnWrite(size*nmemb, aamptrace::now_monotonic_s());
+			}
+#endif
 			if (context->buffer->size() == 0)
 			{
 				// First byte received, record data transfer start time
@@ -1259,6 +1287,12 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		{
 			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
+#ifdef AAMP_NET_TRACE
+			// Mark request as chunked for the recorder (request-level metadata)
+			if (context->net) {
+				context->net->MarkChunked();
+			}
+#endif
 		}
 		else if (0 == context->buffer->capacity() )
 		{
@@ -1830,7 +1864,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-    AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
+	AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
 }
@@ -2457,10 +2491,10 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 					if (sink)
- 					{
- 						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
+					{
+						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
 						{
- 							if (sink->SetPlayBackRate(rateRequired))
+							if (sink->SetPlayBackRate(rateRequired))
 							{
 								mCorrectionRate = rateRequired;
 								UpdateVideoEndMetrics(rateRequired);
@@ -2468,7 +2502,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
 								profiler.IncrementChangeCount(Count_RateCorrection);
 							}
- 						}
+						}
 					}
 				}
 				else
@@ -2476,7 +2510,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != normalPlaybackRate))
 					{
 						//Rate correction stopping from correction rate so reset to normal
- 						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 						if (sink)
 						{
 							if (sink->SetPlayBackRate(normalPlaybackRate))
@@ -2488,7 +2522,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 							{
 								AAMPLOG_WARN("Failed to reset the playback rate!!");
 							}
- 						}
+						}
 					}
 				}
 			}
@@ -2682,7 +2716,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		else
 		{
-	   		currentRate  = rate;
+			currentRate  = rate;
 		}
 		// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
 		// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
@@ -2884,7 +2918,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Pipeline will be in Paused state when Lightning trickplay is done. During this state XRE will send the resume position to exit pause state .
 	// Issue observed when culled position reaches the paused position during lightning trickplay and player resumes the playback with paused position as playback position ignoring XRE shown position.
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
-  	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
+	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
 	if( pipeline_paused && mpStreamAbstractionAAMP )
 	{
@@ -4415,6 +4449,52 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
 		CurlCallbackContext context;
+		
+		// ==== Begin additive instrumentation - no behavior change ====
+#ifdef AAMP_NET_TRACE
+		using aamptrace::NetTrace;
+		static std::atomic<uint64_t> g_req_id{1};
+		// Per-PID CSV files to prevent cross-process interleaving/garbling.
+		// Env override supported; otherwise default to /tmp
+		// Use std::call_once to initialize paths only once per process
+		static std::once_flag init_paths_flag;
+		std::call_once(init_paths_flag, []() {
+			if (const char* R = std::getenv("AAMP_REQ_CSV")) {
+				if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::SetPathsWithPid(R, B);
+				else NetTrace::SetPathsWithPid(R, "/tmp/aamp_net_bursts.csv");
+			}
+			else {
+				NetTrace::SetPathsWithPid("/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
+			}
+		});
+		
+		// extract path component (after domain) from URL
+		static const auto pathOnly = [](const std::string& u)->std::string {
+			size_t s = 0, p = u.find("://");
+			s = (p==std::string::npos) ? 0 : (p+3);
+			s = u.find('/', s);
+			return (s==std::string::npos) ? u : u.substr(s);
+		};
+		const char* mt_str =
+		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
+		
+		NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
+					 /*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
+		
+		// RAII guard to ensure context.net is automatically nulled when 'net' goes out of scope
+		// This prevents dangling pointer issues on all return paths (normal and early returns)
+		struct NetTraceGuard {
+			aamptrace::NetTrace** ptrRef;
+			NetTraceGuard(aamptrace::NetTrace** ref, aamptrace::NetTrace* obj) : ptrRef(ref) { *ptrRef = obj; }
+			~NetTraceGuard() { *ptrRef = nullptr; }
+		};
+		NetTraceGuard netGuard(&context.net, &net);
+#endif
+		// ==== End additive instrumentation ====
+		
 		if (curl)
 		{
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
@@ -4593,12 +4673,44 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				long long tStartTime = NOW_STEADY_TS_MS;
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
-				if( res == CURLE_OPERATION_TIMEDOUT)
+				// ---- Finalize recorder immediately after the perform ----
+#ifdef AAMP_NET_TRACE
 				{
-					AAMPLOG_INFO("Curl Timeout detected(%d)", res);
-					res = (CURLcode)GetCurlTimeoutFailureReason(curl);
+					double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
+					double t_starttransfer=0, t_total=0, t_redirect=0;
+					char*  primary_ip = nullptr;
+					long   local_port = 0, num_connects = 0;
+					long   http_code_local = -1;
+					curl_off_t size_download = 0;
+					curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME,    &t_namelookup);
+					curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME,       &t_connect);
+					curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME,    &t_appconnect);
+					curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME,   &t_pretransfer);
+					curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &t_starttransfer);
+					curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME,         &t_total);
+					curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME,      &t_redirect);
+					curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP,         &primary_ip);
+					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
+					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
+					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+					size_download = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+					size_download = static_cast<curl_off_t>(aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD));
+#endif
+					if (context.net) {
+						context.net->OnCompleteBytes();
+						context.net->SetCurlTimings(
+													  t_namelookup, t_connect, t_appconnect, t_pretransfer,
+													  t_starttransfer, t_total, t_redirect,
+													  http_code_local, (num_connects==0),
+													  primary_ip?std::string(primary_ip):std::string(), local_port,
+													  size_download);
+						// Note: FlushCsv() moved outside retry loop to ensure only one CSV row per GetFile call
+					}
 				}
-
+#endif
+				
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
 					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
@@ -4777,9 +4889,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
-							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
-							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
@@ -4955,7 +5067,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						++ui32CurlTrace;
 					}
 				}
-			 	//To handle initial fragment download delays before ABR starts
+				//To handle initial fragment download delays before ABR starts
 				if(GetLLDashServiceData()->lowLatencyMode && mediaType == eMEDIATYPE_VIDEO)
 				{
 					double downloadTime = (double)(downloadTimeMS)/1000;
@@ -4979,6 +5091,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					break;
 			}
 		}
+
+#ifdef AAMP_NET_TRACE
+		// Flush NetTrace CSV after retry loop completes (success or terminal failure)
+		// This ensures only one CSV row per GetFile call, regardless of retry attempts
+		if (context.net) {
+			context.net->FlushCsv();
+		}
+#endif
 
 		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
 		{
@@ -5212,7 +5332,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		catch (std::exception &e)
 		{
-				AAMPLOG_ERR("Stripping the fragment for ranged request failed (%s)", e.what());
+			AAMPLOG_ERR("Stripping the fragment for ranged request failed (%s)", e.what());
 		}
 	}
 
@@ -5224,6 +5344,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		profiler.ProfileEnd(bucketType);
 	}
+	// Note: context.net is automatically nulled by NetTraceGuard destructor
 	return ret;
 }
 
@@ -6467,7 +6588,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		AampStreamSinkManager::GetInstance().CreateStreamSink( this,
 											   std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
-											   			 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
+														 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
 	}
 
 	if (autoPlay)
@@ -7838,7 +7959,7 @@ long long PrivateInstanceAAMP::GetDurationMs()
 
 	if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 	{
-	 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			ms = sink->GetDurationMilliseconds();
@@ -12820,8 +12941,8 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
  * @param[in] target Track to find
  * @return Index of track (0-based), or -1 if not found
  */
-int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
-                                            const TextTrackInfo& target) const
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks,
+											const TextTrackInfo& target) const
 {
 	int index = -1;
 	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
@@ -14577,7 +14698,7 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
 	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
-	    IsLocalAAMPTsbInjection() &&
+		IsLocalAAMPTsbInjection() &&
 		(rate != AAMP_NORMAL_PLAY_RATE))
 	{
 		audioOutputFormat = FORMAT_INVALID;
