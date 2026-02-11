@@ -708,7 +708,7 @@ TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_SecondPassTriggered)
 	// First pass will remove AUDIO playlists (only 50 bytes removed)
 	// After first pass BEFORE new insert: manifest(50) + video(200) = 250 bytes
 	// 250 > 100? YES - second pass SHOULD trigger
-	// Second pass will remove ALL non-manifest (video playlists removed)
+	// Second pass will remove ALL non-manifest (video playlists removed).
 	InsertTestPlaylist("http://example.com/audio2.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 200);
 
 	// Verify: New audio added
