@@ -969,7 +969,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				// Optionally, return early or handle as needed
 			}
 
-			if(fogManifest.GetPtr())
+			if (fogManifest.capacity() != 0)
 			{
 				fogManifest.Free();
 			}
