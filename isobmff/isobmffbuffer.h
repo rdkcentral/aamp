@@ -191,10 +191,10 @@ public:
 	/**
 	 * @fn setBuffer
 	 *
-	 * @param[in] buffer - buffer vector reference
+	 * @param[in] buffer - buffer vector reference (non-const, may be modified)
 	 * @return void
 	 */
-	void setBuffer(const std::vector<uint8_t>& buffer);
+	void setBuffer(std::vector<uint8_t>& buffer);
 
 	/**
 	 * @fn setBuffer

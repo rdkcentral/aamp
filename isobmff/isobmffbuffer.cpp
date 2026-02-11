@@ -47,9 +47,9 @@ IsoBmffBuffer::~IsoBmffBuffer()
 /**
  *  @brief Set buffer
  */
-void IsoBmffBuffer::setBuffer(const std::vector<uint8_t>& buffer)
+void IsoBmffBuffer::setBuffer(std::vector<uint8_t>& buffer)
 {
-	this->buffer = const_cast<uint8_t*>(buffer.data());
+	this->buffer = buffer.data();
 	this->bufSize = buffer.size();
 }
 

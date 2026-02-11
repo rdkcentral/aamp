@@ -1234,11 +1234,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in] segment - fragment buffer
+	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
 	 * @param[in] type - AampMediaType
 	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
