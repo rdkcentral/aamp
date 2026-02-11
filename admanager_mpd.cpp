@@ -584,16 +584,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					// get current period duration
 					uint64_t currPeriodDuration = adMPDParseHelper->GetPeriodDurationFromStart(iter);
 					int64_t diff = static_cast<int64_t>(currPeriodDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
-					double latency = 0;
-					if ( currPeriodDuration == 0)
-					{
-						string startTimeStr = periods.at(iter)->GetStart();
-						double start = ParseISO8601Duration(startTimeStr.c_str())/1000 + adMPDParseHelper->GetAvailabilityStartTime();
-						double utcTime = aamp_GetCurrentTimeMS() / 1000;
-						double latency = utcTime - (start + static_cast<double>(abObj.endPeriodOffset)/1000.0);
-						AAMPLOG_INFO("[CDAI] patrick latency %f utcTime %f start %f abObj.endPeriodOffset %f mAbsoluteAdBreakStartTime %f",
-							 latency, utcTime, start, static_cast<double>(abObj.endPeriodOffset)/1000, abObj.mAbsoluteAdBreakStartTime.inSeconds());
-					}
+
 					if ( currPeriodDuration == 0 && mWaitForManifestUpdate < 1)
 					{
 						// Cannot determine the duration of the period where the ads were inserted because the start time of
