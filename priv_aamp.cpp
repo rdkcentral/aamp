@@ -6057,7 +6057,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
 
-	}
 	// Validate tune type
 	// (need to find a better way to do this)
 	if (tuneType == eTUNETYPE_NEW_NORMAL) // either no offset (mIsDefaultOffset = true) or -1 was specified

@@ -109,13 +109,13 @@ void AampUnderflowMonitor::Stop()
 void AampUnderflowMonitor::Run()
 {
     // Resolve configurable thresholds and polling intervals once
-    const double kUnderflowDetectThresholdSec = GETCONFIGVALUE(eAAMPConfig_UnderflowDetectThresholdSec);
-    const double kUnderflowResumeThresholdSec = GETCONFIGVALUE(eAAMPConfig_UnderflowResumeThresholdSec);
-    const double kLowBufferSec = GETCONFIGVALUE(eAAMPConfig_UnderflowLowBufferSec);
-    const double kHighBufferSec = GETCONFIGVALUE(eAAMPConfig_UnderflowHighBufferSec);
-    const int kLowBufferPollMs = GETCONFIGVALUE(eAAMPConfig_UnderflowLowBufferPollMs);
-    const int kMediumBufferPollMs = GETCONFIGVALUE(eAAMPConfig_UnderflowMediumBufferPollMs);
-    const int kHighBufferPollMs = GETCONFIGVALUE(eAAMPConfig_UnderflowHighBufferPollMs);
+    const double kUnderflowDetectThresholdSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec);
+    const double kUnderflowResumeThresholdSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowResumeThresholdSec);
+    const double kLowBufferSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowLowBufferSec);
+    const double kHighBufferSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowHighBufferSec);
+    const int kLowBufferPollMs = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowLowBufferPollMs);
+    const int kMediumBufferPollMs = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowMediumBufferPollMs);
+    const int kHighBufferPollMs = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowHighBufferPollMs);
 
     // Wait until playback enters PLAYING state or underflow becomes active; exit if playback stops
     while (mRunning.load()) {
