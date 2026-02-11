@@ -124,6 +124,7 @@ private:
 	std::mutex mIdLock{};
 	int mId{0};
 	std::set<int> mIdSet{};
+	CCFormat mTrackFormat{eCLOSEDCAPTION_FORMAT_DEFAULT};
 };
 
 #endif /* __PLAYER_RIALTO_CC_MANAGER_H__ */
