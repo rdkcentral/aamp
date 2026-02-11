@@ -64,130 +64,52 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
 	fragmentDurationSeconds = fragmentDurationS;
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
-	CachedFragment *cachedFragment = GetFetchBuffer(true);
-	BitsPerSecond bitrate = 0;
-	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
-	cachedFragment->type = actualType;
-	cachedFragment->initFragment = initSegment;
-	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-	cachedFragment->uri = fragmentUrl; // For debug output
-	cachedFragment->absPosition = 0;
-	if (mActiveDownloadInfo)
-	{
-		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
-		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
-		cachedFragment->PTSOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
-	}
-	else
-	{
-		AAMPLOG_WARN("mActiveDownloadInfo is NULL");
-	}
-
-	if (initSegment && discontinuity)
-	{
-		setDiscontinuityState(true);
-	}
-
+	// Prepare download or retrieve from cache
+	BitsPerSecond bitrate = 0;
+	double downloadTimeS = 0;
+	std::string effectiveUrl;
+	int iFogError = -1;
+	int iCurrentRate = aamp->rate;
+	bool bReadfromcache = false;
+	
+	// Check if reading from mDownloadedFragment (non-init segment fragment cache)
 	if (!initSegment && mDownloadedFragment.capacity() != 0)
 	{
 		ret = true;
-		cachedFragment->fragment.Replace(&mDownloadedFragment);
+		// Use mDownloadedFragment for non-init segments
+		mTempFragment->Replace(&mDownloadedFragment);
 	}
 	else
 	{
-		std::string effectiveUrl;
-		int iFogError = -1;
-		int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
-		bool bReadfromcache = false;
+		// Try init fragment cache first for init segments
 		if (initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,cachedFragment->fragment.GetVector(),effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, mTempFragment.get(), effectiveUrl);
 		}
+		
+		// If not in cache, download it
 		if (!bReadfromcache)
 		{
 			AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 			int maxInitDownloadTimeMS = 0;
 			if ((aamp->IsLocalAAMPTsb()) && (dnldInstance))
 			{
-				//Calculate the time remaining for the fragment to be available in the timeshift buffer window
-				//         A                                     B                        C
-				// --------|-------------------------------------|------------------------|
-				// AC represents timeshiftBufferDepth in MPD; B is absolute time position of fragment and
-				// C is MPD publishTime(absolute time). So AC - (C-B) gives the time remaining for the
-				//fragment to be available in the timeshift buffer window
 				maxInitDownloadTimeMS = aamp->mTsbDepthMs - (dnldInstance->GetPublishTime() - (fragmentTime * 1000));
 				AAMPLOG_INFO("maxInitDownloadTimeMS %d, initSegment %d, mTsbDepthMs %d, GetPublishTime %llu(ms), fragmentTime %f(s) ",
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/, &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetVector(), effectiveUrl, actualType);
+				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
 			}
-			if (ret)
-			{
-				cachedFragment->fragment = *mTempFragment;
-				mTempFragment->Free();
-			}
-		}
-
-		if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
-		{
-			// To read track_id from the init fragments to check if there any mismatch.
-			// A mismatch in track_id is not handled in the gstreamer version 1.10.4
-			// But is handled in the latest version (1.18.5),
-			// so upon upgrade to it or introduced a patch in qtdemux,
-			// this portion can be reverted
-			IsoBmffBuffer buffer;
-			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size());
-			buffer.parseBuffer();
-			uint32_t track_id = 0;
-			buffer.getTrack_id(track_id);
-			if (buffer.isInitSegment())
-			{
-				uint32_t timeScale = 0;
-				if (buffer.getTimeScale(timeScale))
-				{
-					if (actualType == eMEDIATYPE_INIT_VIDEO)
-					{
-						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
-						aamp->SetVidTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_AUDIO)
-					{
-						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-						aamp->SetAudTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
-					{
-						AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
-						aamp->SetSubTimeScale(timeScale);
-					}
-				}
-			}
-		}
-		if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
-		{
-			if (actualType == eMEDIATYPE_VIDEO)
-			{
-				actualType = eMEDIATYPE_IFRAME;
-			}
-			else if (actualType == eMEDIATYPE_INIT_VIDEO)
-			{
-				actualType = eMEDIATYPE_INIT_IFRAME;
-			}
-		}
-
-		if (!bReadfromcache)
-		{
-			// update videoend info
-			aamp->UpdateVideoEndMetrics(actualType, bitrate ? bitrate : fragmentDescriptor.Bandwidth, (iFogError > 0 ? iFogError : httpErrorCode), effectiveUrl, fragmentDurationS, downloadTimeS);
 		}
 	}
 
+	// Handle bitrate changes (ramp-down)
 	mCheckForRampdown = false;
 	if (ret && (bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth))
 	{
@@ -196,9 +118,64 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
-		mDownloadedFragment.Replace(&cachedFragment->fragment);
+		mDownloadedFragment.Replace(mTempFragment.get());
 		ret = false;
+		return ret;
 	}
+
+	// Rate change handling for trick play
+	if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
+	{
+		if (actualType == eMEDIATYPE_VIDEO)
+		{
+			actualType = eMEDIATYPE_IFRAME;
+		}
+		else if (actualType == eMEDIATYPE_INIT_VIDEO)
+		{
+			actualType = eMEDIATYPE_INIT_IFRAME;
+		}
+	}
+
+	// Update metrics if not from cache
+	if (!bReadfromcache)
+	{
+		aamp->UpdateVideoEndMetrics(actualType, bitrate ? bitrate : fragmentDescriptor.Bandwidth, (iFogError > 0 ? iFogError : httpErrorCode), effectiveUrl, fragmentDurationS, downloadTimeS);
+	}
+
+	// ===== Unified Caching API: Build descriptor and delegate =====
+	if (ret && mTempFragment->capacity() != 0)
+	{
+		FragmentCacheDescriptor desc;
+		desc.downloadBuffer = mTempFragment.get();
+		desc.url = fragmentUrl;
+		desc.position = position;
+		desc.duration = fragmentDurationS;
+		desc.absolutePosition = mActiveDownloadInfo ? mActiveDownloadInfo->absolutePosition : 0.0;
+		desc.timeScale = mActiveDownloadInfo ? mActiveDownloadInfo->timeScale : fragmentDescriptor.TimeScale;
+		desc.ptsOffsetSec = mActiveDownloadInfo ? mActiveDownloadInfo->ptsOffset.inSeconds() : 0.0;
+		desc.mediaType = actualType;
+		desc.curlInstance = curlInstance;
+		desc.range = range;
+		desc.profileIndex = context->currentProfileIndex;
+		desc.isInitSegment = initSegment;
+		desc.isDiscontinuity = discontinuity;
+		desc.playingAd = playingAd;
+		desc.isChunkMode = false;
+		desc.skipInitSegmentParsing = false;
+		desc.downloadStartTime = aamp_GetCurrentTimeMS();
+
+		ret = CacheFragmentData(desc);
+		
+		if (ret)
+		{
+			mTempFragment->Free();
+		}
+	}
+	else if (!ret)
+	{
+		AAMPLOG_WARN("[%s] Fragment download/caching failed", name);
+	}
+
 	return ret;
 }
 
@@ -209,53 +186,197 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
-	bool ret = true;
-	if (WaitForCachedFragmentChunkInjected())
+	// ===== Unified Caching API: Build descriptor and delegate =====
+	FragmentCacheDescriptor desc;
+	desc.chunkPayload = ptr;
+	desc.payloadSize = size;
+	desc.url = remoteUrl;
+	desc.mediaType = actualType;
+	desc.downloadStartTime = dnldStartTime;
+	desc.isChunkMode = true;
+	desc.skipInitSegmentParsing = true;
+	
+	// Populate optional fields from context
+	if (mActiveDownloadInfo)
 	{
-		CachedFragment *cachedFragment = NULL;
-		cachedFragment = GetFetchChunkBuffer(true);
-		if (NULL == cachedFragment)
-		{
-			AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
-			return false;
-		}
-		cachedFragment->absPosition = 0;
-		cachedFragment->type = actualType;
-		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.AppendBytes(ptr, size);
-		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		cachedFragment->uri = std::move(remoteUrl);
-		if (mActiveDownloadInfo)
-		{
-			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
-			cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
-		}
-		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
-		 * the last segment from the previous period has been injected, hence we copy it
-		 */
-		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
-
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
-		UpdateTSAfterChunkFetch();
+		desc.absolutePosition = mActiveDownloadInfo->absolutePosition;
+		desc.timeScale = mActiveDownloadInfo->timeScale;
+		desc.ptsOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
 	}
 	else
 	{
-		AAMPLOG_TRACE("[%s] WaitForCachedFragmentChunkInjected aborted", name);
-		ret = false;
+		desc.absolutePosition = 0.0;
+		desc.timeScale = fragmentDescriptor.TimeScale;
+		desc.ptsOffsetSec = GetContext()->mPTSOffset.inSeconds();
 	}
-	return ret;
+
+	return CacheFragmentData(desc);
 }
 
 /**
  *  @brief Unified fragment caching implementation
- *  @note Phase 2: Stub implementation - will be fully implemented in Phase 3
+ *  @note Handles both full fragment downloads (fragment mode) and progressive chunks (chunk mode)
+ *        Uses zero-copy semantics where possible (fragment mode moves ownership)
  */
 bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 {
-	// Phase 2 stub: Not yet implemented
-	// This will be implemented in Phase 3 with unified logic
-	AAMPLOG_WARN("[%s] CacheFragmentData() called but not yet implemented (Phase 2 stub)", name);
-	return false;
+	// =================================================================
+	// Step 1: Slot Acquisition (mode-dependent)
+	// =================================================================
+	CachedFragment* cached = nullptr;
+	
+	if (desc.isChunkMode)
+	{
+		// Chunk mode: Wait for injection slot availability (rate-limiting)
+		if (!WaitForCachedFragmentChunkInjected())
+		{
+			AAMPLOG_TRACE("[%s] WaitForCachedFragmentChunkInjected aborted", name);
+			return false;
+		}
+		
+		// Acquire chunk buffer slot
+		cached = GetFetchChunkBuffer(true);
+		if (!cached)
+		{
+			AAMPLOG_WARN("[%s] GetFetchChunkBuffer failed - no available slot", name);
+			return false;
+		}
+	}
+	else
+	{
+		// Fragment mode: Acquire fragment buffer slot
+		// Note: WaitForFreeFragmentAvailable() called externally by fragment collector
+		cached = GetFetchBuffer(true);
+		if (!cached)
+		{
+			AAMPLOG_WARN("[%s] GetFetchBuffer failed - no available slot", name);
+			return false;
+		}
+	}
+	
+	// =================================================================
+	// Step 2: Zero-Copy Data Transfer (mode-dependent)
+	// =================================================================
+	if (desc.isChunkMode)
+	{
+		// Chunk mode: COPY (unavoidable - CURL buffer is temporary)
+		// chunkPayload is transient callback data, must copy before return
+		cached->fragment.AppendBytes(desc.chunkPayload, desc.payloadSize);
+	}
+	else
+	{
+		// Fragment mode: ZERO-COPY move (ownership transfer)
+		// downloadBuffer's contents transferred via move semantics
+		// After this, desc.downloadBuffer is empty (moved-from state)
+		if (desc.downloadBuffer)
+		{
+			cached->fragment = std::move(*desc.downloadBuffer);
+		}
+		else
+		{
+			AAMPLOG_WARN("[%s] Fragment mode but downloadBuffer is null", name);
+			return false;
+		}
+	}
+	
+	// =================================================================
+	// Step 3: Populate Common Fields
+	// =================================================================
+	// URI (for debug logging)
+	cached->uri = desc.url;
+	
+	// Timing metadata
+	cached->position = desc.position;
+	cached->duration = desc.duration;
+	cached->absPosition = desc.absolutePosition;
+	cached->timeScale = desc.timeScale;
+	cached->PTSOffsetSec = desc.ptsOffsetSec;
+	
+	// Type information
+	cached->type = desc.mediaType;
+	cached->profileIndex = desc.profileIndex;
+	
+	// Behavioral flags
+	cached->initFragment = desc.isInitSegment;
+	cached->discontinuity = desc.isDiscontinuity;
+	
+	// Timestamp (for download metrics)
+	cached->downloadStartTime = desc.downloadStartTime;
+	
+	// =================================================================
+	// Step 4: Conditional Processing (mode-specific behaviors)
+	// =================================================================
+	
+	// ---- Init segment timescale extraction (FRAGMENT MODE ONLY) ----
+	if (!desc.isChunkMode && desc.isInitSegment && !desc.skipInitSegmentParsing)
+	{
+		// Parse init segment to extract track_id and timeScale
+		IsoBmffBuffer buffer;
+		buffer.setBuffer((uint8_t*)cached->fragment.GetPtr(), cached->fragment.GetLen());
+		buffer.parseBuffer();
+		
+		uint32_t track_id = 0;
+		buffer.getTrack_id(track_id);
+		
+		if (buffer.isInitSegment())
+		{
+			uint32_t timeScale = 0;
+			if (buffer.getTimeScale(timeScale))
+			{
+				// Store timeScale in context based on media type
+				// Handle both normal init segments and trick-play I-frame init segments
+				if (cached->type == eMEDIATYPE_INIT_VIDEO || cached->type == eMEDIATYPE_INIT_IFRAME)
+				{
+					AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
+					aamp->SetVidTimeScale(timeScale);
+				}
+				else if (cached->type == eMEDIATYPE_INIT_AUDIO)
+				{
+					AAMPLOG_INFO("Audio TimeScale [%d]", timeScale);
+					aamp->SetAudTimeScale(timeScale);
+				}
+				else if (cached->type == eMEDIATYPE_INIT_SUBTITLE)
+				{
+					AAMPLOG_INFO("Subtitle TimeScale [%d]", timeScale);
+					aamp->SetSubTimeScale(timeScale);
+				}
+			}
+		}
+	}
+	
+	// ---- Discontinuity state management (FRAGMENT MODE ONLY) ----
+	if (!desc.isChunkMode && desc.isInitSegment && desc.isDiscontinuity)
+	{
+		setDiscontinuityState(true);
+	}
+	
+	// ---- TSB (Time Shift Buffer) integration (MODE-DEPENDENT) ----
+	// Note: Fragment mode may write to both fragment cache AND TSB chunk cache
+	//       Chunk mode only writes to chunk cache (already done in slot acquisition)
+	// This dual-cache copy for TSB+fragment mode is unavoidable due to separate
+	// storage requirements for live playback vs time-shifted playback
+	// TODO: Future optimization could use shared_ptr or refcounted buffers
+	
+	// =================================================================
+	// Step 5: Update Metrics & Counters (mode-dependent)
+	// =================================================================
+	if (desc.isChunkMode)
+	{
+		// Chunk mode: Update chunk-specific counters
+		UpdateTSAfterChunkFetch();
+	}
+	else
+	{
+		// Fragment mode: Update fragment-specific counters
+		// Note: UpdateTSAfterFetch() called externally by fragment collector
+		// Profiler updates also handled externally
+	}
+	
+	AAMPLOG_TRACE("[%s] CacheFragmentData: %s mode, type=%d, pos=%.3f, dur=%.3f, size=%zu",
+		name, desc.isChunkMode ? "chunk" : "fragment", 
+		cached->type, cached->position, cached->duration, cached->fragment.GetLen());
+	
+	return true;
 }
 
 /**
@@ -490,18 +611,18 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(fragment->fragment.capacity() != 0 && WaitForCachedFragmentChunkInjected())
+	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-		if(cachedFragment->fragment.capacity() != 0)
+		if(cachedFragment->fragment.GetPtr())
 		{
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
 		cachedFragment->fragment.clear();
 		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
-		if(!cachedFragment->fragment.empty())
+		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.size() > 0)
 		{
 			ret = true;
 			UpdateTSAfterChunkFetch();

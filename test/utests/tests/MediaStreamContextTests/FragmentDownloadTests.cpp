@@ -387,9 +387,8 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
 
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
-		.WillOnce(Return(cachedFragment.get()));
+	// Note: GetFetchBuffer is now called internally by CacheFragmentData and uses the real
+	// MediaTrack implementation, so we no longer need to mock it
 
 	EXPECT_NO_THROW({
 		bool result = mMediaStreamContext->DownloadFragment(dlInfo);
@@ -533,10 +532,8 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillRepeatedly(Return(true));
 
-	// Expect exactly one cache buffer allocation and one successful "download".
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
-		.WillOnce(Return(cachedFragment.get()));
+	// Note: GetFetchBuffer is now called internally by CacheFragmentData and uses the real
+	// MediaTrack implementation, so we no longer need to mock it
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));
 
@@ -581,11 +578,8 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
 
-	// Expect one buffer request and one "download" per call.
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
-		.Times(numCalls)
-		.WillRepeatedly(Return(cachedFragment.get()));
+	// Note: GetFetchBuffer is now called internally by CacheFragmentData and uses the real
+	// MediaTrack implementation, so we no longer need to mock it
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(numCalls)
 		.WillRepeatedly(Return(true));
