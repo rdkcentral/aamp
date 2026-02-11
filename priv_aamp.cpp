@@ -3202,6 +3202,33 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 }
 
 /**
+ * @brief API to set buffering state and coordinate pipeline state + events.
+ */
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	if (buffering)
+	{
+		SendBufferChangeEvent(true);
+		if (!pipeline_paused)
+		{
+			if (!PausePipeline(true, true))
+			{
+				AAMPLOG_ERR("Failed to pause the Pipeline");
+			}
+		}
+	}
+	else
+	{
+		if (pipeline_paused)
+		{
+			(void)PausePipeline(false, false);
+		}
+		UpdateSubtitleTimestamp();
+		SendBufferChangeEvent(false);
+	}
+}
+
+/**
  * @brief To change the the gstreamer pipeline to pause/play
  */
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
@@ -5462,6 +5489,8 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
+		AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
+		mpStreamAbstractionAAMP->StopUnderflowMonitor();
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
@@ -6244,6 +6273,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
 		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
+		
+		// Start underflow monitor after successful initialization and Start()
+		if (mpStreamAbstractionAAMP && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor))
+		{
+			mpStreamAbstractionAAMP->StartUnderflowMonitor();
+			if (!mpStreamAbstractionAAMP->IsUnderflowMonitorRunning())
+			{
+				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+			}
+		}
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)
