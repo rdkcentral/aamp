@@ -997,8 +997,8 @@ bool MediaTrack::ProcessFragmentChunk()
 
 	//Append Cache buffer to unparsed buffer for processing
 	unparsedBufferChunk.insert(unparsedBufferChunk.GetVector().end(),
-			reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()),
-			reinterpret_cast<const uint8_t*>(cachedFragment->fragment.GetPtr()) + cachedFragment->fragment.size());
+			cachedFragment->fragment.data(),
+			cachedFragment->fragment.data() + cachedFragment->fragment.size());
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
@@ -1081,8 +1081,8 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		//Prepare parsed buffer
 		parsedBufferChunk.insert(parsedBufferChunk.GetVector().end(),
-				reinterpret_cast<const uint8_t*>(unparsedBufferChunk.GetPtr()),
-				reinterpret_cast<const uint8_t*>(unparsedBufferChunk.GetPtr()) + parsedBufferSize);
+				unparsedBufferChunk.data(),
+				unparsedBufferChunk.data() + parsedBufferSize);
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			if (pContext && pContext->trickplayMode)
@@ -1424,7 +1424,6 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.clear();
 						cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(str.data()),
 								reinterpret_cast<const uint8_t*>(str.data()) + str.size());
 						if(mSubtitleParser)

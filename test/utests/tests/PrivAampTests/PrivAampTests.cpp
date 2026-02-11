@@ -1109,8 +1109,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// Create a buffer for the context
 	AampGrowableBuffer buffer("test_buffer");
 	buffer.ReserveBytes(1024);
-	char initialData[] = "dummy data";
-	buffer.assign(reinterpret_cast<const uint8_t*>(initialData), reinterpret_cast<const uint8_t*>(initialData) + strlen(initialData));
+	const uint8_t initialData[] = "dummy data";
+	constexpr size_t initialDataLen = sizeof(initialData) - 1; // Exclude null terminator
+	buffer.assign(initialData, initialData + initialDataLen);
 
 	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
@@ -1297,9 +1298,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 
 	// Create a buffer for the context
 	AampGrowableBuffer buffer("test_buffer");
-	char testData[] = "dummy data";
-	buffer.assign(reinterpret_cast<const uint8_t*>(testData), reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
+	const uint8_t testData[] = "dummy data";
+	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
+	buffer.assign(testData, testData + testDataLen);
 	char inputData[] = "test data with chunk early abort";
+	constexpr size_t inputDataLen = sizeof(inputData) - 1; // Exclude null terminator
 	buffer.ReserveBytes(1024);
 
 	// Create a valid curl context
@@ -1309,7 +1312,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = NOW_STEADY_TS_MS - 1000;
 	context.bufferOffset = 0; // CheckForChunkEarlyAbort() is called when bufferOffset == 0
-	context.chunkBoundary = strlen(testData) + strlen(inputData); // simulates first chunk fully downloaded
+	context.chunkBoundary = testDataLen + inputDataLen; // simulates first chunk fully downloaded
 	context.dataTransferStartTime = NOW_STEADY_TS_MS - 10; //10ms - shorter time reduces sensitivity to scheduling jitter
 	context.earlyAbortEnabled = true;
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
@@ -1319,7 +1322,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Calling HandleSSLWriteCallback");
 
-	size_t result = p_aamp->HandleSSLWriteCallback(inputData, strlen(inputData), 1, &context);
+	size_t result = p_aamp->HandleSSLWriteCallback(inputData, inputDataLen, 1, &context);
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Result: %zu", result);
 	// Result should be 0 as callback was aborted
@@ -5497,9 +5500,9 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 {
 	AampGrowableBuffer buffer("test_data");
 	CurlCallbackContext context(aamp, &buffer);
-	char testData[] = "dummy data";
-	context.buffer->assign(reinterpret_cast<const uint8_t*>(testData),
-			reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
+	const uint8_t testData[] = "dummy data";
+	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
+	context.buffer->assign(testData, testData + testDataLen);
 	context.earlyAbortEnabled = true;
 	context.profileBps = 0;
 
@@ -5522,9 +5525,9 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
 {
 	AampGrowableBuffer buffer("test_data");
 	CurlCallbackContext context(aamp, &buffer);
-	char testData[] = "dummy data";
-	context.buffer->assign(reinterpret_cast<const uint8_t*>(testData),
-			reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
+	const uint8_t testData[] = "dummy data";
+	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
+	context.buffer->assign(testData, testData + testDataLen);
 	context.earlyAbortEnabled = true;
 	context.profileBps = 12000;
 
