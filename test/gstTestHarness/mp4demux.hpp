@@ -1110,16 +1110,20 @@ public:
 				break;
 				
 			case MultiChar_Constant("avcC"):
+			{
 				caps = gst_caps_new_simple(
-										   "video/x-h264",
-										   "stream-format", G_TYPE_STRING, "avc",
-										   "alignment", G_TYPE_STRING, "au",
-										   "codec_data", GST_TYPE_BUFFER, buf,
-										   "width", G_TYPE_INT, video.width,
-										   "height", G_TYPE_INT, video.height,
-										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-										   NULL );
+					"video/x-h264",
+					"stream-format", G_TYPE_STRING, "avc",
+					"alignment", G_TYPE_STRING, "au",
+					"profile", G_TYPE_STRING, "main",
+					"level", G_TYPE_STRING, "3",
+					"codec_data", GST_TYPE_BUFFER, buf,
+					"width", G_TYPE_INT, video.width,
+					"height", G_TYPE_INT, video.height,
+					"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+					NULL);
 				break;
+			}
 			
 			//Rialto experiment
 			case MultiChar_Constant("esds"):
