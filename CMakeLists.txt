@@ -100,6 +100,12 @@ else()
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
+option(ENABLE_AAMP_NET_TRACE "Enable network activity tracing instrumentation" OFF)
+if(ENABLE_AAMP_NET_TRACE)
+	message("AAMP_NET_TRACE set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
+endif()
+
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
 if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -468,6 +474,7 @@ set(LIBAAMP_SOURCES
 	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
 	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
+	net_trace.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)

@@ -25,6 +25,7 @@ OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
 OPTION_COVERAGE=false
+OPTION_NET_TRACE=false
 OPTION_DONT_RUN_AAMPCLI=false
 OPTION_PROTOBUF_REFERENCE="3.11.x"
 OPTION_QUICK=false
@@ -68,7 +69,7 @@ function install_options_fn()
   set -- "${remaining_args[@]}"
 
   # Parse optional command line parameters
-  while getopts ":d:b:cf:np:r:g:qsktu" OPT; do
+  while getopts ":d:b:cef:np:r:g:qsktu" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -80,6 +81,10 @@ function install_options_fn()
       c ) # process option c coverage
         OPTION_COVERAGE=ON
         echo coverage "${OPTION_COVERAGE}"
+        ;;
+      e ) # process option e enable network trace
+        OPTION_NET_TRACE=ON
+        echo "Network trace enabled: ${OPTION_NET_TRACE}"
         ;;
       f )# process option f to get compiler flags
          # add flags for cmake build by splitting buildargs with separator ','
@@ -128,7 +133,8 @@ function install_options_fn()
         [-b] Specify aamp branch name (default: current sprint branch)
         [-d] Local setup directory name (default: current working directory)
         [-c] Test coverage scan on
-        [-f] Add compiler flags
+        [-e] Enable network activity tracing (ENABLE_AAMP_NET_TRACE)
+        [-f] Add compiler flags (e.g., -f \"-DENABLE_SOMETHING=ON\")
         [-g] Specify gtest release test to be built. Default - tags/release-1.11.0
         [-q] Quick build, skips installed (not built) dependency checks
 
