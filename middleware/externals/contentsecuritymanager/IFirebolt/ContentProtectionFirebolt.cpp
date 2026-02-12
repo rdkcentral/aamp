@@ -613,7 +613,6 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &err
 
 bool ContentProtectionFirebolt::CancelLicense(ContentSecurityManagerSession &session)
 {
-    MW_LOG_WARN("[TTT]CancelLicense: session is not valid");
     if (!session.isSessionValid())
     {
         MW_LOG_WARN("[TTT]CancelLicense: session is not valid");
