@@ -2444,10 +2444,11 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		// add dummy buffer in gBuff to simulate a successful request
 		.WillOnce([&gBuff]() -> CURLcode
-				  { 
-			const char* dummyData = "0x0a";
-			gBuff.assign(dummyData, dummyData + strlen(dummyData));
-			return CURLE_OK; });
+				{ 
+					const char* dummyData = "0x0a";
+					gBuff.assign(dummyData, dummyData + strlen(dummyData));
+					return CURLE_OK;
+				});
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
