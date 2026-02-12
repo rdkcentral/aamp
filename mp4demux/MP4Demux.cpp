@@ -718,8 +718,8 @@ void Mp4Demux::ParseTrackRun()
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: sample payload OOB");
 		}
 		newSample.mData.insert(newSample.mData.GetVector().end(),
-				reinterpret_cast<const uint8_t*>(dataPtr),
-				reinterpret_cast<const uint8_t*>(dataPtr) + sampleLen);
+							   dataPtr,
+							   dataPtr + sampleLen);
 		dataPtr += sampleLen;
 		newSample.mDts = dts / (double)timeScale;
 		newSample.mPts = (dts + sampleCompositionTimeOffset) / (double)timeScale;

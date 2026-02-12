@@ -227,8 +227,7 @@ public:
 
 		/* Setup fake AampGrowableBuffer contents. */
 		buffer->clear();
-		buffer->assign(reinterpret_cast<const uint8_t*>(mManifest),
-				reinterpret_cast<const uint8_t*>(mManifest) + strlen(mManifest));
+		buffer->assign(mManifest, mManifest + strlen(mManifest));
 
 		return true;
 	}

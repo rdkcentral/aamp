@@ -300,8 +300,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			mPrivateInstanceAAMP->pipeline_paused = paused;
 			mPrivateInstanceAAMP->SetBufUnderFlowStatus(underflow);
 			mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
-			mMediaStreamContext->mTempFragment->assign(reinterpret_cast<const uint8_t*>(data),
-					reinterpret_cast<const uint8_t*>(data) + 12);
+			mMediaStreamContext->mTempFragment->assign(data, data + 12);
 			// The tests simulating EOS inject from the TSB, the rest of the tests inject from live
 			mMediaStreamContext->SetLocalTSBInjection(eos);
 

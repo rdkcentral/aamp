@@ -268,8 +268,7 @@ class AdFallbackTests : public ::testing::Test
 		{
 			/* Setup fake AampGrowableBuffer contents. */
 			buffer->clear();
-			buffer->assign(reinterpret_cast<const uint8_t*>(mAdManifest),
-					reinterpret_cast<const uint8_t*>(mAdManifest) + strlen(mAdManifest));
+			buffer->assign(mAdManifest, mAdManifest + strlen(mAdManifest));
 			effectiveUrl = remoteUrl;
 			*httpError = 200;
 

@@ -935,8 +935,8 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					n = context->m_ChunkedBytesRemaining;
 				}
 				context->buffer->insert(context->buffer->GetVector().end(),
-						reinterpret_cast<const uint8_t*>(ptr),
-						reinterpret_cast<const uint8_t*>(ptr) + n);
+										ptr,
+										ptr + n);
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
 				if( context->m_ChunkedBytesRemaining == 0 )
@@ -1101,8 +1101,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			else
 			{
 				context->buffer->insert(context->buffer->GetVector().end(),
-						reinterpret_cast<const uint8_t*>(ptr),
-						reinterpret_cast<const uint8_t*>(ptr) + numBytesForBlock);
+										ptr,
+										ptr + numBytesForBlock);
 			}
 		}
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
