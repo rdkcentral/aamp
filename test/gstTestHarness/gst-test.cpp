@@ -250,12 +250,36 @@ public:
 			int count = mp4Demux->count();
 			if( count>0 )
 			{ // media segment
+				double segmentBase = context->pipeline->GetInjectedSeconds(mediaType);
+				double derivedDur = 0.0;
+				if( duration > 0.0 )
+				{
+					derivedDur = duration / (double)count;
+				}
+				double lastPts = -1.0;
+				double lastDts = -1.0;
 				for( int i=0; i<count; i++ )
 				{
 					size_t len = mp4Demux->getLen(i);
 					double pts = mp4Demux->getPts(i);
 					double dts = mp4Demux->getDts(i);
 					double dur = mp4Demux->getDuration(i);
+					if( dur <= 0.0 && derivedDur > 0.0 )
+					{
+						dur = derivedDur;
+					}
+					if( i > 0 && derivedDur > 0.0 )
+					{
+						bool ptsInvalid = (pts < 0.0) || (pts == 0.0) || (pts == lastPts);
+						bool dtsInvalid = (dts < 0.0) || (dts == 0.0) || (dts == lastDts);
+						if( ptsInvalid && dtsInvalid )
+						{
+							pts = segmentBase + (double)i * dur;
+							dts = segmentBase + (double)i * dur;
+						}
+					}
+					lastPts = pts;
+					lastDts = dts;
 					gpointer ptr = g_malloc(len);
 					if( ptr )
 					{
