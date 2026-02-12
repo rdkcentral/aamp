@@ -273,7 +273,7 @@ public:
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
-		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
+		response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
@@ -309,7 +309,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		response->mMPDDownloadResponse->iHttpRetValue = curlTimeoutFailureReason;
 		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
-		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)test_manifest, (uint8_t*)(test_manifest + strlen(test_manifest)));
+		response->mMPDDownloadResponse->mDownloadData.assign(test_manifest, test_manifest + strlen(test_manifest));
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
