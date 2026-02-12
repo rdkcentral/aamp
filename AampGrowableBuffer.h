@@ -79,9 +79,9 @@ public:
 	 * @note The internal buffer is cleared after extraction. Uses move semantics for zero-copy transfer.
 	 */
 	std::vector<uint8_t> ExtractVector( void );
-	
-	char *GetPtr( void ) { return buffer.empty() ? nullptr : reinterpret_cast<char*>(buffer.data()); }
-	const char *GetPtr( void ) const { return buffer.empty() ? nullptr : reinterpret_cast<const char*>(buffer.data()); }
+
+	char *GetPtr( void ) { return buffer.capacity() ? reinterpret_cast<char*>(buffer.data()) : nullptr; }
+	const char *GetPtr( void ) const { return buffer.capacity() ? reinterpret_cast<const char*>(buffer.data()) : nullptr; }
 	size_t GetLen( void ) const { return buffer.size(); } // accessor function for current logical growable buffer size
 	size_t GetAvail( void ) const { return buffer.capacity(); } // should be opaque, but used in logging
 	void SetLen( size_t l ) { assert(l<=buffer.capacity()); buffer.resize(l); }
