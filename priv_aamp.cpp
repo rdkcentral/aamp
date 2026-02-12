@@ -4052,6 +4052,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
  */
 void PrivateInstanceAAMP::LogFirstFrame(void)
 {
+	AAMPLOG_WARN("[RIALTO_DEBUG] priv_aamp: FIRST_FRAME_SIGNAL - First video frame decoded and ready for display");
 	profiler.ProfilePerformed(PROFILE_BUCKET_FIRST_FRAME);
 }
 
@@ -4092,6 +4093,7 @@ void PrivateInstanceAAMP::LogDrmInitComplete(void)
  */
 void PrivateInstanceAAMP::LogDrmDecryptBegin(ProfilerBucketType bucketType)
 {
+	AAMPLOG_WARN("[RIALTO_DEBUG] priv_aamp: DRM_DECRYPT_BEGIN bucketType=%d (VIDEO=10,AUDIO=11) - DRM decrypt starting", bucketType);
 	profiler.ProfileBegin(bucketType);
 }
 
@@ -4101,6 +4103,7 @@ void PrivateInstanceAAMP::LogDrmDecryptBegin(ProfilerBucketType bucketType)
 void PrivateInstanceAAMP::LogDrmDecryptEnd(int bucketTypeIn)
 {
 	ProfilerBucketType bucketType = (ProfilerBucketType)bucketTypeIn;
+	AAMPLOG_WARN("[RIALTO_DEBUG] priv_aamp: DRM_DECRYPT_END bucketType=%d - DRM decrypt completed", bucketType);
 	profiler.ProfileEnd(bucketType);
 }
 

@@ -223,6 +223,10 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::shared_ptr<DrmHelper>& drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
+	AAMPLOG_WARN("[DRM_DEBUG_ENTRY] acquireLicense START - sessionSlot=%d, isRenewal=%d, streamType=%d",
+		sessionSlot, (int)isLicenseRenewal, (int)streamType);
+	long long tAcquireLicenseStart = NOW_STEADY_TS_MS;
+	
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
 	DrmMetaDataEventPtr& eventHandle = *eventHandlePtr;
 
@@ -399,6 +403,11 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 	{
 		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
 	}
+	
+	long long tAcquireLicenseEnd = NOW_STEADY_TS_MS;
+	AAMPLOG_WARN("[DRM_DEBUG_EXIT] acquireLicense END - total=%lld ms, result=%d",
+		tAcquireLicenseEnd - tAcquireLicenseStart, (int)code);
+	
 	return code;
 }
 KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal)
@@ -955,6 +964,10 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
 
+	long long tGetLicenseStart = NOW_STEADY_TS_MS;
+	AAMPLOG_WARN("[DRM_DEBUG_HTTP_START] getLicense() starting - URL=%s, timeout=%d ms",
+		licenseRequest.url.c_str(), inpData->iDownloadTimeout);
+
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
 	/* Check whether stopped or not before looping - download will be disabled */
@@ -967,6 +980,19 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		pLicenseDownloader->Download(licenseRequest.url, respData);
 		long long tEndTime = NOW_STEADY_TS_MS;
 		long long downloadTimeMS = tEndTime - tStartTime;
+		
+		// ====== DRM DEBUG: CURL TIMING BREAKDOWN ======
+		AAMPLOG_WARN("[DRM_DEBUG_CURL_ATTEMPT_%u] HTTP %d, total=%lld ms",
+			attemptCount, respData->iHttpRetValue, downloadTimeMS);
+		AAMPLOG_WARN("[DRM_DEBUG_CURL_BREAKDOWN_%u] DNS=%.1f TLS=%.1f TCP=%.1f preXfr=%.1f startXfr=%.1f RxB=%.0f",
+			attemptCount,
+			respData->downloadCompleteMetrics.resolve,
+			respData->downloadCompleteMetrics.appConnect - respData->downloadCompleteMetrics.connect,
+			respData->downloadCompleteMetrics.connect,
+			respData->downloadCompleteMetrics.preTransfer,
+			respData->downloadCompleteMetrics.startTransfer,
+			respData->downloadCompleteMetrics.dlSize);
+		// ===============================================
 		
 		/** Restrict further processing license if stop called in between  */
 		if(licenseRequestAbort.load(std::memory_order_acquire))
@@ -983,6 +1009,10 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		{ // Retry for curl 28 and curl 7 errors.
 			loopAgain = true;
 			pLicenseDownloader->Clear();
+			
+			// DRM DEBUG: Retry on timeout
+			AAMPLOG_WARN("[DRM_DEBUG_RETRY] Timeout failure detected - HTTP %d, will retry (attempt %u/%d)",
+				respData->iHttpRetValue, attemptCount, MAX_LICENSE_REQUEST_ATTEMPTS);
 		}
 		else
 		{
@@ -1001,6 +1031,12 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 					eventHandle->setResponseData(defResponseData);
 				}
 				int  licenseRetryWaitTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
+				
+				// DRM DEBUG: HTTP error
+				AAMPLOG_WARN("[DRM_DEBUG_HTTP_ERROR] Server returned HTTP %d on attempt %u, will %s",
+					*httpCode, attemptCount, 
+					(*httpCode >= 500 && *httpCode < 600 && attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS) ? "RETRY" : "ABORT");
+				
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600
 					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
@@ -1062,6 +1098,18 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	long long totalDownloadTimeMS = tEndTimeWithRetry - tStartTimeWithRetry;
 
 	UpdateLicenseMetrics(DRM_GET_LICENSE, *httpCode, licenseRequest.url.c_str(), totalDownloadTimeMS, eventHandle, respData );
+
+	// ====== DRM DEBUG: HTTP SUMMARY ======
+	AAMPLOG_WARN("[DRM_DEBUG_HTTP_END] getLicense() complete - total=%lld ms, HTTP=%d, attempts=%u",
+		totalDownloadTimeMS, *httpCode, attemptCount);
+	AAMPLOG_WARN("[DRM_DEBUG_CURL_TOTALS] Resolve=%.1f Connect=%.1f AppCon=%.1f PreXfr=%.1f StartXfr=%.1f Total=%.1f",
+		respData->downloadCompleteMetrics.resolve,
+		respData->downloadCompleteMetrics.connect,
+		respData->downloadCompleteMetrics.appConnect,
+		respData->downloadCompleteMetrics.preTransfer,
+		respData->downloadCompleteMetrics.startTransfer,
+		respData->downloadCompleteMetrics.total);
+	// =====================================
 
 	// TODO : Header Response to be set for failed DRM response also ??? 
 	if(bNeedResponseHeadersTobeShared && !respData->mResponseHeader.empty())

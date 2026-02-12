@@ -304,7 +304,19 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	auto tPreBufferStart = buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart;
 	
 	// compute gstreamer decode time, excluding decryption. For clear streams, measure from first buffer start time
-	auto tDecode = tFirstFrameStart - (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
+	unsigned int usedDecryptFinishOrBuffer = (tDecryptVideoFinish ? tDecryptVideoFinish : tFirstBufferStart);
+	int tDecode = static_cast<int>(tFirstFrameStart) - static_cast<int>(usedDecryptFinishOrBuffer);
+
+	// Debug: log the values used to compute decode time to help diagnose high tDecode for VIPA
+	// Breakdown analysis to identify if delay is from network/buffering or Rialto pipeline
+	AAMPLOG_WARN("[RIALTO_DEBUG] TuneEnd: DECODE_BREAKDOWN tFirstFrameStart=%u, tDecryptFinish=%u, tFirstBuffer=%u, tDecode=%d (NEGATIVE=DECRYPT_ONGOING_DURING_FIRSTFRAME)",
+				 tFirstFrameStart, tDecryptVideoFinish, tFirstBufferStart, tDecode);
+	AAMPLOG_WARN("[RIALTO_DEBUG] BUCKET_DURATIONS: manifest=%u, initVideo=%u, fragVideo=%u, decryptVideo=%u, postDecryptRialtoDelay=%d",
+				 bucketDuration(PROFILE_BUCKET_MANIFEST), bucketDuration(PROFILE_BUCKET_INIT_VIDEO), bucketDuration(PROFILE_BUCKET_FRAGMENT_VIDEO), bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO), (int)(tFirstFrameStart - tDecryptVideoFinish));
+	AAMPLOG_WARN("[RIALTO_DEBUG] ERROR_COUNTS: manifest=%u, initVideo=%u, fragVideo=%u, decrypt=%u (HIGH_ERRORS_SUGGEST_NETWORK_OR_RIALTO_RETRY)",
+				 buckets[PROFILE_BUCKET_MANIFEST].errorCount, buckets[PROFILE_BUCKET_INIT_VIDEO].errorCount, buckets[PROFILE_BUCKET_FRAGMENT_VIDEO].errorCount, buckets[PROFILE_BUCKET_DECRYPT_VIDEO].errorCount);
+	AAMPLOG_WARN("[RIALTO_DEBUG] playerPreBuffered=%d, tPreBufferStart=%u, tuneStartBase=%lld",
+				 (playerPreBuffered ? 1 : 0), tPreBufferStart, tuneStartMonotonicBase);
 
 	if (mTuneEndMetrics.success > 0)
 	{
@@ -399,6 +411,15 @@ void ProfileEventAAMP::ProfileBegin(ProfilerBucketType type)
 		bucket->tStart 		= (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
 		bucket->tFinish 	= bucket->tStart;
 		bucket->profileStarted = true;
+		
+		const char* bucketNames[] = {
+			"MANIFEST", "PLAYLIST_VIDEO", "PLAYLIST_AUDIO", "INIT_VIDEO", "INIT_AUDIO",
+			"FRAGMENT_VIDEO", "FRAGMENT_AUDIO", "LA_TOTAL", "LA_PREPROC", "LA_POSTPROC",
+			"DECRYPT_VIDEO", "DECRYPT_AUDIO", "FIRST_BUFFER", "FIRST_FRAME", "PLAYER_PRE_BUFFERED",
+			"DISCO_TOTAL", "DISCO_FIRST_FRAME", "DISCO_FLUSH"
+		};
+		const char* name = (type < 18) ? bucketNames[type] : "UNKNOWN";
+		AAMPLOG_WARN("[RIALTO_DEBUG] ProfileBegin START: bucket=%s(type=%d) offset=%u", name, type, bucket->tStart);
 	}
 }
 
@@ -424,8 +445,25 @@ void ProfileEventAAMP::ProfileEnd(ProfilerBucketType type)
 	struct ProfilerBucket *bucket = &buckets[type];
 	if (!bucket->complete && bucket->profileStarted)
 	{
+		unsigned int duration = bucketDuration(type);
 		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
 		bucket->complete = true;
+		
+		const char* bucketNames[] = {
+			"MANIFEST", "PLAYLIST_VIDEO", "PLAYLIST_AUDIO", "INIT_VIDEO", "INIT_AUDIO",
+			"FRAGMENT_VIDEO", "FRAGMENT_AUDIO", "LA_TOTAL", "LA_PREPROC", "LA_POSTPROC",
+			"DECRYPT_VIDEO", "DECRYPT_AUDIO", "FIRST_BUFFER", "FIRST_FRAME", "PLAYER_PRE_BUFFERED",
+			"DISCO_TOTAL", "DISCO_FIRST_FRAME", "DISCO_FLUSH"
+		};
+		const char* name = (type < 18) ? bucketNames[type] : "UNKNOWN";
+		
+		if (bucket->errorCount > 0) {
+			AAMPLOG_WARN("[RIALTO_DEBUG] ProfileEnd COMPLETE: bucket=%s(type=%d) duration=%u errors=%u offset=%u->%u (ERRORS_SUGGEST_NETWORK_OR_RIALTO_ISSUE)",
+						 name, type, duration, bucket->errorCount, bucket->tStart, bucket->tFinish);
+		} else {
+			AAMPLOG_WARN("[RIALTO_DEBUG] ProfileEnd COMPLETE: bucket=%s(type=%d) duration=%u offset=%u->%u",
+						 name, type, duration, bucket->tStart, bucket->tFinish);
+		}
 	}
 }
 

@@ -355,6 +355,8 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
 	if(notifyFirstBuffer && !aamp->mIsFlushOperationInProgress)
 	{
+		AAMPLOG_WARN("[RIALTO_DEBUG] aampgstplayer: FIRST_FRAME_DISPLAYED mediaType=%d, notifyFirstBuffer=%d (FIRST_VIDEO_FRAME_DECODED_AND_PRESENTED_BY_RIALTO)",
+					 mediatype, notifyFirstBuffer);
 		aamp->LogFirstFrame();
 		aamp->LogTuneComplete();
 		aamp->NotifyFirstBufferProcessed(GetVideoRectangle());
@@ -740,6 +742,8 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 	if(firstBufferPushed)
 	{
 		this->aamp->profiler.ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+		AAMPLOG_WARN("[RIALTO_DEBUG] aampgstplayer: FIRST_BUFFER_PUSHED mediaType=%d (0=VIDEO,1=AUDIO), pts=%f, dts=%f, discontinuity=%d (BUFFER_INJECTED_INTO_RIALTO_PIPELINE)",
+					 mediaType, fpts, fdts, discontinuity);
 	}
 	if(bPushBuffer)
 	{
