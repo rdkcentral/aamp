@@ -378,14 +378,13 @@ private:
 	/**
 	 * @fn cacheInitBufferForRestampingPTS
 	 *
-	 * @param[in] segment - fragment buffer pointer
-	 * @param[in] size - fragment buffer size
+	 * @param[in] segment - buffer vector
 	 * @param[in] tScale - timeScale of fragment
 	 * @param[in] position - position of fragment
 	 * @param[in] isAbrChangedTimeScale - indicates is timescale changed due to abr
 	 * @return void
 	 */
-	void cacheInitBufferForRestampingPTS(char *segment, size_t size,uint32_t tScale,double position,bool isAbrChangedTimeScale=false);
+	void cacheInitBufferForRestampingPTS(const std::vector<uint8_t>& segment, uint32_t tScale, double position, bool isAbrChangedTimeScale=false);
 
 	/**
 	 * @fn handleSkipFragments
@@ -430,13 +429,13 @@ private:
 	 * @fn cacheRestampInitSegment
 	 *
 	 * @param[in] type - media type
-	 * @param[in] segment - fragment buffer pointer
-	 * @param[in] size - fragment buffer size
+	 * @param[in] segment - buffer vector
 	 * @param[in] pos - fragment position
 	 * @param[in] duration - duration of the position
+	 * @param[in] isDiscontinuity - discontinuity flag
 	 * @return void
 	 */
-	void cacheRestampInitSegment(AampMediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity);
+	void cacheRestampInitSegment(AampMediaType type, const std::vector<uint8_t>& segment, double pos, double duration, bool isDiscontinuity);
 
 	/**
 	 * @fn pushRestampInitSegment
@@ -455,11 +454,10 @@ private:
 	/**
 	 * @fn cacheInitSegment
 	 *
-	 * @param[in] segment - buffer pointer
-	 * @param[in] size - buffer size
+	 * @param[in] segment - buffer vector
 	 * @return void
 	 */
-	void cacheInitSegment(char *segment, size_t size);
+	void cacheInitSegment(const std::vector<uint8_t>& segment);
 
 	/**
 	 * @fn pushInitSegment
