@@ -383,7 +383,6 @@ void AampTSBSessionManager::RaiseNewVideoTsbContentNotification(bool setFlag)
 	// TSB content and downloads disabled flags.
 	if (setFlag)
 	{
-		std::unique_lock<std::mutex> lock(mReadMutex);
 		mHasNewVideoTsbContent = setFlag;
 	}
 	mNewVideoTsbContentCV.notify_one();
@@ -392,8 +391,8 @@ void AampTSBSessionManager::RaiseNewVideoTsbContentNotification(bool setFlag)
 void AampTSBSessionManager::WaitForNewVideoTsbFragment()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
-	mHasNewVideoTsbContent = false;
 	mNewVideoTsbContentCV.wait(lock, [this]() { return mHasNewVideoTsbContent || !mAamp->mDownloadsEnabled; });
+	mHasNewVideoTsbContent = false;
 }
 
 /**

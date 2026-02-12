@@ -9933,7 +9933,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						break;
 					}
 					AAMPLOG_INFO("EOS from both tracks - Wait for next fragment");
-					tsbSessionManager->WaitForNewVideoTsbFragment();
+					aamp->interruptibleMsSleep(500);
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
