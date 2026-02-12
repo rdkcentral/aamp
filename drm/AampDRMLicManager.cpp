@@ -169,7 +169,7 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 		 if (mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		 {
 			 MW_LOG_WARN("[TTT]Cancelling ongoing license request stopped");
-			 //ContentSecurityManager::GetInstance()->CancelLicense(mDrmSessionManager->mContentSecurityManagerSession);
+			 ContentSecurityManager::GetInstance()->CancelLicense(mDrmSessionManager->mContentSecurityManagerSession);
 		 }
 	}
 }
