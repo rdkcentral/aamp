@@ -1660,7 +1660,7 @@ void TrackState::FetchFragment()
 		}
 
 		CachedFragment* cachedFragment = GetFetchBuffer(false);
-		if (cachedFragment->fragment.GetPtr())
+		if (cachedFragment->fragment.capacity() != 0)
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
@@ -1720,7 +1720,7 @@ void TrackState::FetchFragment()
 		}
 		else
 		{
-			AAMPLOG_WARN("%s cachedFragment->fragment.ptr is NULL", name);
+			AAMPLOG_WARN("%s cachedFragment->fragment has no allocated data buffer", name);
 		}
 		mSkipAbr = false; //To enable ABR since we have cached fragment after init fragment
 		UpdateTSAfterFetch(false);
@@ -1762,11 +1762,10 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 			else
 			{
-				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+				aamp->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
 			}
 		};
-
-		if( demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+		if (demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 		{
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 			{ // compute muxed AV track pts offset and save for use by subtitle track
@@ -1792,12 +1791,11 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 	{
 		fragmentDiscarded = false;
 		aamp->SendStreamCopy(
-							 (AampMediaType)type,
-							 cachedFragment->fragment.GetPtr(),
-							 cachedFragment->fragment.size(),
-							 cachedFragment->position,
-							 cachedFragment->position,
-							 cachedFragment->duration);
+			(AampMediaType)type,
+			cachedFragment->fragment.GetVector(),
+			cachedFragment->position,
+			cachedFragment->position,
+			cachedFragment->duration);
 	}
 } // InjectFragmentInternal
 
@@ -2380,7 +2378,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 	else
 	{
 		// Clear data if any
-		if (newPlaylist.GetPtr() )
+		if (newPlaylist.capacity() != 0)
 		{
 			newPlaylist.Free();
 		}
@@ -5402,7 +5400,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	std::vector<ThumbnailData> data{};
 	HlsStreamInfo &streamInfo = streamInfoStore[aamp->mthumbIndexValue];
 	ContentType type = aamp->GetContentType();
-	if(!thumbnailManifest.GetPtr() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
+	if(thumbnailManifest.capacity() == 0 || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
 		thumbnailManifest.Free();
 		std::string tmpurl;
@@ -6083,12 +6081,12 @@ void TrackState::FetchInitFragment()
 			setDiscontinuityState(true);
 		}
 
-		if(FetchInitFragmentHelper(http_code, forcePushEncryptedHeader))
+		if (FetchInitFragmentHelper(http_code, forcePushEncryptedHeader))
 		{
 			aamp->profiler.ProfileEnd(bucketType);
 
-			CachedFragment* cachedFragment = GetFetchBuffer(false);
-			if (cachedFragment->fragment.GetPtr())
+			CachedFragment *cachedFragment = GetFetchBuffer(false);
+			if (cachedFragment->fragment.capacity() != 0)
 			{
 				cachedFragment->duration = 0;
 				cachedFragment->position = playTarget.inSeconds() - playTargetOffset.inSeconds();
@@ -6101,10 +6099,10 @@ void TrackState::FetchInitFragment()
 				mInjectInitFragment = false;
 			}
 
-			discontinuity = false; //reset discontinuity which has been set for init fragment now
-			mSkipAbr = true; //Skip ABR, since last fragment cached is init fragment.
-			mCheckForInitialFragEnc = false; //Push encrypted header is a one-time operation
-			mFirstEncInitFragmentInfo = NULL; //reset init fragment, since encrypted header already pushed
+			discontinuity = false;			  // reset discontinuity which has been set for init fragment now
+			mSkipAbr = true;				  // Skip ABR, since last fragment cached is init fragment.
+			mCheckForInitialFragEnc = false;  // Push encrypted header is a one-time operation
+			mFirstEncInitFragmentInfo = NULL; // reset init fragment, since encrypted header already pushed
 			UpdateTSAfterFetch(true);
 		}
 		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())

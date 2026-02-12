@@ -45,7 +45,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), (AampMediaType) type);
+		aamp->ProcessID3Metadata(cachedFragment->fragment.GetVector(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
@@ -90,7 +90,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		setDiscontinuityState(true);
 	}
 
-	if (!initSegment && mDownloadedFragment.GetPtr())
+	if (!initSegment && mDownloadedFragment.capacity() != 0)
 	{
 		ret = true;
 		cachedFragment->fragment.Replace(&mDownloadedFragment);
@@ -142,7 +142,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// so upon upgrade to it or introduced a patch in qtdemux,
 			// this portion can be reverted
 			IsoBmffBuffer buffer;
-			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size());
+			buffer.setBuffer(cachedFragment->fragment.GetVector());
 			buffer.parseBuffer();
 			uint32_t track_id = 0;
 			buffer.getTrack_id(track_id);
@@ -490,17 +490,17 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
+	if(fragment->fragment.capacity() != 0 && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-		if(cachedFragment->fragment.GetPtr())
+		if(cachedFragment->fragment.capacity() != 0)
 		{
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
 		cachedFragment->Copy(fragment.get());
-		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.size() > 0)
+		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
 			UpdateTSAfterChunkFetch();
@@ -849,14 +849,14 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
-	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && IDX.GetPtr() && uriInfo.range.empty())
+	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && IDX.capacity() != 0 && uriInfo.range.empty())
 	{
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{
 			dlInfo->fragmentOffset = 0;
 			dlInfo->fragmentOffset++; // first byte following packed index
-			if (IDX.GetPtr() )
+			if (IDX.capacity() != 0)
 			{
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
@@ -868,7 +868,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 										&firstOffset);
 				dlInfo->fragmentOffset += firstOffset;
 			}
-			if (dlInfo->fragmentOffset != 0 && IDX.GetPtr() )
+			if (dlInfo->fragmentOffset != 0 && IDX.capacity() != 0)
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;

@@ -73,7 +73,8 @@ void CachedFragment::Copy(CachedFragment* other)
 	this->discontinuityIndex = other->discontinuityIndex;
 	
 	// Copy fragment data vector from other to this using assign method
-	if (!other->fragment.GetVector().empty()) {
+	if (!other->fragment.GetVector().empty()) 
+  {
 		const auto& otherVec = other->fragment.GetVector();
 		this->fragment.assign(otherVec.data(), otherVec.data() + otherVec.size());
 	}
