@@ -517,6 +517,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								// No ads left to place. lets mark the adbreak as complete
 								setAdMarkers(p2AdData.duration,periodDelta);
 								AAMPLOG_INFO("[CDAI] Current Ad completely placed.end period:%s end period offset:%" PRIu64 " adjustEndPeriodOffset:%d",periodId.c_str(),abObj.endPeriodOffset,abObj.adjustEndPeriodOffset);
+								mWaitForManifestUpdate = aamp_GetCurrentTimeMS();
 								break;
 							}
 						}
@@ -572,37 +573,29 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					uint64_t currPeriodDuration = adMPDParseHelper->GetPeriodDurationFromStart(iter);
 					int64_t diff = static_cast<int64_t>(currPeriodDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
 
-					if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
+					if ( currPeriodDuration == 0 && (aamp_GetCurrentTimeMS() - mWaitForManifestUpdate) < OFFSET_ALIGN_FACTOR )
 					{
-						// If the current period is not closed, we have to wait for it.
-						// This is because in following iterations, the current period could be updated such that
-						// diff > OFFSET_ALIGN_FACTOR, in which case its a partial ad.
-						// diff < OFFSET_ALIGN_FACTOR, in which case we have to align to next period.
-						// So check if next period available with valid duration
-						for (iter = iter + 1; iter < periods.size(); iter++)
-						{
-							if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
-							{
-								break;
-							}
-						}
-						if (iter < periods.size())
-						{
-							auto nextPeriod = periods.at(iter);
-							// done with Adjustment
-							abObj.adjustEndPeriodOffset = false;
-							// Aligning to next period start
-							abObj.endPeriodOffset = 0;
-							abObj.endPeriodId = nextPeriod->GetId();
-							abObj.mAdBreakPlaced = true;
-							AAMPLOG_INFO("[CDAI] diff [%" PRIi64 "] close to period end [%" PRIu64 "],Aligning to next-period:%s",
-										 diff, currPeriodDuration, abObj.endPeriodId.c_str());
-						}
-						else
-						{
-							AAMPLOG_INFO("[CDAI] diff [%" PRIi64 "] close to period end [%" PRIu64 "], but next period not available, waiting",
-										 diff, currPeriodDuration);
-						}
+						// Cannot determine the duration of the period where the ads were inserted because the start time of
+						// the following period is not available. This may be for a couple of reasons
+						// 1) The current period duration is significant longer that the inserted ADs
+						// 2) Just closing the current period and the next period start not added to manifest
+
+						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at period:%s", abObj.endPeriodId.c_str());
+
+					}
+					else if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
+					{
+						// Ads have finished close to end of the period
+
+						auto nextPeriod = periods.at(iter + 1);
+						// done with Adjustment
+						abObj.adjustEndPeriodOffset = false;
+						// Aligning to next period start
+						abObj.endPeriodOffset = 0;
+						abObj.endPeriodId = nextPeriod->GetId();
+						abObj.mAdBreakPlaced = true;
+						AAMPLOG_INFO("[CDAI] diff [%" PRIi64 "] close to period end [%" PRIu64 "],Aligning to next-period:%s",
+									 diff, currPeriodDuration, abObj.endPeriodId.c_str());
 					}
 					// --> Inserted Ads finishes >= 2 seconds in current period : Channel playback starts from that position in the current period.
 					// OR we do not know when current period ends, have not established duration
