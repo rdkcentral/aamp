@@ -4013,6 +4013,7 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
+<<<<<<< HEAD
 }
 
 TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
@@ -4085,6 +4086,8 @@ TEST_F(PrivAampTests,RestoreCCPreservesStateAcrossMultipleTunes)
 	
 	// CC should still be enabled after third tune
 	EXPECT_TRUE(p_aamp->GetCCStatus());
+=======
+>>>>>>> develop
 }
 
 TEST_F(PrivAampTests,NotifyAudioTracksChangedTest)

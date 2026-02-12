@@ -23,11 +23,10 @@ set(EXEC_NAME AampTrackWorkerTest)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES FunctionalTests.cpp
-                 AampTrackWorkerManagerTests.cpp
                  AampTrackWorkerTest.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampTrackWorker.cpp ${AAMP_ROOT}/AampTrackWorkerManager.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTrackWorker.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

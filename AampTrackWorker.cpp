@@ -18,140 +18,11 @@
  */
 
 #include "AampTrackWorker.hpp"
-#include "priv_aamp.h"
+ #include "priv_aamp.h"
 #include <iostream>
 
 namespace aamp
 {
-	/**
-	 * @brief Default destructor for AampTrackWorkerJob.
-	 *
-	 * Cleans up resources used by the job.
-	 */
-	AampTrackWorkerJob::~AampTrackWorkerJob() = default;
-
-	/**
-	 * @brief Default constructor for AampTrackWorkerJob.
-	 *
-	 * Initializes the promise and sets the shared future.
-	 */
-	AampTrackWorkerJob::AampTrackWorkerJob()
-		: mCancelled(false),
-		  mPromise()
-	{
-		mSharedFuture = mPromise.get_future().share();
-		AAMPLOG_DEBUG("AampTrackWorkerJob constructor");
-	}
-
-	/**
-	 * @brief Runs the job in the worker thread.
-	 *
-	 * This method is called by the worker thread to execute the job.
-	 * It catches any exceptions thrown during execution and sets them on the promise.
-	 */
-	void AampTrackWorkerJob::Run()
-	{
-		try
-		{
-			bool cancelledBeforeExecute = mCancelled.load();
-			if (!cancelledBeforeExecute)
-			{
-				Execute(); // calls derived class's Execute method
-			}
-			// Only set value if not cancelled during Execute and promise not already satisfied
-			if (!mCancelled.load())
-			{
-				try
-				{
-					mPromise.set_value();
-				}
-				catch (const std::future_error& e)
-				{
-					AAMPLOG_WARN("Promise already satisfied in AampTrackWorkerJob::Run: %s", e.what());
-				}
-			}
-		}
-		catch (...)
-		{
-			try
-			{
-				mPromise.set_exception(std::current_exception());
-			}
-			catch (const std::future_error& e)
-			{
-				AAMPLOG_ERR("Exception in AampTrackWorkerJob::Run: Failed to set exception on promise: %s", e.what());
-			}
-			catch (...)
-			{
-				AAMPLOG_ERR("Exception in AampTrackWorkerJob::Run: Failed to set exception on promise");
-			}
-		}
-	}
-
-	/**
-	 * @brief Default implementation of Execute method.
-	 *
-	 * This method does nothing by default and should be overridden in derived classes.
-	 */
-	void AampTrackWorkerJob::Execute()
-	{
-		// Default implementation does nothing
-	}
-
-	/**
-	 * @brief Clones the job for worker pool.
-	 *
-	 * This method creates a new instance of AampTrackWorkerJob.
-	 *
-	 * @return std::unique_ptr<AampTrackWorkerJob> A unique pointer to the cloned job.
-	 */
-	std::unique_ptr<AampTrackWorkerJob> AampTrackWorkerJob::Clone() const
-	{
-		return aamp_utils::make_unique<AampTrackWorkerJob>();
-	}
-
-	/**
-	 * @brief Cancels the job by setting the cancelled flag.
-	 *
-	 * If the job is already cancelled, it does nothing.
-	 * If not, it sets the exception on the promise to indicate cancellation.
-	 */
-	void AampTrackWorkerJob::SetCancelled()
-	{
-		if (!mCancelled.exchange(true))
-		{
-			try
-			{
-				mPromise.set_exception(std::make_exception_ptr(std::runtime_error("Job cancelled")));
-			}
-			catch (...)
-			{
-				AAMPLOG_ERR("Exception in AampTrackWorkerJob::SetCancelled: Failed to set exception on promise");
-			}
-		}
-	}
-
-	/**
-	 * @brief Checks if the job has been cancelled.
-	 *
-	 * @return true if the job is cancelled, false otherwise.
-	 */
-	bool AampTrackWorkerJob::IsCancelled() const
-	{
-		return mCancelled.load();
-	}
-
-	/**
-	 * @brief Gets a future to wait for job completion.
-	 *
-	 * This method returns a shared_future that can be used to wait for the job to complete.
-	 *
-	 * @return std::shared_future<void> A future that will be set when the job is completed.
-	 */
-	std::shared_future<void> AampTrackWorkerJob::GetFuture() const
-	{
-		return mSharedFuture;
-	}
 
 	/**
 	 * @brief Constructs an AampTrackWorker object.
@@ -310,7 +181,7 @@ namespace aamp
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::Pause()
+	void AampTrackWorker::SubmitJob(std::function<void()> job)
 	{
 		std::lock_guard<std::mutex> lock(mQueueMutex);
 		mPaused = true;
@@ -334,69 +205,36 @@ namespace aamp
 	}
 
 	/**
-	 * @brief Clears all jobs from the worker thread.
+	 * @brief Waits for the current job to complete.
 	 *
-	 * Removes all jobs from the worker thread's queue.
-	 *
-	 * @return void
-	 */
-	void AampTrackWorker::ClearJobs()
-	{
-		std::lock_guard<std::mutex> lock(mQueueMutex);
-		// Signal all pending jobs that they've been cancelled
-		for (auto& job : mJobQueue)
-		{
-			try
-			{
-				job->SetCancelled(); // Signal cancellation to the job
-			}
-			catch (const std::exception& e)
-			{
-				AAMPLOG_WARN("Exception while cancelling job: %s", e.what());
-			}
-		}
-		mJobQueue.clear();
-		AAMPLOG_DEBUG("All jobs cleared for media type %s", GetMediaTypeName(mMediaType));
-	}
-
-	/**
-	 * @brief Reschedules the active job to the job queue.
-	 *
-	 * If there is an active job being processed, it is rescheduled to the front of the job queue.
+	 * Blocks the calling thread until the current job has been processed by the worker thread.
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::RescheduleActiveJob()
+	void AampTrackWorker::WaitForCompletion()
 	{
-		std::lock_guard<std::mutex> lock(mQueueMutex);
-		if (mActiveJob)
-		{
-			// Reschedule the active job to the queue
-			AAMPLOG_DEBUG("Rescheduling active job for media type %s", GetMediaTypeName(mMediaType));
-			auto newJob = mActiveJob->Clone(); // Ensure the job can be cloned if needed
-			mJobQueue.push_front(std::move(newJob));
-			mActiveJob = nullptr; // Clear active job after rescheduling
-			mCondVar.notify_one();
-		}
+		std::unique_lock<std::mutex> lock(mMutex);
+		mCompletionVar.wait(lock, [this]() { return !mJobAvailable; });
+		AAMPLOG_DEBUG("Job wait completed for media type %s", GetMediaTypeName(mMediaType));
 	}
 
 	/**
 	 * @brief The main function executed by the worker thread.
 	 *
-	 * @param[in] weakSelf Weak pointer to the AampTrackWorker instance.
 	 * Waits for jobs to be submitted, processes them, and signals their completion.
 	 * The function runs in a loop until the worker is signaled to stop.
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::ProcessJob(AampTrackWorkerWeakPtr weakSelf)
+	void AampTrackWorker::ProcessJob()
 	{
-		if (auto self = weakSelf.lock())
-		{
-			UsingPlayerId playerId(self->aamp->mPlayerId);
-			AAMPLOG_INFO("Starting worker for media type %s", GetMediaTypeName(self->mMediaType));
+		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_INFO("Process Job for media type %s", GetMediaTypeName(mMediaType));
 
-			while (true)
+		// Main loop
+		while (true)
+		{
+			std::function<void()> currentJob;
 			{
 				AampTrackWorkerJobSharedPtr currentJob;
 
@@ -431,23 +269,21 @@ namespace aamp
 				// Execute job without holding lock
 				if (currentJob)
 				{
+					AAMPLOG_DEBUG("Executing Job for media type %s Job: %p", GetMediaTypeName(mMediaType), &currentJob);
+					lock.unlock();
 					try
 					{
-						AAMPLOG_DEBUG("Running job for media type %s", GetMediaTypeName(self->mMediaType));
-						// Run the job and catch any exceptions
-						// The promise in the job will be set when the job completes
-						// This allows the job to signal completion without blocking the worker thread
-						currentJob->Run();
-						AAMPLOG_DEBUG("Finished job for media type %s", GetMediaTypeName(self->mMediaType));
+						currentJob();
 					}
 					catch (const std::exception &e)
 					{
-						AAMPLOG_ERR("Exception caught while executing job: %s", e.what());
+						AAMPLOG_ERR("Exception caught while executing job for media type %s: %s", GetMediaTypeName(mMediaType), e.what());
 					}
 					catch (...)
 					{
-						AAMPLOG_ERR("Unknown exception caught in ProcessJob.");
+						AAMPLOG_ERR("Unknown exception caught while executing job for media type %s", GetMediaTypeName(mMediaType));
 					}
+					lock.lock();
 				}
 
 				{
@@ -460,11 +296,8 @@ namespace aamp
 					}
 				}
 			}
-			AAMPLOG_INFO("Exiting for media type %s", GetMediaTypeName(self->mMediaType));
 		}
-		else
-		{
-			AAMPLOG_WARN("AampTrackWorker instance is destroyed, exiting ProcessJob");
-		}
+
+		AAMPLOG_INFO("Exiting Process Job for media type %s", GetMediaTypeName(mMediaType));
 	}
 } // namespace aamp

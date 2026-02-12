@@ -45,7 +45,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  StreamSelectionTest.cpp
                  MonitorLatencyTests.cpp)
 
-	 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/AampFragmentDescriptor.cpp ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${DASH_PARSER_SOURCES})
+	 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/AampTrackWorker.cpp ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${DASH_PARSER_SOURCES})
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

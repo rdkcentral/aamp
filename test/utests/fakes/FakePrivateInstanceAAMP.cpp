@@ -135,8 +135,13 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mVideoFormat(),
 	mAudioFormat(),
 	mPreviousAudioType(),
+<<<<<<< HEAD
 	mCurlShared(),
 	mIsChunkMode(false)
+=======
+	mAuxFormat(),
+	mCurlShared()
+>>>>>>> develop
 {
 }
 

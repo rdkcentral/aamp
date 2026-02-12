@@ -19,8 +19,6 @@
 #include <gtest/gtest.h>
 #include "MediaStreamContext.h"
 
-AampConfig *gpGlobalConfig{nullptr};
-
 int main(int argc, char** argv)
 {
     testing::InitGoogleTest(&argc, argv);

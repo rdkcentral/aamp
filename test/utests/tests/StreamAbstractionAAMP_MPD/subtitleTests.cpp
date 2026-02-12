@@ -159,7 +159,6 @@ public:
 
 	void TearDown() override
 	{
-		mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 		delete mPrivateInstanceAAMP;
@@ -351,7 +350,7 @@ TEST_F(SubtitleTrackTests, Nosubtitletracks)
     </Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -529,12 +528,10 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 	</Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, true, _, _, _))
-        .Times(2)//init segment is  available for audio and video so set to true
-        .WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, false, _, _, _))
-        .Times(1)//init segment is not available for subtitle so set to false
-        .WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .Times(2);//init segment is  available for audio and video so set to true
+	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
+        .Times(1);//init segment is not available for subtitle so set to false
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -545,7 +542,7 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 	mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_SUBTITLE);
 	pMediaStreamContext->freshManifest=true;
 	//when skipfetch sets to true, fetchfragment will be avoided
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _,_, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _,_, _, _, _, _, _, _, _))
 				.Times(0);
 	CallSwitchSubtitleTrack(true);
 

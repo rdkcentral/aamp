@@ -601,15 +601,6 @@ public:
 	bool GetNextAdInBreakToPlace();
 
 	/**
-	 * @brief Getting all init headers for the Ad
-	 * @param[in] manifestStr - Manifest string
-	 * @param[in] manifestUrl - Manifest URL
-	 * @param[out] errorCode - AAMPCDAIError Error code if any.
-	 * @return true if all init headers are fetched and cached successfully, false otherwise
-	 */
-	bool FetchAndCacheInitHeaders(std::string& manifestStr, std::string& manifestUrl, AAMPCDAIError &errorCode);
-
-	/**
 	 * @fn ValidateAdManifest
 	 * @brief Validate the ad manifest for basic requirements
 	 * @param[in] adMPDParseHelper - AampMPDParseHelper reference of the ad manifest

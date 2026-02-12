@@ -1111,6 +1111,8 @@ void PlaybackCommand::addCommand(std::string command,std::string description)
 	commands.push_back(command);
 }
 
+#include "mp4demux.hpp"
+Mp4Demux mp4Demux = Mp4Demux(true);
 void PlaybackCommand::parse( const char *path )
 {
 	while( *path == ' ' )

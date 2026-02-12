@@ -427,6 +427,7 @@ set(LIBAAMP_SOURCES
 	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
 	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
+	test/gstTestHarness/mp4demux.hpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)

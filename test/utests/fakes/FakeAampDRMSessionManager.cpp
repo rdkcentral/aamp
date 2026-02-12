@@ -135,6 +135,7 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 	return false;
 }
 
+<<<<<<< HEAD
 KeyState DrmSessionManager::initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot, int &err)
 {
 	if (g_mockDRMSessionManager)
@@ -142,6 +143,11 @@ KeyState DrmSessionManager::initializeDrmSession(DrmHelperPtr drmHelper, int ses
 		return g_mockDRMSessionManager->initializeDrmSession(drmHelper, sessionSlot, err);
 	}
 	return KEY_ERROR;
+=======
+bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
+{
+	return false;
+>>>>>>> develop
 }
 
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
@@ -156,7 +162,3 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
-bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
-{
-	return false;
-}

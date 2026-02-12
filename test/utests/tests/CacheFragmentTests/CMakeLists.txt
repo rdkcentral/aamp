@@ -31,7 +31,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES    CacheFragmentTests.cpp
 		    CacheFragmentAampTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/AampMPDUtils.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampGrowableBuffer.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
@@ -47,5 +47,5 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} -pthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} fakes)
+target_link_libraries(${EXEC_NAME} -pthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} fakes ${LIBCJSON_LINK_LIBRARIES})
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

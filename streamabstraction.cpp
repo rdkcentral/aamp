@@ -1347,8 +1347,6 @@ void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
 void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
-	// This will change for trickplay if restamping is enabled (cachedFragment->duration is changed according to abs rate)
-	double inFragmentDuration = cachedFragment->duration;
 	if (aamp->GetLLDashChunkMode())
 	{
 		bool bIgnore = true;
@@ -1479,11 +1477,6 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		else
 		{
 			UpdateTSAfterInject();
-			auto timeBasedBufferManager = GetTimeBasedBufferManager();
-			if (timeBasedBufferManager)
-			{
-				timeBasedBufferManager->ConsumeBuffer(inFragmentDuration);
-			}
 		}
 	}
 }
@@ -2045,7 +2038,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
-		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
+		,mTrackParamsMutex(), mCheckForRampdown(false)
 		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);

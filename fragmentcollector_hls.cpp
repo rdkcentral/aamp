@@ -7517,6 +7517,13 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo &selected
 	}
 
 	return (bestScore > 0);
+
+	if (bestScore == 0)
+	{
+		AAMPLOG_WARN("No suitable text track found");
+	}
+
+	return (bestScore > 0);
 }
 
 /*

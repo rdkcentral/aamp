@@ -244,18 +244,7 @@ double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint6
 {
 	return 0;
 }
-
-bool AampMPDParseHelper::aamp_HasSegmentTime(IPeriod *period)
+bool AampMPDParseHelper::aamp_HasSegmentTimeline(IPeriod * period)
 {
 	return false;
-}
-
-bool AampMPDParseHelper::aamp_HasSegmentTemplate(IPeriod *period)
-{
-	return false;
-}
-
-std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo(IPeriod *period)
-{
-	return nullptr;
 }

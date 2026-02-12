@@ -64,7 +64,6 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 
 set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 		 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
-		 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 		 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
