@@ -144,6 +144,11 @@ KeyState DrmSessionManager::initializeDrmSession(DrmHelperPtr drmHelper, int ses
 	return KEY_ERROR;
 }
 
+bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
+{
+	return false;
+}
+
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
 }
@@ -156,7 +161,3 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
-bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
-{
-	return false;
-}

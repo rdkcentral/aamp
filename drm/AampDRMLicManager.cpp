@@ -1459,8 +1459,8 @@ void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
 {
 	mDrmSessionManager->UpdateMaxDRMSessions(maxSessions);
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
-        mLicenseDownloader = new AampCurlDownloader[maxSessions];
-        mLicenseRenewalThreads.resize(maxSessions);
+    mLicenseDownloader = new AampCurlDownloader[maxSessions];
+    mLicenseRenewalThreads.resize(maxSessions);
 }
 
 /**

@@ -576,12 +576,6 @@ install(FILES
 	AampLLDASHData.h
 	AampTSBSessionManager.h
 	AampTsbReader.h
-	AampTrackWorker.hpp
-	AampTrackWorkerManager.hpp
-	AampDownloadInfo.hpp
-	AampFragmentDescriptor.hpp
-	AampTimeBasedBufferManager.hpp
-	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	AampDemuxDataTypes.h

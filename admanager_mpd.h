@@ -32,7 +32,6 @@
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
 #include "libdash/IMPD.h"
-#include "dash/mpd/MPDModel.h"
 #include "AampMPDParseHelper.h"
 #include "AampEvent.h"
 
@@ -599,15 +598,6 @@ public:
 	 * @return true if the next ad is available, false otherwise
 	 */
 	bool GetNextAdInBreakToPlace();
-
-	/**
-	 * @brief Getting all init headers for the Ad
-	 * @param[in] manifestStr - Manifest string
-	 * @param[in] manifestUrl - Manifest URL
-	 * @param[out] errorCode - AAMPCDAIError Error code if any.
-	 * @return true if all init headers are fetched and cached successfully, false otherwise
-	 */
-	bool FetchAndCacheInitHeaders(std::string& manifestStr, std::string& manifestUrl, AAMPCDAIError &errorCode);
 
 	/**
 	 * @fn ValidateAdManifest

@@ -44,7 +44,6 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
-#include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
 
 /**
@@ -659,15 +658,6 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
-	/**
-	 * @fn GetTimeBasedBufferManager 
-	 *
-	 * @brief Get the time based buffer manager for this track
-	 *
-	 * @return AampTimeBasedBufferManager object
-	 */
-	std::shared_ptr<aamp::AampTimeBasedBufferManager> GetTimeBasedBufferManager() { return mTimeBasedBufferManager; }
-
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -836,13 +826,8 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
-	int fragmentIdxToInject;            	/**< Write position */
-	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
-	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
-	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
 
 private:
 	enum class TrickmodeState

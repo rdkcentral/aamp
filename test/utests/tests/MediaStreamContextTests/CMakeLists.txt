@@ -27,9 +27,8 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES    MediaStreamContextTests.cpp
-                    FragmentDownloadTests.cpp
                     MediaStreamContextAampTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/CachedFragment.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
@@ -44,5 +43,5 @@ if (COVERAGE_ENABLED)
     include(CodeCoverage)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
-target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 aamp_utest_run_add(${EXEC_NAME})
