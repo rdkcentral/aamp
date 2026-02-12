@@ -45,7 +45,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), (AampMediaType) type);
+		aamp->ProcessID3Metadata(cachedFragment->fragment.GetVector(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
@@ -142,7 +142,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// so upon upgrade to it or introduced a patch in qtdemux,
 			// this portion can be reverted
 			IsoBmffBuffer buffer;
-			buffer.setBuffer((uint8_t *)cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size());
+			buffer.setBuffer(cachedFragment->fragment.GetVector());
 			buffer.parseBuffer();
 			uint32_t track_id = 0;
 			buffer.getTrack_id(track_id);
