@@ -62,6 +62,8 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
  */
 AampLicensePreFetcher::~AampLicensePreFetcher()
 {
+	AAMPLOG_WARN("TTT AampLicensePreFetcher: Destructor called");
+	auto joinStart = std::chrono::high_resolution_clock::now();
 	Term();
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
@@ -70,15 +72,18 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 	if (mPreFetchThread.joinable())
 	{
 		mQCond.notify_one();
-		AAMPLOG_WARN("Joining mPreFetchThread");
+		AAMPLOG_WARN("TTT Joining mPreFetchThread");
 		mPreFetchThread.join();
 	}
 	if (mVssPreFetchThread.joinable())
 	{
 		mQVssCond.notify_one();
-		AAMPLOG_WARN("Joining mVssFetchThread");
+		AAMPLOG_WARN("TTT Joining mVssFetchThread");
 		mVssPreFetchThread.join();
 	}
+	auto joinEnd = std::chrono::high_resolution_clock::now();
+	auto joinDuration = std::chrono::duration_cast<std::chrono::milliseconds>(joinEnd - joinStart).count();
+	AAMPLOG_WARN("TTT AampLicensePreFetcher: PreFetchThread joined in %lld ms", joinDuration);
 }
 
 /**

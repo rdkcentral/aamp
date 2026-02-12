@@ -8199,8 +8199,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 		if (mDRMLicenseManager)
 		{
+			AAMPLOG_WARN("TTT setting license request abort");
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			AAMPLOG_WARN("TTT setting license request success");
 			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
 			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
 			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
