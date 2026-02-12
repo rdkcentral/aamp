@@ -370,7 +370,7 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
 	cachedFragment->initFragment = true;
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
-	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA), reinterpret_cast<const uint8_t*>(TEST_DATA) + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
 	// Valid media types are only VIDEO, AUDIO, SUBTITLE and INIT fragments
 	cachedFragment->type = eMEDIATYPE_DEFAULT;
 
@@ -387,7 +387,7 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_InitFragmentSuccess)
 	cachedFragment->initFragment = true;
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
-	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA), reinterpret_cast<const uint8_t*>(TEST_DATA) + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _)).Times(1).WillOnce(Return(0.0));

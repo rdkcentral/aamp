@@ -222,8 +222,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->absPosition = 0;
 		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(ptr), 
-		                                 reinterpret_cast<const uint8_t*>(ptr) + size);
+		cachedFragment->fragment.assign(ptr, ptr + size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->uri = std::move(remoteUrl);
 		if (mActiveDownloadInfo)

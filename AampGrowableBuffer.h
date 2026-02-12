@@ -119,22 +119,26 @@ public:
 			NETMEMORY_PLUS();
 		}
 	}
-	void insert(typename std::vector<uint8_t>::const_iterator pos, const uint8_t *first, const uint8_t *last)
+	void insert(typename std::vector<uint8_t>::const_iterator pos, const void *first, const void *last)
 	{
+		const uint8_t* start = static_cast<const uint8_t*>(first);
+		const uint8_t* end = static_cast<const uint8_t*>(last);
 		const size_t oldCap = buffer.capacity();
 
-		buffer.insert(pos, first, last);
+		buffer.insert(pos, start, end);
 		if (oldCap == 0 && buffer.capacity() > 0)
 		{
 			NETMEMORY_PLUS();
 		}
 	}
-	void assign(const uint8_t *first, const uint8_t *last)
+	void assign(const void *first, const void *last)
 	{
+		const uint8_t* start = static_cast<const uint8_t*>(first);
+		const uint8_t* end = static_cast<const uint8_t*>(last);
 		const size_t oldCap = buffer.capacity();
 
 		// Perform the actual vector assignment
-		buffer.assign(first, last);
+		buffer.assign(start, end);
 
 		const size_t newCap = buffer.capacity();
 

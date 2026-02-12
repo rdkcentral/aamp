@@ -1122,8 +1122,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
 		AampGrowableBuffer tempBuffer("tempBuffer");
-		tempBuffer.assign(reinterpret_cast<const uint8_t*>(unParsedBuffer),
-				reinterpret_cast<const uint8_t*>(unParsedBuffer) + unParsedBufferSize);
+		tempBuffer.assign(unParsedBuffer, unParsedBuffer + unParsedBufferSize);
 		unparsedBufferChunk.Free();
 		unparsedBufferChunk.assign(tempBuffer.GetVector().data(),
 				tempBuffer.GetVector().data() + tempBuffer.GetVector().size());
@@ -1424,8 +1423,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(str.data()),
-								reinterpret_cast<const uint8_t*>(str.data()) + str.size());
+						cachedFragment->fragment.assign(str.data(), str.data() + str.size());
 						if(mSubtitleParser)
 						{
 							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
