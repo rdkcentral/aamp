@@ -188,6 +188,8 @@ public:
 	 * @return A shared pointer to the AampMPDParseHelper.
 	 */
 	AampMPDParseHelperPtr 	GetMPDParseHelper() { return mMPDParseHelper;}
+	void UnlockParseHelper() { if (mMPDParseHelper) mMPDParseHelper->UnlockAfterParsing(); }
+	void LockParseHelper() { if (mMPDParseHelper) mMPDParseHelper->LockForParsing(); }
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;
@@ -214,7 +216,7 @@ public:
 	*	@fn Initialize
 	*	@brief Function to initialize MPD Downloader
 	*/
-	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
+	void Initialize(PrivateInstanceAAMP* aamp, ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
 
 	/**
 	*	@fn Release
@@ -439,6 +441,7 @@ private:
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::string()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
+	PrivateInstanceAAMP* mAamp; /**< Reference to PrivateInstanceAAMP for stream lock access */
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

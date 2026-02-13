@@ -225,6 +225,25 @@ public :
 	*/
 	void Initialize(dash::mpd::IMPD *instance);
 	/**
+	*   @fn LockForParsing
+	*   @brief  Acquire mutex before MPD parsing begins
+ 	* 	@retval None
+	*/
+	void LockForParsing();
+	/**
+	*   @fn UnlockAfterParsing
+	*   @brief  Release mutex after MPD parsing completes
+ 	* 	@retval None
+	*/
+	void UnlockAfterParsing();
+	/**
+	*   @fn InitializeWithLockHeld
+	*   @brief  Initialize helper with MPD instance while lock is already held
+	* 	@param[in] instance - MPD instance to parse
+ 	* 	@retval None
+	*/
+	void InitializeWithLockHeld(dash::mpd::IMPD *instance);
+	/**
 	*   @fn Clear
 	*   @brief  Clear the parsed values in the helper 
  	* 	@retval None

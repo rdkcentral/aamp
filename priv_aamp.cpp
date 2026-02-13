@@ -5905,11 +5905,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(this, std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
 			}
 			else
 			{
-				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, nullptr);
+				mMPDDownloaderInstance->Initialize(this, std::move(inpData), mAppName, nullptr);
 			}
 			mMPDDownloaderInstance->Start();
 		}
@@ -6379,7 +6379,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 	{
 		// Restart MPD downloader thread with new session
 		std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
-		mMPDDownloaderInstance->Initialize(std::move(inpData),mAppName);
+		mMPDDownloaderInstance->Initialize(this, std::move(inpData),mAppName);
 		mMPDDownloaderInstance->Start();
 	}
 	if(configPassCode == 200 || configPassCode == 204 || configPassCode == 206)

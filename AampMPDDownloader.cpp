@@ -27,6 +27,7 @@
 #include "AampMPDDownloader.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
+#include "priv_aamp.h"
 #include <inttypes.h>
 
 
@@ -123,6 +124,14 @@ void _manifestDownloadResponse::parseMPD()
 				mRootNode = MPDProcessNode(&mXMLReader, mMPDDownloadResponse->sEffectiveUrl);
 				if(mRootNode != NULL)
 				{
+					// Acquire stream lock BEFORE ToMPD() to synchronize with Init() thread
+					// T5 (Init thread) holds this lock during TuneHelper(), so this ensures
+					// ToMPD() cannot run while T5 is reading MPD data structures
+					if (mAamp)
+					{
+						mAamp->AcquireStreamLock();
+					}
+					
 					MPD *mpd = mRootNode->ToMPD();
 					if (mpd)
 					{
@@ -135,6 +144,12 @@ void _manifestDownloadResponse::parseMPD()
 					else
 					{
 						mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+					}
+					
+					// Release stream lock after MPD construction is complete
+					if (mAamp)
+					{
+						mAamp->ReleaseStreamLock();
 					}
 				}
 				else if (mRootNode == NULL)
@@ -167,7 +182,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
+	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mAamp(nullptr)
 {
 }
 
@@ -189,8 +204,9 @@ AampMPDDownloader::~AampMPDDownloader()
 *   @fn Initialize
 *   @brief Initialize with MPD Download Input
 */
-void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
+void AampMPDDownloader::Initialize(PrivateInstanceAAMP* aamp, ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
 {
+	mAamp = aamp;
 	if(mpdDnldCfg == nullptr)
 	{
 		AAMPLOG_INFO("Need a valid MPD download config.");
@@ -863,7 +879,7 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 				IPeriod *period = mpd->GetPeriods().at(iPeriod);
 				if(NULL != period )
 				{
-					const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+					const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
 					if (adaptationSets.size() > 0)
 					{
 						const IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
@@ -872,7 +888,7 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 							const ISegmentTemplate *pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
 							if(pSegmentTemplate == NULL)
 							{
-								const std::vector<IRepresentation *> representations = pFirstAdaptation->GetRepresentation();
+								const std::vector<IRepresentation *>& representations = pFirstAdaptation->GetRepresentation();
 								if( representations.size()>0 )
 								{
 									const IRepresentation *representation = representations.at(0);
