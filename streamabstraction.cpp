@@ -2180,6 +2180,23 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 	{
 		mBitrateReason = (aamp->rate != AAMP_NORMAL_PLAY_RATE) ? eAAMP_BITRATE_CHANGE_BY_TRICKPLAY : eAAMP_BITRATE_CHANGE_BY_SEEK;
 	}
+
+	if((GETCONFIGVALUE(eAAMPConfig_EnableAampUnderflowMonitor)) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+	{
+		if(!mUnderflowMonitor)
+		{
+			try
+			{
+				mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(this, aamp);
+				AAMPLOG_INFO("Initialized AampUnderflowMonitor");
+			}
+			catch (const std::exception &e)
+			{
+				AAMPLOG_ERR("Failed to initialize AampUnderflowMonitor: %s", e.what());
+				mUnderflowMonitor.reset();
+			}
+		}
+	}
 }
 
 
@@ -3017,63 +3034,39 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 
 void StreamAbstractionAAMP::StartUnderflowMonitor()
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	// Run underflow monitor only when explicitly enabled via config
-	if (!GETCONFIGVALUE(eAAMPConfig_EnableAampUnderflowMonitor))
-	{
-		AAMPLOG_TRACE("UnderflowMonitor gated off by config; skipping");
-		return;
-	}
 	if (!GetMediaTrack(eTRACK_VIDEO))
 	{
-		AAMPLOG_WARN("StartUnderflowMonitor: video track unavailable");
+		if (mUnderflowMonitor)
+		{
+			// No video track: delete the monitor to avoid wasted resources
+			mUnderflowMonitor.reset();
+			AAMPLOG_INFO("StartUnderflowMonitor: no video track; deleted AampUnderflowMonitor");
+		}
+		else
+		{
+			AAMPLOG_WARN("StartUnderflowMonitor: video track unavailable");
+		}
 		return;
 	}
-	if (!mUnderflowMonitor)
+	if (mUnderflowMonitor)
 	{
-		try
-		{
-			mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(this, aamp);
-			mUnderflowMonitor->Start();
-			AAMPLOG_INFO("Started AampUnderflowMonitor for video");
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Failed to create/start AampUnderflowMonitor: %s", e.what());
-			// Ensure future calls can attempt creation again
-			mUnderflowMonitor.reset();
-		}
-	}
-	else
-	{
-		// Attempt to start existing monitor; Start() is idempotent
-		try
-		{
-			mUnderflowMonitor->Start();
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Failed to start existing AampUnderflowMonitor: %s", e.what());
-			// Reset to allow recreation on next call
-			mUnderflowMonitor.reset();
-		}
+		mUnderflowMonitor->Start();
+		AAMPLOG_INFO("Started AampUnderflowMonitor for video");
 	}
 }
 
 void StreamAbstractionAAMP::StopUnderflowMonitor()
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
 		mUnderflowMonitor->Stop();
 		mUnderflowMonitor.reset();
-		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video");
+		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video; resetting monitor instance");
 	}
 }
 
 bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	return (mUnderflowMonitor && mUnderflowMonitor->IsRunning());
 }
 /**

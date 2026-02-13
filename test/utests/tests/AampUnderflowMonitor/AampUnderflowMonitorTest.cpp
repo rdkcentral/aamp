@@ -17,37 +17,10 @@
 * limitations under the License.
 */
 
-#include "AampUnderflowMonitor.h"
-#include "MockAampUnderflowMonitor.h"
+#include <gtest/gtest.h>
 
-MockAampUnderflowMonitor *g_mockAampUnderflowMonitor = nullptr;
-
-AampUnderflowMonitor::AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp) : mStream(stream), mAamp(aamp)
+int main(int argc, char** argv)
 {
-}
-
-AampUnderflowMonitor::~AampUnderflowMonitor()
-{
-}
-
-void AampUnderflowMonitor::Start()
-{
-    mRunning.store(true);
-    if(g_mockAampUnderflowMonitor != nullptr)
-    {
-        g_mockAampUnderflowMonitor->Start();
-    }
-}
-
-void AampUnderflowMonitor::Stop()
-{
-    mRunning.store(false);
-    if(g_mockAampUnderflowMonitor != nullptr)
-    {
-        g_mockAampUnderflowMonitor->Stop();
-    }
-}
-
-void AampUnderflowMonitor::Run()
-{
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

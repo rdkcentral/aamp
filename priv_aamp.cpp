@@ -3237,19 +3237,19 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 /**
  * @brief Sends UnderFlow Event messages
  */
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStart)
 {
 	// Buffer Change event indicate buffer availability
-	// Buffering stop notification need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
 	// BufferChangeEvent with True  = Availability of buffer to play
-	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped, GetSessionId());
+	bool bufferAvailable = !bufferingStart; // Buffering stop notification need to be inverted to indicate if buffer available or not
+	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(bufferAvailable, GetSessionId());
 
-	SetBufUnderFlowStatus(bufferingStopped);
+	SetBufUnderFlowStatus(bufferingStart);
 	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
-	std::string telemetryName = bufferingStopped?"VideoBufferingStart":"VideoBufferingEnd";
+	std::string telemetryName = bufferingStart?"VideoBufferingStart":"VideoBufferingEnd";
 	at2.send(telemetryName,{/*int data*/},{/*string data*/},{/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
@@ -3266,25 +3266,28 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
  */
 void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 {
-	if (buffering)
+	if(ISCONFIGSET_PRIV(eAAMPConfig_ReportBufferEvent))
 	{
-		SendBufferChangeEvent(true);
-		if (!mSinkPaused.load())
+		if (buffering)
 		{
-			if (!PausePipeline(true, true))
+			SendBufferChangeEvent(true);
+			if (!mSinkPaused.load())
 			{
-				AAMPLOG_ERR("Failed to pause the Pipeline");
+				if (!PausePipeline(true, true))
+				{
+					AAMPLOG_ERR("Failed to pause the Pipeline");
+				}
 			}
 		}
-	}
-	else
-	{
-		if (mSinkPaused.load())
+		else
 		{
-			(void)PausePipeline(false, false);
+			if (mSinkPaused.load())
+			{
+				(void)PausePipeline(false, false);
+			}
+			UpdateSubtitleTimestamp();
+			SendBufferChangeEvent(false);
 		}
-		UpdateSubtitleTimestamp();
-		SendBufferChangeEvent(false);
 	}
 }
 
@@ -6357,15 +6360,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
 		
-		// Start underflow monitor after successful initialization and Start()
-		if (mpStreamAbstractionAAMP && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor))
-		{
-			mpStreamAbstractionAAMP->StartUnderflowMonitor();
-			if (!mpStreamAbstractionAAMP->IsUnderflowMonitorRunning())
-			{
-				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
-			}
-		}
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)

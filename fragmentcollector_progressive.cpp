@@ -238,6 +238,16 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
     {
         AAMPLOG_ERR("Failed to create FragmentCollector thread : %s", e.what());
     }
+
+	// Start underflow monitor after successful initialization and Start()
+	if (mUnderflowMonitor)
+	{
+		StartUnderflowMonitor();
+		if (!IsUnderflowMonitorRunning())
+		{
+			AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+		}
+	}
 }
 
 /**

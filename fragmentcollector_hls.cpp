@@ -4977,6 +4977,16 @@ void StreamAbstractionAAMP_HLS::Start(void)
 			track->Start();
 		}
 	}
+
+	// Start underflow monitor after successful initialization and Start()
+	if (mUnderflowMonitor)
+	{
+		StartUnderflowMonitor();
+		if (!IsUnderflowMonitorRunning())
+		{
+			AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+		}
+	}
 }
 
 
