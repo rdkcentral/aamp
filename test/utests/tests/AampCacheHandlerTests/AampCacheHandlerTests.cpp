@@ -454,13 +454,13 @@ TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_PreservesManifestAlway
 }
 
 /**
- * @test AampCache_reduceCacheSize_RemovesOldestFirst
+ * @test AampCache_reduceCacheSize_RemovesOldest
  * @brief Verify that when same media type playlists exist, reduction works correctly
  *
  * Test validates cache reduction logic when multiple playlists of the same type
  * exist and cache size limit is exceeded.
  */
-TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_RemovesOldestFirst)
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_RemovesOldest)
 {
 	// Set cache size to hold about 3 items
 	handler->SetMaxPlaylistCacheSize(350);
