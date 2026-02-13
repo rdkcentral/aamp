@@ -64,6 +64,8 @@
 #include "AampLLDASHData.h"
 #include "AampMPDUtils.h"
 
+class PrivateInstanceAAMP; // Forward declaration
+
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 
 /**

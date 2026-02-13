@@ -83,7 +83,7 @@ AampMPDDownloader::~AampMPDDownloader()
  *   @fn Initialize
  *   @brief Initialize with MPD Download Input
  */
-void AampMPDDownloader::Initialize(std::shared_ptr<ManifestDownloadConfig> mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
+void AampMPDDownloader::Initialize(PrivateInstanceAAMP* aamp, std::shared_ptr<ManifestDownloadConfig> mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
 {
 }
 /**

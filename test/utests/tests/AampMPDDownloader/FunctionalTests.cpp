@@ -81,12 +81,12 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_2)
 {
     // EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr));
     std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
-    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr, inpData));
     EXPECT_NO_THROW(mAampMPDDownloader->Start());
 
     inpData->mTuneUrl = url1;
     inpData->mDnldConfig->bNeedDownloadMetrics = true;
-    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr, inpData));
     EXPECT_NO_THROW(mAampMPDDownloader->Start());
     EXPECT_NO_THROW(mAampMPDDownloader->Release());
 }
@@ -97,7 +97,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_3)
     std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
     inpData->mTuneUrl = url2;
     inpData->mDnldConfig->bNeedDownloadMetrics = true;
-    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr, inpData));
     EXPECT_NO_THROW(mAampMPDDownloader->Start());
     EXPECT_NO_THROW(mAampMPDDownloader->Release());
 }
@@ -175,13 +175,13 @@ TEST_F(FunctionalTests, AampMPDDownloader_PushDownloadDataToQueue)
 #endif
 TEST_F(FunctionalTests, InitializeWithValidConfig)
 {
-    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(mpdDnldCfg, appName));
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr, mpdDnldCfg, appName));
 }
 
 TEST_F(FunctionalTests, InitializeWithNullConfig)
 {
     ManifestDownloadConfigPtr nullCfg = nullptr;
-    mAampMPDDownloader->Initialize(nullCfg, appName);
+    mAampMPDDownloader->Initialize(nullptr, nullCfg, appName);
 }
 
 TEST_F(FunctionalTests, SetBufferAvailabilityTest)
@@ -278,11 +278,11 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 	inpData->mPreProcessedManifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
 	if(!inpData->mPreProcessedManifest.empty())
 	{
-		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData, appName,std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, mPrivateInstanceAAMP1)));
+		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(mPrivateInstanceAAMP1, inpData, appName,std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, mPrivateInstanceAAMP1)));
 	}
 	else
 	{
-		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+		EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr, inpData));
 	}
 	EXPECT_NO_THROW(mAampMPDDownloader->Start());
 	EXPECT_NO_THROW(mAampMPDDownloader->Release());
@@ -291,7 +291,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
 {
     std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
-    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
+    EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr, inpData));
 //    EXPECT_NO_THROW(mAampMPDDownloader->Start());
 	
 	EXPECT_NO_THROW(mAampMPDDownloader->RegisterCallback( [](void *arg){ ASSERT_TRUE(0); }, NULL));
