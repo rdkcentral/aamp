@@ -86,7 +86,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		// Try init fragment cache first for init segments
 		if (initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, mTempFragment.GetPtr(), effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, mTempFragment->GetPtr(), effectiveUrl);
 		}
 		
 		// If not in cache, download it
@@ -101,10 +101,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.GetPtr(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/, &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment->GetPtr(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/, &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.GetPtr(), effectiveUrl, actualType);
+				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetPtr(), effectiveUrl, actualType);
 			}
 		}
 	}
@@ -118,7 +118,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
-		mDownloadedFragment.Replace(mTempFragment.GetPtr());
+		mDownloadedFragment.Replace(mTempFragment->GetPtr());
 		ret = false;
 		return ret;
 	}
@@ -146,7 +146,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	if (ret && mTempFragment->capacity() != 0)
 	{
 		FragmentCacheDescriptor desc;
-		desc.downloadBuffer = mTempFragment.GetPtr();
+		desc.downloadBuffer = mTempFragment->GetPtr();
 		desc.url = fragmentUrl;
 		desc.position = position;
 		desc.duration = fragmentDurationS;
@@ -312,7 +312,7 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	{
 		// Parse init segment to extract track_id and timeScale
 		IsoBmffBuffer buffer;
-		buffer.setBuffer((uint8_t*)cached->fragment.GetPtr(), cached->fragment.GetLen());
+		buffer.setBuffer((uint8_t*)cached->fragment.GetPtr(), cached->fragment.size());
 		buffer.parseBuffer();
 		
 		uint32_t track_id = 0;
@@ -374,7 +374,7 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	
 	AAMPLOG_TRACE("[%s] CacheFragmentData: %s mode, type=%d, pos=%.3f, dur=%.3f, size=%zu",
 		name, desc.isChunkMode ? "chunk" : "fragment", 
-		cached->type, cached->position, cached->duration, cached->fragment.GetLen());
+		cached->type, cached->position, cached->duration, cached->fragment.size());
 	
 	return true;
 }
@@ -911,6 +911,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 		else if (AampLogManager::isLogworthyErrorCode(httpErrorCode))
 		{
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d", name, segDLFailCount);
+			if (dlInfo->isInitSegment)
 			{
 				// For init fragment, rampdown limit is reached. Send error event.
 				if (!dlInfo->isPlayingAd && httpErrorCode != 502)
