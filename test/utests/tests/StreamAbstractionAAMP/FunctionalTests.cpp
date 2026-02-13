@@ -25,6 +25,7 @@
 #include "AampLogManager.h"
 #include "MediaStreamContext.h"
 #include "MockAampConfig.h"
+#include "MockAampUnderflowMonitor.h"
 #include "MockAampUtils.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaTrack.h"
@@ -96,12 +97,12 @@ protected:
 		{
 			mTrackState = state;
 		}
-
 		MOCK_METHOD(void, clearFirstPTS, (), (override));
 
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	AampUnderflowMonitor *mUnderflowMonitor;
 	TestableStreamAbstractionAAMP *mStreamAbstractionAAMP;
 	AampConfig *mConfig;
 	std::shared_ptr<MockMediaProcessor> mMockMediaProcessor;
@@ -119,10 +120,19 @@ protected:
 			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		}
 
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EnableAampUnderflowMonitor))
+			.WillRepeatedly(Return(true));			
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(mConfig);
+
+		mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH; // Underflow monitor only enabled for DASH in StreamAbstractionAAMP
 		mStreamAbstractionAAMP = new TestableStreamAbstractionAAMP(mPrivateInstanceAAMP);
 
-		// For initialisation of mediatrack
+		if(g_mockAampUnderflowMonitor == nullptr)
+		{
+			g_mockAampUnderflowMonitor = new NiceMock<MockAampUnderflowMonitor>();
+		}
+
+		// For initialisation of mediatrack	
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(0));
@@ -159,6 +169,9 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		delete g_mockAampUnderflowMonitor;
+		g_mockAampUnderflowMonitor = nullptr;
 
 		mMockMediaProcessor.reset();
 	}
@@ -232,4 +245,38 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled
 	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
 
 	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
+}
+
+TEST_F(StreamAbstractionAAMP_Test, StartUnderflowMonitor_NoVideoTrack_DoesNotRun)
+{
+	EXPECT_CALL(*g_mockAampUnderflowMonitor, Start()).Times(0);
+	delete mStreamAbstractionAAMP->mMockVideoTrack;
+	mStreamAbstractionAAMP->mMockVideoTrack = nullptr;
+
+	mStreamAbstractionAAMP->StartUnderflowMonitor();
+	EXPECT_FALSE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
+}
+
+TEST_F(StreamAbstractionAAMP_Test, StartAndStopUnderflowMonitor_WrapperApi)
+{
+	EXPECT_CALL(*g_mockAampUnderflowMonitor, Start()).Times(1);
+	EXPECT_CALL(*g_mockAampUnderflowMonitor, Stop()).Times(1);
+	mStreamAbstractionAAMP->StartUnderflowMonitor();
+	EXPECT_TRUE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
+	mStreamAbstractionAAMP->StopUnderflowMonitor();
+	EXPECT_FALSE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
+}
+
+TEST_F(StreamAbstractionAAMP_Test, StartUnderflowMonitor_CalledTwice_IsIdempotent)
+{
+	EXPECT_CALL(*g_mockAampUnderflowMonitor, Start()).Times(2);
+	EXPECT_CALL(*g_mockAampUnderflowMonitor, Stop()).Times(1);
+
+	mStreamAbstractionAAMP->StartUnderflowMonitor();
+	EXPECT_TRUE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
+	EXPECT_NO_THROW(mStreamAbstractionAAMP->StartUnderflowMonitor());
+	EXPECT_TRUE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
+
+	mStreamAbstractionAAMP->StopUnderflowMonitor();
+	EXPECT_FALSE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
 }

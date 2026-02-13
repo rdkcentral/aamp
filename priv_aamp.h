@@ -1562,10 +1562,10 @@ public:
 	/**
 	 * @fn SendBufferChangeEvent
 	 *
-	 * @param[in] bufferingStopped- Flag to indicate buffering stopped.Underflow = True
+	 * @param[in] bufferingStart Flag indicating whether buffering has started; true when underflow begins, false when it ends
 	 * @return void
 	 */
-	void SendBufferChangeEvent(bool bufferingStopped=false);
+	void SendBufferChangeEvent(bool bufferingStart=false);
 
 	/**
 	 * @fn SendTuneMetricsEvent

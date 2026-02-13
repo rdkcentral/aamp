@@ -17,6 +17,7 @@
 
 include(GoogleTest)
 
+add_subdirectory(AampUnderflowMonitor)
 add_subdirectory(NetworkBandwidthEstimator)
 add_subdirectory(JsBindingTests)
 add_subdirectory(AampEventTests)

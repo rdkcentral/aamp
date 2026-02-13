@@ -101,6 +101,9 @@ public:
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
+	// Hooks needed by AampUnderflowMonitor tests
+	MOCK_METHOD(void, SetBufferingState, (bool buffering));
+	MOCK_METHOD(bool, IsSinkCacheEmpty, (AampMediaType mediaType));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

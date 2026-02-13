@@ -4977,6 +4977,16 @@ void StreamAbstractionAAMP_HLS::Start(void)
 			track->Start();
 		}
 	}
+
+	// Start underflow monitor after successful initialization and Start()
+	if (mUnderflowMonitor)
+	{
+		StartUnderflowMonitor();
+		if (!IsUnderflowMonitorRunning())
+		{
+			AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+		}
+	}
 }
 
 
@@ -4989,7 +4999,10 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 	aamp->DisableDownloads();
 	ReassessAndResumeAudioTrack(true);
 	AbortWaitForAudioTrackCatchup(false);
-
+	if(ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		StopUnderflowMonitor();
+	}
 	//This is purposefully kept in a separate loop to avoid being hung
 	//on pthread_join of fragmentCollectorThread
 	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)

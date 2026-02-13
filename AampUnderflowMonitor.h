@@ -37,7 +37,6 @@ class PrivateInstanceAAMP;
 class AampUnderflowMonitor {
 public:
     /**
-    * @fn AampUnderflowMonitor
     * @brief Construct an `AampUnderflowMonitor`.
     * @param[in] stream Stream abstraction used to query buffered video duration
     *                   and playback state relevant to underflow detection.
@@ -53,31 +52,23 @@ public:
     AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp);
 
     /**
-    * @fn ~AampUnderflowMonitor
      * @brief Destructor. Ensures monitoring has been stopped.
      */
     ~AampUnderflowMonitor();
 
-     /**
-      * @fn Start
-      * @brief Start the monitoring thread. If already running, returns immediately.
-      * @return void
-      */
+    /**
+     * @brief Start the monitoring thread. If already running, returns immediately.
+     * @return void
+     */
     void Start();
 
     /**
-      * @fn Stop
-      * @brief Request the monitoring thread to stop and join it if joinable.
-      *        Safe to call multiple times. Nullifies internal pointers after
-      *        thread termination to prevent use-after-free.
-      * @return void
-      * @note After `Stop()` returns, the monitoring thread has fully terminated
-      *       and will not access `StreamAbstractionAAMP` or `PrivateInstanceAAMP`.
+     * @brief Stop and join the monitoring thread.
+     * @return void
      */
     void Stop();
 
     /**
-     * @fn isRunning
      * @brief Check whether the monitoring thread is currently active.
      * @return true if running, false otherwise.
      */
@@ -85,7 +76,6 @@ public:
 
 private:
     /**
-     * @fn run
      * @brief Thread entry routine that polls/awaits underflow conditions
      *        and triggers coordinated handling.
      */

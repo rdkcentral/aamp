@@ -90,20 +90,19 @@ void AampUnderflowMonitor::Start() {
 
 void AampUnderflowMonitor::Stop()
 {
+    // Use unique_lock so we can release the mutex before joining
+    std::unique_lock<std::mutex> lock(mMutex);
     // Signal thread to stop
     mRunning.store(false);
-    
-    // Wait for thread to terminate
+
+    // If a thread is joinable, release the lock before joining to avoid deadlock
     if (mThread.joinable())
     {
+        lock.unlock();
         mThread.join();
         AAMPLOG_INFO("AampUnderflowMonitor thread joined");
+        lock.lock();
     }
-    
-    // Nullify pointers under mutex to prevent any race with thread cleanup
-    std::lock_guard<std::mutex> lock(mMutex);
-    mAamp = nullptr;
-    mStream = nullptr;
 }
 
 void AampUnderflowMonitor::Run()
@@ -125,8 +124,6 @@ void AampUnderflowMonitor::Run()
         
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return; // Stop() was called
-            
             state = mAamp->GetState();
             if (state == eSTATE_STOPPED || state == eSTATE_RELEASED || state == eSTATE_ERROR) {
                 mRunning.store(false);
@@ -139,12 +136,7 @@ void AampUnderflowMonitor::Run()
         if (shouldBreak) {
             break;
         }
-        
-        {
-            std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return;
-            mAamp->interruptibleMsSleep(100);
-        }
+        mAamp->interruptibleMsSleep(100);
     }
 
     while (mRunning.load()) {
@@ -156,7 +148,6 @@ void AampUnderflowMonitor::Run()
         
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp || !mStream) return; // Stop() was called
             
             underflowActive = mAamp->GetBufUnderFlowStatus();
             playerState = mAamp->GetState();
@@ -184,7 +175,6 @@ void AampUnderflowMonitor::Run()
             
             {
                 std::lock_guard<std::mutex> lock(mMutex);
-                if (!mAamp) return;
                 trackDownloadsEnabled = mAamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO);
                 sinkCacheEmpty = mAamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
             }
@@ -198,7 +188,6 @@ void AampUnderflowMonitor::Run()
                     AAMPLOG_INFO("[video] underflow detected. buffered=%.3f cacheEmpty=%d (rate=%.2f, trickplay=%d, seeking=%d)", bufferedTimeSec, (int)sinkCacheEmpty, currentRate, (int)isTrickplay, (int)isSeekingState);
                     
                     std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
                     mAamp->SetBufferingState(true);
                     PlaybackErrorType errorType = eGST_ERROR_UNDERFLOW;
                     mAamp->SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(eMEDIATYPE_VIDEO), mAamp->getStringForPlaybackError(errorType));
@@ -209,7 +198,6 @@ void AampUnderflowMonitor::Run()
                     {
                         AAMPLOG_WARN("[video] downloads blocked with empty cache during underflow; resuming");
                         std::lock_guard<std::mutex> lock(mMutex);
-                        if (!mAamp) return;
                         mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
                     }
                 }
@@ -236,7 +224,6 @@ void AampUnderflowMonitor::Run()
                     {
                         AAMPLOG_INFO("[video] underflow ended. buffered=%.3f cacheEmpty=%d", bufferedTimeSec, (int)sinkCacheEmpty);
                         std::lock_guard<std::mutex> lock(mMutex);
-                        if (!mAamp) return;
                         mAamp->SetBufferingState(false);
                     }
                     else
@@ -247,8 +234,6 @@ void AampUnderflowMonitor::Run()
                 else if (underflowActive && !trackDownloadsEnabled && sinkCacheEmpty)
                 {
                     AAMPLOG_WARN("[video] underflow ongoing, downloads blocked and cache empty; resuming track downloads");
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
                     mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
                 }
             }
@@ -259,12 +244,7 @@ void AampUnderflowMonitor::Run()
         const int sleepMs = (bufferedTimeSec < kLowBufferSec) ? kLowBufferPollMs
                              : (bufferedTimeSec >= kHighBufferSec) ? kHighBufferPollMs
                              : kMediumBufferPollMs;
-        
-        {
-            std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return;
-            mAamp->interruptibleMsSleep(sleepMs);
-        }
+        mAamp->interruptibleMsSleep(sleepMs);
     }
     mRunning.store(false);
 }
