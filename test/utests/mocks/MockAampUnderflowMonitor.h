@@ -17,37 +17,20 @@
 * limitations under the License.
 */
 
+#ifndef AAMP_MOCK_UNDERFLOW_MONITOR_H
+#define AAMP_MOCK_UNDERFLOW_MONITOR_H
+
+#include <gmock/gmock.h>
 #include "AampUnderflowMonitor.h"
-#include "MockAampUnderflowMonitor.h"
 
-MockAampUnderflowMonitor *g_mockAampUnderflowMonitor = nullptr;
-
-AampUnderflowMonitor::AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp) : mStream(stream), mAamp(aamp)
+class MockAampUnderflowMonitor
 {
-}
+public:
+	MOCK_METHOD(void, Start, ());
+	MOCK_METHOD(void, Stop,());
+	MOCK_METHOD(bool, IsRunning, ());
+};
 
-AampUnderflowMonitor::~AampUnderflowMonitor()
-{
-}
+extern MockAampUnderflowMonitor *g_mockAampUnderflowMonitor;
 
-void AampUnderflowMonitor::Start()
-{
-    mRunning.store(true);
-    if(g_mockAampUnderflowMonitor != nullptr)
-    {
-        g_mockAampUnderflowMonitor->Start();
-    }
-}
-
-void AampUnderflowMonitor::Stop()
-{
-    mRunning.store(false);
-    if(g_mockAampUnderflowMonitor != nullptr)
-    {
-        g_mockAampUnderflowMonitor->Stop();
-    }
-}
-
-void AampUnderflowMonitor::Run()
-{
-}
+#endif /* AAMP_MOCK_UNDERFLOW_MONITOR_H */

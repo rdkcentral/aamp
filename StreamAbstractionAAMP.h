@@ -2034,13 +2034,6 @@ public:
 
 protected:
 	/**
-	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.
-	 * Declared mutable to allow locking within const functions such as
-	 * IsUnderflowMonitorRunning().
-	 */
-	mutable std::mutex mUnderflowMonitorMutex;
-
-	/**
 	 * Underflow monitor instance owned by Stream; manages detection and
 	 * handling of underflow conditions.
 	 */

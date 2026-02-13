@@ -10464,6 +10464,15 @@ void StreamAbstractionAAMP_MPD::Start(void)
 	{
 		StartFromOtherThanAampLocalTsb();
 	}
+	// Start underflow monitor after successful initialization and Start()
+	if (mUnderflowMonitor)
+	{
+		StartUnderflowMonitor();
+		if (!IsUnderflowMonitorRunning())
+		{
+			AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
+		}
+	}
 }
 
 /**
@@ -10477,6 +10486,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		aamp->DisableDownloads();
 		mCdaiObject->AbortWaitForNextAdResolved();
 		aamp->mAampTsbLanguageChangeInProgress = false;
+		if(ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+		{
+			StopUnderflowMonitor();
+		}
 	}
 
 	ReassessAndResumeAudioTrack(true);
