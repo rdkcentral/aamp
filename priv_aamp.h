@@ -1234,11 +1234,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in] segment - fragment
-	 * @param[in] size - fragment size
+	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
 	 * @param[in] type - AampMediaType
+	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1797,6 +1797,18 @@ public:
 	{
 		return static_cast<double>(GetPositionMilliseconds())/1000.00;
 	}
+
+	/**
+	 *   @fn SendStreamCopy
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  buffer - Reference to the buffer vector.
+	 *   @param[in]  fpts - Presentation Time Stamp.
+	 *   @param[in]  fdts - Decode Time Stamp
+	 *   @param[in]  fDuration - Buffer duration.
+	 *   @return True if the fragment has been successfully injected into gstreamer pipeline
+	 */
+	bool SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration);
 
 	/**
 	 *   @fn SendStreamCopy
