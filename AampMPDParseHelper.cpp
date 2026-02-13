@@ -779,6 +779,20 @@ bool AampMPDParseHelper::aamp_HasSegmentTime(IPeriod * period)
 	return false;
 }
 
+bool AampMPDParseHelper::aamp_HasSegmentTimeAndSegments(IPeriod *period)
+{
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	if (segmentTemplates && segmentTemplates->HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates->GetSegmentTimeline();
+		if (segmentTimeline != nullptr)
+		{
+			std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+			return timelines.size() > 0;
+		}
+	}
+	return false;
+}
 /**
  * @brief  A helper function to check if period has segment template for video track
  * @param period period of segment
@@ -1212,9 +1226,9 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 		std::string periodStartStr = periods.at(periodIndex)->GetStart();
 		std::string nextPeriodStartStr = periods.at(periodIndex + 1)->GetStart();
 
-		bool isEmpty = IsEmptyPeriod(periodIndex + 1, false);
+		bool hasSegments = aamp_HasSegmentTimeAndSegments(periods.at(periodIndex + 1));
 		// We can calculate period duration by subtracting startime from next period start time.
-		if ( !isEmpty && !periodStartStr.empty() && (!nextPeriodStartStr.empty()))
+		if ( hasSegments && !periodStartStr.empty() && (!nextPeriodStartStr.empty()))
 		{
 			double periodStart = 0;
 			double nextPeriodStart = 0;
