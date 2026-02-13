@@ -133,9 +133,10 @@ typedef struct _manifestDownloadResponse
 	uint64_t mLastPlaylistDownloadTimeMs; // Last playlist refresh time
 private:
 	AampMPDParseHelperPtr	mMPDParseHelper;
+	PrivateInstanceAAMP* mAamp; /**< Reference to PrivateInstanceAAMP for stream lock access */
 
 public:
-	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
+	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()), mAamp(nullptr) {}
 
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
@@ -155,7 +156,8 @@ public:
 	  mRefreshRequired(other.mRefreshRequired),
 	  mDashMpdDoc(other.mDashMpdDoc),
 	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
-	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
+	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs),
+	  mAamp(other.mAamp){}
 
 
 public:
@@ -190,6 +192,12 @@ public:
 	AampMPDParseHelperPtr 	GetMPDParseHelper() { return mMPDParseHelper;}
 	void UnlockParseHelper() { if (mMPDParseHelper) mMPDParseHelper->UnlockAfterParsing(); }
 	void LockParseHelper() { if (mMPDParseHelper) mMPDParseHelper->LockForParsing(); }
+	/**
+	 * @brief Sets the PrivateInstanceAAMP pointer for stream lock access.
+	 *
+	 * @param aamp Pointer to PrivateInstanceAAMP instance.
+	 */
+	void SetAamp(PrivateInstanceAAMP* aamp) { mAamp = aamp; }
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;

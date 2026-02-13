@@ -385,6 +385,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
 			mMPDData = MakeSharedManifestDownloadResponsePtr();
+			mMPDData->SetAamp(mAamp);
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
@@ -693,6 +694,7 @@ void AampMPDDownloader::pushDownloadDataToQueue()
 ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWaitDurationMs,int errorSimulation)
 {
 	ManifestDownloadResponsePtr respPtr = MakeSharedManifestDownloadResponsePtr();
+	respPtr->SetAamp(mAamp);
 	respPtr->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 	// Check if anything available in the Q to return
 	// If last downloaded manifest present , return it to the application
