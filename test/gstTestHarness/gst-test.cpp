@@ -256,6 +256,8 @@ public:
 				{
 					derivedDur = duration / (double)count;
 				}
+				double runningTs = segmentBase;
+				double lastDur = 0.0;
 				double lastPts = -1.0;
 				double lastDts = -1.0;
 				for( int i=0; i<count; i++ )
@@ -264,22 +266,53 @@ public:
 					double pts = mp4Demux->getPts(i);
 					double dts = mp4Demux->getDts(i);
 					double dur = mp4Demux->getDuration(i);
+					if( i > 0 && lastDur > 0.0 )
+					{
+						runningTs += lastDur;
+					}
+
 					if( dur <= 0.0 && derivedDur > 0.0 )
 					{
 						dur = derivedDur;
 					}
-					if( i > 0 && derivedDur > 0.0 )
+					if( dur <= 0.0 )
 					{
-						bool ptsInvalid = (pts < 0.0) || (pts == 0.0) || (pts == lastPts);
-						bool dtsInvalid = (dts < 0.0) || (dts == 0.0) || (dts == lastDts);
-						if( ptsInvalid && dtsInvalid )
+						if( mediaType == eMEDIATYPE_VIDEO )
 						{
-							pts = segmentBase + (double)i * dur;
-							dts = segmentBase + (double)i * dur;
+							dur = 1.0 / 30.0;
 						}
+						else
+						{
+							uint32_t ts = m_timeScale[mediaType];
+							dur = (ts > 0) ? (1024.0 / (double)ts) : 0.032;
+						}
+					}
+
+					bool ptsInvalid = (pts <= 0.0) || (pts == lastPts);
+					bool dtsInvalid = (dts <= 0.0) || (dts == lastDts);
+					if( ptsInvalid )
+					{
+						pts = runningTs;
+					}
+					if( dtsInvalid )
+					{
+						dts = runningTs;
+					}
+					if( i < 5 )
+					{
+						printf(
+							"Inject %s i=%d/%d segBase=%f dur=%f pts=%f dts=%f\n",
+							(mediaType == eMEDIATYPE_VIDEO) ? "video" : "audio",
+							i,
+							count,
+							segmentBase,
+							dur,
+							pts,
+							dts);
 					}
 					lastPts = pts;
 					lastDts = dts;
+					lastDur = dur;
 					gpointer ptr = g_malloc(len);
 					if( ptr )
 					{
