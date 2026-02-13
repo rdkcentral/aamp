@@ -86,7 +86,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		// Try init fragment cache first for init segments
 		if (initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, mTempFragment->GetPtr(), effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, mTempFragment->GetVector(), effectiveUrl);
 		}
 		
 		// If not in cache, download it
@@ -101,10 +101,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment->GetPtr(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/, &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/, &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetPtr(), effectiveUrl, actualType);
+				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetVector(), effectiveUrl, actualType);
 			}
 		}
 	}
@@ -118,7 +118,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
-		mDownloadedFragment.Replace(mTempFragment->GetPtr());
+		mDownloadedFragment.Replace(mTempFragment.get());
 		ret = false;
 		return ret;
 	}
@@ -146,7 +146,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	if (ret && mTempFragment->capacity() != 0)
 	{
 		FragmentCacheDescriptor desc;
-		desc.downloadBuffer = mTempFragment->GetPtr();
+		desc.downloadBuffer = mTempFragment.get();
 		desc.url = fragmentUrl;
 		desc.position = position;
 		desc.duration = fragmentDurationS;
