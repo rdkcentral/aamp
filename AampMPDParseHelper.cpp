@@ -1211,8 +1211,10 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 	{
 		std::string periodStartStr = periods.at(periodIndex)->GetStart();
 		std::string nextPeriodStartStr = periods.at(periodIndex + 1)->GetStart();
+
+		bool isEmpty = IsEmptyPeriod(periodIndex + 1, false);
 		// We can calculate period duration by subtracting startime from next period start time.
-		if (!periodStartStr.empty() && (!nextPeriodStartStr.empty()))
+		if ( !isEmpty && !periodStartStr.empty() && (!nextPeriodStartStr.empty()))
 		{
 			double periodStart = 0;
 			double nextPeriodStart = 0;
@@ -1224,6 +1226,8 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
 				AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
 				durationMs = 0;
 			}
+
+
 		}
 		else
 		{

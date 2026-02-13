@@ -585,7 +585,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					uint64_t currPeriodDuration = adMPDParseHelper->GetPeriodDurationFromStart(iter);
 					int64_t diff = static_cast<int64_t>(currPeriodDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
 
-					if ( currPeriodDuration == 0 && (aamp_GetCurrentTimeMS() - mWaitForManifestUpdate) < OFFSET_ALIGN_FACTOR )
+					if ( currPeriodDuration == 0 && (aamp_GetCurrentTimeMS() - mWaitForManifestUpdate) < 5000 )
 					{
 						// Cannot determine the duration of the period where the ads were inserted because the start time of
 						// the following period is not available. This may be for a couple of reasons
