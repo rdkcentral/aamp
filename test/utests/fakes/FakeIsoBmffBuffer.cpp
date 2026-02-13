@@ -38,6 +38,14 @@ bool IsoBmffBuffer::isInitSegment()
     }
 }
 
+void IsoBmffBuffer::setBuffer(std::vector<uint8_t>& buffer)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        g_mockIsoBmffBuffer->setBuffer(buffer);
+    }
+}
+
 void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 {
     if (g_mockIsoBmffBuffer)

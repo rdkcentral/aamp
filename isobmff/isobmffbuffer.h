@@ -192,11 +192,19 @@ public:
 	/**
 	 * @fn setBuffer
 	 *
-	 * @param[in] buf - buffer pointer
-	 * @param[in] sz - buffer size
+	 * @param[in] buffer - buffer vector reference (non-const, may be modified)
 	 * @return void
 	 */
-	void setBuffer(uint8_t *buf, size_t sz);
+	void setBuffer(std::vector<uint8_t>& buffer);
+
+	/**
+	 * @fn setBuffer
+	 *
+	 * @param[in] buffer - buffer pointer
+	 * @param[in] bufferLen - buffer length
+	 * @return void
+	 */
+	void setBuffer(uint8_t* buffer, size_t bufferLen);
 
 	/**
 	 * @fn parseBuffer
