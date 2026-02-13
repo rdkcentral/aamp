@@ -170,11 +170,11 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char *&unParsedBuffer
 	}
 }
 
-double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
+uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 {
 	if (g_mockIsoBmffBuffer)
 	{
-		return g_mockIsoBmffBuffer->getTotalChunkDuration(lastMDatIndex);
+		return g_mockIsoBmffBuffer->getTotalChunkDurationInTicks(lastMDatIndex);
 	}
 	else
 	{
@@ -298,5 +298,17 @@ bool IsoBmffBuffer::getChunkedMdatBoxInfo(size_t &start, size_t &size) const
     else
     {
         return false;
+    }
+}
+
+int IsoBmffBuffer::getLastMdatBoxIndex() const
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->getLastMdatBoxIndex();
+    }
+    else
+    {
+        return -1;
     }
 }

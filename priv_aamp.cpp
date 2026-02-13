@@ -714,12 +714,14 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
  * @param[in] buffer - buffer to scan
  * @param[in] bufferOffset - offset in buffer to start scanning from
  * @param[out] chunkBoundaryOffset - offset of chunk boundary if found
+ * @param[out] chunkDurationInTicks - duration of chunk if boundary found
  * @retval true if chunk boundary found
  */
-static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset)
+static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset, uint64_t &chunkDurationInTicks)
 {
 	bool found = false;
 	chunkBoundaryOffset = 0;
+	chunkDurationInTicks = 0;
 
 	IsoBmffBuffer isobmffBuffer;
 	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->size() - bufferOffset);
@@ -758,6 +760,14 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buf
 				// Calculate chunk boundary offset
 				chunkBoundaryOffset = bufferOffset + mdatStart + mdatSize;
 				found = true;
+
+				// Get the index of last MDAT box w.r.t to the full mp4 box. MDAT should be preceded by a MOOF.
+				// This is expected by the getTotalChunkDurationInTicks API.
+				int mdatIndex = isobmffBuffer.getLastMdatBoxIndex();
+				if (mdatIndex > 0)
+				{
+					chunkDurationInTicks = isobmffBuffer.getTotalChunkDurationInTicks(mdatIndex);
+				}
 			}
 		}
 	}
@@ -1120,10 +1130,16 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				if (context->chunkBoundary == 0)
 				{
 					size_t chunkBoundaryOffset = 0;
-					if (IdentifyMp4ChunkBoundary(context->mediaType, context->buffer, context->bufferOffset, chunkBoundaryOffset))
+					// Read the chunk duration in ticks as well, which is needed for accurate buffer management
+					// In case of multiple mdat boxes in the buffer, chunkDurationInTicks will be the total duration of all the chunks in the buffer until the last mdat box
+					uint64_t chunkDurationInTicks = 0;
+					if (IdentifyMp4ChunkBoundary(context->mediaType, context->buffer, context->bufferOffset, chunkBoundaryOffset, chunkDurationInTicks))
 					{
 						context->chunkBoundary = chunkBoundaryOffset;
-						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu", context->mediaType, context->chunkBoundary, context->buffer->size());
+						context->chunkDurationInTicks = chunkDurationInTicks;
+						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu duration %" PRIu64,
+								context->mediaType, context->chunkBoundary,
+								context->buffer->size(), context->chunkDurationInTicks);
 					}
 				}
 				if (context->chunkBoundary > 0)
@@ -1154,7 +1170,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 														bufferPtr,
 														bufferLen,
 														context->remoteUrl,
-														context->downloadStartTime);
+														context->downloadStartTime,
+														context->chunkDurationInTicks);
 								context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 								lock.lock();
 								// Update buffer offset and reset chunkBoundary
@@ -1163,6 +1180,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 								// is the first byte of the next chunk (not yet processed)
 								context->bufferOffset = context->chunkBoundary;
 								context->chunkBoundary = 0;
+								context->chunkDurationInTicks = 0;
 							}
 							else
 							{

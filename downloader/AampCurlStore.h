@@ -281,6 +281,7 @@ struct CurlCallbackContext
 	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE; /**< Reason for aborting the curl download  */
 	bool earlyAbortEnabled = false; /**< Flag to enable early abort logic for chunk downloads */
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
+	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
 
 	// Default constructor
 	CurlCallbackContext() {}
@@ -310,6 +311,7 @@ struct CurlCallbackContext
 		chunkBoundary = 0;
 		abortReason = eCURL_ABORT_REASON_NONE;
 		dataTransferStartTime = -1;
+		chunkDurationInTicks = 0;
 	}
 };
 
