@@ -418,6 +418,9 @@ TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_FirstPassRemovesSpecif
 
 	// Verify: New audio playlist was added
 	EXPECT_TRUE(IsCached("http://example.com/audio3.m3u8"));
+	// Verify: Old audio playlists are removed
+	EXPECT_FALSE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_FALSE(IsCached("http://example.com/audio2.m3u8"));
 
 	// Verify: Manifest preserved
 	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
