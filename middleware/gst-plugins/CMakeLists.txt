@@ -38,7 +38,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++")
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -framework Cocoa")
     string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
-    set(CLI_LD_FLAGS "${CLI_LD_FLAGS} ${GSTREAMERVIDEO_LIBRARIES}")
+    set(CLI_LD_FLAGS "${CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
     string(STRIP "${CLI_LD_FLAGS}" CLI_LD_FLAGS)
     #set(AAMP_OS_SOURCES cocoa_window.mm) #to be decided
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
