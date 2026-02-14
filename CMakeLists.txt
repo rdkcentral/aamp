@@ -123,7 +123,7 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
 		string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
 		pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
-		set(AAMP_CLI_LD_FLAGS ${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES})
+		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS}" "${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
 		# Use pkg-config library directories for dependencies
