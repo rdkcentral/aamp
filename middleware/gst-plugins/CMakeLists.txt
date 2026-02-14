@@ -29,12 +29,12 @@ find_package(PkgConfig REQUIRED)
 message("using gstreamer-1.0")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 
 pkg_check_modules(CURL REQUIRED libcurl)
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
     set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++")
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -framework Cocoa")
     string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
