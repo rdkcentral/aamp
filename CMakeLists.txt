@@ -114,7 +114,7 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 			message("Detected Homebrew prefix: ${HOMEBREW_PREFIX}")
 		endif()
 		set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
-		# Use pkg-config discovered library directories instead of hardcoded paths
+		# Add required system/local library paths; additional directories come from pkg-config
 		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib")
 		# Add Homebrew lib directory if Homebrew is installed and valid
 		if(HOMEBREW_PREFIX AND EXISTS "${HOMEBREW_PREFIX}/lib")
@@ -132,6 +132,7 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		# Use pkg-config library directories for dependencies
 		link_directories(${OPENSSL_LIBRARY_DIRS})
 		link_directories(${GSTREAMER_LIBRARY_DIRS})
+		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
 		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
 		pkg_check_modules(GLIB REQUIRED GLib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
