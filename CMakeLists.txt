@@ -134,7 +134,7 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		link_directories(${GSTREAMER_LIBRARY_DIRS})
 		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
 		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
-		pkg_check_modules(GLIB REQUIRED GLib-2.0)
+		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
 		link_directories(${GLIB_LIBRARY_DIRS})
 		set(GL_DEPENDS
