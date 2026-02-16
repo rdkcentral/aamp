@@ -190,7 +190,9 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
+			//AAMPLOG_WARN("+ ~PlayerInstanceAAMP Stop- GNP");
 			aamp->Stop(false); // Don't send state change events during destruction
+			//AAMPLOG_WARN("- ~PlayerInstanceAAMP Stop- GNP");
 		}
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
@@ -257,6 +259,8 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
 	if (aamp)
 	{
+		AAMPLOG_WARN("+StopJSt");
+		auto playerStopStartTime=NOW_STEADY_TS_MS;
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
 
@@ -264,7 +268,10 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
 		// 3. Restart the scheduler , needed if same instance is used for tune again
 
+		auto suspendSchedulerStartTime=NOW_STEADY_TS_MS;
 		mScheduler.SuspendScheduler();
+		auto suspendSchedulerEndTime=NOW_STEADY_TS_MS;
+		//AAMPLOG_WARN("*StopJSt");
 		mScheduler.RemoveAllTasks();
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
@@ -282,7 +289,14 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 			aamp->mDRMLicenseManager->clearFailedKeyIds();
 		}
 		//Release lock
+		auto resumeSchedulerStartTime=NOW_STEADY_TS_MS;
 		mScheduler.ResumeScheduler();
+		auto resumeSchedulerEndTime=NOW_STEADY_TS_MS;
+		AAMPLOG_WARN("-StopJSt      ;  SuspendScheduler = %u ms, ResumeScheduler = %u, Total = %u",
+				(unsigned)(suspendSchedulerEndTime-suspendSchedulerStartTime),
+				(unsigned)(resumeSchedulerStartTime-resumeSchedulerEndTime),
+				(unsigned)(resumeSchedulerEndTime-playerStopStartTime)
+			);
 	}
 }
 
@@ -357,6 +371,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										)
 {
 	if(aamp){
+		AAMPLOG_WARN("+TuneJSt");
 		UsingPlayerId playerId(aamp->mPlayerId);
 
 	/* Set single pipeline according to the configuration */
@@ -379,11 +394,13 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
+			AAMPLOG_WARN("*TuneJSt - calling StopInternal from TuneInternal");
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
+		AAMPLOG_WARN("-TuneJSt");
 	}
 }
 
@@ -2598,7 +2615,9 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
  */
 void PlayerInstanceAAMP::SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char* codecList, const char* labelList, const Accessibility *accessibilityItem, const char *preferredName)
 {
+	//AAMPLOG_WARN("+SetPreferredLanguagesJSt");
 	aamp->SetPreferredLanguages(languageList, preferredRendition, preferredType, codecList, labelList, accessibilityItem, preferredName);
+	//AAMPLOG_WARN("-SetPreferredLanguagesJSt");
 }
 
 /**
@@ -2919,7 +2938,14 @@ int PlayerInstanceAAMP::GetTextTrack()
  */
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
+	//AAMPLOG_WARN("+SetCCStatusJSt");
+	auto setCCStartTime=NOW_STEADY_TS_MS;
 	aamp->SetCCStatus(enabled);
+	auto setCCDuration = (unsigned)(NOW_STEADY_TS_MS - setCCStartTime);
+	//if (setCCDuration > 0)
+	//{		
+		AAMPLOG_WARN("-SetCCStatusJSt  ;      Total = %u", setCCDuration);
+	//}
 }
 
 /**
