@@ -2678,7 +2678,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause) {
 
 	mPlayerInstance->SetRate(0);
 
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused.load(), true);
 }
 
 // Test pausing with local TSB
@@ -2696,7 +2696,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_Pause) {
 
 	mPlayerInstance->SetRate(0);
 
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused.load(), true);
 }
 
 // Test resuming from being paused on live with local TSB
@@ -2721,7 +2721,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 	mPlayerInstance->SetRate(1.0);
 
 	EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, seek_pos_seconds / 1000);
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused.load(), false);
 }
 
 // Test resuming from being paused in local TSB playback
@@ -2744,7 +2744,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 
 	mPlayerInstance->SetRate(1.0);
 
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused.load(), false);
 }
 
 // Test forward 2x from being paused in local TSB playback
@@ -2769,7 +2769,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(0);
 
 	mPlayerInstance->SetRate(2.0);
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused.load(), false);
 	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
 
 }

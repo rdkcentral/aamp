@@ -396,7 +396,7 @@ TEST_F(PauseAtTests, PausePosition_Playback)
     // Execute PrivateInstanceAAMP_PausePosition
     mScheduleAsyncTask(mScheduleAsyncData);
 
-    EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+    EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused.load());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
     EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, seek_pos_seconds);
     EXPECT_EQ(mPrivateInstanceAAMP->trickStartUTCMS, 0);
@@ -471,7 +471,7 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
     // Execute PrivateInstanceAAMP_PausePosition
     mScheduleAsyncTask(mScheduleAsyncData);
 
-    EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+    EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused.load());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
     EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, currentPosition / 1000);
     EXPECT_EQ(mPrivateInstanceAAMP->trickStartUTCMS, -1);

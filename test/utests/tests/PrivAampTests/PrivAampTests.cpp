@@ -1351,7 +1351,7 @@ TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
 	p_aamp->RunPausePositionMonitoring();
 
 	EXPECT_NE(p_aamp->rate,1);
-	EXPECT_FALSE(p_aamp->pipeline_paused);
+	EXPECT_FALSE(p_aamp->pipeline_paused.load());
 }
 
 TEST_F(PrivAampTests, StartPausePositionMonitoringTest1)
@@ -1745,7 +1745,7 @@ TEST_F(PrivAampTests,PausePipelineTest)
 	EXPECT_TRUE(p_aamp->PausePipeline(false,true));
 	EXPECT_TRUE(p_aamp->PausePipeline(false,false));
 
-	EXPECT_FALSE(p_aamp->pipeline_paused);
+	EXPECT_FALSE(p_aamp->pipeline_paused.load());
 }
 
 TEST_F(PrivAampTests,SendErrorEventTest)
@@ -2698,7 +2698,7 @@ TEST_F(PrivAampTests,detachTest)
 	p_aamp->mbPlayEnabled=false;
 	p_aamp->detach();
 
-	EXPECT_FALSE(p_aamp->pipeline_paused);
+	EXPECT_FALSE(p_aamp->pipeline_paused.load());
 	EXPECT_NE(p_aamp->seek_pos_seconds,0);
 }
 
