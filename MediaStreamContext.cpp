@@ -288,13 +288,6 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	// URI (for debug logging)
 	cached->uri = desc.url;
 	
-	// Timing metadata
-	cached->position = desc.position;
-	cached->duration = desc.duration;
-	cached->absPosition = desc.absolutePosition;
-	cached->timeScale = desc.timeScale;
-	cached->PTSOffsetSec = desc.ptsOffsetSec;
-	
 	// Type information
 	cached->type = desc.mediaType;
 	cached->profileIndex = desc.profileIndex;
@@ -305,6 +298,12 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	
 	// Timestamp (for download metrics)
 	cached->downloadStartTime = desc.downloadStartTime;
+	
+	// NOTE: Timing fields (position, duration, absPosition, timeScale, PTSOffsetSec)
+	// are NOT set here. They are populated by OnFragmentDownloadSuccess() which applies
+	// PTS restamping and finalizes timing information. This maintains separation of
+	// concerns: CacheFragmentData() handles buffer storage, OnFragmentDownloadSuccess()
+	// handles timing calculation and TSB integration.
 	
 	// =================================================================
 	// Step 4: Conditional Processing (mode-specific behaviors)
