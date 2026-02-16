@@ -698,7 +698,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			// Special case where playback has not started due to autoplay being false and
 			// first rate is paused, set to pause with first frame shown
-			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
+			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused.load() && !aamp->mbPlayEnabled && !aamp->mbDetached)
 			{
 				rate = AAMP_NORMAL_PLAY_RATE;
 				aamp->SetPauseOnStartPlayback(true);
@@ -708,7 +708,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->SetPauseOnStartPlayback(false);
 			}
 
-			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
+			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused.load() && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 			{
 				AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
 				aamp->mbPlayEnabled = true;
@@ -747,7 +747,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			// If input rate is same as current playback rate, skip duplicate operation
 			// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
-			if ((!aamp->pipeline_paused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused))
+			if ((!aamp->pipeline_paused.load() && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused.load()))
 			{
 				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused.load(), rate);
 				return;
@@ -778,12 +778,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			//Skip this logic for either going to paused to coming out of paused scenarios with HLS
 			//What we would like to avoid here is the update of seek_pos_seconds because gstreamer position will report proper position
 			//Check for 1.0 -> 0.0 and 0.0 -> 1.0 usecase and avoid below logic
-			if (!((aamp->rate == AAMP_NORMAL_PLAY_RATE && rate == 0) || (aamp->pipeline_paused && rate == AAMP_NORMAL_PLAY_RATE)))
+			if (!((aamp->rate == AAMP_NORMAL_PLAY_RATE && rate == 0) || (aamp->pipeline_paused.load() && rate == AAMP_NORMAL_PLAY_RATE)))
 			{
 				// when switching from trick to play mode only
 				// only do this when overshootcorrection is specified by the application
 				if ((overshootcorrection > 0) &&
-					(aamp->rate && ( AAMP_SLOWMOTION_RATE == rate || rate == AAMP_NORMAL_PLAY_RATE) && !aamp->pipeline_paused))
+					(aamp->rate && ( AAMP_SLOWMOTION_RATE == rate || rate == AAMP_NORMAL_PLAY_RATE) && !aamp->pipeline_paused.load()))
 				{
 					const auto seek_pos_seconds_copy = aamp->seek_pos_seconds;	//ensure the same value of seek_pos_seconds used in the check is logged
 					if(!SeekInfo.isPositionValid(seek_pos_seconds_copy))
@@ -867,12 +867,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
 			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
-					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
+					aamp->rate, rate,aamp->pipeline_paused.load() ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
 			
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
-				if (aamp->pipeline_paused && rate != 0)
+				if (aamp->pipeline_paused.load() && rate != 0)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					// Resuming payback from pause
@@ -910,7 +910,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			else if (rate == 0)
 			{
-				if (!aamp->pipeline_paused)
+				if (!aamp->pipeline_paused.load())
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
@@ -981,8 +981,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
 				// target state will be updated once caching completed
-				aamp->NotifySpeedChanged(aamp->pipeline_paused ? 0 : aamp->rate,
-										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
+				aamp->NotifySpeedChanged(aamp->pipeline_paused.load() ? 0 : aamp->rate,
+										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused.load()));
 			}
 		}
 		else
@@ -1030,7 +1030,7 @@ void PlayerInstanceAAMP::PauseAtInternal(double position)
 
 		if (position >= 0)
 		{
-			if (!aamp->pipeline_paused)
+			if (!aamp->pipeline_paused.load())
 			{
 				aamp->StartPausePositionMonitoring(static_cast<long long>(position * 1000));
 			}
@@ -1084,7 +1084,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		}
 	}
 
-	if ((aamp->mbPlayEnabled) && aamp->pipeline_paused)
+	if ((aamp->mbPlayEnabled) && aamp->pipeline_paused.load())
 	{
 		// resume downloads and clear paused flag for foreground instance. state change will be done
 		// on streamSink configuration.
