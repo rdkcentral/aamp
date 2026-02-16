@@ -3291,9 +3291,17 @@ void PrivateInstanceAAMP::PlayFromTsbStart()
 		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
 	}
 	rate = AAMP_NORMAL_PLAY_RATE;
-	AcquireStreamLock();
-	TuneHelper(eTUNETYPE_SEEK);
-	ReleaseStreamLock();
+	// Try to acquire the lock with a timeout to avoid deadlock
+	// If we can't get the lock, another operation is in progress
+	if (!TryStreamLock())
+	{
+		AAMPLOG_WARN("Could not acquire stream lock for PlayFromTsbStart, operation already in progress");
+	}
+	else
+	{
+		TuneHelper(eTUNETYPE_SEEK);
+		ReleaseStreamLock();
+	}
 	NotifySpeedChanged(rate);
 }
 
@@ -7660,6 +7668,11 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
+			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
+			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
+			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
+			// of StreamAbstractionAamp.
+			mDRMLicenseManager->SetLicenseFetcher(nullptr);
 		}
 		if (HasSidecarData())
 		{ // has sidecar data
