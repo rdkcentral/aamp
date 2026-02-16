@@ -31,6 +31,7 @@
 #include <deque>
 #include <thread>
 #include <utility>
+#include <atomic>
 #include "AampDefine.h"
 #include "AampEvent.h"
 
