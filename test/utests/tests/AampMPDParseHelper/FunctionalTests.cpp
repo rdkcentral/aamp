@@ -1216,14 +1216,14 @@ TEST_F(FunctionalTests, TestForAbsoluteTime)
 	EXPECT_EQ(periodStartTime, 1721828763.00);
 }
 
+/*
+* Set of tests to test the various functions related to period start time calculation for a live asset
+* Specifically added for GetPeriodDurationFromStart() which should only return a
+* non zero value if the duration can be determind.
+*/
 TEST_F(FunctionalTests, Multiperiod_StartTimeLive1)
 {
-	AAMPStatusType status;
-	std::string fragmentUrl;
 	dash::mpd::IMPD *mpd;
-
-	//Harvested manifest with 30S TSB
-	//Confirm we cannot get period duration when only 1 period
 	static const char *manifest =
 		R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="9081974761380831163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT0H0M4.000S" maxSegmentDuration="PT0H0M2.016S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2026-01-15T21:02:05.609Z">
@@ -1336,14 +1336,14 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive1)
 	// Check period duration
 	EXPECT_NEAR(periodDuration1, 28800, 1);
 
-	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(0);
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 0);
 	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period since no 2nd period and 1st period may be still ongoing
 }
 
 TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
 {
-	AAMPStatusType status;
-	std::string fragmentUrl;
 	dash::mpd::IMPD *mpd;
 
 	//Harvested manifest with 30S TSB, Has 2 periods,
@@ -1470,7 +1470,9 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
 	// Check period duration
 	EXPECT_NEAR(periodDuration1, 28800, 1);
 
-	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(0);
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 0);
 	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period since start time missing from 2nd period
 }
 
@@ -1582,6 +1584,8 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive3)
 	EXPECT_NEAR(periodDuration1, 24747, 1);
 
 	// Duration calculated by start(n+1) - start(n) I.E "PT426410H58M28.193S" - "PT426411H2M0.300S"
-	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(0);
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 1);
 	EXPECT_NEAR(periodDuration2, 212107, 1);
 }

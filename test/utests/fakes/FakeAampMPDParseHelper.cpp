@@ -125,7 +125,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 	return 0.0;
 }
 
-double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
+double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 {
 	return 0.0;
 }

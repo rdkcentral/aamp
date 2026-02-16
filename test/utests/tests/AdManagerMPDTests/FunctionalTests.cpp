@@ -1775,9 +1775,13 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       </Representation>
     </AdaptationSet>
   </Period>
+  <Period id="testPeriodId1" start="PT30S">
+   <comment txt="This is an empty period that can appear in the manifest" />
+  </Period>
 </MPD>
 )";
 
+//segments = (9+1)*2 + (3+1)*1 + (2+1)*2 = 30 Seconds
   static const char *manifest2 =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -1795,11 +1799,24 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     </AdaptationSet>
   </Period>
   <Period id="testPeriodId1" start="PT30S">
+  <comment txt="This is an empty period that can appear in the manifest" />
+  </Period>
+    <Period id="testPeriodId2" start="PT30S">
+        <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
   </Period>
 </MPD>
 )";
 
   std::string periodId = "testPeriodId0";
+  // testPeriodId1 has 3 fragments added in the mock
   ProcessSourceMPD(manifest1);
   // Set curEndNumber to 9, adNextOffset = (9)*2000
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 0, 0, 0, 0, false);
@@ -1825,7 +1842,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 11);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "testPeriodId0");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
   // This is because ad is placed, and hence we will increment curAdIdx
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
@@ -1847,7 +1864,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad[0].adStartOffset, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodId,periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).basePeriodOffset, 0);
-
 }
 
 /** @brief Tests the functionality of CheckForAdTerminate method with different params

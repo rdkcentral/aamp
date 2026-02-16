@@ -599,7 +599,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					{
 						// Ads have finished close to end of the period
 
-						auto nextPeriod = periods.at(iter + 1);
+						auto nextPeriod = periods.at(iter);
 						// done with Adjustment
 						abObj.adjustEndPeriodOffset = false;
 						// Aligning to next period start

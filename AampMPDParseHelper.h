@@ -498,11 +498,11 @@ public :
 
 	/**
 	 *   @brief  Get Period Duration from start time of this period and next
-	 *   @param  periodIndex
+	 *   @param[in,out]  periodIndex, returns next non-empty period index
 	 *
 	 *   @retval period duration in milliseconds, 0 if not obtainable
 	 */
-	double GetPeriodDurationFromStart(int periodIndex);
+	double GetPeriodDurationFromStart(int &periodIndex);
 
 	/**
 	 * @brief Get the MPD instance.
