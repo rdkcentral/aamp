@@ -29,7 +29,6 @@ find_package(PkgConfig REQUIRED)
 message("using gstreamer-1.0")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 
 pkg_check_modules(CURL REQUIRED libcurl)
 
