@@ -7162,6 +7162,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			{
 				AAMPLOG_WARN("empty period");
 				pMediaStreamContext->adaptationSet = NULL;
+				pMediaStreamContext->representation = NULL;
 				continue;
 			}
 			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
