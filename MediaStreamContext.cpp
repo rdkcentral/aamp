@@ -66,6 +66,9 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
+	// Capture download start time BEFORE download begins
+	uint64_t downloadStartTime = aamp_GetCurrentTimeMS();
+
 	// Prepare download or retrieve from cache
 	BitsPerSecond bitrate = 0;
 	double downloadTimeS = 0;
@@ -162,7 +165,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		desc.playingAd = playingAd;
 		desc.isChunkMode = false;
 		desc.skipInitSegmentParsing = false;
-		desc.downloadStartTime = aamp_GetCurrentTimeMS();
+		desc.downloadStartTime = downloadStartTime;
 
 		ret = CacheFragmentData(desc);
 		
