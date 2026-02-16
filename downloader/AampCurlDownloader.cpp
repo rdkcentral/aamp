@@ -337,7 +337,7 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 {
 	if(dnldCfg == nullptr)
 		return;
-	
+
 	// Release and reset and previously called values
 	Release();
 
@@ -424,6 +424,12 @@ void AampCurlDownloader::updateCurlParams()
 			CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_POSTFIELDS,(uint8_t * )mDnldCfg->postData.c_str());
 		}
 	}
+	#if 1
+	AAMPLOG_WARN("GNP - throttling to 3Mbit");
+	// GNP.. For testing... throttle downloads and ensure specific write callback frequency
+	CURL_EASY_SETOPT_FUNC(mCurl, CURLOPT_BUFFERSIZE, 16384L);   // default 16K. Ensure < CURLOPT_MAX_RECV_SPEED_LARGE & more write callbacks to terminate early
+	CURL_EASY_SETOPT_FUNC(mCurl, CURLOPT_MAX_RECV_SPEED_LARGE, 375000L); // bytes/second cap, if > CURLOPT_BUFFERSIZE; e.g. 375000*8= 3Mbit
+	#endif	
 		
 	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_NOSIGNAL, 1L);
 	//curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback); // unused
