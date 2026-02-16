@@ -29,7 +29,7 @@ function install_gstreamer_fn()
         if [[ $ARCH == "x86_64" ]]; then
             DEFAULT_GSTVERSION="1.18.6"
         elif [[ $ARCH == "arm64" ]]; then
-            DEFAULT_GSTVERSION="1.24.13`"
+            DEFAULT_GSTVERSION="1.24.13"
         else
             echo "Architecture $ARCH is unsupported"
             return 1
