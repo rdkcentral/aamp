@@ -5469,7 +5469,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 						break;
 
 					case eAUDIO_AAC:
-						score += 2;
+						score += 10;
 						break;
 
 					case eAUDIO_VORBIS:
