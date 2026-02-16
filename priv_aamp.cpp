@@ -2582,7 +2582,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
 		double duration = durationSeconds * 1000.0;
-		float speed = pipeline_paused ? 0 : rate;
+		float speed = pipeline_paused.load() ? 0 : rate;
 		double start = -1;
 		double end = -1;
 		long long videoPTS = -1;
@@ -2648,7 +2648,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 		}
-		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
+		if ((mReportProgressPosn == position) && !pipeline_paused.load() && beginningOfStream != true)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
@@ -2711,7 +2711,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		UpdatePersistBandwidth(availableBandwidth);
 
 		double currentRate;
-		if(pipeline_paused)
+		if(pipeline_paused.load())
 		{
 			currentRate = 0;
 		}
