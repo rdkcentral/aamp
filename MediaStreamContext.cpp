@@ -679,6 +679,16 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		AAMPLOG_INFO("Type[%s] position after restamp = %fs", name, cachedFragment->position);
 	}
 	cachedFragment->duration = dlInfo->fragmentDurationSec;
+	cachedFragment->absPosition = dlInfo->absolutePosition;
+	cachedFragment->PTSOffsetSec = dlInfo->ptsOffset.inSeconds();
+	if (dlInfo->timeScale > 0)
+	{
+		cachedFragment->timeScale = dlInfo->timeScale;
+	}
+	else
+	{
+		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
+	}
 	cachedFragment->discontinuity = dlInfo->isDiscontinuity;
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation
