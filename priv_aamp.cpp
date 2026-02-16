@@ -5043,6 +5043,11 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	long long tTimeStartingTuneHelper = NOW_STEADY_TS_MS;
+	long long tBeforeFlush = tTimeStartingTuneHelper;
+	long long tAfterFlush = tTimeStartingTuneHelper;
+	long long tBeforeStartStreamAbstraction = tTimeStartingTuneHelper;
+	long long tAfterStartStreamAbstraction = tTimeStartingTuneHelper;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5120,6 +5125,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
+	long long tTimeTearDownComplete = NOW_STEADY_TS_MS;
+
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -5197,6 +5204,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_MIL("Updated seek_pos_seconds %f ", seek_pos_seconds);
 	}
 
+	long long tBeforeCreateStreamAbstraction = NOW_STEADY_TS_MS;
 	if (mMediaFormat == eMEDIAFORMAT_DASH)
 	{
 		/* This relies on the fact that when tuning to a new channel, the flag mLocalAAMPTsb is set after this point,
@@ -5287,6 +5295,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		return;
 	}
 
+	long long tBeforeCreateTSB = NOW_STEADY_TS_MS;
+
 	mInitSuccess = true;
 	AAMPStatusType retVal = eAAMPSTATUS_GENERIC_ERROR;
 	if(newTune && !IsLocalAAMPTsb() && GetTSBSessionManager())
@@ -5329,6 +5339,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_WARN("Stream abstraction object is NULL");
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
+	long long tAfterStreamAbstractionInit = NOW_STEADY_TS_MS; // after abstraction init, GNP (800ms)
+
 
 	// Validate tune type
 	// (need to find a better way to do this)
@@ -5518,6 +5530,20 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					mApplyCachedVideoMute = false;
 					CacheAndApplySubtitleMute(video_muted);
 				}
+				if (mApplyCachedCCStatus)
+				{
+					AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted, mApplyCachedCCStatus);
+					mApplyCachedCCStatus = false;
+					if (mpStreamAbstractionAAMP)
+					{
+						mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+						if (HasSidecarData())
+						{ // has sidecar data
+							mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+						}
+					}
+					SetSubtitleMute(subtitles_muted);
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -5529,6 +5555,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
 		 * and retrieve the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
 		 */
+		tBeforeFlush = NOW_STEADY_TS_MS; 
 		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -5541,6 +5568,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				sink->Flush(flushPosition, rate, false);
 			}
 		}
+		tAfterFlush = NOW_STEADY_TS_MS;
 
 		if (newTune && IsLocalAAMPTsb() && !GetTSBSessionManager())
 		{
@@ -5550,7 +5578,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
+		tBeforeStartStreamAbstraction = NOW_STEADY_TS_MS;    // before start abstraction , GNP (500ms t here)
 		mpStreamAbstractionAAMP->Start();
+		tAfterStartStreamAbstraction  = NOW_STEADY_TS_MS;
+
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)
@@ -5561,7 +5592,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					sink->Stream();
 				}
 			}
-		}
+		}		
 
 		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 		{
@@ -5626,6 +5657,18 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SendMediaMetadataEvent();
 		}
 	}
+	long long tTimeExittingPrivTune = NOW_STEADY_TS_MS;
+	AAMPLOG_WARN("GNP - TuneHelper: teardowncomplete= %lld, before create abstraction= %lld,  before create tsb= %lld, after abstraction init= %lld,\
+ before flush = %lld, after flush = %lld, before start abstraction= %lld, after start abstraction= %lld",
+		tTimeTearDownComplete-tTimeStartingTuneHelper,
+		tBeforeCreateStreamAbstraction-tTimeStartingTuneHelper,
+		tBeforeCreateTSB-tTimeStartingTuneHelper,
+		tAfterStreamAbstractionInit-tTimeStartingTuneHelper,
+		tBeforeFlush -tTimeStartingTuneHelper,
+		tAfterFlush -tTimeStartingTuneHelper,
+		tBeforeStartStreamAbstraction-tTimeStartingTuneHelper,
+		tAfterStartStreamAbstraction-tTimeStartingTuneHelper);
+
 }
 
 /**
@@ -5679,6 +5722,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
 	int intTmpVar=0;
+	long long tTimePrivTuneStart = NOW_STEADY_TS_MS;
 	/** Disable iframe extraction by default*/
 	SetIsIframeExtractionEnabled(false);
 	TuneType tuneType =  eTUNETYPE_NEW_NORMAL;
@@ -6096,9 +6140,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	SAFE_DELETE(mCdaiObject);
-	
+
+	long long tTimeAcquireStreamLockPrivTune = NOW_STEADY_TS_MS;	
 	AcquireStreamLock();
+	long long tTimeStartTuneHelperPrivTune = NOW_STEADY_TS_MS;
 	TuneHelper(tuneType);
+	long long tTimeEndTuneHelperPrivTune = NOW_STEADY_TS_MS;
 
 	//Apply the cached video mute call as it got invoked when stream lock was not available
 	if(mApplyCachedVideoMute)
@@ -6112,6 +6159,22 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			CacheAndApplySubtitleMute(video_muted);
 		}
 	}
+	if (mApplyCachedCCStatus)
+	{
+		AAMPLOG_INFO("SetCCStatus CC muted %d mApplyCachedCCStatus %d", subtitles_muted, mApplyCachedCCStatus);
+		mApplyCachedCCStatus = false;
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			}
+		}
+		SetSubtitleMute(subtitles_muted);
+	}
+	long long tTimeReleaseStreamLockPrivTune = NOW_STEADY_TS_MS;
+	AAMPLOG_WARN("GNP - release stream lock");
 	ReleaseStreamLock();
 
 	// To check and apply stored video rectangle properties
@@ -6145,6 +6208,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// do not change location of this set, it should be done after sending previous VideoEnd data which
 	// is done in TuneHelper->SendVideoEndEvent function.
 	this->mTraceUUID = sTraceId;
+	long long tTimeExittingPrivTune = NOW_STEADY_TS_MS;
+	AAMPLOG_WARN("GNP - PrivTune: time AcquireStreamLock = %lld, start tuneHelper = %lld, end tuneHelper = %lld, release StrealLock = %lld, exit tune = %lld",
+			tTimeAcquireStreamLockPrivTune-tTimePrivTuneStart, tTimeStartTuneHelperPrivTune-tTimePrivTuneStart,
+			tTimeEndTuneHelperPrivTune-tTimePrivTuneStart, tTimeReleaseStreamLockPrivTune-tTimePrivTuneStart, tTimeExittingPrivTune-tTimePrivTuneStart);
 }
 
 /**
@@ -7447,6 +7514,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop()
 {
+	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
@@ -10872,19 +10940,54 @@ int PrivateInstanceAAMP::GetTextTrack()
  */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
+	long long tStartTime1 = NOW_STEADY_TS_MS;
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
-	AcquireStreamLock();
+
+	auto playerState=GetState();
+	bool streamLockTaken=false;
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication = ((playerState == eSTATE_IDLE)         ||
+					 (playerState == eSTATE_INITIALIZING) ||
+					 (playerState == eSTATE_INITIALIZED)  ||
+					 (playerState == eSTATE_PREPARING)    ||
+					 (playerState == eSTATE_PREPARED)
+					);
+
 	subtitles_muted = !enabled;
-	if (mpStreamAbstractionAAMP)
+
+	if(allowDeferredApplication)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
-		}
+		streamLockTaken=TryStreamLock();
 	}
-	SetSubtitleMute(subtitles_muted);
-	ReleaseStreamLock();
+	else
+	{
+		AcquireStreamLock();
+		streamLockTaken=true;
+	}
+
+	if (streamLockTaken)
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			}
+		}
+		SetSubtitleMute(subtitles_muted);
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d, playerState=%d", subtitles_muted, playerState);
+		mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+	}
+	long long tEndTime1 = NOW_STEADY_TS_MS;
+	AAMPLOG_WARN("GNP2 - time = %lld ms", tEndTime1-tStartTime1);
 }
 
 /**
