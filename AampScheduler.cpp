@@ -68,7 +68,7 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 	if (mSchedulerRunning)
 	{
 
-		SchedulerState currentState = mState.load();
+		auto currentState = mState.load();
 		if( currentState == eSTATE_ERROR || currentState == eSTATE_RELEASED)
 			return id;
 
@@ -140,7 +140,7 @@ void AampScheduler::ExecuteAsyncTask()
 				if (obj.mId != AAMP_TASK_ID_INVALID)
 				{
 					mCurrentTaskId = obj.mId;
-					SchedulerState currentState = mState.load();
+					auto currentState = mState.load();
 					AAMPLOG_INFO("Found entry in function queue!!, task:%s. State:%d: CurrentTaskId:%d ",obj.mTaskName.c_str(),currentState,mCurrentTaskId);
 					if( currentState != eSTATE_ERROR && currentState != eSTATE_RELEASED)
 					{
