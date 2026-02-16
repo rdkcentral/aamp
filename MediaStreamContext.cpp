@@ -205,7 +205,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
@@ -229,6 +229,16 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		{
 			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 			cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
+			cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+			mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
+			// Only update when absPosition is set to avoid messing up the values.
+			if (cachedFragment->absPosition > 0)
+			{
+				AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
+					name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
+					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+			}
 		}
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
