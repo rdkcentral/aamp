@@ -3551,6 +3551,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
+
+	//GNP
+	long long tTimeInitStart = NOW_STEADY_TS_MS;
+	long long tFetchInitStart = NOW_STEADY_TS_MS;
+	long long tFetchInitEnd = NOW_STEADY_TS_MS;
+
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
@@ -3587,7 +3593,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+
+	long long tFetchManifestStart = NOW_STEADY_TS_MS;
+	AAMPStatusType ret = FetchDashManifest();		/// GNP-TODO; abort this
+	long long tFetchManifestEnd = NOW_STEADY_TS_MS;
+
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();
@@ -4310,9 +4320,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		mPTSOffset = 0.0;
 		mNextPts = 0.0;
 		UpdatePtsOffset(true);
-		FetchAndInjectInitFragments();
+		tFetchInitStart = NOW_STEADY_TS_MS;
+		FetchAndInjectInitFragments();		/// GNP-TODO; abort this
+		tFetchInitEnd = NOW_STEADY_TS_MS;
 	}
-
+	
+	AAMPLOG_WARN("GNP - Abstraction Init timings: fetch manifest start=%lld, fetch manifest end= %lld, fetch initalization start= %lld, fetch initalization end= %lld",
+				tFetchManifestStart-tTimeInitStart,
+				tFetchManifestEnd-tTimeInitStart,
+				tFetchInitStart-tTimeInitStart,
+				tFetchInitEnd-tTimeInitStart);
 	return retval;
 }
 
@@ -4513,6 +4530,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 {
 	AAMPStatusType ret = AAMPStatusType::eAAMPSTATUS_OK;
+        AAMPLOG_WARN("GNP - FetchDashManifest start.");
 	std::string manifestUrl = aamp->GetManifestUrl();
 
 	// take the original url before it gets changed in GetFile
@@ -4528,6 +4546,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		// Get the Manifest with a wait of Manifest Timeout time
 		mManifestDnldRespPtr = dnldInstance->GetManifest(true, aamp->mManifestTimeoutMs);
 		gotManifest		=	(mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
+                if (!gotManifest)
+                {
+                        AAMPLOG_WARN("GNP - FetchDashManifest error=%d", mManifestDnldRespPtr->mMPDStatus);
+                }
 		http_error		=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		downloadTime	=	mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
 		//update videoend info
@@ -4607,6 +4629,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		}
 		else // if downloads disabled
 		{
+                        AAMPLOG_WARN("GNP - Manifest aborted since downloads disabled  ");
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 			aamp->SetFlushFdsNeededInCurlStore(true);
