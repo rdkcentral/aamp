@@ -639,7 +639,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		(IsLocalTSBInjection() || (aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus())))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->pipeline_paused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused, aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused.load(), aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)

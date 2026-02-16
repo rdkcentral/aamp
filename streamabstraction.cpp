@@ -308,7 +308,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 						if (!aamp->pipeline_paused)
 						{
 							AAMPLOG_DEBUG("Subtitle clock update failed during startup; paused=%d, timetimeSinceValidUpdateMs=%d ms",
-							aamp->pipeline_paused, timeSinceValidUpdateMs);
+							aamp->pipeline_paused.load(), timeSinceValidUpdateMs);
 						}
 					}
 					else
@@ -316,7 +316,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 						if (!aamp->pipeline_paused)
 						{
 							AAMPLOG_WARN("Subtitle clock failed unexpectedly; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, paused=%d, mTrackInjectionBlocked. Underflow/paused/injection blocked?",
-								playbackStarted, timeSinceValidUpdateMs, aamp->pipeline_paused);
+								playbackStarted, timeSinceValidUpdateMs, aamp->pipeline_paused.load());
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE
 							if ((timeSinceValidUpdateMs<warningTimeoutMs) && (monitorIntervalMs!=fastMonitorIntervalMs) )
 							{

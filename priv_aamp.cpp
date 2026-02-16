@@ -9067,35 +9067,38 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
  */
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
-	//bool sentSync = true;
-
-	if (mState == state)
-	{ // noop
+	// Early return if state hasn't changed
+	AAMPPlayerState oldState = mState.load();
+	if (oldState == state)
+	{
 		return;
 	}
 
-	if ( (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
-		&& mState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
+	// Handle SEEKED event before state change
+	if ((state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
+		&& oldState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
 	{
 		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
-		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
-	}
-	{
-		std::lock_guard<std::recursive_mutex> guard(mLock);
-		mState = state;
+		mEventManager->SendEvent(event, AAMP_EVENT_SYNC_MODE);
 	}
 
-	mScheduler->SetState(mState);
+	// Atomically update state - no lock needed since mState is atomic
+	mState.store(state);
+
+	// Update scheduler with new state
+	mScheduler->SetState(state);
+
+	// Send state change events outside of any locks to avoid deadlock
 	if (sendStateChangeEvent && mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 	{
-		if (mState == eSTATE_PREPARING)
+		if (state == eSTATE_PREPARING)
 		{
 			StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED, GetSessionId());
-			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+			mEventManager->SendEvent(eventData, AAMP_EVENT_SYNC_MODE);
 		}
 
-		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
-		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(state, GetSessionId());
+		mEventManager->SendEvent(eventData, AAMP_EVENT_SYNC_MODE);
 	}
 }
 
@@ -9104,8 +9107,8 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
  */
 AAMPPlayerState PrivateInstanceAAMP::GetState(void)
 {
-	std::lock_guard<std::recursive_mutex> guard(mLock);
-	return mState;
+	// No lock needed - mState is atomic
+	return mState.load();
 }
 
 /**
@@ -14400,7 +14403,7 @@ bool PrivateInstanceAAMP::SignalSubtitleClock( void )
 	}
 	else
 	{
-		AAMPLOG_TRACE("Skipped - mTrackInjectionBlocked=%d, pipeline_paused=%d", mTrackInjectionBlocked[eTRACK_SUBTITLE], pipeline_paused);
+		AAMPLOG_TRACE("Skipped - mTrackInjectionBlocked=%d, pipeline_paused=%d", mTrackInjectionBlocked[eTRACK_SUBTITLE], pipeline_paused.load());
 	}
 	return success;
 }
