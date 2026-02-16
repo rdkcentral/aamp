@@ -1406,7 +1406,7 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 			if (aamp->mbPlayEnabled && aamp->pipeline_paused.load())
 			{
 				//Clear pause state flag & resume download
-				aamp->pipeline_paused = false;
+				aamp->pipeline_paused.store(false);
 				aamp->ResumeDownloads();
 			}
 

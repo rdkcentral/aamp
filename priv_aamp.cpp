@@ -437,7 +437,7 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 	{
 		if (aamp->pipeline_paused.load())
 		{
-			aamp->pipeline_paused = false;
+			aamp->pipeline_paused.store(false);
 		}
 
 		aamp->mIsRetuneInProgress = true;
@@ -8489,7 +8489,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	if (pipeline_paused.load())
 	{
-		pipeline_paused = false;
+		pipeline_paused.store(false);
 	}
 	if (mDRMLicenseManager)
 	{
