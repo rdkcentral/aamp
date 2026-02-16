@@ -1279,7 +1279,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			// For autoplay false, pipeline_paused will be true, which denotes a non-playing state
 			// as the GST pipeline is not yet created, avoid setting pipeline_paused to false here
 			// which might mess up future SetRate call for BG->FG
-			if (aamp->mbPlayEnabled && aamp->pipeline_paused)
+			if (aamp->mbPlayEnabled && aamp->pipeline_paused.load())
 			{
 
 				if(keepPaused && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
@@ -1402,7 +1402,7 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 
 		if (aamp->mpStreamAbstractionAAMP)
 		{
-			if (aamp->mbPlayEnabled && aamp->pipeline_paused)
+			if (aamp->mbPlayEnabled && aamp->pipeline_paused.load())
 			{
 				//Clear pause state flag & resume download
 				aamp->pipeline_paused = false;
@@ -1477,7 +1477,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 			aamp->ReleaseStreamLock();
 			if(rate == 0)
 			{
-				if (!aamp->pipeline_paused)
+				if (!aamp->pipeline_paused.load())
 				{
 					AAMPLOG_WARN("Pausing Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
@@ -2154,7 +2154,7 @@ int PlayerInstanceAAMP::GetAudioVolume(void)
 int PlayerInstanceAAMP::GetPlaybackRate(void)
 {
 	int ret = 0;
-	if( aamp && !aamp->pipeline_paused )
+	if( aamp && !aamp->pipeline_paused.load() )
 	{
 		ret = aamp->rate;
 	}

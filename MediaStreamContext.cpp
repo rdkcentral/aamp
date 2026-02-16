@@ -606,7 +606,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
 			aamp->UpdateLocalAAMPTsbInjection();
 		}
-		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
+		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused.load())
 		{
 			// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 			if (aamp->GetLLDashChunkMode())

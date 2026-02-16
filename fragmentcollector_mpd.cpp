@@ -9113,7 +9113,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// Then wait for ad discontinuity to be processed by stream injection before continuing
 				if (aamp->GetIsPeriodChangeMarked() &&
 					!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
-					!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
+					!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused.load()))
 				{
 					aamp->WaitForDiscontinuityProcessToComplete();
 				}
@@ -9128,7 +9128,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					periodChanged = true;
 					if ((mPlayRate == AAMP_NORMAL_PLAY_RATE) &&
 						!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
-						!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
+						!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused.load()))
 					{
 						aamp->SetIsPeriodChangeMarked(true);
 					}

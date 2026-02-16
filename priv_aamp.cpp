@@ -435,7 +435,7 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 	}
 	else
 	{
-		if (aamp->pipeline_paused)
+		if (aamp->pipeline_paused.load())
 		{
 			aamp->pipeline_paused = false;
 		}
@@ -1119,7 +1119,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 							   context->aamp->GetLLDashChunkMode() &&
 							   !mCtx->IsLocalTSBInjection();
 			// Prevent injection if the user paused the playback, but not if the playback was paused due to underflow
-			bool injectionPaused = (IsLocalAAMPTsb() && pipeline_paused && !context->aamp->GetBufUnderFlowStatus());
+			bool injectionPaused = (IsLocalAAMPTsb() && pipeline_paused.load() && !context->aamp->GetBufUnderFlowStatus());
 
 			if (ischunkMode && ptr && (numBytesForBlock > 0) && !injectionPaused &&
 				(context->mediaType == eMEDIATYPE_VIDEO ||
@@ -2050,7 +2050,7 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
 		long long trickplayTargetPosMs = localPauseAtMilliseconds;
 		bool forcePause = false;
 
-		if ((rate == AAMP_RATE_PAUSE) || pipeline_paused)
+		if ((rate == AAMP_RATE_PAUSE) || pipeline_paused.load())
 		{
 			// Shouldn't get here if already paused
 			AAMPLOG_WARN("Already paused, exiting loop");
@@ -2836,7 +2836,7 @@ void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
 		{
 			curPosition = static_cast<double>(NOW_STEADY_TS_MS);
 		}
-		if (!pipeline_paused)
+		if (!pipeline_paused.load())
 		{
 			//Update the percentage only if the pipeline is in playing.
 			pct = ((curPosition - static_cast<double>(mAdAbsoluteStartTime)) / static_cast<double>(mAdDuration)) * 100;
@@ -2934,7 +2934,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
 	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
-	if( pipeline_paused && mpStreamAbstractionAAMP )
+	if( pipeline_paused.load() && mpStreamAbstractionAAMP )
 	{
 		double position = GetPositionSeconds();
 		double minPlaylistPositionToResume = (position < maxRefreshPlaylistIntervalSecs) ? position : (position - maxRefreshPlaylistIntervalSecs);
@@ -3227,7 +3227,7 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 	if (buffering)
 	{
 		SendBufferChangeEvent(true);
-		if (!pipeline_paused)
+		if (!pipeline_paused.load())
 		{
 			if (!PausePipeline(true, true))
 			{
@@ -3237,7 +3237,7 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 	}
 	else
 	{
-		if (pipeline_paused)
+		if (pipeline_paused.load())
 		{
 			(void)PausePipeline(false, false);
 		}
@@ -4869,7 +4869,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 					if (mAampLLDashServiceData.lowLatencyMode &&
 						(http_code == 200 || http_code == 204 || http_code == 206) &&
-						!pipeline_paused &&
+						!pipeline_paused.load() &&
 						(context.chunkBoundary > 0) &&
 						(context.chunkBoundary < buffer->size()))
 					{
@@ -5871,7 +5871,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
 		// this shouldn't impact seekplay or ADs
-		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
+		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused.load() == true)))
 			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
 	}
 	ui32CurlTrace=0;
@@ -6340,7 +6340,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		mSeekOperationInProgress = false;
 		// Pipeline is not configured if mbPlayEnabled is false, so not required
-		if (mbPlayEnabled && seekWhilePaused == false && pipeline_paused == true)
+		if (mbPlayEnabled && seekWhilePaused == false && pipeline_paused.load() == true)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
@@ -8487,7 +8487,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mAampCacheHandler->StopPlaylistCache();
 	}
 
-	if (pipeline_paused)
+	if (pipeline_paused.load())
 	{
 		pipeline_paused = false;
 	}
@@ -8942,7 +8942,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		)
 		{
 			SendBufferChangeEvent(true);  // Buffer state changed, buffer Under flow started
-			if (!pipeline_paused &&  !PausePipeline(true, true))
+			if (!pipeline_paused.load() &&  !PausePipeline(true, true))
 			{
 					AAMPLOG_ERR("Failed to pause the Pipeline");
 			}
@@ -9067,23 +9067,24 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
  */
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
+	// Atomically exchange the state and get the previous value in one operation
+	// This ensures only one thread observes each state transition, preventing duplicate events
+	AAMPPlayerState oldState = mState.exchange(state);
+	
 	// Early return if state hasn't changed
-	AAMPPlayerState oldState = mState.load();
 	if (oldState == state)
 	{
 		return;
 	}
 
-	// Handle SEEKED event before state change
+	// Handle SEEKED event based on the actual previous state
+	// Only the thread that performed this specific transition will send the event
 	if ((state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
 		&& oldState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
 	{
 		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
 		mEventManager->SendEvent(event, AAMP_EVENT_SYNC_MODE);
 	}
-
-	// Atomically update state - no lock needed since mState is atomic
-	mState.store(state);
 
 	// Update scheduler with new state
 	mScheduler->SetState(state);
@@ -14382,7 +14383,7 @@ bool PrivateInstanceAAMP::SignalSubtitleClock( void )
 {
 	bool success = false;
 	// Sent clock only if subtitle track injection is unblocked. otherwise this instance might be detached/flushed
-	if (!mTrackInjectionBlocked[eTRACK_SUBTITLE] && !pipeline_paused)
+	if (!mTrackInjectionBlocked[eTRACK_SUBTITLE] && !pipeline_paused.load())
 	{
 		if (IsGstreamerSubsEnabled())
 		{

@@ -213,7 +213,7 @@ void MediaTrack::MonitorBufferHealth()
 			GetContext()?GetContext()->CheckForMediaTrackInjectionStall(type):void();
 
 			lock.lock();
-			if((!aamp->pipeline_paused) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
+			if((!aamp->pipeline_paused.load()) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
 			{
 				aamp->CheckForDiscontinuityStall((AampMediaType)type);
 			}
