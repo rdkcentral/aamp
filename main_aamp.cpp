@@ -747,11 +747,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			// If input rate is same as current playback rate, skip duplicate operation
 			// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
-			if ((!aamp->pipeline_paused.load() && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused.load()))
-			{
-				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused.load(), rate);
-				return;
-			}
+		bool isPipelinePaused = aamp->pipeline_paused.load();
+		if ((!isPipelinePaused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && isPipelinePaused))
+		{
+			AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
 
 			// Not at live edge, so clear the flag
 			aamp->mpStreamAbstractionAAMP->SetIsAtLivePoint(false);

@@ -68,7 +68,8 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 	if (mSchedulerRunning)
 	{
 
-		if( mState.load() == eSTATE_ERROR || mState.load() == eSTATE_RELEASED)
+		SchedulerState currentState = mState.load();
+		if( currentState == eSTATE_ERROR || currentState == eSTATE_RELEASED)
 			return id;
 
 		std::lock_guard<std::mutex>lock(mQMutex);
@@ -139,8 +140,9 @@ void AampScheduler::ExecuteAsyncTask()
 				if (obj.mId != AAMP_TASK_ID_INVALID)
 				{
 					mCurrentTaskId = obj.mId;
-					AAMPLOG_INFO("Found entry in function queue!!, task:%s. State:%d: CurrentTaskId:%d ",obj.mTaskName.c_str(),mState.load(),mCurrentTaskId);
-					if( mState.load() != eSTATE_ERROR && mState.load() != eSTATE_RELEASED)
+					SchedulerState currentState = mState.load();
+					AAMPLOG_INFO("Found entry in function queue!!, task:%s. State:%d: CurrentTaskId:%d ",obj.mTaskName.c_str(),currentState,mCurrentTaskId);
+					if( currentState != eSTATE_ERROR && currentState != eSTATE_RELEASED)
 					{
 						//Unlock so that new entries can be added to queue while function executes
 						queueLock.unlock();
