@@ -86,7 +86,7 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 {
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 }
 
@@ -207,6 +207,11 @@ void DumpBlob(const unsigned char *ptr, size_t len)
 {
 }
 
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	(void)buffering;
+}
+
 void PrivateInstanceAAMP::UpdateUseSinglePipeline(void)
 {
 }
@@ -223,7 +228,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 }
 
@@ -780,10 +785,6 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,
-														   bool trickPlay, int profile)
-{
-}
 
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
@@ -799,6 +800,12 @@ void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const ch
 											const char *szContent, int nb, const char *id,
 											double durationMS)
 {
+}
+
+bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer,
+										 double fpts, double fdts, double fDuration)
+{
+	return true;
 }
 
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len,
@@ -924,11 +931,6 @@ uint32_t PrivateInstanceAAMP::GetAudTimeScale(void)
 uint32_t PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
-}
-
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-	return 0;
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
@@ -1175,11 +1177,10 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type,
-											 uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type,
+		uint64_t timeStampOffset)
 {
 }
-
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
 }

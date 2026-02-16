@@ -50,7 +50,7 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
 
 	char * data_ptr = const_cast<char *>(cachedFragment->fragment.GetPtr());
-	auto data_len = cachedFragment->fragment.GetLen();
+	auto data_len = cachedFragment->fragment.size();
 
 	if (discontinuity_pending && mPtsOffsetUpdate)
 	{

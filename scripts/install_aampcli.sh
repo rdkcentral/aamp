@@ -19,11 +19,11 @@
 
 function aampcli_install_postbuild_fn()
 {
-    cd $AAMP_DIR/build
+    cd "$AAMP_DIR/build" || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
 
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo ""
-        if [ $OPTION_DONT_RUN_AAMPCLI = false ];then
+        if [ "$OPTION_DONT_RUN_AAMPCLI" = false ];then
             # Launch Xcode
             (open AAMP.xcodeproj) &
         else
@@ -34,10 +34,10 @@ function aampcli_install_postbuild_fn()
 
 function aampcli_install_prebuild_fn()
 {
-    cd $AAMP_DIR
+    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: ${AAMP_DIR}"; return 1; }
 
     # $OPTION_CLEAN == true
-    if [ ${1} == true ] ; then
+    if [ "${1}" = true ] ; then
         echo "aampcli clean"
         if [ -d build ] ; then
             rm -rf build
@@ -80,7 +80,7 @@ function aampcli_install_build_darwin_fn()
 
     echo "Build aamp-cli"
 
-    cd $AAMP_DIR
+    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: $AAMP_DIR"; return 1; }
 
 
     # Local built dependencies
@@ -88,25 +88,27 @@ function aampcli_install_build_darwin_fn()
 
     # MacOS using a gstreamer framework
     PKG_CONFIG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${PKG_CONFIG}"
-    if [[ $ARCH == "x86_64" ]]; then
+    if [[ "$ARCH" == "x86_64" ]]; then
         PKG_CONFIG="${PKG_CONFIG}:/usr/local/lib/pkgconfig"
-    elif [[ $ARCH == "arm64" ]]; then
+    elif [[ "$ARCH" == "arm64" ]]; then
         PKG_CONFIG="${PKG_CONFIG}:/opt/homebrew/lib/pkgconfig"
     fi
     # MacOS provides a curl installation, but we'd like a newer version where was it installed?
     PKG_CONFIG_CURL=$(install_pkgs_pkgconfig_darwin_fn curl)
-    if [ ! -z ${PKG_CONFIG_CURL} ] ; then
+    if [ -n "${PKG_CONFIG_CURL}" ] ; then
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
     cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
         -DCMAKE_BUILD_TYPE=Debug \
         -DCOVERAGE_ENABLED=${OPTION_COVERAGE} \
+        -DENABLE_AAMP_NET_TRACE=${OPTION_NET_TRACE} \
         -DUTEST_ENABLED=ON \
         -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 \
         -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE \
         -DCMAKE_XCODE_ATTRIBUTE_SYMROOT="${AAMP_DIR}/build/XcodeDerivedData" \
         -DCMAKE_XCODE_ATTRIBUTE_OBJROOT="${AAMP_DIR}/build/XcodeDerivedData" \
+        ${OPTION_BUILD_ARGS} \
         -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
@@ -157,15 +159,15 @@ function aampcli_install_build_linux_fn
 {
     echo "Build aamp-cli"
 
-    cd $AAMP_DIR
+    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: ${AAMP_DIR}"; return 1; }
 
     # Local built dependencies
     PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"
 
-    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DSANITIZER_ENABLED=${OPTION_UBUNTU_SANITIZER} -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
+    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DSANITIZER_ENABLED=${OPTION_UBUNTU_SANITIZER} -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DENABLE_AAMP_NET_TRACE=${OPTION_NET_TRACE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ ${OPTION_BUILD_ARGS} -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
 
    echo "Making aamp-cli..."
-   cd build
+   cd build || { echo "Failed to change to build directory"; return 1; }
    make aamp-cli
 
     if [ "${OPTION_AAMPCLIKOTLIN_SKIP}" != true ]; then

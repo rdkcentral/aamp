@@ -33,6 +33,12 @@
 #include <glib.h>
 #include <mutex>
 
+#ifdef AAMP_NET_TRACE
+namespace aamptrace {
+	class NetTrace;
+}
+#endif
+
 #define eCURL_MAX_AGE_TIME			( (300) * (1000) )			/**< 5 mins - 300 secs - Max age for a connection */
 
 /**
@@ -247,6 +253,10 @@ enum class ChunkedTransferState
  */
 struct CurlCallbackContext
 {
+#ifdef AAMP_NET_TRACE
+	aamptrace::NetTrace* net = nullptr;
+#endif
+	
 	// HTTP/1.1 Chunked Transfer Protocol
 	
 	size_t m_ChunkedBytesRemaining = 0;
@@ -271,6 +281,7 @@ struct CurlCallbackContext
 	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE; /**< Reason for aborting the curl download  */
 	bool earlyAbortEnabled = false; /**< Flag to enable early abort logic for chunk downloads */
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
+	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
 
 	// Default constructor
 	CurlCallbackContext() {}
@@ -300,6 +311,7 @@ struct CurlCallbackContext
 		chunkBoundary = 0;
 		abortReason = eCURL_ABORT_REASON_NONE;
 		dataTransferStartTime = -1;
+		chunkDurationInTicks = 0;
 	}
 };
 

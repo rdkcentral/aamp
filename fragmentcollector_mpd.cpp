@@ -1211,7 +1211,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							return retval; /* Incase of fragment download fail, no need to increase the fragment number to download next fragment,
 									 * instead check the same fragment in lower profile. */
 						}
-						else if((mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling))) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL))
+						else if((mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling))) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.capacity() == 0))
 						{
 							// Mark fragment fetched and save last segment time to avoid reattempt.
 							if(pMediaStreamContext->freshManifest)
@@ -1574,7 +1574,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
-			if (!pMediaStreamContext->IDX.GetPtr() )
+			if (pMediaStreamContext->IDX.capacity() == 0)
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
 				uint64_t start;
@@ -1612,19 +1612,19 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
 				pMediaStreamContext->fragmentOffset++; // first byte following packed index
-				if (pMediaStreamContext->IDX.GetPtr() )
+				if (pMediaStreamContext->IDX.capacity() != 0)
 				{
 					unsigned int firstOffset;
 					ParseSegmentIndexBox(
 										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->IDX.size(),
 										 0,
 										 NULL,
 										 NULL,
 										 &firstOffset);
 					pMediaStreamContext->fragmentOffset += firstOffset;
 				}
-				if (pMediaStreamContext->fragmentIndex != 0 && pMediaStreamContext->IDX.GetPtr() )
+				if (pMediaStreamContext->fragmentIndex != 0 && pMediaStreamContext->IDX.capacity() != 0)
 				{
 					unsigned int referenced_size;
 					float fragmentDuration;
@@ -1634,7 +1634,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						if (ParseSegmentIndexBox(
 												 pMediaStreamContext->IDX.GetPtr(),
-												 pMediaStreamContext->IDX.GetLen(),
+												 pMediaStreamContext->IDX.size(),
 												 i,
 												 &referenced_size,
 												 &fragmentDuration,
@@ -1645,13 +1645,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					}
 				}
 			}
-			if (pMediaStreamContext->IDX.GetPtr() )
+			if (pMediaStreamContext->IDX.capacity() != 0)
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(
 										 pMediaStreamContext->IDX.GetPtr(),
-										 pMediaStreamContext->IDX.GetLen(),
+										 pMediaStreamContext->IDX.size(),
 										 pMediaStreamContext->fragmentIndex++,
 										 &referenced_size,
 										 &fragmentDuration,
@@ -1665,7 +1665,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					uint64_t nextfragmentOffset;
 					if (ParseSegmentIndexBox(
 							pMediaStreamContext->IDX.GetPtr(),
-							pMediaStreamContext->IDX.GetLen(),
+							pMediaStreamContext->IDX.size(),
 							pMediaStreamContext->fragmentIndex,
 							&nextReferencedSize,
 							&nextfragmentDuration,
@@ -2406,8 +2406,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			// Disable parallel fragment download for segment base streams as there is a sidx box dependency for live contents
 			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
-			if (!pMediaStreamContext->IDX.GetPtr() )
-			{   // lazily load index
+			if (pMediaStreamContext->IDX.capacity() == 0)
+			{ // lazily load index
 				std::string fragmentUrl;
 				ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
 
@@ -2424,7 +2424,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, &pMediaStreamContext->IDX, curlInstance, range.c_str(),&http_code, &downloadTime, actualType,&iFogError);
 				aamp->CurlTerm(curlInstance);
 			}
-			if (pMediaStreamContext->IDX.GetPtr() )
+			if (pMediaStreamContext->IDX.capacity() != 0)
 			{
 				unsigned int referenced_size = 0;
 				float fragmentDuration = 0.00;
@@ -2447,7 +2447,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				{
 					if (ParseSegmentIndexBox(
 											 pMediaStreamContext->IDX.GetPtr(),
-											 pMediaStreamContext->IDX.GetLen(),
+											 pMediaStreamContext->IDX.size(),
 											 fragmentIndex++,
 											 &referenced_size,
 											 &fragmentDuration,
@@ -7520,7 +7520,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					}
 					if (modifyDefaultBW)
 					{	// Not for new tune ( for Seek / Trickplay)
-						long persistedBandwidth = aamp->GetPersistedBandwidth();
+						BitsPerSecond persistedBandwidth = aamp->mhAbrManager.GetNetworkBandwidth();
 						// If Bitrate persisted over trickplay is true, set persisted BW as default init BW
 						if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitrate || aamp->IsBitRatePersistedOverSeek()))
 						{
@@ -7606,7 +7606,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						pMediaStreamContext->adaptationSetId = pMediaStreamContext->adaptationSet->GetId();
 						IRepresentation *selectedRepresentation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
 						// for the profile selected ,reset the abr values with default bandwidth values
-						aamp->ResetCurrentlyAvailableBandwidth(selectedRepresentation->GetBandwidth(),trickplayMode,currentProfileIndex);
+						aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
 						aamp->profiler.SetBandwidthBitsPerSecondVideo(selectedRepresentation->GetBandwidth());
 					}
 					else
@@ -8266,13 +8266,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							char temp[MAX_RANGE_STRING_CHARS];
 							snprintf( temp, sizeof(temp), "0-%" PRIu64 , s1-1 );
 							range = temp;
-							if (pMediaStreamContext->IDX.GetPtr())
+							if (pMediaStreamContext->IDX.capacity() != 0)
 							{
 								unsigned int referenced_size;
 								float fragmentDuration;
 								if (ParseSegmentIndexBox(
 										pMediaStreamContext->IDX.GetPtr(),
-										pMediaStreamContext->IDX.GetLen(),
+										pMediaStreamContext->IDX.size(),
 										pMediaStreamContext->fragmentIndex,
 										&referenced_size,
 										&fragmentDuration,
@@ -8762,7 +8762,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		if (!pMediaStreamContext->eos)
 		{
-			if (trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
+			if (trickPlay && pMediaStreamContext->mDownloadedFragment.capacity() == 0 && !pMediaStreamContext->freshManifest)
 			{
 				double skipTime = 0;
 				skipTime = delta;
@@ -12861,7 +12861,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 								bufferLowHit = true;
 								bufferLowHitCount++;
 								/** Buffer Low hit so push the data to telemetry*/
-								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mNetworkBandwidth, bufferLowHitCount);
+								aamp->profiler.SetLLDLowBufferParam(static_cast<double>(currentLatency), bufferValue, currPlaybackRate, aamp->mhAbrManager.GetNetworkBandwidth(), bufferLowHitCount);
 								bufferLowCount = 0;
 							}
 						}
@@ -13928,7 +13928,7 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 	auto pMediaStreamContext = mMediaStreamContext[downloadInfo->mediaType];
 	if (pMediaStreamContext)
 	{
-		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr())
+		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.capacity() != 0)
 		{
 			pMediaStreamContext->profileChanged = true;
 			profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);

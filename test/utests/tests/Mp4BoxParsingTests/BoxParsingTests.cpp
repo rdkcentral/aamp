@@ -140,14 +140,14 @@ TEST_F(Mp4DemuxFunctionalTests, ParseFragmentAndValidateSamples)
 	EXPECT_EQ(samples.size(), 2) << "Should have exactly 2 samples";
 	
 	// Validate Sample 0
-	EXPECT_EQ(samples[0].mData.GetLen(), 32) << "Sample 0 should be 32 bytes";
+	EXPECT_EQ(samples[0].mData.size(), 32) << "Sample 0 should be 32 bytes";
 	EXPECT_NEAR(samples[0].mPts, 0.0, 1e-6) << "Sample 0 PTS should be 0";
 	EXPECT_NEAR(samples[0].mDts, 0.0, 1e-6) << "Sample 0 DTS should be 0";
 	EXPECT_NEAR(samples[0].mDuration, 0.1, 1e-6) << "Sample 0 duration should be 0.1";
 	EXPECT_FALSE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample 0 should not be encrypted";
 	
 	// Validate Sample 1
-	EXPECT_EQ(samples[1].mData.GetLen(), 64) << "Sample 1 should be 64 bytes";
+	EXPECT_EQ(samples[1].mData.size(), 64) << "Sample 1 should be 64 bytes";
 	EXPECT_NEAR(samples[1].mPts, 0.1, 1e-6) << "Sample 1 PTS should be 0.1";
 	EXPECT_NEAR(samples[1].mDts, 0.1, 1e-6) << "Sample 1 DTS should be 0.1";
 	EXPECT_NEAR(samples[1].mDuration, 0.1, 1e-6) << "Sample 1 duration should be 0.1";
