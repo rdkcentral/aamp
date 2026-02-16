@@ -635,11 +635,12 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 
 	// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
+	bool isPipelinePaused = aamp->pipeline_paused.load();
 	if (tsbSessionManager &&
-		(IsLocalTSBInjection() || (aamp->pipeline_paused.load() && !aamp->GetBufUnderFlowStatus())))
+		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->pipeline_paused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused.load(), aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
