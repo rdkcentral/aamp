@@ -982,8 +982,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
 				// target state will be updated once caching completed
-				aamp->NotifySpeedChanged(aamp->pipeline_paused.load() ? 0 : aamp->rate,
-										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused.load()));
+				bool isPipelinePaused = aamp->pipeline_paused.load();
+				aamp->NotifySpeedChanged(isPipelinePaused ? 0 : aamp->rate,
+										 (!aamp->IsFragmentCachingRequired() || isPipelinePaused));
 			}
 		}
 		else
