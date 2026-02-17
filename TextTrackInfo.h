@@ -108,8 +108,7 @@ struct TextTrackInfo
             (accessibilityType == track.accessibilityType) &&
             (label == track.label) &&
             (accessibilityItem == track.accessibilityItem) &&
-            (mType == track.mType) &&
-            (instreamId == track.instreamId));
+            (mType == track.mType));
     }
 
     bool operator < (const TextTrackInfo& track) const
