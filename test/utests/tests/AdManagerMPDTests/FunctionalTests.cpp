@@ -1776,7 +1776,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     </AdaptationSet>
   </Period>
   <Period id="testPeriodId1" start="PT30S">
-   <comment txt="This is an empty period that can appear in the manifest" />
+   <!-- This is an empty period that can appear in the manifest -->
   </Period>
 </MPD>
 )";
@@ -1799,7 +1799,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     </AdaptationSet>
   </Period>
   <Period id="testPeriodId1" start="PT30S">
-  <comment txt="This is an empty period that can appear in the manifest" />
+  <!-- This is an empty period that can appear in the manifest -->
   </Period>
     <Period id="testPeriodId2" start="PT30S">
         <AdaptationSet id="0" contentType="video">
