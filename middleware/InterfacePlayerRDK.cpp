@@ -2745,27 +2745,28 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 long InterfacePlayerRDK::GetDurationMilliseconds(void)
 {
 	long rc = 0;
+	GstQuery *durationQuery = NULL;
 	if( interfacePlayerPriv->gstPrivateContext->pipeline )
 	{
 		if( interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PLAYING || // playing
 		   (interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) ) // paused by user
 		{
-			interfacePlayerPriv->gstPrivateContext->durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
-			if( interfacePlayerPriv->gstPrivateContext->durationQuery )
+			durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
+			if( durationQuery )
 			{
-				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,interfacePlayerPriv->gstPrivateContext->durationQuery);
+				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,durationQuery);
 				if( res )
 				{
 					gint64 duration;
-					gst_query_parse_duration(interfacePlayerPriv->gstPrivateContext->durationQuery, NULL, &duration); /* parses the value into duration */
+					gst_query_parse_duration(durationQuery, NULL, &duration); /* parses the value into duration */
 					rc = GST_TIME_AS_MSECONDS(duration);
 				}
 				else
 				{
 					MW_LOG_ERR("Duration query failed");
 				}
-				gst_query_unref(interfacePlayerPriv->gstPrivateContext->durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
-				interfacePlayerPriv->gstPrivateContext->durationQuery = NULL;
+				gst_query_unref(durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
+				durationQuery = NULL;
 			}
 			else
 			{
