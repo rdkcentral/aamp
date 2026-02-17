@@ -166,7 +166,7 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_PipelinePaused)
     long long pauseAtMilliseconds = 100.0 * 1000;
 
     mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = true;
+    mPrivateInstanceAAMP->mSinkPaused = true;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -193,14 +193,14 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_PipelinePaused)
 }
 
 // Testing calling StartPausePositionMonitoring when rate is pause
-// (which the code checks for but really pause is done by setting pipeline_paused)
+// (which the code checks for but really pause is done by setting mSinkPaused)
 // Don't expect ScheduleTask to be called to execute pause
 TEST_F(PauseAtTests, StartPausePositionMonitoring_RatePaused)
 {
     long long pauseAtMilliseconds = 100.0 * 1000;
 
     mPrivateInstanceAAMP->rate = AAMP_RATE_PAUSE;
-    mPrivateInstanceAAMP->pipeline_paused = true;
+    mPrivateInstanceAAMP->mSinkPaused = true;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -234,7 +234,7 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_AlreadyStarted)
     long long pauseAtMilliseconds02 = 200.0 * 1000;
 
     mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -266,7 +266,7 @@ TEST_F(PauseAtTests, StartPausePositionMonitoring_InvalidPosition)
     long long pauseAtMilliseconds = -100.0 * 1000;
 
     mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -293,7 +293,7 @@ TEST_F(PauseAtTests, StopPausePositionMonitoring_WhenMonitoring)
     long long pauseAtMilliseconds = 100.0 * 1000;
 
     mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -320,7 +320,7 @@ TEST_F(PauseAtTests, StopPausePositionMonitoring_WhenMonitoring)
 TEST_F(PauseAtTests, StopPausePositionMonitoring_WhenNotMonitoring)
 {
     mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -346,7 +346,7 @@ TEST_F(PauseAtTests, PausePosition_Playback)
     int seek_pos_seconds = 123;
 
     mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->seek_pos_seconds = seek_pos_seconds;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
@@ -396,7 +396,7 @@ TEST_F(PauseAtTests, PausePosition_Playback)
     // Execute PrivateInstanceAAMP_PausePosition
     mScheduleAsyncTask(mScheduleAsyncData);
 
-    EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+    EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused.load());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
     EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, seek_pos_seconds);
     EXPECT_EQ(mPrivateInstanceAAMP->trickStartUTCMS, 0);
@@ -419,7 +419,7 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
     int trickplayFPS = 4;
 
     mPrivateInstanceAAMP->rate = 2;
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -471,7 +471,7 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
     // Execute PrivateInstanceAAMP_PausePosition
     mScheduleAsyncTask(mScheduleAsyncData);
 
-    EXPECT_TRUE(mPrivateInstanceAAMP->pipeline_paused);
+    EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused.load());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
     EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, currentPosition / 1000);
     EXPECT_EQ(mPrivateInstanceAAMP->trickStartUTCMS, -1);
@@ -491,7 +491,7 @@ TEST_P(PlaybackSpeedTests, StartPausePositionMonitoring)
     int trickplayFPS = 4;
 
     mPrivateInstanceAAMP->rate = GetParam();
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
@@ -553,7 +553,7 @@ TEST_P(PlaybackSpeedTests, StartPausePositionMonitoring_PositionAlreadyPassed)
     int trickplayFPS = 4;
 
     mPrivateInstanceAAMP->rate = GetParam();
-    mPrivateInstanceAAMP->pipeline_paused = false;
+    mPrivateInstanceAAMP->mSinkPaused = false;
     mPrivateInstanceAAMP->trickStartUTCMS = 0;
     mPrivateInstanceAAMP->mAudioOnlyPb = false;
     mPrivateInstanceAAMP->durationSeconds = 3600;
