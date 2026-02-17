@@ -4560,8 +4560,7 @@ void TrackState::SwitchSubtitleTrack()
 			aamp->DisableMediaDownloads(playlistMediaType);
 			// Abort playlist timed wait for immediate download.
 			AbortWaitForPlaylistDownload();
-			// Notify that fragment collector is waiting
-			NotifyFragmentCollectorWait();
+			// Wait for manifest update to get the new subtitle playlist downloaded
 			WaitForManifestUpdate();
 		}
 		else
@@ -4679,8 +4678,7 @@ void TrackState::RunFetchLoop()
 						aamp->DisableMediaDownloads(playlistMediaType);
 						// Abort playlist timed wait for immediate download.
 						AbortWaitForPlaylistDownload();
-						// Notify that fragment collector is waiting
-						NotifyFragmentCollectorWait();
+						// Wait for manifest update to get the new playlist downloaded
 						WaitForManifestUpdate();
 					}
 					else
@@ -4717,7 +4715,7 @@ void TrackState::RunFetchLoop()
 		{
 			// Notify that fragment collector is waiting
 			AAMPLOG_INFO("EOS wait for playlist refresh");
-			NotifyFragmentCollectorWait();
+			// Wait for playlist refresh
 			WaitForManifestUpdate();
 		}
 
@@ -7003,7 +7001,8 @@ void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type)
 		aamp->mDisableRateCorrection = true;
 		if(aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
 		{
-			track->AbortFragmentDownloaderWait();
+			// Abort ongoing wait for playlist refresh, so the track change can be processed immediately.
+			track->AbortWaitForManifestUpdate();
 		}
 	}
 }
@@ -7040,8 +7039,7 @@ void TrackState::SwitchAudioTrack()
 			// Abort ongoing playlist download or wait for refresh if any.
 			aamp->DisableMediaDownloads(playlistMediaType);
 			AbortWaitForPlaylistDownload();
-			// Notify that fragment collector is waiting
-			NotifyFragmentCollectorWait();
+			// Wait for manifest update to get the new audio playlist downloaded
 			WaitForManifestUpdate();
 		}
 		else
