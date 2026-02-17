@@ -88,6 +88,11 @@ struct FragmentCacheDescriptor
 	uint32_t timeScale;
 	
 	/**
+	 * @brief Duration in ticks (for chunk mode when duration provided by caller)
+	 */
+	uint64_t durationInTicks;
+	
+	/**
 	 * @brief PTS offset to apply for this segment (seconds)
 	 */
 	double ptsOffsetSec;
@@ -169,6 +174,7 @@ struct FragmentCacheDescriptor
 		, duration(0.0)
 		, absolutePosition(0.0)
 		, timeScale(0)
+		, durationInTicks(0)
 		, ptsOffsetSec(0.0)
 		, mediaType(eMEDIATYPE_DEFAULT)
 		, curlInstance(0)

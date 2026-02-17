@@ -196,6 +196,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 	desc.url = remoteUrl;
 	desc.mediaType = actualType;
 	desc.downloadStartTime = dnldStartTime;
+	desc.durationInTicks = durationInTicks;
 	desc.isChunkMode = true;
 	desc.skipInitSegmentParsing = true;
 	
@@ -311,36 +312,50 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	// =================================================================
 	if (desc.isChunkMode && mActiveDownloadInfo)
 	{
-		// Parse chunk to extract duration from MP4 structure
-		IsoBmffBuffer isobuf;
-		isobuf.setBuffer((uint8_t*)cached->fragment.GetPtr(), cached->fragment.size());
-		
 		double chunkDuration = 0.0;
-		size_t mdatCount = 0;
+		uint32_t timeScale = desc.timeScale > 0 ? desc.timeScale : fragmentDescriptor.TimeScale;
 		
-		if (isobuf.parseBuffer(false) && isobuf.getMdatBoxCount(mdatCount) && mdatCount > 0)
+		// Prefer provided durationInTicks (from caller), fall back to parsing MP4
+		if (desc.durationInTicks > 0 && timeScale > 0)
 		{
-			// Get duration in ticks from MOOF boxes
-			uint64_t durationInTicks = isobuf.getSegmentDuration();
+			// Use provided duration (test path or known duration from manifest)
+			chunkDuration = (double)desc.durationInTicks / (double)timeScale;
+			AAMPLOG_DEBUG("[%s] Using provided chunk duration: %f sec (%" PRIu64 " ticks / %u timeScale)",
+				name, chunkDuration, desc.durationInTicks, timeScale);
+		}
+		else
+		{
+			// Parse chunk to extract duration from MP4 structure
+			IsoBmffBuffer isobuf;
+			isobuf.setBuffer((uint8_t*)cached->fragment.GetPtr(), cached->fragment.size());
 			
-			// Convert to seconds using timeScale from descriptor
-			uint32_t timeScale = desc.timeScale > 0 ? desc.timeScale : fragmentDescriptor.TimeScale;
-			if (timeScale > 0)
+			size_t mdatCount = 0;
+			
+			if (isobuf.parseBuffer(false) && isobuf.getMdatBoxCount(mdatCount) && mdatCount > 0)
 			{
-				chunkDuration = (double)durationInTicks / (double)timeScale;
+				// Get duration in ticks from MOOF boxes
+				uint64_t durationInTicks = isobuf.getSegmentDuration();
+				
+				if (timeScale > 0)
+				{
+					chunkDuration = (double)durationInTicks / (double)timeScale;
+				}
+				
+				AAMPLOG_DEBUG("[%s] Parsed chunk duration: %f sec (%" PRIu64 " ticks / %u timeScale)",
+					name, chunkDuration, durationInTicks, timeScale);
 			}
-			
-			AAMPLOG_DEBUG("[%s] Parsed chunk duration: %f sec (%" PRIu64 " ticks / %u timeScale)",
-				name, chunkDuration, durationInTicks, timeScale);
 		}
 		
 		// Set timing fields from descriptor and calculated duration
 		cached->absPosition = desc.absolutePosition;
-		cached->timeScale = desc.timeScale > 0 ? desc.timeScale : fragmentDescriptor.TimeScale;
+		cached->timeScale = timeScale;
 		cached->duration = chunkDuration;
 		
 		// PTSOffsetSec comes from current period context (may change between chunks)
 		cached->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
+		
+		// Update DownloadInfo with chunk duration (for metrics/tracking)
+		mActiveDownloadInfo->chunkDurationSec = chunkDuration;
 		
 		// Accumulate chunk duration for this fragment
 		mChunkDurationAccumulator += chunkDuration;
