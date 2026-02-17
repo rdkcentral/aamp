@@ -360,15 +360,10 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 		// Accumulate chunk duration for this fragment
 		mChunkDurationAccumulator += chunkDuration;
 		
-		// Update lastDownloadedPosition for buffered duration calculation
-		if (desc.absolutePosition > 0)
-		{
-			double newPosition = desc.absolutePosition + mChunkDurationAccumulator;
-			AAMPLOG_DEBUG("[%s] Updating lastDownloadedPosition. Previous: %f, New: %f (absPos:%f + chunkAccum:%f)",
-				name, lastDownloadedPosition.load(), newPosition, 
-				desc.absolutePosition, mChunkDurationAccumulator);
-			lastDownloadedPosition.store(newPosition);
-		}
+		// NOTE: Do NOT update lastDownloadedPosition here in chunk mode
+		// lastDownloadedPosition must be updated ONLY once per complete fragment
+		// by OnFragmentDownloadSuccess() after all chunks are received and injected
+		// Updating it per-chunk causes TSB duration to grow incorrectly
 	}
 	
 	// =================================================================
