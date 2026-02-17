@@ -183,10 +183,11 @@ public:
 	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
 
 	/**
-	 * @fn UpdateBufferData
-	 * @return true if parsed or false
+	 * @fn getTotalChunkDurationInTicks
+	 * @param[in] lastMDatIndex - index of mdat box w.r.t to the full mp4 box
+	 * @return total chunk duration in ticks, 0 if no chunk duration found
 	 */
-	double getTotalChunkDuration(int lastMDatIndex);
+	uint64_t getTotalChunkDurationInTicks(int lastMDatIndex);
 
 	/**
 	 * @fn setBuffer
@@ -528,5 +529,12 @@ public:
 	 * @return true if chunked mdat box is present. false otherwise
 	 */
 	bool getChunkedMdatBoxInfo(size_t &start, size_t &size) const;
+
+	/**
+	 * @fn getLastMdatBoxIndex
+	 *
+	 * @return index of mdat box w.r.t to the full mp4 box, -1 if index is out of bound
+	 */
+	int getLastMdatBoxIndex() const;
 };
 #endif /* __ISOBMFFBUFFER_H__ */
