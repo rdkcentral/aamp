@@ -27,6 +27,7 @@
 #include "mp4demux.hpp"
 #include <mutex>
 #include <thread>
+#include <memory>
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/types.h>
@@ -49,7 +50,7 @@ static enum ContentFormat
 	eCONTENTFORMAT_TSDEMUX,
 } mContentFormat = eCONTENTFORMAT_MP4_ES;
 
-static Mp4Demux *gMp4Demux[2]; // TODO: move these mp4demux instances inside classes
+static std::unique_ptr<Mp4Demux> gMp4Demux[2]; // RAII managed Mp4Demux instances
 
 static const char *mContentFormatDescription[] =
 {
@@ -78,13 +79,13 @@ long long GetCurrentTimeMS(void)
 	return (long long)(t.tv_sec*1e3 + t.tv_usec*1e-3);
 }
 
-MyPipelineContext::MyPipelineContext( void ): nextPTS(0.0), nextTime(0.0), track(), pipeline(new Pipeline( this ))
+MyPipelineContext::MyPipelineContext( void ): nextPTS(0.0), nextTime(0.0), track(), pipeline(std::make_unique<Pipeline>( this ))
 {
 }
 
 MyPipelineContext::~MyPipelineContext()
 {
-	delete pipeline;
+	// pipeline automatically deleted by unique_ptr
 }
 
 void MyPipelineContext::NeedData( MediaType mediaType )
@@ -106,7 +107,6 @@ void GetAudioHeaderPath( char path[MAX_PATH_SIZE], const char *language )
 
 void GetAudioSegmentPath( char path[MAX_PATH_SIZE], int segmentNumber, const char *language )
 {
-	//assert( segmentNumber<SEGMENT_COUNT );
 	switch( mContentFormat )
 	{
 		case eCONTENTFORMAT_MP4_ES:
@@ -190,7 +190,7 @@ private:
 				case eCONTENTFORMAT_MP4_ES:
 					if( !gMp4Demux[mediaType] )
 					{
-						gMp4Demux[mediaType] = new Mp4Demux();
+						gMp4Demux[mediaType] = std::make_unique<Mp4Demux>();
 					}
 					gMp4Demux[mediaType]->Parse(ptr,len);
 					break;
@@ -201,14 +201,13 @@ private:
 					
 				case eCONTENTFORMAT_TS_ES:
 					tsDemux = new TsDemux( mediaType, ptr, len );
-					assert( tsDemux );
 					break;
 			}
 		}
 	}
 	
 public:
-	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
+	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(nullptr),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
 	{
 	}
 	
@@ -221,7 +220,7 @@ public:
 	bool Inject( MyPipelineContext *context, MediaType mediaType )
 	{
 		Load(); // lazily load segment data
-		Mp4Demux *mp4Demux = gMp4Demux[mediaType]; // HACK
+		Mp4Demux *mp4Demux = gMp4Demux[mediaType].get(); // Get raw pointer from unique_ptr
 		
 		if( tsDemux )
 		{
@@ -232,7 +231,9 @@ public:
 				double pts = tsDemux->getPts(i);
 				double dts = tsDemux->getDts(i);
 				double dur = tsDemux->getDuration(i);
-				assert( len>0 );
+				if (len == 0) {
+					throw TestHarnessException( "ERROR: TrackFragment::Inject() - Invalid buffer length" );
+				}
 				gpointer ptr = g_malloc(len);
 				if( ptr )
 				{
@@ -533,14 +534,14 @@ public:
 	}
 };
 
-Track::Track() : queue(new std::queue<class TrackEvent *>), needsData(), gstreamerReadyForInjection()
+Track::Track() : queue(std::make_unique<std::queue<class TrackEvent *>>()), needsData(), gstreamerReadyForInjection()
 {
 }
 
 Track::~Track()
 {
 	Flush(); // Clean up all queued events first to prevent memory leaks
-	delete queue;
+	// queue automatically deleted by unique_ptr
 }
 
 void Track::Flush( void )
@@ -723,8 +724,10 @@ public:
 			audio.EnqueueControl( new TrackEOS() );
 		}
 		
-		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
+		
+		SeekParam seekParam = pipelineContext.pipeline->PopSeek();
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, seekParam );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, seekParam );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
@@ -779,8 +782,9 @@ public:
 		video.EnqueueControl( new TrackEOS() );
 		audio.EnqueueControl( new TrackEOS() );
 		
-		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
+		SeekParam firstSeek = pipelineContext.pipeline->PopSeek();
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, firstSeek );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, firstSeek );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
@@ -822,8 +826,9 @@ public:
 			audio.EnqueueControl( new TrackEOS() );
 		}
 		// configure pipelines and begin streaming
-		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
+		SeekParam seekParam = pipelineContext.pipeline->PopSeek();
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, seekParam );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, seekParam );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
@@ -851,7 +856,7 @@ public:
 #endif
 		if( needsData )
 		{
-			auto queue = t.queue;
+			auto &queue = t.queue;
 			if( queue->size()>0 )
 			{
 				auto buffer = queue->front();
@@ -949,7 +954,7 @@ public:
 		// misc post-tune commands
 		printf( "rate <newRate> // apply instantaneous rate change\n" );
 		printf( "step // step one frame at a time (while paused)\n" );
-
+		
 		printf( "dump // generate gst-test.dot\n" );
 		
 		// misc commands
@@ -969,11 +974,10 @@ public:
 		if( codec.rfind("hvc1.")==0 ) return "hevc";
 		if( codec=="hev1" ) return "hevc";
 		
-		printf( "unmapped codec: %s\n", codec.c_str() );
-		assert(0);
+		throw TestHarnessException("unmapped codec: " + codec);
 	}
 	
-	std::string localUrl( const std::string url )
+	std::string localUrl( const std::string &url )
 	{
 		if( url.rfind("file://",0)==0 )
 		{
@@ -987,7 +991,7 @@ public:
 		{
 			return url.substr(8);
 		}
-		return std::move(url);
+		return url;
 	}
 	
 	void InjectSegments( const Timeline &timelineObj, bool inventory )
@@ -1001,7 +1005,7 @@ public:
 		bool processingFirstPeriod = true;
 		double pts_offset = 0.0;
 		double next_pts = 0.0;
-		for( int iPeriod=0; iPeriod<timelineObj.period.size(); iPeriod++ )
+		for( size_t iPeriod=0; iPeriod<timelineObj.period.size(); iPeriod++ )
 		{
 			const PeriodObj &period = timelineObj.period[iPeriod];
 			pts_offset += next_pts - period.firstPts;
@@ -1069,7 +1073,7 @@ public:
 				}
 				
 				std::string initHeaderUrl = representation.BaseURL + ExpandURL( representation.data.initialization, segment_template_param );
-				std::cout << initHeaderUrl << "\n";
+				//std::cout << initHeaderUrl << "\n";
 				if( !inventory )
 				{
 					m_timeScale[mediaType] = representation.data.timescale;
@@ -1109,7 +1113,7 @@ public:
 					}
 					const std::string &media = representation.data.media[mediaIndex];
 					std::string mediaUrl = representation.BaseURL + ExpandURL( media, segment_template_param );
-					std::cout << mediaUrl << "\n";
+					//std::cout << mediaUrl << "\n";
 					if( inventory )
 					{
 						if( fInventory )
@@ -1139,7 +1143,7 @@ public:
 											representation.data.duration[durationIndex],
 											representation.data.timescale,
 											number,
-											localUrl(std::move(mediaUrl)).c_str(),
+											localUrl(mediaUrl).c_str(),
 											localUrl(initHeaderUrl).c_str() );
 									break;
 								case eMEDIATYPE_VIDEO:
@@ -1152,7 +1156,7 @@ public:
 											representation.data.duration[durationIndex],
 											representation.data.timescale,
 											number,
-											localUrl(std::move(mediaUrl)).c_str(),
+											localUrl(mediaUrl).c_str(),
 											localUrl(initHeaderUrl).c_str() );
 									break;
 							}
@@ -1187,8 +1191,9 @@ public:
 			}
 			
 			// configure pipelines and begin streaming
-			pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-			pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
+			SeekParam seekParam = pipelineContext.pipeline->PopSeek();
+			pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO, seekParam );
+			pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO, seekParam );
 			
 			// begin playing immediately
 			//pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
@@ -1215,8 +1220,7 @@ public:
 		std::string text = std::string(ptr,size);
 		std::istringstream iss(text);
 		std::string line;
-		SegmentInfo info;
-		memset( &info, 0, sizeof(info) );
+		SegmentInfo info{};
 		while (std::getline(iss, line)) {
 			if( starts_with(line,"#EXT-X-DISCONTINUITY") )
 			{
@@ -1230,7 +1234,7 @@ public:
 					info.path = line;
 					info.firstPts = 0.0;
 					segmentList.push_back(info);
-					memset( &info, 0, sizeof(info) );
+					info = SegmentInfo{};
 				}
 			}
 		}
@@ -1242,23 +1246,28 @@ public:
 		
 		mContentFormat = eCONTENTFORMAT_TS_ES; // use tsdemux.hpp
 		
-		//Seek( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/ );
-		
 		for( const auto& segmentInfo : segmentList )
 		{
 			std::string fullpath = url;
 			auto delim = fullpath.find_last_of("/");
-			assert( delim!=std::string::npos );
+			if (delim == std::string::npos) {
+				throw TestHarnessException("LoadHLS: No '/' found in URL: " + url);
+			}
 			fullpath = fullpath.substr(0,delim+1);
 			fullpath += segmentInfo.path;
 			if( segmentInfo.discontinuity )
 			{ // below used to compute firstPts for future fragment
 				size_t segmentBytes = 0;
 				void *segmentPtr = LoadUrl(fullpath.c_str(),&segmentBytes);
-				assert( segmentPtr );
+				if (!segmentPtr) {
+					throw TestHarnessException("Failed to load segment: " + fullpath);
+				}
 				auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, segmentPtr, segmentBytes );
-				assert( tsDemux );
-				assert( tsDemux->count()>0 );
+				if (tsDemux->count() == 0) {
+					delete tsDemux;
+					g_free(segmentPtr);
+					throw TestHarnessException("TsDemux has no frames for segment: " + fullpath);
+				}
 				double firstPts = tsDemux->getPts(0);
 				pts_offset = total_duration - firstPts;
 				delete tsDemux;
@@ -1273,6 +1282,11 @@ public:
 		video.EnqueueControl( new TrackEOS() );
 		audio.EnqueueControl( new TrackEOS() );
 		
+		// Note here we don't call PopSeek nor apply any special SeekParam
+		// At moment only basic HLS playlists are supported by gst test harness.
+		// Seek is not yet supported so the default behavior (play from beginning)
+		// is fine for now.
+		
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
@@ -1285,9 +1299,9 @@ public:
 		XmlNode *xml = new XmlNode( "document", ptr, size );
 		auto numChildren = xml->children.size();
 		auto MPD = xml->children[numChildren-1];
-		DumpXml(MPD,0);
+		//DumpXml(MPD,0);
 		timeline = parseManifest( *MPD, url );
-		timeline.Debug();
+		//timeline.Debug();
 		ComputeTimestampOffsets( timeline );
 		InjectSegments( timeline, inventory );
 		delete xml;
@@ -1422,24 +1436,20 @@ public:
 			// Clean up global Mp4Demux instances to prevent memory leaks
 			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
 			{
-				delete gMp4Demux[i];
-				gMp4Demux[i] = nullptr;
+				gMp4Demux[i].reset();
 			}
+			
+			// Stop pipeline immediately to halt playback
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 			
 			// Flush track queues to remove stale events
 			pipelineContext.track[eMEDIATYPE_VIDEO].Flush();
 			pipelineContext.track[eMEDIATYPE_AUDIO].Flush();
 			
-			// Reset pipeline state
-			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
-			delete pipelineContext.pipeline;
-			pipelineContext.pipeline = new Pipeline( &pipelineContext );
-			
-			// Reset context state that is protected by segment_seek_mutex
+			// Reset pipeline
+			pipelineContext.pipeline = std::make_unique<Pipeline>(&pipelineContext);
 			{
 				std::lock_guard<std::mutex> lock(pipelineContext.segment_seek_mutex);
-				pipelineContext.configured_stream_count = 0;
-				pipelineContext.initial_seek_performed = false;
 				
 				// Clear any pending segment-end seeks so they are not
 				// carried into the next playback session.
@@ -1465,7 +1475,6 @@ public:
 		}
 		else if( sscanf(str, "path %199s", base_path ) == 1 )
 		{
-			assert(199 < sizeof(base_path));
 			printf( "new base path: '%s'\n", base_path );
 		}
 		else if( strcmp( str,"exit")==0 )
@@ -1497,7 +1506,22 @@ public:
 static gboolean myIdleFunc( gpointer arg )
 {
 	AppContext *appContext = (AppContext *)arg;
-	appContext->IdleFunc();
+	try
+	{
+		appContext->IdleFunc();
+	}
+	catch (const TestHarnessException &e)
+	{
+		printf("ERROR: %s\n", e.what());
+	}
+	catch (const std::exception &e)
+	{
+		printf("ERROR: Unexpected exception in idle handler: %s\n", e.what());
+	}
+	catch (...)
+	{
+		printf("ERROR: Unknown exception in idle handler\n");
+	}
 	return TRUE;
 }
 
@@ -1520,7 +1544,13 @@ static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppCont
 		}
 		*fin = 0x00;
 		
-		appContext->ProcessCommand( str );
+		try {
+			appContext->ProcessCommand( str );
+		} catch (const TestHarnessException& e) {
+			printf("ERROR: %s\n", e.what());
+		} catch (const std::exception& e) {
+			printf("ERROR: Unexpected exception: %s\n", e.what());
+		}
 	}
 	
 	g_free( str );
@@ -1535,85 +1565,125 @@ static gboolean handle_keyboard( GIOChannel * source, GIOCondition cond, AppCont
 
 static void NetworkCommandServer( struct AppContext *appContext )
 { // simply http server, dispatching incoming commands and returning playback state
-	char buf[1024];
-	int parentfd = socket(AF_INET, SOCK_STREAM, 0);
-	assert( parentfd>=0 );
-	int optval = 1;
-	setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
-	struct sockaddr_in serveraddr; /* server's addr */
-	bzero((char *) &serveraddr, sizeof(serveraddr));
-	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	unsigned short port = 8080;
-	serveraddr.sin_port = htons(port);
-	int rc;
-	for(;;)
-	{
-		rc = bind(parentfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
-		if( rc>=0 ) break;
-		//printf( "bind failed - retry in 5s\n" );
-		g_usleep(5000*1000);
-	}
-	rc = listen(parentfd, 5);
-	assert( rc>=0 );
-	struct sockaddr_in clientaddr;
-	socklen_t clientlen = sizeof(clientaddr);
-	for(;;)
-	{
-		int childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
-		assert( childfd>=0 );
-		struct hostent *hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr,
-											  sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-		assert( hostp != NULL );
-		char *hostaddrp = inet_ntoa(clientaddr.sin_addr);
-		assert( hostaddrp != NULL );
-		static bool firstConnect = true;
-		if( firstConnect )
-		{
-			printf("established connection with %s (%s)\n", hostp->h_name, hostaddrp);
-			firstConnect = false;
+	int parentfd = -1;
+	try {
+		char buf[1024];
+		char hostaddrp[INET_ADDRSTRLEN];
+		parentfd = socket(AF_INET, SOCK_STREAM, 0);
+		if (parentfd < 0) {
+			throw TestHarnessException("NetworkCommandServer - Failed to create socket");
 		}
-		bzero( buf, sizeof(buf) );
-		auto numBytesRead = read( childfd, buf, sizeof(buf) );
-		assert( numBytesRead>=0 );
-		const char *delim = strstr(buf,"\r\n\r\n");
-		if( delim )
+		int optval = 1;
+		setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+		struct sockaddr_in serveraddr; /* server's addr */
+		bzero((char *) &serveraddr, sizeof(serveraddr));
+		serveraddr.sin_family = AF_INET;
+		serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+		unsigned short port = 8080;
+		serveraddr.sin_port = htons(port);
+		int rc;
+		for(;;)
 		{
-			delim+=4;
-			if( *delim )
-			{
-				appContext->ProcessCommand( delim );
+			rc = bind(parentfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
+			if( rc>=0 ) break;
+			//printf( "bind failed - retry in 5s\n" );
+			g_usleep(5000*1000);
+		}
+		rc = listen(parentfd, 5);
+		if (rc < 0) {
+			throw TestHarnessException("NetworkCommandServer - listen() failed");
+		}
+		struct sockaddr_in clientaddr;
+		socklen_t clientlen = sizeof(clientaddr);
+		for(;;)
+		{
+			int childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
+			if (childfd < 0) {
+				printf("ERROR: NetworkCommandServer - accept() failed\n");
+				continue;
 			}
+			struct hostent *hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr,
+												  sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+			if (!hostp) {
+				printf("WARNING: NetworkCommandServer - gethostbyaddr() failed\n");
+				close(childfd);
+				continue;
+			}
+			if (!inet_ntop(AF_INET, &clientaddr.sin_addr, hostaddrp, sizeof(hostaddrp))) {
+				printf("WARNING: NetworkCommandServer - inet_ntop() failed\n");
+				close(childfd);
+				continue;
+			}
+			static bool firstConnect = true;
+			if( firstConnect )
+			{
+				printf("established connection with %s (%s)\n", hostp->h_name, hostaddrp);
+				firstConnect = false;
+			}
+			bzero( buf, sizeof(buf) );
+			auto numBytesRead = read( childfd, buf, sizeof(buf) );
+			if (numBytesRead < 0) {
+				printf("ERROR: NetworkCommandServer - read() failed\n");
+				close(childfd);
+				continue;
+			}
+			const char *delim = strstr(buf,"\r\n\r\n");
+			if( delim )
+			{
+				delim+=4;
+				if( *delim )
+				{
+					try {
+						appContext->ProcessCommand( delim );
+					} catch (const TestHarnessException& e) {
+						printf("ERROR: Command failed: %s\n", e.what());
+					} catch (const std::exception& e) {
+						printf("ERROR: Unexpected exception in command: %s\n", e.what());
+					}
+				}
+			}
+			char json[256];
+			double seekPos = appContext->pipelineContext.seekPos;
+			long long vpos = appContext->pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO);
+			long long apos = appContext->pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_AUDIO);
+			int contentLength = snprintf(
+										 json, sizeof(json),
+										 "{\"state\":%d,"
+										 "\n\"start\":%.3f,"
+										 "\n\"video\":{\"pos\":%.3f,\"buf\":%.3f},"
+										 "\n\"audio\":{\"pos\":%.3f,\"buf\":%.3f}}",
+										 appContext->pipelineContext.pipeline->GetPipelineState(),
+										 seekPos,
+										 (vpos<0)?-1:vpos/1000.0,
+										 appContext->pipelineContext.pipeline->GetInjectedSeconds(eMEDIATYPE_VIDEO),
+										 (apos<0)?-1:apos/1000.0,
+										 appContext->pipelineContext.pipeline->GetInjectedSeconds(eMEDIATYPE_AUDIO) );
+			snprintf( buf, sizeof(buf),
+					 "HTTP/1.1 200 OK\r\n"
+					 "Access-Control-Allow-Origin: *\r\n"
+					 "Access-Control-Allow-Methods: POST\r\n"
+					 "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+					 "Content-Type: application/json\r\n"
+					 "Content-Length: %d\r\n"
+					 "\r\n%s",
+					 contentLength,json
+					 );
+			auto numBytesWritten = write(childfd, buf, strlen(buf));
+			if (numBytesWritten < 0) {
+				printf("ERROR: NetworkCommandServer - write() failed\n");
+			}
+			close(childfd);
 		}
-		char json[256];
-		double seekPos = appContext->pipelineContext.seekPos;
-		long long vpos = appContext->pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO);
-		long long apos = appContext->pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_AUDIO);
-		int contentLength = snprintf(
-									 json, sizeof(json),
-									 "{\"state\":%d,"
-									 "\n\"start\":%.3f,"
-									 "\n\"video\":{\"pos\":%.3f,\"buf\":%.3f},"
-									 "\n\"audio\":{\"pos\":%.3f,\"buf\":%.3f}}",
-									 appContext->pipelineContext.pipeline->GetPipelineState(),
-									 seekPos,
-									 (vpos<0)?-1:vpos/1000.0,
-									 appContext->pipelineContext.pipeline->GetInjectedSeconds(eMEDIATYPE_VIDEO),
-									 (apos<0)?-1:apos/1000.0,
-									 appContext->pipelineContext.pipeline->GetInjectedSeconds(eMEDIATYPE_AUDIO) );
-		snprintf( buf, sizeof(buf),
-				 "HTTP/1.1 200 OK\r\n"
-				 "Access-Control-Allow-Origin: *\r\n"
-				 "Access-Control-Allow-Methods: POST\r\n"
-				 "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
-				 "Content-Type: application/json\r\n"
-				 "Content-Length: %d\r\n"
-				 "\r\n%s",
-				 contentLength,json
-				 );
-		auto numBytesWritten = write(childfd, buf, strlen(buf));
-		assert( numBytesWritten>=0 );
-		close(childfd);
+	}
+	catch (const TestHarnessException& e) {
+		printf("NetworkCommandServer error: %s\n", e.what());
+	}
+	catch (const std::exception& e) {
+		printf("NetworkCommandServer error: %s\n", e.what());
+	}
+	if( parentfd>=0 )
+	{
+		close(parentfd);
 	}
 }
 
@@ -1626,8 +1696,10 @@ int my_main(int argc, char **argv)
 	struct AppContext appContext;
 	GIOChannel *io_stdin = g_io_channel_unix_new (fileno (stdin));
 	(void)g_io_add_watch (io_stdin, G_IO_IN, (GIOFunc) handle_keyboard, &appContext);
-	(void)g_idle_add( myIdleFunc, (gpointer)&appContext );
+	// Use g_timeout_add instead of g_idle_add to avoid 100% CPU utilization
+	(void)g_timeout_add( 10, myIdleFunc, (gpointer)&appContext );
 	std::thread myNetworkCommandServer( NetworkCommandServer, &appContext );
+	myNetworkCommandServer.detach();
 	g_main_loop_run(appContext.main_loop);
 	g_main_loop_unref(appContext.main_loop);
 	return 0;

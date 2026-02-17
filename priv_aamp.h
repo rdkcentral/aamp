@@ -757,6 +757,16 @@ public:
 	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
 
 	/**
+	 * @fn SetBufferingState
+	 * @brief Convenience API to toggle buffering state and handle pipeline pause/resume and events.
+	 *        When buffering is true, sends buffer start event and pauses pipeline if not already paused.
+	 *        When buffering is false, resumes pipeline if paused, updates subtitle timestamp, and sends buffer end event.
+	 * @param[in] buffering - true to indicate buffering (underflow start), false to indicate buffering ended.
+	 * @return void
+	 */
+	void SetBufferingState(bool buffering);
+
+	/**
 	 * @fn mediaType2Bucket
 	 *
 	 * @param[in] mediaType - Media filetype
@@ -887,7 +897,6 @@ public:
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
-	std::vector< std::pair<long long,BitsPerSecond>> mAbrBitrateData;
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
@@ -939,7 +948,6 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-	BitsPerSecond mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1226,11 +1234,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in] segment - fragment
-	 * @param[in] size - fragment size
+	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
 	 * @param[in] type - AampMediaType
+	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1544,10 +1552,10 @@ public:
 	void SendTuneMetricsEvent(std::string &timeMetricData);
 
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
-	bool mBufUnderFlowStatus;
-	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus; }
-	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus = statusFlag; }
-	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus = false;}
+	std::atomic<bool> mBufUnderFlowStatus{false};
+	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
+	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
+	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
 
 	/**
 	 * @fn SendEvent
@@ -1596,6 +1604,12 @@ public:
 	void NotifyOnEnteringLive();
 
 	/**
+	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
 	 * @fn getLastInjectedPosition
 	 *
 	 * @return last injected position
@@ -1622,14 +1636,28 @@ public:
 	 * @param[in] bandwidth - Bandwidth in bps
 	 * @return void
 	 */
-	void SetPersistedBandwidth(BitsPerSecond bandwidth) {mAvailableBandwidth = bandwidth;}
+	void SetPersistedBandwidth(BitsPerSecond bandwidth)
+	{
+		mhAbrManager.SetInitialBandwidthForProfile(bandwidth, false, 0);
+	}
 
 	/**
 	 * @brief Get persisted bandwidth
 	 *
 	 * @return Bandwidth
 	 */
-	BitsPerSecond GetPersistedBandwidth(){return mAvailableBandwidth;}
+	BitsPerSecond GetPersistedBandwidth()
+	{
+		return mhAbrManager.GetNetworkBandwidth();
+	}
+
+	/**
+	 * @brief Update ABR persisted bandwidth/time (across tunes) if enabled.
+	 *
+	 * @param[in] bandwidth - Available bandwidth in bps
+	 * @return void
+	 */
+	void UpdatePersistBandwidth(BitsPerSecond bandwidth);
 
 	/**
 	 * @fn UpdateDuration
@@ -1774,6 +1802,18 @@ public:
 	 *   @fn SendStreamCopy
 	 *
 	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  buffer - Reference to the buffer vector.
+	 *   @param[in]  fpts - Presentation Time Stamp.
+	 *   @param[in]  fdts - Decode Time Stamp
+	 *   @param[in]  fDuration - Buffer duration.
+	 *   @return True if the fragment has been successfully injected into gstreamer pipeline
+	 */
+	bool SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration);
+
+	/**
+	 *   @fn SendStreamCopy
+	 *
+	 *   @param[in]  mediaType - Type of the media.
 	 *   @param[in]  ptr - Pointer to the buffer.
 	 *   @param[in]  len - Buffer length.
 	 *   @param[in]  fpts - Presentation Time Stamp.
@@ -1831,9 +1871,10 @@ public:
 	/**
 	 * @fn Stop
 	 *
+	 * @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 * @return void
 	 */
-	void Stop( bool isDestructing = false );
+	void Stop( bool sendStateChangeEvent = true );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -2128,21 +2169,6 @@ public:
 	double GetSeekBase(void);
 
 	/**
-	 * @fn ResetCurrentlyAvailableBandwidth
-	 *
-	 * @param[in] bitsPerSecond - bps
-	 * @param[in] trickPlay		- Is trickplay mode
-	 * @param[in] profile		- Profile id.
-	 * @return void
-	 */
-	void ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,bool trickPlay,int profile=0);
-
-	/**
-	 * @fn GetCurrentlyAvailableBandwidth
-	 */
-	BitsPerSecond GetCurrentlyAvailableBandwidth(void);
-
-	/**
 	 * @fn DisableDownloads
 	 *
 	 * @return void
@@ -2336,9 +2362,10 @@ public:
 	 *   @fn SetState
 	 *
 	 *   @param[in] state - New state
+	 *   @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 *   @return void
 	 */
-	void SetState(AAMPPlayerState state);
+	void SetState(AAMPPlayerState state, bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn GetState
@@ -4191,7 +4218,6 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	BitsPerSecond mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;

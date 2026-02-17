@@ -27,6 +27,7 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
+#include "FragmentCacheDescriptor.h"
 
 /**
  * @class MediaStreamContext
@@ -132,8 +133,19 @@ public:
      * @param size CURL provided chunk data size
      * @param remoteUrl url of fragment
      * @param dnldStartTime of the download
+     * @param durationInTicks duration of the chunk in ticks
      */
-    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
+    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
+
+    /**
+     * @fn CacheFragmentData
+     * @brief Unified fragment caching API - handles both full fragments and chunks
+     * @param desc Fragment cache descriptor with all metadata and payload
+     * @retval true on success
+     * @note This is the unified internal implementation. External code should continue
+     *       using CacheFragment() or CacheFragmentChunk() wrapper methods.
+     */
+    bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 
     /**
      * @fn ABRProfileChanged

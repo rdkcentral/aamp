@@ -24,14 +24,18 @@ set(EXEC_NAME NetworkBandwidthEstimator)
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-set(TEST_SOURCES NetworkBandwidthEstimatorTests.cpp
-                 FunctionalTests.cpp)
+set(TEST_SOURCES
+  NetworkBandwidthEstimatorTests.cpp
+  HarmonicEwmaEstimatorTests.cpp
+  RollingMedianOutlierEstimatorTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/abr/NetworkBandwidthEstimator.cpp )
+set(AAMP_SOURCES
+  ${AAMP_ROOT}/abr/HarmonicEwmaEstimator.cpp
+  ${AAMP_ROOT}/abr/RollingMedianOutlierEstimator.cpp)
 
 add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${AAMP_SOURCES})
+  ${TEST_SOURCES}
+  ${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)

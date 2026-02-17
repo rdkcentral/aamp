@@ -87,7 +87,7 @@ TEST_F(ConstructorsTests, Copy)
 
 		// Verify the copy has valid data and correct length
 		EXPECT_NE(bufcopy_ptr, nullptr);
-		EXPECT_EQ(buf.GetLen(), test_buf.GetLen());
+		EXPECT_EQ(buf.size(), test_buf.size());
 
 		// Modify first byte of copy to verify independence
 		const char original_first_byte = bufcopy_ptr[0];
@@ -100,7 +100,7 @@ TEST_F(ConstructorsTests, Copy)
 		EXPECT_NE(bufcopy_ptr[0], static_cast<char>(data_buf[0]));
 		
 		// Verify rest of data matches
-		EXPECT_EQ(memcmp(bufcopy_ptr + 1, data_buf.data() + 1, test_buf.GetLen() - 1), 0);
+		EXPECT_EQ(memcmp(bufcopy_ptr + 1, data_buf.data() + 1, test_buf.size() - 1), 0);
 	};
 
 	// Copy constructor - std::vector RAII handles cleanup
@@ -142,14 +142,14 @@ TEST_F(ConstructorsTests, Move)
 
 		// After move, source should be empty
 		EXPECT_EQ(buf_ptr, nullptr);
-		EXPECT_EQ(src_buf.GetLen(), 0);
+		EXPECT_EQ(src_buf.size(), 0);
 		
 		// Destination should have the data
 		EXPECT_NE(bufcopy_ptr, nullptr);
-		EXPECT_EQ(test_buf.GetLen(), data_len);
+		EXPECT_EQ(test_buf.size(), data_len);
 
 		// Verify data was transferred correctly
-		EXPECT_EQ(memcmp(bufcopy_ptr, data_buf.data(), test_buf.GetLen()), 0);
+		EXPECT_EQ(memcmp(bufcopy_ptr, data_buf.data(), test_buf.size()), 0);
 	};
 
 	// Move constructor - std::vector RAII handles cleanup

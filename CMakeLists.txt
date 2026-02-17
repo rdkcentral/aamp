@@ -27,7 +27,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -89,6 +89,12 @@ else()
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
+option(ENABLE_AAMP_NET_TRACE "Enable network activity tracing instrumentation" OFF)
+if(ENABLE_AAMP_NET_TRACE)
+	message("AAMP_NET_TRACE set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
+endif()
+
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
 if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -100,17 +106,37 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		execute_process (
 			COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
+		# Dynamically detect Homebrew installation prefix
+		execute_process (
+			COMMAND bash -c "brew --prefix" OUTPUT_VARIABLE HOMEBREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET
+		)
+		if(HOMEBREW_PREFIX)
+			message("Detected Homebrew prefix: ${HOMEBREW_PREFIX}")
+		endif()
 		set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
-		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
-		string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
+		# Add required system/local library paths; additional directories come from pkg-config
+		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib")
+		# Add Homebrew lib directory if Homebrew is installed and valid
+		if(HOMEBREW_PREFIX AND EXISTS "${HOMEBREW_PREFIX}/lib")
+			set(OS_LD_FLAGS "${OS_LD_FLAGS} -L${HOMEBREW_PREFIX}/lib")
+		endif()
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk")
+		if(HOMEBREW_PREFIX AND EXISTS "${HOMEBREW_PREFIX}/include")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HOMEBREW_PREFIX}/include")
+		endif()
+		string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
 		pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
-		set(AAMP_CLI_LD_FLAGS ${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES})
+		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
+		# Use pkg-config library directories for dependencies
 		link_directories(${OPENSSL_LIBRARY_DIRS})
-		pkg_check_modules(GLIB REQUIRED GLib-2.0)
+		link_directories(${GSTREAMER_LIBRARY_DIRS})
+		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
+		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
+		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
+		link_directories(${GLIB_LIBRARY_DIRS})
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
@@ -366,6 +392,7 @@ set(LIBAAMP_SOURCES
 	fragmentcollector_hls.cpp fragmentcollector_hls.h
 	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
 	admanager_mpd.cpp admanager_mpd.h
+	AampUnderflowMonitor.cpp AampUnderflowMonitor.h
 	streamabstraction.cpp
 	priv_aamp.cpp priv_aamp.h
 	main_aamp.cpp main_aamp.h
@@ -389,7 +416,9 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
-	abr/abr.cpp abr/abr.h abr/NetworkBandwidthEstimator.cpp abr/NetworkBandwidthEstimator.h
+	abr/abr.cpp abr/abr.h
+	abr/RollingMedianOutlierEstimator.cpp abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.cpp abr/HarmonicEwmaEstimator.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
@@ -427,6 +456,7 @@ set(LIBAAMP_SOURCES
 	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
 	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
+	net_trace.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -586,6 +616,9 @@ install(FILES
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	AampDemuxDataTypes.h
 	abr/abr.h
+	abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.h
+	abr/BandwidthEstimatorBase.h
 	DESTINATION include
 )
 

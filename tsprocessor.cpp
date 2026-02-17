@@ -1724,19 +1724,18 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositi
 		}
 		else if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
 		{
-			if(basepts)
+			if (basepts)
 			{
 				m_audDemuxer->setBasePTS(basepts, true);
 			}
 
 			MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+				aamp->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
 			};
-
-			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, std::move(processor)))
+			if (!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, std::move(processor)))
 			{
-				AAMPLOG_WARN("demuxAndSend");  //CID:90622- checked return
+				AAMPLOG_WARN("demuxAndSend"); // CID:90622- checked return
 			}
 		}
 		else
@@ -1781,7 +1780,7 @@ void TSProcessor::setBasePTS(double position, long long pts)
 double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
 {
 	double firstPts = 0.0;
-	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->GetLen(), true );
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->size(), true );
 	if( tsDemux )
 	{
 		firstPts = tsDemux->getPts(0);
@@ -1815,7 +1814,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
 	char *segment = pBuffer->GetPtr();
-	int len = (int)(pBuffer->GetLen());
+	int len = (int)(pBuffer->size());
 	bool ret = false;
 	ptsError = false;
 	{
@@ -1854,7 +1853,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			AAMPLOG_ERR("No valid ts packet found near the start of the segment");
 			packetStart = (unsigned char *)segment;
-			len = (int)(pBuffer->GetLen());
+			len = (int)(pBuffer->size());
 			break;
 		}
 	}
