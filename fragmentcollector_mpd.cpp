@@ -6648,7 +6648,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	uint64_t oldMediaSequenceNumber = 0;
 	uint32_t fragmentDuration = 0;
-	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration,newInjectedPosition;
+	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration;
 	int diffFragmentsDownloaded = 0;
 	double offsetFromStart;
 
@@ -6733,8 +6733,18 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
 	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
 
+	if(!aamp->IsLocalAAMPTsb())
+	{
+		AAMPLOG_INFO("IsLocalAAMPTsb is false, calculating the offsetFromStart with GetPositionSeconds : %lf and culledSeconds : %lf", aamp->GetPositionSeconds(), aamp->culledSeconds);
+		offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
+	}
+	else
+	{
+		AAMPLOG_INFO("IsLocalAAMPTsb is true, calculating the offsetFromStart with GetPositionSeconds : %lf and mCulledSeconds : %lf", aamp->GetPositionSeconds(), mCulledSeconds);
+		offsetFromStart = aamp->GetPositionSeconds() - mCulledSeconds;
+	}
+
 	/* Getting Gstreamer Play position */
-	offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
 	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
 
 	UpdateSeekPeriodOffset(offsetFromStart);
@@ -6767,19 +6777,14 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
 	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number - 1;
 
-
-
-	/* Calculating the start time of the downloaded fragment */
-	newInjectedPosition = ( pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration )/pMediaStreamContext->fragmentDescriptor.TimeScale;
-
 	/*Calculating the difference in Fetched duration, injected duration and diff in Media Sequence number */
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
-	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
+	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - pMediaStreamContext->fragmentTime );
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
 
-	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf] diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
+	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
 			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(),
-			fragmentDuration, newInjectedPosition, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
+			fragmentDuration, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
 
 	pMediaStreamContext->resetAbort(false);
 	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
