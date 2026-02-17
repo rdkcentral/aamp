@@ -1058,7 +1058,7 @@ public:
 	float rate; 						/**< most recent (non-zero) play rate for non-paused content */
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
-	std::atomic<bool> pipeline_paused; 			/**< true if pipeline is paused - atomic for thread safety */
+	std::atomic<bool> mSinkPaused; 			/**< true if pipeline is paused - atomic for thread safety */
 	bool mbNewSegmentEvtSent[AAMP_TRACK_COUNT];
 
 	char mLanguageList[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH]; /**< list of languages in stream */

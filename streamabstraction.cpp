@@ -213,7 +213,7 @@ void MediaTrack::MonitorBufferHealth()
 			GetContext()?GetContext()->CheckForMediaTrackInjectionStall(type):void();
 
 			lock.lock();
-			if((!aamp->pipeline_paused.load()) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
+			if((!aamp->mSinkPaused.load()) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
 			{
 				aamp->CheckForDiscontinuityStall((AampMediaType)type);
 			}
@@ -305,7 +305,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 					if( (!playbackStarted) && (timeSinceValidUpdateMs<warningTimeoutMs) )
 					{
 						// Underflow/paused/pts not ready/injection blocked?
-						bool isPipelinePaused = aamp->pipeline_paused.load();
+						bool isPipelinePaused = aamp->mSinkPaused.load();
 						if (!isPipelinePaused)
 						{
 							AAMPLOG_DEBUG("Subtitle clock update failed during startup; paused=%d, timetimeSinceValidUpdateMs=%d ms",
@@ -314,11 +314,11 @@ void MediaTrack::UpdateSubtitleClockTask()
 					}
 					else
 					{
-						bool isPipelinePaused = aamp->pipeline_paused.load();
+						bool isPipelinePaused = aamp->mSinkPaused.load();
 						if (!isPipelinePaused)
 						{
-							AAMPLOG_WARN("Subtitle clock failed unexpectedly; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, paused=%d, mTrackInjectionBlocked. Underflow/paused/injection blocked?",
-								playbackStarted, timeSinceValidUpdateMs, isPipelinePaused);
+							AAMPLOG_WARN("Subtitle clock failed unexpectedly; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, paused=%d.  Underflow/paused/injection blocked?",
+										 playbackStarted, timeSinceValidUpdateMs, isPipelinePaused);
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE
 							if ((timeSinceValidUpdateMs<warningTimeoutMs) && (monitorIntervalMs!=fastMonitorIntervalMs) )
 							{

@@ -874,7 +874,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
 
-	p_aamp->pipeline_paused = true;
+	p_aamp->mSinkPaused = true;
 	p_aamp->mBufUnderFlowStatus = false;
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
@@ -890,8 +890,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	context.remoteUrl = "http://example.com/video.m3u8";
 	context.downloadStartTime = 0;
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
-		p_aamp->pipeline_paused.load(), p_aamp->mBufUnderFlowStatus.load());
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, mSinkPaused=%d, mBufUnderFlowStatus=%d",
+		p_aamp->mSinkPaused.load(), p_aamp->mBufUnderFlowStatus.load());
 
 	// Simulate paused from live, not AAMP TSB
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -935,7 +935,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
 		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
 
-	p_aamp->pipeline_paused = true;
+	p_aamp->mSinkPaused = true;
 	p_aamp->mBufUnderFlowStatus = true;
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
@@ -952,8 +952,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.downloadStartTime = 0;
 	context.chunkBoundary = buffer.size(); // Simulate end of chunk
 
-	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
-		p_aamp->pipeline_paused.load(), p_aamp->mBufUnderFlowStatus.load());
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, mSinkPaused=%d, mBufUnderFlowStatus=%d",
+		p_aamp->mSinkPaused.load(), p_aamp->mBufUnderFlowStatus.load());
 
 	// Simulate paused from live, not AAMP TSB
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
@@ -1351,7 +1351,7 @@ TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
 	p_aamp->RunPausePositionMonitoring();
 
 	EXPECT_NE(p_aamp->rate,1);
-	EXPECT_FALSE(p_aamp->pipeline_paused.load());
+	EXPECT_FALSE(p_aamp->mSinkPaused.load());
 }
 
 TEST_F(PrivAampTests, StartPausePositionMonitoringTest1)
@@ -1510,7 +1510,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB)
 	p_aamp->culledSeconds = CULLED_SECONDS;
 	p_aamp->durationSeconds = DURATION_SECONDS;
 	p_aamp->mDownloadsEnabled = true;
-	p_aamp->pipeline_paused = false;
+	p_aamp->mSinkPaused = false;
 	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
@@ -1553,7 +1553,7 @@ TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
 	p_aamp->culledSeconds = CULLED_SECONDS;
 	p_aamp->durationSeconds = DURATION_SECONDS;
 	p_aamp->mDownloadsEnabled = true;
-	p_aamp->pipeline_paused = false;
+	p_aamp->mSinkPaused = false;
 	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
@@ -1607,7 +1607,7 @@ TEST_F(PrivAampTests,UpdateCullingStateTest)
 	p_aamp->UpdateCullingState(-10.00);
 	EXPECT_NE(p_aamp->culledSeconds,-10.00);
 
-	p_aamp->pipeline_paused=true;
+	p_aamp->mSinkPaused=true;
 	p_aamp->rate=4;
 	p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_LIVE_IMMEDIATE;
 	EXPECT_FALSE(p_aamp->mSeekFromPausedState);
@@ -1745,7 +1745,7 @@ TEST_F(PrivAampTests,PausePipelineTest)
 	EXPECT_TRUE(p_aamp->PausePipeline(false,true));
 	EXPECT_TRUE(p_aamp->PausePipeline(false,false));
 
-	EXPECT_FALSE(p_aamp->pipeline_paused.load());
+	EXPECT_FALSE(p_aamp->mSinkPaused.load());
 }
 
 TEST_F(PrivAampTests,SendErrorEventTest)
@@ -2698,7 +2698,7 @@ TEST_F(PrivAampTests,detachTest)
 	p_aamp->mbPlayEnabled=false;
 	p_aamp->detach();
 
-	EXPECT_FALSE(p_aamp->pipeline_paused.load());
+	EXPECT_FALSE(p_aamp->mSinkPaused.load());
 	EXPECT_NE(p_aamp->seek_pos_seconds,0);
 }
 
@@ -5400,7 +5400,7 @@ TEST_F(PrivAampTests,VerifyPausedBehavior)
 {
         StreamAbstractionAAMP_MPD *streamAbstractionMpd = new StreamAbstractionAAMP_MPD(p_aamp, 0, 1, nullptr);     
         p_aamp->mpStreamAbstractionAAMP = streamAbstractionMpd;
-        p_aamp->pipeline_paused=true;
+        p_aamp->mSinkPaused=true;
         p_aamp->rate=1;
         p_aamp->mPausedBehavior = ePAUSED_BEHAVIOR_AUTOPLAY_DEFER;
         p_aamp->UpdateCullingState(232.123);
