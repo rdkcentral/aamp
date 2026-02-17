@@ -944,6 +944,40 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 }
 
 /**
+ * @brief  A helper function to get segment template for video track
+ * @param period period of segment
+ * @return SegmentTemplates structure for video track if present, otherwise empty SegmentTemplates
+ */
+std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo(IPeriod * period)
+{
+	std::shared_ptr<SegmentTemplates> segmentTemplates = nullptr;
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+	if (adaptationSets.empty())
+	{
+		return segmentTemplates;
+	}
+
+	for (auto &adaptationSet : adaptationSets)
+	{
+		if (IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			const ISegmentTemplate *adaptationSetTemplate = adaptationSet->GetSegmentTemplate();
+			const std::vector<IRepresentation *> representations = adaptationSet->GetRepresentation();
+			if (!representations.empty())
+			{
+				const ISegmentTemplate *representationTemplate = representations.at(0)->GetSegmentTemplate();
+				if (adaptationSetTemplate || representationTemplate)
+				{
+					segmentTemplates = std::make_shared<SegmentTemplates>(representationTemplate, adaptationSetTemplate);
+					break;
+				}
+			}
+		}
+	}
+	return segmentTemplates;
+}
+
+/**
  *   @brief  Get Period Duration
  *   @retval period duration in milliseconds
  */
@@ -1172,46 +1206,72 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 }
 
 /**
+ * @brief  A helper function to check if period has segment timeline and segments for video track
+ * @param period period of segment
+ * @return True if period has segment timeline for video otherwise false
+ */
+bool AampMPDParseHelper::aamp_HasSegmentTimeAndSegments(IPeriod *period)
+{
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	if (segmentTemplates && segmentTemplates->HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates->GetSegmentTimeline();
+		if (segmentTimeline != nullptr)
+		{
+			std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+			return timelines.size() > 0;
+		}
+	}
+	return false;
+}
+
+/**
  *   @brief  Get Period Duration from start time of this period and next
  *   @param  periodIndex
  *   @retval period duration in milliseconds, 0 if not obtainable
  */
-double AampMPDParseHelper::GetPeriodDurationFromStart(int periodIndex)
+double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 {
-	// Get duration of current period based on "start" attribute.
-	// WITHOUT totaling up segment durations.
-	// A live manifest with timeShiftBufferDepth="PT0H0M30.000S"
-	// then the total of segment times will only ever be 30 seconds or less although
-	// the period duration may be longer.
+	// Get duration of current period based on "start" attribute of
+	// the current period and the next period.
+	// Empty following periods can occur so also check for segments in the
+	// following periods until we find a valid start time to calculate duration
+	// or we reach the end of periods.
 
 	double durationMs = 0;
 	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
-	if (periodIndex >= 0 && (periodIndex + 1) < periods.size())
+	std::string periodStartStr = periods.at(periodIndex)->GetStart();
+	if (!periodStartStr.empty())
 	{
-		std::string periodStartStr = periods.at(periodIndex)->GetStart();
-		std::string nextPeriodStartStr = periods.at(periodIndex + 1)->GetStart();
-		// We can calculate period duration by subtracting startime from next period start time.
-		if (!periodStartStr.empty() && (!nextPeriodStartStr.empty()))
+		double periodStart = ParseISO8601Duration(periodStartStr.c_str());
+		for (int p = periodIndex + 1; p < periods.size(); p++)
 		{
-			double periodStart = 0;
-			double nextPeriodStart = 0;
-			periodStart = ParseISO8601Duration(periodStartStr.c_str());
-			nextPeriodStart = ParseISO8601Duration(nextPeriodStartStr.c_str());
-			durationMs = nextPeriodStart - periodStart;
-			if (durationMs <= 0)
+			std::string nextPeriodStartStr = periods.at(p)->GetStart();
+			bool hasSegments = aamp_HasSegmentTimeAndSegments(periods.at(p));
+
+			if (hasSegments && !nextPeriodStartStr.empty())
 			{
-				AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
-				durationMs = 0;
+				// We can calculate period duration by subtracting startime from next period start time.
+				double nextPeriodStart = ParseISO8601Duration(nextPeriodStartStr.c_str());
+				durationMs = nextPeriodStart - periodStart;
+				if (durationMs <= 0)
+				{
+					AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
+					durationMs = 0;
+					break;
+				}
+				periodIndex = p;
+				break;
 			}
-		}
-		else
-		{
-			AAMPLOG_TRACE("Start time missing in period %s or %s", periods.at(periodIndex)->GetId().c_str(), periods.at(periodIndex + 1)->GetId().c_str());
+			else
+			{
+				AAMPLOG_TRACE("Start time or segments missing from period %s hasSegments %d", periods.at(p)->GetId().c_str(), hasSegments);
+			}
 		}
 	}
 	else
 	{
-		AAMPLOG_TRACE("Cannot get duration periods %zu periodIndex %d", periods.size(), periodIndex);
+		AAMPLOG_TRACE("Start time missing in period %s", periods.at(periodIndex)->GetId().c_str());
 	}
 	return durationMs;
 }

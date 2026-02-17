@@ -367,7 +367,7 @@ public:
 	bool                                           mExitFulfillAdLoop;    /**< Flag to exit the Ad fulfillment loop */
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
-	int64_t                                        mWaitForManifestUpdate;/**< mS time for waiting manifest updates */
+	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 
 	/**
 	 * @fn PrivateCDAIObjectMPD

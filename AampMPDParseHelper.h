@@ -474,12 +474,27 @@ public :
     bool aamp_HasSegmentTimeline(IPeriod * period);
 
 	/**
-	 *   @brief  Get Period Duration from start time of this period and next
-	 *   @param  periodIndex
-	 *
-	 *   @retval period duration in milliseconds, 0 if not obtainable
+	 * @brief  A helper function to check if period has segment timeline and segments for video track
+	 * @param period period of segment
+	 * @return True if period has segment timeline for video otherwise false
 	 */
-	double GetPeriodDurationFromStart(int periodIndex);
+    bool aamp_HasSegmentTimeAndSegments(IPeriod *period);
+
+	/**
+	 * @brief A helper function to get segment template for video
+	 * @param[in] period for current period
+	 *
+	 * @return segment template for video track
+	 */
+	std::shared_ptr<SegmentTemplates> GetSegmentTemplateForVideo(IPeriod *period);
+
+	/**
+	 *   @brief  Get Period Duration from start time of this period and next
+	 *   @param[in,out]  periodIndex, returns next non-empty period index
+	 *
+	 *   @retval period duration in milliseconds, 0 if not obtainableExpand commentComment on lines R507 to R510Resolved
+	 */
+	double GetPeriodDurationFromStart(int &periodIndex);
 
 	/**
 	 * @brief Get the MPD instance.
