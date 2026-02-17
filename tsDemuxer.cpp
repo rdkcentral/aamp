@@ -141,7 +141,7 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			aamp->SendStreamCopy(type, es.GetPtr(), es.size(), info.pts_s, info.dts_s, duration);
+			aamp->SendStreamCopy(type, es.GetVector(), info.pts_s, info.dts_s, duration);
 		}
 		es.clear();
 	}
