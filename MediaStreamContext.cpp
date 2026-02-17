@@ -300,10 +300,61 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	cached->downloadStartTime = desc.downloadStartTime;
 	
 	// NOTE: Timing fields (position, duration, absPosition, timeScale, PTSOffsetSec)
-	// are NOT set here. They are populated by OnFragmentDownloadSuccess() which applies
-	// PTS restamping and finalizes timing information. This maintains separation of
-	// concerns: CacheFragmentData() handles buffer storage, OnFragmentDownloadSuccess()
-	// handles timing calculation and TSB integration.
+	// For FRAGMENT MODE: NOT set here. They are populated by OnFragmentDownloadSuccess() 
+	//                    which applies PTS restamping and finalizes timing information.
+	// For CHUNK MODE: Set immediately below for position tracking purposes.
+	//                 Chunks are progressive pieces of a fragment - need position updates
+	//                 per chunk for correct buffered duration calculation.
+	
+	// =================================================================
+	// Step 3.5: CHUNK MODE ONLY - Set Timing Fields for Position Tracking
+	// =================================================================
+	if (desc.isChunkMode && mActiveDownloadInfo)
+	{
+		// Parse chunk to extract duration from MP4 structure
+		IsoBmffBuffer isobuf;
+		isobuf.setBuffer((uint8_t*)cached->fragment.GetPtr(), cached->fragment.size());
+		
+		double chunkDuration = 0.0;
+		size_t mdatCount = 0;
+		
+		if (isobuf.parseBuffer(false) && isobuf.getMdatBoxCount(mdatCount) && mdatCount > 0)
+		{
+			// Get duration in ticks from MOOF boxes
+			uint64_t durationInTicks = isobuf.getSegmentDuration();
+			
+			// Convert to seconds using timeScale from descriptor
+			uint32_t timeScale = desc.timeScale > 0 ? desc.timeScale : fragmentDescriptor.TimeScale;
+			if (timeScale > 0)
+			{
+				chunkDuration = (double)durationInTicks / (double)timeScale;
+			}
+			
+			AAMPLOG_DEBUG("[%s] Parsed chunk duration: %f sec (%" PRIu64 " ticks / %u timeScale)",
+				name, chunkDuration, durationInTicks, timeScale);
+		}
+		
+		// Set timing fields from descriptor and calculated duration
+		cached->absPosition = desc.absolutePosition;
+		cached->timeScale = desc.timeScale > 0 ? desc.timeScale : fragmentDescriptor.TimeScale;
+		cached->duration = chunkDuration;
+		
+		// PTSOffsetSec comes from current period context (may change between chunks)
+		cached->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
+		
+		// Accumulate chunk duration for this fragment
+		mChunkDurationAccumulator += chunkDuration;
+		
+		// Update lastDownloadedPosition for buffered duration calculation
+		if (desc.absolutePosition > 0)
+		{
+			double newPosition = desc.absolutePosition + mChunkDurationAccumulator;
+			AAMPLOG_DEBUG("[%s] Updating lastDownloadedPosition. Previous: %f, New: %f (absPos:%f + chunkAccum:%f)",
+				name, lastDownloadedPosition.load(), newPosition, 
+				desc.absolutePosition, mChunkDurationAccumulator);
+			lastDownloadedPosition.store(newPosition);
+		}
+	}
 	
 	// =================================================================
 	// Step 4: Conditional Processing (mode-specific behaviors)
@@ -1133,6 +1184,8 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		{
 			// Assign the new download info to mActiveDownloadInfo
 			mActiveDownloadInfo = dlInfo;
+			// Reset chunk duration accumulator for new fragment download
+			mChunkDurationAccumulator = 0.0;
 		}
 		int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); // Max cached fragments per track
 		auto DownloadsEnabled = [this]()

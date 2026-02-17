@@ -331,6 +331,7 @@ public:
     std::mutex fetchChunkBufferMutex;
     DownloadInfoPtr mActiveDownloadInfo;
     std::mutex mMediaStreamContextMutex;
+    double mChunkDurationAccumulator{0.0}; /**< Accumulated duration of chunks downloaded for current fragment (chunk mode) */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
