@@ -689,6 +689,33 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	}
+	if (cachedFragment->timeScale == 0)
+	{
+		switch (dlInfo->mediaType)
+		{
+			case eMEDIATYPE_VIDEO:
+			case eMEDIATYPE_INIT_VIDEO:
+			case eMEDIATYPE_IFRAME:
+			case eMEDIATYPE_INIT_IFRAME:
+				cachedFragment->timeScale = aamp->GetVidTimeScale();
+				break;
+			case eMEDIATYPE_AUDIO:
+			case eMEDIATYPE_INIT_AUDIO:
+				cachedFragment->timeScale = aamp->GetAudTimeScale();
+				break;
+			case eMEDIATYPE_SUBTITLE:
+			case eMEDIATYPE_INIT_SUBTITLE:
+				cachedFragment->timeScale = aamp->GetSubTimeScale();
+				break;
+			default:
+				break;
+		}
+		if (cachedFragment->timeScale == 0)
+		{
+			AAMPLOG_WARN("[%s] timeScale is 0 for mediaType %d",
+				name, dlInfo->mediaType);
+		}
+	}
 	cachedFragment->discontinuity = dlInfo->isDiscontinuity;
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation
