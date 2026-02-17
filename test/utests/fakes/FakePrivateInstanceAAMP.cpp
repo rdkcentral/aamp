@@ -174,6 +174,11 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	return 0;
 }
 
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	(void)buffering;
+}
+
 void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
 {
 }
@@ -918,6 +923,18 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 {
 }
 
+bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamCopy(mediaType, buffer, fpts, fdts, fDuration);
+	}
+	else
+	{
+		return true;
+	}
+}
+
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
@@ -1349,11 +1366,11 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, size, type, timeStampOffset);
+		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, type, timeStampOffset);
 	}
 }
 

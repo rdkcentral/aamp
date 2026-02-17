@@ -120,7 +120,7 @@ private:
 		}
 
 		// Second Pass - if more reduction needed, remove other playlist types, too
-		if (totalCachedBytes <= targetCacheSize)
+		if (totalCachedBytes > targetCacheSize)
 		{
 			AAMPLOG_WARN("removing ALL playlists from cache");
 			iter = cache.begin();

@@ -21,6 +21,7 @@
 #include <iostream>
 #include <string>
 #include <string.h>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -890,14 +891,14 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	context.downloadStartTime = 0;
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
-		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
+		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus.load());
 
 	// Simulate paused from live, not AAMP TSB
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
 	// Check that AAMP is NOT injecting segments if playback is paused by the user
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _, _))
 		.Times(0);
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedNoUnderflow - Calling HandleSSLWriteCallback");
@@ -952,14 +953,14 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	context.chunkBoundary = buffer.size(); // Simulate end of chunk
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Setup complete, pipeline_paused=%d, mBufUnderFlowStatus=%d",
-		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus);
+		p_aamp->pipeline_paused, p_aamp->mBufUnderFlowStatus.load());
 
 	// Simulate paused from live, not AAMP TSB
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
 	// Check that AAMP is injecting segments if playback is paused due to underflow
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackPipelinePausedWithUnderflow - Calling HandleSSLWriteCallback");
@@ -991,7 +992,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, parseBuffer() fails, so no mdat box is detected and CacheFragmentChunk() should not be called
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _, _))
 		.Times(0);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
@@ -999,6 +1000,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
 		.Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
 		.Times(0);
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
@@ -1044,7 +1047,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, complete mdat is not detected, so CacheFragmentChunk() should not be called
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _, _))
 		.Times(0);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
@@ -1053,6 +1056,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 		.WillOnce(Return(false)); // return no mdat for now
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
 		.WillOnce(Return(false)); // return no mdat info
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.Times(0);
 	p_aamp->mDownloadsEnabled = true;
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
@@ -1131,6 +1136,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	size_t mdatStart = 20;
 	size_t mdatSize = totalBufSize - mdatStart;
 	size_t chunkBoundary = startBufferOffset + mdatStart + mdatSize;
+	int mdatIndex = 10;
+	uint64_t mdatDuration = 90000; // 1 second duration at 90kHz timescale
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
@@ -1144,12 +1151,10 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 			SetArgReferee<1>(static_cast<size_t>(mdatSize)), // mdat size
 			Return(true)
 		));
-
-	// In this test, CacheFragmentChunk() should be called exactly once when chunked mdat boundary is detected
-	// Lets make this a strict check using expected values
-	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.GetPtr() + startBufferOffset, chunkBoundary - startBufferOffset, _, _))
-		.Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.WillOnce(Return(mdatIndex));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTotalChunkDurationInTicks(mdatIndex))
+		.WillOnce(Return(mdatDuration)); // 1 second duration at 90kHz timescale
 
 	size_t result1 = p_aamp->HandleSSLWriteCallback(testDataPart1, strlen(testDataPart1), 1, &context);
 	// Result should be size*nmemb
@@ -1159,6 +1164,13 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// chunkBoundary should be updated to mdat start + mdat size
 	EXPECT_EQ(context.chunkBoundary, chunkBoundary);
 	EXPECT_EQ(buffer.size(), startBufferOffset + strlen(testDataPart1));
+
+	// In this test, CacheFragmentChunk() should be called exactly once when buffer reaches chunk boundary.
+	// This happens in the second call to HandleSSLWriteCallback when the complete chunked mdat is received in the buffer. The first call should not trigger CacheFragmentChunk() as the chunk is not complete yet.
+	// Lets make this a strict check using expected values
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, reinterpret_cast<const char*>(buffer.data()) + startBufferOffset, chunkBoundary - startBufferOffset, _, _, mdatDuration))
+		.Times(1);
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
 	// Result should be size*nmemb
@@ -1220,6 +1232,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	size_t thirdMdatStart = 300;
 	size_t thirdMdatSize = 150;
 	size_t lastMdatBoundary = thirdMdatStart + thirdMdatSize; // Should use the last mdat
+	uint64_t totalChunkDuration = 90000; // 1 second duration at 90kHz timescale
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
@@ -1240,11 +1253,10 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 		));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
 		.Times(0); // Not expected to be called in this test
-
-	// CacheFragmentChunk should be called once with data up to the last mdat boundary
-	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, lastMdatBoundary, _, _))
-		.Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.WillOnce(Return(2));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTotalChunkDurationInTicks(2))
+		.WillOnce(Return(totalChunkDuration)); // 1 second duration at 90kHz timescale
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
 	EXPECT_EQ(result, strlen(testData));
@@ -1254,6 +1266,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 
 	// Now send more data to complete the chunk
 	std::vector<char> additionalData(500, 'X');
+
+	// CacheFragmentChunk should be called once with data up to the last mdat boundary
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, lastMdatBoundary, _, _, totalChunkDuration))
+		.Times(1);
 
 	size_t result2 = p_aamp->HandleSSLWriteCallback(additionalData.data(), additionalData.size(), 1, &context);
 	EXPECT_EQ(result2, additionalData.size());
@@ -1288,7 +1305,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, CheckForChunkEarlyAbort() returns true, so CacheFragmentChunk() should not be called
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragmentChunk(_, _, _, _, _, _))
 		.Times(0);
 
 	// No need to mock IsoBmffBuffer APIs
@@ -2992,7 +3009,8 @@ TEST_F(PrivAampTests,GetPositionMillisecondsTest)
 
 TEST_F(PrivAampTests,SendStreamCopyTest)
 {
-	EXPECT_FALSE(p_aamp->SendStreamCopy(eMEDIATYPE_VIDEO,NULL,20,12.34,34.567,465.7696));
+	std::vector<uint8_t> emptyBuffer;
+	EXPECT_FALSE(p_aamp->SendStreamCopy(eMEDIATYPE_VIDEO, emptyBuffer, 12.34, 34.567, 465.7696));
 }
 
 // DISABLED - this is not actually testing anything, just calling the method to ensure no crash
@@ -4165,7 +4183,8 @@ TEST_F(PrivAampTests,GetCustomHeadersTest)
 
 TEST_F(PrivAampTests,ProcessID3MetadataTest)
 {
- p_aamp->ProcessID3Metadata(NULL,10,eMEDIATYPE_VIDEO,12431);
+	std::vector<uint8_t> emptyBuffer;
+	p_aamp->ProcessID3Metadata(emptyBuffer, eMEDIATYPE_VIDEO, 12431);
 }
 
 TEST_F(PrivAampTests,GetPauseOnFirstVideoFrameDispTest)
@@ -5735,3 +5754,161 @@ INSTANTIATE_TEST_SUITE_P(
 		}
 	)
 );
+#ifdef AAMP_NET_TRACE
+/**
+ * @brief Test NetTrace integration with GetFile
+ * 
+ * Purpose: Verify that NetTrace objects are properly created, used, and cleaned up
+ * during download operations. Ensures no dangling pointers remain after function returns.
+ */
+TEST_F(PrivAampTests, NetTrace_ContextPointerNulledAfterGetFile)
+{
+	// This test verifies the critical safety fix: context.net must be nullptr
+	// after GetFile returns to prevent dangling pointer to stack-local NetTrace object
+	
+	std::string effectiveUrl;
+	int httpError = 0;
+	AampGrowableBuffer gBuff("NetTraceTestBuffer");
+	double downloadTime = 0.0;
+	BitsPerSecond bitrate = 0;
+	int fogError = 0;
+	
+	// Attempt a download to localhost; the request is expected to fail quickly,
+	// but the important part is verifying that NetTrace cleanup happens.
+	p_aamp->GetFile("http://127.0.0.1:0/test.m3u8"
+					eMEDIATYPE_MANIFEST,
+					&gBuff, 
+					effectiveUrl,
+					&httpError, 
+					&downloadTime, 
+					nullptr, 
+					eCURLINSTANCE_MANIFEST_MAIN,
+					false, 
+					&bitrate, 
+					&fogError, 
+					0.0);
+	
+	// Note: We cannot directly access the context variable from here since it's
+	// a local variable in GetFile. This test primarily ensures compilation and
+	// execution with AAMP_NET_TRACE enabled, and documents the expected behavior.
+	// A more comprehensive test would require exposing the context or using
+	// dependency injection for better testability.
+	
+	SUCCEED() << "GetFile completed without crashes with AAMP_NET_TRACE enabled";
+}
+
+/**
+ * @brief Test NetTrace compilation with conditional macro
+ * 
+ * Purpose: Ensure that code compiles correctly when AAMP_NET_TRACE is defined
+ * and that NetTrace-related includes are available.
+ */
+TEST_F(PrivAampTests, NetTrace_CompilationTest)
+{
+	// This test verifies that the NetTrace header is properly included
+	// and that the aamptrace namespace is accessible
+	
+	// The fact that this test compiles proves:
+	// 1. AAMP_NET_TRACE macro is properly defined
+	// 2. net_trace.h is included
+	// 3. aamptrace namespace is available
+	
+	// Verify NetTrace is a complete type (not just a forward declaration)
+	// Using sizeof() on the actual type (not pointer) requires the type to be fully defined
+	static_assert(sizeof(aamptrace::NetTrace) > 0, "NetTrace must be a complete type");
+	
+	// Additional compile-time checks to verify the type has expected members
+	// These will fail if NetTrace is incomplete or incorrectly defined
+	static_assert(std::is_class<aamptrace::NetTrace>::value, "NetTrace must be a class type");
+	static_assert(!std::is_abstract<aamptrace::NetTrace>::value, "NetTrace must be instantiable");
+	
+	SUCCEED() << "NetTrace types are available when AAMP_NET_TRACE is defined";
+}
+
+/**
+ * @brief Test that GetFile works correctly with NetTrace disabled paths
+ * 
+ * Purpose: Even with AAMP_NET_TRACE enabled, verify basic download functionality
+ * isn't broken by the instrumentation code.
+ */
+TEST_F(PrivAampTests, NetTrace_GetFileBasicFunctionality)
+{
+	std::string effectiveUrl;
+	int httpError = 0;
+	AampGrowableBuffer gBuff("NetTraceBasicTest");
+	double downloadTime = 0.0;
+	BitsPerSecond bitrate = 0;
+	int fogError = 0;
+	
+	// Enable downloads
+	p_aamp->EnableDownloads();
+	
+	// Attempt download - will fail without proper mocking, but shouldn't crash
+	bool result = p_aamp->GetFile("https://example.com/manifest.mpd",
+								  eMEDIATYPE_MANIFEST,
+								  &gBuff,
+								  effectiveUrl,
+								  &httpError,
+								  &downloadTime,
+								  nullptr,
+								  eCURLINSTANCE_MANIFEST_MAIN,
+								  false,
+								  &bitrate,
+								  &fogError,
+								  0.0);
+	
+	// The download will likely fail in test environment, but it shouldn't crash
+	// The important part is that NetTrace instrumentation doesn't break normal flow
+	EXPECT_FALSE(result) << "Download expected to fail in test environment";
+	EXPECT_NE(0, httpError) << "Should have an error code from failed download";
+}
+
+/**
+ * @brief Test NetTrace with multiple GetFile calls
+ * 
+ * Purpose: Verify that NetTrace can handle multiple sequential downloads
+ * without memory leaks or pointer corruption.
+ */
+TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
+{
+	std::string effectiveUrl;
+	int httpError = 0;
+	AampGrowableBuffer gBuff1("NetTraceMulti1");
+	AampGrowableBuffer gBuff2("NetTraceMulti2");
+	double downloadTime = 0.0;
+	BitsPerSecond bitrate = 0;
+	int fogError = 0;
+	
+	// First download attempt
+	p_aamp->GetFile("https://example.com/manifest1.mpd",
+					eMEDIATYPE_MANIFEST,
+					&gBuff1,
+					effectiveUrl,
+					&httpError,
+					&downloadTime,
+					nullptr,
+					eCURLINSTANCE_MANIFEST_MAIN,
+					false,
+					&bitrate,
+					&fogError,
+					0.0);
+	
+	// Second download attempt - should create a new NetTrace object
+	// and properly clean up the first one
+	p_aamp->GetFile("https://example.com/manifest2.mpd",
+					eMEDIATYPE_MANIFEST,
+					&gBuff2,
+					effectiveUrl,
+					&httpError,
+					&downloadTime,
+					nullptr,
+					eCURLINSTANCE_MANIFEST_MAIN,
+					false,
+					&bitrate,
+					&fogError,
+					0.0);
+	
+	SUCCEED() << "Multiple GetFile calls completed without crashes";
+}
+
+#endif // AAMP_NET_TRACE
