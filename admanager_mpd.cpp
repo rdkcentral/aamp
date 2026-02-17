@@ -620,8 +620,8 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					// OR we do not know when current period ends, have not established duration
 					else
 					{
-						AAMPLOG_INFO("[CDAI] diff %" PRIi64 " NOT close to period end, endPeriodId:%s duration %" PRIu64,
-							diff, abObj.endPeriodId.c_str(), currPeriodDuration);
+						AAMPLOG_INFO("[CDAI] diff %" PRIi64 " NOT close to period end, endPeriodId:%s duration %" PRIu64 " periodDelta %" PRIi64,
+							diff, abObj.endPeriodId.c_str(), currPeriodDuration, periodDelta);
 						// done with Adjustment
 						abObj.adjustEndPeriodOffset = false;
 						// adbrk duration not equal to src period duration continue to play source period for remaining duration
