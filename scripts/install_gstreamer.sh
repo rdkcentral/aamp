@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-declare DEFAULT_GSTVERSION="1.24.9"
+declare DEFAULT_GSTVERSION="1.24.13"
 
 
 function install_gstreamer_fn()
@@ -29,7 +29,7 @@ function install_gstreamer_fn()
         if [[ $ARCH == "x86_64" ]]; then
             DEFAULT_GSTVERSION="1.18.6"
         elif [[ $ARCH == "arm64" ]]; then
-            DEFAULT_GSTVERSION="1.24.9" 
+            DEFAULT_GSTVERSION="1.24.13"
         else
             echo "Architecture $ARCH is unsupported"
             return 1
