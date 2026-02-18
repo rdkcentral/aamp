@@ -2692,7 +2692,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition());
 				if(latency < 0)
 				{
-					AAMPLOG_WARN("Dash Live Latency calculated is negative: Latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition());
+					AAMPLOG_ERROR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition());
 				}
 			}
 			else
@@ -2701,7 +2701,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
 				if(latency < 0)
 				{
-					AAMPLOG_WARN("HLS Live Latency calculated is negative: Latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+					AAMPLOG_ERROR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
 				}
 			}
 			SetCurrentLatency(latency);
