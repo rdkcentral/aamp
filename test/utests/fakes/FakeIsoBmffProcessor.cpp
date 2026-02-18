@@ -67,7 +67,7 @@ void IsoBmffProcessor::initProcessorForRestamp()
 {
 }
 
-void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset)
 {
 }
 
