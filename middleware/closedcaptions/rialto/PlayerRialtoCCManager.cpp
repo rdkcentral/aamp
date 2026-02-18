@@ -122,7 +122,7 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
 		// We expect 'track' to have an alphabetic prefix. If it does not,
 		// add one based on 'format'.
 		std::string textTrackIdentifier;
-		if (std::isdigit(track[0]))
+		if (!track.empty() && std::isdigit(static_cast<unsigned char>(track[0])))
 		{
 			if (eCLOSEDCAPTION_FORMAT_608 == format)
 			{
