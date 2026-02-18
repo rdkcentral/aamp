@@ -10009,7 +10009,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
+					// Acquire lock to update current period to sync with ABR changes on video track
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->AcquireMediaStreamContextLock();
 					ret = IndexNewMPDDocument();
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->ReleaseMediaStreamContextLock();
 				}
 			}
 		}
