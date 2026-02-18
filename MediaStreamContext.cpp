@@ -725,7 +725,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		return IsLocalTSBInjection() &&
 			   AAMP_NORMAL_PLAY_RATE == aamp->rate &&
-			   !aamp->pipeline_paused &&
+			   !aamp->mSinkPaused.load() &&
 			   eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
 			   tsbSessionManager &&
 			   tsbSessionManager->GetTsbReader((AampMediaType)type) &&
@@ -817,7 +817,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
 			aamp->UpdateLocalAAMPTsbInjection();
 		}
-		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
+		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->mSinkPaused.load())
 		{
 			// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 			if (aamp->GetLLDashChunkMode())
@@ -846,11 +846,12 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 
 	// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
+	bool isPipelinePaused = aamp->mSinkPaused.load();
 	if (tsbSessionManager &&
-		(IsLocalTSBInjection() || (aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus())))
+		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->pipeline_paused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused, aamp->GetBufUnderFlowStatus());
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
+			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)

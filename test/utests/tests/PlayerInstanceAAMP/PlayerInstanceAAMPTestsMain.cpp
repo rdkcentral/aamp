@@ -217,7 +217,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_A
 
 	// Setup: Player is NOT at live point
 	mPlayerInstance->aamp->mbDetached = false;
-	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
 	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
 	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
@@ -249,7 +249,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_SlowMotionRate_Allow
 
 	// Setup: Player is at live point but with slowmotion rate
 	mPlayerInstance->aamp->mbDetached = false;
-	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
 	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
 	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
@@ -281,7 +281,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_RewindRate_AllowsOpe
 
 	// Setup: Player is at live point but with rewind rate
 	mPlayerInstance->aamp->mbDetached = false;
-	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
 	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
 	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
@@ -312,7 +312,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_Detached_AllowsOpera
 
 	// Setup: Player is at live point but detached
 	mPlayerInstance->aamp->mbDetached = true;
-	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
 	mPlayerInstance->aamp->rate = 1.0f; // Different from target rate
 	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
@@ -344,7 +344,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_UpdatesLivePointFlag)
 
 	// Setup: Player starts NOT at live point
 	mPlayerInstance->aamp->mbDetached = false;
-	mPlayerInstance->aamp->pipeline_paused = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
 	mPlayerInstance->aamp->rate = 1.0f;
 	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
@@ -477,7 +477,7 @@ TEST_F(PlayerInstanceAAMPTests, PauseAt_Cancel)
 TEST_F(PlayerInstanceAAMPTests, PauseAt_AlreadyPaused)
 {
 	double pauseAtSeconds = 100.0;
-	mPlayerInstance->aamp->pipeline_paused = true; // FIXME! violates mPlayerInstance->aamp being private
+	mPlayerInstance->aamp->mSinkPaused = true; // FIXME! violates mPlayerInstance->aamp being private
 	//mPlayerInstance->SetRate(0); // logically similar, but doesn't work with below code
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);
@@ -1424,7 +1424,7 @@ TEST_F(PlayerInstanceAAMPTests, GetAudioVolumeTest3) {
 }
 TEST_F(PlayerInstanceAAMPTests, GetPlaybackRateTest_1) {
 	//checking false condition
-	mPlayerInstance->aamp->pipeline_paused = false; // FIXME! violates mPlayerInstance->aamp being private
+	mPlayerInstance->aamp->mSinkPaused = false; // FIXME! violates mPlayerInstance->aamp being private
 	mPlayerInstance->aamp->rate = 10.9f;
 	mPlayerInstance->SetRate(10.9f); // logically similar, but doesn't work with below code
 	int retrievedPlaybackRate = mPlayerInstance->GetPlaybackRate();
@@ -2667,7 +2667,7 @@ TEST_F(PlayerInstanceAAMPTests,SetTextTrackTest1)
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause) {
 	mPlayerInstance->aamp = mPrivateInstanceAAMP;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mSinkPaused = false;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
 
@@ -2678,14 +2678,14 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause) {
 
 	mPlayerInstance->SetRate(0);
 
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
+	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), true);
 }
 
 // Test pausing with local TSB
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_Pause) {
 	mPlayerInstance->aamp = mPrivateInstanceAAMP;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = false;
+	mPrivateInstanceAAMP->mSinkPaused = false;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
@@ -2696,7 +2696,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_Pause) {
 
 	mPlayerInstance->SetRate(0);
 
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, true);
+	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), true);
 }
 
 // Test resuming from being paused on live with local TSB
@@ -2706,7 +2706,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 
 	mPlayerInstance->aamp = mPrivateInstanceAAMP;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
@@ -2721,7 +2721,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 	mPlayerInstance->SetRate(1.0);
 
 	EXPECT_EQ(mPrivateInstanceAAMP->seek_pos_seconds, seek_pos_seconds / 1000);
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), false);
 }
 
 // Test resuming from being paused in local TSB playback
@@ -2729,7 +2729,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 
 	mPlayerInstance->aamp = mPrivateInstanceAAMP;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
@@ -2744,7 +2744,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 
 	mPlayerInstance->SetRate(1.0);
 
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), false);
 }
 
 // Test forward 2x from being paused in local TSB playback
@@ -2752,7 +2752,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 
 	mPlayerInstance->aamp = mPrivateInstanceAAMP;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->mbPlayEnabled = true;
 	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
@@ -2769,7 +2769,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(0);
 
 	mPlayerInstance->SetRate(2.0);
-	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), false);
 	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
 
 }
