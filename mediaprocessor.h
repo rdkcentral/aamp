@@ -138,15 +138,17 @@ public:
           */
 
 	virtual void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) {};
-        /**
-          * @brief Reset PTS on audioSwitch
-          *
-          * @param[in] pBuffer - Pointer to the AampGrowableBuffer
-          * @param[in] position - position of fragment
-          * @return void
-          */
 
-	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) {};
+	/**
+	 * @brief Reset PTS on audioSwitch
+	 *
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] position - position of fragment
+	 * @param[in] ptsOffset - offset to be applied for restamping
+	 * @return void
+	 */
+	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset = 0) {};
+
 	/**
 	 * @brief Abort all operations
 	 *
