@@ -59,6 +59,78 @@ static void ParseAttrListCb( lstring attr, lstring value, void *context )
 	ctx->count++;
 	std::cout << "\t\t\t" << value.GetAttributeValueString() << "\n";
 }
+
+// ------------------------------
+// SUCCESS CASES
+// ------------------------------
+
+TEST(LStringAtofTest, BasicIntegers)
+{
+    EXPECT_DOUBLE_EQ(lstring("123",3).atof(), 123.0);
+    EXPECT_DOUBLE_EQ(lstring("0",1).atof(), 0.0);
+}
+
+TEST(LStringAtofTest, BasicDecimals)
+{
+	EXPECT_DOUBLE_EQ(lstring("45.67",5).atof(), 45.67);
+    EXPECT_DOUBLE_EQ(lstring("45.",3).atof(), 45.0);
+    EXPECT_DOUBLE_EQ(lstring(".25",3).atof(), 0.25);
+    EXPECT_DOUBLE_EQ(lstring("-.75",4).atof(), -0.75);
+}
+
+TEST(LStringAtofTest, LeadingWhitespace)
+{
+    EXPECT_DOUBLE_EQ(lstring("   3.14",7).atof(), 3.14);
+}
+
+TEST(LStringAtofTest, StopsOnNonNumericAfterNumber)
+{
+    EXPECT_DOUBLE_EQ(lstring("25,extra",8).atof(), 25.0);
+    EXPECT_DOUBLE_EQ(lstring("3.25e",5).atof(), 3.25);
+    EXPECT_DOUBLE_EQ(lstring("3.25xyz",7).atof(), 3.25);
+    EXPECT_DOUBLE_EQ(lstring("3.1x5",5).atof(), 3.1);
+    EXPECT_DOUBLE_EQ(lstring("3.x",3).atof(), 3.0);
+EXPECT_DOUBLE_EQ(lstring("4.55    ",8).atof(), 4.55);
+
+	EXPECT_NEAR(lstring("4.55    ",4).atof(), 4.55, 1e-12);
+	EXPECT_NEAR(lstring("4.55NaN    ",4).atof(), 4.55,1e-12);
+	EXPECT_NEAR(lstring("4.55NaN",7).atof(), 4.55,1e-12);
+	EXPECT_NEAR(lstring("4.55NaN    ",12).atof(), 4.55,1e-12);
+}
+
+// ------------------------------
+// FAILURE CASES
+// ------------------------------
+
+TEST(LStringAtofTest, MultipleDecimalPoints)
+{
+    EXPECT_DOUBLE_EQ(lstring("12.34.56",8).atof(),0.0);
+	EXPECT_NEAR(lstring("12.34.56",5).atof(),12.34,1e-12);
+}
+
+TEST(LStringAtofTest, InvalidStartingCharacter)
+{
+    EXPECT_DOUBLE_EQ(lstring("abc",3).atof(),0.0);
+	
+}
+
+TEST(LStringAtofTest, EmptyString)
+{
+    EXPECT_DOUBLE_EQ(lstring("",3).atof(),0.0);
+}
+
+TEST(LStringAtofTest, OnlyWhitespace)
+{
+	EXPECT_DOUBLE_EQ(lstring("    ",5).atof(),0.0);
+	EXPECT_DOUBLE_EQ(lstring("    ",3).atof(),0.0);
+   
+}
+
+TEST(LStringAtofTest, DoubleDot)
+{
+    EXPECT_DOUBLE_EQ(lstring("..25",4).atof(),0.0);
+}
+
 TEST(lstring, test1)
 {
 	const double epsilon = 0.00001;
@@ -82,19 +154,7 @@ TEST(lstring, test1)
 	
 	lstring istring("314",3);
 	ASSERT_TRUE( istring.atoll() == 314 );
-	
-	lstring fstring("314.159",7);
-	double fval = fstring.atof();
-	ASSERT_TRUE( fabs(fval-314.159)< epsilon );
-	
-	lstring fstring2("-123.456",8);
-	double fval2 = fstring2.atof();
-	ASSERT_TRUE( fabs(-123.456 - fval2)< epsilon );
-	
-	lstring fstring3("-267,xx",7);
-	double fval3 = fstring3.atof();
-	ASSERT_TRUE( fabs(-267 - fval3)< epsilon );
-	
+		
 	const char *text = "the quick brown fox jumped over the lazy dog";
 	lstring searchText(text,strlen(text));
 	ASSERT_TRUE( 0 == searchText.find('t') );

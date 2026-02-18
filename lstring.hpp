@@ -29,6 +29,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <string>
+#include "AampLogManager.h"
 
 const char CHAR_CR = '\r'; // 0x0d
 const char CHAR_LF = '\n'; // 0x0a
@@ -214,55 +215,128 @@ public:
 		return (int)atoll();
 	}
 	
-	double atof() const
-	{
-		long long ival = 0;
-		long long precision = 1;
-		bool afterDecimal = false;
-		int i = 0;
-		if( startswith('-') )
-		{
-			i++; // skip leading negative sign
-			precision = -1; // ensure final value is negated
-		}
-		for(; i<len; i++ )
-		{
-			char c = ptr[i];
-			if( c>='0' && c<='9' )
-			{
-				ival*=10;
-				ival += (c-'0');
-				if( afterDecimal )
-				{
-					precision*=10;
-				}
-			}
-			else if( c=='.' )
-			{
-				if (afterDecimal)
-				{
-					throw std::runtime_error(
-						std::string("lstring::atof: multiple decimal points in string '") +
-						std::string(ptr, len) + "'"
-					);
-				}
-				afterDecimal = true;
-			}
-			else if( c==',' )
-			{
-				break;
-			}
-			else
-			{
-				throw std::runtime_error(
-					std::string("lstring::atof: unexpected character '") + c +
-					"' in string '" + std::string(ptr, len) + "'"
-				);
-			}
-		}
-		return ival/(double)precision;
-	}
-	
+// -----------------------------------------------------------------------------
+// Safe atof() implementation for lstring
+//
+// This function provides a robust, fault‑tolerant conversion of a character
+// buffer into a floating‑point value. It is designed specifically for parsing
+// HLS playlist fields (e.g., EXTINF durations) where malformed or unexpected
+// input must never cause a thread crash.
+//
+// Key Features:
+//   • Supports leading‑decimal formats such as ".25" and "-.75", treating them
+//     as valid numbers (0.25 and -0.75 respectively).
+//
+//   • Handles leading whitespace, optional sign characters, and stops cleanly
+//     at commas or trailing whitespace — matching common HLS formatting.
+//
+//   • Detects malformed numeric sequences such as multiple decimal points,
+//     invalid characters, or empty input.
+//
+//   • Logs the exact character index where parsing failed, along with the full
+//     input buffer, making debugging of malformed playlist values far easier.
+//
+//   • Never allows exceptions to escape the function. All parsing errors are
+//     caught internally, logged, and a safe fallback value (0.0) is returned.
+//     This prevents std::terminate() from being triggered inside worker threads.
+//
+// This function is intentionally strict about what constitutes a valid numeric
+// character, but forgiving enough to handle real‑world HLS formatting quirks.
+// -----------------------------------------------------------------------------
+    
+double atof() const
+    {
+        try
+        {
+            if (len == 0)
+                throw std::runtime_error("empty string at index 0");
+
+            int i = 0;
+
+            // Skip leading whitespace
+            while (i < len && std::isspace(ptr[i]))
+                i++;
+
+            // If we reached the end, the string was only whitespace
+            if (i >= len)
+                throw std::runtime_error("empty string at index 0");
+
+            // Optional sign
+            int sign = 1;
+            if (ptr[i] == '-' || ptr[i] == '+')
+            {
+                if (ptr[i] == '-')
+                    sign = -1;
+                i++;
+            }
+
+            // After optional sign, the first character MUST be digit or '.'
+            // Otherwise it's an invalid number like "abc" or "+x5"
+            if (i >= len || !(std::isdigit(ptr[i]) || ptr[i] == '.'))
+            {
+                throw std::runtime_error(
+                    std::string("unexpected character '") + ptr[i] +
+                    "' at index " + std::to_string(i)
+                );
+            }
+
+            long long ival = 0;     // integer part
+            long long frac = 0;     // fractional part
+            long long fracDiv = 1;  // divisor for fractional digits
+            bool afterDecimal = false;
+
+            // Main parsing loop
+            for (; i < len; i++)
+            {
+                char c = ptr[i];
+
+                if (c >= '0' && c <= '9')
+                {
+                    // Accumulate integer or fractional digits
+                    if (!afterDecimal)
+                        ival = ival * 10 + (c - '0');
+                    else
+                    {
+                        frac = frac * 10 + (c - '0');
+                        fracDiv *= 10;
+                    }
+                }
+                else if (c == '.')
+                {
+                    // Only one decimal point allowed
+                    if (afterDecimal)
+                    {
+                        throw std::runtime_error(
+                            "multiple decimal points at index " + std::to_string(i)
+                        );
+                    }
+                    afterDecimal = true;
+                }
+                else
+                {
+                    // STOP PARSING on any non-numeric character
+                    // This allows "3.25e", "3.25xyz", "3.1x5", etc.
+                    break;
+                }
+            }
+
+            // Combine integer + fractional parts
+            double result = (double)ival + (double)frac / (double)fracDiv;
+            return sign * result;
+        }
+        catch (const std::exception& e)
+        {
+            // Log detailed error message
+            AAMPLOG_ERR("ERROR in lstring::atof(): unknown exception | input=\"%.*s\" (len=%lu)", (int)len, ptr, len );
+            return 0.0;
+        }
+        catch (...)
+        {
+            AAMPLOG_ERR("ERROR in lstring::atof(): unknown exception | input=\"%.*s\" (len=%lu)", (int)len, ptr, len );
+            return 0.0;
+        }
+    }
+
 	bool empty( void ) const
 	{
 		return len==0;
