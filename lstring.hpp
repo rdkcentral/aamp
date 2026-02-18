@@ -29,6 +29,8 @@
 #include <stddef.h>
 #include <assert.h>
 #include <string>
+#include <cctype>
+#include <stdexcept>
 #include "AampLogManager.h"
 
 const char CHAR_CR = '\r'; // 0x0d

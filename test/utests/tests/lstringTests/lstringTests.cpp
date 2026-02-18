@@ -90,7 +90,7 @@ TEST(LStringAtofTest, StopsOnNonNumericAfterNumber)
     EXPECT_DOUBLE_EQ(lstring("3.25xyz",7).atof(), 3.25);
     EXPECT_DOUBLE_EQ(lstring("3.1x5",5).atof(), 3.1);
     EXPECT_DOUBLE_EQ(lstring("3.x",3).atof(), 3.0);
-EXPECT_DOUBLE_EQ(lstring("4.55    ",8).atof(), 4.55);
+    EXPECT_DOUBLE_EQ(lstring("4.55    ",8).atof(), 4.55);
 
 	EXPECT_NEAR(lstring("4.55    ",4).atof(), 4.55, 1e-12);
 	EXPECT_NEAR(lstring("4.55NaN    ",4).atof(), 4.55,1e-12);
