@@ -407,7 +407,7 @@ From a **developer tool** → to a **team platform** for ABR validation and anal
 ## 🎬 Quick Start Command
 
 ```bash
-cd /Users/pstrof200@cable.comcast.com/Documents/rdke/aamp/abrsim
+cd aamp/abrsim
 ./start_web_ui.sh
 ```
 
