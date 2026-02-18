@@ -300,12 +300,14 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	// Timestamp (for download metrics)
 	cached->downloadStartTime = desc.downloadStartTime;
 	
-	// NOTE: Timing fields (position, duration, absPosition, timeScale, PTSOffsetSec)
-	// For FRAGMENT MODE: NOT set here. They are populated by OnFragmentDownloadSuccess() 
-	//                    which applies PTS restamping and finalizes timing information.
-	// For CHUNK MODE: Set immediately below for position tracking purposes.
-	//                 Chunks are progressive pieces of a fragment - need position updates
-	//                 per chunk for correct buffered duration calculation.
+	// NOTE: For BOTH modes, we populate timing fields from descriptor.
+	// Fragment mode: These values are from the manifest; OnFragmentDownloadSuccess will overwrite them with PTS-restamped values
+	// Chunk mode: These are computed per-chunk; may be further refined below
+	cached->position = desc.position;
+	cached->duration = desc.duration;
+	cached->absPosition = desc.absolutePosition;
+	cached->timeScale = desc.timeScale;
+	cached->PTSOffsetSec = desc.ptsOffsetSec;
 	
 	// =================================================================
 	// Step 3.5: CHUNK MODE ONLY - Set Timing Fields for Position Tracking
@@ -718,16 +720,6 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 
 	// Get active buffer
 	CachedFragment *cachedFragment = GetFetchBuffer(false);
-	
-	// In chunk mode, use the accumulated chunk duration instead of manifest duration
-	// This ensures accurate TSB duration tracking when parsed chunk durations differ from manifest values
-	if (aamp->GetLLDashChunkMode() && mChunkDurationAccumulator > 0.0)
-	{
-		AAMPLOG_DEBUG("[%s] Using accumulated chunk duration %f (manifest duration was %f)",
-			name, mChunkDurationAccumulator, dlInfo->fragmentDurationSec);
-		dlInfo->fragmentDurationSec = mChunkDurationAccumulator;
-	}
-	
 	mActiveDownloadInfo = nullptr;
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
