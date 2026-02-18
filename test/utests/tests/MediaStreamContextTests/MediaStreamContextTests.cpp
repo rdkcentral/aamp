@@ -236,5 +236,8 @@ TEST_F(MediaStreamContextTest, CacheFragmentChunkTestWithDurationInTicks)
     EXPECT_EQ(cachedFragment.duration, durationInSeconds);
     // Confirm chunkDuration is updated in DownloadInfo
     EXPECT_EQ(downloadInfo->chunkDurationSec, durationInSeconds);
-    EXPECT_EQ(mMediaStreamContext->lastDownloadedPosition.load(), absTime + durationInSeconds);
+    // CORRECT: In chunk mode, lastDownloadedPosition is NOT updated per-chunk
+    // Position should only be finalized once per complete fragment by OnFragmentDownloadSuccess()
+    // Per-chunk updates would cause TSB duration to accumulate incorrectly
+    EXPECT_EQ(mMediaStreamContext->lastDownloadedPosition.load(), 0.0);
 }
