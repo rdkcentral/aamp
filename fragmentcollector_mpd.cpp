@@ -9118,7 +9118,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// Then wait for ad discontinuity to be processed by stream injection before continuing
 				if (aamp->GetIsPeriodChangeMarked() &&
 					!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
-					!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
+					!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 				{
 					aamp->WaitForDiscontinuityProcessToComplete();
 				}
@@ -9133,7 +9133,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					periodChanged = true;
 					if ((mPlayRate == AAMP_NORMAL_PLAY_RATE) &&
 						!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
-						!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
+						!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 					{
 						aamp->SetIsPeriodChangeMarked(true);
 					}
@@ -10014,7 +10014,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
+					// Acquire lock to update current period to sync with ABR changes on video track
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->AcquireMediaStreamContextLock();
 					ret = IndexNewMPDDocument();
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->ReleaseMediaStreamContextLock();
 				}
 			}
 		}
