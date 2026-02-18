@@ -26,7 +26,7 @@
 #include "PlayerRialtoCCManager.h"
 #include "PlayerLogManager.h" // Included for MW_LOG
 #include <glib-object.h>  // Included for g_object_set
-#include <cctype>	// std::isdigit()
+#include <cctype> // std::isdigit()
 
 /**
  * @brief stores Handle
