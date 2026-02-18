@@ -337,7 +337,7 @@ bool StreamAbstractionAAMP_MPD::GetPreferredCodecIndex(IAdaptationSet *adaptatio
 		if(adaptationSet != NULL)
 		{
 			long score = 0;
-			const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+			const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
 			/* check for codec defined in Adaptation Set */
 			const std::vector<string> adapCodecs = adaptationSet->GetCodecs();
 			for (int representationIndex = 0; representationIndex < representation.size(); representationIndex++)
@@ -406,7 +406,7 @@ void StreamAbstractionAAMP_MPD::GetPreferredTextRepresentation(IAdaptationSet *a
 		selectedRepIdx = 0;
 		/* check for codec defined in Adaptation Set */
 		const std::vector<string> adapCodecs = adaptationSet->GetCodecs();
-		const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+		const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
 		for (int representationIndex = 0; representationIndex < representation.size(); representationIndex++)
 		{
 			const dash::mpd::IRepresentation *rep = representation.at(representationIndex);
@@ -445,7 +445,7 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
 	int selectedRepIdx = -1;
 	if(adaptationSet != NULL)
 	{
-		const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+		const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
 		// check for codec defined in Adaptation Set
 		const std::vector<string> adapCodecs = adaptationSet->GetCodecs();
 		for (int representationIndex = 0; representationIndex < representation.size(); representationIndex++)
@@ -501,7 +501,7 @@ static int GetDesiredCodecIndex(IAdaptationSet *adaptationSet, AudioType &select
  */
 static int GetDesiredVideoCodecIndex(IAdaptationSet *adaptationSet)
 {
-	const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+	const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
 	int selectedRepIdx = -1;
 	for (int representationIndex = 0; representationIndex < representation.size(); representationIndex++)
 	{
@@ -1337,7 +1337,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					if(mFcsRepresentationId != -1)
 					{
 						if(pMediaStreamContext->adaptationSet!=NULL){
-							const std::vector<IRepresentation *> representation = pMediaStreamContext->adaptationSet ->GetRepresentation();
+							const std::vector<IRepresentation *>& representation = pMediaStreamContext->adaptationSet ->GetRepresentation();
 							if(mFcsRepresentationId < (representation.size()-1)){
 								const dash::mpd::IRepresentation *rep = representation.at(mFcsRepresentationId);
 								if(rep){
@@ -5205,7 +5205,7 @@ void StreamAbstractionAAMP_MPD::ProcessTrickModeRestriction(Node* node, const st
  */
 static bool IsIframeTrack(IAdaptationSet *adaptationSet)
 {
-	const std::vector<INode *> subnodes = adaptationSet->GetAdditionalSubNodes();
+	const std::vector<INode *>& subnodes = adaptationSet->GetAdditionalSubNodes();
 	for (unsigned i = 0; i < subnodes.size(); i++)
 	{
 		INode *xml = subnodes[i];
@@ -5820,7 +5820,7 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 		if (eMEDIATYPE_AUDIO == media || eMEDIATYPE_SUBTITLE == media)
 		{
 			std::string lang = GetLanguageForAdaptationSet(adaptationSet);
-			const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+			const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
 			std::string codec;
 			std::string group; // value of <Role>, empty if <Role> not present
 			std::string accessibilityType; // value of <Accessibility> //KC
@@ -6648,7 +6648,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	uint64_t oldMediaSequenceNumber = 0;
 	uint32_t fragmentDuration = 0;
-	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration,newInjectedPosition;
+	double   oldPlaylistPosition,diffInFetchedDuration,diffInInjectedDuration;
 	int diffFragmentsDownloaded = 0;
 	double offsetFromStart;
 
@@ -6733,8 +6733,18 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
 	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
 
+	if(!aamp->IsLocalAAMPTsb())
+	{
+		AAMPLOG_INFO("IsLocalAAMPTsb is false, calculating the offsetFromStart with GetPositionSeconds : %lf and culledSeconds : %lf", aamp->GetPositionSeconds(), aamp->culledSeconds);
+		offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
+	}
+	else
+	{
+		AAMPLOG_INFO("IsLocalAAMPTsb is true, calculating the offsetFromStart with GetPositionSeconds : %lf and mCulledSeconds : %lf", aamp->GetPositionSeconds(), mCulledSeconds);
+		offsetFromStart = aamp->GetPositionSeconds() - mCulledSeconds;
+	}
+
 	/* Getting Gstreamer Play position */
-	offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
 	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
 
 	UpdateSeekPeriodOffset(offsetFromStart);
@@ -6767,19 +6777,14 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
 	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number - 1;
 
-
-
-	/* Calculating the start time of the downloaded fragment */
-	newInjectedPosition = ( pMediaStreamContext->fragmentDescriptor.Time - fragmentDuration )/pMediaStreamContext->fragmentDescriptor.TimeScale;
-
 	/*Calculating the difference in Fetched duration, injected duration and diff in Media Sequence number */
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
-	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - newInjectedPosition );
+	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - pMediaStreamContext->fragmentTime );
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
 
-	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], newInjectedPosition[%lf] diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
+	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
 			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(),
-			fragmentDuration, newInjectedPosition, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
+			fragmentDuration, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
 
 	pMediaStreamContext->resetAbort(false);
 	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
@@ -9113,7 +9118,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// Then wait for ad discontinuity to be processed by stream injection before continuing
 				if (aamp->GetIsPeriodChangeMarked() &&
 					!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
-					!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
+					!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 				{
 					aamp->WaitForDiscontinuityProcessToComplete();
 				}
@@ -9128,7 +9133,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					periodChanged = true;
 					if ((mPlayRate == AAMP_NORMAL_PLAY_RATE) &&
 						!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
-						!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
+						!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 					{
 						aamp->SetIsPeriodChangeMarked(true);
 					}
@@ -10009,7 +10014,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
+					// Acquire lock to update current period to sync with ABR changes on video track
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->AcquireMediaStreamContextLock();
 					ret = IndexNewMPDDocument();
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->ReleaseMediaStreamContextLock();
 				}
 			}
 		}
@@ -10906,20 +10914,20 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 		bool isAdPeriod = true, done = false;
 		double adDuration = 0;
 		long int prevStartNumber = -1;
-		const std::vector<IBaseUrl *> mpdBaseUrls = mpd->GetBaseUrls();
+		const std::vector<IBaseUrl *>& mpdBaseUrls = mpd->GetBaseUrls();
 		{
 			for(IPeriod* tempPeriod : mpd->GetPeriods())
 			{
-				const std::vector<IAdaptationSet *> adaptationSets = tempPeriod->GetAdaptationSets();
-				const std::vector<IBaseUrl *> PeriodBaseUrls = tempPeriod->GetBaseURLs();
+				const std::vector<IAdaptationSet *>& adaptationSets = tempPeriod->GetAdaptationSets();
+				const std::vector<IBaseUrl *>& PeriodBaseUrls = tempPeriod->GetBaseURLs();
 				int adSize = (int)adaptationSets.size();
 				for(int j =0; j < adSize; j++)
 				{
 					if(MPDParseHelper->IsContentType(adaptationSets.at(j), eMEDIATYPE_IMAGE) )
 					{
 						isAdPeriod = false;
-						const std::vector<IBaseUrl *> adapBaseUrls = adaptationSets.at(j)->GetBaseURLs();
-						const std::vector<IRepresentation *> representation = adaptationSets.at(j)->GetRepresentation();
+						const std::vector<IBaseUrl *>& adapBaseUrls = adaptationSets.at(j)->GetBaseURLs();
+						const std::vector<IRepresentation *>& representation = adaptationSets.at(j)->GetRepresentation();
 						for (int repIndex = 0; repIndex < representation.size(); repIndex++)
 						{
 							const dash::mpd::IRepresentation *rep = representation.at(repIndex);
@@ -10928,7 +10936,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 							fragmentDescriptor.AppendMatchingBaseUrl(&PeriodBaseUrls);
 							fragmentDescriptor.AppendMatchingBaseUrl(&adapBaseUrls);
 							fragmentDescriptor.AppendMatchingBaseUrl( &rep->GetBaseURLs() );
-							const std::vector<INode *> subnodes = rep->GetAdditionalSubNodes();
+							const std::vector<INode *>& subnodes = rep->GetAdditionalSubNodes();
 							PeriodElement periodElement(adaptationSets.at(j), rep);
 							for (unsigned i = 0; i < subnodes.size() && !done; i++)
 							{
@@ -12467,7 +12475,7 @@ bool StreamAbstractionAAMP_MPD::IsMatchingLanguageAndMimeType(AampMediaType type
 			   }
 			   else
 			   {
-					   const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+					   const std::vector<IRepresentation *>& representation = adaptationSet->GetRepresentation();
 					   for (int repIndex = 0; repIndex < representation.size(); repIndex++)
 					   {
 							   const dash::mpd::IRepresentation *rep = representation.at(repIndex);
@@ -12538,7 +12546,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 
 			if(tempPeriod && tempPeriod->GetAdaptationSets().size())
 			{
-				const std::vector<IAdaptationSet *> adaptationSets = tempPeriod->GetAdaptationSets();
+				const std::vector<IAdaptationSet *>& adaptationSets = tempPeriod->GetAdaptationSets();
 
 				for(int j = 0; j < adaptationSets.size(); j++)
 				{
@@ -12556,7 +12564,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 				if(firstAdaptation != NULL)
 				{
 					adaptationSet = firstAdaptation->GetSegmentTemplate();
-					const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+					const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 					if (representations.size() > 0)
 					{
 						representation = representations.at(0)->GetSegmentTemplate();
@@ -13100,7 +13108,7 @@ IProducerReferenceTime *StreamAbstractionAAMP_MPD::GetProducerReferenceTimeForAd
 
 	if(adaptationSet != NULL)
 	{
-		const std::vector<IProducerReferenceTime *> producerReferenceTime = adaptationSet->GetProducerReferenceTime();
+		const std::vector<IProducerReferenceTime *>& producerReferenceTime = adaptationSet->GetProducerReferenceTime();
 
 		if(!producerReferenceTime.size())
 			return pRT;
@@ -13306,7 +13314,7 @@ bool StreamAbstractionAAMP_MPD::GetLowLatencyParams(const MPD* mpd,AampLLDashSer
 					// Empty Period . Ignore processing, continue to next.
 					continue;
 				}
-				const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+				const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
 				if (adaptationSets.size() > 0)
 				{
 					IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);

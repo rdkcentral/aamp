@@ -491,7 +491,7 @@ bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, Aamp
 				}
 			}
 
-			const std::vector<IContentComponent *>contentComponent = adaptationSet->GetContentComponent();
+			const std::vector<IContentComponent *>& contentComponent = adaptationSet->GetContentComponent();
 			for( int i = 0; i < contentComponent.size(); i++)
 			{
 				if (contentComponent.at(i)->GetContentType() == name)
@@ -723,7 +723,7 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -809,7 +809,7 @@ std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo
 		if (IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
 		{
 			const ISegmentTemplate *adaptationSetTemplate = adaptationSet->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = adaptationSet->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = adaptationSet->GetRepresentation();
 			if (!representations.empty())
 			{
 				const ISegmentTemplate *representationTemplate = representations.at(0)->GetSegmentTemplate();
@@ -1012,7 +1012,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 			if(firstAdaptation != NULL)
 			{
 				adaptationSet = firstAdaptation->GetSegmentTemplate();
-				const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+				const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 				if (representations.size() > 0)
 				{
 					representation = representations.at(0)->GetSegmentTemplate();
@@ -1160,7 +1160,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 				}
 				else
 				{
-					const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+					const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 					if (representations.size() > 0)
 					{
 						ISegmentList *segmentList = representations.at(0)->GetSegmentList();
@@ -1298,7 +1298,7 @@ double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, Aamp
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1387,7 +1387,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 					return durationMs;
 				}
 				AdapSegmentTemplate = firstAdaptation->GetSegmentTemplate();
-				const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+				const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 				if (representations.size() > 0)
 				{
 					RepSegmentTemplate  = representations.at(0)->GetSegmentTemplate();
@@ -1422,7 +1422,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 				}
 				else
 				{
-					const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+					const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 					if (representations.size() > 0)
 					{
 						ISegmentList *segmentList = representations.at(0)->GetSegmentList();
@@ -1507,7 +1507,7 @@ double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint6
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1588,7 +1588,7 @@ uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1632,7 +1632,7 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1685,7 +1685,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 		IAdaptationSet *firstAdaptation = adaptationSets.at(adaptationSetIdx);
 
 		adaptationSet = firstAdaptation->GetSegmentTemplate();
-		const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+		const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 		if (representationIdx < representations.size() && representationIdx >= 0)
 		{
 			representation = representations.at(representationIdx)->GetSegmentTemplate();

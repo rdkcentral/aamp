@@ -227,7 +227,7 @@ void AampUnderflowMonitor::Run()
                 {
                     std::lock_guard<std::mutex> lock(mMutex);
                     if (!mAamp) return;
-                    pipelinePaused = mAamp->pipeline_paused;
+                    pipelinePaused = mAamp->mSinkPaused.load();
                 }
                 
                 if (underflowActive && pipelinePaused)
