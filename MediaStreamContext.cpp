@@ -718,6 +718,16 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 
 	// Get active buffer
 	CachedFragment *cachedFragment = GetFetchBuffer(false);
+	
+	// In chunk mode, use the accumulated chunk duration instead of manifest duration
+	// This ensures accurate TSB duration tracking when parsed chunk durations differ from manifest values
+	if (aamp->GetLLDashChunkMode() && mChunkDurationAccumulator > 0.0)
+	{
+		AAMPLOG_DEBUG("[%s] Using accumulated chunk duration %f (manifest duration was %f)",
+			name, mChunkDurationAccumulator, dlInfo->fragmentDurationSec);
+		dlInfo->fragmentDurationSec = mChunkDurationAccumulator;
+	}
+	
 	mActiveDownloadInfo = nullptr;
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
