@@ -33,9 +33,13 @@
  * - Focus on video segment downloads (ignores manifest/audio for simplicity)
  * 
  * Build:
- *   g++ -std=c++17 -O2 -I../abr -I.. -o abrsim abrsim.cpp \
- *       ../abr/abr.cpp ../abr/HarmonicEwmaEstimator.cpp \
- *       ../abr/RollingMedianOutlierEstimator.cpp
+ *   Simple (placeholder ABR):
+ *     g++ -std=c++17 -O2 -o abrsim abrsim.cpp
+ *   
+ *   Full (real AAMP ABR):
+ *     g++ -std=c++17 -O2 -DUSE_REAL_ABR -I../abr -I.. -o abrsim abrsim.cpp \
+ *         AbrSimAdapter.cpp ../abr/abr.cpp ../abr/HarmonicEwmaEstimator.cpp \
+ *         ../abr/RollingMedianOutlierEstimator.cpp
  * 
  * Usage:
  *   ./abrsim --manifest profiles.json --persona network.json \
@@ -55,6 +59,11 @@
 #include <vector>
 #include <memory>
 #include <cstring>
+
+// Conditionally include real ABR adapter
+#ifdef USE_REAL_ABR
+#include "AbrSimAdapter.h"
+#endif
 
 // =============================================================================
 // Network Persona (from simnet)
@@ -512,8 +521,39 @@ public:
 	  mCurrentProfile(0), mSimTimeS(0.0), mRealClockS(0.0),
 	  mRng(seed ? seed : std::random_device{}()) {
 		
+#ifdef USE_REAL_ABR
+		// Initialize real AAMP ABR
+		mAbrAdapter = std::make_unique<abrsim::AbrSimAdapter>();
+		
+		// Add profiles to ABR manager
+		for (const auto& profile : ladder.profiles) {
+			abrsim::SimProfileInfo simProfile{};
+			simProfile.index = profile.index;
+			simProfile.bitrateBps = profile.bitrateBps;
+			simProfile.width = profile.width;
+			simProfile.height = profile.height;
+			simProfile.isIframeTrack = false;
+			mAbrAdapter->addProfile(simProfile);
+		}
+		
+		// Configure ABR parameters
+		mAbrAdapter->configureAbrParameters(
+			2,   // minBuffer (seconds)
+			isLive ? static_cast<int>(targetLatencyS) : static_cast<int>(maxBufferS),  // maxBuffer
+			3    // network consistency count
+		);
+		
+		// Select bandwidth estimation algorithm (use Harmonic EWMA for smoother results)
+		mAbrAdapter->selectBandwidthEstimationAlgorithm(1); // 1 = Harmonic EWMA
+		
+		// Get initial profile from ABR
+		mCurrentProfile = mAbrAdapter->getInitialProfile(false);
+		std::cout << "Using AAMP's real ABR algorithm\n";
+#else
 		// Start with mid-range profile
 		mCurrentProfile = ladder.profiles.size() / 2;
+		std::cout << "Using simple placeholder ABR algorithm\n";
+#endif
 	}
 	
 	void run(double durationS) {
@@ -687,10 +727,6 @@ private:
 	NetworkSimulator mNetSim;
 	PlaybackBuffer mBuffer;
 	EventLogger mLogger;
-	int mCurrentProfile;
-	double mSimTimeS;
-	double mRealClockS;
-	std::mt19937_64 mRng;
 	
 	// Live streaming state
 	bool mIsLive;
@@ -699,10 +735,45 @@ private:
 	double mLiveEdgeS;        // Current live edge position
 	int mCurrentSegmentNum;   // Segment number being downloaded
 	
+	int mCurrentProfile;
+	double mSimTimeS;
+	double mRealClockS;
+	std::mt19937_64 mRng;
+	
+#ifdef USE_REAL_ABR
+	std::unique_ptr<abrsim::AbrSimAdapter> mAbrAdapter;
+#endif
+	
 	// Simplified ABR decision logic (placeholder for real ABRManager integration)
 	int makeABRDecision(const NetworkSimulator::DownloadResult& result, 
 	                    const VideoProfile* currentProfile) {
-		// Simple heuristic: compare throughput vs bitrate with safety margin
+#ifdef USE_REAL_ABR
+		// Use real AAMP ABR algorithm
+		if (mAbrAdapter) {
+			abrsim::AbrDecisionContext context{};
+			context.currentBufferSeconds = mBuffer.getCurrentBuffer();
+			context.targetBufferSeconds = mIsLive ? mTargetLatencyS : mMaxBufferS;
+			context.minBufferSeconds = 2.0;
+			context.isLive = mIsLive;
+			context.currentLatencySeconds = mIsLive ? 
+				(mLiveEdgeS - (mSimTimeS - mBuffer.getCurrentBuffer())) : 0.0;
+			context.isRebuffering = mBuffer.isRebuffering();
+			context.segmentNumber = mCurrentSegmentNum;
+			
+			// Report download metrics to bandwidth estimator
+			abrsim::SimDownloadMetrics metrics{};
+			metrics.sizeBytes = static_cast<size_t>(currentProfile->avgSegmentBytes);
+			metrics.totalTimeSeconds = result.durationMs / 1000.0;
+			metrics.timeToFirstByteSeconds = 0.1; // Approximate TTFB
+			mAbrAdapter->reportDownload(metrics, mIsLive);
+			
+			// Get ABR decision
+			int decision = mAbrAdapter->makeAbrDecision(mCurrentProfile, context);
+			return decision;
+		}
+#endif
+		
+		// Fallback: Simple heuristic if real ABR not available
 		const double safetyMargin = 1.3; // Need 30% headroom
 		double requiredBps = currentProfile->bitrateBps * safetyMargin;
 		
