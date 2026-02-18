@@ -643,6 +643,7 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	unsigned int trackNum = 0;
 	CCFormat finalFormat = eCLOSEDCAPTION_FORMAT_DEFAULT;
 	mTrack = track;
+	mTrackFormat = format;
 
 	// Check if track is CCx or SERVICEx or track number
 	// Could be from 1 -> 63
@@ -735,6 +736,7 @@ void PlayerCCManagerBase::RestoreCC()
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
 
 	std::string trackId = GetTrack();
+	CCFormat trackFormat = mTrackFormat;
 
 	const auto& textTracks = getLastTextTracks();
 	bool matchFound = false;
@@ -755,6 +757,7 @@ void PlayerCCManagerBase::RestoreCC()
 		{
 			std::string defaultTrack = textTracks.front().instreamId;
 			trackId = defaultTrack.empty() ? "CC1" : defaultTrack;
+			trackFormat = eCLOSEDCAPTION_FORMAT_DEFAULT;
 			MW_LOG_WARN("PlayerCCManagerBase::matching id not found, selecting %s as default", trackId.c_str());
 		}
 	}
@@ -762,9 +765,10 @@ void PlayerCCManagerBase::RestoreCC()
 	{
 		MW_LOG_WARN("PlayerCCManagerBase::tracklist empty selecting CC1 as default");
 		trackId = "CC1";
+		trackFormat = eCLOSEDCAPTION_FORMAT_DEFAULT;
 	}
 
-	SetTrack(trackId);
+	SetTrack(trackId, trackFormat);
 }
 
 /**
@@ -853,6 +857,7 @@ void PlayerCCManagerBase::ResetState()
 
 	mOptions = "";
 	mTrack = "";
+	mTrackFormat = eCLOSEDCAPTION_FORMAT_DEFAULT;
 	mLastTextTracks.clear();
 	mEnabled = false;
 	mTrickplayStarted = false;
