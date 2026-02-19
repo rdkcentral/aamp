@@ -1231,7 +1231,7 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 	if (!periodStartStr.empty())
 	{
 		double periodStart = ParseISO8601Duration(periodStartStr.c_str());
-		for (int p = periodIndex + 1; p < periods.size(); p++)
+		for (size_t p = periodIndex + 1; p < periods.size(); p++)
 		{
 			std::string nextPeriodStartStr = periods.at(p)->GetStart();
 			bool hasSegments = aamp_HasSegmentTimeAndSegments(periods.at(p));
@@ -1247,7 +1247,7 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 					durationMs = 0;
 					break;
 				}
-				periodIndex = p;
+				periodIndex = static_cast<int>(p);
 				break;
 			}
 			else
