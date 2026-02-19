@@ -563,3 +563,85 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     EXPECT_EQ(pMediaStreamContext->adaptationSetIdx,2);
     EXPECT_EQ(pMediaStreamContext->adaptationSetId,3);
 }
+
+/**
+ * @brief Unit test for verifying SwitchAudioTrack behavior in TSB mode
+ *
+ * This test verifies that when IsLocalAAMPTsb() returns true, the offsetFromStart
+ * calculation uses mCulledSeconds instead of aamp->culledSeconds.
+ *
+ * Test Steps:
+ * 1. Define an MPD manifest with multiple audio adaptation sets
+ * 2. Initialize MPD and enable LocalTSB configuration
+ * 3. Enable TSB mode by calling SetLocalAAMPTsb(true)
+ * 4. Set up culledSeconds and mock GetPositionMilliseconds()
+ * 5. Call SwitchAudioTrack() to switch to French audio
+ * 6. Verify the audio track switch succeeds in TSB mode
+ *
+ * Expected Results:
+ * - Audio track switch should work correctly in TSB mode using mCulledSeconds
+ * - The correct adaptation set should be selected (French audio)
+ */
+TEST_F(SwitchAudioTrackTests, SwitchAudioTrackInTSBMode)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="1" contentType="audio" segmentAlignment="true" lang="eng">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<Representation id="English Stereo" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000">
+				<SegmentTemplate timescale="48000" media="dash/audio_eng_$Number%03d$.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="449" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" segmentAlignment="true" lang="fra">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<Representation id="French Stereo" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000">
+				<SegmentTemplate timescale="48000" media="dash/audio_fra_$Number%03d$.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="449" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	// Enable LocalTSB configuration for this test
+	mBoolConfigSettings[eAAMPConfig_LocalTSBEnabled] = true;
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO);
+	EXPECT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx, 0);
+	pMediaStreamContext->enabled = true;
+
+	// Set up TSB mode - this will make IsLocalAAMPTsb() return true
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	// Set up culled seconds for the test
+	mPrivateInstanceAAMP->culledSeconds = 5.0;
+
+	// Switch to French audio
+	mPrivateInstanceAAMP->preferredLanguagesList.push_back("fra");
+
+	// Mock GetPositionMilliseconds to return a known value (15 seconds = 15000 ms)
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(15000.0));
+
+	// Call SwitchAudioTrack which should use the TSB code path
+	mStreamAbstractionAAMP_MPD->SwitchAudioTrack();
+
+	// Verify the audio track was switched to French (adaptation set index 1, ID 2)
+	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx, 1);
+	EXPECT_EQ(pMediaStreamContext->adaptationSetId, 2);
+}
