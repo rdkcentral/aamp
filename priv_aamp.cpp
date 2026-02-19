@@ -2593,7 +2593,32 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 
 		//Report Progress report position based on Availability Start Time
-		start = (culledSeconds*1000.0);
+		// For local TSB, use the current first fragment position from TSB to avoid stale culledSeconds
+		if (IsLocalAAMPTsb())
+		{
+			AampTSBSessionManager* tsbSessionManager = GetTSBSessionManager();
+			if (tsbSessionManager)
+			{
+				double tsbFirstPos = tsbSessionManager->GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
+				if (tsbFirstPos > 0.0)
+				{
+					start = tsbFirstPos * 1000.0;
+					AAMPLOG_WARN("[TSB-FIX] Using TSB first position: %.3f (was culledSeconds: %.3f)", tsbFirstPos, culledSeconds);
+				}
+				else
+				{
+					start = (culledSeconds * 1000.0);
+				}
+			}
+			else
+			{
+				start = (culledSeconds * 1000.0);
+			}
+		}
+		else
+		{
+			start = (culledSeconds * 1000.0);
+		}
 		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
