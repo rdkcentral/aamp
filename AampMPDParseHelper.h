@@ -466,14 +466,19 @@ public :
 	 */
 	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration);
 
-    /**
-     * @brief  A helper function to  check if period has segment timeline for video track
-     * @param period period of segment
-     * @return True if period has segment timeline for video otherwise false
-     */
-    bool aamp_HasSegmentTimeline(IPeriod * period);
+	/**
+	 * @brief  A helper function to  check if period has segment timeline for video track
+	 * @param period period of segment
+	 * @return True if period has segment timeline for video otherwise false
+	 */
+	bool aamp_HasSegmentTime(IPeriod *period);
 
 	/**
+	 * @brief  A helper function to check if period has segment timeline and segments for video track
+	 * @param period period of segment
+	 * @return True if period has segment timeline for video otherwise false
+	 */
+	bool aamp_HasSegmentTimeAndSegments(IPeriod *period);
 	 * @brief Get the MPD instance.
 	 *
 	 * @return const dash::mpd::IMPD* A pointer to the MPD instance.
