@@ -44,6 +44,7 @@ if [ "$1" == "--real" ]; then
     $CXX $CXXFLAGS -DUSE_REAL_ABR -I../abr -I.. -o abrsim \
         abrsim.cpp \
         AbrSimAdapter.cpp \
+        aamp_stubs.cpp \
         ../abr/abr.cpp \
         ../abr/HarmonicEwmaEstimator.cpp \
         ../abr/RollingMedianOutlierEstimator.cpp

@@ -313,18 +313,30 @@ public:
 		
 		// Check for rebuffering
 		if (mCurrentBufferS < 0.0) {
-			mIsRebuffering = true;
+			if (!mIsRebuffering) {
+				startRebuffering();
+			}
 			mTotalRebufferTimeS += (-mCurrentBufferS);
 			mCurrentBufferS = 0.0;
 		}
 	}
 	
+	// Start rebuffering
+	void startRebuffering() {
+		if (!mIsRebuffering) {
+			mIsRebuffering = true;
+			mTotalRebufferEvents++;
+		}
+	}
+	
+	// Add rebuffer time during download
+	void addRebufferTime(double timeS) {
+		mTotalRebufferTimeS += timeS;
+	}
+	
 	// End rebuffering when new segment arrives
 	void endRebuffering() {
-		if (mIsRebuffering) {
-			mTotalRebufferEvents++;
-			mIsRebuffering = false;
-		}
+		mIsRebuffering = false;
 	}
 	
 	// Track latency from live edge (for live streaming)
@@ -339,6 +351,8 @@ public:
 	bool isRebuffering() const { return mIsRebuffering; }
 	bool needsSegment() const { return mCurrentBufferS < mTargetBufferS; }
 	bool isHealthy() const { return mCurrentBufferS >= mMinBufferS; }
+	double getMinBuffer() const { return mMinBufferS; }
+	double getTargetBuffer() const { return mTargetBufferS; }
 	
 	int getTotalRebufferEvents() const { return mTotalRebufferEvents; }
 	double getTotalRebufferTime() const { return mTotalRebufferTimeS; }
@@ -518,7 +532,7 @@ public:
 	  mBuffer(isLive ? targetLatencyS : maxBufferS, 2.0, true, isLive ? targetLatencyS : maxBufferS),
 	  mIsLive(isLive), mTargetLatencyS(targetLatencyS), mMaxBufferS(maxBufferS),
 	  mLiveEdgeS(0.0), mCurrentSegmentNum(0),
-	  mCurrentProfile(0), mSimTimeS(0.0), mRealClockS(0.0),
+	  mCurrentProfile(0), mSimTimeS(0.0), mPlaybackTimeS(0.0), mRealClockS(0.0),
 	  mRng(seed ? seed : std::random_device{}()) {
 		
 #ifdef USE_REAL_ABR
@@ -568,32 +582,41 @@ public:
 		auto startTime = std::chrono::steady_clock::now();
 		
 		int segmentCount = 0;
-		while (mSimTimeS < durationS) {
+		while (mPlaybackTimeS < durationS) {
 			// For live streaming, update live edge and track latency
 			if (mIsLive) {
-				// Live edge advances in real-time (simulated time)
-				mLiveEdgeS = mSimTimeS + mTargetLatencyS;
+				// Live edge advances with playback time
+				mLiveEdgeS = mPlaybackTimeS + mTargetLatencyS + mBuffer.getCurrentBuffer();
 				
-				// Calculate playback position (sim time - buffer)
-				double playbackPosS = mSimTimeS - mBuffer.getCurrentBuffer();
-				
-				// Current latency = distance from playback position to live edge
-				double currentLatencyS = mLiveEdgeS - playbackPosS;
+				// Current latency = buffer level (distance behind live edge)
+				double currentLatencyS = mLiveEdgeS - mPlaybackTimeS;
 				mBuffer.recordLatency(currentLatencyS);
 			}
 			
-			// Decide if we need to download
-			bool shouldDownload = true;
-			if (mIsLive) {
-				// For live: buffer is capped at target latency, so download if buffer < target
-				shouldDownload = mBuffer.needsSegment();
+			// Check if buffer is too low - need to stall playback
+			if (mBuffer.getCurrentBuffer() < 0.001) {
+				// Rebuffering - playback stalls
+				if (!mBuffer.isRebuffering()) {
+					SimulationEvent rebufferEvent{};
+					rebufferEvent.timeS = mPlaybackTimeS;
+					rebufferEvent.type = SimulationEvent::REBUFFER_START;
+					rebufferEvent.profileIndex = mCurrentProfile;
+					rebufferEvent.bufferLevelS = 0.0;
+					rebufferEvent.description = "Buffer underrun";
+					mLogger.log(rebufferEvent);
+					mBuffer.startRebuffering();
+				}
 			}
 			
+			// Decide if we need to download
+			bool shouldDownload = mBuffer.needsSegment();
+			
 			if (!shouldDownload) {
-				// Wait a bit and continue
-				double waitTime = 0.1;
-				mBuffer.consumeBuffer(waitTime);
-				mSimTimeS += waitTime;
+				// No download needed, just advance playback
+				double tickTime = 0.1;
+				mBuffer.consumeBuffer(tickTime);
+				mPlaybackTimeS += tickTime;
+				mSimTimeS += tickTime;
 				continue;
 			}
 			
@@ -613,38 +636,45 @@ public:
 			auto result = mNetSim.simulateDownload(static_cast<size_t>(segmentBytes));
 			double downloadTimeS = result.durationMs / 1000.0;
 			
-			// During download, buffer is being consumed
-			mBuffer.consumeBuffer(downloadTimeS);
-			
-			// Check for rebuffering
-			if (mBuffer.isRebuffering()) {
-				SimulationEvent rebufferEvent{};
-				rebufferEvent.timeS = mSimTimeS;
-				rebufferEvent.type = SimulationEvent::REBUFFER_START;
-				rebufferEvent.profileIndex = mCurrentProfile;
-				rebufferEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-				rebufferEvent.description = "Buffer underrun";
-				mLogger.log(rebufferEvent);
+			// During download, playback continues (buffer consumed)
+			// Only consume if not rebuffering
+			if (!mBuffer.isRebuffering()) {
+				mBuffer.consumeBuffer(downloadTimeS);
+				mPlaybackTimeS += downloadTimeS;
+			} else {
+				// Rebuffering - playback stalled, track rebuffer time
+				mBuffer.addRebufferTime(downloadTimeS);
 			}
 			
-			// Add segment to buffer (capped at max for live)
+			// Download completes - add segment to buffer
 			mBuffer.addSegment(mLadder.segmentDurationS);
-			mBuffer.endRebuffering();
 			
-			// Time advances by download duration
+			// If we were rebuffering and now have buffer, resume playback
+			if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() > mBuffer.getMinBuffer()) {
+				SimulationEvent resumeEvent{};
+				resumeEvent.timeS = mPlaybackTimeS;
+				resumeEvent.type = SimulationEvent::REBUFFER_END;
+				resumeEvent.profileIndex = mCurrentProfile;
+				resumeEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+				resumeEvent.description = "Playback resumed";
+				mLogger.log(resumeEvent);
+				mBuffer.endRebuffering();
+			}
+			
+			// Simulation time advances by download duration
 			mSimTimeS += downloadTimeS;
 			mCurrentSegmentNum++;
 			
 			// Log download event
 			SimulationEvent downloadEvent{};
-			downloadEvent.timeS = mSimTimeS;
+			downloadEvent.timeS = mPlaybackTimeS;
 			downloadEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
 			downloadEvent.profileIndex = mCurrentProfile;
 			downloadEvent.downloadTimeMs = result.durationMs;
 			downloadEvent.throughputBps = result.throughputBps;
 			downloadEvent.bufferLevelS = mBuffer.getCurrentBuffer();
 			if (mIsLive) {
-				double latency = mLiveEdgeS - (mSimTimeS - mBuffer.getCurrentBuffer());
+				double latency = mLiveEdgeS - mPlaybackTimeS;
 				downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + 
 				                            " kbps, Latency: " + std::to_string(static_cast<int>(latency)) + "s";
 			} else {
@@ -652,11 +682,11 @@ public:
 			}
 			mLogger.log(downloadEvent);
 			
-			// Simple ABR decision
+			// ABR decision
 			int newProfile = makeABRDecision(result, profile);
 			if (newProfile != mCurrentProfile) {
 				SimulationEvent profileEvent{};
-				profileEvent.timeS = mSimTimeS;
+				profileEvent.timeS = mPlaybackTimeS;
 				profileEvent.type = SimulationEvent::PROFILE_CHANGE;
 				profileEvent.profileIndex = newProfile;
 				profileEvent.bufferLevelS = mBuffer.getCurrentBuffer();
@@ -680,16 +710,24 @@ public:
 		
 		std::cout << "\nSimulation completed in " << std::fixed << std::setprecision(3) 
 		          << mRealClockS << " seconds (real time)\n";
-		std::cout << "Simulated " << std::setprecision(1) << mSimTimeS 
+		std::cout << "Simulated " << std::setprecision(1) << mPlaybackTimeS 
 		          << " seconds of playback\n";
 		std::cout << "Segments downloaded: " << segmentCount << "\n";
 		std::cout << "Speed-up factor: " << std::setprecision(1) 
-		          << (mRealClockS > 0 ? (mSimTimeS / mRealClockS) : 0.0) << "x\n";
+		          << (mRealClockS > 0 ? (mPlaybackTimeS / mRealClockS) : 0.0) << "x\n";
 	}
 	
 	void generateReport(const std::string& outfile) {
 		mLogger.writeCSV(outfile);
-		mLogger.printSummary(mSimTimeS);
+		mLogger.printSummary(mPlaybackTimeS);
+		
+		// Print profile ladder
+		std::cout << "\nProfile Ladder:\n";
+		for (const auto& profile : mLadder.profiles) {
+			std::cout << "  [" << profile.index << "] " 
+			          << profile.width << "x" << profile.height
+			          << " @ " << (profile.bitrateBps / 1000) << " kbps\n";
+		}
 		
 		std::cout << "\nBuffer Statistics:\n";
 		std::cout << "  Rebuffer events: " << mBuffer.getTotalRebufferEvents() << "\n";
@@ -736,7 +774,8 @@ private:
 	int mCurrentSegmentNum;   // Segment number being downloaded
 	
 	int mCurrentProfile;
-	double mSimTimeS;
+	double mSimTimeS;         // Current simulation time
+	double mPlaybackTimeS;    // Playback position (continuous)
 	double mRealClockS;
 	std::mt19937_64 mRng;
 	

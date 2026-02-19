@@ -248,6 +248,42 @@ canvas {
 	max-height: 300px;
 }
 
+.profile-ladder table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-bottom: 10px;
+}
+
+.profile-ladder th,
+.profile-ladder td {
+	padding: 8px 12px;
+	text-align: left;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.profile-ladder th {
+	background: var(--background);
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.profile-ladder tbody tr:hover {
+	background: var(--background);
+}
+
+.profile-ladder td:first-child {
+	font-weight: 600;
+	color: var(--primary-color);
+	text-align: center;
+}
+
+.profile-ladder .note {
+	font-size: 0.85em;
+	color: var(--text-secondary);
+	font-style: italic;
+	margin-top: 10px;
+}
+
 .spinner {
 	display: inline-block;
 	width: 14px;

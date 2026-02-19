@@ -28,6 +28,11 @@
 
 namespace abrsim {
 
+// Default network consistency count if not defined by AAMP
+#ifndef DEFAULT_ABR_NW_CONSISTENCY_COUNT
+#define DEFAULT_ABR_NW_CONSISTENCY_COUNT 2
+#endif
+
 // ============================================================================
 // Helper functions to convert between simulation and AAMP types
 // ============================================================================
@@ -204,10 +209,15 @@ void AbrSimAdapter::setDefaultInitBitrate(BitsPerSecond bitrate) {
 }
 
 void AbrSimAdapter::configureAbrParameters(int minBuffer, int maxBuffer, int nwConsistency) {
+	// Suppress unused parameter warnings - these are reserved for future use
+	(void)minBuffer;
+	(void)maxBuffer;
+	
 	mNetworkConsistencyCount = nwConsistency;
 	
 	// Note: Some ABR configuration may require access to AampConfig
 	// For simulation purposes, we track key parameters locally
+	// minBuffer and maxBuffer are reserved for future ABR tuning
 }
 
 void AbrSimAdapter::selectBandwidthEstimationAlgorithm(int algorithmType) {
