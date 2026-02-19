@@ -29,6 +29,9 @@
 #include <stddef.h>
 #include <assert.h>
 #include <string>
+#include <cctype>
+#include <stdexcept>
+#include "AampLogManager.h"
 
 const char CHAR_CR = '\r'; // 0x0d
 const char CHAR_LF = '\n'; // 0x0a
@@ -212,56 +215,150 @@ public:
 	{
 		return (int)atoll();
 	}
-	
-	double atof() const
-	{
-		long long ival = 0;
-		long long precision = 1;
-		bool afterDecimal = false;
-		int i = 0;
-		if( startswith('-') )
-		{
-			i++; // skip leading negative sign
-			precision = -1; // ensure final value is negated
-		}
-		for(; i<len; i++ )
-		{
-			char c = ptr[i];
-			if( c>='0' && c<='9' )
+
+// This function provides a robust, fault-tolerant conversion of a character
+// buffer into a floating-point value. It is designed specifically for parsing
+// HLS playlist fields (e.g., EXTINF durations) where malformed or unexpected
+// input is common and strict failure is undesirable.
+//
+// Unlike std::atof() or std::strtod(), this parser:
+//
+//   • Accepts partial numbers and stops cleanly at the first non-numeric
+//     character (e.g., "3.25e-5" -> 3.25, "12.5abc" -> 12.5).
+//
+//   • Rejects malformed formats that could indicate a real authoring error,
+//     such as multiple decimal points ("12.34.56") or a sign with no digits
+//     ("+", "-", "+  ").
+//
+//   • Handles leading whitespace and an optional sign.
+//
+//   • Avoids undefined behavior by safely casting characters before calling
+//     std::isspace() or std::isdigit().
+//
+//   • Logs detailed error messages—including the failure reason, offending
+//     character, and input buffer—without throwing exceptions to the caller.
+//
+// The goal is to extract a best-effort numeric value while still providing
+// strong diagnostics for debugging malformed playlist data.
+    
+double atof() const
+    {
+        try
+        {
+            if (ptr == nullptr) 
+				throw std::runtime_error("null pointer input");
+
+			if (len == 0)
+                throw std::runtime_error("empty string at index 0");
+
+            size_t i = 0;
+
+            // Skip leading whitespace
+			while (i < len && std::isspace(static_cast<unsigned char>(ptr[i])))
+            i++;
+
+            // If we reached the end, the string was only whitespace
+            if (i >= len)
+                throw std::runtime_error("empty string at index 0");
+
+            // Optional sign
+            int sign = 1;
+            if (ptr[i] == '-' || ptr[i] == '+')
+            {
+                if (ptr[i] == '-')
+                    sign = -1;
+                i++;
+            }
+
+            //First meaningful character must be digit or '.'
+			if (i >= len)
+            {
+                // End of string reached before finding a valid starting digit or '.'
+                throw std::runtime_error(
+                    std::string("unexpected end of string while expecting digit or '.' at index ") +
+                    std::to_string(i)
+                );
+            }
+			// After optional sign, the first character MUST be digit or '.'
+            // Otherwise it's an invalid number like "abc" or "+x5"
+			if (!(std::isdigit(static_cast<unsigned char>(ptr[i])) || ptr[i] == '.'))
 			{
-				ival*=10;
-				ival += (c-'0');
-				if( afterDecimal )
-				{
-					precision*=10;
-				}
-			}
-			else if( c=='.' )
-			{
-				if (afterDecimal)
-				{
-					throw std::runtime_error(
-						std::string("lstring::atof: multiple decimal points in string '") +
-						std::string(ptr, len) + "'"
-					);
-				}
-				afterDecimal = true;
-			}
-			else if( c==',' )
-			{
-				break;
-			}
-			else
-			{
-				throw std::runtime_error(
-					std::string("lstring::atof: unexpected character '") + c +
-					"' in string '" + std::string(ptr, len) + "'"
-				);
-			}
-		}
-		return ival/(double)precision;
+                throw std::runtime_error(
+                    std::string("unexpected character '") + ptr[i] +
+                    "' at index " + std::to_string(i)
+                );
+            }
+
+            long long ival = 0;     // integer part
+            long long frac = 0;     // fractional part
+            long long fracDiv = 1;  // divisor for fractional digits
+            bool afterDecimal = false;
+
+            // Main parsing loop
+            for (; i < len; i++)
+            {
+                char c = ptr[i];
+
+                if (c >= '0' && c <= '9')
+                {
+                    // Accumulate integer or fractional digits
+                    if (!afterDecimal)
+                        ival = ival * 10 + (c - '0');
+                    else
+                    {
+                        frac = frac * 10 + (c - '0');
+                        fracDiv *= 10;
+                    }
+                }
+                else if (c == '.')
+                {
+                    // Only one decimal point allowed
+                    if (afterDecimal)
+                    {
+                        throw std::runtime_error(
+                            "multiple decimal points at index " + std::to_string(i)
+                        );
+                    }
+                    afterDecimal = true;
+                }
+                else
+                {
+                    // STOP PARSING on any non-numeric character
+                    // This allows "3.25e", "3.25xyz", "3.1x5", etc.
+                    break;
+                }
+            }
+
+            // Combine integer + fractional parts
+            double result = (double)ival + (double)frac / (double)fracDiv;
+            return sign * result;
+        }
+        catch (const std::exception& e)
+        {
+           if (ptr != NULL && len > 0)
+            {
+               AAMPLOG_ERR("unknown exception %s | input: \"%.*s\" len: %zu", e.what(),(int)len, ptr, (size_t)len);
+            }
+            else
+            {
+                AAMPLOG_ERR("unknown exception | len: %zu", (size_t)len );
+            }
+            return 0.0;
+        }
+        catch (...)
+        {
+            if (ptr != NULL && len > 0)
+            {
+               AAMPLOG_ERR("unknown exception | input: \"%.*s\" len: %zu", (int)len, ptr, (size_t)len);
+            }
+            else
+            {
+               AAMPLOG_ERR("unknown exception | len: %zu", (size_t)len );
+            }
+			return 0.0;
+    	}
 	}
-	
+
 	bool empty( void ) const
 	{
 		return len==0;
