@@ -486,7 +486,7 @@ public :
 	 * @param period period of segment
 	 * @return True if period has segment timeline for video otherwise false
 	 */
-    bool aamp_HasSegmentTimeAndSegments(IPeriod *period);
+	bool aamp_HasSegmentTimeAndSegments(IPeriod *period);
 
 	/**
 	 * @brief  A helper function to  check if period has segment template for video track
