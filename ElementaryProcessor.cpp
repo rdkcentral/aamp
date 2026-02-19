@@ -69,7 +69,7 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->size(), position, position, duration);
+		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetVector(), position, position, duration);
 	}
 }
 
