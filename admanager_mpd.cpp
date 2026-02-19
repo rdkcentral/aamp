@@ -586,8 +586,8 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					uint64_t currPeriodDuration = adMPDParseHelper->GetPeriodDurationFromStart(iter);
 					int64_t diff = static_cast<int64_t>(currPeriodDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
 					//Take copy because we do not want to change the value of mWaitForManifestUpdate via pass by ref.
-					uint64_t WaitForManifestUpdate_copy = mWaitForManifestUpdate;
-					int64_t periodDelta = static_cast<int64_t>(adMPDParseHelper->GetPeriodNewContentDurationMs(periods.at(iter), WaitForManifestUpdate_copy));
+					uint64_t waitForManifestUpdateCopy = mWaitForManifestUpdate;
+					int64_t periodDelta = static_cast<int64_t>(adMPDParseHelper->GetPeriodNewContentDurationMs(periods.at(iter), waitForManifestUpdateCopy));
 
 					if ( currPeriodDuration == 0 && periodDelta < OFFSET_ALIGN_FACTOR )
 					{
