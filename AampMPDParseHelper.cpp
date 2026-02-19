@@ -1227,6 +1227,14 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 
 	double durationMs = 0;
 	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
+	
+	// Validate periodIndex is within bounds
+	if (periodIndex < 0 || static_cast<size_t>(periodIndex) >= periods.size())
+	{
+		AAMPLOG_WARN("Invalid periodIndex %d, periods size %zu", periodIndex, periods.size());
+		return 0;
+	}
+	
 	std::string periodStartStr = periods.at(periodIndex)->GetStart();
 	if (!periodStartStr.empty())
 	{
