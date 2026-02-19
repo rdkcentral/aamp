@@ -1238,7 +1238,7 @@ double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 
 			if (hasSegments && !nextPeriodStartStr.empty())
 			{
-				// We can calculate period duration by subtracting startime from next period start time.
+				// We can calculate period duration by subtracting start time from next period start time.
 				double nextPeriodStart = ParseISO8601Duration(nextPeriodStartStr.c_str());
 				durationMs = nextPeriodStart - periodStart;
 				if (durationMs <= 0)
