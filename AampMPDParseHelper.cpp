@@ -1214,7 +1214,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 
 /**
  *   @brief  Get Period Duration from start time of this period and next
- *   @param  periodIndex
+ *   @param  periodIndex Index of the period (modified to point to the next non-empty period if found)
  *   @retval period duration in milliseconds, 0 if not obtainable
  */
 double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
