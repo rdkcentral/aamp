@@ -7431,6 +7431,8 @@ void PrivateInstanceAAMP::detach()
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
 	ReleaseStreamLock();
+	//This will flush pending events and avoids crash.
+	mEventManager->FlushPendingEvents();
 }
 
 /**
