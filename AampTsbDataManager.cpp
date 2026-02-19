@@ -375,6 +375,12 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 		mCurrHead = std::move(fragmentData);
 		mTsbFragmentData[position] = mCurrHead;
 		ret = true;
+		
+		// DEBUG: Log TSB state after adding fragment
+		double firstPos = !mTsbFragmentData.empty() ? mTsbFragmentData.begin()->first : 0.0;
+		double lastPos = !mTsbFragmentData.empty() ? mTsbFragmentData.rbegin()->first : 0.0;
+		AAMPLOG_WARN("[TSB-DEBUG] AddFragment[%s]: Added pos=%.3f dur=%.3f | TSB has %zu fragments, range[%.3f to %.3f]",
+			GetMediaTypeName(media), position, duration, mTsbFragmentData.size(), firstPos, lastPos);
 	}
 	catch (const std::exception &e)
 	{

@@ -300,14 +300,10 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	// Timestamp (for download metrics)
 	cached->downloadStartTime = desc.downloadStartTime;
 	
-	// NOTE: For BOTH modes, we populate timing fields from descriptor.
-	// Fragment mode: These values are from the manifest; OnFragmentDownloadSuccess will overwrite them with PTS-restamped values
-	// Chunk mode: These are computed per-chunk; may be further refined below
-	cached->position = desc.position;
-	cached->duration = desc.duration;
-	cached->absPosition = desc.absolutePosition;
-	cached->timeScale = desc.timeScale;
-	cached->PTSOffsetSec = desc.ptsOffsetSec;
+	// NOTE: Timing fields (position, duration, absPosition, timeScale, PTSOffsetSec)
+	// For FRAGMENT MODE: NOT set here. They are populated by OnFragmentDownloadSuccess() 
+	//                    which applies PTS restamping and finalizes timing information.
+	// For CHUNK MODE: Set immediately below in Step 3.5.
 	
 	// =================================================================
 	// Step 3.5: CHUNK MODE ONLY - Set Timing Fields for Position Tracking
@@ -676,6 +672,12 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
+	
+	// DEBUG: Log TSB fragment being cached
+	AAMPLOG_WARN("[TSB-DEBUG][%s] CacheTsbFragment ENTER: pos=%.3f dur=%.3f absPos=%.3f size=%zu init=%d",
+		name, fragment->position, fragment->duration, fragment->absPosition, 
+		fragment->fragment.size(), fragment->initFragment);
+	
 	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
@@ -744,6 +746,11 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	cachedFragment->duration = dlInfo->fragmentDurationSec;
 	cachedFragment->absPosition = dlInfo->absolutePosition;
 	cachedFragment->PTSOffsetSec = dlInfo->ptsOffset.inSeconds();
+	
+	// DEBUG: Log fragment timing fields being set
+	AAMPLOG_WARN("[TSB-DEBUG][%s] OnFragmentDownloadSuccess SET TIMING: position=%.3f duration=%.3f absPosition=%.3f PTSOffset=%.3f isInit=%d",
+		name, cachedFragment->position, cachedFragment->duration, cachedFragment->absPosition, 
+		cachedFragment->PTSOffsetSec, dlInfo->isInitSegment);
 	if (dlInfo->timeScale > 0)
 	{
 		cachedFragment->timeScale = dlInfo->timeScale;
@@ -783,10 +790,11 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	segDLFailCount = 0;
 	// Update the last downloaded position for buffered duration calculation
 	lastDownloadedPosition.store(dlInfo->absolutePosition + dlInfo->fragmentDurationSec);
-	AAMPLOG_DEBUG("[%s] lastDownloadedPosition %lfs fragmentTime %lfs",
+	AAMPLOG_WARN("[TSB-DEBUG][%s] UPDATE lastDownloadedPosition: %.3f (absPos=%.3f + dur=%.3f)",
 				 GetMediaTypeName(dlInfo->mediaType),
 				 lastDownloadedPosition.load(),
-				 dlInfo->absolutePosition);
+				 dlInfo->absolutePosition,
+				 dlInfo->fragmentDurationSec);
 	if ((eTRACK_VIDEO == type) && (!dlInfo->isInitSegment))
 	{
 		// reset count on video fragment success
@@ -864,7 +872,11 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	else
 	{
 		// Update buffer index after fetch for injection
+		AAMPLOG_WARN("[TSB-DEBUG][%s] BEFORE UpdateTSAfterFetch: numberOfFragmentsCached=%d fragmentIdxToFetch=%d isInit=%d",
+			name, numberOfFragmentsCached, fragmentIdxToFetch, dlInfo->isInitSegment);
 		UpdateTSAfterFetch(dlInfo->isInitSegment);
+		AAMPLOG_WARN("[TSB-DEBUG][%s] AFTER UpdateTSAfterFetch: numberOfFragmentsCached=%d fragmentIdxToFetch=%d",
+			name, numberOfFragmentsCached, fragmentIdxToFetch);
 
 		// With AAMP TSB enabled, the chunk cache is used for any content type (SLD or LLD)
 		// When playing live SLD content, the fragment is written to the regular cache and to the chunk cache
@@ -872,6 +884,9 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		{
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 			fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.size());
+			AAMPLOG_WARN("[TSB-DEBUG][%s] CALLING CacheTsbFragment: pos=%.3f dur=%.3f absPos=%.3f size=%zu",
+				name, fragmentToCache->position, fragmentToCache->duration, 
+				fragmentToCache->absPosition, fragmentToCache->fragment.size());
 			CacheTsbFragment(std::move(fragmentToCache));
 		}
 

@@ -485,6 +485,11 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	std::unique_lock<std::mutex> lock(mutex);
 
 	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
+	
+	// DEBUG: Log fragment details before incrementing counters
+	AAMPLOG_WARN("[TSB-DEBUG][%s] UpdateTSAfterFetch START: fragmentIdxToFetch=%d numberOfFragmentsCached=%d isInit=%d frag[pos=%.3f dur=%.3f absPos=%.3f]",
+		name, fragmentIdxToFetch, numberOfFragmentsCached, IsInitSegment,
+		cachedFragment->position, cachedFragment->duration, cachedFragment->absPosition);
 
 	if (pContext)
 	{
@@ -562,6 +567,10 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		totalFragmentsDownloaded++;
 	}
+	
+	// DEBUG: Log final state after index increment
+	AAMPLOG_WARN("[TSB-DEBUG][%s] UpdateTSAfterFetch END: fragmentIdxToFetch=%d numberOfFragmentsCached=%d totalFragmentsDownloaded=%d totalFetchedDuration=%.3f",
+		name, fragmentIdxToFetch, numberOfFragmentsCached, totalFragmentsDownloaded, totalFetchedDuration);
 
 	fragmentFetched.notify_one();
 	lock.unlock();

@@ -686,7 +686,14 @@ double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
 	{
 		if(dataMgr->GetLastFragment())
 		{
-			totalDuration = (dataMgr->GetLastFragmentPosition() + dataMgr->GetLastFragment()->GetDuration().inSeconds()) - dataMgr->GetFirstFragmentPosition();
+			double lastPos = dataMgr->GetLastFragmentPosition();
+			double lastDur = dataMgr->GetLastFragment()->GetDuration().inSeconds();
+			double firstPos = dataMgr->GetFirstFragmentPosition();
+			totalDuration = (lastPos + lastDur) - firstPos;
+			
+			// DEBUG: Log TSB duration calculation details
+			AAMPLOG_WARN("[TSB-DEBUG] GetTotalStoreDuration[%d]: lastPos=%.3f + lastDur=%.3f - firstPos=%.3f = %.3f seconds",
+				mediaType, lastPos, lastDur, firstPos, totalDuration);
 		}
 		else
 		{
