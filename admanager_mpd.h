@@ -82,7 +82,7 @@ public:
 	}
 
 	/**
-	 * @fn SetAlternateContents 
+	 * @fn SetAlternateContents
 	 *
 	 * @param[in] periodId - Adbreak's unique identifier; the first period id
 	 * @param[in] adId - Individual Ad's id
@@ -366,7 +366,7 @@ public:
 	bool                                           mExitFulfillAdLoop;    /**< Flag to exit the Ad fulfillment loop */
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
-
+	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *

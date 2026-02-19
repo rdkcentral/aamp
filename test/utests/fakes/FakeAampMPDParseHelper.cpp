@@ -88,7 +88,7 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
  * @brief Check if Period is empty or not
  * @retval Return true on empty Period
  */
-bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe) 
+bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 {
 	return false;
 }
@@ -116,6 +116,11 @@ bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
  *   @retval period duration in milliseconds
  */
 double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime)
+{
+	return 0.0;
+}
+
+double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
 {
 	return 0.0;
 }
