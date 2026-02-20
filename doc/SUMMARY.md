@@ -37,6 +37,9 @@ This document provides a quick reference guide to the AAMP architecture and docu
 18. **[18-beginners-guide.md](18-beginners-guide.md)** - Beginner's guide for new developers
 19. **[19-expert-deep-dive.md](19-expert-deep-dive.md)** - Advanced topics for experts
 
+### RDK Integration
+- **[20-rdk-integration-usage.md](20-rdk-integration-usage.md)** - RDK-E integration, how AAMP is used, component interaction architecture
+
 ### High-Level Design
 - **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)** - Comprehensive RDK-E design and usage
 
@@ -128,6 +131,7 @@ This document provides a quick reference guide to the AAMP architecture and docu
 - Advanced: **[19-expert-deep-dive.md](19-expert-deep-dive.md)**
 
 ### RDK-E Integration
+- Integration & usage: **[20-rdk-integration-usage.md](20-rdk-integration-usage.md)**
 - Design: **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
 
 ## Documentation Navigation Tips
@@ -135,5 +139,13 @@ This document provides a quick reference guide to the AAMP architecture and docu
 - **New to AAMP?** → Start with **[18-beginners-guide.md](18-beginners-guide.md)**
 - **Need architecture overview?** → Read **[01-architecture-overview.md](01-architecture-overview.md)**
 - **Working on a specific component?** → Check the corresponding numbered document (04-17)
-- **RDK-E integration?** → See **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
+- **RDK-E integration?** → See **[20-rdk-integration-usage.md](20-rdk-integration-usage.md)** and **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
 - **Advanced topics?** → Review **[19-expert-deep-dive.md](19-expert-deep-dive.md)**
+
+## Where to Look: Debug, Extend, or Optimize
+
+- **Debug playback/tune issues**: [15-workflows-execution.md](15-workflows-execution.md) (lifecycle, tune flow), [09-event-management.md](09-event-management.md) (events), [priv_aamp.cpp](../priv_aamp.cpp) (state machine), [fragmentcollector_*.cpp](../fragmentcollector_hls.cpp) (protocol-specific).
+- **Extend protocols or pipeline**: [02-code-organization.md](02-code-organization.md), [04-fragment-collection.md](04-fragment-collection.md), [11-gstreamer-integration.md](11-gstreamer-integration.md), [StreamAbstractionAAMP.h](../StreamAbstractionAAMP.h).
+- **Optimize ABR or buffering**: [05-adaptive-bitrate.md](05-adaptive-bitrate.md), [06-buffer-management.md](06-buffer-management.md), [abr/](../abr/), [AampTimeBasedBufferManager](../AampTimeBasedBufferManager.cpp).
+- **DRM or config**: [07-drm-system.md](07-drm-system.md), [13-configuration-system.md](13-configuration-system.md).
+- **Profiling and debugging techniques**: [19-expert-deep-dive.md](19-expert-deep-dive.md) (profiler, sanitizers, curl logging).

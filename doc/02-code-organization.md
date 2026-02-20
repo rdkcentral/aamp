@@ -33,6 +33,8 @@ aamp_linux/
 
 ### Root Directory Files
 
+**Important:** Many core implementation files live in the repository **root** (same directory as `doc/`), not in subfolders. The following breakdown includes both root and subsystem directories.
+
 #### Core Player Files
 
 **`main_aamp.h/cpp`**
@@ -247,23 +249,17 @@ aamp_linux/
 
 **Dependencies**: `AampMediaType.h`, `AampConfig.h`
 
-#### `dash/` - DASH Manifest Parsing
+#### DASH Manifest Parsing (No Top-Level `dash/` Folder)
 
-**Subdirectories**:
-- `mpd/`: MPD (Media Presentation Description) model
-- `xml/`: XML DOM parsing
-- `utils/`: DASH utilities
+**Note:** This repository does **not** contain a top-level `dash/` directory with MPD model or XML DOM code. DASH manifest parsing is implemented as follows:
 
-**Key Files**:
-- `mpd/MPDModel.h/cpp`: MPD data model
-- `mpd/MPDSegmenter.h/cpp`: Segment URL generation
-- `xml/DomDocument.h/cpp`: XML document parsing
-- `utils/Url.h/cpp`: URL manipulation
-- `utils/Path.h/cpp`: Path utilities
+- **Primary implementation**: `fragmentcollector_mpd.h/cpp` (StreamAbstractionAAMP_MPD, fragment collection and segment URL generation).
+- **Helpers**: `AampMPDDownloader`, `AampMPDParseHelper`, and related MPD utilities (exact filenames in root or support locations; see build/CMake for full list).
+- **External dependency**: **libdash** is used for MPD parsing (industry-standard library). Tests reference `libdash/IMPD.h`, `libdash/INode.h`, etc.
 
-**Purpose**: DASH manifest parsing and processing
+**Purpose**: DASH (MPEG-DASH) manifest parsing and segment handling via libdash and AAMP-specific helpers.
 
-**Dependencies**: `libdash`, `libxml2`
+**Dependencies**: `libdash`, `libxml2` (where used)
 
 #### `downloader/` - HTTP Download Management
 
@@ -444,72 +440,73 @@ aamp_linux/
 6. **`fragmentcollector_progressive.cpp`** - Progressive MP4
    - Simple progressive download
 
-### Media Processing
+### Media Processing & Track Workers
 
-7. **`MediaStreamContext.cpp`** - DASH stream context
-   - Fragment caching
-   - Fragment injection
+7. **`MediaStreamContext.h/cpp`** - DASH stream context
+   - Per-stream fragment caching and injection state
+   - Used by StreamAbstractionAAMP_MPD
 
 8. **`ElementaryProcessor.cpp`** - Elementary stream processing
-   - PTS/DTS handling
-   - Stream processing
+   - PTS/DTS handling and stream processing
 
-9. **`tsprocessor.cpp`** - Transport stream processing
-   - TS demuxing
-   - Packet processing
+9. **`tsprocessor.h/cpp`** - Transport stream processing
+   - TS demuxing and packet processing
 
-10. **`tsDemuxer.cpp`** - TS demuxer
+10. **`tsDemuxer.hpp/cpp`** - TS demuxer
     - Transport stream parsing
 
 11. **`tsFragmentProcessor.cpp`** - TS fragment processing
-    - Fragment demuxing
+    - TS fragment demuxing
+
+12. **`AampTrackWorkerManager.cpp`** (and related header) - Track worker threads
+    - Spawns and manages workers for video/audio/auxiliary tracks
+    - Work queue and coordination with fragment collectors
+
+13. **`AampTimeBasedBufferManager.h/cpp`** - Time-based buffering
+    - Buffer duration tracking and thresholds
+    - Used by ABR and buffer health logic
 
 ### DRM
 
-12. **`AampDRMLicPreFetcher.cpp`** - License prefetching
-    - Proactive license acquisition
-
-13. **`drm/AampDRMLicManager.cpp`** - License management
-    - License acquisition
-    - Key management
+14. **`AampDRMLicPreFetcher.cpp`** (if present) - License prefetching
+15. **`drm/DrmInterface.cpp`**, **`drm/AampDRMLicManager`** (as built) - License acquisition and key management
 
 ### Utilities
 
-14. **`AampUtils.cpp`** - General utilities
-15. **`AampMPDUtils.cpp`** - DASH utilities
-16. **`AampMPDDownloader.cpp`** - MPD downloader
-17. **`AampMPDParseHelper.cpp`** - MPD parsing helpers
-18. **`iso639map.cpp`** - Language code mapping
+16. **`AampUtils.cpp`** - General utilities
+17. **`AampMPDUtils.cpp`** (if present) - DASH utilities
+18. **`AampMPDDownloader.cpp`** (or equivalent) - MPD downloader
+19. **`AampMPDParseHelper.cpp`** (or equivalent) - MPD parsing helpers
+20. **`iso639map.cpp`** (if present) - Language code mapping
 
 ### Event System
 
-19. **`AampEvent.cpp`** - Event data structures
-20. **`AampEventManager.cpp`** - Event dispatch
+21. **`AampEvent.cpp`** - Event data structures
+22. **`AampEventManager.cpp`** - Event dispatch
 
 ### Configuration
 
-21. **`AampConfig.cpp`** - Configuration management
+23. **`AampConfig.cpp`** - Configuration management
 
 ### TSB
 
-22. **`AampTSBSessionManager.cpp`** - TSB session management
-23. **`AampTsbDataManager.cpp`** - TSB data management
-24. **`AampTsbReader.cpp`** - TSB reading
-25. **`AampTsbMetaDataManager.cpp`** - TSB metadata
-
-### Track Management
-
-26. **`AampTrackWorker.cpp`** - Track worker threads
-27. **`AampTrackWorkerManager.cpp`** - Worker thread management
+24. **`AampTSBSessionManager.cpp`** - TSB session management
+25. **`AampTsbDataManager.cpp`** (if present) - TSB data management
+26. **`AampTsbReader.cpp`** (if present) - TSB reading
+27. **`AampTsbMetaDataManager.cpp`** (if present) - TSB metadata  
+    TSB API and storage: **`tsb/api/TsbApi.h`**, **`tsb/src/TsbStore.cpp`**, etc.
 
 ### Ad Management
 
-28. **`admanager_mpd.cpp`** - DASH ad management
+28. **`admanager_mpd.h/cpp`** - DASH ad management
+29. **`AdManagerBase.h`** - Base type for ad managers
 
-### Metadata
+### Metadata & Other
 
-29. **`ID3Metadata.cpp`** - ID3 metadata processing
 30. **`MetadataProcessor.cpp`** - Metadata processing
+31. **`ID3Metadata.cpp`** (if present) - ID3 metadata processing
+32. **`AampCacheHandler.h/cpp`** - Fragment/cache handling utilities
+33. **`videoin_shim.h/cpp`** - Video input shim (platform-specific; purpose as in source)
 
 ## Dependencies and Relationships
 

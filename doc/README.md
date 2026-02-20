@@ -139,9 +139,16 @@ This directory contains comprehensive documentation for the AAMP (Advanced Adapt
     - Performance tuning
     - Memory optimization techniques
 
+### RDK Integration
+
+22. **[20-rdk-integration-usage.md](20-rdk-integration-usage.md)**
+    - RDK-E integration high-level view
+    - How the AAMP component can be used (API, JS, CLI)
+    - High-level architecture: other components interacting with AAMP
+
 ### High-Level Design
 
-22. **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
+23. **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)**
     - Comprehensive high-level design overview
     - RDK-E integration details and usage patterns
     - Component interactions and data flows
@@ -169,10 +176,11 @@ This directory contains comprehensive documentation for the AAMP (Advanced Adapt
 4. Check **[13-configuration-system.md](13-configuration-system.md)** for configuration
 
 ### For RDK-E Developers
-1. Read **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)** for RDK-E integration
-2. Review **[12-middleware-platform.md](12-middleware-platform.md)** for middleware details
-3. Check **[07-drm-system.md](07-drm-system.md)** for DRM integration
-4. Study **[16-javascript-bindings.md](16-javascript-bindings.md)** for WebKit integration
+1. Read **[20-rdk-integration-usage.md](20-rdk-integration-usage.md)** for integration and usage
+2. Read **[AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md)** for detailed RDK-E design
+3. Review **[12-middleware-platform.md](12-middleware-platform.md)** for middleware details
+4. Check **[07-drm-system.md](07-drm-system.md)** for DRM integration
+5. Study **[16-javascript-bindings.md](16-javascript-bindings.md)** for WebKit integration
 
 ### For Advanced Developers
 1. Review **[19-expert-deep-dive.md](19-expert-deep-dive.md)** for advanced topics

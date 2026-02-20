@@ -38,6 +38,41 @@ AAMP is an open source native video engine that is built on top of GStreamer and
 
 ---
 
+## Full Subsystem Documentation
+
+Comprehensive AAMP subsystem documentation (architecture, code organization, classes, configuration, workflows, testing, beginner-to-expert guides, and RDK integration) is split into multiple Markdown files in the **doc** folder. Each document is self-contained and covers a specific submodule.
+
+- **[doc/README.md](doc/README.md)** - Documentation hub and navigation
+- **[doc/SUMMARY.md](doc/SUMMARY.md)** - Quick reference and document index
+
+### Submodule documentation (in doc/)
+
+| # | Document | Description |
+|---|----------|-------------|
+| 01 | [01-architecture-overview.md](doc/01-architecture-overview.md) | High-level purpose, role in RDK, architecture, components |
+| 02 | [02-code-organization.md](doc/02-code-organization.md) | Repository structure, folder/file breakdown, dependencies |
+| 03 | [03-core-classes-interfaces.md](doc/03-core-classes-interfaces.md) | Major classes, interfaces, responsibilities, relationships |
+| 04 | [04-fragment-collection.md](doc/04-fragment-collection.md) | HLS/DASH/Progressive fragment collection |
+| 05 | [05-adaptive-bitrate.md](doc/05-adaptive-bitrate.md) | ABR system, bandwidth estimation, profile selection |
+| 06 | [06-buffer-management.md](doc/06-buffer-management.md) | Buffer strategies, time/byte-based buffering |
+| 07 | [07-drm-system.md](doc/07-drm-system.md) | DRM architecture, license handling, multi-DRM |
+| 08 | [08-downloader-network.md](doc/08-downloader-network.md) | HTTP/HTTPS download layer, connection handling |
+| 09 | [09-event-management.md](doc/09-event-management.md) | Event system, types, listeners, dispatch |
+| 10 | [10-time-shift-buffer.md](doc/10-time-shift-buffer.md) | TSB architecture, local/remote, API |
+| 11 | [11-gstreamer-integration.md](doc/11-gstreamer-integration.md) | GStreamer pipeline, media injection |
+| 12 | [12-middleware-platform.md](doc/12-middleware-platform.md) | Middleware, platform integration |
+| 13 | [13-configuration-system.md](doc/13-configuration-system.md) | Configuration hierarchy, parameters, build |
+| 14 | [14-build-system.md](doc/14-build-system.md) | Build system, CMake, flags |
+| 15 | [15-workflows-execution.md](doc/15-workflows-execution.md) | Lifecycle, tune/read/write/sync/shutdown flows |
+| 16 | [16-javascript-bindings.md](doc/16-javascript-bindings.md) | JS/WebKit bindings, UVE API |
+| 17 | [17-testing-quality.md](doc/17-testing-quality.md) | Testing, coverage, quality analysis |
+| 18 | [18-beginners-guide.md](doc/18-beginners-guide.md) | Beginner concepts, learning path |
+| 19 | [19-expert-deep-dive.md](doc/19-expert-deep-dive.md) | Advanced topics, optimization |
+| 20 | [20-rdk-integration-usage.md](doc/20-rdk-integration-usage.md) | RDK-E integration, usage, component interaction |
+| — | [AAMP_High_Level_Design_and_RDK-E_Usage.md](doc/AAMP_High_Level_Design_and_RDK-E_Usage.md) | High-level design and RDK-E usage (detailed) |
+
+---
+
 ## Documentation Index
 
 1. [AAMP Source Overview](#aamp-source-overview)

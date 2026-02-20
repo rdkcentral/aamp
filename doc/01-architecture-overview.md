@@ -164,68 +164,235 @@ graph TB
 ### Major Components
 
 #### 1. PlayerInstanceAAMP
-- **Purpose**: Public API interface for applications
+- **Purpose**: Public API interface for applications providing pimpl idiom encapsulation
 - **Location**: `main_aamp.h/cpp`
+- **Thread Safety**: All public methods protected with internal mutexes
+- **Key Attributes**:
+  ```cpp
+  class PrivateInstanceAAMP *aamp;                   // Internal implementation pointer
+  std::shared_ptr<PrivateInstanceAAMP> sp_aamp;     // Shared ownership management
+  AampConfig mConfig;                                // Configuration management instance
+  ```
 - **Responsibilities**:
-  - Public method exposure (Tune, Seek, SetRate, etc.)
-  - Event listener registration
-  - Configuration management
-  - JavaScript binding integration
+  - **Public Method Exposure**: Complete playback API (Tune, Seek, SetRate, Stop, etc.)
+  - **Event Listener Management**: Registration, deregistration, and lifecycle management
+  - **Configuration Interface**: Centralized config access via `AampConfig`
+  - **JavaScript Integration**: WebKit JS injection bundle interfaces
+  - **Memory Management**: Safe resource cleanup via RAII and smart pointers
 
 #### 2. PrivateInstanceAAMP
-- **Purpose**: Internal player implementation
+- **Purpose**: Core player implementation with internal state management
 - **Location**: `priv_aamp.h/cpp`
+- **Inheritance**: `public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>`
+- **Key Attributes**:
+  ```cpp
+  std::atomic<PrivAAMPState> mState;                 // Thread-safe state tracking
+  StreamAbstractionAAMP *mpStreamAbstraction;        // Protocol handler instance
+  AAMPGstPlayer *mGstPlayer;                        // GStreamer pipeline manager
+  AampEventManager *mEventManager;                   // Event dispatch system
+  ABRManager *mhAbrManager;                         // Adaptive bitrate controller
+  CurlInstance mCurl;                               // HTTP client instance
+  pthread_mutex_t mLock;                            // Thread synchronization
+  ```
 - **Responsibilities**:
-  - Core playback logic
-  - GStreamer pipeline management
-  - State machine management
-  - Error handling and recovery
+  - **State Machine**: Manages IDLE→INITIALIZING→PREPARING→PLAYING transitions
+  - **GStreamer Integration**: Pipeline creation, configuration, and fragment injection
+  - **Protocol Coordination**: StreamAbstraction lifecycle management
+  - **DRM Callback Implementation**: License events, key rotation, error handling
+  - **Thread Management**: Fragment collection, injection, and ABR threads
+  - **Error Recovery**: Automatic retries, fallback mechanisms, and cleanup
 
 #### 3. StreamAbstractionAAMP
-- **Purpose**: Base class for protocol-specific implementations
+- **Purpose**: Protocol-agnostic base class providing common streaming functionality
 - **Location**: `StreamAbstractionAAMP.h`, `streamabstraction.cpp`
+- **Design Pattern**: Template Method pattern with virtual protocol-specific implementations
+- **Key Attributes**:
+  ```cpp
+  MediaTrack* mediaTrack[AAMP_TRACK_COUNT];         // Video/Audio/Subtitle tracks
+  ProfileInfo streamInfo[MAX_PROFILES];             // Available quality profiles
+  int currentProfileIndex;                          // Active quality selection
+  double playbackRate;                              // Current playback rate
+  std::atomic<bool> mTrickPlayInProgress;          // Trick play state flag
+  ```
 - **Responsibilities**:
-  - Common fragment caching and injection logic
-  - MediaTrack management
-  - ABR coordination
-  - Discontinuity handling
+  - **Fragment Caching**: Shared cache management across all protocols
+  - **MediaTrack Coordination**: Multi-track synchronization and lifecycle
+  - **ABR Integration**: Profile switching coordination and bandwidth feedback
+  - **Discontinuity Handling**: Cross-track synchronization for stream transitions
+  - **Buffer Management**: Fragment injection pacing and underflow prevention
 
-#### 4. Fragment Collectors
-- **HLS**: `fragmentcollector_hls.h/cpp`
-- **DASH**: `fragmentcollector_mpd.h/cpp`
-- **Progressive**: `fragmentcollector_progressive.h/cpp`
-- **Responsibilities**:
-  - Manifest parsing
-  - Fragment URL generation
-  - Playlist refresh management
+#### 4. Fragment Collectors - Protocol-Specific Implementations
+
+##### HLS Fragment Collector (`fragmentcollector_hls.h/cpp`)
+- **Unique Features**:
+  ```cpp
+  class TrackState : public MediaTrack {
+      std::vector<IndexNode> indexNodeList;           // Playlist fragment index
+      std::vector<KeyTagStruct> keyTagList;           // EXT-X-KEY DRM information
+      std::vector<DiscontinuityIndexNode> discontinuityIndexList; // Stream sync points
+      std::vector<MediaInfo> mMediaInfoTrack;         // EXT-X-MEDIA track metadata
+  };
+  ```
+- **HLS-Specific Processing**:
+  - **Playlist Parsing**: M3U8 master and variant playlist processing
+  - **Live Edge Tracking**: Dynamic playlist refresh with sequence number management
+  - **AES-128 Decryption**: Native AES implementation for encrypted fragments
+  - **fMP4 Support**: EXT-X-MAP initialization fragment handling
+  - **Program Date Time**: Wall clock synchronization for live streams
+
+##### DASH Fragment Collector (`fragmentcollector_mpd.h/cpp`)
+- **External Dependencies**: Integrated with industry-standard `libdash` library
+- **Key Features**:
+  ```cpp
+  struct ProfileInfo {
+      int adaptationSetIndex;    // MPD AdaptationSet reference
+      int representationIndex;   // Representation within AdaptationSet
+  };
+
+  struct TimeSyncClient {
+      long long lastSync;        // UTC sync timestamp (epoch ms)
+      double lastOffset;         // Time delta cache (seconds)
+      bool hasSynced;           // Successful sync completion flag
+  };
+  ```
+- **DASH-Specific Processing**:
+  - **MPD Parsing**: Complete MPEG-DASH manifest processing with libdash
+  - **Segment Templates**: $Number$/$Time$/$Bandwidth$ template resolution
+  - **Period Transitions**: Content switching for live and VOD scenarios
+  - **UTC Time Sync**: Network time protocol integration for low-latency DASH
+  - **CENC Decryption**: Common Encryption with PSSH box processing
+
+##### Progressive Collector (`fragmentcollector_progressive.h/cpp`)
+- **Simplified Design**: Direct file download without adaptive streaming complexity
+- **Key Features**:
+  ```cpp
+  class StreamAbstractionAAMP_PROGRESSIVE : public StreamAbstractionAAMP {
+      double seekPosition;                             // Current seek offset for range requests
+      // No complex manifest parsing or multi-profile management needed
+  };
+  ```
+- **Progressive-Specific Processing**:
+  - **HTTP Range Requests**: Efficient seeking via "Range: bytes=offset-" headers
+  - **Single Track**: No multi-track synchronization complexity
+  - **Direct Injection**: Immediate GStreamer injection without fragment caching
+  - **Format Detection**: Automatic MP3/MP4/AAC format identification
   - Track synchronization
 
-#### 5. ABRManager
-- **Purpose**: Adaptive bitrate decision making
+#### 5. ABRManager - Intelligent Adaptive Bitrate Management
+- **Purpose**: Data-driven quality adaptation with network-aware profile selection
 - **Location**: `abr/abr.h/cpp`
-- **Responsibilities**:
-  - Bandwidth estimation
-  - Profile selection
-  - Ramp-up/ramp-down logic
-  - Buffer-based decisions
+- **Algorithm Implementation**:
+  ```cpp
+  class ABRManager {
+      std::vector<StreamInfo> mProfiles;              // Available quality profiles
+      std::map<long, int> mSortedBWProfileList;      // Bandwidth-to-profile mapping
+      BandwidthData mBandwidthData;                   // Network measurement history
+      BufferHealth mBufferHealth;                     // Buffer level monitoring
+  };
+  ```
+- **ABR Decision Logic**:
+  - **Bandwidth Estimation**: Exponential moving average of download speeds
+  - **Buffer-Based Adaptation**: Conservative ramp-down on buffer depletion
+  - **Ramp-Up Strategy**: Gradual quality increases to avoid oscillation
+  - **Startup Optimization**: Fast initial profile selection for quick startup
+  - **Network Type Awareness**: Different strategies for WiFi vs cellular connections
 
-#### 6. DRM System
-- **Purpose**: Digital Rights Management
+#### 6. DRM System - Multi-DRM Content Protection
+- **Purpose**: Comprehensive digital rights management across multiple DRM vendors
 - **Location**: `drm/`, `middleware/drm/`
-- **Responsibilities**:
-  - License acquisition
-  - Key management
-  - Content decryption
-  - Session management
+- **Supported Systems**:
+  ```cpp
+  enum DRMSystems {
+      eDRM_PlayReady,    // Microsoft PlayReady DRM
+      eDRM_WideVine,     // Google Widevine DRM
+      eDRM_ClearKey,     // W3C Clear Key (testing)
+      eDRM_CONSEC,       // CONSEC agnostic DRM
+      eDRM_Adobe,        // Adobe Access (legacy)
+      eDRM_Vanilla       // Apple FairPlay (via ExternalDRM)
+  };
+  ```
+- **DRM Responsibilities**:
+  - **License Acquisition**: Automated license server communication with retry logic
+  - **Key Management**: Secure key storage, rotation, and lifecycle management
+  - **Content Decryption**: High-performance AES decryption for media fragments
+  - **Session Management**: DRM session creation, maintenance, and cleanup
+  - **Hardware Security**: TEE/TrustZone integration where available
 
-#### 7. EventManager
-- **Purpose**: Event dispatch and listener management
+#### 7. EventManager - Asynchronous Event Architecture
+- **Purpose**: Decoupled event system with async dispatch and listener management
 - **Location**: `AampEventManager.h/cpp`
-- **Responsibilities**:
-  - Event queuing
-  - Listener registration
-  - Async event dispatch
-  - Event statistics
+- **Event Architecture**:
+  ```cpp
+  struct ListenerData {
+      std::shared_ptr<EventListener> eventListener;   // Listener reference
+      ListenerData* pNext;                           // Linked list structure
+  };
+
+  class AampEventManager {
+      ListenerData* mEventListeners[AAMP_MAX_NUM_EVENTS]; // Per-event listener arrays
+      std::queue<AAMPEventPtr> mEventWorkerDataQue;       // Async event queue
+      std::queue<AAMPEventPtr> mPendingAsyncEvents;       // Pending events buffer
+  };
+  ```
+- **Event Management**:
+  - **Type-Safe Events**: Strongly typed event system with enum-based dispatching
+  - **Async Dispatch**: Non-blocking event delivery to prevent pipeline stalls
+  - **Event Filtering**: Selective listener registration for specific event types
+  - **Event Batching**: Bulk event delivery for performance optimization
+  - **Error Resilience**: Listener failure isolation and automatic retry mechanisms
+
+#### 8. Media Processing Pipeline
+
+##### MediaTrack - Per-Track Fragment Management
+```cpp
+class MediaTrack {
+    CachedFragment* cachedFragment[MAX_CACHED_FRAGMENTS_PER_TRACK];
+    std::mutex mTrackMutex;                          // Thread-safe operations
+    std::condition_variable mTrackCondition;         // Fragment availability signaling
+    bool enabled;                                    // Track enable/disable state
+    int numberOfFragmentsCached;                     // Current cache occupancy
+    double totalInjectedDuration;                    // Injected content duration
+};
+```
+
+##### Fragment Processing Flow
+```cpp
+void MediaTrack::InjectFragment() {
+    // 1. Fragment Validation
+    if (!ValidateFragment(fragment)) return;
+
+    // 2. Decryption (if encrypted)
+    if (fragment->encrypted) {
+        drmSession->DecryptFragment(fragment);
+    }
+
+    // 3. Format Processing (ISO BMFF, TS, etc.)
+    ProcessFragmentFormat(fragment);
+
+    // 4. GStreamer Injection
+    gstPlayer->SendTransfer(fragment->mediaType,
+                           fragment->fragment.ptr,
+                           fragment->fragment.len);
+
+    // 5. Buffer Tracking Update
+    UpdateBufferMetrics(fragment);
+}
+```
+
+#### 9. Configuration Management - Centralized Settings Architecture
+- **Implementation**: `AampConfig.h/cpp` - Hierarchical configuration system
+- **Configuration Sources** (priority order):
+  ```cpp
+  enum ConfigPriority {
+      AAMP_APPLICATION_SETTING = 0,    // Application overrides (highest)
+      AAMP_JSON_CONFIG_SETTING,        // JSON configuration files
+      AAMP_STREAM_SETTING,            // Stream-specific settings
+      AAMP_OPERATOR_SETTING,          // Operator/MSO defaults
+      AAMP_DEFAULT_SETTING            // Built-in defaults (lowest)
+  };
+  ```
+- **Dynamic Reconfiguration**: Runtime setting updates without restart requirements
+- **Validation Framework**: Type safety and range validation for all configuration parameters
 
 ### Component Interaction Flow
 
@@ -371,3 +538,21 @@ The system is designed to handle:
 - Platform-specific integrations
 
 This architecture enables AAMP to serve as a robust foundation for video playback in embedded systems while maintaining flexibility for future enhancements.
+
+---
+
+## For Newcomers vs Advanced Readers
+
+### Must Know First (Beginner)
+
+- **What AAMP is**: A native C++ player engine for HLS/DASH/progressive streaming; it does not render video itself but feeds decrypted media to GStreamer.
+- **Entry point**: All usage goes through **PlayerInstanceAAMP** (`main_aamp.h`); internal logic lives in **PrivateInstanceAAMP** (`priv_aamp.h/cpp`).
+- **Protocols**: HLS, DASH, and progressive are handled by different **StreamAbstraction** implementations and **fragment collectors**; see [02-code-organization.md](02-code-organization.md) and [04-fragment-collection.md](04-fragment-collection.md).
+- **Key flows**: Tune → manifest parse → fragment download → (optional DRM) → inject into GStreamer → events to app. See [15-workflows-execution.md](15-workflows-execution.md) and [18-beginners-guide.md](18-beginners-guide.md).
+
+### Advanced Details to Learn Later
+
+- **State machine and threading**: PrivateInstanceAAMP state transitions, scheduler, and track workers; see [03-core-classes-interfaces.md](03-core-classes-interfaces.md) and [15-workflows-execution.md](15-workflows-execution.md).
+- **ABR algorithms and buffer health**: ABRManager, NetworkBandwidthEstimator, time-based buffer manager; see [05-adaptive-bitrate.md](05-adaptive-bitrate.md) and [06-buffer-management.md](06-buffer-management.md).
+- **DRM session lifecycle and middleware**: License acquisition, key rotation, platform DRM plugins; see [07-drm-system.md](07-drm-system.md) and [12-middleware-platform.md](12-middleware-platform.md).
+- **RDK-E integration**: How other components call AAMP and how AAMP uses platform services; see [20-rdk-integration-usage.md](20-rdk-integration-usage.md) and [AAMP_High_Level_Design_and_RDK-E_Usage.md](AAMP_High_Level_Design_and_RDK-E_Usage.md).

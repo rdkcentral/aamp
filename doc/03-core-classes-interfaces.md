@@ -8,55 +8,174 @@ This document provides detailed documentation of AAMP's major classes and interf
 
 **File**: `main_aamp.h/cpp`
 
-**Purpose**: Public API interface for applications
+**Purpose**: Public API interface for applications providing the main AAMP player functionality
 
 **Key Responsibilities**:
-- Expose public methods (Tune, Seek, SetRate, etc.)
-- Manage event listener registration
-- Handle configuration management
-- Integrate with JavaScript bindings
+- Expose public methods for media playback control
+- Manage event listener registration and lifecycle
+- Handle configuration management through `AampConfig`
+- Integrate with JavaScript bindings via WebKit injection
+- Provide thread-safe access to internal player state
 
-**Key Methods**:
-- `Tune()`: Start playback
-- `Seek()`: Seek to position
-- `SetRate()`: Set playback rate
-- `Stop()`: Stop playback
-- `RegisterEvent()`: Register event listener
-- `SetVideoBitrate()`: Set video bitrate
-- `SetLanguage()`: Set audio language
+**Core Attributes**:
+```cpp
+class PrivateInstanceAAMP *aamp;                    // Internal implementation
+std::shared_ptr<PrivateInstanceAAMP> sp_aamp;      // Shared pointer for resource management
+AampConfig mConfig;                                 // Configuration management
+```
+
+**Key Public Methods**:
+
+### Playback Control
+- `Tune(url, contentType, ...)`: Start playback with comprehensive options
+  - Supports autoplay, trace UUID, audio decoder sync control
+  - Handles content type detection and first/final attempt flags
+- `Stop(sendStateChangeEvent, forceCleanup)`: Stop playback with cleanup options
+- `Seek(secondsRelativeToTuneTime, keepPaused)`: Frame-accurate seeking
+- `SeekToLive(keepPaused)`: Instant live edge seeking
+- `SetRate(rate, overshootcorrection)`: Playback rate control with correction
+- `SetRateAndSeek(rate, position)`: Atomic rate and seek operation
+
+### Audio/Video Configuration
+- `SetLanguage(language)`: Audio language selection
+- `SetVideoRectangle(x, y, w, h)`: Video viewport control
+- `SetVideoZoom(zoom)`: Video zoom mode management
+- `SetVideoMute(muted)`: Video muting control
+- `SetSubtitleMute(muted)`: Subtitle enable/disable
+- `SetAudioVolume(volume)`: Audio volume (0-100 range)
+
+### Event Management
+- `RegisterEvent(type, listener)`: Type-specific event registration
+- `RegisterEvents(eventListener)`: All-events registration
+- `AddEventListener(eventType, eventListener)`: Modern event API
+- `RemoveEventListener(eventType, eventListener)`: Event cleanup
+
+### DRM & Security
+- `AddCustomHTTPHeader(name, value, isLicenseHeader)`: Custom headers
+- `SetLicenseServerURL(url, drmType)`: DRM license server configuration
+- `SetPreferredDRM(drmType)`: DRM system preference
+- `GetPreferredDRM()`: Current DRM preference query
+
+### Advanced Features
+- `InsertAd(url, positionSeconds)`: Server-side ad insertion
+- `SetSubscribedTags(subscribedTags)`: Metadata tag subscription
+- `SubscribeResponseHeaders(responseHeaders)`: HTTP response monitoring
+- `AddPageHeaders(customHttpHeaders)`: Page-level HTTP headers
+
+**Constructor Overloads**:
+```cpp
+PlayerInstanceAAMP(StreamSink* streamSink = NULL,
+                   std::function<void(const unsigned char*, int, int, int)> exportFrames = nullptr,
+                   bool powerEvt = false);
+```
+
+**Thread Safety**: All public methods are thread-safe with internal mutex protection
 
 **Relationships**:
-- Contains: `PrivateInstanceAAMP` (internal implementation)
-- Used by: Applications, JavaScript bindings
+- **Contains**: `PrivateInstanceAAMP` (pimpl idiom for implementation hiding)
+- **Used by**: Applications, JavaScript UVE bindings, CLI tools
+- **Manages**: `AampConfig` for configuration state
 
 ## PrivateInstanceAAMP
 
 **File**: `priv_aamp.h/cpp`
 
-**Purpose**: Internal player implementation
+**Purpose**: Internal player implementation providing core playbook logic and state management
+
+**Inheritance**:
+```cpp
+class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
+```
 
 **Key Responsibilities**:
-- Core playback logic
-- GStreamer pipeline management
-- State machine management
-- Error handling and recovery
+- Core playback logic and state machine management
+- GStreamer pipeline orchestration and media injection
+- Protocol-specific stream abstraction management
+- DRM callbacks and security handling
+- Internal event management and propagation
+- Bandwidth monitoring and adaptive bitrate coordination
+- Buffer management and underflow/overflow handling
 
-**Key Attributes**:
-- `mGstPlayer`: GStreamer player instance
-- `mStreamAbstraction`: Protocol handler
-- `mEventManager`: Event dispatcher
-- `mhAbrManager`: ABR manager
-- `mConfig`: Configuration
+**Core Attributes**:
+```cpp
+// Core Player Components
+AampGstPlayer *mpStreamAbstraction;              // GStreamer pipeline manager
+StreamAbstractionAAMP *mpStreamAbstraction;      // Protocol handler (HLS/DASH/Progressive)
+AampEventManager *mEventManager;                 // Event dispatcher
+AampConfig *mConfig;                             // Configuration management
+ABRManager *mhAbrManager;                        // Adaptive bitrate manager
 
-**Key Methods**:
-- `TuneInternal()`: Internal tune implementation
-- `SeekInternal()`: Internal seek implementation
-- `SendStreamTransfer()`: Inject fragment to GStreamer
-- `ProcessID3Metadata()`: Process ID3 metadata
+// State Management
+std::atomic<PrivAAMPState> mState;               // Current player state
+pthread_mutex_t mLock;                           // Thread synchronization
+TuneType mTuneType;                             // Current tune type context
+bool mAutoPlay;                                 // Autoplay enabled flag
+
+// Media Tracks
+MediaTrack *mpStreamAbstraction->track[AAMP_TRACK_COUNT]; // Video/Audio/Subtitle tracks
+
+// Network & Download
+CurlInstance mCurl;                             // HTTP/HTTPS client
+std::string mManifestUrl;                       // Current manifest URL
+AampNetworkMode mNetworkMode;                   // Network optimization mode
+
+// Buffer Management
+double mDownloadProgress;                       // Download progress tracking
+long long mCurrentBandwidth;                    // Current network bandwidth
+bool mBufferingEnabled;                         // Buffer control flag
+
+// DRM & Security
+#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
+AampDrmSession *mDrmSession;                    // DRM session management
+#endif
+
+// TSB (Time Shift Buffer)
+std::shared_ptr<TSB::Store> mTSBStore;          // Local TSB storage
+```
+
+**Key Internal Methods**:
+
+### Core Playback Control
+- `TuneHelper(tuneType, seekWhilePaused)`: Internal tune coordination
+- `TeardownStream(newTune, disableDownloads)`: Stream cleanup and resource release
+- `PausePipeline(pause, forceStopGstreamerPreBuffering)`: GStreamer pause control
+- `ReloadTSB()`: TSB session reload functionality
+
+### Media & Fragment Management
+- `SendStreamTransfer(mediaType, buffer, size, ...)`: Fragment injection to GStreamer
+- `EnableMediaDownloads(type)`: Enable specific media type downloads
+- `DisableMediaDownloads(type)`: Disable specific media type downloads
+- `ProcessID3Metadata(buffer, size, ...)`: ID3 tag processing
+- `RecalculatePTS(mediaType, ptr, len)`: PTS calculation for media synchronization
+
+### State & Event Management
+- `SetState(state)`: Thread-safe state transitions
+- `SendAnomalyEvent(type, message)`: Anomaly event reporting
+- `SendEvent(event, eventMode)`: Event dispatch to listeners
+- `NotifyFirstBufferProcessed()`: First buffer notification
+- `SaveNewTimedMetadata(...)`: Timed metadata processing
+
+### Network & ABR
+- `UpdateVideoEndMetrics(...)`: Video performance metrics
+- `UpdateAudioEndMetrics(...)`: Audio performance metrics
+- `GetPreferredDRM()`: DRM system preference query
+- `NotifyBitRateUpdate(...)`: Bitrate change notifications
+
+### Progressive Enhancement Methods
+- `SetTuneEventConfig(tuneEventType)`: Tune event configuration
+- `UpdatePreferredAudioList()`: Audio preference management
+- `CheckPreferredTextLanguages(...)`: Text track language selection
+- `GetProfilerBucketForMedia(mediaType, isInit)`: Performance profiling support
+
+**Thread Safety**: All public methods use internal mutexes for thread-safe operation
+
+**State Machine**: Manages transitions between IDLE, INITIALIZING, INITIALIZED, PREPARING, PREPARED, BUFFERING, PLAYING, PAUSED, SEEKING states
 
 **Relationships**:
-- Contains: `StreamAbstractionAAMP`, `AAMPGstPlayer`, `AampEventManager`
-- Used by: `PlayerInstanceAAMP`
+- **Contains**: `StreamAbstractionAAMP`, `AAMPGstPlayer`, `AampEventManager`, `ABRManager`
+- **Used by**: `PlayerInstanceAAMP` (pimpl pattern)
+- **Implements**: `DrmCallbacks` interface for DRM event handling
+- **Manages**: Media track lifecycle, GStreamer pipeline, download threads
 
 ## StreamAbstractionAAMP
 

@@ -191,31 +191,53 @@ GStreamer (Decode & Render)
 
 ## Common Patterns
 
+Understanding common patterns helps navigate the codebase and understand design decisions:
+
 ### 1. Threading Model
 
-AAMP uses multiple threads:
+AAMP uses a multi-threaded architecture to enable parallel operations and maintain responsive playback:
 
-- **Main Thread**: Application API calls
-- **Download Threads**: One per track for fragment downloads
-- **Injector Threads**: One per track for fragment injection
-- **Playlist Threads**: For live stream playlist refresh
-- **GStreamer Thread**: Media pipeline processing
+- **Main Thread**: Application API calls (`PlayerInstanceAAMP` methods) execute on the main/application thread. Main thread handles user-initiated operations (tune, seek, pause) and coordinates with internal threads via events and callbacks. Main thread operations are typically fast (parameter validation, state checks) to maintain responsiveness.
+
+- **Download Threads**: One dedicated thread per media track (`MediaTrack::FragmentDownloader()`) continuously downloads fragments ahead of playback position. Download threads operate independently, enabling parallel fragment downloads for video, audio, and subtitle tracks. Threads coordinate via condition variables and mutexes to ensure thread-safe cache access and proper sequencing.
+
+- **Injector Threads**: One dedicated thread per media track (`MediaTrack::RunInjectLoop()`) continuously injects cached fragments into GStreamer pipeline. Injection threads pace fragment injection based on playback position and pipeline consumption, maintaining optimal buffering. Threads wait on condition variables for fragment availability, preventing busy-waiting and ensuring efficient CPU usage.
+
+- **Playlist Threads**: For live HLS streams, dedicated threads (`TrackState::PlaylistDownloader()`) periodically refresh playlists to obtain new fragment URLs. Playlist threads download playlists at configured intervals (`#EXT-X-TARGETDURATION`), parse updates, and add new fragments to fragment index. Threads coordinate with download threads to ensure new fragments are available for download.
+
+- **GStreamer Threads**: GStreamer pipeline operates in its own threads (GStreamer's internal threading model), handling media processing, decoding, and rendering. GStreamer threads are managed by GStreamer framework and communicate with AAMP via callbacks and signals. Thread communication enables AAMP to respond to pipeline events (buffer underflow, EOS, errors) and coordinate playback state.
+
+**Thread Coordination**: Threads coordinate via mutexes (for shared data access), condition variables (for event signaling), and abort flags (for graceful shutdown). Thread coordination ensures data consistency, prevents race conditions, and enables efficient resource sharing.
 
 ### 2. State Management
 
-AAMP maintains state at multiple levels:
+AAMP maintains state at multiple levels to track playback progress and coordinate operations:
 
-- **Player State**: IDLE, TUNING, BUFFERING, PLAYING, etc.
-- **Track State**: Enabled/disabled, buffer status
-- **Pipeline State**: GStreamer pipeline state
+- **Player State**: `AAMPPlayerState` enum tracks high-level player state (IDLE, INITIALIZING, INITIALIZED, PREPARING, PREPARED, BUFFERING, PLAYING, PAUSED, SEEKING, STOPPED). Player state transitions are managed by `PrivateInstanceAAMP` and trigger state change events. State management ensures operations occur in valid states (e.g., seek only when playing/paused) and coordinates state-dependent operations.
+
+- **Track State**: Each `MediaTrack` maintains track-specific state (enabled/disabled, buffer status, download position, injection position). Track state enables independent track management (e.g., disabling audio track while keeping video) and provides state information for buffer monitoring and ABR decisions. Track state coordination ensures synchronized playback across tracks.
+
+- **Pipeline State**: GStreamer pipeline state (`GST_STATE_NULL`, `GST_STATE_READY`, `GST_STATE_PAUSED`, `GST_STATE_PLAYING`) tracks pipeline lifecycle and data flow. Pipeline state transitions are coordinated with player state to ensure proper pipeline operation. Pipeline state management handles state transition errors and ensures pipeline readiness before data injection.
+
+**State Synchronization**: State at different levels must remain synchronized to ensure correct behavior. For example, player state PLAYING requires pipeline state GST_STATE_PLAYING and enabled tracks. State synchronization is managed through coordinated state transitions and state validation checks.
 
 ### 3. Error Handling
 
-Errors are handled at multiple levels:
+AAMP implements multi-level error handling to ensure robust playback:
 
-- **Network Errors**: Retry with rampdown
-- **DRM Errors**: License retry or error event
-- **Pipeline Errors**: Retune or error event
+- **Network Errors**: HTTP errors (4xx, 5xx), timeouts, and connection failures trigger retry logic with exponential backoff. Repeated network failures trigger ABR ramp-down to reduce fragment sizes and improve success rates. Network error handling includes error classification (recoverable vs. non-recoverable) and appropriate recovery strategies (retry, ramp-down, retune).
+
+- **DRM Errors**: License acquisition failures, decryption errors, and DRM system errors trigger license retry, session recreation, or error reporting. DRM error handling includes retry logic with configurable retry counts and wait times. Critical DRM errors (authentication failures, key extraction failures) trigger error events for application handling.
+
+- **Pipeline Errors**: GStreamer errors, decode failures, and rendering errors trigger pipeline recovery (pipeline reconstruction, decoder fallback) or error reporting. Pipeline error handling includes error detection via GStreamer bus messages and appropriate recovery actions. Pipeline errors may trigger internal retune if recovery fails.
+
+**Error Recovery Hierarchy**: Error handling follows a hierarchy:
+1. **Immediate Retry**: Transient errors (timeouts, 5xx errors) trigger immediate retry
+2. **Adaptive Recovery**: Repeated errors trigger adaptive recovery (ABR ramp-down, profile switch)
+3. **Internal Retune**: Persistent errors trigger internal retune to restart playback
+4. **Error Reporting**: Unrecoverable errors trigger error events for application handling
+
+This hierarchy ensures maximum recovery attempts while preventing infinite retry loops and providing graceful degradation when recovery fails.
 
 ## Debugging Tips
 
