@@ -6167,6 +6167,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d]", (mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId);
 		}
+		int *ptr = NULL;
+		  // This will cause a segmentation fault
+		  *ptr = 42;
 		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s URL: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat], mManifestUrl.c_str());
 		if(!mMPDStichRefreshUrl.empty())
 		{
