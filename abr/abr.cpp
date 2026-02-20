@@ -286,7 +286,7 @@ void ABRManager::updateProfile()
 		
 		if (mDefaultIframeBitrate > 0) {
 			mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[0].idx;
-			for (int cnt = 0; static_cast<size_t>(cnt) < iframeTrackCount; cnt++) {
+			for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
 				// find the track less than default bw set, apply to both desired and lower ( for all speed of trick)
 				if(iframeTrackInfo[cnt].bandwidth >= mDefaultIframeBitrate) {
 					break;
@@ -299,7 +299,7 @@ void ABRManager::updateProfile()
 				int desiredProfileIndexNonIframe = (int)profileCount / 2;
 				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
 				mDesiredIframeProfile = mLowestIframeProfile = 0;
-				for (int cnt = 0; static_cast<size_t>(cnt) < iframeTrackCount; cnt++) {
+				for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
 					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
 					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
 						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
@@ -313,7 +313,7 @@ void ABRManager::updateProfile()
 				}
 			} else {
 				//Keeping old logic for non 4K streams
-				for (int cnt = 0; static_cast<size_t>(cnt) < iframeTrackCount; cnt++) {
+				for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
 					if (mLowestIframeProfile == INVALID_PROFILE) {
 						// first pick the lowest profile available
 						mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[cnt].idx;
