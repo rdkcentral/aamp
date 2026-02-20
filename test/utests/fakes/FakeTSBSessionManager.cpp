@@ -251,6 +251,6 @@ void AampTSBSessionManager::WaitForNewVideoTsbFragment()
 {
 }
 
-void AampTSBSessionManager::RaiseNewVideoTsbContentNotification(bool setFlag)
+void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
 {
 }

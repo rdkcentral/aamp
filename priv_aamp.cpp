@@ -7775,7 +7775,7 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 	// Unblock any thread waiting on this condition.
 	if (mTSBSessionManager)
 	{
-		mTSBSessionManager->RaiseNewVideoTsbContentNotification(false);
+		mTSBSessionManager->RaiseNewVideoTsbContentNotification();
 	}
 	// Notify playlist downloader threads
 	if(mpStreamAbstractionAAMP)

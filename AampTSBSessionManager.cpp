@@ -376,14 +376,12 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::RaiseNewVideoTsbContentNotification(bool setFlag)
-{
-	// If setFlag is false, still call notify to unblock any thread waiting for a segment to be downloaded.
-	// This is used when downloads are disabled. The predicate used for the wait is an OR of the new video
-	// TSB content and downloads disabled flags.
-	if (setFlag)
+void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
+{	// The predicate used for the wait is an OR of the new video TSB content and downloads disabled flags.
+	if (mAamp->mDownloadsEnabled)
 	{
-		mHasNewVideoTsbContent = setFlag;
+		std::unique_lock<std::mutex> lock(mReadMutex);
+		mHasNewVideoTsbContent = true;
 	}
 	mNewVideoTsbContentCV.notify_one();
 }
@@ -477,7 +475,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 
 					if (mediatype == eMEDIATYPE_VIDEO)
 					{
-						RaiseNewVideoTsbContentNotification(true);
+						RaiseNewVideoTsbContentNotification();
 					}
 
 				}
