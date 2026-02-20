@@ -51,17 +51,15 @@ limitations under the License.
 
 					<div class="form-group">
 						<label>
-							<input type="checkbox" id="isLive">
-							Live Streaming Mode
-						</label>
+						<input type="checkbox" id="isLive" checked>
 					</div>
 
-					<div id="liveSettings" class="form-group" style="display: none; margin-left: 20px;">
-						<label for="targetLatency">Target Latency (seconds):</label>
-						<input type="number" id="targetLatency" value="8" min="2" max="30" step="0.5">
-					</div>
+				<div id="liveSettings" class="form-group" style="margin-left: 20px;">
+					<label for="targetLatency">Target Latency (seconds):</label>
+					<input type="number" id="targetLatency" value="6" min="2" max="30" step="0.5">
+				</div>
 
-					<div id="vodSettings" class="form-group">
+				<div id="vodSettings" class="form-group" style="display: none;">
 						<label for="maxBuffer">Max Buffer (seconds):</label>
 						<input type="number" id="maxBuffer" value="20" min="5" max="60">
 					</div>
@@ -71,9 +69,10 @@ limitations under the License.
 						<input type="number" id="seed" value="0" min="0">
 					</div>
 
-					<button id="runBtn" class="btn btn-primary">Run Simulation</button>
-					<div id="status" class="status"></div>
-				</section>
+				<div class="form-group">
+					<label>Segment Duration:</label>
+					<span style="font-weight: bold;">2.0 seconds</span>
+				</div>
 
 				<section class="card">
 					<h2>Results Summary</h2>

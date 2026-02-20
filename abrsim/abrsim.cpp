@@ -524,8 +524,8 @@ class ABRSimulator {
 public:
 	ABRSimulator(const VideoProfileLadder& ladder, 
 	             const NetworkCharacteristics& netChar,
-	             bool isLive = false,
-	             double targetLatencyS = 8.0,
+	             bool isLive = true,
+	             double targetLatencyS = 6.0,
 	             double maxBufferS = 20.0,
 	             uint64_t seed = 0)
 	: mLadder(ladder), mNetSim(netChar, seed), 
@@ -581,16 +581,43 @@ public:
 		
 		auto startTime = std::chrono::steady_clock::now();
 		
-		int segmentCount = 0;
+			int segmentCount = 0;
+		
+		// For live streaming: calculate how many initial segments needed for target latency
+		int initialSegmentsForLatency = 0;
+		if (mIsLive) {
+			initialSegmentsForLatency = static_cast<int>(std::ceil(mTargetLatencyS / mLadder.segmentDurationS));
+			// Live edge starts ahead by target latency
+			mLiveEdgeS = mTargetLatencyS;
+			std::cout << "Initial segments immediately available: " << initialSegmentsForLatency 
+			          << " (" << (initialSegmentsForLatency * mLadder.segmentDurationS) << "s of content)\n";
+		}
+		
 		while (mPlaybackTimeS < durationS) {
 			// For live streaming, update live edge and track latency
 			if (mIsLive) {
-				// Live edge advances with playback time
-				mLiveEdgeS = mPlaybackTimeS + mTargetLatencyS + mBuffer.getCurrentBuffer();
+				// Live edge advances at real-time rate (simulation time)
+				mLiveEdgeS = mTargetLatencyS + mSimTimeS;
 				
-				// Current latency = buffer level (distance behind live edge)
+				// Current latency = distance behind live edge
 				double currentLatencyS = mLiveEdgeS - mPlaybackTimeS;
 				mBuffer.recordLatency(currentLatencyS);
+				
+				// Check if next segment is available yet (after initial buffering period)
+				if (mCurrentSegmentNum >= initialSegmentsForLatency) {
+					// Normal live segment availability - segment N available when live edge reaches it
+					double segmentAvailableTime = (mCurrentSegmentNum - initialSegmentsForLatency) * mLadder.segmentDurationS;
+					if (mSimTimeS < segmentAvailableTime) {
+						// Wait for next segment to become available
+						double tickTime = 0.05;
+						if (!mBuffer.isRebuffering()) {
+							mBuffer.consumeBuffer(tickTime);
+							mPlaybackTimeS += tickTime;
+						}
+						mSimTimeS += tickTime;
+						continue;
+					}
+				}
 			}
 			
 			// Check if buffer is too low - need to stall playback
@@ -646,10 +673,30 @@ public:
 				mBuffer.addRebufferTime(downloadTimeS);
 			}
 			
-			// Download completes - add segment to buffer
-			mBuffer.addSegment(mLadder.segmentDurationS);
-			
-			// If we were rebuffering and now have buffer, resume playback
+		// Log buffer BEFORE segment injection (after download consumption)
+		SimulationEvent bufferBeforeEvent{};
+		bufferBeforeEvent.timeS = mSimTimeS + downloadTimeS;
+		bufferBeforeEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
+		bufferBeforeEvent.profileIndex = mCurrentProfile;
+		bufferBeforeEvent.downloadTimeMs = 0.0;
+		bufferBeforeEvent.throughputBps = 0.0;
+		bufferBeforeEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+		bufferBeforeEvent.description = "Before segment injection";
+		mLogger.log(bufferBeforeEvent);
+		
+		// Download completes - add segment to buffer
+		mBuffer.addSegment(mLadder.segmentDurationS);
+		
+		// Log buffer AFTER segment injection (show the jump)
+		SimulationEvent bufferAfterEvent{};
+		bufferAfterEvent.timeS = mSimTimeS + downloadTimeS;
+		bufferAfterEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
+		bufferAfterEvent.profileIndex = mCurrentProfile;
+		bufferAfterEvent.downloadTimeMs = 0.0;
+		bufferAfterEvent.throughputBps = 0.0;
+		bufferAfterEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+		bufferAfterEvent.description = "After segment injection (+" + std::to_string(mLadder.segmentDurationS) + "s)";
+		mLogger.log(bufferAfterEvent);
 			if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() > mBuffer.getMinBuffer()) {
 				SimulationEvent resumeEvent{};
 				resumeEvent.timeS = mPlaybackTimeS;

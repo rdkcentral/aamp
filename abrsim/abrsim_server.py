@@ -45,6 +45,16 @@ ABRSIM_BIN = ABRSIM_DIR / "abrsim"
 WEB_DIR = ABRSIM_DIR / "web"
 PERSONAS_DIR = ABRSIM_DIR / "personas"
 
+class ReuseAddrHTTPServer(HTTPServer):
+	"""HTTPServer that allows address reuse"""
+	allow_reuse_address = True
+	
+	def server_bind(self):
+		"""Override to set SO_REUSEADDR socket option"""
+		import socket
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		super().server_bind()
+
 class ABRSimHandler(BaseHTTPRequestHandler):
 	"""HTTP request handler for ABR simulator web interface"""
 	
@@ -254,7 +264,7 @@ def main():
 	WEB_DIR.mkdir(exist_ok=True)
 	
 	server_address = ('', port)
-	httpd = HTTPServer(server_address, ABRSimHandler)
+	httpd = ReuseAddrHTTPServer(server_address, ABRSimHandler)
 	
 	print(f"ABR Simulator Web Server")
 	print(f"========================")
