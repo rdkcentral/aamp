@@ -69,10 +69,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
-	cachedFragment->type = actualType;
-	cachedFragment->initFragment = initSegment;
+	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, false);
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-	cachedFragment->uri = fragmentUrl; // For debug output
 	cachedFragment->absPosition = 0;
 	if (mActiveDownloadInfo)
 	{
@@ -93,7 +91,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	if (!initSegment && mDownloadedFragment.capacity() != 0)
 	{
 		ret = true;
-		cachedFragment->fragment.Replace(&mDownloadedFragment);
+		TransferFragmentBuffer(cachedFragment, nullptr, &mDownloadedFragment, 0, false);
 	}
 	else
 	{
@@ -129,46 +127,14 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 			if (ret)
 			{
-				cachedFragment->fragment = *mTempFragment;
-				mTempFragment->Free();
+				TransferFragmentBuffer(cachedFragment, nullptr, mTempFragment.get(), 0, false);
 			}
 		}
 
-		if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
-		{
-			// To read track_id from the init fragments to check if there any mismatch.
-			// A mismatch in track_id is not handled in the gstreamer version 1.10.4
-			// But is handled in the latest version (1.18.5),
-			// so upon upgrade to it or introduced a patch in qtdemux,
-			// this portion can be reverted
-			IsoBmffBuffer buffer;
-			buffer.setBuffer(cachedFragment->fragment.GetVector());
-			buffer.parseBuffer();
-			uint32_t track_id = 0;
-			buffer.getTrack_id(track_id);
-			if (buffer.isInitSegment())
-			{
-				uint32_t timeScale = 0;
-				if (buffer.getTimeScale(timeScale))
-				{
-					if (actualType == eMEDIATYPE_INIT_VIDEO)
-					{
-						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
-						aamp->SetVidTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_AUDIO)
-					{
-						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-						aamp->SetAudTimeScale(timeScale);
-					}
-					else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
-					{
-						AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
-						aamp->SetSubTimeScale(timeScale);
-					}
-				}
-			}
-		}
+		// Extract timescale from init segments (video, audio, subtitle)
+		// Note: Legacy code also extracted track_id here for mismatch detection,
+		// but that value was never used. Omitted in favour of the helper.
+		ProcessInitSegmentIfNeeded(cachedFragment, initSegment && ret, aamp);
 		if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 		{
 			if (actualType == eMEDIATYPE_VIDEO)
@@ -219,12 +185,11 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 			AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
 			return false;
 		}
+		PopulateCommonMetadata(cachedFragment, remoteUrl, actualType, 0, false, false);
+		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
 		cachedFragment->absPosition = 0;
-		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.AppendBytes(ptr, size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		cachedFragment->uri = std::move(remoteUrl);
 		if (mActiveDownloadInfo)
 		{
 			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
@@ -266,6 +231,123 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 	// This will be implemented in Phase 3 with unified logic
 	AAMPLOG_WARN("[%s] CacheFragmentData() called but not yet implemented (Phase 2 stub)", name);
 	return false;
+}
+
+/**
+ *  @brief Transfer buffer data into a CachedFragment.
+ *
+ *  In chunk mode the CURL buffer is ephemeral, so we must copy via AppendBytes().
+ *  In fragment mode the download buffer can be moved via Replace() for zero-copy.
+ *
+ *  @param[out] cached         Destination CachedFragment.
+ *  @param[in]  chunkPayload   Chunk data pointer (chunk mode only).
+ *  @param[in]  downloadBuffer Source growable buffer (fragment mode only).
+ *  @param[in]  payloadSize    Chunk payload size in bytes.
+ *  @param[in]  isChunkMode    true = AppendBytes, false = Replace.
+ */
+void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
+                                                const char* chunkPayload,
+                                                AampGrowableBuffer* downloadBuffer,
+                                                size_t payloadSize,
+                                                bool isChunkMode)
+{
+	if (isChunkMode)
+	{
+		cached->fragment.AppendBytes(chunkPayload, payloadSize);
+	}
+	else
+	{
+		if (downloadBuffer)
+		{
+			cached->fragment.Replace(downloadBuffer);
+		}
+	}
+}
+
+/**
+ *  @brief Populate common metadata fields shared by fragment and chunk paths.
+ *
+ *  CRITICAL: This helper intentionally does NOT set position, duration, or
+ *  absPosition.  Those fields are lifecycle-dependent:
+ *    - Fragment mode: set later by OnFragmentDownloadSuccess
+ *    - Chunk mode: set by the caller immediately after this helper returns
+ *
+ *  @param[out] cached          Destination CachedFragment.
+ *  @param[in]  url             Fragment URL (debug/logging).
+ *  @param[in]  mediaType       AampMediaType of this fragment.
+ *  @param[in]  profileIndex    ABR profile index.
+ *  @param[in]  isInitSegment   true for init segments.
+ *  @param[in]  isDiscontinuity true when a PTS discontinuity precedes this fragment.
+ */
+void MediaStreamContext::PopulateCommonMetadata(CachedFragment* cached,
+                                                const std::string& url,
+                                                AampMediaType mediaType,
+                                                int profileIndex,
+                                                bool isInitSegment,
+                                                bool isDiscontinuity)
+{
+	cached->type = mediaType;
+	cached->initFragment = isInitSegment;
+	cached->uri = url;
+	cached->profileIndex = profileIndex;
+	cached->discontinuity = isDiscontinuity;
+}
+
+/**
+ *  @brief Parse an init segment and extract the timescale.
+ *
+ *  When isInitSegment is true the cached fragment buffer is parsed as ISO BMFF.
+ *  If a valid timescale is found it is applied to the corresponding AAMP track
+ *  (video, audio, or subtitle).  This is a no-op for non-init segments.
+ *
+ *  @param[in] cached        CachedFragment containing the init segment data.
+ *  @param[in] isInitSegment true if this fragment is an init segment.
+ *  @param[in] aamp          PrivateInstanceAAMP used to apply the timescale.
+ */
+void MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
+                                                    bool isInitSegment,
+                                                    PrivateInstanceAAMP* aamp)
+{
+	if (!isInitSegment)
+	{
+		return;
+	}
+
+	AampMediaType actualType = cached->type;
+
+	if (actualType != eMEDIATYPE_INIT_VIDEO &&
+		actualType != eMEDIATYPE_INIT_AUDIO &&
+		actualType != eMEDIATYPE_INIT_SUBTITLE)
+	{
+		return;
+	}
+
+	IsoBmffBuffer buffer;
+	buffer.setBuffer(cached->fragment.GetVector());
+	buffer.parseBuffer();
+
+	if (buffer.isInitSegment())
+	{
+		uint32_t timeScale = 0;
+		if (buffer.getTimeScale(timeScale))
+		{
+			if (actualType == eMEDIATYPE_INIT_VIDEO)
+			{
+				AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
+				aamp->SetVidTimeScale(timeScale);
+			}
+			else if (actualType == eMEDIATYPE_INIT_AUDIO)
+			{
+				AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
+				aamp->SetAudTimeScale(timeScale);
+			}
+			else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
+			{
+				AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
+				aamp->SetSubTimeScale(timeScale);
+			}
+		}
+	}
 }
 
 /**

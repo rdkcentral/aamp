@@ -67,6 +67,8 @@ public:
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
 	MOCK_METHOD(void, SetVidTimeScale, (uint32_t));
+	MOCK_METHOD(void, SetAudTimeScale, (uint32_t));
+	MOCK_METHOD(void, SetSubTimeScale, (uint32_t));
 	MOCK_METHOD(void, ProcessID3Metadata, (std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
 	MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());

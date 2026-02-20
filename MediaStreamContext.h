@@ -148,6 +148,67 @@ public:
     bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 
     /**
+     * @fn TransferFragmentBuffer
+     * @brief Transfer buffer data into a CachedFragment using the appropriate
+     *        semantics for the caching mode.
+     *
+     * Fragment mode: zero-copy move via Replace() from a download buffer.
+     * Chunk mode: copy via AppendBytes() from an ephemeral CURL buffer.
+     *
+     * @param[out] cached        Destination CachedFragment whose fragment buffer
+     *                           will be populated.
+     * @param[in]  chunkPayload  Pointer to chunk data (chunk mode only, may be nullptr).
+     * @param[in]  downloadBuffer Source growable buffer (fragment mode only, may be nullptr).
+     * @param[in]  payloadSize   Size of chunk payload in bytes (chunk mode only).
+     * @param[in]  isChunkMode   true for chunk (AppendBytes), false for fragment (Replace).
+     */
+    static void TransferFragmentBuffer(CachedFragment* cached,
+                                       const char* chunkPayload,
+                                       AampGrowableBuffer* downloadBuffer,
+                                       size_t payloadSize,
+                                       bool isChunkMode);
+
+    /**
+     * @fn PopulateCommonMetadata
+     * @brief Populate the common metadata fields of a CachedFragment that are
+     *        shared between fragment and chunk caching paths.
+     *
+     * @note This helper intentionally does NOT set timing fields (position,
+     *       duration, absPosition). Those are lifecycle-dependent:
+     *       - Fragment mode: set by OnFragmentDownloadSuccess callback
+     *       - Chunk mode: set by the caller immediately
+     *
+     * @param[out] cached        Destination CachedFragment to populate.
+     * @param[in]  url           Fragment URL (for debug/logging).
+     * @param[in]  mediaType     The AampMediaType of this fragment.
+     * @param[in]  profileIndex  ABR profile index.
+     * @param[in]  isInitSegment true if this is an initialisation segment.
+     * @param[in]  isDiscontinuity true if a PTS discontinuity precedes this fragment.
+     */
+    static void PopulateCommonMetadata(CachedFragment* cached,
+                                       const std::string& url,
+                                       AampMediaType mediaType,
+                                       int profileIndex,
+                                       bool isInitSegment,
+                                       bool isDiscontinuity);
+
+    /**
+     * @fn ProcessInitSegmentIfNeeded
+     * @brief Parse an init segment and extract the timescale, applying it to
+     *        the appropriate AAMP track (video, audio, or subtitle).
+     *
+     * This is a no-op when isInitSegment is false. When true, the fragment
+     * buffer is parsed as ISO BMFF to extract the timescale value.
+     *
+     * @param[in] cached        CachedFragment containing the init segment data.
+     * @param[in] isInitSegment true if the fragment is an init segment.
+     * @param[in] aamp          Pointer to the PrivateInstanceAAMP for applying timescale.
+     */
+    static void ProcessInitSegmentIfNeeded(CachedFragment* cached,
+                                           bool isInitSegment,
+                                           PrivateInstanceAAMP* aamp);
+
+    /**
      * @fn ABRProfileChanged
      */
     void ABRProfileChanged(void) override;

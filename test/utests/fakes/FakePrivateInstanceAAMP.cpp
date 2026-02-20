@@ -1383,10 +1383,16 @@ void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		g_mockPrivateInstanceAAMP->SetAudTimeScale(audTimeScale);
+	}
 }
 
-void PrivateInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		g_mockPrivateInstanceAAMP->SetSubTimeScale(subTimeScale);
+	}
 }
 
 void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
