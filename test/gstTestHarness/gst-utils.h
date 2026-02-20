@@ -16,23 +16,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef GST_UTILS_H
-#define GST_UTILS_H
+#ifndef GST_TEST_UTILS_H
+#define GST_TEST_UTILS_H
 
+#include "AampMediaType.h"
 #include <gst/app/gstappsrc.h>
 #include <memory>
 
-typedef enum
-{
-	eMEDIATYPE_AUDIO,
-	eMEDIATYPE_VIDEO
-} MediaType;
-#define NUM_MEDIA_TYPES 2
+using GstHarnessMediaType = AampMediaType;
+static constexpr int NUM_GST_MEDIA_TYPES = 2;
 
 extern bool gstutils_quiet;
 
 void gstutils_Init( void );
-const char *gstutils_GetMediaTypeName( MediaType mediaType );
+const char *gstutils_GetMediaTypeName( GstHarnessMediaType mediaType );
 void gstutils_DumpFlags( GstElement * playbin );
 void gstutils_element_setup_cb(GstElement * playbin, GstElement * element, class MediaStream *stream);
 void gstutils_HandleGstMessageStateChanged( GstMessage *msg, const char *messageName );
@@ -87,5 +84,5 @@ struct GstPadDeleter {
 };
 using ScopedGstPad = std::unique_ptr<GstPad, GstPadDeleter>;
 
-#endif // GST_UTILS_H
+#endif // GST_TEST_UTILS_H
 

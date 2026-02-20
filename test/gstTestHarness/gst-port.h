@@ -20,8 +20,10 @@
 #define GST_PORT_H
 
 #include "gst-utils.h"
+#include "AampDemuxDataTypes.h"
 #include <array>
 #include <memory>
+#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -30,7 +32,6 @@
 #include <queue>
 #include <mutex>
 #include <atomic>
-#include "mp4demux.hpp"
 
 typedef enum
 { // 1-to-1 map to GstState
@@ -53,8 +54,8 @@ class PipelineContext
 	public:
 	PipelineContext(){};
 	virtual ~PipelineContext(){};
-	virtual void NeedData( MediaType mediaType ) = 0;
-	virtual void EnoughData( MediaType mediaType ) = 0;
+	virtual void NeedData( GstHarnessMediaType mediaType ) = 0;
+	virtual void EnoughData( GstHarnessMediaType mediaType ) = 0;
 	/**
 	 * 1. initial seek done as each appsrc is configured
 	 * 2. when Pipeline::ReachedEOS signaled, new seek done on pipeline to prepare for next segment
@@ -70,18 +71,18 @@ class Pipeline
 	~Pipeline();
 	Pipeline(const Pipeline&)=delete; //copy constructor
 	Pipeline& operator=(const Pipeline&)=delete; //copy assignment operator
-	double GetInjectedSeconds( MediaType mediaType ) const;
-	long long GetPositionMilliseconds( MediaType mediaType ) const;
+	double GetInjectedSeconds( GstHarnessMediaType mediaType ) const;
+	long long GetPositionMilliseconds( GstHarnessMediaType mediaType ) const;
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void ) const;
-	void Configure( MediaType mediaType, const SeekParam &seekParam = SeekParam() );
-	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
+	void Configure( GstHarnessMediaType mediaType, const SeekParam &seekParam = SeekParam() );
+	void SetCaps( GstHarnessMediaType mediaType, const MediaCodecInfo &codecInfo );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void ) const;
-	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration );
-	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata = NULL );
-	void SendGap( MediaType mediaType, double pts, double base_time );
-	void SendEOS( MediaType mediaType );
+	void SendBufferMP4( GstHarnessMediaType mediaType, gpointer ptr, gsize len, double duration );
+	void SendBufferES( GstHarnessMediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, const MediaDrmMetadata *drmMetadata = nullptr );
+	void SendGap( GstHarnessMediaType mediaType, double pts, double base_time );
+	void SendEOS( GstHarnessMediaType mediaType );
 	void Step( void );
 	SeekParam PopSeek();
 	void ScheduleSeek( const SeekParam & );
@@ -91,7 +92,7 @@ class Pipeline
 	private:
 	void ReachedEOS( void );
 	class PipelineContext *context;
-	std::array<std::unique_ptr<class MediaStream>, NUM_MEDIA_TYPES> mediaStream;
+	std::array<std::unique_ptr<class MediaStream>, NUM_GST_MEDIA_TYPES> mediaStream;
 	GstElement *pipeline;
 	GstBus *bus;
 	gboolean bus_message( GstBus * bus, GstMessage * msg );

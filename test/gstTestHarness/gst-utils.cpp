@@ -25,7 +25,7 @@ bool gstutils_quiet = true;
 GST_DEBUG_CATEGORY_STATIC(gstutils_cat);
 #define GST_CAT_DEFAULT gstutils_cat
 
-const char *gstutils_GetMediaTypeName( MediaType mediaType )
+const char *gstutils_GetMediaTypeName( GstHarnessMediaType mediaType )
 {
 	switch( mediaType )
 	{

@@ -609,6 +609,7 @@ set(GSTTESTHARNESS_DEPENDS
 	${GSTREAMERBASE_LINK_LIBRARIES}
 	${LIBDASH_LINK_LIBRARIES}
 	${CURL_LINK_LIBRARIES}
+	aamp
 )
 set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-port.cpp
@@ -617,7 +618,8 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-utils.h
 	test/gstTestHarness/gst-test.cpp
 	test/gstTestHarness/gst-test.h
-	test/gstTestHarness/mp4demux.hpp
+	mp4demux/MP4Demux.cpp
+	mp4demux/MP4Demux.h
 	test/gstTestHarness/dash_adapter.cpp
 	test/gstTestHarness/dash_adapter.hpp
 	test/gstTestHarness/downloader.cpp
@@ -630,6 +632,11 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/turbo_xml.hpp
 )
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
+target_include_directories(gstTestHarness PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}
+	${CMAKE_CURRENT_SOURCE_DIR}/middleware
+	${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor
+)
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
 install(TARGETS gstTestHarness
 		DESTINATION bin

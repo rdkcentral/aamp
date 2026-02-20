@@ -74,13 +74,13 @@ public:
 	double seekPos;
 	double nextPTS;
 	double nextTime;
-	Track track[NUM_MEDIA_TYPES];
+	Track track[NUM_GST_MEDIA_TYPES];
 	MyPipelineContext( void );
 	~MyPipelineContext();
 	void ReachedEOS( void );
-	void NeedData( MediaType mediaType ) override;
-	void EnoughData( MediaType mediaType ) override;
-	void PadProbeCallback( MediaType mediaType );
+	void NeedData( GstHarnessMediaType mediaType ) override;
+	void EnoughData( GstHarnessMediaType mediaType ) override;
+	void PadProbeCallback( GstHarnessMediaType mediaType );
 	
 	MyPipelineContext(const MyPipelineContext&)=delete;
 	MyPipelineContext& operator=(const MyPipelineContext&)=delete;
@@ -91,5 +91,5 @@ class TrackEvent
 public:
 	TrackEvent(){}
 	virtual ~TrackEvent(){};
-	virtual bool Inject( MyPipelineContext *context, MediaType mediaType ) = 0;
+	virtual bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType ) = 0;
 };

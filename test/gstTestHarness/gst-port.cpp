@@ -28,6 +28,7 @@
 #include <mutex>
 #include <atomic>
 #include <cmath>
+#include <cstring>
 
 #define MY_PIPELINE_NAME "test-pipeline"
 
@@ -43,6 +44,204 @@ static void enough_data_cb(GstElement *appSrc, class MediaStream *stream );
 static gboolean appsrc_seek_cb( GstElement * appSrc, guint64 offset, class MediaStream *stream );
 static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class MediaStream *stream );
 
+static GstBuffer *CreateGstBufferWithData(const std::vector<uint8_t> &data)
+{
+	if( data.empty() )
+	{
+		return nullptr;
+	}
+	GstBuffer *buffer = gst_buffer_new_and_alloc(data.size());
+	if( buffer )
+	{
+		GstMapInfo map;
+		if( gst_buffer_map(buffer, &map, GST_MAP_WRITE) )
+		{
+			memcpy(map.data, data.data(), data.size());
+			gst_buffer_unmap(buffer, &map);
+		}
+		else
+		{
+			gst_buffer_unref(buffer);
+			buffer = nullptr;
+		}
+	}
+	return buffer;
+}
+
+static void AddBufferFieldToStructure(GstStructure *structure, const char *fieldName, const std::vector<uint8_t> &data)
+{
+	if( !structure || !fieldName || data.empty() )
+	{
+		return;
+	}
+	GstBuffer *buffer = CreateGstBufferWithData(data);
+	if( !buffer )
+	{
+		GST_ERROR("Failed to allocate buffer for field %s", fieldName);
+		return;
+	}
+	gst_structure_set(structure,
+			fieldName, GST_TYPE_BUFFER, buffer,
+			NULL);
+	gst_buffer_unref(buffer);
+}
+
+static const char *CipherTypeToStringLocal(CipherType type)
+{
+	switch( type )
+	{
+		case CIPHER_TYPE_CENC:
+			return "cenc";
+		case CIPHER_TYPE_CBCS:
+			return "cbcs";
+		case CIPHER_TYPE_CBC1:
+			return "cbc1";
+		case CIPHER_TYPE_CENS:
+			return "cens";
+		default:
+			return "none";
+	}
+}
+
+static GstStructure *BuildProtectionMetadata(const MediaDrmMetadata *drmMetadata)
+{
+	if( !drmMetadata || !drmMetadata->mIsEncrypted )
+	{
+		return nullptr;
+	}
+	GstStructure *metadata = gst_structure_new(
+		"application/x-cenc",
+		"encrypted", G_TYPE_BOOLEAN, TRUE,
+		"cipher-mode", G_TYPE_STRING, CipherTypeToStringLocal(drmMetadata->mCipher),
+		NULL);
+	if( !metadata )
+	{
+		return nullptr;
+	}
+
+	if( !drmMetadata->mKeyId.empty() )
+	{
+		AddBufferFieldToStructure(metadata, "kid", drmMetadata->mKeyId);
+	}
+
+	if( !drmMetadata->mIV.empty() )
+	{
+		AddBufferFieldToStructure(metadata, "iv", drmMetadata->mIV);
+		gst_structure_set(metadata,
+			"iv_size", G_TYPE_UINT, drmMetadata->mIV.size(),
+			NULL);
+	}
+
+	if( !drmMetadata->mSubSamples.empty() )
+	{
+		AddBufferFieldToStructure(metadata, "subsamples", drmMetadata->mSubSamples);
+		gst_structure_set(metadata,
+			"subsample_count", G_TYPE_UINT, drmMetadata->mNumSubSamples,
+			NULL);
+	}
+	else
+	{
+		gst_structure_set(metadata,
+			"subsample_count", G_TYPE_UINT, 0,
+			NULL);
+	}
+
+	if( drmMetadata->mCipher == CIPHER_TYPE_CBCS )
+	{
+		gst_structure_set(metadata,
+			"crypt_byte_block", G_TYPE_UINT, drmMetadata->mCryptByteBlock,
+			"skip_byte_block", G_TYPE_UINT, drmMetadata->mSkipByteBlock,
+			NULL );
+	}
+
+	return metadata;
+}
+
+static GstCaps *BuildCapsFromCodecInfo(const MediaCodecInfo &codecInfo)
+{
+	GstCaps *caps = nullptr;
+	switch( codecInfo.mCodecFormat )
+	{
+		case GST_FORMAT_VIDEO_ES_H264:
+			caps = gst_caps_new_simple(
+				"video/x-h264",
+				"stream-format", G_TYPE_STRING, "avc",
+				"alignment", G_TYPE_STRING, "au",
+				"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+				"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+				"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+				NULL );
+			break;
+
+		case GST_FORMAT_VIDEO_ES_HEVC:
+			caps = gst_caps_new_simple(
+				"video/x-h265",
+				"stream-format", G_TYPE_STRING, "hvc1",
+				"alignment", G_TYPE_STRING, "au",
+				"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+				"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+				"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+				NULL );
+			break;
+
+		case GST_FORMAT_AUDIO_ES_AAC_RAW:
+			caps = gst_caps_new_simple(
+				"audio/mpeg",
+				"mpegversion", G_TYPE_INT, 4,
+				"framed", G_TYPE_BOOLEAN, TRUE,
+				"stream-format", G_TYPE_STRING, "raw",
+				"profile", G_TYPE_STRING, "lc",
+				"base-profile", G_TYPE_STRING, "lc",
+				"level", G_TYPE_STRING, "2",
+				"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+				"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+				NULL );
+			break;
+
+		case GST_FORMAT_AUDIO_ES_EC3:
+			caps = gst_caps_new_simple(
+				"audio/x-eac3",
+				"framed", G_TYPE_BOOLEAN, TRUE,
+				"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+				"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+				NULL );
+			break;
+
+		case GST_FORMAT_AUDIO_ES_AC4:
+			caps = gst_caps_new_simple(
+				"audio/x-ac4",
+				"framed", G_TYPE_BOOLEAN, TRUE,
+				"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+				"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+				NULL );
+			break;
+
+		default:
+			break;
+	}
+
+	if( !caps )
+	{
+		return nullptr;
+	}
+
+	GstStructure *structure = gst_caps_get_structure(caps, 0);
+	if( structure && !codecInfo.mCodecData.empty() )
+	{
+		AddBufferFieldToStructure(structure, "codec_data", codecInfo.mCodecData);
+	}
+
+	if( structure && codecInfo.mIsEncrypted )
+	{
+		gst_structure_set(structure,
+			"original-media-type", G_TYPE_STRING, gst_structure_get_name(structure),
+			NULL);
+		gst_structure_set_name(structure, "application/x-cenc");
+	}
+
+	return caps;
+}
+
 /**
  * @class MediaStream
  * @brief Manages a single media stream (audio or video) in the GStreamer pipeline
@@ -55,7 +254,7 @@ static void decodebin_pad_added_cb(GstElement * decodebin, GstPad * pad, class M
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : injectedSeconds(), context(context), mediaType(mediaType), appsrc(nullptr), decodebin(nullptr), need_data_handle_id(0), enough_data_handle_id(0), appsrc_seek_handle_id(0)
+	MediaStream( GstHarnessMediaType mediaType, class PipelineContext *context ) : injectedSeconds(), context(context), mediaType(mediaType), appsrc(nullptr), decodebin(nullptr), need_data_handle_id(0), enough_data_handle_id(0), appsrc_seek_handle_id(0)
 	{
 	}
 	
@@ -107,7 +306,7 @@ public:
 		}
 	}
 	
-	MediaType GetMediaType( void ) const
+	GstHarnessMediaType GetMediaType( void ) const
 	{
 		return mediaType;
 	}
@@ -169,7 +368,7 @@ public:
 		}
 	}
 	
-	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=nullptr )
+	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, const MediaDrmMetadata *drmMetadata=nullptr )
 	{
 		if (ptr && appsrc)
 		{
@@ -184,9 +383,13 @@ public:
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * GST_SECOND);
-			if (metadata)
+			if( drmMetadata )
 			{
-				gst_buffer_add_protection_meta(gstBuffer, metadata);
+				GstStructure *metadata = BuildProtectionMetadata(drmMetadata);
+				if( metadata )
+				{
+					gst_buffer_add_protection_meta(gstBuffer, metadata);
+				}
 			}
 			GstFlowReturn ret = gst_app_src_push_buffer( appsrc, gstBuffer );
 			switch( ret )
@@ -386,9 +589,16 @@ public:
 		return TRUE;
 	}
 	
-	void SetCaps( const Mp4Demux *mp4Demux )
+	void SetCaps( const MediaCodecInfo &codecInfo )
 	{
-		mp4Demux->setCaps( appsrc );
+		GstCaps *caps = BuildCapsFromCodecInfo(codecInfo);
+		if( !caps )
+		{
+			GST_ERROR_OBJECT(appsrc, "Failed to build caps for codec format %d", codecInfo.mCodecFormat);
+			return;
+		}
+		gst_app_src_set_caps(appsrc, caps);
+		gst_caps_unref(caps);
 	}
 	
 	MediaStream(const MediaStream&)=delete;
@@ -402,7 +612,7 @@ private:
 	/// The pointed-to PipelineContext is not const as it has mutable state (queues, atomics).
 	PipelineContext* const context;
 	
-	const MediaType mediaType;
+	const GstHarnessMediaType mediaType;
 	
 	/// Non-owning reference to appsrc element (owned by pipeline bin)
 	GstAppSrc *appsrc;
@@ -517,9 +727,9 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 	gstutils_Init();
 	bus = gst_element_get_bus(pipeline);
 	gst_bus_add_watch( bus, reinterpret_cast<GstBusFunc>(bus_message_cb), this );
-	for( int i=0; i<NUM_MEDIA_TYPES; i++ )
+	for( int i=0; i<NUM_GST_MEDIA_TYPES; i++ )
 	{
-		mediaStream[i] = std::make_unique<MediaStream>( static_cast<MediaType>(i), context );
+		mediaStream[i] = std::make_unique<MediaStream>( static_cast<GstHarnessMediaType>(i), context );
 	}
 }
 
@@ -553,15 +763,15 @@ size_t Pipeline::GetNumPendingSeek(void) const
 	return context->mSegmentEndSeekQueue.size();
 }
 
-void Pipeline::Configure( MediaType mediaType, const SeekParam &seekParam )
+void Pipeline::Configure( GstHarnessMediaType mediaType, const SeekParam &seekParam )
 {
 	mediaStream[mediaType]->Configure(pipeline);
 	mediaStream[mediaType]->Seek(seekParam);
 }
 
-void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
+void Pipeline::SetCaps( GstHarnessMediaType mediaType, const MediaCodecInfo &codecInfo )
 {
-	mediaStream[mediaType]->SetCaps(mp4Demux);
+	mediaStream[mediaType]->SetCaps(codecInfo);
 }
 
 Pipeline::~Pipeline()
@@ -602,23 +812,23 @@ PipelineState Pipeline::GetPipelineState( void ) const
 	return (PipelineState) state;
 }
 
-void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration )
+void Pipeline::SendBufferMP4( GstHarnessMediaType mediaType, gpointer ptr, gsize len, double duration )
 {
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
 
-void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata )
+void Pipeline::SendBufferES( GstHarnessMediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, const MediaDrmMetadata *drmMetadata )
 {
-	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts,metadata);
+	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts,drmMetadata);
 }
 
-void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds )
+void Pipeline::SendGap( GstHarnessMediaType mediaType, double pts, double durationSeconds )
 {
 	GST_INFO_OBJECT(pipeline, "SendGap %s pts=%f dur=%f", gstutils_GetMediaTypeName(mediaType), pts, durationSeconds );
 	mediaStream[mediaType]->SendGap(pts,durationSeconds);
 }
 
-void Pipeline::SendEOS( MediaType mediaType )
+void Pipeline::SendEOS( GstHarnessMediaType mediaType )
 {
 	mediaStream[mediaType]->SendEOS();
 }
@@ -680,7 +890,7 @@ void Pipeline::Reset( void )
 	GST_DEBUG_OBJECT(pipeline, "Reset complete: cleared seek queue, config state, and buffer counters");
 }
 
-long long Pipeline::GetPositionMilliseconds( MediaType /*mediaType*/ ) const
+long long Pipeline::GetPositionMilliseconds( GstHarnessMediaType /*mediaType*/ ) const
 {
 	gint64 position = GST_CLOCK_TIME_NONE;
 	if (gst_element_query_position(pipeline, GST_FORMAT_TIME, &position))
@@ -688,7 +898,7 @@ long long Pipeline::GetPositionMilliseconds( MediaType /*mediaType*/ ) const
 	return -1;
 }
 
-double Pipeline::GetInjectedSeconds( MediaType mediaType ) const
+double Pipeline::GetInjectedSeconds( GstHarnessMediaType mediaType ) const
 {
 	return mediaStream[mediaType]->GetInjectedSeconds();
 }

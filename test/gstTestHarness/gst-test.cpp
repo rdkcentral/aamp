@@ -24,10 +24,11 @@
 #include "stream_utils.hpp"
 #include "dash_adapter.hpp"
 #include "turbo_xml.hpp"
-#include "mp4demux.hpp"
+#include "mp4demux/MP4Demux.h"
 #include <mutex>
 #include <thread>
 #include <memory>
+#include <vector>
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/types.h>
@@ -88,12 +89,12 @@ MyPipelineContext::~MyPipelineContext()
 	// pipeline automatically deleted by unique_ptr
 }
 
-void MyPipelineContext::NeedData( MediaType mediaType )
+void MyPipelineContext::NeedData( GstHarnessMediaType mediaType )
 {
 	track[mediaType].needsData = true;
 }
 
-void MyPipelineContext::EnoughData( MediaType mediaType )
+void MyPipelineContext::EnoughData( GstHarnessMediaType mediaType )
 {
 	track[mediaType].needsData = false;
 }
@@ -164,6 +165,60 @@ void GetVideoSegmentPath( char path[MAX_PATH_SIZE], int segmentNumber, VideoReso
 	}
 }
 
+static uint64_t AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t ptsRestampDelta )
+{
+	uint64_t baseMediaDecodeTime = 0;
+	const uint8_t *fin = &ptr[len];
+	while( ptr < fin && !baseMediaDecodeTime )
+	{
+		uint32_t size = (uint32_t)(ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];
+		uint8_t *next = ptr + size;
+		ptr += 4;
+		uint32_t type = (ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];
+		ptr += 4;
+		if( type == MultiChar_Constant("tfdt") ) // Track Fragment Base Media Decode Time Box
+		{
+			uint8_t version = *ptr++;
+			int sz = (version==1)?8:4;
+			ptr += 3; // skip flags
+			baseMediaDecodeTime = 0;
+			for( int i=0; i<sz; i++ )
+			{
+				baseMediaDecodeTime <<= 8;
+				baseMediaDecodeTime |= ptr[i];
+			}
+			baseMediaDecodeTime += ptsRestampDelta;
+			for( int i=0; i<sz; i++ )
+			{
+				ptr[i] = (baseMediaDecodeTime>>((sz-1-i)*8))&0xff;
+			}
+			break;
+		}
+		else
+		{ // walk children
+			switch( type )
+			{
+				case MultiChar_Constant("traf"):
+				case MultiChar_Constant("moov"):
+				case MultiChar_Constant("trak"):
+				case MultiChar_Constant("minf"):
+				case MultiChar_Constant("dinf"):
+				case MultiChar_Constant("stbl"):
+				case MultiChar_Constant("mvex"):
+				case MultiChar_Constant("moof"):
+				case MultiChar_Constant("mdia"):
+					baseMediaDecodeTime = AdjustMediaDecodeTime( ptr, next-ptr, ptsRestampDelta );
+					break;
+
+				default:
+					break;
+			}
+		}
+		ptr = next;
+	}
+	return baseMediaDecodeTime;
+}
+
 /**
  * @brief segment buffer supporting data loading and injection
  */
@@ -174,15 +229,20 @@ private:
 	gpointer ptr;
 	double duration;
 	double pts_offset;
-	MediaType mediaType;
-	
+	GstHarnessMediaType mediaType;
 	TsDemux *tsDemux;
-	
+	std::vector<AampMediaSample> mp4Samples;
+	MediaCodecInfo mp4CodecInfo;
+	bool mp4ParseSucceeded;
+
 	std::string url;
 	
 	void Load( void )
 	{
 		ptr = LoadUrl(url,&len);
+		mp4Samples.clear();
+		mp4CodecInfo = MediaCodecInfo();
+		mp4ParseSucceeded = false;
 		if( ptr )
 		{
 			switch( mContentFormat )
@@ -192,7 +252,16 @@ private:
 					{
 						gMp4Demux[mediaType] = std::make_unique<Mp4Demux>();
 					}
-					gMp4Demux[mediaType]->Parse(ptr,len);
+					mp4ParseSucceeded = gMp4Demux[mediaType]->Parse(ptr,len);
+					if( !mp4ParseSucceeded )
+					{
+						throw TestHarnessException( "ERROR: TrackFragment::Load() - MP4 parse failed" );
+					}
+					mp4Samples = gMp4Demux[mediaType]->GetSamples();
+					if( mp4Samples.empty() )
+					{
+						mp4CodecInfo = gMp4Demux[mediaType]->GetCodecInfo();
+					}
 					break;
 					
 				case eCONTENTFORMAT_QTDEMUX:
@@ -207,7 +276,7 @@ private:
 	}
 	
 public:
-	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(nullptr),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
+	TrackFragment( GstHarnessMediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), duration(duration), pts_offset(pts_offset), mediaType(mediaType), tsDemux(nullptr), mp4Samples(), mp4CodecInfo(), mp4ParseSucceeded(false), url(path)
 	{
 	}
 	
@@ -217,10 +286,9 @@ public:
 		g_free(ptr);
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType )
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType )
 	{
 		Load(); // lazily load segment data
-		Mp4Demux *mp4Demux = gMp4Demux[mediaType].get(); // Get raw pointer from unique_ptr
 		
 		if( tsDemux )
 		{
@@ -245,34 +313,34 @@ public:
 				}
 			}
 		}
-		else if( mp4Demux )
+		else if( !mp4Samples.empty() )
 		{
-			int count = mp4Demux->count();
-			if( count>0 )
-			{ // media segment
-				for( int i=0; i<count; i++ )
+			for( auto &sample : mp4Samples )
+			{
+				size_t sampleLen = sample.mData.size();
+				if( sampleLen == 0 )
 				{
-					size_t len = mp4Demux->getLen(i);
-					double pts = mp4Demux->getPts(i);
-					double dts = mp4Demux->getDts(i);
-					double dur = mp4Demux->getDuration(i);
-					gpointer ptr = g_malloc(len);
-					if( ptr )
-					{
-						memcpy( ptr, mp4Demux->getPtr(i), len );
-						GstStructure *metadata = mp4Demux->getDrmMetadata( i );
-						context->pipeline->SendBufferES( mediaType, ptr, len,
-														dur,
-														pts+pts_offset,
-														dts+pts_offset,
-														metadata );
-					}
+					throw TestHarnessException( "ERROR: TrackFragment::Inject() - Invalid buffer length" );
+				}
+				gpointer buffer = g_malloc(sampleLen);
+				if( buffer )
+				{
+					memcpy( buffer, sample.mData.GetPtr(), sampleLen );
+					const MediaDrmMetadata *drmMetadata = sample.mDrmMetadata.mIsEncrypted ? &sample.mDrmMetadata : nullptr;
+					context->pipeline->SendBufferES( mediaType, buffer, sampleLen,
+											sample.mDuration,
+											sample.mPts+pts_offset,
+											sample.mDts+pts_offset,
+											drmMetadata );
 				}
 			}
-			else
-			{ // initialization header
-				context->pipeline->SetCaps(mediaType, mp4Demux );
-			}
+			mp4Samples.clear();
+		}
+		else if( mp4ParseSucceeded &&
+				mp4CodecInfo.mCodecFormat != GST_FORMAT_INVALID &&
+				mp4CodecInfo.mCodecFormat != GST_FORMAT_UNKNOWN )
+		{
+			context->pipeline->SetCaps(mediaType, mp4CodecInfo );
 		}
 		else if( ptr )
 		{
@@ -280,7 +348,7 @@ public:
 			{
 				if( duration>0 )
 				{ // audio or video segment (not an initialization header)
-					Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
+					AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
 				}
 			}
 			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration );
@@ -313,7 +381,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType )
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType )
 	{
 		context->pipeline->SendGap( mediaType, pts, duration );
 		return true;
@@ -352,7 +420,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType )
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType )
 	{
 		char path[MAX_PATH_SIZE];
 		switch( mediaType )
@@ -405,7 +473,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType)
 	{
 		size_t count = context->pipeline->GetNumPendingSeek();
 		if( !sentEOS )
@@ -432,7 +500,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType)
 	{
 		PipelineState state = context->pipeline->GetPipelineState();
 		if( state != prevState )
@@ -478,7 +546,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType)
 	{
 		context->pipeline->Step();
 		count--;
@@ -506,7 +574,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType)
 	{ // todo: make non-blocking
 		if( this->milliseconds>0 )
 		{
@@ -527,7 +595,7 @@ public:
 	{
 	}
 	
-	bool Inject( MyPipelineContext *context, MediaType mediaType)
+	bool Inject( MyPipelineContext *context, GstHarnessMediaType mediaType)
 	{
 		context->pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 		return true;
@@ -832,7 +900,7 @@ public:
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
-	void FeedPipelineIfNeeded( MediaType mediaType )
+	void FeedPipelineIfNeeded( GstHarnessMediaType mediaType )
 	{
 		Track &t = pipelineContext.track[mediaType];
 		bool needsData = false;
@@ -1031,7 +1099,7 @@ public:
 			for( const auto& it : period.adaptationSet )
 			{
 				const AdaptationSet &adaptationSet = it.second;
-				MediaType mediaType;
+				GstHarnessMediaType mediaType;
 				if( adaptationSet.contentType == "video" )
 				{
 					mediaType = eMEDIATYPE_VIDEO;
@@ -1124,7 +1192,7 @@ public:
 							gpointer ptr = LoadUrl( mediaUrl, &len );
 							if( ptr )
 							{ // here we peek inside original segment (if available) to extract media decode time, expected to match time from manifest
-								uint64_t extractedTime = Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, (size_t)len, 0 );
+								uint64_t extractedTime = AdjustMediaDecodeTime( (uint8_t *)ptr, (size_t)len, 0 );
 								if( extractedTime != baseMediaDecodeTime )
 								{
 									printf( "WARNING! extractedTime(%" PRIu64 ") !=baseMediaDecodeTime(%" PRIu64 ")\n",
@@ -1434,7 +1502,7 @@ public:
 		else if( strcmp(str,"stop")==0 )
 		{
 			// Clean up global Mp4Demux instances to prevent memory leaks
-			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
+			for (int i = 0; i < NUM_GST_MEDIA_TYPES; i++)
 			{
 				gMp4Demux[i].reset();
 			}
@@ -1465,7 +1533,7 @@ public:
 			pipelineContext.seekPos = 0.0;
 			
 			// Reset track state
-			for (int i = 0; i < NUM_MEDIA_TYPES; i++)
+			for (int i = 0; i < NUM_GST_MEDIA_TYPES; i++)
 			{
 				pipelineContext.track[i].needsData = false;
 				pipelineContext.track[i].gstreamerReadyForInjection = false;
