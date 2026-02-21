@@ -155,7 +155,7 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
+	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset = 0) override;
 
 	double getFirstPts( AampGrowableBuffer* pBuffer ) override
 	{

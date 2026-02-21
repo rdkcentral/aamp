@@ -297,7 +297,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			mPrivateInstanceAAMP->rate = rate;
 			mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 			mPrivateInstanceAAMP->SetLocalAAMPTsb(tsb);
-			mPrivateInstanceAAMP->pipeline_paused = paused;
+			mPrivateInstanceAAMP->mSinkPaused = paused;
 			mPrivateInstanceAAMP->SetBufUnderFlowStatus(underflow);
 			mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
 			mMediaStreamContext->mTempFragment->assign(data, data + 12);

@@ -352,7 +352,7 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 		{
 			retValue = sink->Pause(false, false);
 		}
-		aamp->pipeline_paused = false;
+		aamp->mSinkPaused = false;
 	}
 	else
 	{
@@ -362,7 +362,7 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 			tuneType = eTUNETYPE_SEEKTOLIVE;
 		}
 		aamp->rate = AAMP_NORMAL_PLAY_RATE;
-		aamp->pipeline_paused = false;
+		aamp->mSinkPaused = false;
 		aamp->mSeekFromPausedState = false;
 		aamp->AcquireStreamLock();
 		aamp->TuneHelper(tuneType);
@@ -435,9 +435,9 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 	}
 	else
 	{
-		if (aamp->pipeline_paused)
+		if (aamp->mSinkPaused.load())
 		{
-			aamp->pipeline_paused = false;
+			aamp->mSinkPaused.store(false);
 		}
 
 		aamp->mIsRetuneInProgress = true;
@@ -714,12 +714,14 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
  * @param[in] buffer - buffer to scan
  * @param[in] bufferOffset - offset in buffer to start scanning from
  * @param[out] chunkBoundaryOffset - offset of chunk boundary if found
+ * @param[out] chunkDurationInTicks - duration of chunk if boundary found
  * @retval true if chunk boundary found
  */
-static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset)
+static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset, uint64_t &chunkDurationInTicks)
 {
 	bool found = false;
 	chunkBoundaryOffset = 0;
+	chunkDurationInTicks = 0;
 
 	IsoBmffBuffer isobmffBuffer;
 	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->size() - bufferOffset);
@@ -758,6 +760,14 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buf
 				// Calculate chunk boundary offset
 				chunkBoundaryOffset = bufferOffset + mdatStart + mdatSize;
 				found = true;
+
+				// Get the index of last MDAT box w.r.t to the full mp4 box. MDAT should be preceded by a MOOF.
+				// This is expected by the getTotalChunkDurationInTicks API.
+				int mdatIndex = isobmffBuffer.getLastMdatBoxIndex();
+				if (mdatIndex > 0)
+				{
+					chunkDurationInTicks = isobmffBuffer.getTotalChunkDurationInTicks(mdatIndex);
+				}
 			}
 		}
 	}
@@ -1113,7 +1123,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 							   context->aamp->GetLLDashChunkMode() &&
 							   !mCtx->IsLocalTSBInjection();
 			// Prevent injection if the user paused the playback, but not if the playback was paused due to underflow
-			bool injectionPaused = (IsLocalAAMPTsb() && pipeline_paused && !context->aamp->GetBufUnderFlowStatus());
+			bool injectionPaused = (IsLocalAAMPTsb() && mSinkPaused.load() && !context->aamp->GetBufUnderFlowStatus());
 
 			if (ischunkMode && ptr && (numBytesForBlock > 0) && !injectionPaused &&
 				(context->mediaType == eMEDIATYPE_VIDEO ||
@@ -1124,10 +1134,16 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				if (context->chunkBoundary == 0)
 				{
 					size_t chunkBoundaryOffset = 0;
-					if (IdentifyMp4ChunkBoundary(context->mediaType, context->buffer, context->bufferOffset, chunkBoundaryOffset))
+					// Read the chunk duration in ticks as well, which is needed for accurate buffer management
+					// In case of multiple mdat boxes in the buffer, chunkDurationInTicks will be the total duration of all the chunks in the buffer until the last mdat box
+					uint64_t chunkDurationInTicks = 0;
+					if (IdentifyMp4ChunkBoundary(context->mediaType, context->buffer, context->bufferOffset, chunkBoundaryOffset, chunkDurationInTicks))
 					{
 						context->chunkBoundary = chunkBoundaryOffset;
-						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu", context->mediaType, context->chunkBoundary, context->buffer->size());
+						context->chunkDurationInTicks = chunkDurationInTicks;
+						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu duration %" PRIu64,
+								context->mediaType, context->chunkBoundary,
+								context->buffer->size(), context->chunkDurationInTicks);
 					}
 				}
 				if (context->chunkBoundary > 0)
@@ -1158,7 +1174,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 														bufferPtr,
 														bufferLen,
 														context->remoteUrl,
-														context->downloadStartTime);
+														context->downloadStartTime,
+														context->chunkDurationInTicks);
 								context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 								lock.lock();
 								// Update buffer offset and reset chunkBoundary
@@ -1167,6 +1184,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 								// is the first byte of the next chunk (not yet processed)
 								context->bufferOffset = context->chunkBoundary;
 								context->chunkBoundary = 0;
+								context->chunkDurationInTicks = 0;
 							}
 							else
 							{
@@ -1593,7 +1611,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
-	seek_pos_seconds(-1), rate(0), pipeline_paused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
+	seek_pos_seconds(-1), rate(0), mSinkPaused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
 	video_muted(false), subtitles_muted(true), audio_volume(100), subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0), maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
 	mEventListener(NULL), mNewSeekInfo(), discardEnteringLiveEvt(false),
 	mIsRetuneInProgress(false), mCondDiscontinuity(), mDiscontinuityTuneOperationId(0), mIsVSS(false),
@@ -1968,7 +1986,7 @@ static gboolean PrivateInstanceAAMP_PausePosition(gpointer ptr)
 			}
 		}
 
-		aamp->pipeline_paused = true;
+		aamp->mSinkPaused = true;
 
 		aamp->StopDownloads();
 
@@ -2036,7 +2054,7 @@ void PrivateInstanceAAMP::RunPausePositionMonitoring(void)
 		long long trickplayTargetPosMs = localPauseAtMilliseconds;
 		bool forcePause = false;
 
-		if ((rate == AAMP_RATE_PAUSE) || pipeline_paused)
+		if ((rate == AAMP_RATE_PAUSE) || mSinkPaused.load())
 		{
 			// Shouldn't get here if already paused
 			AAMPLOG_WARN("Already paused, exiting loop");
@@ -2272,7 +2290,7 @@ void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
 		AAMPLOG_INFO("Live latency correction is disabled after Pause");
 		mDisableRateCorrection = true;
 
-		pipeline_paused = true;
+		mSinkPaused = true;
 	}
 }
 
@@ -2568,7 +2586,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
 		double duration = durationSeconds * 1000.0;
-		float speed = pipeline_paused ? 0 : rate;
+		float speed = mSinkPaused.load() ? 0 : rate;
 		double start = -1;
 		double end = -1;
 		long long videoPTS = -1;
@@ -2634,7 +2652,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 		}
-		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
+		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
@@ -2676,11 +2694,19 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// position in milliseconds at that same update. Their difference
 				// yields how far (in ms) the player is behind the live edge.
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition());
+				if(latency < 0)
+				{ // this should never happen!
+					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition());
+				}
 			}
 			else
 			{
 				// For HLS Live, calculate latency based on live edge; round to nearest ms
 				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
+				if(latency < 0)
+				{ // this should never happen!
+					AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+				}
 			}
 			SetCurrentLatency(latency);
 			// update available buffer to Manifest refresh cycle .
@@ -2697,7 +2723,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		UpdatePersistBandwidth(availableBandwidth);
 
 		double currentRate;
-		if(pipeline_paused)
+		if(mSinkPaused.load())
 		{
 			currentRate = 0;
 		}
@@ -2822,7 +2848,7 @@ void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
 		{
 			curPosition = static_cast<double>(NOW_STEADY_TS_MS);
 		}
-		if (!pipeline_paused)
+		if (!mSinkPaused.load())
 		{
 			//Update the percentage only if the pipeline is in playing.
 			pct = ((curPosition - static_cast<double>(mAdAbsoluteStartTime)) / static_cast<double>(mAdDuration)) * 100;
@@ -2920,7 +2946,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
 	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
-	if( pipeline_paused && mpStreamAbstractionAAMP )
+	if( mSinkPaused.load() && mpStreamAbstractionAAMP )
 	{
 		double position = GetPositionSeconds();
 		double minPlaylistPositionToResume = (position < maxRefreshPlaylistIntervalSecs) ? position : (position - maxRefreshPlaylistIntervalSecs);
@@ -3213,7 +3239,7 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 	if (buffering)
 	{
 		SendBufferChangeEvent(true);
-		if (!pipeline_paused)
+		if (!mSinkPaused.load())
 		{
 			if (!PausePipeline(true, true))
 			{
@@ -3223,7 +3249,7 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 	}
 	else
 	{
-		if (pipeline_paused)
+		if (mSinkPaused.load())
 		{
 			(void)PausePipeline(false, false);
 		}
@@ -3247,7 +3273,7 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 		}
 		else
 		{
-			pipeline_paused = pause;
+			mSinkPaused = pause;
 		}
 	}
 	return ret_val;
@@ -4855,7 +4881,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 					if (mAampLLDashServiceData.lowLatencyMode &&
 						(http_code == 200 || http_code == 204 || http_code == 206) &&
-						!pipeline_paused &&
+						!mSinkPaused.load() &&
 						(context.chunkBoundary > 0) &&
 						(context.chunkBoundary < buffer->size()))
 					{
@@ -5857,7 +5883,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
 		// this shouldn't impact seekplay or ADs
-		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
+		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && mSinkPaused.load() == true)))
 			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
 	}
 	ui32CurlTrace=0;
@@ -6326,7 +6352,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		mSeekOperationInProgress = false;
 		// Pipeline is not configured if mbPlayEnabled is false, so not required
-		if (mbPlayEnabled && seekWhilePaused == false && pipeline_paused == true)
+		if (mbPlayEnabled && seekWhilePaused == false && mSinkPaused.load() == true)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
@@ -6655,7 +6681,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	if (!autoPlay)
 	{
-		pipeline_paused = true;
+		mSinkPaused = true;
 		AAMPLOG_WARN("AutoPlay disabled; Just caching the stream now.");
 	}
 
@@ -7388,7 +7414,7 @@ void PrivateInstanceAAMP::detach()
 	AcquireStreamLock();
 	if(mpStreamAbstractionAAMP && mbPlayEnabled) //Player is running
 	{
-		pipeline_paused = true;
+		mSinkPaused = true;
 		seek_pos_seconds  = GetPositionSeconds();
 		AAMPLOG_WARN("Player %s=>%s and soft release.Detach at position %f", STRFGPLAYER, STRBGPLAYER,seek_pos_seconds );
 		DisableDownloads(); //disable download
@@ -8473,9 +8499,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mAampCacheHandler->StopPlaylistCache();
 	}
 
-	if (pipeline_paused)
+	if (mSinkPaused.load())
 	{
-		pipeline_paused = false;
+		mSinkPaused.store(false);
 	}
 	if (mDRMLicenseManager)
 	{
@@ -8928,7 +8954,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		)
 		{
 			SendBufferChangeEvent(true);  // Buffer state changed, buffer Under flow started
-			if (!pipeline_paused &&  !PausePipeline(true, true))
+			if (!mSinkPaused.load() &&  !PausePipeline(true, true))
 			{
 					AAMPLOG_ERR("Failed to pause the Pipeline");
 			}
@@ -9053,35 +9079,39 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
  */
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
-	//bool sentSync = true;
-
-	if (mState == state)
-	{ // noop
+	// Atomically exchange the state and get the previous value in one operation
+	// This ensures only one thread observes each state transition, preventing duplicate events
+	AAMPPlayerState oldState = mState.exchange(state);
+	
+	// Early return if state hasn't changed
+	if (oldState == state)
+	{
 		return;
 	}
 
-	if ( (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
-		&& mState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
+	// Handle SEEKED event based on the actual previous state
+	// Only the thread that performed this specific transition will send the event
+	if ((state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
+		&& oldState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
 	{
 		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
-		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
-	}
-	{
-		std::lock_guard<std::recursive_mutex> guard(mLock);
-		mState = state;
+		mEventManager->SendEvent(event, AAMP_EVENT_SYNC_MODE);
 	}
 
-	mScheduler->SetState(mState);
+	// Update scheduler with new state
+	mScheduler->SetState(state);
+
+	// Send state change events outside of any locks to avoid deadlock
 	if (sendStateChangeEvent && mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
 	{
-		if (mState == eSTATE_PREPARING)
+		if (state == eSTATE_PREPARING)
 		{
 			StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED, GetSessionId());
-			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+			mEventManager->SendEvent(eventData, AAMP_EVENT_SYNC_MODE);
 		}
 
-		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
-		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(state, GetSessionId());
+		mEventManager->SendEvent(eventData, AAMP_EVENT_SYNC_MODE);
 	}
 }
 
@@ -9090,8 +9120,8 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
  */
 AAMPPlayerState PrivateInstanceAAMP::GetState(void)
 {
-	std::lock_guard<std::recursive_mutex> guard(mLock);
-	return mState;
+	// No lock needed - mState is atomic
+	return mState.load();
 }
 
 /**
@@ -14365,7 +14395,7 @@ bool PrivateInstanceAAMP::SignalSubtitleClock( void )
 {
 	bool success = false;
 	// Sent clock only if subtitle track injection is unblocked. otherwise this instance might be detached/flushed
-	if (!mTrackInjectionBlocked[eTRACK_SUBTITLE] && !pipeline_paused)
+	if (!mTrackInjectionBlocked[eTRACK_SUBTITLE] && !mSinkPaused.load())
 	{
 		if (IsGstreamerSubsEnabled())
 		{
@@ -14386,7 +14416,7 @@ bool PrivateInstanceAAMP::SignalSubtitleClock( void )
 	}
 	else
 	{
-		AAMPLOG_TRACE("Skipped - mTrackInjectionBlocked=%d, pipeline_paused=%d", mTrackInjectionBlocked[eTRACK_SUBTITLE], pipeline_paused);
+		AAMPLOG_TRACE("Skipped - mTrackInjectionBlocked=%d, mSinkPaused=%d", mTrackInjectionBlocked[eTRACK_SUBTITLE], mSinkPaused.load());
 	}
 	return success;
 }

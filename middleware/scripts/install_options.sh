@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # default values
-OPTION_PLAYER_BRANCH="dev_sprint_25_1"
+OPTION_PLAYER_BRANCH="dev_sprint_25_2"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false

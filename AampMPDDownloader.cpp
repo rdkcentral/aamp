@@ -863,7 +863,7 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 				IPeriod *period = mpd->GetPeriods().at(iPeriod);
 				if(NULL != period )
 				{
-					const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+					const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
 					if (adaptationSets.size() > 0)
 					{
 						const IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
@@ -872,7 +872,7 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 							const ISegmentTemplate *pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
 							if(pSegmentTemplate == NULL)
 							{
-								const std::vector<IRepresentation *> representations = pFirstAdaptation->GetRepresentation();
+								const std::vector<IRepresentation *>& representations = pFirstAdaptation->GetRepresentation();
 								if( representations.size()>0 )
 								{
 									const IRepresentation *representation = representations.at(0);

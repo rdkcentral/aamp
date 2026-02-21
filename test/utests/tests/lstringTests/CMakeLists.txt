@@ -27,6 +27,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 set(TEST_SOURCES lstringTests.cpp
                  lstringRun.cpp)
 
+set(AAMP_SOURCES ${AAMP_ROOT}/lstring.cpp)
+
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
