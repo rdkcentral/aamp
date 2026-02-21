@@ -52,8 +52,8 @@ limitations under the License.
 					<div class="form-group">
 						<label>
 						<input type="checkbox" id="isLive" checked>
-					</div>
-
+						Live Playback
+					</label>
 				<div id="liveSettings" class="form-group" style="margin-left: 20px;">
 					<label for="targetLatency">Target Latency (seconds):</label>
 					<input type="number" id="targetLatency" value="6" min="2" max="30" step="0.5">
@@ -74,7 +74,10 @@ limitations under the License.
 					<span style="font-weight: bold;">2.0 seconds</span>
 				</div>
 
-				<section class="card">
+			<button id="runBtn" class="btn-primary">Run Simulation</button>
+		</section>
+
+		<section class="card">
 					<h2>Results Summary</h2>
 					<div id="summary" class="summary">
 						<p class="placeholder">Run a simulation to see results</p>

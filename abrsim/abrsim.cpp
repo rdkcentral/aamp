@@ -635,43 +635,45 @@ public:
 				}
 			}
 			
-			// Decide if we need to download
-			bool shouldDownload = mBuffer.needsSegment();
-			
-			if (!shouldDownload) {
-				// No download needed, just advance playback
-				double tickTime = 0.1;
+		// Decide if we need to download
+		bool shouldDownload = mBuffer.needsSegment();
+		
+		if (!shouldDownload) {
+			// No download needed, just advance playback
+			double tickTime = 0.1;
+			if (!mBuffer.isRebuffering()) {
 				mBuffer.consumeBuffer(tickTime);
 				mPlaybackTimeS += tickTime;
-				mSimTimeS += tickTime;
-				continue;
 			}
-			
-			// Download next segment
-			const VideoProfile* profile = mLadder.getProfile(mCurrentProfile);
-			if (!profile) {
-				std::cerr << "Invalid profile index: " << mCurrentProfile << std::endl;
-				break;
-			}
-			
-			// Generate segment size with variation
-			std::normal_distribution<double> sizeDist(
-				profile->avgSegmentBytes, profile->segmentSizeStdDev);
-			double segmentBytes = std::max(1000.0, sizeDist(mRng));
-			
-			// Simulate download
-			auto result = mNetSim.simulateDownload(static_cast<size_t>(segmentBytes));
-			double downloadTimeS = result.durationMs / 1000.0;
-			
-			// During download, playback continues (buffer consumed)
-			// Only consume if not rebuffering
-			if (!mBuffer.isRebuffering()) {
-				mBuffer.consumeBuffer(downloadTimeS);
-				mPlaybackTimeS += downloadTimeS;
-			} else {
-				// Rebuffering - playback stalled, track rebuffer time
-				mBuffer.addRebufferTime(downloadTimeS);
-			}
+			mSimTimeS += tickTime;
+			continue;
+		}
+		
+		// Download next segment
+		const VideoProfile* profile = mLadder.getProfile(mCurrentProfile);
+		if (!profile) {
+			std::cerr << "Invalid profile index: " << mCurrentProfile << std::endl;
+			break;
+		}
+		
+		// Generate segment size with variation
+		std::normal_distribution<double> sizeDist(
+			profile->avgSegmentBytes, profile->segmentSizeStdDev);
+		double segmentBytes = std::max(1000.0, sizeDist(mRng));
+		
+		// Simulate download
+		auto result = mNetSim.simulateDownload(static_cast<size_t>(segmentBytes));
+		double downloadTimeS = result.durationMs / 1000.0;
+		
+		// During download, playback continues (buffer consumed)
+		// Only consume if not rebuffering
+		if (!mBuffer.isRebuffering()) {
+			mBuffer.consumeBuffer(downloadTimeS);
+			mPlaybackTimeS += downloadTimeS;
+		} else {
+			// Rebuffering - playback stalled, track rebuffer time
+			mBuffer.addRebufferTime(downloadTimeS);
+		}
 			
 		// Log buffer BEFORE segment injection (after download consumption)
 		SimulationEvent bufferBeforeEvent{};
@@ -697,53 +699,53 @@ public:
 		bufferAfterEvent.bufferLevelS = mBuffer.getCurrentBuffer();
 		bufferAfterEvent.description = "After segment injection (+" + std::to_string(mLadder.segmentDurationS) + "s)";
 		mLogger.log(bufferAfterEvent);
-			if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() > mBuffer.getMinBuffer()) {
-				SimulationEvent resumeEvent{};
-				resumeEvent.timeS = mPlaybackTimeS;
-				resumeEvent.type = SimulationEvent::REBUFFER_END;
-				resumeEvent.profileIndex = mCurrentProfile;
-				resumeEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-				resumeEvent.description = "Playback resumed";
-				mLogger.log(resumeEvent);
-				mBuffer.endRebuffering();
-			}
-			
-			// Simulation time advances by download duration
-			mSimTimeS += downloadTimeS;
-			mCurrentSegmentNum++;
-			
-			// Log download event
-			SimulationEvent downloadEvent{};
-			downloadEvent.timeS = mPlaybackTimeS;
-			downloadEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
-			downloadEvent.profileIndex = mCurrentProfile;
-			downloadEvent.downloadTimeMs = result.durationMs;
-			downloadEvent.throughputBps = result.throughputBps;
-			downloadEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-			if (mIsLive) {
-				double latency = mLiveEdgeS - mPlaybackTimeS;
-				downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + 
-				                            " kbps, Latency: " + std::to_string(static_cast<int>(latency)) + "s";
-			} else {
-				downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + " kbps";
-			}
-			mLogger.log(downloadEvent);
-			
-			// ABR decision
-			int newProfile = makeABRDecision(result, profile);
-			if (newProfile != mCurrentProfile) {
-				SimulationEvent profileEvent{};
-				profileEvent.timeS = mPlaybackTimeS;
-				profileEvent.type = SimulationEvent::PROFILE_CHANGE;
-				profileEvent.profileIndex = newProfile;
-				profileEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-				profileEvent.description = std::to_string(profile->bitrateBps / 1000) + 
-				                           " -> " + std::to_string(mLadder.getProfile(newProfile)->bitrateBps / 1000) + " kbps";
-				mLogger.log(profileEvent);
-				mCurrentProfile = newProfile;
-			}
-			
-			segmentCount++;
+		if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() > mBuffer.getMinBuffer()) {
+			SimulationEvent resumeEvent{};
+			resumeEvent.timeS = mPlaybackTimeS;
+			resumeEvent.type = SimulationEvent::REBUFFER_END;
+			resumeEvent.profileIndex = mCurrentProfile;
+			resumeEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+			resumeEvent.description = "Playback resumed";
+			mLogger.log(resumeEvent);
+			mBuffer.endRebuffering();
+		}
+		
+		// Simulation time advances by download duration
+		mSimTimeS += downloadTimeS;
+		mCurrentSegmentNum++;
+		
+		// Log download event
+		SimulationEvent downloadEvent{};
+		downloadEvent.timeS = mPlaybackTimeS;
+		downloadEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
+		downloadEvent.profileIndex = mCurrentProfile;
+		downloadEvent.downloadTimeMs = result.durationMs;
+		downloadEvent.throughputBps = result.throughputBps;
+		downloadEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+		if (mIsLive) {
+			double latency = mLiveEdgeS - mPlaybackTimeS;
+			downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + 
+			                            " kbps, Latency: " + std::to_string(static_cast<int>(latency)) + "s";
+		} else {
+			downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + " kbps";
+		}
+		mLogger.log(downloadEvent);
+		
+		// ABR decision
+		int newProfile = makeABRDecision(result, profile);
+		if (newProfile != mCurrentProfile) {
+			SimulationEvent profileEvent{};
+			profileEvent.timeS = mPlaybackTimeS;
+			profileEvent.type = SimulationEvent::PROFILE_CHANGE;
+			profileEvent.profileIndex = newProfile;
+			profileEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+			profileEvent.description = std::to_string(profile->bitrateBps / 1000) + 
+			                           " -> " + std::to_string(mLadder.getProfile(newProfile)->bitrateBps / 1000) + " kbps";
+			mLogger.log(profileEvent);
+			mCurrentProfile = newProfile;
+		}
+		
+		segmentCount++;
 			
 			// Sanity check
 			if (segmentCount > 100000) {

@@ -158,10 +158,16 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
 				output_file = tmp.name
 			
+			# Handle persona path - client may send just filename or full relative path
+			if persona_file.startswith('personas/'):
+				persona_path = str(ABRSIM_DIR / persona_file)
+			else:
+				persona_path = str(PERSONAS_DIR / persona_file)
+			
 			# Build command
 			cmd = [
 				str(ABRSIM_BIN),
-				'--persona', str(PERSONAS_DIR / persona_file),
+				'--persona', persona_path,
 				'--duration', str(duration),
 				'--out', output_file
 			]
