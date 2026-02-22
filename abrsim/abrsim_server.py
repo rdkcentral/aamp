@@ -257,7 +257,12 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 
 def main():
 	"""Start the web server"""
-	port = int(os.getenv('PORT', 8080))
+	import sys
+	# Allow port to be specified via command line or environment variable
+	if len(sys.argv) > 1:
+		port = int(sys.argv[1])
+	else:
+		port = int(os.getenv('PORT', 8080))
 	
 	# Check if abrsim is built
 	if not ABRSIM_BIN.exists():

@@ -87,6 +87,8 @@ async function runSimulation() {
 	const originalText = runBtn.textContent;
 	
 	try {
+		console.log('Starting simulation...');
+		
 		// Disable button and show loading state
 		runBtn.disabled = true;
 		runBtn.innerHTML = '<span class="spinner"></span> Running Simulation...';
@@ -102,6 +104,8 @@ async function runSimulation() {
 			seed: parseInt(document.getElementById('seed').value)
 		};
 		
+		console.log('Simulation parameters:', params);
+		
 		// Run simulation
 		const response = await fetch(`${API_BASE}/api/simulate`, {
 			method: 'POST',
@@ -111,20 +115,28 @@ async function runSimulation() {
 			body: JSON.stringify(params)
 		});
 		
+		console.log('Response status:', response.status);
+		
 		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('Response error:', errorText);
 			throw new Error(`Simulation failed: ${response.statusText}`);
 		}
 		
 		const result = await response.json();
+		console.log('Received result:', result);
 		
 		if (!result.success) {
 			throw new Error('Simulation returned an error');
 		}
 		
+		console.log(`Processing ${result.events.length} events...`);
+		
 		// Display results
 		displaySummary(result.summary, params);
 		displayCharts(result.events);
 		
+		console.log('Charts and summary displayed');
 		showStatus(`Simulation completed successfully! Processed ${result.events.length} events.`, 'success');
 		
 	} catch (error) {
