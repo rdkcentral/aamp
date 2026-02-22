@@ -97,6 +97,29 @@ struct NetworkCharacteristics {
 };
 
 // =============================================================================
+// Network Scenario Support
+// =============================================================================
+
+struct NetworkStage {
+	std::string personaFile;
+	double durationS;
+	std::string description;
+};
+
+struct NetworkScenario {
+	std::string description;
+	std::vector<NetworkStage> stages;
+	
+	double getTotalDuration() const {
+		double total = 0.0;
+		for (const auto& stage : stages) {
+			total += stage.durationS;
+		}
+		return total;
+	}
+};
+
+// =============================================================================
 // Video Profile Ladder (DASH manifest abstraction)
 // =============================================================================
 
@@ -456,6 +479,11 @@ public:
 		std::cout << "Rebuffer events: " << rebuffers << "\n";
 	}
 	
+	// Get raw events for multi-stage scenario combining
+	const std::vector<SimulationEvent>& getEvents() const {
+		return mEvents;
+	}
+	
 private:
 	std::vector<SimulationEvent> mEvents;
 };
@@ -514,6 +542,90 @@ static bool LoadPersona(const std::string& filename, NetworkCharacteristics& nc)
 	FindNumber(json, "new_conn_penalty_ms", nc.new_conn_penalty_ms);
 	
 	return true;
+}
+
+static bool LoadScenario(const std::string& filename, NetworkScenario& scenario) {
+	std::ifstream ifs(filename);
+	if (!ifs) {
+		std::cerr << "Failed to open scenario file: " << filename << std::endl;
+		return false;
+	}
+	
+	std::stringstream buf;
+	buf << ifs.rdbuf();
+	std::string json = buf.str();
+	
+	// Find description
+	size_t descPos = json.find("\"description\"");
+	if (descPos != std::string::npos) {
+		size_t colonPos = json.find(':', descPos);
+		size_t quoteStart = json.find('"', colonPos);
+		size_t quoteEnd = json.find('"', quoteStart + 1);
+		if (quoteStart != std::string::npos && quoteEnd != std::string::npos) {
+			scenario.description = json.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+		}
+	}
+	
+	// Find stages array
+	size_t stagesPos = json.find("\"stages\"");
+	if (stagesPos == std::string::npos) {
+		std::cerr << "No 'stages' array found in scenario file" << std::endl;
+		return false;
+	}
+	
+	size_t arrayStart = json.find('[', stagesPos);
+	size_t arrayEnd = json.find(']', arrayStart);
+	if (arrayStart == std::string::npos || arrayEnd == std::string::npos) {
+		std::cerr << "Malformed stages array" << std::endl;
+		return false;
+	}
+	
+	// Parse each stage object
+	size_t pos = arrayStart + 1;
+	while (pos < arrayEnd) {
+		size_t objStart = json.find('{', pos);
+		if (objStart >= arrayEnd) break;
+		
+		size_t objEnd = json.find('}', objStart);
+		if (objEnd >= arrayEnd) break;
+		
+		std::string stageJson = json.substr(objStart, objEnd - objStart + 1);
+		
+		NetworkStage stage;
+		
+		// Extract persona
+		size_t personaPos = stageJson.find("\"persona\"");
+		if (personaPos != std::string::npos) {
+			size_t colonPos = stageJson.find(':', personaPos);
+			size_t quoteStart = stageJson.find('"', colonPos);
+			size_t quoteEnd = stageJson.find('"', quoteStart + 1);
+			if (quoteStart != std::string::npos && quoteEnd != std::string::npos) {
+				stage.personaFile = stageJson.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+			}
+		}
+		
+		// Extract duration
+		FindNumber(stageJson, "duration", stage.durationS);
+		
+		// Extract description (optional)
+		size_t descPos = stageJson.find("\"description\"");
+		if (descPos != std::string::npos) {
+			size_t colonPos = stageJson.find(':', descPos);
+			size_t quoteStart = stageJson.find('"', colonPos);
+			size_t quoteEnd = stageJson.find('"', quoteStart + 1);
+			if (quoteStart != std::string::npos && quoteEnd != std::string::npos) {
+				stage.description = stageJson.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+			}
+		}
+		
+		if (!stage.personaFile.empty() && stage.durationS > 0) {
+			scenario.stages.push_back(stage);
+		}
+		
+		pos = objEnd + 1;
+	}
+	
+	return !scenario.stages.empty();
 }
 
 // =============================================================================
@@ -809,6 +921,11 @@ public:
 		}
 	}
 	
+	// Get raw results for multi-stage scenario combining
+	const std::vector<SimulationEvent>& getResults() const {
+		return mLogger.getEvents();
+	}
+	
 private:
 	const VideoProfileLadder& mLadder;
 	NetworkSimulator mNetSim;
@@ -900,6 +1017,7 @@ void printUsage(const char* progName) {
 	std::cout << "Usage: " << progName << " [options]\n"
 	          << "Options:\n"
 	          << "  --persona <file>      Network persona JSON file\n"
+	          << "  --scenario <file>     Network scenario JSON file (multi-stage simulation)\n"
 	          << "  --duration <secs>     Simulation duration in seconds (default: 3600)\n"
 	          << "  --out <file>          Output CSV filename (default: abrsim.csv)\n"
 	          << "  --seed <n>            Random seed (default: random)\n"
@@ -908,12 +1026,14 @@ void printUsage(const char* progName) {
 	          << "  --max-buffer <s>      Max buffer size in seconds for VOD mode (default: 20.0)\n"
 	          << "  --help                Show this help\n"
 	          << "\nExamples:\n"
-	          << "  VOD:  " << progName << " --persona network.json --max-buffer 20 --duration 7200\n"
-	          << "  Live: " << progName << " --persona network.json --live --target-latency 8 --duration 3600\n";
+	          << "  VOD:      " << progName << " --persona network.json --max-buffer 20 --duration 7200\n"
+	          << "  Live:     " << progName << " --persona network.json --live --target-latency 8 --duration 3600\n"
+	          << "  Scenario: " << progName << " --scenario degradation.json --duration 140\n";
 }
 
 int main(int argc, char* argv[]) {
 	std::string personaFile;
+	std::string scenarioFile;
 	double durationS = 3600.0;
 	std::string outFile = "abrsim.csv";
 	uint64_t seed = 0;
@@ -926,6 +1046,8 @@ int main(int argc, char* argv[]) {
 		std::string arg = argv[i];
 		if (arg == "--persona" && i + 1 < argc) {
 			personaFile = argv[++i];
+		} else if (arg == "--scenario" && i + 1 < argc) {
+			scenarioFile = argv[++i];
 		} else if (arg == "--duration" && i + 1 < argc) {
 			durationS = std::stod(argv[++i]);
 		} else if (arg == "--out" && i + 1 < argc) {
@@ -948,19 +1070,18 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	
-	if (personaFile.empty()) {
-		std::cerr << "Error: --persona is required\n";
+	// Validate: must specify either persona OR scenario, not both
+	if (personaFile.empty() && scenarioFile.empty()) {
+		std::cerr << "Error: --persona or --scenario is required\n";
 		printUsage(argv[0]);
 		return 1;
 	}
 	
-	// Load network persona
-	NetworkCharacteristics netChar;
-	if (!LoadPersona(personaFile, netChar)) {
+	if (!personaFile.empty() && !scenarioFile.empty()) {
+		std::cerr << "Error: Cannot specify both --persona and --scenario\n";
+		printUsage(argv[0]);
 		return 1;
 	}
-	
-	std::cout << "Loaded network persona: " << netChar.mean_thr_mbps << " Mbps average\n";
 	
 	// Create typical DASH video profile ladder
 	VideoProfileLadder ladder;
@@ -977,10 +1098,72 @@ int main(int argc, char* argv[]) {
 	
 	std::cout << "Created profile ladder with " << ladder.profiles.size() << " profiles\n";
 	
-	// Run simulation
-	ABRSimulator sim(ladder, netChar, isLive, targetLatencyS, maxBufferS, seed);
-	sim.run(durationS);
-	sim.generateReport(outFile);
+	// Run simulation (either single persona or multi-stage scenario)
+	if (!scenarioFile.empty()) {
+		// Scenario mode: Load and run multi-stage simulation
+		NetworkScenario scenario;
+		if (!LoadScenario(scenarioFile, scenario)) {
+			return 1;
+		}
+		
+		std::cout << "Loaded scenario: " << scenario.description << " (" << scenario.stages.size() << " stages)\n";
+		
+		// Create combined event logger
+		EventLogger combinedLogger;
+		
+		double elapsedTime = 0.0;
+		int stageNum = 0;
+		
+		// Run each stage
+		for (const auto& stage : scenario.stages) {
+			stageNum++;
+			std::cout << "\n=== Stage " << stageNum << "/" << scenario.stages.size() 
+			          << ": " << stage.description << " (" << stage.durationS << "s) ===\n";
+			
+			// Load persona for this stage
+			NetworkCharacteristics netChar;
+			if (!LoadPersona(stage.personaFile, netChar)) {
+				return 1;
+			}
+			
+			std::cout << "  Network: " << netChar.mean_thr_mbps << " Mbps average\n";
+			
+			// Create simulator for this stage
+			ABRSimulator stageSim(ladder, netChar, isLive, targetLatencyS, maxBufferS, seed);
+			
+			// Run this stage
+			stageSim.run(stage.durationS);
+			
+			// Merge results into combined logger (with time offset)
+			const auto& stageEvents = stageSim.getResults();
+			for (auto event : stageEvents) {
+				event.timeS += elapsedTime;  // Offset time for this stage
+				combinedLogger.log(event);
+			}
+			
+			elapsedTime += stage.durationS;
+		}
+		
+		std::cout << "\n=== Scenario Complete ===\n";
+		std::cout << "Total time: " << elapsedTime << "s\n";
+		
+		// Write combined results
+		combinedLogger.writeCSV(outFile);
+		combinedLogger.printSummary(elapsedTime);
+		
+	} else {
+		// Single persona mode
+		NetworkCharacteristics netChar;
+		if (!LoadPersona(personaFile, netChar)) {
+			return 1;
+		}
+		
+		std::cout << "Loaded network persona: " << netChar.mean_thr_mbps << " Mbps average\n";
+		
+		ABRSimulator sim(ladder, netChar, isLive, targetLatencyS, maxBufferS, seed);
+		sim.run(durationS);
+		sim.generateReport(outFile);
+	}
 	
 	return 0;
 }

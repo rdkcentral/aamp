@@ -44,6 +44,7 @@ ABRSIM_DIR = Path(__file__).parent
 ABRSIM_BIN = ABRSIM_DIR / "abrsim"
 WEB_DIR = ABRSIM_DIR / "web"
 PERSONAS_DIR = ABRSIM_DIR / "personas"
+SCENARIOS_DIR = ABRSIM_DIR / "scenarios"
 
 class ReuseAddrHTTPServer(HTTPServer):
 	"""HTTPServer that allows address reuse"""
@@ -69,6 +70,8 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		# API endpoints
 		if parsed_path.path == '/api/personas':
 			self.handle_list_personas()
+		elif parsed_path.path == '/api/scenarios':
+			self.handle_list_scenarios()
 		elif parsed_path.path == '/api/status':
 			self.handle_status()
 		
@@ -124,6 +127,28 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		except Exception as e:
 			self.send_error(500, f"Error listing personas: {str(e)}")
 	
+	def handle_list_scenarios(self):
+		"""List available network scenarios"""
+		try:
+			scenarios = []
+			if SCENARIOS_DIR.exists():
+				for scenario_file in SCENARIOS_DIR.glob('*.json'):
+					with open(scenario_file) as f:
+						data = json.load(f)
+						# Calculate total duration
+						total_duration = sum(stage.get('duration', 0) for stage in data.get('stages', []))
+						scenarios.append({
+							'filename': scenario_file.name,
+							'name': scenario_file.stem.replace('_', ' ').title(),
+							'description': data.get('description', ''),
+							'stages': len(data.get('stages', [])),
+							'total_duration': total_duration
+						})
+			
+			self.send_json_response({'scenarios': scenarios})
+		except Exception as e:
+			self.send_error(500, f"Error listing scenarios: {str(e)}")
+	
 	def handle_status(self):
 		"""Return server status"""
 		status = {
@@ -147,7 +172,18 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 				self.send_error(500, "abrsim binary not found. Please build it first.")
 				return
 			
-			persona_file = params.get('persona', 'sample_network.json')
+			# Check if using scenario or persona mode
+			scenario_file = params.get('scenario', None)
+			persona_file = params.get('persona', None)
+			
+			if not scenario_file and not persona_file:
+				self.send_error(400, "Either 'persona' or 'scenario' parameter is required")
+				return
+			
+			if scenario_file and persona_file:
+				self.send_error(400, "Cannot specify both 'persona' and 'scenario'")
+				return
+			
 			duration = float(params.get('duration', 3600))
 			is_live = params.get('is_live', False)
 			target_latency = float(params.get('target_latency', 8.0))
@@ -158,19 +194,28 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
 				output_file = tmp.name
 			
-			# Handle persona path - client may send just filename or full relative path
-			if persona_file.startswith('personas/'):
-				persona_path = str(ABRSIM_DIR / persona_file)
-			else:
-				persona_path = str(PERSONAS_DIR / persona_file)
-			
 			# Build command
 			cmd = [
 				str(ABRSIM_BIN),
-				'--persona', persona_path,
 				'--duration', str(duration),
 				'--out', output_file
 			]
+			
+			# Add scenario or persona
+			if scenario_file:
+				# Handle scenario path
+				if scenario_file.startswith('scenarios/'):
+					scenario_path = str(ABRSIM_DIR / scenario_file)
+				else:
+					scenario_path = str(SCENARIOS_DIR / scenario_file)
+				cmd.extend(['--scenario', scenario_path])
+			else:
+				# Handle persona path - client may send just filename or full relative path
+				if persona_file.startswith('personas/'):
+					persona_path = str(ABRSIM_DIR / persona_file)
+				else:
+					persona_path = str(PERSONAS_DIR / persona_file)
+				cmd.extend(['--persona', persona_path])
 			
 			if is_live:
 				cmd.extend(['--live', '--target-latency', str(target_latency)])

@@ -37,13 +37,40 @@ limitations under the License.
 				<section class="card">
 					<h2>Simulation Parameters</h2>
 					
+					<!-- Mode Selector -->
 					<div class="form-group">
+						<label>Mode:</label>
+						<div style="display: flex; gap: 15px;">
+							<label>
+								<input type="radio" name="simMode" value="persona" checked>
+								Single Network Persona
+							</label>
+							<label>
+								<input type="radio" name="simMode" value="scenario">
+								Network Scenario
+							</label>
+						</div>
+					</div>
+					
+					<!-- Persona Selector -->
+					<div id="personaSelection" class="form-group">
 						<label for="persona">Network Persona:</label>
 						<select id="persona">
 							<option value="sample_network.json">Loading...</option>
 						</select>
 					</div>
-
+					
+					<!-- Scenario Selector -->
+					<div id="scenarioSelection" class="form-group" style="display: none;">
+						<label for="scenario">Network Scenario:</label>
+						<select id="scenario">
+							<option value="">Loading...</option>
+						</select>
+						<div id="scenarioInfo" style="margin-top: 8px; font-size: 0.9em; color: #666;">
+							<span id="scenarioDescription"></span>
+						</div>
+					</div>
+					
 					<div class="form-group">
 						<label for="duration">Duration (seconds):</label>
 						<input type="number" id="duration" value="3600" min="60" max="86400">

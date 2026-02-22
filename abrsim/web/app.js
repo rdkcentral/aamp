@@ -62,9 +62,63 @@ async function loadPersonas() {
 	}
 }
 
+async function loadScenarios() {
+	try {
+		const response = await fetch(`${API_BASE}/api/scenarios`);
+		const data = await response.json();
+		
+		const scenarioSelect = document.getElementById('scenario');
+		scenarioSelect.innerHTML = '';
+		
+		if (data.scenarios.length === 0) {
+			const option = document.createElement('option');
+			option.value = '';
+			option.textContent = 'No scenarios available';
+			scenarioSelect.appendChild(option);
+			return;
+		}
+		
+		data.scenarios.forEach(scenario => {
+			const option = document.createElement('option');
+			option.value = scenario.filename;
+			option.textContent = `${scenario.name} (${scenario.stages} stages, ${scenario.total_duration}s)`;
+			option.dataset.description = scenario.description;
+			option.dataset.stages = scenario.stages;
+			option.dataset.duration = scenario.total_duration;
+			scenarioSelect.appendChild(option);
+		});
+		
+		// Update scenario info on selection
+		scenarioSelect.addEventListener('change', updateScenarioInfo);
+		updateScenarioInfo();
+		
+	} catch (error) {
+		console.error('Failed to load scenarios:', error);
+		showStatus('Failed to load network scenarios', 'error');
+	}
+}
+
+function updateScenarioInfo() {
+	const scenarioSelect = document.getElementById('scenario');
+	const durationInput = document.getElementById('duration');
+	const descriptionDiv = document.getElementById('scenarioDescription');
+	
+	const selected = scenarioSelect.options[scenarioSelect.selectedIndex];
+	if (selected && selected.dataset.description) {
+		descriptionDiv.textContent = selected.dataset.description;
+		// Auto-fill duration based on scenario
+		if (selected.dataset.duration) {
+			durationInput.value = selected.dataset.duration;
+		}
+	} else {
+		descriptionDiv.textContent = '';
+	}
+}
+
 function setupEventListeners() {
 	const runBtn = document.getElementById('runBtn');
 	const isLiveCheckbox = document.getElementById('isLive');
+	const modeRadios = document.querySelectorAll('input[name="simMode"]');
 	
 	runBtn.addEventListener('click', runSimulation);
 	
@@ -80,6 +134,26 @@ function setupEventListeners() {
 			vodSettings.style.display = 'block';
 		}
 	});
+	
+	// Handle mode switch between persona and scenario
+	modeRadios.forEach(radio => {
+		radio.addEventListener('change', (e) => {
+			const personaSection = document.getElementById('personaSelection');
+			const scenarioSection = document.getElementById('scenarioSelection');
+			
+			if (e.target.value === 'persona') {
+				personaSection.style.display = 'block';
+				scenarioSection.style.display = 'none';
+			} else {
+				personaSection.style.display = 'none';
+				scenarioSection.style.display = 'block';
+				// Load scenarios if not already loaded
+				if (document.getElementById('scenario').options.length <= 1) {
+					loadScenarios();
+				}
+			}
+		});
+	});
 }
 
 async function runSimulation() {
@@ -94,15 +168,24 @@ async function runSimulation() {
 		runBtn.innerHTML = '<span class="spinner"></span> Running Simulation...';
 		showStatus('Running simulation... This may take a few seconds', 'info');
 		
-		// Collect parameters
+		// Determine mode and collect parameters
+		const mode = document.querySelector('input[name="simMode"]:checked').value;
 		const params = {
-			persona: document.getElementById('persona').value,
 			duration: parseFloat(document.getElementById('duration').value),
 			is_live: document.getElementById('isLive').checked,
 			target_latency: parseFloat(document.getElementById('targetLatency').value),
 			max_buffer: parseFloat(document.getElementById('maxBuffer').value),
 			seed: parseInt(document.getElementById('seed').value)
 		};
+		
+		if (mode === 'persona') {
+			params.persona = document.getElementById('persona').value;
+		} else {
+			params.scenario = document.getElementById('scenario').value;
+			if (!params.scenario) {
+				throw new Error('Please select a scenario');
+			}
+		}
 		
 		console.log('Simulation parameters:', params);
 		
