@@ -621,8 +621,8 @@ public:
 			}
 			
 			// Check if buffer is too low - need to stall playback
-			if (mBuffer.getCurrentBuffer() < 0.001) {
-				// Rebuffering - playback stalls
+		// Don't count initial buffering (segment 0) as a rebuffer event
+		if (mBuffer.getCurrentBuffer() < 0.001 && mCurrentSegmentNum > 0) {
 				if (!mBuffer.isRebuffering()) {
 					SimulationEvent rebufferEvent{};
 					rebufferEvent.timeS = mPlaybackTimeS;

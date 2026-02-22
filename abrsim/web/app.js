@@ -229,6 +229,7 @@ function displayCharts(events) {
 	createBitrateChart(times, bitrates, profileChanges);
 	createBufferChart(times, bufferLevels);
 	createBandwidthChart(times, throughputs, bitrates);
+	createTimelineChart(events);
 }
 
 function createBitrateChart(times, bitrates, profileChanges) {
@@ -467,4 +468,144 @@ function showStatus(message, type = 'info') {
 	statusDiv.textContent = message;
 	statusDiv.className = `status ${type}`;
 	statusDiv.style.display = 'block';
+}
+
+// Global variable for timeline chart
+let timelineChart = null;
+
+function createTimelineChart(events) {
+	const ctx = document.getElementById('timelineChart');
+	
+	if (timelineChart) {
+		timelineChart.destroy();
+	}
+	
+	// Extract download events with throughput data (actual segment downloads)
+	const downloads = events.filter(e => 
+		e.event_type === 'download' && 
+		e.download_ms > 0 && 
+		e.throughput_bps > 0
+	);
+	
+	// Reconstruct simulation timeline - downloads happen sequentially
+	let currentSimTime = 0;
+	const timelineData = downloads.map(d => {
+		const downloadDuration = d.download_ms / 1000;
+		const startTime = currentSimTime;
+		const endTime = currentSimTime + downloadDuration;
+		currentSimTime = endTime;
+		
+		return {
+			profileIdx: d.profile_idx,
+			startTime: startTime,
+			endTime: endTime,
+			duration: downloadDuration
+		};
+	});
+	
+	// Debug: Log first 10 downloads
+	console.log('Timeline data (first 10):');
+	timelineData.slice(0, 10).forEach((d, i) => {
+		console.log(`  ${i}: Profile ${d.profileIdx} at ${d.startTime.toFixed(2)}s-${d.endTime.toFixed(2)}s`);
+	});
+	
+	// Build dataset for each profile
+	const profileNames = [
+		'235 kbps (240p)',
+		'375 kbps (360p)', 
+		'750 kbps (480p)',
+		'1.4 Mbps (720p)',
+		'2.8 Mbps (1080p)',
+		'5.0 Mbps (1080p HQ)',
+		'8.0 Mbps (4K)'
+	];
+	
+	// Single dataset with all downloads - Y position indicates profile
+	const data = timelineData.map(d => ({
+		x: [d.startTime, d.endTime],
+		y: d.profileIdx
+	}));
+	
+	const datasets = [{
+		label: 'Segment Downloads',
+		data: data,
+		backgroundColor: 'rgba(75, 192, 192, 0.7)',
+		borderColor: 'rgba(75, 192, 192, 1)',
+		borderWidth: 1,
+		barThickness: 30,
+		categoryPercentage: 1.0,
+		barPercentage: 0.9
+	}];
+	
+	timelineChart = new Chart(ctx, {
+		type: 'bar',
+		data: { datasets },
+		options: {
+			indexAxis: 'y',
+			responsive: true,
+			maintainAspectRatio: false,
+			plugins: {
+				title: {
+					display: true,
+					text: 'Segment Download Timeline (AAMP Autotriage Style)',
+					font: { size: 14 }
+				},
+				legend: {
+					display: false
+				},
+				tooltip: {
+					callbacks: {
+						title: (context) => {
+							const data = context[0].raw;
+							const start = data.x[0].toFixed(2);
+							const end = data.x[1].toFixed(2);
+							const duration = (data.x[1] - data.x[0]).toFixed(3);
+							return `Download: ${start}s - ${end}s (${duration}s)`;
+						},
+						label: (context) => {
+							const profileIdx = context.raw.y;
+							return profileNames[Math.round(profileIdx)];
+						}
+					}
+				}
+			},
+			scales: {
+				x: {
+					type: 'linear',
+					position: 'bottom',
+					title: {
+						display: true,
+						text: 'Simulation Time (seconds)'
+					},
+					grid: {
+						display: true
+					}
+				},
+				y: {
+					type: 'linear',
+					min: -0.5,
+					max: 6.5,
+					reverse: false,
+					ticks: {
+						stepSize: 1,
+						callback: function(value) {
+							const idx = Math.round(value);
+							if (idx >= 0 && idx <= 6) {
+								return profileNames[idx];
+							}
+							return '';
+						}
+					},
+					title: {
+						display: true,
+						text: 'Video Profile (Bottom=Best, Top=Worst)'
+					},
+					grid: {
+						display: true,
+						drawBorder: true
+					}
+				}
+			}
+		}
+	});
 }
