@@ -194,19 +194,19 @@ public:
 
     /**
      * @fn ProcessInitSegmentIfNeeded
-     * @brief Parse an init segment and extract the timescale, applying it to
-     *        the appropriate AAMP track (video, audio, or subtitle).
+     * @brief Parse an init segment and extract the timescale.
      *
-     * This is a no-op when isInitSegment is false. When true, the fragment
-     * buffer is parsed as ISO BMFF to extract the timescale value.
+     * This is a no-op when isInitSegment is false (returns 0). When true,
+     * the fragment buffer is parsed as ISO BMFF to extract the timescale.
+     * The caller is responsible for logging and applying the returned value
+     * to the appropriate AAMP track.
      *
      * @param[in] cached        CachedFragment containing the init segment data.
      * @param[in] isInitSegment true if the fragment is an init segment.
-     * @param[in] aamp          Pointer to the PrivateInstanceAAMP for applying timescale.
+     * @return Extracted timescale, or 0 if not applicable or extraction failed.
      */
-    static void ProcessInitSegmentIfNeeded(CachedFragment* cached,
-                                           bool isInitSegment,
-                                           PrivateInstanceAAMP* aamp);
+    static uint32_t ProcessInitSegmentIfNeeded(CachedFragment* cached,
+                                               bool isInitSegment);
 
     /**
      * @fn ABRProfileChanged

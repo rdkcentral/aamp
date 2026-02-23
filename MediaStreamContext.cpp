@@ -134,7 +134,25 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		// Extract timescale from init segments (video, audio, subtitle)
 		// Note: Legacy code also extracted track_id here for mismatch detection,
 		// but that value was never used. Omitted in favour of the helper.
-		ProcessInitSegmentIfNeeded(cachedFragment, initSegment && ret, aamp);
+		uint32_t initTimeScale = ProcessInitSegmentIfNeeded(cachedFragment, initSegment && ret);
+		if (initTimeScale != 0)
+		{
+			if (actualType == eMEDIATYPE_INIT_VIDEO)
+			{
+				AAMPLOG_INFO("Video TimeScale [%d]", initTimeScale);
+				aamp->SetVidTimeScale(initTimeScale);
+			}
+			else if (actualType == eMEDIATYPE_INIT_AUDIO)
+			{
+				AAMPLOG_INFO("Audio TimeScale  [%d]", initTimeScale);
+				aamp->SetAudTimeScale(initTimeScale);
+			}
+			else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
+			{
+				AAMPLOG_INFO("Subtitle TimeScale  [%d]", initTimeScale);
+				aamp->SetSubTimeScale(initTimeScale);
+			}
+		}
 		if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 		{
 			if (actualType == eMEDIATYPE_VIDEO)
@@ -302,15 +320,14 @@ void MediaStreamContext::PopulateCommonMetadata(CachedFragment* cached,
  *
  *  @param[in] cached        CachedFragment containing the init segment data.
  *  @param[in] isInitSegment true if this fragment is an init segment.
- *  @param[in] aamp          PrivateInstanceAAMP used to apply the timescale.
+ *  @return Extracted timescale, or 0 if not applicable or extraction failed.
  */
-void MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
-                                                    bool isInitSegment,
-                                                    PrivateInstanceAAMP* aamp)
+uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
+                                                        bool isInitSegment)
 {
 	if (!isInitSegment)
 	{
-		return;
+		return 0;
 	}
 
 	AampMediaType actualType = cached->type;
@@ -319,7 +336,7 @@ void MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
 		actualType != eMEDIATYPE_INIT_AUDIO &&
 		actualType != eMEDIATYPE_INIT_SUBTITLE)
 	{
-		return;
+		return 0;
 	}
 
 	IsoBmffBuffer buffer;
@@ -331,23 +348,10 @@ void MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
 		uint32_t timeScale = 0;
 		if (buffer.getTimeScale(timeScale))
 		{
-			if (actualType == eMEDIATYPE_INIT_VIDEO)
-			{
-				AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
-				aamp->SetVidTimeScale(timeScale);
-			}
-			else if (actualType == eMEDIATYPE_INIT_AUDIO)
-			{
-				AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-				aamp->SetAudTimeScale(timeScale);
-			}
-			else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
-			{
-				AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
-				aamp->SetSubTimeScale(timeScale);
-			}
+			return timeScale;
 		}
 	}
+	return 0;
 }
 
 /**

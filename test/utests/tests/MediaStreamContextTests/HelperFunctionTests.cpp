@@ -274,11 +274,11 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NotInitSegment_NoOp)
 	cached.type = eMEDIATYPE_VIDEO;
 
 	// If parsing occurred, mock would be called - StrictMock on
-	// g_mockPrivateInstanceAAMP would catch unexpected calls
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, false, mPrivateInstanceAAMP);
+	// g_mockIsoBmffBuffer would catch unexpected calls
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, false);
 
-	// No expectations set = passes if no unexpected calls occur
+	EXPECT_EQ(result, 0u);
 }
 
 /**
@@ -292,17 +292,17 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NonInitType_NoOp)
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_VIDEO;  // Not an INIT type
 
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, true, mPrivateInstanceAAMP);
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
 
-	// No expectations set = passes if no unexpected calls occur
+	EXPECT_EQ(result, 0u);
 }
 
 /**
- * @brief Video init segment: timescale extracted and applied.
+ * @brief Video init segment: timescale extracted and returned.
  *
  * Verifies the full happy path for video init segments: ISO BMFF buffer
- * is parsed, timescale is extracted, and SetVidTimeScale is called.
+ * is parsed, timescale is extracted, and the correct value is returned.
  */
 TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_VideoInit_SetsTimescale)
 {
@@ -321,15 +321,15 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_VideoInit_SetsTimescale)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_))
 		.WillOnce(DoAll(SetArgReferee<0>(expectedTimeScale), Return(true)));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVidTimeScale(expectedTimeScale))
-		.Times(1);
 
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, true, mPrivateInstanceAAMP);
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
+
+	EXPECT_EQ(result, expectedTimeScale);
 }
 
 /**
- * @brief Audio init segment: timescale extracted and applied.
+ * @brief Audio init segment: timescale extracted and returned.
  *
  * Verifies the happy path for audio init segments.
  */
@@ -349,15 +349,15 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_AudioInit_SetsTimescale)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_))
 		.WillOnce(DoAll(SetArgReferee<0>(expectedTimeScale), Return(true)));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetAudTimeScale(expectedTimeScale))
-		.Times(1);
 
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, true, mPrivateInstanceAAMP);
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
+
+	EXPECT_EQ(result, expectedTimeScale);
 }
 
 /**
- * @brief Subtitle init segment: timescale extracted and applied.
+ * @brief Subtitle init segment: timescale extracted and returned.
  *
  * Verifies the happy path for subtitle init segments.
  */
@@ -377,11 +377,11 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_SubtitleInit_SetsTimescale
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_))
 		.WillOnce(DoAll(SetArgReferee<0>(expectedTimeScale), Return(true)));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetSubTimeScale(expectedTimeScale))
-		.Times(1);
 
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, true, mPrivateInstanceAAMP);
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
+
+	EXPECT_EQ(result, expectedTimeScale);
 }
 
 /**
@@ -402,10 +402,12 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_BufferNotInit_NoTimescale)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
 		.WillOnce(Return(false));
-	// No getTimeScale or SetVidTimeScale calls expected
+	// No getTimeScale calls expected
 
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, true, mPrivateInstanceAAMP);
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
+
+	EXPECT_EQ(result, 0u);
 }
 
 /**
@@ -429,6 +431,8 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_GetTimeScaleFails_NoTimesc
 		.WillOnce(Return(false));
 	// No SetAudTimeScale call expected
 
-	MediaStreamContext::ProcessInitSegmentIfNeeded(
-		&cached, true, mPrivateInstanceAAMP);
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
+
+	EXPECT_EQ(result, 0u);
 }
