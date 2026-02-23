@@ -85,12 +85,12 @@ JSValueRef PersistentWatermark::Storage::Update(JSContextRef ctx, JSObjectRef fu
 	bool persistent = PersistentArgumentSupplied && JSValueToBoolean(ctx, arguments[2]);
 	if(persistent)
 	{
-		LOG_TRACE("PersistentWatermark::Storage::Update(): Persistent mode.");;
+		LOG_TRACE("PersistentWatermark::Storage::Update(): Persistent mode.");
 		mpState = new StoragePersistent;
 	}
 	else
 	{
-		LOG_TRACE("PersistentWatermark::Storage::Update(): Volatile mode.");;
+		LOG_TRACE("PersistentWatermark::Storage::Update(): Volatile mode.");
 		mpState = new StorageVolatile;
 	}
 	return mpState->Update(ctx, function, thisObject, argumentCount, arguments, exception);

@@ -34,11 +34,13 @@ pkg_check_modules(CURL REQUIRED libcurl)
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
+    link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
     set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++")
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -framework Cocoa")
-    string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
-    set(CLI_LD_FLAGS "${CLI_LD_FLAGS} -lgstvideo-1.0")
-    string(STRIP ${CLI_LD_FLAGS} CLI_LD_FLAGS)
+    string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
+    set(CLI_LD_FLAGS "${CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
+    string(STRIP "${CLI_LD_FLAGS}" CLI_LD_FLAGS)
     #set(AAMP_OS_SOURCES cocoa_window.mm) #to be decided
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
@@ -53,7 +55,7 @@ include_directories(${MW_ROOT}/)
 
 set(GST_COMMON_DEPENDENCIES ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES} ${CLI_LD_FLAGS} -ldl -luuid ${SEC_CLIENT_LIB})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar")
 
 if(CMAKE_IARM_MGR)
 	message("CMAKE_IARM_MGR set")

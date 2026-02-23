@@ -218,7 +218,6 @@ private:
 	int mCurlInstance;
 	int mAcquireKeyWaitTime;
 	std::thread licenseAcquisitionThreadId;
-	bool licenseAcquisitionThreadStarted;
 };
 
 #endif // _AES_H_

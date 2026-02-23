@@ -27,6 +27,8 @@ class MockAampLicenseManager
 {
 public:
     MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
+    MOCK_METHOD(DrmSession*, createDrmSession, (std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn));
+    MOCK_METHOD(void, setSessionMgrState, (SessionMgrState state));
 };
 
 extern MockAampLicenseManager *g_mockAampLicenseManager;

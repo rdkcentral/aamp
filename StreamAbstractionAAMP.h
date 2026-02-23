@@ -44,7 +44,11 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
+#include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
+
+// Forward declaration to avoid including Underflow monitor header here
+class AampUnderflowMonitor;
 
 /**
  * @brief Media Track Types
@@ -54,38 +58,10 @@ typedef enum
 	eTRACK_VIDEO,     /**< Video track */
 	eTRACK_AUDIO,     /**< Audio track */
 	eTRACK_SUBTITLE,  /**< Subtitle track */
-	eTRACK_AUX_AUDIO  /**< Auxiliary audio track */
 } TrackType;
 
 AampMediaType TrackTypeToMediaType( TrackType trackType );
 
-struct TileLayout
-{
-	int numRows; 		/**< Number of Rows from Tile Inf */
-	int numCols; 		/**< Number of Cols from Tile Inf */
-	double posterDuration; 	/**< Duration of each Tile in Spritesheet */
-	double tileSetDuration; /**< Duration of whole tile set */
-};
-
-/**
-*	\struct	TileInfo
-* 	\brief	TileInfo structure for Thumbnail data
-*/
-class TileInfo
-{
-public:
-	TileInfo(): layout(), startTime(), url()
-	{
-	}
-
-	~TileInfo()
-	{
-	}
-
-	TileLayout layout;
-	double startTime;
-	std::string url;
-};
 
 /**
  * @brief Playlist Types
@@ -475,7 +451,7 @@ public:
 	 * @param[in] bandwidthBps - Bandwidth in bps
 	 * @return void
 	 */
-	void SetCurrentBandWidth(int bandwidthBps);
+	void SetCurrentBandWidth(BitsPerSecond bandwidthBps);
 
 	/**
 	 * @fn GetProfileIndexForBW
@@ -489,7 +465,7 @@ public:
 	 *
 	 * @return Bandwidth in bps
 	 */
-	int GetCurrentBandWidth();
+	BitsPerSecond GetCurrentBandWidth();
 
 	/**
 	 * @brief Get total duration of fetched fragments
@@ -512,7 +488,8 @@ public:
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
-	bool isFragmentInjectorThreadStarted( ) {  return fragmentInjectorThreadStarted;}
+	bool isFragmentInjectorThreadStarted();
+	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();
 	/**
 	 * @brief Signal the clock to subtitle module
@@ -685,6 +662,15 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
+	/**
+	 * @fn GetTimeBasedBufferManager 
+	 *
+	 * @brief Get the time based buffer manager for this track
+	 *
+	 * @return AampTimeBasedBufferManager object
+	 */
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> GetTimeBasedBufferManager() { return mTimeBasedBufferManager; }
+
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -853,8 +839,13 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
+	int fragmentIdxToInject;            	/**< Write position */
+	int fragmentChunkIdxToInject;       	/**< Write position */
+	int fragmentIdxToFetch;             	/**< Read position */
+	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
 
 private:
 	enum class TrickmodeState
@@ -874,8 +865,6 @@ private:
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
-	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
-	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
@@ -883,19 +872,14 @@ private:
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	int fragmentIdxToInject;            	/**< Write position */
-	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
-	int fragmentChunkIdxToFetch;        	/**< Read position */
-	int bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
+	BitsPerSecond bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
 	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
 	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
-	long long prevDownloadStartTime;		/**< Previous file download Start time*/
+	uint64_t prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
-	bool playlistDownloaderThreadStarted;	/**< Playlist downloader thread started or not*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
@@ -991,10 +975,10 @@ public:
 	 *
 	 *   @param[out]  primaryOutputFormat - format of primary track
 	 *   @param[out]  audioOutputFormat - format of audio track
-	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
+	 *   @param[out]  subtitleOutputFormat - format of subtitle track
 	 *   @return void
 	 */
-	virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) = 0;
+	virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) = 0;
 
 	/**
 	 *   @brief Get current stream position.
@@ -1210,12 +1194,11 @@ public:
 	}
 
 	/**
-	 *   @fn IsLowestProfile
+	 *   @fn IsCurrentProfileLowest
 	 *
-	 *   @param currentProfileIndex - current profile index to be checked.
-	 *   @return true if the given profile index is lowest.
+	 *   @return true if the current selected profile is the lowest.
 	 */
-	bool IsLowestProfile(int currentProfileIndex);
+	bool IsCurrentProfileLowest();
 
 	/**
 	 *   @fn getOriginalCurlError
@@ -1299,6 +1282,13 @@ public:
 	 *   @return true if we are at live point.
 	 */
 	bool IsStreamerAtLivePoint(double seekPosition = 0 );
+
+	/**
+	 *   @brief Set whether we are playing at live point or not.
+	 *
+	 *   @param[in] isAtLivePoint true if at live point, false otherwise.
+	 */
+	void SetIsAtLivePoint(bool isAtLivePoint);
 
 	/**
 	 *   @brief Whether we seeked to live offset range or not.
@@ -1711,6 +1701,27 @@ public:
 	 *   @return duration of currently buffered video in seconds
 	 */
 	double GetBufferedVideoDurationSec();
+	
+	/**
+	 * @fn StartUnderflowMonitor
+	 * @brief Start UnderflowMonitor Thread.
+	 * @return void
+	 */
+	void StartUnderflowMonitor();
+
+	/**
+	 * @fn StopUnderflowMonitor
+	 * @brief Stop UnderflowMonitor Thread.
+	 * @return void
+	 */
+	void StopUnderflowMonitor();
+
+	/**
+	 * @fn IsUnderflowMonitorRunning
+	 * @brief Check if UnderflowMonitor thread is currently running.
+	 * @return true if running, false otherwise
+	 */
+	bool IsUnderflowMonitorRunning() const;
 
 	/**
 	 *   @fn GetBufferedAudioDurationSec
@@ -1783,6 +1794,13 @@ public:
 	}
 
 	/**
+	 *   @fn UnblockWaitForCachedFragmentChunk
+	 *
+	 *   @return void
+	 */
+	void UnblockWaitForCachedFragmentChunk();
+
+	/**
 	 *   @brief Get available thumbnail bitrates.
 	 *
 	 *   @return available thumbnail bitrates.
@@ -1853,13 +1871,6 @@ public:
 	void MuteSubtitles(bool mute);
 
 	/**
-	 * @fn WaitForVideoTrackCatchupForAux
-	 *
-	 * @return void
-	 */
-	void WaitForVideoTrackCatchupForAux();
-
-	/**
 	 *   @brief Set Content Restrictions
 	 *   @param[in] restrictions - restrictions to be applied
 	 *
@@ -1883,21 +1894,6 @@ public:
 	virtual void EnableContentRestrictions(){};
 
 	/**
-	 *   @brief Get audio forward to aux pipeline status
-	 *
-	 *   @return bool true if audio buffers are to be forwarded
-	 */
-	bool GetAudioFwdToAuxStatus() { return mFwdAudioToAux; }
-
-	/**
-	 *   @brief Set audio forward to aux pipeline status
-	 *
-	 *   @param[in] status - enabled/disabled
-	 *   @return void
-	 */
-	void SetAudioFwdToAuxStatus(bool status) { mFwdAudioToAux = status; }
-
-	/**
 	 * @brief Notify playlist downloader threads of tracks
 	 *
 	 * @return void
@@ -1919,6 +1915,14 @@ public:
 	 *   @return void
 	 */
 	void SetCurrentAudioTrackIndex(std::string& index) { mAudioTrackIndex = index; }
+
+	/**
+	 *   @brief Set current text track index
+	 *
+	 *   @param[in] string index
+	 *   @return void
+	 */
+	void SetCurrentTextTrackIndex(const std::string& index);
 
 	/**
 	 *   @brief Change muxed audio track index
@@ -2010,6 +2014,18 @@ public:
 
 protected:
 	/**
+	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.
+	 * Declared mutable to allow locking within const functions such as
+	 * IsUnderflowMonitorRunning().
+	 */
+	mutable std::mutex mUnderflowMonitorMutex;
+
+	/**
+	 * Underflow monitor instance owned by Stream; manages detection and
+	 * handling of underflow conditions.
+	 */
+	std::unique_ptr<class AampUnderflowMonitor> mUnderflowMonitor;
+	/**
 	 *   @brief Get stream information of a profile from subclass.
 	 *
 	 *   @param[in]  idx - profile index.
@@ -2063,7 +2079,6 @@ protected:
 	std::mutex mLock;              /**< lock for A/V track catchup logic*/
 	std::condition_variable mCond;               /**< condition for A/V track catchup logic*/
 	std::condition_variable mSubCond;            /**< condition for Audio/Subtitle track catchup logic*/
-	std::condition_variable mAuxCond;            /**< condition for Aux and video track catchup logic*/
 
 	// abr variables
 	long mCurrentBandwidth;             /**< stores current bandwidth*/
@@ -2099,7 +2114,6 @@ protected:
 	MediaTrackDiscontinuityState mTrackState;     /**< stores the discontinuity status of tracks*/
 	std::string mAudioTrackIndex;                 /**< Current audio track index in track list */
 	std::string mTextTrackIndex;                  /**< Current text track index in track list */
-	bool mFwdAudioToAux;                          /**< If audio buffers are to be forwarded to auxiliary pipeline, happens if both are playing same language */
 
 	id3_callback_t mID3Handler;				/**< Function to be used to emit the ID3 event */
 

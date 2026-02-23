@@ -26,27 +26,15 @@ set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME AampDrmLegacy)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/middleware/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware  ${AAMP_ROOT}/middleware/drm ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
+include_directories(${AAMP_ROOT}/test/utests/drm)
+include_directories(${AAMP_ROOT}/test/utests/mocks)
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
 include_directories(${RFC_ROOT}/mocks)
-include_directories(${AAMP_ROOT}/drm)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
-include_directories(${AAMP_ROOT}/test/utests/drm)
-include_directories(${AAMP_ROOT}/test/utests/mocks)
-include_directories(${AAMP_ROOT}/middleware/vendor)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/drm)
-include_directories(${AAMP_ROOT}/middleware/drm/helper)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
@@ -59,7 +47,6 @@ set(FAKE_SOURCES ${AAMP_ROOT}/test/utests/fakes/FakeThunderAccessPlayer.cpp
 			 	 
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
   				 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
-				 ${DRM_ROOT}/mocks/FakeABRManager.cpp
 				 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
 				 ${DRM_ROOT}/mocks/curlMocks.c	
 				 ${DRM_ROOT}/mocks/pthreadMocks.c
@@ -72,10 +59,12 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManager.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeBase64.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakeABR.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 		 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
+		 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 		 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp

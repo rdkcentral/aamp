@@ -26,25 +26,12 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 link_directories(${LIBCJSON_LIBRARY_DIRS})
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
-include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
-include_directories(${AAMP_ROOT}/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/vendor)
-include_directories(${LIBCJSON_INCLUDE_DIRS})
-
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${GLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${LIBDASH_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+# Include common test directories
+include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES    CacheFragmentTests.cpp
 		    CacheFragmentAampTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampGrowableBuffer.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampGrowableBuffer.cpp ${AAMP_ROOT}/AampMPDUtils.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
@@ -60,5 +47,5 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} -pthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} fakes ${LIBCJSON_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} -pthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} fakes)
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

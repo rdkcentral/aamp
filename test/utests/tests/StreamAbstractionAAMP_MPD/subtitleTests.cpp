@@ -130,6 +130,7 @@ public:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_UseMp4Demux, false},
 	};
 	BoolConfigSettings mBoolConfigSettings;
 
@@ -158,6 +159,7 @@ public:
 
 	void TearDown() override
 	{
+		mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 		delete mPrivateInstanceAAMP;
@@ -245,16 +247,22 @@ public:
 				.Times(AnyNumber())
 				.WillRepeatedly(Return(b.second));
 		}
+
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
@@ -343,7 +351,7 @@ TEST_F(SubtitleTrackTests, Nosubtitletracks)
     </Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -521,10 +529,12 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 	</Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
-        .Times(2);//init segment is  available for audio and video so set to true
-	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
-        .Times(1);//init segment is not available for subtitle so set to false
+	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, true, _, _, _))
+        .Times(2)//init segment is  available for audio and video so set to true
+        .WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, false, _, _, _))
+        .Times(1)//init segment is not available for subtitle so set to false
+        .WillRepeatedly(Return(true));
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -535,7 +545,7 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 	mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_SUBTITLE);
 	pMediaStreamContext->freshManifest=true;
 	//when skipfetch sets to true, fetchfragment will be avoided
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _,_, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _,_, _, _, _, _, _))
 				.Times(0);
 	CallSwitchSubtitleTrack(true);
 

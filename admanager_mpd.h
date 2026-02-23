@@ -32,6 +32,7 @@
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
 #include "libdash/IMPD.h"
+#include "dash/mpd/MPDModel.h"
 #include "AampMPDParseHelper.h"
 #include "AampEvent.h"
 
@@ -82,7 +83,7 @@ public:
 	}
 
 	/**
-	 * @fn SetAlternateContents 
+	 * @fn SetAlternateContents
 	 *
 	 * @param[in] periodId - Adbreak's unique identifier; the first period id
 	 * @param[in] adId - Individual Ad's id
@@ -91,6 +92,12 @@ public:
 	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
 	virtual void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url, uint64_t startMS=0, uint32_t breakdur=0) override;
+
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	virtual void NotifyReservationComplete(const std::string& reservationId) override;
 };
 
 
@@ -351,7 +358,6 @@ public:
 	std::unordered_map<std::string, Period2AdData> mPeriodMap;          /**< periodId to Ad map */
 	std::string                                    mCurPlayingBreakId;  /**< Currently playing Ad */
 	std::thread                                    mAdObjThreadID;      /**< ThreadId of Ad fulfillment */
-	bool                                           mAdObjThreadStarted; /**< Flag denotes if ad object thread is started */
 	AdNodeVectorPtr                                mCurAds;             /**< Vector of ads from the current Adbreak */
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */
 	AdFulfillObj                                   mAdFulfillObj;       /**< Temporary object for Ad fulfillment (to pass to the fulfillment thread) */
@@ -367,7 +373,7 @@ public:
 	bool                                           mExitFulfillAdLoop;    /**< Flag to exit the Ad fulfillment loop */
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
-
+	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -400,6 +406,12 @@ public:
 	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
 	void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur=0);
+
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
 
 	/**
 	 * @fn FulFillAdObject
@@ -599,6 +611,15 @@ public:
 	 * @return true if the next ad is available, false otherwise
 	 */
 	bool GetNextAdInBreakToPlace();
+
+	/**
+	 * @brief Getting all init headers for the Ad
+	 * @param[in] manifestStr - Manifest string
+	 * @param[in] manifestUrl - Manifest URL
+	 * @param[out] errorCode - AAMPCDAIError Error code if any.
+	 * @return true if all init headers are fetched and cached successfully, false otherwise
+	 */
+	bool FetchAndCacheInitHeaders(std::string& manifestStr, std::string& manifestUrl, AAMPCDAIError &errorCode);
 
 	/**
 	 * @fn ValidateAdManifest

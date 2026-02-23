@@ -1,20 +1,52 @@
-# ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
+<!--
+If not stated otherwise in this file or this component's license file the
+following copyright and licenses apply:
 
+Copyright 2026 RDK Management
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+# ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
 
 ### Advanced Adaptive Media Player (AAMP)
 AAMP is an open source native video engine that is built on top of GStreamer and optimized for performance, memory use, and code size.  
 
+## Quick Start
 
-Index 
+### For Users & Integrators
+- **[Getting Started](BUILD.md)** - Build and installation instructions
+- **[API Reference](AAMP-UVE-API.md)** - Complete UVE API documentation
+- **[Configuration Guide](CONFIGURATION.md)** - All configuration options explained
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Solutions for common issues
+
+### For Contributors
+- **[Contributing Guide](CONTRIBUTING.md)** - How to submit code changes
+- **[Architecture](ARCHITECTURE.md)** - System design and components
+- **[Testing Strategy](TESTING.md)** - Unit test requirements and patterns
+- **[Development Instructions](.github/instructions/)** - Language-specific guidelines
+
 ---
+
+## Documentation Index
+
 1. [AAMP Source Overview](#aamp-source-overview)
-2. [AAMP Configuration](#aamp-configuration)
+2. [AAMP Configuration](#aamp-configuration-legacy)
 3. [Channel Override Settings](#channel-override-settings)
 4. [Westeros Settings](#westeros-settings)
 5. [AAMP Tunetime](#aamp-tunetime) 
-6. [VideoEnd (Session Statistics) Event](#videoend-session-statistics-event) 
-7. [UVE Reference Document](AAMP-UVE-API.md)
-8. [AAMP Simulator Installation](#aamp-simulator-installation)
+6. [VideoEnd (Session Statistics) Event](#videoend-session-statistics-event)
+
 ---
 
 # AAMP Source Overview:
@@ -41,7 +73,9 @@ drm
 - digital rights management support and plugins
 
 ---
-# AAMP Configuration
+# AAMP Configuration (Legacy)
+
+**Note**: For complete configuration reference, see [CONFIGURATION.md](CONFIGURATION.md).
 
 AAMP Configuration can be set with different method . Below is the list (from 
 lowest priority to highest priority override ownership).
@@ -264,19 +298,16 @@ playlistTimeout			Playlist download time out in sec. Default: 10s
     By default aamp will dump all the type of data, set 0 for disabling harvest
 	0x00000001 (1)      - Enable Harvest Video fragments - set 1st bit 
 	0x00000002 (2)      - Enable Harvest audio - set 2nd bit 
-	0x00000004 (4)      - Enable Harvest subtitle - set 3rd bit 
-	0x00000008 (8)      - Enable Harvest auxiliary audio - set 4th bit 
+	0x00000004 (4)      - Enable Harvest subtitle - set 3rd bit  
 	0x00000010 (16)     - Enable Harvest manifest - set 5th bit 
 	0x00000020 (32)     - Enable Harvest license - set 6th bit , TODO: not yet supported license dumping
 	0x00000040 (64)     - Enable Harvest iframe - set 7th bit 
 	0x00000080 (128)    - Enable Harvest video init fragment - set 8th bit 
 	0x00000100 (256)    - Enable Harvest audio init fragment - set 9th bit 
 	0x00000200 (512)    - Enable Harvest subtitle init fragment - set 10th bit 
-	0x00000400 (1024)   - Enable Harvest auxiliary audio init fragment - set 11th bit 
 	0x00000800 (2048)   - Enable Harvest video playlist - set 12th bit 
 	0x00001000 (4096)   - Enable Harvest audio playlist - set 13th bit 
 	0x00002000 (8192)   - Enable Harvest subtitle playlist - set 14th bit 
-	0x00004000 (16384)  - Enable Harvest auxiliary audio playlist - set 15th bit 
 	0x00008000 (32768)  - Enable Harvest Iframe playlist - set 16th bit 
 	0x00010000 (65536)  - Enable Harvest IFRAME init fragment - set 17th bit  
 	example :- if you want harvest only manifest and video fragments , set value like 0x00000001 + 0x00000010 = 0x00000011 = 17
@@ -391,6 +422,10 @@ version#7
 ```
 version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,gstDecodeTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time,PreviousStopTime
 ```
+version#8
+```
+version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time,PreviousStopTime,gstDecodeTime
+```
 ---
 # VideoEnd (Session Statistics) Event 
 ```
@@ -466,11 +501,11 @@ Prerequisites: xcode, git
 
 Open terminal app
 ```
-git clone -b dev_sprint_23_1 https://code.rdkcentral.com/r/rdk/components/generic/aamp
+git clone -b dev_sprint_25_2 https://github.com/rdkcentral/aamp
 ```
 note: the branch changes over time - dev_sprint_YY_Q
 
-currently dev_sprint_23_1
+currently dev_sprint_25_2
 ```
 cd aamp
 bash install-aamp.sh
@@ -486,7 +521,7 @@ Apple configuration in xcode under "Scheme: Edit Scheme..." if not already set:
 - Installing AAMP .Run the following 4 commands
 ```
 apt-get install git
-git clone -b dev_sprint_23_1 https://code.rdkcentral.com/r/rdk/components/generic/aamp
+git clone -b dev_sprint_25_2 https://github.com/rdkcentral/aamp
 cd aamp
 bash install-aamp.sh
 ```

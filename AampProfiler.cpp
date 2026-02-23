@@ -218,54 +218,72 @@ void ProfileEventAAMP::TuneBegin(void)
 }
 
 /**
- * @brief Logging performance metrics after successful tune completion. Metrics starts with IP_AAMP_TUNETIME
+ * @brief Logging performance metrics after tune completion.
  *
- * <h4>Format of IP_AAMP_TUNETIME:</h4>
- * version,                       // version for this protocol, initially zero<br>
- * build,                         // incremented when there are significant player changes/optimizations<br>
- * tunestartUtcMs,                // when tune logically started from AAMP perspective<br>
- * <br>
- * ManifestDownloadStartTime,     // offset in milliseconds from tunestart when main manifest begins download<br>
- * ManifestDownloadTotalTime,     // time (ms) taken for main manifest download, relative to ManifestDownloadStartTime<br>
- * ManifestDownloadFailCount,     // if >0 ManifestDownloadTotalTime spans multiple download attempts<br>
- * <br>
- * PlaylistDownloadStartTime,     // offset in milliseconds from tunestart when playlist subManifest begins download<br>
- * PlaylistDownloadTotalTime,     // time (ms) taken for playlist subManifest download, relative to PlaylistDownloadStartTime<br>
- * PlaylistDownloadFailCount,     // if >0 otherwise PlaylistDownloadTotalTime spans multiple download attempts<br>
- * <br>
- * InitFragmentDownloadStartTime, // offset in milliseconds from tunestart when init fragment begins download<br>
- * InitFragmentDownloadTotalTime, // time (ms) taken for fragment download, relative to InitFragmentDownloadStartTime<br>
- * InitFragmentDownloadFailCount, // if >0 InitFragmentDownloadTotalTime spans multiple download attempts<br>
- * <br>
- * Fragment1DownloadStartTime,    // offset in milliseconds from tunestart when fragment begins download<br>
- * Fragment1DownloadTotalTime,    // time (ms) taken for fragment download, relative to Fragment1DownloadStartTime<br>
- * Fragment1DownloadFailCount,    // if >0 Fragment1DownloadTotalTime spans multiple download attempts<br>
- * Fragment1Bandwidth,            // intrinsic bitrate of downloaded fragment<br>
- * <br>
- * drmLicenseRequestStart,        // offset in milliseconds from tunestart<br>
- * drmLicenseRequestTotalTime,    // time (ms) for license acquisition relative to drmLicenseRequestStart<br>
- * drmFailErrorCode,              // nonzero if drm license acquisition failed during tuning<br>
- * <br>
- * LAPreProcDuration,             // License acquisition pre-processing duration in ms<br>
- * LANetworkDuration,             // License acquisition network duration in ms<br>
- * LAPostProcDuration,            // License acquisition post-processing duration in ms<br>
- * <br>
- * VideoDecryptDuration,          // Video fragment decrypt duration in ms<br>
- * AudioDecryptDuration,          // Audio fragment decrypt duration in ms<br>
- * <br>
- * gstStart,                      // offset in ms from tunestart when pipeline creation/setup begins<br>
- * gstFirstFrame,                 // offset in ms from tunestart when first frame of video is decoded/presented<br>
- * gstDecodeTime,                 // time taken in ms to decode first frame, post decryption. This will also includes any decoder init overheads<br>
- * contentType,                   //Playback Mode. Values: CDVR, VOD, LINEAR, IVOD, EAS, CAMERA, DVR, MDVR, IPDVR, PPV<br>
- * streamType,                    //Stream Type. Values: 10-HLS/Clear, 11-HLS/Consec, 12-HLS/Access, 13-HLS/Vanilla AES, 20-DASH/Clear, 21-DASH/WV, 22-DASH/PR<br>
- * firstTune                      //First tune after reboot/crash<br>
- * Prebuffered                    //If the Player was in preBuffer(BG) mode)<br>
- * PreBufferedTime                //Player spend Time in BG<br> 
- * success                        //Tune status
- * contentType                    //Content Type. Eg: LINEAR, VOD, etc
- * streamType                     //Stream Type. Eg: HLS, DASH, etc
- * firstTune                      //Is it a first tune after reboot/crash.
- * <br>
+ * @details
+ * Metric prefix: IP_AAMP_TUNETIME
+ *
+ * All time fields are offsets in milliseconds from tune start unless
+ * otherwise stated.
+ *
+ * Index mapping (profileData[index]):
+ * [0]  version                     Protocol version (AAMP_TUNETIME_VERSION)
+ * [1]  build                       Player build/version string (AAMP_VERSION)
+ * [2]  tunestartUtcMs              Absolute UTC time (ms) at tune start
+ * [3]  manifestStart               Main manifest download start offset
+ * [4]  manifestTotal               Main manifest download duration
+ * [5]  manifestFailCount           Main manifest download failure count
+ * [6]  videoPlaylistStart          Video playlist download start offset
+ * [7]  videoPlaylistTotal          Video playlist download duration
+ * [8]  videoPlaylistFailCount      Video playlist download failure count
+ * [9]  audioPlaylistStart          Audio playlist download start offset
+ * [10] audioPlaylistTotal          Audio playlist download duration
+ * [11] audioPlaylistFailCount      Audio playlist download failure count
+ * [12] videoInitStart              Video init-segment download start offset
+ * [13] videoInitTotal              Video init-segment download duration
+ * [14] videoInitFailCount          Video init-segment download failure count
+ * [15] audioInitStart              Audio init-segment download start offset
+ * [16] audioInitTotal              Audio init-segment download duration
+ * [17] audioInitFailCount          Audio init-segment download failure count
+ * [18] videoFragStart              Video fragment download start offset
+ * [19] videoFragTotal              Video fragment download duration
+ * [20] videoFragFailCount          Video fragment download failure count
+ * [21] videoFragBandwidth          Video fragment bandwidth (bps)
+ * [22] audioFragStart              Audio fragment download start offset
+ * [23] audioFragTotal              Audio fragment download duration
+ * [24] audioFragFailCount          Audio fragment download failure count
+ * [25] audioFragBandwidth          Audio fragment bandwidth (bps)
+ * [26] drmLicenseStart             DRM license acquisition start offset
+ * [27] drmLicenseTotal             DRM license acquisition duration
+ * [28] drmFailErrorCode            DRM failure error code (0 if success)
+ * [29] laPreProcDuration           License acquisition pre-processing (ms)
+ * [30] laNetworkDuration           License acquisition network duration (ms)
+ * [31] laPostProcDuration          License acquisition post-processing (ms)
+ * [32] videoDecryptDuration        Video decrypt duration (ms)
+ * [33] audioDecryptDuration        Audio decrypt duration (ms)
+ * [34] gstStart                    Offset (ms) from tune start when pipeline first fed data
+ * [35] gstFirstFrame               Offset (ms) from tune start when first video frame is decoded/presented
+ * [36] contentType                 Playback mode (e.g., LINEAR, VOD, etc)
+ * [37] streamType                  Stream type (e.g., HLS, DASH, etc)
+ * [38] firstTune                   First tune after reboot/crash (bool)
+ * [39] prebuffered                 Player was in prebuffer (BG) mode (bool)
+ * [40] prebufferedTime             Time spent in prebuffer (BG) mode (ms)
+ * [41] durationSeconds             Asset duration (seconds)
+ * [42] interfaceWifi               Connection type: wifi(1) ethernet(0)
+ * [43] tuneAttempts                Number of tune attempts
+ * [44] success                     Tune status: success(1) failure(0)
+ * [45] failureReason               Failure reason string
+ * [46] appName                     Application name string
+ * [47] timedMetadataCount          Timed metadata count
+ * [48] timedMetadataStart          Timed metadata start offset (clamped >= 0)
+ * [49] timedMetadataTotal          Timed metadata total duration (ms)
+ * [50] tsbEnabled                  TSB enabled (1) / disabled (0)
+ * [51] totalTime                   Total tune time (ms)
+ * [52] stopDuration                Stop duration (ms)
+ * [53] gstDecodeTime               Decode time to first frame excluding decryption
+ *
+ * Note: [34] and [35] are adjusted when prebuffered && success by subtracting
+ * the prebuffer start offset.
  */
 void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData)
 {
@@ -305,7 +323,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] IP_AAMP_TUNETIME", playerActiveMode.c_str(),playerId);
 	}
 
-	AAMPLOG_WARN("%s:%d,%s,%lld," // prefix, version, build, tuneStartBaseUTCMS
+	AAMPLOG_MIL("%s:%d,%s,%lld," // prefix, version, build, tuneStartBaseUTCMS
 		"%d,%d,%d,"		// main manifest (start,total,err)
 		"%d,%d,%d,"		// video playlist (start,total,err)
 		"%d,%d,%d,"		// audio playlist (start,total,err)
@@ -313,14 +331,14 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,"		// video init-segment (start,total,err)
 		"%d,%d,%d,"		// audio init-segment (start,total,err)
 
-		"%d,%d,%d,%ld,"	// video fragment (start,total,err, bitrate)
-		"%d,%d,%d,%ld,"	// audio fragment (start,total,err, bitrate)
+		"%d,%d,%d,%" BITSPERSECOND_FORMAT ","	// video fragment (start,total,err, bitrate)
+		"%d,%d,%d,%" BITSPERSECOND_FORMAT ","	// audio fragment (start,total,err, bitrate)
 
 		"%d,%d,%d,"		// licenseAcqStart, licenseAcqTotal, drmFailErrorCode
 		"%d,%d,%d,"		// LAPreProcDuration, LANetworkDuration, LAPostProcDuration
 
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
-		"%d,%d,%d,"		// gstPlayStartTime, gstFirstFrameTime, gstDecodeTime
+		"%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
@@ -328,7 +346,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,%d,%d,"       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
 					//  TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported	
 		// TODO: settop type, flags, isFOGEnabled, isDDPlus, isDemuxed, assetDurationMs
-		"%u", // Stop Duration;
+		"%u,%d", // Stop Duration, gstDecodeTime;
 
 		tuneTimeStrPrefix,
 		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
@@ -351,12 +369,12 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
-		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
 		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
-		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs
+		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs,
+		tDecode // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,

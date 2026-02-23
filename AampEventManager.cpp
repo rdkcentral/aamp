@@ -85,7 +85,7 @@ void AampEventManager::FlushPendingEvents()
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	while(!mEventWorkerDataQue.empty())
 	{
-		// Remove each AampEventPtr from the queue , not deleting the Shard_ptr
+		// Remove each AampEventPtr from the queue, not deleting the shared_ptr
 		mEventWorkerDataQue.pop();
 	}
 
@@ -121,7 +121,10 @@ void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
 {
 	if(eventListener != NULL)
 	{
-		AddEventListener(AAMP_EVENT_ALL_EVENTS,eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) {
+			// No-op deleter to avoid accidental deletion
+		});
+		AddEventListener(AAMP_EVENT_ALL_EVENTS,sharedListener);
 	}
 	else
 	{
@@ -136,7 +139,10 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 {
 	if(eventListener != NULL)
 	{
-		RemoveEventListener(AAMP_EVENT_ALL_EVENTS,eventListener);
+		std::shared_ptr<EventListener> sharedListener(eventListener, [](EventListener* ptr) {
+		// No-op deleter to avoid accidental deletion
+		});
+		RemoveEventListener(AAMP_EVENT_ALL_EVENTS,sharedListener);
 	}
 	else
 	{
@@ -146,15 +152,15 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 
 /**
  * @brief AddEventListener - Register  listener for one eventtype
- */ 
-void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+ */
+void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
-			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener, pListener);
+			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener.get(), pListener);
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
 			pListener->pNext = mEventListeners[eventType];
@@ -170,7 +176,7 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* 
 /**
  * @brief RemoveEventListener - Remove one listener registration for one event
  */
-void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 	// listener instance is cleared here , but created outside
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
@@ -183,7 +189,7 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 			if (pListener->eventListener == eventListener)
 			{
 				*ppLast = pListener->pNext;
-				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener, pListener);
+				AAMPLOG_INFO("Eventtype:%d %p delete %p use_count = %d", eventType, eventListener.get(), pListener, (int)eventListener.use_count());
 				SAFE_DELETE(pListener);
 				return;
 			}
@@ -374,11 +380,10 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		}
 		else
 		{
-			AAMPLOG_WARN("(type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
+			AAMPLOG_MIL("(type=%d)(state=%d)(session_id=%s)", eventType, std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState(),
 				eventData->GetSessionId().c_str());
 		}
 	}
-
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
 	ListenerData* pListener = mEventListeners[eventType];

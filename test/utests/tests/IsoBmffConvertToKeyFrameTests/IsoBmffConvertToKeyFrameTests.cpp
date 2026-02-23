@@ -129,7 +129,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 	src_data.AppendBytes(td.input_data,  td.input_data_len);
 
 	EXPECT_TRUE(helper->ConvertToKeyFrame(src_data));
-	EXPECT_EQ(src_data.GetLen(), td.expected_data_len);
+	EXPECT_EQ(src_data.size(), td.expected_data_len);
 	auto memcmp_actual_vs_expected = std::memcmp(src_data.GetPtr(), td.expected_data,  td.expected_data_len);
 	EXPECT_EQ(0, memcmp_actual_vs_expected);
 	if (memcmp_actual_vs_expected)
@@ -147,7 +147,8 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 		dumpBytes(res, to_display);
 	}
 
-	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
+	// Note: No longer expecting g_free() since AampGrowableBuffer now uses std::vector
+	// which manages its own memory via RAII
 }
 
 INSTANTIATE_TEST_SUITE_P(IsoBmffConvertToKeyFrameTests, IsoBmffConvertToKeyFrameTestsP, testing::ValuesIn(test_data), IsoBmffConvertToKeyFrameTestsP::PrintToStringParamName());

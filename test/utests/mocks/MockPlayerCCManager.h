@@ -26,10 +26,11 @@ class MockPlayerCCManager
 {
 public:
 	MOCK_METHOD(int, Init, (void *handle));
-	MOCK_METHOD(void, RestoreCC, ());
+	MOCK_METHOD(void, RestoreCC, (bool shouldRestoreCC));
 	MOCK_METHOD(void, Release, (int iID));
 	MOCK_METHOD(bool, IsOOBCCRenderingSupported, ());
 	MOCK_METHOD(int, SetStatus, (bool enable));
+	MOCK_METHOD(bool, GetStatus, ());
 	MOCK_METHOD(int, SetStyle, (const std::string &options));
 	MOCK_METHOD(int, SetTrack, (const std::string &track, const CCFormat format));
 	MOCK_METHOD(void, SetTrickplayStatus, (bool enable));

@@ -205,17 +205,18 @@ void AampMPDParseHelper::parseMPD()
 }
 
 /**
- * @fn to Update the upper and lower boundary periods
- * @param IsTrickMode A flag indicating whether playback is in trick mode or not
+ * @fn UpdateBoundaryPeriod
+ * @brief Update the upper and lower boundary periods by discarding empty periods at the start and end
+ * @param checkOnlyIframeAdaptation If true, check only iframe adaptations when determining if a period is empty; if false, check all adaptations.
  */
-void AampMPDParseHelper::UpdateBoundaryPeriod(bool IsTrickMode)
+void AampMPDParseHelper::UpdateBoundaryPeriod(bool checkOnlyIframeAdaptation)
 {
 	mUpperBoundaryPeriod = mNumberOfPeriods - 1;
 	mLowerBoundaryPeriod = 0;
 	// Calculate lower boundary of playable periods, discard empty periods at the start
 	for(int periodIter = 0; periodIter < mNumberOfPeriods; periodIter++)
 	{
-		if(IsEmptyPeriod(periodIter, IsTrickMode))
+		if(IsEmptyPeriod(periodIter, checkOnlyIframeAdaptation))
 		{
 			mLowerBoundaryPeriod++;
 			continue;
@@ -225,13 +226,13 @@ void AampMPDParseHelper::UpdateBoundaryPeriod(bool IsTrickMode)
 	// Calculate upper boundary of playable periods, discard empty periods at the end
 	for(int periodIter = mNumberOfPeriods-1; periodIter >= 0; periodIter--)
 	{
-		if(IsEmptyPeriod(periodIter, IsTrickMode))
+		if(IsEmptyPeriod(periodIter, checkOnlyIframeAdaptation))
 		{
 			mUpperBoundaryPeriod--;
 			continue;
 		}
 		break;
-	}	
+	}
 }
 /**
 * @brief Get content protection from representation/adaptation field
@@ -262,8 +263,8 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 		AAMPLOG_WARN("Invalid PeriodIndex given %d",iPeriodIndex);
 		return false;
 	}
-	
-	// check in the queue if already stored for data 
+
+	// check in the queue if already stored for data
 	if(mPeriodEncryptionMap.find(iPeriodIndex) != mPeriodEncryptionMap.end())
 	{
 		retVal =  mPeriodEncryptionMap[iPeriodIndex];
@@ -272,7 +273,7 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 	{
 		vector<IPeriod *> periods = mMPDInstance->GetPeriods();
 		IPeriod *period	=	periods.at(iPeriodIndex);
-		
+
 		if(period != NULL)
 		{
 			size_t numAdaptationSets = period->GetAdaptationSets().size();
@@ -280,13 +281,13 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 			{
 				const IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
 				if(adaptationSet != NULL)
-				{				
+				{
 					if(0 != GetContentProtection(adaptationSet).size())
 					{
 						mPeriodEncryptionMap[iPeriodIndex] = true;
 						retVal = true;
 						break;
-					}				
+					}
 				}
 			}
 		}
@@ -299,16 +300,16 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
  * @brief Check if Period is empty or not
  * @retval Return true on empty Period
  */
-bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe) 
+bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 {
-	bool isEmptyPeriod = true;		
+	bool isEmptyPeriod = true;
 	if(iPeriodIndex >= mNumberOfPeriods || iPeriodIndex < 0)
 	{
 		AAMPLOG_WARN("Invalid PeriodIndex given %d",iPeriodIndex);
 		return isEmptyPeriod;
 	}
 
-	// check in the queue if already stored for data 
+	// check in the queue if already stored for data
 	std::pair<int,bool> key = std::make_pair(iPeriodIndex, checkIframe);
 	if(mPeriodEmptyMap.find(key) != mPeriodEmptyMap.end())
 	{
@@ -318,7 +319,7 @@ bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 	else
 	{
 		vector<IPeriod *> periods = mMPDInstance->GetPeriods();
-		IPeriod *period	=	periods.at(iPeriodIndex);		
+		IPeriod *period	=	periods.at(iPeriodIndex);
 		if(period != NULL)
 		{
 			const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
@@ -333,7 +334,7 @@ bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 				{
 					if (IsIframeTrack(adaptationSet))
 					{
-						isEmptyPeriod = false;						
+						isEmptyPeriod = false;
 						break;
 					}
 				}
@@ -490,7 +491,7 @@ bool AampMPDParseHelper::IsContentType(const IAdaptationSet *adaptationSet, Aamp
 				}
 			}
 
-			const std::vector<IContentComponent *>contentComponent = adaptationSet->GetContentComponent();
+			const std::vector<IContentComponent *>& contentComponent = adaptationSet->GetContentComponent();
 			for( int i = 0; i < contentComponent.size(); i++)
 			{
 				if (contentComponent.at(i)->GetContentType() == name)
@@ -544,7 +545,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 					if(mNumberOfPeriods == 1 && periodIndex == 0 && mIsLiveManifest && !mIsFogMPD && (periodStart == mAvailabilityStartTime) && deltaInStartTime == 0)
 					{
 						// Temp hack to avoid running below if condition code for segment timeline , Due to this periodStart is getting changed for Cloud TSB or Hot Cloud DVR with segment timeline, which is not required.
-						bool bHasSegmentTimeline = aamp_HasSegmentTimeline(mMPDInstance->GetPeriods().at(periodIndex));
+						bool bHasSegmentTimeline = aamp_HasSegmentTime(mMPDInstance->GetPeriods().at(periodIndex));
 						if( false == bHasSegmentTimeline ) // only for segment template
 						{
 							// segmentTemplate without timeline having period start "PT0S".
@@ -552,7 +553,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 							{
 								mLiveTimeFragmentSync = true;
 							}
-							
+
 							double duration = (aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
 							double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
 							if(mHasServerUtcTime)
@@ -572,7 +573,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 				else if (periodIndex > 0 && !mMPDInstance->GetPeriods().at(periodIndex-1)->GetDuration().empty())
 				{
 					string durationStr = mMPDInstance->GetPeriods().at(periodIndex -1)->GetDuration();
-					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1,mLastPlaylistDownloadTimeMs); 
+					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1,mLastPlaylistDownloadTimeMs);
 					double durationTotal = ParseISO8601Duration(durationStr.c_str());
 					periodStart = previousPeriodStart + (durationTotal / 1000);
 				}
@@ -585,7 +586,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart > 0))
+					if(mIsLiveManifest && (periodStart >= 0))
 					{
 						periodStart += mAvailabilityStartTime;
 					}
@@ -604,9 +605,13 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 	}
 }
 
-/*
+/**
  * @brief Get end time of current period
- * @retval current period's end time
+ * @param[in] periodIndex Index of the period
+ * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
+ * @param[in] checkIFrame If true, check only iframe adaptations; otherwise check all adaptations
+ * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
+ * @retval current period's end time in seconds
  */
 double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
@@ -647,7 +652,7 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 					return periodEndTime;
 				}
 			}
-			
+
 			string startTimeStr = period->GetStart();
                         periodDurationMs = GetPeriodDuration(periodIndex,mLastPlaylistDownloadTimeMs,checkIFrame,IsUninterruptedTSB);
 			if((mMPDInstance->GetAvailabilityStarttime().empty()) && !(mMPDInstance->GetType() == "static"))
@@ -718,7 +723,7 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -759,57 +764,93 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 }
 
 /**
- * @brief  A helper function to  check if period has segment timeline for video track
+ * @brief  A helper function to check if period has segment timeline for video track
  * @param period period of segment
  * @return True if period has segment timeline for video otherwise false
  */
-bool AampMPDParseHelper::aamp_HasSegmentTimeline(IPeriod * period)
+bool AampMPDParseHelper::aamp_HasSegmentTime(IPeriod * period)
 {
-    bool bRetValue = false;
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	if (segmentTemplates && segmentTemplates->HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates->GetSegmentTimeline();
+		return (segmentTimeline != nullptr);
+	}
+	return false;
+}
 
-    const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
-    const ISegmentTemplate *representation = NULL;
-    const ISegmentTemplate *adaptationSet = NULL;
-    if( adaptationSets.size() > 0 )
-    {
-        IAdaptationSet * firstAdaptation = NULL;
-        for (auto &adaptationSet : period->GetAdaptationSets())
-        {
-            //Check for video adaptation
-            if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
-            {
-                continue;
-            }
-            firstAdaptation = adaptationSet;
-        }
+/**
+ * @brief  A helper function to check if period has segment timeline and segments for video track
+ * @param period period of segment
+ * @return True if period has segment timeline for video otherwise false
+ */
+bool AampMPDParseHelper::aamp_HasSegmentTimeAndSegments(IPeriod *period)
+{
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	if (segmentTemplates && segmentTemplates->HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates->GetSegmentTimeline();
+		if (segmentTimeline != nullptr)
+		{
+			std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+			return timelines.size() > 0;
+		}
+	}
+	return false;
+}
 
-        if(firstAdaptation != NULL)
-        {
-            adaptationSet = firstAdaptation->GetSegmentTemplate();
-            const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
-            if (representations.size() > 0)
-            {
-                representation = representations.at(0)->GetSegmentTemplate();
-            }
-        }
+/**
+ * @brief  A helper function to check if period has segment template for video track
+ * @param period period of segment
+ * @return True if period has segment template for video otherwise false
+ */
+bool AampMPDParseHelper::aamp_HasSegmentTemplate(IPeriod * period)
+{
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	return (segmentTemplates && segmentTemplates->HasSegmentTemplate());
+}
 
-        SegmentTemplates segmentTemplates(representation,adaptationSet);
+/**
+ * @brief  A helper function to get segment template for video track
+ * @param period period of segment
+ * @return SegmentTemplates structure for video track if present, otherwise empty SegmentTemplates
+ */
+std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo(IPeriod * period)
+{
+	std::shared_ptr<SegmentTemplates> segmentTemplates = nullptr;
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+	if (adaptationSets.empty())
+	{
+		return segmentTemplates;
+	}
 
-        if (segmentTemplates.HasSegmentTemplate())
-        {
-            const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
-            if (segmentTimeline)
-            {
-                bRetValue = true;
-            }
-        }
-    }
-    return bRetValue;
+	for (auto &adaptationSet : adaptationSets)
+	{
+		if (IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			const ISegmentTemplate *adaptationSetTemplate = adaptationSet->GetSegmentTemplate();
+			const std::vector<IRepresentation *>& representations = adaptationSet->GetRepresentation();
+			if (!representations.empty())
+			{
+				const ISegmentTemplate *representationTemplate = representations.at(0)->GetSegmentTemplate();
+				if (adaptationSetTemplate || representationTemplate)
+				{
+					segmentTemplates = std::make_shared<SegmentTemplates>(representationTemplate, adaptationSetTemplate);
+					break;
+				}
+			}
+		}
+	}
+	return segmentTemplates;
 }
 
 /**
  * @brief Get duration of current period
- * @retval current period's duration
+ * @param[in] periodIndex Index of the period
+ * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
+ * @param[in] checkIFrame If true, check only iframe adaptations; otherwise check all adaptations
+ * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
+ * @retval current period's duration in milliseconds
  */
 double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
@@ -839,7 +880,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 					if(mMediaPresentationDuration != 0 )
 					{
 						periodDurationMs = mMediaPresentationDuration;
-						AAMPLOG_WARN("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
+						AAMPLOG_MIL("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
 						return mMediaPresentationDuration;
 					}
 					//Next priority for duration tag
@@ -952,7 +993,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 	double durationMs = 0;
 	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
 	IPeriod *period	=	periods.at(periodIndex);
-	
+
 	std::string tempString = period->GetDuration();
 	if(!tempString.empty())
 	{
@@ -991,7 +1032,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 			if(firstAdaptation != NULL)
 			{
 				adaptationSet = firstAdaptation->GetSegmentTemplate();
-				const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+				const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 				if (representations.size() > 0)
 				{
 					representation = representations.at(0)->GetSegmentTemplate();
@@ -1086,7 +1127,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 										{
 											durationMs = ParseISO8601Duration(tsbDepth.c_str());
 										}
-										//If MPD@timeShiftBufferDepth is not present, the period duration is should be based on the MPD@availabilityStartTime; and should not result in a value of 0. 
+										//If MPD@timeShiftBufferDepth is not present, the period duration is should be based on the MPD@availabilityStartTime; and should not result in a value of 0.
 										else
 										{
 											durationMs = mpdDownloadTime - (mAvailabilityStartTime * 1000);
@@ -1139,7 +1180,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 				}
 				else
 				{
-					const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+					const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 					if (representations.size() > 0)
 					{
 						ISegmentList *segmentList = representations.at(0)->GetSegmentList();
@@ -1167,6 +1208,57 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 				AAMPLOG_WARN("firstAdaptation is null");  //CID:84261 - Null Returns
 			}
 		}
+	}
+	return durationMs;
+}
+
+/**
+ *   @brief  Get Period Duration from start time of this period and next
+ *   @param  periodIndex Index of the period (modified to point to the next non-empty period if found)
+ *   @retval period duration in milliseconds, 0 if not obtainable
+ */
+double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
+{
+	// Get duration of current period based on "start" attribute of
+	// the current period and the next period.
+	// Empty following periods can occur so also check for segments in the
+	// following periods until we find a valid start time to calculate duration
+	// or we reach the end of periods.
+
+	double durationMs = 0;
+	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
+	std::string periodStartStr = periods.at(periodIndex)->GetStart();
+	if (!periodStartStr.empty())
+	{
+		double periodStart = ParseISO8601Duration(periodStartStr.c_str());
+		for (int p = periodIndex + 1; p < periods.size(); p++)
+		{
+			std::string nextPeriodStartStr = periods.at(p)->GetStart();
+			bool hasSegments = aamp_HasSegmentTimeAndSegments(periods.at(p));
+
+			if (hasSegments && !nextPeriodStartStr.empty())
+			{
+				// We can calculate period duration by subtracting start time from next period start time.
+				double nextPeriodStart = ParseISO8601Duration(nextPeriodStartStr.c_str());
+				durationMs = nextPeriodStart - periodStart;
+				if (durationMs <= 0)
+				{
+					AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
+					durationMs = 0;
+					break;
+				}
+				periodIndex = p;
+				break;
+			}
+			else
+			{
+				AAMPLOG_TRACE("Start time or segments missing from period %s hasSegments %d", periods.at(p)->GetId().c_str(), hasSegments);
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_TRACE("Start time missing in period %s", periods.at(periodIndex)->GetId().c_str());
 	}
 	return durationMs;
 }
@@ -1277,7 +1369,7 @@ double AampMPDParseHelper::GetFirstSegmentScaledStartTime(IPeriod * period, Aamp
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1342,7 +1434,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 		{
 			AAMPLOG_WARN("mpd is null");  //CID:82158 - Null Returns
 		}
-		
+
 		if(period != NULL)
 		{
 			const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
@@ -1366,7 +1458,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 					return durationMs;
 				}
 				AdapSegmentTemplate = firstAdaptation->GetSegmentTemplate();
-				const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+				const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 				if (representations.size() > 0)
 				{
 					RepSegmentTemplate  = representations.at(0)->GetSegmentTemplate();
@@ -1401,7 +1493,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 				}
 				else
 				{
-					const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+					const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 					if (representations.size() > 0)
 					{
 						ISegmentList *segmentList = representations.at(0)->GetSegmentList();
@@ -1486,7 +1578,7 @@ double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint6
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1567,7 +1659,7 @@ uint32_t AampMPDParseHelper::GetPeriodSegmentTimeScale(IPeriod * period)
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1611,7 +1703,7 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 		if(firstAdaptation != NULL)
 		{
 			adaptationSet = firstAdaptation->GetSegmentTemplate();
-			const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+			const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 			if (representations.size() > 0)
 			{
 				representation = representations.at(0)->GetSegmentTemplate();
@@ -1619,7 +1711,7 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 		}
 	}
 	SegmentTemplates segmentTemplates(representation,adaptationSet);
-	
+
 	if( segmentTemplates.HasSegmentTemplate() )
 	{
 		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
@@ -1664,7 +1756,7 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 		IAdaptationSet *firstAdaptation = adaptationSets.at(adaptationSetIdx);
 
 		adaptationSet = firstAdaptation->GetSegmentTemplate();
-		const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
+		const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
 		if (representationIdx < representations.size() && representationIdx >= 0)
 		{
 			representation = representations.at(representationIdx)->GetSegmentTemplate();

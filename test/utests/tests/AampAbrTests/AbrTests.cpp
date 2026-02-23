@@ -17,18 +17,14 @@
  * limitations under the License.
  */
 
-#include <cstdlib>
-#include <iostream>
-#include <string>
-#include <string.h>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-
+#include <cstddef>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
-#include "HybridABRManager.h"
+#include "abr.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -36,35 +32,57 @@ using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
 
-extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
+extern ABRManager::AampAbrConfig eAAMPAbrConfig;
 
-class AampAbrTests : public ::testing::Test
+class AbrTests : public ::testing::Test
 {
-	public:
-		PrivateInstanceAAMP *aamp{nullptr};
-		AampConfig *config{nullptr};
-	protected:
-		void SetUp() override
-		{
-			config=new AampConfig();
-			aamp = new PrivateInstanceAAMP(config);
-			g_mockAampConfig = new NiceMock<MockAampConfig>();
-		}
+protected:
+	void SetUp() override
+	{
+		ABRManager::mPersistBandwidth = 0;
+		ABRManager::mPersistBandwidthUpdatedTime = 0;
 
-		void TearDown() override
-		{
-			delete g_mockAampConfig;
-			g_mockAampConfig = nullptr;
-
-			delete config;
-			config = nullptr;
-
-			delete aamp;
-			aamp = nullptr;
-		}
-
+		eAAMPAbrConfig = ABRManager::AampAbrConfig();
+		// Cache life is interpreted as milliseconds by the estimator.
+		// Use a large value to avoid timing-related flakes in unit tests.
+		eAAMPAbrConfig.abrCacheLife = 600000;
+		eAAMPAbrConfig.abrCacheLength = 3;
+		eAAMPAbrConfig.abrCacheOutlier = 1000000;
+		eAAMPAbrConfig.bandwidthEstimatorType =	BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER;
+	}
 };
-TEST_F(AampAbrTests,LoadAampAbrConfig)
+
+class AampAbrConfigTests : public ::testing::Test
+{
+public:
+	PrivateInstanceAAMP *aamp{nullptr};
+	AampConfig *config{nullptr};
+
+protected:
+	void SetUp() override
+	{
+		config = new AampConfig();
+		aamp = new PrivateInstanceAAMP(config);
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
+	}
+
+	void TearDown() override
+	{
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
+
+		delete aamp;
+		aamp = nullptr;
+
+		delete config;
+		config = nullptr;
+	}
+};
+
+/**
+ * @brief Test loading ABR configuration from AampConfig.
+ */
+TEST_F(AampAbrConfigTests, LoadAampAbrConfig)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ABRCacheLife))
 		.WillRepeatedly(Return(3));
@@ -84,16 +102,136 @@ TEST_F(AampAbrTests,LoadAampAbrConfig)
 		.WillRepeatedly(Return(10000));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ABRBufferCounter))
 		.WillRepeatedly(Return(4));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ABRBandwidthEstimator))
+		.WillRepeatedly(Return(BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA));
 
 	aamp->LoadAampAbrConfig();
 
-	EXPECT_EQ(eAAMPAbrConfig.abrCacheLife,3);
-	EXPECT_EQ(eAAMPAbrConfig.abrCacheLength,2);
-	EXPECT_EQ(eAAMPAbrConfig.abrSkipDuration,6);
-	EXPECT_EQ(eAAMPAbrConfig.abrNwConsistency,2);
-	EXPECT_EQ(eAAMPAbrConfig.abrThresholdSize,3);
-	EXPECT_EQ(eAAMPAbrConfig.abrMaxBuffer,15);
-	EXPECT_EQ(eAAMPAbrConfig.abrMinBuffer,10);
-	EXPECT_EQ(eAAMPAbrConfig.abrCacheOutlier,10000);
-	EXPECT_EQ(eAAMPAbrConfig.abrBufferCounter,4);
+	EXPECT_EQ(eAAMPAbrConfig.abrCacheLife, 3);
+	EXPECT_EQ(eAAMPAbrConfig.abrCacheLength, 2);
+	EXPECT_EQ(eAAMPAbrConfig.abrSkipDuration, 6);
+	EXPECT_EQ(eAAMPAbrConfig.abrNwConsistency, 2);
+	EXPECT_EQ(eAAMPAbrConfig.abrThresholdSize, 3);
+	EXPECT_EQ(eAAMPAbrConfig.abrMaxBuffer, 15);
+	EXPECT_EQ(eAAMPAbrConfig.abrMinBuffer, 10);
+	EXPECT_EQ(eAAMPAbrConfig.abrCacheOutlier, 10000);
+	EXPECT_EQ(eAAMPAbrConfig.abrBufferCounter, 4);
+	EXPECT_EQ(eAAMPAbrConfig.bandwidthEstimatorType, BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA);
+}
+
+/**
+ * @brief Test default ABRManager state and behavior.
+ */
+TEST_F(AbrTests, DefaultEstimatorIsRMOAndUnavailableInitially)
+{
+	ABRManager abrManager;
+
+	EXPECT_TRUE(abrManager.HasBandwidthEstimator());
+	EXPECT_EQ(abrManager.GetBandwidthEstimationAlgorithm(), BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER);
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), -1);
+	EXPECT_EQ(abrManager.GetNetworkBandwidth(), 0);
+}
+
+/**
+ * @brief Test RMO estimator with various bandwidth samples.
+ */
+TEST_F(AbrTests, RMOAveragesSamplesWithConfiguredCacheLength)
+{
+	eAAMPAbrConfig.abrCacheLength = 3;
+	eAAMPAbrConfig.abrCacheOutlier = 1000000;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.AddBandwidthSample(1000, false);
+	abrManager.AddBandwidthSample(2000, false);
+	abrManager.AddBandwidthSample(3000, false);
+
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 2000);
+}
+
+/**
+ * @brief Test RMO estimator trims samples to configured cache length.
+ */
+TEST_F(AbrTests, RMOTrimsSamplesToConfiguredCacheLength)
+{
+	eAAMPAbrConfig.abrCacheLength = 2;
+	eAAMPAbrConfig.abrCacheOutlier = 1000000;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.AddBandwidthSample(1000, false);
+	abrManager.AddBandwidthSample(2000, false);
+	abrManager.AddBandwidthSample(3000, false);
+
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 2500);
+}
+
+/**
+ * @brief Test RMO estimator rejects outlier samples beyond configured threshold.
+ */
+TEST_F(AbrTests, RMORejectsOutlierSamplesBeyondConfiguredThreshold)
+{
+	eAAMPAbrConfig.abrCacheLength = 10;
+	eAAMPAbrConfig.abrCacheOutlier = 5000;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.AddBandwidthSample(1000, false);
+	abrManager.AddBandwidthSample(1100, false);
+	abrManager.AddBandwidthSample(100000, false);
+
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 1050);
+}
+
+/**
+ * @brief Test Harmonic EWMA estimator computes bandwidth from download metrics.
+ */
+TEST_F(AbrTests, HarmonicEWMAComputesBandwidthFromDownloadMetrics)
+{
+	ABRManager abrManager;
+	abrManager.SelectBandwidthEstimationAlgorithm(
+		BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA);
+
+	DownloadMetrics metrics;
+	metrics.m_size_download_bytes = 8000;
+	metrics.m_total_time_seconds = 2.0;
+	metrics.m_time_to_first_byte_seconds = 0.5;
+
+	const double payloadSeconds = metrics.m_total_time_seconds - metrics.m_time_to_first_byte_seconds;
+	const double bytesPerSecond = static_cast<double>(metrics.m_size_download_bytes) / payloadSeconds;
+	const BitsPerSecond expectedBitsPerSecond =	static_cast<BitsPerSecond>(bytesPerSecond * 8.0);
+
+	abrManager.ReportDownloadComplete(0, false, metrics);
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), expectedBitsPerSecond);
+}
+
+/**
+ * @brief Test switching bandwidth estimators retains appropriate state.
+ */
+TEST_F(AbrTests, SwitchingEstimatorsUsesNewEstimatorState)
+{
+	eAAMPAbrConfig.abrCacheLength = 3;
+	eAAMPAbrConfig.abrCacheOutlier = 1000000;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.AddBandwidthSample(1000, false);
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 1000);
+
+	abrManager.SelectBandwidthEstimationAlgorithm(BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA);
+	EXPECT_EQ(abrManager.GetBandwidthEstimationAlgorithm(), BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA);
+	// New estimator starts with no samples, so bandwidth is unavailable.
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), -1);
+
+	DownloadMetrics metrics;
+	metrics.m_size_download_bytes = 4000;
+	metrics.m_total_time_seconds = 1.0;
+	metrics.m_time_to_first_byte_seconds = 0.25;
+
+	const double payloadSeconds = metrics.m_total_time_seconds - metrics.m_time_to_first_byte_seconds;
+	const double bytesPerSecond = static_cast<double>(metrics.m_size_download_bytes) / payloadSeconds;
+	const BitsPerSecond expectedBitsPerSecond =	static_cast<BitsPerSecond>(bytesPerSecond * 8.0);
+
+	abrManager.ReportDownloadComplete(0, false, metrics);
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), expectedBitsPerSecond);
 }

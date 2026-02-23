@@ -137,9 +137,10 @@ public:
 	/**
 	 * @fn RestoreCC 
 	 *
+	 * @param[in] shouldRestoreCC - previously captured CC enabled state to be restored after teardown
 	 * @return void
 	 */
-	void RestoreCC();
+	void RestoreCC(bool shouldRestoreCC = false);
 
 	virtual ~PlayerCCManagerBase(){ };
 
@@ -251,6 +252,7 @@ protected:
 	** or are added to. */
 	std::string mOptions{};                /**< CC rendering styles */
 	std::string mTrack{};                  /**< CC track */
+	CCFormat mTrackFormat{eCLOSEDCAPTION_FORMAT_DEFAULT}; /**< CC track format */
 	std::vector<CCTrackInfo> mLastTextTracks;
 	bool mEnabled{false};                  /**< true if CC rendering enabled, false otherwise */
 	bool mTrickplayStarted{false};         /**< If a trickplay is going on or not */

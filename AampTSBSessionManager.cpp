@@ -194,7 +194,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, cachedFragment->fragment.GetVector(), effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
@@ -203,15 +203,16 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url), initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{
-			cachedFragment->fragment.ReserveBytes(len);
+			cachedFragment->fragment.resize(len);
+
 			UnlockReadMutex();
 			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
-			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
+
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
@@ -275,12 +276,12 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 			return {};
 		}
 
-		cachedFragment->fragment.ReserveBytes(len);
-		UnlockReadMutex();
+		cachedFragment->fragment.resize(len);
 
+		UnlockReadMutex();
 		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
-		cachedFragment->fragment.SetLen(len);
 		LockReadMutex();
+
 		if (status == TSB::Status::OK)
 		{
 			return cachedFragment;
@@ -322,7 +323,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		// The PTS value will be restamped by the injector thread.
 		// This function is called in the context of the fetcher thread before the fragment is added to the list to be injected, to avoid
 		// any race conditions; so it cannot be moved to ProcessWriteQueue() or any other functions called from a different context.
-		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
+		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size());
 
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
@@ -403,13 +404,14 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				std::string uniqueUrl = ToUniqueUrl(writeData.url, writeData.cachedFragment->absPosition);
 
 				// Call TSBHandler Write operation
-				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.GetLen());
+				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.size());
+
 				if (status == TSB::Status::OK)
 				{
 					writeSucceeded = true;
 					bool TSBDataAddStatus = false;
-					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
-						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
+					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
+						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
 						writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
 					if (writeData.cachedFragment->initFragment)
@@ -456,21 +458,21 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				{
 					// Init fragments & Fragments should have a unique url for each absPosition
 					writeSucceeded = true;
-					AAMPLOG_WARN("TSBWrite Metrics...FILE ALREADY EXISTS...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...Period-Id(%s)...URL (%s)",
-								 NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type), writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
+					AAMPLOG_WARN("TSBWrite Metrics...FILE ALREADY EXISTS...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...Period-Id(%s)...URL (%s)",
+								 NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type), writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 				}
 				else
 				{
 					if (status != TSB::Status::NO_SPACE) /** Flood the log when storage full so added check*/
 					{
-						AAMPLOG_ERR("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%ld)...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
+						AAMPLOG_ERR("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
 					}
 					else
 					{
-						AAMPLOG_TRACE("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%ld)...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
+						AAMPLOG_TRACE("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
 					}
 					LockReadMutex();
-					if(writeData.cachedFragment->fragment.GetLen() == 0) //Buffer 0 case ,no need to run this loop untill it get success
+					if(writeData.cachedFragment->fragment.size() == 0) //Buffer 0 case ,no need to run this loop untill it get success
 					{
 						writeSucceeded = true;
 					}
@@ -536,7 +538,7 @@ void AampTSBSessionManager::Flush()
 double AampTSBSessionManager::CullSegments()
 {
 	LockReadMutex();
-	double culledduration = 0;
+	double culledDuration = 0;
 	double lastVideoPos = mLastVideoPos;
 	int iter = eMEDIATYPE_VIDEO;
 	while (iter < AAMP_TRACK_COUNT)
@@ -552,7 +554,7 @@ double AampTSBSessionManager::CullSegments()
 		// Check if video position has changed
 		if ((eMEDIATYPE_VIDEO == iter) && (AAMP_PAUSE_POSITION_INVALID_POSITION != mLastVideoPos))
 		{
-			culledduration += (videoFirstPosition - lastVideoPos); // Adjust culledduration for write failures
+			culledDuration += (videoFirstPosition - lastVideoPos); // Adjust culledDuration for write failures
 		}
 		lastVideoPos = videoFirstPosition; // Update lastVideoPos
 
@@ -598,7 +600,7 @@ double AampTSBSessionManager::CullSegments()
 			{
 				double durationInSeconds = removedFragment->GetDuration().inSeconds();
 				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
-					culledduration += durationInSeconds;
+					culledDuration += durationInSeconds;
 				std::string removedFragmentUrl = ToUniqueUrl(removedFragment->GetUrl(),removedFragment->GetAbsolutePosition().inSeconds());
 				UnlockReadMutex();
 				mTSBStore->Delete(removedFragmentUrl);
@@ -630,12 +632,12 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mLastVideoPos = lastVideoPos;
 	}
-	if(culledduration > 0.0)
+	if(culledDuration > 0.0)
 	{
-		mCulledDuration += culledduration;
+		mCulledDuration += culledDuration;
 	}
 	UnlockReadMutex();
-	return culledduration;
+	return culledDuration;
 }
 
 /**
@@ -661,10 +663,6 @@ AampMediaType AampTSBSessionManager::ConvertMediaType(AampMediaType actualMediat
 	else if (mediaType == eMEDIATYPE_INIT_SUBTITLE)
 	{
 		mediaType = eMEDIATYPE_SUBTITLE;
-	}
-	else if (mediaType == eMEDIATYPE_INIT_AUX_AUDIO)
-	{
-		mediaType = eMEDIATYPE_AUX_AUDIO;
 	}
 	else if (mediaType == eMEDIATYPE_INIT_IFRAME)
 	{
@@ -837,12 +835,12 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 	}
 	else							// Rewind
 	{
-		if (fragment->prev)
+		if (auto prevShared = fragment->prev.lock()) 
 		{
-			fragment = fragment->prev;
+			fragment = prevShared;
 			success = true;
 		}
-		if (!(fragment->prev))
+		else
 		{
 			// Don't skip the first fragment in the TSB so BoS is detected correctly
 			AAMPLOG_INFO("Reached beginning of TSB during rewind");
@@ -1244,51 +1242,29 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
 																							  std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
 {
-	// Merge both lists in chronological order
+	// Merge both lists
 	std::vector<std::shared_ptr<AampTsbAdMetaData>> merged;
-	for (const auto& meta : reservationList)
-	{
-		merged.push_back(meta);
-	}
-	for (const auto& meta : placementList)
-	{
-		merged.push_back(meta);
-	}
-	// Sort merged list
+	merged.reserve(reservationList.size() + placementList.size());
+	merged.insert(merged.end(), reservationList.begin(), reservationList.end());
+	merged.insert(merged.end(), placementList.begin(), placementList.end());
+	// Sort with strict weak ordering: first by position, then by order added
 	std::sort(merged.begin(), merged.end(), [](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
 	{
-		bool maintainOrder = true;
-		auto apos = a->GetPosition().milliseconds();
-		auto bpos = b->GetPosition().milliseconds();
-
-		// Different positions, sort by position
-		if (apos != bpos)
+		bool aLessThanB;
+		uint64_t aPos = a->GetPosition().milliseconds();
+		uint64_t bPos = b->GetPosition().milliseconds();
+		if (aPos != bPos)
 		{
-			maintainOrder = apos < bpos;
+			aLessThanB = aPos < bPos;
 		}
 		else
 		{
-			// Same position, apply rules:
-			// Matching ad types, END should be before START
-			// Reservation events should be after Placement END
-			// Reservation events should be before Placement START
-			//
-			// This logic assumes that an advert exceeds a fragment duration, 
-			// i.e. an advert cannot start and end in the same fragment
-			auto aType = a->GetEventType();
-			auto bType = b->GetEventType();
-			auto aAdType = a->GetAdType();
-			auto bAdType = b->GetAdType();
-
-			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
-				 ((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
-				 ((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
-			{
-				maintainOrder = false;
-			} 
+			// Same position - sort by order added
+			aLessThanB = a->GetOrderAdded() < b->GetOrderAdded();
 		}
-		return maintainOrder;
+		return aLessThanB;
 	});
+
 	return merged;
 }
 

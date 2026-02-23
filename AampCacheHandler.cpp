@@ -18,6 +18,7 @@
 */
 
 #include "AampCacheHandler.h"
+#include "AampGrowableBuffer.h"
 
 AampCacheHandler::AampCacheHandler( int playerId ): mAsyncCleanUpTaskThreadId(), mCacheActive(false),mAsyncCacheCleanUpThread(false), mCondVarMutex(), mCondVar(), mPlaylistCache(eCACHE_TYPE_PLAYLIST), mbCleanUpTaskInitialized(false), mInitFragmentCache(eCACHE_TYPE_INIT_FRAGMENT), mPlayerId(playerId)
 {
@@ -31,7 +32,7 @@ AampCacheHandler::~AampCacheHandler( void )
 	}
 }
 
-void AampCacheHandler::InsertToPlaylistCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType )
+void AampCacheHandler::InsertToPlaylistCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType )
 {
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	assert( !effectiveUrl.empty() );
@@ -59,23 +60,20 @@ void AampCacheHandler::StopPlaylistCache( void )
 	mCondVar.notify_one();
 }
 
-bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType  )
+bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string &url, std::vector<uint8_t>& buffer, std::string& effectiveUrl, AampMediaType mediaType)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	AampCachedData *cachedData = mPlaylistCache.Find(url);
-	if( cachedData )
+	if (cachedData)
 	{
-		effectiveUrl = cachedData->effectiveUrl;
-		if( effectiveUrl.empty() )
-		{
-			effectiveUrl = url;
-		}
-		buffer->Clear();
-		buffer->AppendBytes( cachedData->buffer->GetPtr(), cachedData->buffer->GetLen() );
-		// below fails when playing an HLS playlist directly, then seeking or retuning
-		// assert( mediaType == cachedData->mediaType );
-		AAMPLOG_TRACE( "%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str() );
+		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
+		size_t prevCap = buffer.capacity();
+		// Assume cachedData->buffer is always valid and assign directly.
+		buffer = *cachedData->buffer;
+		size_t newCap = buffer.capacity();
+		AampGrowableBuffer::AccountCapacityTransition(prevCap, newCap); // Temporarily required for accounting to stay valid in global NETMEMORY counters
+		AAMPLOG_TRACE("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}
 	else
@@ -111,7 +109,7 @@ void AampCacheHandler::RemoveFromPlaylistCache( const std::string &url )
 	mPlaylistCache.Remove( url );
 }
 
-void AampCacheHandler::InsertToInitFragCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
+void AampCacheHandler::InsertToInitFragCache( const std::string &url, const std::vector<uint8_t>& buffer, const std::string &effectiveUrl, AampMediaType mediaType )
 {
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	assert( !effectiveUrl.empty() );
@@ -119,24 +117,19 @@ void AampCacheHandler::InsertToInitFragCache( const std::string &url, const Aamp
 	mInitFragmentCache.Insert( url, buffer, effectiveUrl, mediaType );
 }
 
-bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl)
+bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, std::vector<uint8_t>& buffer, std::string& effectiveUrl)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	AampCachedData *cachedData = mInitFragmentCache.Find(url);
-	if( cachedData )
+	if (cachedData)
 	{
-		std::shared_ptr<AampGrowableBuffer> buf = cachedData->buffer;
-		if (cachedData->effectiveUrl.empty())
-		{
-			effectiveUrl = url;
-		}
-		else
-		{
-			effectiveUrl = cachedData->effectiveUrl;
-		}
-		buffer->Clear();
-		buffer->AppendBytes( buf->GetPtr(), buf->GetLen() );
+		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
+		size_t prevCap = buffer.capacity();
+		// Assume cachedData->buffer is always valid and assign directly.
+		buffer = *cachedData->buffer;
+		size_t newCap = buffer.capacity();
+		AampGrowableBuffer::AccountCapacityTransition(prevCap, newCap); // Temporarily required for accounting to stay valid in global NETMEMORY counters
 		AAMPLOG_INFO("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}

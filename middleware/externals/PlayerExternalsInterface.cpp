@@ -24,6 +24,7 @@
 
 #include "PlayerExternalsInterface.h"
 #include "PlayerExternalUtils.h"
+#include <utility>
 
 #ifdef IARM_MGR
 #include "PlayerExternalsRdkInterface.h"
@@ -147,4 +148,41 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
     m_pIarmInterface->SetUseFireBoltSDK(t_use_firebolt_sdk);
+}
+
+void PlayerExternalsInterface::SetPowerEvent(bool powerEvt)
+{
+    m_pIarmInterface->SetPowerEvent(powerEvt);
+}
+
+bool PlayerExternalsInterface::GetPowerEvent()
+{
+    return m_pIarmInterface->GetPowerEvent();
+}
+
+void PlayerExternalsInterface::SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback)
+{
+    m_pIarmInterface->SetDoFakeTuneCallBack(t_doFakeTuneCallback);
+}
+
+/**
+ * @brief Checks if platform device properties are accessible.
+ *
+ * Device properties are only exposed via platform services when running
+ * with IARM manager in a native (non-container) environment. This helper
+ * therefore returns true if and only if those platform services are
+ * expected to be available.
+ */
+bool PlayerExternalsInterface::IsDevicePropertiesPresent()
+{
+    bool bRet = false;
+#ifdef IARM_MGR
+    if(!IsContainerEnvironment())
+    {
+        bRet = true;
+    }
+#else
+    bRet = false;
+#endif
+    return bRet;
 }

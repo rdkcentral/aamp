@@ -287,7 +287,7 @@ public:
 	 * @param src Source element.
 	 * @param trackId Track ID.
 	 */
-	virtual void SetAC4Tracks(GstElement *src, int trackId) = 0;
+	virtual void SetAC4Tracks(GstElement *src, int trackId);
 	
 	/**
 	 * @brief Set platform playback rate.
@@ -406,15 +406,6 @@ public:
 	 * @return True if setup is required, false otherwise.
 	 */
 	virtual bool RequiredElementSetup(){return false;}
-	
-	/**
-	 * @brief Set audio routing properties on source.
-	 *
-	 * Sets audio routing properties on the given source element.
-	 *
-	 * @param source The source element.
-	 */
-	virtual void SetAudioRoutingProperties(GstElement *source){}
 	
 	/**
 	 * @brief Check if first audio frame callback is set.

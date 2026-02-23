@@ -42,7 +42,7 @@
  * @brief  Structure of the event listener list
  */
 struct ListenerData {
-	EventListener* eventListener;   /**< Event listener */
+	std::shared_ptr<EventListener> eventListener;   /**< Event listener */
 	ListenerData* pNext;            /**< Next listener */
 };
 
@@ -164,22 +164,25 @@ public:
 	 * @fn RemoveListenerForAllEvents
 	 * @param eventListener - listener for events
 	 * @return void
-	 */	
+	 */
 	void RemoveListenerForAllEvents(EventListener* eventListener);
 	/**
 	 * @fn AddEventListener
 	 * @param eventType - Aamp Event type
-	 * @param eventListener - listener for events
+	 * @param eventListener - shared pointer to listener for events
 	 * @return void
 	 */
-	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
+
 	/**
 	 * @fn RemoveEventListener
 	 * @param eventType - Aamp Event type
 	 * @param eventListener - listener for events
 	 * @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener);
+
+
 	/**
 	 * @fn IsEventListenerAvailable - Check if any listeners present for this event
 	 * @param eventType - Aamp Event Type

@@ -191,6 +191,13 @@ public:
    * @return int index for lowest bitrate
    */
   int getProfileIndexForLowestBandwidth();
+  /**
+   * @fn getClosestProfileIndexByBandwidth
+   *
+   * @return int index for best matched bitrate
+   */
+  int getClosestProfileIndexByBandwidth( long inputBandwidth );
+
 public:
   // Getters/Setters
   /**

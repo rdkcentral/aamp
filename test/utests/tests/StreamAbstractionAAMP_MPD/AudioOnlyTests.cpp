@@ -93,6 +93,7 @@ protected:
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_UseMp4Demux, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -109,6 +110,7 @@ protected:
 		{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter,DEFAULT_ABR_BUFFER_COUNTER},
+		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 	};
 
@@ -149,6 +151,7 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -266,6 +269,8 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -274,11 +279,14 @@ public:
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		// For the time being return the same manifest again
@@ -343,7 +351,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillRepeatedly(Return(true));
 	/* Initialize MPD. The audio initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -354,7 +362,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first audio segment to present. Here, video is replaced with audio track in audio only case */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 	// Call for video track
 	PushNextFragment(eTRACK_VIDEO);
@@ -417,7 +425,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("audio.mp4");
 	// On a first look, this is a bug in the code. initialization is returned as empty with this manifest
 	std::string indexRange = "0-1363";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq(indexRange.c_str()), true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq(indexRange.c_str()), true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -428,7 +436,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first audio segment to present.*/
 	indexRange = "1364-61619";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq(indexRange.c_str()), false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq(indexRange.c_str()), false, _, _, _))
 		.WillOnce(Return(true));
 	// Call for video track
 	PushNextFragment(eTRACK_VIDEO);
@@ -489,7 +497,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("audio.mp4");
 	// On a first look, this is a bug in the code. initialization is returned as empty with this manifest
 	std::string indexRange = "0-1363";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq("0-1363"), true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq("0-1363"), true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, 240);
@@ -500,7 +508,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first audio segment to present.*/
 	indexRange = "1529861-1584033";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq("1529861-1584033"), false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, testing::StrEq("1529861-1584033"), false, _, _, _))
 		.WillOnce(Return(true));
 	// Call for video track
 	PushNextFragment(eTRACK_VIDEO);

@@ -28,7 +28,7 @@ class MockPrivateInstanceAAMP
 public:
     MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len));
     
-	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent));
+	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent, bool forceCleanup));
 
 	MOCK_METHOD(void, StartPausePositionMonitoring, (long long pausePositionMilliseconds));
 
@@ -36,20 +36,23 @@ public:
 
 	MOCK_METHOD(AAMPPlayerState, GetState, ());
 
-	MOCK_METHOD(void, SetState, (AAMPPlayerState state));
+	MOCK_METHOD(void, SetState, (AAMPPlayerState state, bool sendStateChangeEvent));
 
 	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
 				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
 				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS));
-	MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat));
+	MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat));
 
 	MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, double, bool, bool));
-	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType, const void *, size_t, double, double, double));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&));
+	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
+	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
+	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
 	MOCK_METHOD(long long, GetPositionMs, ());
 	MOCK_METHOD(long long, GetPositionMilliseconds, ());
@@ -63,7 +66,8 @@ public:
 	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode));
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
-	MOCK_METHOD(void, ProcessID3Metadata, (char *, size_t , AampMediaType , uint64_t ));
+	MOCK_METHOD(void, SetVidTimeScale, (uint32_t));
+	MOCK_METHOD(void, ProcessID3Metadata, (std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
 	MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 	MOCK_METHOD(long long, DurationFromStartOfPlaybackMs, ());
@@ -87,6 +91,10 @@ public:
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
+	MOCK_METHOD(bool, IsAtLivePoint, ());
+	MOCK_METHOD(bool, IsLiveStream, ());
+	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
+	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

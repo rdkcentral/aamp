@@ -75,7 +75,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 	std::string uri;	/**< URI Information */
 
 	// rarely present
-	long averageBandwidth;			/**< Average Bandwidth */
+	BitsPerSecond averageBandwidth;			/**< Average Bandwidth */
 	std::string closedCaptions;		/**< CC if present */
 	std::string subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
@@ -744,11 +744,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 * @param[out] primaryOutputFormat video format
 		 * @param[out] audioOutputFormat audio format
-		 * @param[out] auxOutputFormat auxiliary audio format
 		 * @param[out] subFormat subtitle format
 		 * @return void
 		 ***************************************************************************/
-		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subOutputFormat) override;
+		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat) override;
 		/***************************************************************************
 		 * @fn GetStreamPosition
 		 * @brief Function to return current playing position of stream
@@ -857,8 +856,17 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 *************************************************************************/
 		std::map<std::string,double> GetImageRangeString(double*, std::string, TileInfo*, double);
+		/***************************************************************************
+		 * @fn HandleImageData
+		 *
+		 * @param tStart start duration of thumbnail data.
+		 * @param tEnd end duration of thumbnail data.
+		 * @return void.
+		 ***************************************************************************/
+		void HandleSleThumbnailData(double tStart, double tEnd);
 		AampGrowableBuffer thumbnailManifest;	/**< Thumbnail manifest buffer holder */
 		std::vector<TileInfo> indexedTileInfo;	/**< Indexed Thumbnail information */
+		double indexedTileEndTime; /**< endTime received from player applications */
 		/***************************************************************************
 		 * @brief Function to get the total number of profiles
 		 *
@@ -924,10 +932,11 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @fn GetPlaylistURI
 		 *
 		 * @param[in] trackType Track type
-		 * @param[in] format stream output type
+		 * @param[in,out] format stream output type
 		 * @return string playlist URI
 		 ***************************************************************************/
-		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
+		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat &format);
+		std::string GetPlaylistURI(TrackType trackType);
 		/***************************************************************************
 		 * @fn StopInjection
 		 *
@@ -978,7 +987,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		StreamOutputFormat GetStreamOutputFormatForTrack(TrackType type);
 		/***************************************************************************
-		 * @brief  Function to get output format for audio/aux track
+		 * @brief  Function to get output format for audio track
 		 *
 		 *************************************************************************/
 		StreamOutputFormat GetStreamOutputFormatForAudio(void);
@@ -992,7 +1001,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 
 		/***************************************************************************
-		 * @brief  Function to get output format for audio/aux track
+		 * @brief  Function to get output format for audio track
 		 *
 		 *************************************************************************/
 		void InitiateDrmProcess();
@@ -1019,6 +1028,15 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void PopulateAudioAndTextTracks();
+
+		/***************************************************************************
+		 * @fn NotifyTextTrackChanges
+		 * @brief Check for text track changes and send notification events
+		 *
+		 * @return void
+		 ***************************************************************************/
+		void NotifyTextTrackChanges();
+
 		/***************************************************************************
 		 * @fn ConfigureAudioTrack
 		 *
@@ -1110,9 +1128,8 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 
-		std::mutex mMP_mutex;  // protects mMetadataProcessor
-		 std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-			 
+		std::mutex mMP_mutex; // protects mMetadataProcessor
+		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
 };
 
 StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );

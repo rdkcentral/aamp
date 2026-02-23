@@ -30,8 +30,8 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.09"
-#define AAMP_TUNETIME_VERSION 7
+#define AAMP_VERSION "7.11"
+#define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
 #define MACRO_TO_STRING(s) X_STR(s)
@@ -60,6 +60,7 @@
 #define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 5
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
+#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 0			/**< Default ABR Bandwidth Estimation Algorithm */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
 #define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
@@ -113,9 +114,9 @@
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
 
-#define AAMP_TRACK_COUNT 4		/**< internal use - audio+video+sub+aux track */
+#define AAMP_TRACK_COUNT 3		/**< internal use - audio+video+sub track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
-#define AAMP_DRM_CURL_COUNT 4		/**< audio+video+sub+aux track DRMs */
+#define AAMP_DRM_CURL_COUNT 3		/**< audio+video+sub track DRMs */
 //#define CURL_FRAGMENT_DL_TIMEOUT 10L	/**< Curl timeout for fragment download */
 #define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
@@ -141,7 +142,20 @@
 #define MIN_MONITOR_AV_JUMP_THRESHOLD_MS 1 	/**< minimum  jump threshold to trigger MonitorAV reporting */
 #define MAX_MONITOR_AV_JUMP_THRESHOLD_MS 10000 	/**< maximum jump threshold to trigger MonitorAV reporting */
 #define DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS 100 	/**< default jump threshold to MonitorAV reporting */
+#define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 #define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
+#define DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC	60	/**< Minimum interval between sync attempts */
+
+#define DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT 80 /**< By default, let's abort early if bps is less than 80% of profile bandwidth */
+
+#define DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS 500		/**< Polling interval when buffer is low in milliseconds */
+#define DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS 1000	/**< Polling interval when buffer is medium in milliseconds */
+#define DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS 2000		/**< Polling interval when buffer is high in milliseconds */
+
+#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.0		/**< Threshold to detect underflow in seconds */
+#define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
+#define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
+#define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
@@ -195,7 +209,6 @@
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragment chunks per track */
-#define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */
@@ -213,10 +226,10 @@
 // weights used for audio/subtitle track-selection heuristic
 #define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
 #define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/
-#define AAMP_LABEL_SCORE 10000000ULL       /**< 3rd priority to  label matching **/
-#define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
-#define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
-#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matching codec **/
+#define AAMP_LABEL_SCORE      10000000ULL  /**< 3rd priority to label matching **/
+#define AAMP_ROLE_SCORE        1000000ULL  /**< 4th priority to role/rendition matching **/
+#define AAMP_TYPE_SCORE         100000ULL  /**< 5th priority to type matching **/
+#define AAMP_CODEC_SCORE          1000ULL  /**< Lowest priority: matching codec **/
 #define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 
 
@@ -234,7 +247,7 @@
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
-#define PLAYER_NAME "aamp" 
+#define PLAYER_NAME "aamp"
 
 /**
  * @brief Enumeration for TUNED Event Configuration
