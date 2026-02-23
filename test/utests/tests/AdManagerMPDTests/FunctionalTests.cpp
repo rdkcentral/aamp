@@ -4294,3 +4294,68 @@ TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndReso
     // The waiting thread should have completed (not timed out)
     EXPECT_TRUE(completed);
 }
+
+/**
+ * @brief CancelReservation should set cancelAtReservationId when placement matches.
+ */
+TEST_F(AdManagerMPDTests, CancelReservation_MatchingPlacement_SetsCancelId)
+{
+  const std::string playingReservationId = "playingBrk";
+  const std::string cancelAtReservationId = "nextBrk";
+
+  mPrivateCDAIObjectMPD->mAdBreaks[playingReservationId] =
+    AdBreakObject(30000, nullptr, "", 0, 0);
+  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = playingReservationId;
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[playingReservationId].
+    cancelAtPeriodId.empty());
+
+  mPrivateCDAIObjectMPD->CancelReservation(playingReservationId,
+    cancelAtReservationId);
+
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[playingReservationId].
+    cancelAtPeriodId, cancelAtReservationId);
+}
+
+/**
+ * @brief CancelReservation with empty inputs should not change ad break state.
+ */
+TEST_F(AdManagerMPDTests, CancelReservation_EmptyInputs_NoChange)
+{
+  const std::string periodId = "playingBrk";
+
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId] =
+    AdBreakObject(30000, nullptr, "", 0, 0);
+  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.clear();
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].
+    cancelAtPeriodId.empty());
+
+  mPrivateCDAIObjectMPD->CancelReservation("", "");
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].
+    cancelAtPeriodId.empty());
+}
+
+/**
+ * @brief CancelReservation with mismatched placement should not change ad break state.
+ */
+TEST_F(AdManagerMPDTests, CancelReservation_MismatchedPlacement_NoChange)
+{
+  const std::string playingReservationId = "playingBrk";
+  const std::string cancelAtReservationId = "nextBrk";
+  const std::string actualPlacementId = "actualPlacementBrk";
+
+  mPrivateCDAIObjectMPD->mAdBreaks[actualPlacementId] =
+    AdBreakObject(30000, nullptr, "", 0, 0);
+  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = actualPlacementId;
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[actualPlacementId].
+    cancelAtPeriodId.empty());
+
+  mPrivateCDAIObjectMPD->CancelReservation(playingReservationId,
+    cancelAtReservationId);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[actualPlacementId].
+    cancelAtPeriodId.empty());
+}
