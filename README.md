@@ -501,11 +501,11 @@ Prerequisites: xcode, git
 
 Open terminal app
 ```
-git clone -b dev_sprint_23_1 https://code.rdkcentral.com/r/rdk/components/generic/aamp
+git clone -b dev_sprint_25_2 https://github.com/rdkcentral/aamp
 ```
 note: the branch changes over time - dev_sprint_YY_Q
 
-currently dev_sprint_23_1
+currently dev_sprint_25_2
 ```
 cd aamp
 bash install-aamp.sh
@@ -521,7 +521,7 @@ Apple configuration in xcode under "Scheme: Edit Scheme..." if not already set:
 - Installing AAMP .Run the following 4 commands
 ```
 apt-get install git
-git clone -b dev_sprint_23_1 https://code.rdkcentral.com/r/rdk/components/generic/aamp
+git clone -b dev_sprint_25_2 https://github.com/rdkcentral/aamp
 cd aamp
 bash install-aamp.sh
 ```

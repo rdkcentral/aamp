@@ -196,7 +196,6 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/jsbindings/PersistentWatermark
 	${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser
 	${CMAKE_CURRENT_SOURCE_DIR}/subtitle
-	${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness
 	${CMAKE_CURRENT_SOURCE_DIR}/tsb/api
 	${CMAKE_CURRENT_SOURCE_DIR}/abr
 	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
@@ -443,6 +442,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
 	isobmff/isobmffbox.cpp isobmff/isobmffbox.h
