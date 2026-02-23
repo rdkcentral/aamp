@@ -614,9 +614,8 @@ function createTimelineChart(events) {
 		backgroundColor: 'rgba(75, 192, 192, 0.7)',
 		borderColor: 'rgba(75, 192, 192, 1)',
 		borderWidth: 1,
-		barThickness: 30,
 		categoryPercentage: 1.0,
-		barPercentage: 0.9
+		barPercentage: 0.8
 	}];
 	
 	timelineChart = new Chart(ctx, {
