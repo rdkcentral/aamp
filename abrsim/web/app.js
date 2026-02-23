@@ -304,12 +304,11 @@ function displayCharts(events) {
 	
 	// Prepare time series data
 	const times = downloads.map(e => e.time_s);
-	const bitrates = downloads.map(e => getBitrateFromProfile(e.profile_idx));
 	const bufferLevels = downloads.map(e => e.buffer_s);
 	const throughputs = downloads.map(e => e.throughput_bps / 1000000); // Convert to Mbps
+	const bitrates = downloads.map(e => getBitrateFromProfile(e.profile_idx));
 	
 	// Create/update charts
-	createBitrateChart(times, bitrates, profileChanges);
 	createBufferChart(times, bufferLevels);
 	createBandwidthChart(times, throughputs, bitrates);
 	createTimelineChart(events);
@@ -411,8 +410,7 @@ function createBufferChart(times, bufferLevels) {
 			maintainAspectRatio: true,
 			plugins: {
 				legend: {
-					display: true,
-					position: 'top'
+					display: false
 				},
 				tooltip: {
 					mode: 'index',
@@ -593,14 +591,15 @@ function createTimelineChart(events) {
 	});
 	
 	// Build dataset for each profile
+	const profileBitrates = [235000, 375000, 750000, 1400000, 2800000, 5000000, 8000000];
 	const profileNames = [
-		'235 kbps (240p)',
-		'375 kbps (360p)', 
-		'750 kbps (480p)',
-		'1.4 Mbps (720p)',
-		'2.8 Mbps (1080p)',
-		'5.0 Mbps (1080p HQ)',
-		'8.0 Mbps (4K)'
+		'235k',
+		'375k',
+		'750k',
+		'1.4M',
+		'2.8M',
+		'5.0M',
+		'8.0M'
 	];
 	
 	// Single dataset with all downloads - Y position indicates profile
@@ -681,7 +680,7 @@ function createTimelineChart(events) {
 					},
 					title: {
 						display: true,
-						text: 'Video Profile (Bottom=Best, Top=Worst)'
+						text: 'Video Bitrate'
 					},
 					grid: {
 						display: true,
