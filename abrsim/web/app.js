@@ -490,15 +490,18 @@ function createBandwidthChart(bandwidthData, maxTime) {
 		bandwidthChart.destroy();
 	}
 	
-	// Flatten to time/throughput pairs for line chart
+	// Flatten to time/throughput pairs with proper steps
 	const points = [];
-	bandwidthData.forEach(d => {
+	bandwidthData.forEach((d, i) => {
+		// If not the first download, add a step down point
+		if (i > 0 && d.startTime > points[points.length - 1].x) {
+			// Hold previous throughput until this download starts
+			points.push({ x: d.startTime, y: points[points.length - 1].y });
+		}
+		// Add this download's flat top
 		points.push({ x: d.startTime, y: d.throughput });
 		points.push({ x: d.endTime, y: d.throughput });
 	});
-	
-	// Sort by time
-	points.sort((a, b) => a.x - b.x);
 	
 	bandwidthChart = new Chart(ctx, {
 		type: 'line',
