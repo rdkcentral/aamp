@@ -298,20 +298,52 @@ function displaySummary(summary, params) {
 }
 
 function displayCharts(events) {
-	// Extract data points
-	const downloads = events.filter(e => e.event_type === 'download');
-	const profileChanges = events.filter(e => e.event_type === 'profile_change');
+	// Extract actual segment downloads with valid data (same filter for all charts)
+	const downloads = events.filter(e => 
+		e.event_type === 'download' && 
+		e.download_ms > 0 && 
+		e.throughput_bps > 0
+	);
 	
-	// Prepare time series data
+	// Find maximum timestamp across all events for consistent X-axis
+	const maxTime = Math.max(...events.map(e => e.time_s));
+	
+	// Prepare time series data for buffer chart
 	const times = downloads.map(e => e.time_s);
 	const bufferLevels = downloads.map(e => e.buffer_s);
-	const throughputs = downloads.map(e => e.throughput_bps / 1000000); // Convert to Mbps
-	const bitrates = downloads.map(e => getBitrateFromProfile(e.profile_idx));
 	
-	// Create/update charts
-	createBufferChart(times, bufferLevels);
-	createBandwidthChart(times, throughputs, bitrates);
-	createTimelineChart(events);
+	// Prepare bandwidth data - each download shows throughput during its period
+	const bandwidthData = downloads.map(d => {
+		const downloadDuration = d.download_ms / 1000;
+		const throughputMbps = d.throughput_bps / 1000000;
+		const endTime = d.time_s;
+		const startTime = Math.max(0, endTime - downloadDuration);
+		
+		return {
+			startTime: startTime,
+			endTime: endTime,
+			throughput: throughputMbps
+		};
+	});
+	
+	// Prepare timeline data
+	const timelineData = downloads.map(d => {
+		const downloadDuration = d.download_ms / 1000;
+		const endTime = d.time_s;
+		const startTime = Math.max(0, endTime - downloadDuration);
+		
+		return {
+			profileIdx: d.profile_idx,
+			startTime: startTime,
+			endTime: endTime,
+			duration: downloadDuration
+		};
+	});
+	
+	// Create/update charts with consistent time range
+	createBufferChart(times, bufferLevels, maxTime);
+	createBandwidthChart(bandwidthData, maxTime);
+	createTimelineChart(timelineData, maxTime);
 }
 
 function createBitrateChart(times, bitrates, profileChanges) {
@@ -383,7 +415,7 @@ function createBitrateChart(times, bitrates, profileChanges) {
 	});
 }
 
-function createBufferChart(times, bufferLevels) {
+function createBufferChart(times, bufferLevels, maxTime) {
 	const ctx = document.getElementById('bufferChart');
 	
 	if (bufferChart) {
@@ -428,6 +460,8 @@ function createBufferChart(times, bufferLevels) {
 						display: true,
 						text: 'Time (seconds)'
 					},
+					min: 0,
+					max: maxTime,
 					ticks: {
 						maxTicksLimit: 10
 					}
@@ -449,37 +483,36 @@ function createBufferChart(times, bufferLevels) {
 	});
 }
 
-function createBandwidthChart(times, throughputs, bitrates) {
+function createBandwidthChart(bandwidthData, maxTime) {
 	const ctx = document.getElementById('bandwidthChart');
 	
 	if (bandwidthChart) {
 		bandwidthChart.destroy();
 	}
 	
+	// Flatten to time/throughput pairs for line chart
+	const points = [];
+	bandwidthData.forEach(d => {
+		points.push({ x: d.startTime, y: d.throughput });
+		points.push({ x: d.endTime, y: d.throughput });
+	});
+	
+	// Sort by time
+	points.sort((a, b) => a.x - b.x);
+	
 	bandwidthChart = new Chart(ctx, {
 		type: 'line',
 		data: {
-			labels: times,
 			datasets: [
 				{
 					label: 'Measured Throughput',
-					data: throughputs,
+					data: points,
 					borderColor: '#ffc107',
 					backgroundColor: 'rgba(255, 193, 7, 0.1)',
 					borderWidth: 2,
-					pointRadius: 1,
-					tension: 0.2
-				},
-				{
-					label: 'Selected Bitrate',
-					data: bitrates.map(b => b / 1000000), // Convert to Mbps
-					borderColor: '#0066cc',
-					backgroundColor: 'transparent',
-					borderWidth: 2,
-					borderDash: [5, 5],
-					stepped: 'before',
+					stepped: false,
 					pointRadius: 0,
-					tension: 0
+					fill: true
 				}
 			]
 		},
@@ -495,6 +528,10 @@ function createBandwidthChart(times, throughputs, bitrates) {
 					mode: 'index',
 					intersect: false,
 					callbacks: {
+						title: (context) => {
+							const time = context[0].parsed.x.toFixed(3);
+							return `Time: ${time}s`;
+						},
 						label: (context) => {
 							const label = context.dataset.label;
 							const value = context.parsed.y.toFixed(2);
@@ -505,12 +542,16 @@ function createBandwidthChart(times, throughputs, bitrates) {
 			},
 			scales: {
 				x: {
+					type: 'linear',
 					title: {
 						display: true,
 						text: 'Time (seconds)'
 					},
+					min: 0,
+					max: maxTime,
 					ticks: {
-						maxTicksLimit: 10
+						maxTicksLimit: 10,
+						callback: (value) => value.toFixed(1)
 					}
 				},
 				y: {
@@ -554,35 +595,12 @@ function showStatus(message, type = 'info') {
 // Global variable for timeline chart
 let timelineChart = null;
 
-function createTimelineChart(events) {
+function createTimelineChart(timelineData, maxTime) {
 	const ctx = document.getElementById('timelineChart');
 	
 	if (timelineChart) {
 		timelineChart.destroy();
 	}
-	
-	// Extract download events with throughput data (actual segment downloads)
-	const downloads = events.filter(e => 
-		e.event_type === 'download' && 
-		e.download_ms > 0 && 
-		e.throughput_bps > 0
-	);
-	
-	// Reconstruct simulation timeline - downloads happen sequentially
-	let currentSimTime = 0;
-	const timelineData = downloads.map(d => {
-		const downloadDuration = d.download_ms / 1000;
-		const startTime = currentSimTime;
-		const endTime = currentSimTime + downloadDuration;
-		currentSimTime = endTime;
-		
-		return {
-			profileIdx: d.profile_idx,
-			startTime: startTime,
-			endTime: endTime,
-			duration: downloadDuration
-		};
-	});
 	
 	// Debug: Log first 10 downloads
 	console.log('Timeline data (first 10):');
@@ -658,6 +676,8 @@ function createTimelineChart(events) {
 						display: true,
 						text: 'Simulation Time (seconds)'
 					},
+					min: 0,
+					max: maxTime,
 					grid: {
 						display: true
 					}

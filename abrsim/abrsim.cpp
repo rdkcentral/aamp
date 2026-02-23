@@ -828,7 +828,7 @@ public:
 		
 		// Log download event
 		SimulationEvent downloadEvent{};
-		downloadEvent.timeS = mPlaybackTimeS;
+		downloadEvent.timeS = mSimTimeS;
 		downloadEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
 		downloadEvent.profileIndex = mCurrentProfile;
 		downloadEvent.downloadTimeMs = result.durationMs;
