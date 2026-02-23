@@ -68,6 +68,19 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 }
 
 /**
+ * @brief Cancel ad reservation
+ * @param[in] playingReservationId The reservation identifier which is currently playing
+ * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ */
+void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+	if (mPrivObj)
+	{
+		mPrivObj->CancelReservation(playingReservationId, cancelAtReservationId);
+	}
+}
+
+/**
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
@@ -1909,5 +1922,44 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 	else
 	{
 		AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
+	}
+}
+
+/**
+ * @brief Cancel the reservation for the ad break
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ */
+void PrivateCDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx); // Ensure thread safety if ad state is shared
+
+	// Log the action for audit/debug
+	AAMPLOG_INFO("[CDAI] playingReservationId=%s, cancelAtReservationId=%s",
+		playingReservationId.c_str(), cancelAtReservationId.c_str());
+
+	// Validate against the placement state: the adbreak being placed/in progress
+	const bool isTargetCurrentPlacement =
+		(!mPlacementObj.pendingAdbrkId.empty() &&
+		(playingReservationId == mPlacementObj.pendingAdbrkId));
+
+	if (!isTargetCurrentPlacement)
+	{
+		AAMPLOG_WARN("[CDAI] CancelReservation ignored: placementBreakId=%s, requested=%s",
+			mPlacementObj.pendingAdbrkId.c_str(), playingReservationId.c_str());
+		return;
+	}
+
+	if (isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
+	{
+		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
+		abObj.cancelAtPeriodId = cancelAtReservationId;
+		AAMPLOG_INFO("[CDAI] CancelReservation applied: breakId=%s will truncate at %s.",
+			mPlacementObj.pendingAdbrkId.c_str(), cancelAtReservationId.c_str());
+	}
+	else
+	{
+		AAMPLOG_WARN("[CDAI] CancelReservation: adBreakId %s not found; no state updated",
+			mPlacementObj.pendingAdbrkId.c_str());
 	}
 }
