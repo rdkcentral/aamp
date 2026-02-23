@@ -41,7 +41,7 @@ CMCD-Session: sid=<uuid>
 ```
 CMCD-Session: sid=550e8400-e29b-41d4-a716-446655440000
 CMCD-Object: br=5000,ot=v,tb=8000
-CMCD-Request: bl=10500,nor=/segment_456.m4s,com.<mso>>-fb=120,com.<mso>-lb=850
+CMCD-Request: bl=10500,nor=/segment_456.m4s,com.<mso>-fb=120,com.<mso>-lb=850
 ```
 
 ### Audio Segments
@@ -177,33 +177,39 @@ Estimate from downloaded bytes and time if needed server-side.
 
 ### Python
 ```python
-import re
-
 def parse_cmcd_headers(headers):
     cmcd = {}
     
+    def parse_kv_pairs(header_value):
+        """Parse key-value pairs, handling boolean flags and values with ="""
+        for pair in header_value.split(','):
+            pair = pair.strip()  # Remove whitespace
+            if '=' in pair:
+                # Use split with limit to handle values containing =
+                key, value = pair.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                # Try to convert to int if it's a digit
+                cmcd[key] = int(value) if value.isdigit() else value
+            else:
+                # Boolean flag (no value)
+                cmcd[pair] = True
+    
     # Parse CMCD-Session
     if 'CMCD-Session' in headers:
-        for pair in headers['CMCD-Session'].split(','):
-            key, value = pair.split('=')
-            cmcd[key] = value
+        parse_kv_pairs(headers['CMCD-Session'])
     
     # Parse CMCD-Object
     if 'CMCD-Object' in headers:
-        for pair in headers['CMCD-Object'].split(','):
-            if '=' in pair:
-                key, value = pair.split('=')
-                cmcd[key] = int(value) if value.isdigit() else value
+        parse_kv_pairs(headers['CMCD-Object'])
     
     # Parse CMCD-Request
     if 'CMCD-Request' in headers:
-        for pair in headers['CMCD-Request'].split(','):
-            key, value = pair.split('=')
-            cmcd[key] = int(value) if value.isdigit() else value
+        parse_kv_pairs(headers['CMCD-Request'])
     
     # Parse CMCD-Status
     if 'CMCD-Status' in headers:
-        cmcd['bs'] = 'bs' in headers['CMCD-Status']
+        parse_kv_pairs(headers['CMCD-Status'])
     
     return cmcd
 
@@ -211,14 +217,14 @@ def parse_cmcd_headers(headers):
 headers = {
     'CMCD-Session': 'sid=550e8400-e29b-41d4-a716-446655440000',
     'CMCD-Object': 'br=5000,ot=v,tb=8000',
-    'CMCD-Request': 'bl=10500,nor=/segment_456.m4s,com.<mso>-fb=120',
+    'CMCD-Request': 'bl=10500,nor=/segment_456.m4s?foo=bar,com.<mso>-fb=120',
     'CMCD-Status': 'bs'
 }
 
 cmcd = parse_cmcd_headers(headers)
 print(cmcd)
 # {'sid': '550e8400...', 'br': 5000, 'ot': 'v', 'tb': 8000, 
-#  'bl': 10500, 'nor': '/segment_456.m4s', 'com.<mso>-fb': 120, 'bs': True}
+#  'bl': 10500, 'nor': '/segment_456.m4s?foo=bar', 'com.<mso>-fb': 120, 'bs': True}
 ```
 
 ### Node.js
@@ -229,11 +235,16 @@ function parseCMCDHeaders(headers) {
     // Helper to parse key-value pairs
     const parseKV = (str) => {
         str.split(',').forEach(pair => {
-            const [key, value] = pair.split('=');
-            if (value) {
+            pair = pair.trim(); // Remove whitespace
+            const eqIndex = pair.indexOf('=');
+            if (eqIndex > 0) {
+                // Split only on first = to preserve values with =
+                const key = pair.substring(0, eqIndex).trim();
+                const value = pair.substring(eqIndex + 1).trim();
                 cmcd[key] = isNaN(value) ? value : parseInt(value);
             } else {
-                cmcd[key] = true; // Boolean flags like 'bs'
+                // Boolean flag (no value)
+                cmcd[pair] = true;
             }
         });
     };

@@ -4,7 +4,7 @@
 
 This document identifies bugs, gaps, and improvements needed in AAMP's CMCD (Common Media Client Data) implementation to achieve full CTA-5004 compliance.
 
-**Status**: AAMP implements approximately **40% of CTA-5004 specification**
+**Status**: AAMP implements **8 out of 18 standard CTA-5004 fields (~44% coverage)**
 
 **Priority Categories**:
 - 🔴 **High**: Critical for CDN optimization
@@ -15,43 +15,77 @@ This document identifies bugs, gaps, and improvements needed in AAMP's CMCD (Com
 
 ## Bugs
 
-### 🟢 BUG-1: Conditional DNS Time Logic Error
+### � BUG-1: DNS Condition Takes Precedence Over Range Requests
 
-**File**: [support/aampmetrics/VideoCMCDHeaders.cpp](../support/aampmetrics/VideoCMCDHeaders.cpp#L62-L64)  
-**Severity**: Low  
-**Impact**: Adds unnecessary data when DNS lookup time is 0
+**File**: [support/aampmetrics/VideoCMCDHeaders.cpp](../support/aampmetrics/VideoCMCDHeaders.cpp#L62-L70)  
+**Severity**: Medium  
+**Impact**: Range requests (`nrr`) cannot be reported when DNS lookup time is > 0, breaking SegmentBase MPD support
 
 **Description**:
-The condition `if(dnsLookUptime > 0)` causes the header to include DNS info even when no actual DNS lookup occurred (cached DNS). This adds unnecessary bytes to every request after the first.
+The if-else logic prioritizes DNS time over range requests. When `dnsLookUptime > 0`, it always uses `nor` (next object URL) even if `mNextRange` is populated for SegmentBase MPDs. This means range-based requests never get properly reported when DNS timing is captured.
 
 **Current Code**:
 ```cpp
 if(dnsLookUptime > 0)
 {
-    headerValue.push_back(CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+
-        CMCDNEXTURL+nextUrl+delimiter+CMCDDns+std::to_string(dnsLookUptime)+delimiter+
-        CMCDFirstByte+std::to_string(firstByte)+delimiter+CMCDLastByte+std::to_string(lastByte));
+    // Always uses 'nor' (next URL)
+    headerValue.push_back(CMCDBUFFERLENGTH+...+CMCDNEXTURL+nextUrl+...+CMCDDns+...);
+}
+else if(!mNextRange.empty())
+{
+    // Only reaches here if dnsLookUptime <= 0
+    headerValue.push_back(CMCDBUFFERLENGTH+...+CMCDNEXTRANGEREQUEST+mNextRange+...);
+}
+else
+{
+    headerValue.push_back(CMCDBUFFERLENGTH+...+CMCDNEXTURL+nextUrl+...);
 }
 ```
 
-**Issue**: The logic should only include DNS field when DNS was actually performed, not when value > 0.
+**Issue**: Should check for range requests first, or include DNS alongside range requests rather than as mutually exclusive.
 
-**Fix**:
+**Fix Option 1** (Check range first):
 ```cpp
-// Build base request metrics
-std::string requestMetrics = CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+
-    CMCDNEXTURL+nextUrl+delimiter+
+if(!mNextRange.empty())
+{
+    // Use range request if available
+    std::string metrics = CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+
+        CMCDNEXTRANGEREQUEST+mNextRange+delimiter+
+        CMCDFirstByte+std::to_string(firstByte)+delimiter+
+        CMCDLastByte+std::to_string(lastByte);
+    if(dnsLookUptime > 0) {
+        metrics += delimiter + CMCDDns+std::to_string(dnsLookUptime);
+    }
+    headerValue.push_back(metrics);
+}
+else if(dnsLookUptime > 0)
+{
+    headerValue.push_back(CMCDBUFFERLENGTH+...+CMCDNEXTURL+nextUrl+...+CMCDDns+...);
+}
+else
+{
+    headerValue.push_back(CMCDBUFFERLENGTH+...+CMCDNEXTURL+nextUrl+...);
+}
+```
+
+**Fix Option 2** (Always include DNS when available):
+```cpp
+std::string nextRequest = (!mNextRange.empty()) 
+    ? CMCDNEXTRANGEREQUEST+mNextRange 
+    : CMCDNEXTURL+nextUrl;
+
+std::string metrics = CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+
+    nextRequest+delimiter+
     CMCDFirstByte+std::to_string(firstByte)+delimiter+
     CMCDLastByte+std::to_string(lastByte);
 
-// Only add DNS if it was actually measured (not just > 0)
-if(dnsLookUptime > 0 && isDnsLookupPerformed) {
-    requestMetrics += delimiter + CMCDDns+std::to_string(dnsLookUptime);
+if(dnsLookUptime > 0) {
+    metrics += delimiter + CMCDDns+std::to_string(dnsLookUptime);
 }
-headerValue.push_back(requestMetrics);
+headerValue.push_back(metrics);
 ```
 
-**Same Issue In**: [AudioCMCDHeaders.cpp](../support/aampmetrics/AudioCMCDHeaders.cpp#L50)
+**Same Issue In**: [AudioCMCDHeaders.cpp](../support/aampmetrics/AudioCMCDHeaders.cpp#L50-L58)
 
 ---
 
@@ -486,7 +520,9 @@ Set up test environment with CDN that parses and validates CMCD data.
 | **Custom** | pr | Optional | ❌ | GAP-4 |
 | **Custom** | cid | Optional | ❌ | GAP-7 |
 
-**Compliance Score**: 9/18 fields = **50% coverage**
+**Compliance Score**: 8/18 standard fields = **44% coverage**
+
+**Note**: AAMP also implements 3 vendor-specific extensions (`com.comcast-dns`, `com.comcast-fb`, `com.comcast-lb`) which are not part of the standard CTA-5004 specification.
 
 ---
 

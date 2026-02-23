@@ -1,3 +1,22 @@
+<!--
+If not stated otherwise in this file or this component's license file the
+following copyright and licenses apply:
+
+Copyright 2026 RDK Management
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 # AAMP Common Media Client Data (CMCD) Support
 
 ## Overview
@@ -120,9 +139,9 @@ AAMP implements a **subset** of the CMCD specification. The following fields are
 | `bl` | Integer (ms) | Buffer length in milliseconds | ✅ **Supported** |
 | `nor` | String | Next object request (relative path to next segment) | ✅ **Supported** |
 | `nrr` | String | Next range request (for byte-range requests) | ✅ **Supported** |
-| `com.comcast-dns` | Integer (ms) | DNS lookup time (vendor-specific) | ✅ **Supported** |
-| `com.comcast-fb` | Integer (ms) | Time to first byte (vendor-specific) | ✅ **Supported** |
-| `com.comcast-lb` | Integer (ms) | Time to last byte (vendor-specific) | ✅ **Supported** |
+| `com.<mso>-dns` | Integer (ms) | DNS lookup time (vendor-specific) | ✅ **Supported** |
+| `com.<mso>-fb` | Integer (ms) | Time to first byte (vendor-specific) | ✅ **Supported** |
+| `com.<mso>-lb` | Integer (ms) | Time to last byte (vendor-specific) | ✅ **Supported** |
 
 #### Status Keys (CMCD-Status header)
 
@@ -163,7 +182,7 @@ CMCD data is sent as HTTP headers in the following format:
 ```
 CMCD-Session: sid=<uuid>
 CMCD-Object: br=<bitrate>,ot=<type>,tb=<topBitrate>
-CMCD-Request: bl=<bufferLength>,nor=<nextUrl>,com.comcast-fb=<firstByte>,com.comcast-lb=<lastByte>
+CMCD-Request: bl=<bufferLength>,nor=<nextUrl>,com.<mso>-fb=<firstByte>,com.<mso>-lb=<lastByte>
 CMCD-Status: bs
 ```
 
@@ -174,7 +193,7 @@ CMCD-Status: bs
 ```
 CMCD-Session: sid=550e8400-e29b-41d4-a716-446655440000
 CMCD-Object: br=5000,ot=v,tb=8000
-CMCD-Request: bl=10500,nor=/segment_456.m4s,com.comcast-fb=120,com.comcast-lb=850
+CMCD-Request: bl=10500,nor=/segment_456.m4s,com.<mso>-fb=120,com.<mso>-lb=850
 ```
 
 #### Video Init Segments
@@ -182,7 +201,7 @@ CMCD-Request: bl=10500,nor=/segment_456.m4s,com.comcast-fb=120,com.comcast-lb=85
 ```
 CMCD-Session: sid=550e8400-e29b-41d4-a716-446655440000
 CMCD-Object: br=5000,ot=i,tb=8000
-CMCD-Request: bl=10500,nor=/init.mp4,com.comcast-fb=80,com.comcast-lb=200
+CMCD-Request: bl=10500,nor=/init.mp4,com.<mso>-fb=80,com.<mso>-lb=200
 ```
 
 #### Muxed Audio/Video
@@ -190,7 +209,7 @@ CMCD-Request: bl=10500,nor=/init.mp4,com.comcast-fb=80,com.comcast-lb=200
 ```
 CMCD-Session: sid=550e8400-e29b-41d4-a716-446655440000
 CMCD-Object: br=5000,ot=av,tb=8000
-CMCD-Request: bl=10500,nor=/segment.ts,com.comcast-fb=120,com.comcast-lb=850
+CMCD-Request: bl=10500,nor=/segment.ts,com.<mso>-fb=120,com.<mso>-lb=850
 ```
 
 #### Audio Segments
@@ -198,7 +217,7 @@ CMCD-Request: bl=10500,nor=/segment.ts,com.comcast-fb=120,com.comcast-lb=850
 ```
 CMCD-Session: sid=550e8400-e29b-41d4-a716-446655440000
 CMCD-Object: br=128,ot=a,tb=256
-CMCD-Request: bl=12000,nor=/audio_segment.m4s,com.comcast-fb=50,com.comcast-lb=180
+CMCD-Request: bl=12000,nor=/audio_segment.m4s,com.<mso>-fb=50,com.<mso>-lb=180
 ```
 
 #### Subtitle Segments
@@ -352,13 +371,13 @@ if(dnsLookUptime > 0) {
 **Note**: AAMP knows if stream is live but doesn't include in CMCD
 
 #### Issue 6: Vendor-Specific Extensions
-**Description**: Uses Comcast-specific field names instead of standard CMCD keys  
+**Description**: Uses MSO-specific field names instead of standard CMCD keys  
 **Impact**: Non-portable, vendor lock-in  
 **Severity**: Medium  
 **Files**:
-- `com.comcast-dns` instead of standard approach
-- `com.comcast-fb` (first byte)
-- `com.comcast-lb` (last byte)
+- `com.<mso>-dns` instead of standard approach
+- `com.<mso>-fb` (first byte)
+- `com.<mso>-lb` (last byte)
 
 **Recommendation**: Consider using standardized field names or documenting vendor extensions
 
@@ -423,7 +442,7 @@ if(dnsLookUptime > 0) {
 1. **Validation**:
    - Parse and validate CMCD headers received from AAMP
    - Do not rely on fields marked as "unsupported"
-   - Account for vendor-specific `com.comcast-*` fields
+   - Account for vendor-specific `com.<mso>-*` fields
 
 2. **CDN Configuration**:
    - Configure CDN to expect CMCD in HTTP headers (not query params)
@@ -522,19 +541,3 @@ AampCMCDCollector
 | Version | Date | Author | Description |
 |---------|------|--------|-------------|
 | 1.0 | 2026-02-23 | GitHub Copilot | Initial documentation of CMCD support |
-
----
-
-**Copyright 2026 RDK Management**
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
