@@ -317,7 +317,7 @@ bool Aampcli::SetSessionId(std::string sid)
 	if (mPlayerSessionID.size() >= playerId)
 	{
 		mPlayerSessionID[playerId] = std::move(sid);
-		std::cout << "[AAMPCLI] SessionId - " << playerId << " # " << mPlayerSessionID[playerId] << std::endl;
+		AAMPCLI_PRINTF("[AAMPCLI] SessionId - %d # %s\n", playerId, mPlayerSessionID[playerId].c_str());
 	}
 
 	return true;
