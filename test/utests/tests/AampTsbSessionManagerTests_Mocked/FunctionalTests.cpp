@@ -592,8 +592,9 @@ TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification_Downloads
 		mAampTSBSessionManager->WaitForNewVideoTsbFragment();
 	});
 
-	// Give the consumer thread time to start waiting on the condition variable
-	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	// Brief sleep to allow thread to enter waiting state on condition variable
+	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 	// Raise the notification from the main thread
 	mAampTSBSessionManager->RaiseNewVideoTsbContentNotification();
@@ -613,8 +614,9 @@ TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification_Downloads
 		mAampTSBSessionManager->WaitForNewVideoTsbFragment();
 	});
 
-	// Give the consumer thread time to start waiting on the condition variable
-	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	// Brief sleep to allow thread to enter waiting state on condition variable
+	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 	//waitForNewVideoTsbFragment thread is running, now exercise the test criteria
 	mAamp->mDownloadsEnabled = false;

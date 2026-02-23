@@ -7772,7 +7772,7 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 		mDownloadsEnabled = false;
 		mDownloadsDisabled.notify_all();
 	}
-	// Unblock any thread waiting on this condition.
+	// Unblock thread waiting on this condition.
 	if (mTSBSessionManager)
 	{
 		mTSBSessionManager->RaiseNewVideoTsbContentNotification();

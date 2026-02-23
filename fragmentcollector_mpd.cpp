@@ -9953,6 +9953,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					{
 						aamp->interruptibleMsSleep(50);				//To Avoid tight loop adding a small delay
 					}
+					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
 					{
 						// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
