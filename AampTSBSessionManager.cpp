@@ -218,6 +218,16 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
 				cachedFragment.reset();
 			}
+			else
+			{
+				// With O_DIRECT, the file on disk may be padded to sector alignment.
+				// Resize the buffer to the actual data length that was originally written.
+				std::size_t actualLen = initfragdata->GetDataLength();
+				if (actualLen > 0 && actualLen < len)
+				{
+					cachedFragment->fragment.resize(actualLen);
+				}
+			}
 		}
 		else
 		{
@@ -284,6 +294,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 
 		if (status == TSB::Status::OK)
 		{
+			// With O_DIRECT, the file on disk may be padded to sector alignment.
+			// Resize the buffer to the actual data length that was originally written.
+			std::size_t actualLen = fragment->GetDataLength();
+			if (actualLen > 0 && actualLen < len)
+			{
+				cachedFragment->fragment.resize(actualLen);
+			}
 			return cachedFragment;
 		}
 		else
@@ -410,8 +427,9 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				{
 					writeSucceeded = true;
 					bool TSBDataAddStatus = false;
+					std::size_t dataLength = writeData.cachedFragment->fragment.size();
 					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
-						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
+						NOW_STEADY_TS_MS - tStartTime, dataLength, writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
 						writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
 					if (writeData.cachedFragment->initFragment)
@@ -421,13 +439,15 @@ void AampTSBSessionManager::ProcessWriteQueue()
 																						 writeData.cachedFragment->cacheFragStreamInfo,
 																						 writeData.periodId,
 																						 writeData.cachedFragment->absPosition,
-																						 writeData.cachedFragment->profileIndex);
+																						 writeData.cachedFragment->profileIndex,
+																						 dataLength);
 					}
 					else
 					{
 						TSBDataAddStatus = GetTsbDataManager(mediatype)->AddFragment(writeData,
 																					mediatype,
-																					writeData.cachedFragment->discontinuity);
+																					writeData.cachedFragment->discontinuity,
+																					dataLength);
 						if(GetTsbReader(mediatype))
 						{
 							GetTsbReader(mediatype)->SetNewInitWaiting(false);

@@ -365,25 +365,45 @@ Status StoreImpl::Read(const std::string &url, void *buffer, std::size_t size) c
 	}
 	else
 	{
-		FS::ifstream stream;
-		stream.open(path, FS::ifstream::binary);
-		if (stream.fail())
+		// For O_DIRECT, we need to read into an aligned buffer with aligned size
+		std::size_t alignedSize = FS::AlignToSector(size);
+		void* alignedBuf = FS::AllocAlignedBuffer(alignedSize);
+		if (alignedBuf == nullptr)
 		{
-			TSB_LOG_ERROR(mLogger, "Failed to open the file", "file", path);
+			TSB_LOG_ERROR(mLogger, "Failed to allocate aligned buffer for read", "size", alignedSize);
 		}
 		else
 		{
-			stream.read(static_cast<char *>(buffer), size);
-			if (stream.fail())
+			int fd = FS::open(path.c_str(), O_RDONLY | O_DIRECT);
+			if (fd < 0)
 			{
-				TSB_LOG_ERROR(mLogger, "Failed to read file", "file", path, "size", size);
+				TSB_LOG_ERROR(mLogger, "Failed to open the file for O_DIRECT read",
+							  "file", path, "errno", std::strerror(errno));
 			}
 			else
 			{
-				TSB_LOG_TRACE(mLogger, "File Read", "file", path, "size", size);
-				returnStatus = Status::OK;
+				ssize_t bytesRead = FS::read(fd, alignedBuf, alignedSize);
+				FS::close(fd);
+
+				if (bytesRead < 0)
+				{
+					TSB_LOG_ERROR(mLogger, "Failed to read file",
+								  "file", path, "errno", std::strerror(errno));
+				}
+				else if (static_cast<std::size_t>(bytesRead) < size)
+				{
+					TSB_LOG_ERROR(mLogger, "Incomplete read", "file", path,
+								  "expected", size, "read", bytesRead);
+				}
+				else
+				{
+					std::memcpy(buffer, alignedBuf, size);
+					TSB_LOG_TRACE(mLogger, "File Read with O_DIRECT", "file", path,
+								  "dataSize", size, "alignedSize", alignedSize);
+					returnStatus = Status::OK;
+				}
 			}
-			stream.close();
+			std::free(alignedBuf);
 		}
 	}
 	return returnStatus;
@@ -398,97 +418,124 @@ Status StoreImpl::WriteBuffer(const FS::path& path, const void* buffer, std::siz
 
 	do
 	{
-		FS::ofstream file;
 		std::error_code ec;
-		/* Set the buffer size to 0, so the data is not buffered.
-		 * The client is writing one segment at a time. With that amount of data, using an
-		 * intermediate buffer will only degrade performance and slow things down. */
-		file.rdbuf()->pubsetbuf(nullptr, 0);
-		file.open(path, FS::ofstream::binary);
-		if (file.fail())
+
+		// Allocate a sector-aligned temporary buffer for O_DIRECT
+		std::size_t alignedSize = FS::AlignToSector(size);
+		void* alignedBuf = FS::AllocAlignedBuffer(alignedSize);
+		if (alignedBuf == nullptr)
 		{
 			retry = false;
-			TSB_LOG_ERROR(mLogger, "Failed to open the file", "file", path);
+			TSB_LOG_ERROR(mLogger, "Failed to allocate aligned buffer", "size", alignedSize);
+			break;
 		}
-		else
+
+		// Copy the data into the aligned buffer and zero-fill any padding
+		std::memcpy(alignedBuf, buffer, size);
+		if (alignedSize > size)
 		{
-			// Set read and write permissions for all. This is necessary so other AAMP instances can
-			// delete the file, in case the first instance does not exit cleanly.
-			FS::perms permissions = FS::perms::owner_read | FS::perms::owner_write |
-									FS::perms::group_read | FS::perms::group_write |
-									FS::perms::others_read | FS::perms::others_write;
-			FS::permissions(path, permissions, ec);
-			if (ec)
+			std::memset(static_cast<char*>(alignedBuf) + size, 0, alignedSize - size);
+		}
+
+		int fd = FS::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, 0666);
+		if (fd < 0)
+		{
+			int savedErrno = errno;
+			std::free(alignedBuf);
+
+			if (savedErrno == ENOSPC)
 			{
-				TSB_LOG_ERROR(mLogger, "Failed to set permissions", "file", path, "errorCode", ec);
+				TSB_LOG_TRACE(mLogger, "Not enough space to open file for write", "file", path);
+				if (retry && (timeWaited < timeout))
+				{
+					FS::sleep_for(sleepTime);
+					timeWaited += sleepTime;
+					continue;
+				}
+				status = Status::NO_SPACE;
 			}
 			else
 			{
-				file.write(static_cast<const char *>(buffer), size);
-				// The ofstream's bad bit is set on writing errors raised by the underlying
-				// platform-specific implementation, such as ENOSPC.  The ENOSPC checks below assume
-				// that the implementation sets errno when such writing errors occur, which is
-				// highly likely on Linux-based systems as they will be using the Linux C standard
-				// library write() function.  This behavior may not be portable to other systems.
-				bool errnoSetFollowingWriteError = file.bad();
-				if (file.fail() == false)
-				{
-					mAvailable -= size;
-					TSB_LOG_TRACE(mLogger, "File written", "file", path,
-									"fileSize", size, "availableSpace", mAvailable);
-					retry = false;
-					status = Status::OK;
-				}
-				else if ((timeWaited >= timeout) && errnoSetFollowingWriteError && (errno == ENOSPC))
-				{
-					retry = false;
-					TSB_LOG_ERROR(mLogger, "Not enough space to write - timed out", "file", path, "timeout", timeout.count());
-					status = Status::NO_SPACE;
-				}
-				// Timeout, but the write failed for a reason other than ENOSPC
-				else if (timeWaited >= timeout)
-				{
-					retry = false;
-					TSB_LOG_ERROR(mLogger, "Failed to write - timed out", "file", path, "timeout", timeout.count(),
-									"errno", std::strerror(errno));
-				}
-				else if (retry && errnoSetFollowingWriteError && (errno == ENOSPC))
+				retry = false;
+				TSB_LOG_ERROR(mLogger, "Failed to open the file for O_DIRECT write",
+							  "file", path, "errno", std::strerror(savedErrno));
+			}
+			break;
+		}
+
+		// Set read and write permissions for all. This is necessary so other AAMP instances can
+		// access the files.
+		FS::permissions(path, FS::perms::owner_read | FS::perms::owner_write |
+							  FS::perms::group_read | FS::perms::group_write |
+							  FS::perms::others_read | FS::perms::others_write, ec);
+		if (ec)
+		{
+			TSB_LOG_ERROR(mLogger, "Failed to set permissions", "file", path, "errorCode", ec);
+			FS::close(fd);
+			std::free(alignedBuf);
+			FS::remove(path, ec);
+			retry = false;
+			break;
+		}
+
+		ssize_t written = FS::write(fd, alignedBuf, alignedSize);
+		int savedErrno = errno;
+		std::free(alignedBuf);
+		FS::close(fd);
+
+		if (written < 0)
+		{
+			if (savedErrno == ENOSPC)
+			{
+				// Remove the partially created file to allow retries
+				FS::remove(path, ec);
+
+				if (retry && (timeWaited < timeout))
 				{
 					TSB_LOG_TRACE(mLogger, "Not enough space to write - retrying...",
-									"sleepTime", sleepTime.count(),
-									"fileSize", size,
-									"available", mAvailable,
-									"errno", std::strerror(errno));
+								  "sleepTime", sleepTime.count(),
+								  "fileSize", size,
+								  "available", mAvailable,
+								  "errno", std::strerror(savedErrno));
 					FS::sleep_for(sleepTime);
 					timeWaited += sleepTime;
+					continue;
 				}
-				else if (errnoSetFollowingWriteError && (errno == ENOSPC))
+				else if (timeWaited >= timeout)
+				{
+					TSB_LOG_ERROR(mLogger, "Not enough space to write - timed out",
+								  "file", path, "timeout", timeout.count());
+				}
+				else
 				{
 					// This is a TRACE only, as the client can cull (delete files) and retry the Write
-					TSB_LOG_TRACE(mLogger, "Not enough space to write", "file", path,
-									"size", size);
-					status = Status::NO_SPACE;
+					TSB_LOG_TRACE(mLogger, "Not enough space to write", "file", path, "size", size);
 				}
-				else // No timeout, but the write failed for a reason other than ENOSPC
-				{
-					retry = false;
-					TSB_LOG_ERROR(mLogger, "Failed to write to file", "file", path,
-									"size", size, "errno", std::strerror(errno));
-				}
+				status = Status::NO_SPACE;
 			}
-
-			file.close();
-			if (status != Status::OK)
+			else
 			{
-				std::error_code ec;
-
-				// If the write failed, the file may have been created.
-				// Therefore remove it to allow retries - either by TSB, or its client.
-				if (!FS::remove(path, ec))
-				{
-					TSB_LOG_WARN(mLogger, "Error deleting file", "file", path, "errorCode", ec);
-				}
+				TSB_LOG_ERROR(mLogger, "Failed to write to file", "file", path,
+							  "size", size, "errno", std::strerror(savedErrno));
+				FS::remove(path, ec);
+				retry = false;
 			}
+		}
+		else if (static_cast<std::size_t>(written) != alignedSize)
+		{
+			TSB_LOG_ERROR(mLogger, "Incomplete write", "file", path,
+						  "expected", alignedSize, "written", written);
+			FS::remove(path, ec);
+			retry = false;
+		}
+		else
+		{
+			mAvailable -= alignedSize;
+			TSB_LOG_TRACE(mLogger, "File written with O_DIRECT", "file", path,
+						  "dataSize", size, "alignedSize", alignedSize,
+						  "availableSpace", mAvailable);
+			retry = false;
+			status = Status::OK;
 		}
 	} while (retry);
 
@@ -501,6 +548,7 @@ Status StoreImpl::Write(const std::string& url, const void* buffer, std::size_t 
 	auto returnStatus = Status::FAILED;
 	std::error_code ec;
 	FS::path path;
+	std::size_t alignedSize = FS::AlignToSector(size);
 	if (UrlToFileMapper(url, path) != Status::OK)
 	{
 		TSB_LOG_ERROR(mLogger, "Could not map URL to a file", "segmentUrl", url);
@@ -518,10 +566,10 @@ Status StoreImpl::Write(const std::string& url, const void* buffer, std::size_t 
 	{
 		TSB_LOG_ERROR(mLogger, "Size is 0");
 	}
-	else if (size > mAvailable)
+	else if (alignedSize > mAvailable)
 	{
 		// This is a TRACE only, as the client can cull (delete files) and retry the Write
-		TSB_LOG_TRACE(mLogger, "Not Enough space to write", "file", path, "fileSize", size,
+		TSB_LOG_TRACE(mLogger, "Not Enough space to write", "file", path, "alignedSize", alignedSize,
 						"availableSpace", mAvailable);
 		returnStatus = Status::NO_SPACE;
 	}
@@ -600,6 +648,7 @@ void StoreImpl::Delete(const std::string& url)
 		}
 		else
 		{
+			// File size on disk is the aligned size (written with O_DIRECT)
 			mAvailable += size;
 			TSB_LOG_TRACE(mLogger, "Deleted file", "file", path, "fileSize", size, "availableSpace", mAvailable);
 		}

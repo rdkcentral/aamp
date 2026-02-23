@@ -58,8 +58,10 @@ protected:
 	AampMediaType mediaType; /**< Type of the fragment*/
 	AampTime absolutePositionS; /**< absolute position of the current fragment, in seconds since 1970 */
 	std::string periodId; /**< period Id of the fragment*/
+	std::size_t mDataLength{0}; /**< Actual data length in bytes as written to the TSB store */
 
-	TsbSegment(std::string link, AampMediaType media, AampTime absolutePositionS, std::string prId) : url(std::move(link)), mediaType(media), absolutePositionS(absolutePositionS), periodId(std::move(prId)){}
+	TsbSegment(std::string link, AampMediaType media, AampTime absolutePositionS, std::string prId, std::size_t dataLength = 0)
+		: url(std::move(link)), mediaType(media), absolutePositionS(absolutePositionS), periodId(std::move(prId)), mDataLength(dataLength){}
 
 public:
 	/**
@@ -86,6 +88,13 @@ public:
 	 * @return absolute position of the current fragment, in seconds since 1970
 	 */
 	AampTime GetAbsolutePosition() const { return absolutePositionS; }
+
+	/**
+	 * @fn GetDataLength
+	 * @brief Get the actual data length as stored in the TSB store
+	 * @return data length in bytes
+	 */
+	std::size_t GetDataLength() const { return mDataLength; }
 };
 
 /**
@@ -119,10 +128,11 @@ public:
 	 *   @param[in] streamInfo - fragment stream info
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] profileIdx - ABR profile index
+	 *   @param[in] dataLength - Actual data length in bytes as written to the TSB store
 	 *   @return void
 	 */
-	TsbInitData(std::string url, AampMediaType media, AampTime absolutePositionS, const StreamInfo &streamInfo, std::string prId, int profileIdx)
-		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId)), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
+	TsbInitData(std::string url, AampMediaType media, AampTime absolutePositionS, const StreamInfo &streamInfo, std::string prId, int profileIdx, std::size_t dataLength = 0)
+		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId), dataLength), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
 	{
 	}
 
@@ -192,10 +202,11 @@ public:
 	 *   @param[in] initData - Pointer to initData
 	 *   @param[in] timeScale - timescale of the current fragment
 	 *   @param[in] PTSOffset - PTS offset of the current fragment
+	 *   @param[in] dataLength - Actual data length in bytes as written to the TSB store
 	 */
 	TsbFragmentData(std::string url, AampMediaType media, AampTime absolutePositionS, AampTime duration, AampTime pts, bool disc,
-		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffset)
-		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId)), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
+		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffset, std::size_t dataLength = 0)
+		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId), dataLength), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
 		timeScale(timeScale), PTSOffset(PTSOffset)
 	{
 	}
@@ -358,9 +369,10 @@ public:
 	 *   @param[in] periodId - Period Id of this fragment
 	 *   @param[in] absPosition - Abs position of this fragment
 	 *   @param[in] profileIdx - ABR profile index
+	 *   @param[in] dataLength - Actual data length in bytes as written to the TSB store
 	 *   @return true if no exception
 	 */
-	bool AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIdx = 0);
+	bool AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIdx = 0, std::size_t dataLength = 0);
 
 	/**
 	 *   @fn AddFragment
@@ -368,9 +380,10 @@ public:
 	 *   @param[in] writeData - Segment data
 	 *   @param[in] media - Segment type as AampMediaType
 	 *   @param[in] discont - discontinuity flag
+	 *   @param[in] dataLength - Actual data length in bytes as written to the TSB store
 	 *   @return true if no exception
 	 */
-	bool AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont);
+	bool AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont, std::size_t dataLength = 0);
 
 	/**
 	 *   @fn IsFragmentPresent

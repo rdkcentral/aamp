@@ -26,6 +26,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/file.h>
+#include <cstdlib>
+#include <cstring>
 
 namespace TSB
 {
@@ -54,6 +56,41 @@ using std::this_thread::sleep_for;
 using ::open;
 using ::close;
 using ::flock;
+using ::write;
+using ::read;
+
+/**
+ * @brief Sector size for O_DIRECT alignment requirements
+ */
+constexpr std::size_t kSectorSize = 4096;
+
+/**
+ * @brief Align a size up to the nearest multiple of sector size
+ *
+ * @param[in] size - size to align
+ * @return aligned size rounded up to the nearest sector boundary
+ */
+inline std::size_t AlignToSector(std::size_t size)
+{
+	return ((size + kSectorSize - 1) / kSectorSize) * kSectorSize;
+}
+
+/**
+ * @brief Allocate a sector-aligned buffer suitable for O_DIRECT I/O
+ *
+ * @param[in] size - minimum buffer size (will be rounded up to sector alignment)
+ * @return pointer to aligned buffer, or nullptr on failure. Caller must free() the result.
+ */
+inline void* AllocAlignedBuffer(std::size_t size)
+{
+	std::size_t alignedSize = AlignToSector(size);
+	void* buf = nullptr;
+	if (posix_memalign(&buf, kSectorSize, alignedSize) != 0)
+	{
+		buf = nullptr;
+	}
+	return buf;
+}
 
 } // namespace FS
 

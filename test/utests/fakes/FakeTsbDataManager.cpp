@@ -40,12 +40,12 @@ std::shared_ptr<TsbFragmentData> AampTsbDataManager::GetFragment(double position
 	}
 }
 
-bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIdx)
+bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIdx, std::size_t dataLength)
 {
 	return false;
 }
 
-bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont)
+bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont, std::size_t dataLength)
 {
 	return false;
 }

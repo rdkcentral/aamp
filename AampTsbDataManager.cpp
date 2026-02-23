@@ -316,7 +316,7 @@ double AampTsbDataManager::GetLastFragmentPosition()
 /**
  *  @brief  AddInitFragment - add Init fragment to TSB data
  */
-bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIndex)
+bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIndex, std::size_t dataLength)
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
@@ -327,7 +327,7 @@ bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, 
 		AAMPLOG_INFO("[%s] Adding Init Data: position %.02lfs bandwidth %" BITSPERSECOND_FORMAT "  periodId:%s wt: %d ht: %d fr: %.02lf Url: '%s'",
 					GetMediaTypeName(media), absPosition, streamInfo.bandwidthBitsPerSecond, periodId.c_str(),
 					streamInfo.resolution.width, streamInfo.resolution.height, streamInfo.resolution.framerate, url.c_str());
-		TsbInitDataPtr newInitFragData = std::make_shared<TsbInitData>(url, media, AampTime(absPosition), streamInfo, periodId, profileIndex);
+		TsbInitDataPtr newInitFragData = std::make_shared<TsbInitData>(url, media, AampTime(absPosition), streamInfo, periodId, profileIndex, dataLength);
 		mTsbInitData.push_back(newInitFragData);
 		mCurrentInitData = std::move(newInitFragData);
 		ret = true;
@@ -343,7 +343,7 @@ bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, 
 /**
  *  @brief  AddFragment - add Fragment to TSB data
  */
-bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont)
+bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont, std::size_t dataLength)
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
@@ -366,7 +366,7 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 					 GetMediaTypeName(media), position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, AampTime(position), duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, AampTime(position), duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec, dataLength);
 		if (mCurrHead != nullptr)
 		{
 			fragmentData->prev = mCurrHead;
