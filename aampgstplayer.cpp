@@ -349,7 +349,7 @@ void AAMPGstPlayer::UnregisterFirstFrameCallbacks()
 
 void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool initCC, bool &requireFirstVideoFrameDisplay, bool &audioOnly)
 {
-	AAMPLOG_WARN("[RIALTO_DEBUG] NotifyFirstFrame thread=%ld time=%lld",std::this_thread::get_id(), NOW());
+	AAMPLOG_WARN("[RIALTO_DEBUG] NotifyFirstFrame thread=%ld",std::this_thread::get_id());
 	bool firstBufferNotified=false;
 	AampMediaType type = static_cast<AampMediaType>(mediatype);
 	// LogTuneComplete will be noticed after getting video first frame.
