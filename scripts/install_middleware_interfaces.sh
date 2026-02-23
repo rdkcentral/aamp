@@ -19,7 +19,7 @@
 # PREREQUISITES:
 # This script requires the following variables to be set:
 # - LOCAL_DEPS_BUILD_DIR: Directory where dependencies will be built and installed
-# - MIDDLEWARE_PLAYER_INTERFACE_BRANCH: Git branch to checkout for middleware-player-interface
+# - MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID: Git commit ID to checkout for middleware-player-interface
 # - INSTALL_STATUS_ARR: Array to store installation status messages
 #
 # This script requires the following functions to be available:
@@ -124,7 +124,7 @@ function install_build_middleware_interface_fn()
         }
         
         echo "Running cmake configuration..."
-        if ! cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_PLATFORM_UBUNTU=ON; then
+        if ! cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}"; then
             echo "Error: CMake configuration failed"
             return 1
         fi
@@ -148,6 +148,6 @@ function install_build_middleware_interface_fn()
         }
 
         echo "middleware-player-interface installation completed successfully"
-        INSTALL_STATUS_ARR+=("middleware was successfully installed.")
+        INSTALL_STATUS_ARR+=("middleware-player-interface was successfully installed.")
     fi
 }
