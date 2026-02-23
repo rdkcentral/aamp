@@ -26,6 +26,7 @@
 #include "PlayerRialtoCCManager.h"
 #include "PlayerLogManager.h" // Included for MW_LOG
 #include <glib-object.h>  // Included for g_object_set
+#include <cctype> // std::isdigit()
 
 /**
  * @brief stores Handle
@@ -48,7 +49,7 @@ int PlayerRialtoCCManager::Initialize(void * handle)
 	else if (changedHandle)
 	{
 		// Configure the new handle.
-		(void) SetTrack(GetTrack());
+		(void) SetTrack(GetTrack(), mTrackFormat);
 	}
 
 	return 0;
@@ -109,13 +110,34 @@ void PlayerRialtoCCManager::Release(int id)
  */
 int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat format)
 {
+	// Cache the original track string and the format so the prefix (if any)
+	// can be re-applied correctly from the cached values.
 	mTrack = track;	// For PlayerCCManager::GetTrack()
+	mTrackFormat = format;
 
 	MW_LOG_INFO("PlayerRialtoCCManager::set track \"%s\"", track.c_str());
 
 	if (nullptr != mSubtitleControlHandle)
 	{
-		g_object_set(mSubtitleControlHandle, "text-track-identifier", track.c_str(), NULL);
+		// We expect 'track' to have an alphabetic prefix. If it does not,
+		// add one based on 'format'.
+		std::string textTrackIdentifier;
+		if (!track.empty() && std::isdigit(static_cast<unsigned char>(track[0])))
+		{
+			if (eCLOSEDCAPTION_FORMAT_608 == format)
+			{
+				textTrackIdentifier = "CC";
+			}
+			else if (eCLOSEDCAPTION_FORMAT_708 == format)
+			{
+				textTrackIdentifier = "SERVICE";
+			}
+		}
+		textTrackIdentifier += track;
+
+		MW_LOG_INFO("PlayerRialtoCCManager::set track (modified) \"%s\"", textTrackIdentifier.c_str());
+
+		g_object_set(mSubtitleControlHandle, "text-track-identifier", textTrackIdentifier.c_str(), NULL);
 	}
 	else
 	{

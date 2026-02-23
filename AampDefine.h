@@ -148,6 +148,15 @@
 
 #define DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT 80 /**< By default, let's abort early if bps is less than 80% of profile bandwidth */
 
+#define DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS 500		/**< Polling interval when buffer is low in milliseconds */
+#define DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS 1000	/**< Polling interval when buffer is medium in milliseconds */
+#define DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS 2000		/**< Polling interval when buffer is high in milliseconds */
+
+#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.0		/**< Threshold to detect underflow in seconds */
+#define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
+#define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
+#define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
+
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE

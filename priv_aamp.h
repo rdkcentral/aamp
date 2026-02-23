@@ -757,6 +757,16 @@ public:
 	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
 
 	/**
+	 * @fn SetBufferingState
+	 * @brief Convenience API to toggle buffering state and handle pipeline pause/resume and events.
+	 *        When buffering is true, sends buffer start event and pauses pipeline if not already paused.
+	 *        When buffering is false, resumes pipeline if paused, updates subtitle timestamp, and sends buffer end event.
+	 * @param[in] buffering - true to indicate buffering (underflow start), false to indicate buffering ended.
+	 * @return void
+	 */
+	void SetBufferingState(bool buffering);
+
+	/**
 	 * @fn mediaType2Bucket
 	 *
 	 * @param[in] mediaType - Media filetype
@@ -1048,7 +1058,7 @@ public:
 	float rate; 						/**< most recent (non-zero) play rate for non-paused content */
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
-	bool pipeline_paused; 					/**< true if pipeline is paused */
+	std::atomic<bool> mSinkPaused; 			/**< true if pipeline is paused - atomic for thread safety */
 	bool mbNewSegmentEvtSent[AAMP_TRACK_COUNT];
 
 	char mLanguageList[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH]; /**< list of languages in stream */
@@ -1224,11 +1234,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in] segment - fragment
-	 * @param[in] size - fragment size
+	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
 	 * @param[in] type - AampMediaType
+	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1542,10 +1552,10 @@ public:
 	void SendTuneMetricsEvent(std::string &timeMetricData);
 
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
-	bool mBufUnderFlowStatus;
-	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus; }
-	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus = statusFlag; }
-	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus = false;}
+	std::atomic<bool> mBufUnderFlowStatus{false};
+	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
+	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
+	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
 
 	/**
 	 * @fn SendEvent
@@ -1787,6 +1797,18 @@ public:
 	{
 		return static_cast<double>(GetPositionMilliseconds())/1000.00;
 	}
+
+	/**
+	 *   @fn SendStreamCopy
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  buffer - Reference to the buffer vector.
+	 *   @param[in]  fpts - Presentation Time Stamp.
+	 *   @param[in]  fdts - Decode Time Stamp
+	 *   @param[in]  fDuration - Buffer duration.
+	 *   @return True if the fragment has been successfully injected into gstreamer pipeline
+	 */
+	bool SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration);
 
 	/**
 	 *   @fn SendStreamCopy
