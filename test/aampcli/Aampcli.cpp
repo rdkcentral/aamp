@@ -314,7 +314,8 @@ bool Aampcli::SetSessionId(std::string sid)
 {
 	const auto playerId = mSingleton->GetId();
 
-	if (mPlayerSessionID.size() >= playerId)
+	assert(playerId >= 0);
+	if (mPlayerSessionID.size() > static_cast<size_t>(playerId))
 	{
 		mPlayerSessionID[playerId] = std::move(sid);
 		AAMPCLI_PRINTF("[AAMPCLI] SessionId - %d # %s\n", playerId, mPlayerSessionID[playerId].c_str());
@@ -327,7 +328,8 @@ std::string Aampcli::GetSessionId() const
 {
 	const auto playerId = mSingleton->GetId();
 
-	if (mPlayerSessionID.size() >= playerId)
+	assert(playerId >= 0);
+	if (mPlayerSessionID.size() > static_cast<size_t>(playerId))
 	{
 		return mPlayerSessionID[playerId];
 	}
