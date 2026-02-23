@@ -119,6 +119,7 @@ public:
 	 */
 	virtual void UpdateDownloadProgress(const DownloadProgressInfo &progressInfo)
 	{
+		(void)progressInfo;
 	}
 
 	/**
@@ -128,6 +129,7 @@ public:
 	 */
 	virtual void SetConfig(const BandwidthEstimatorConfig &config)
 	{
+		(void)config;
 	}
 
 	/**
