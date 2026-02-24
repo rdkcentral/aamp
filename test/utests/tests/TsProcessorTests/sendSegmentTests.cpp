@@ -926,7 +926,7 @@ TEST_F(sendSegmentTests, SendSegmentTest)
     size_t size = 100;
     char segment[100];
     AampGrowableBuffer buf("ts-processor-buffer-send-test");
-    buf.AppendBytes(segment,size);
+    buf.assign(segment, segment + size);
     double position = 0.0;
     double duration = 10.0;
 	double offset = 0.0;
@@ -956,7 +956,7 @@ TEST_F(sendSegmentTests, esMP3test)
 	bool init = false;
     bool ptsError = false;
 
-    buffer.AppendBytes(segment, sizeof(segment));
+    buffer.assign(segment, segment + sizeof(segment));
     mTSProcessor->sendSegment(&buffer, position, duration, offset, discontinuous, init,
         [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
             mPrivateInstanceAAMP->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
