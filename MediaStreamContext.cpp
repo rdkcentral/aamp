@@ -222,7 +222,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->absPosition = 0;
 		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.AppendBytes(ptr, size);
+		cachedFragment->fragment.assign(ptr, ptr + size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->uri = std::move(remoteUrl);
 		if (mActiveDownloadInfo)
@@ -508,8 +508,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
-		cachedFragment->fragment.clear();
-		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
+		cachedFragment->Copy(fragment.get());
 		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
@@ -582,7 +581,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	if(tsbSessionManager && cachedFragment->fragment.size())
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
+		fragmentToTsbSessionMgr->Copy(cachedFragment);
 		if(fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -623,7 +622,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	else if (aamp->GetLLDashChunkMode() && dlInfo->isInitSegment)
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
+		fragmentToTsbSessionMgr->Copy(cachedFragment);
 		if (fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -657,7 +656,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
 		{
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
-			fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.size());
+			fragmentToCache->Copy(cachedFragment);
 			CacheTsbFragment(std::move(fragmentToCache));
 		}
 
