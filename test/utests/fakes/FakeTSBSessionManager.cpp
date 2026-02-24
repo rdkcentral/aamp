@@ -247,10 +247,10 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return nullptr;
 }
 
-void AampTSBSessionManager::WaitForNewVideoTsbFragment()
+void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 {
 }
 
-void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
+void AampTSBSessionManager::NotifyVideoTsbWaiters()
 {
 }

@@ -89,13 +89,13 @@ public:
 	 */
 	void ProcessWriteQueue();
 	/**
-	 * @brief Wait for new TSB video fragment to be available
+	 * @brief Wait for new TSB video fragment to be available or abort signal
 	 */
-	void WaitForNewVideoTsbFragment();
+	void WaitForVideoTsbContentOrAbort();
 	/**
-	 * @brief Raises the new video TSB content notification
+	 * @brief Notifies waiting threads when new video TSB content is available or downloads are disabled
 	 */
-	void RaiseNewVideoTsbContentNotification();
+	void NotifyVideoTsbWaiters();
 	/**
 	 * @brief Set TSB length
 	 *

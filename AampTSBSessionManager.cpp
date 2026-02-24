@@ -107,9 +107,9 @@ void AampTSBSessionManager::Init()
 			// Initialize TSB readers
 			InitializeTsbReaders();
 			mStopThread_.store(false);
+			mStopWaitingForVideoTsb = false;
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);
-			mStopWaitingForVideoTsb = false;
 			mInitialized_ = true;
 		}
 	}
@@ -377,14 +377,14 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
+void AampTSBSessionManager::NotifyVideoTsbWaiters()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
 	mStopWaitingForVideoTsb = true;
 	mNewVideoTsbContentCV.notify_one();
 }
 
-void AampTSBSessionManager::WaitForNewVideoTsbFragment()
+void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
 	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
@@ -473,7 +473,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 
 					if (mediatype == eMEDIATYPE_VIDEO)
 					{
-						RaiseNewVideoTsbContentNotification();
+						NotifyVideoTsbWaiters();
 					}
 
 				}

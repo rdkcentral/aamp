@@ -9958,7 +9958,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
 					{
 						// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
-						tsbSessionManager->WaitForNewVideoTsbFragment();
+						tsbSessionManager->WaitForVideoTsbContentOrAbort();
 					}
 					else
 					{
