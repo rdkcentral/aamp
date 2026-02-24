@@ -1482,7 +1482,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### setTextTrack( trackDescriptorObj )
 - Supported UVE version 3.2 and above.
-- Set the text track by language, rendition, label and instreamId from the available text tracklist.
+- Set the text track by language, rendition, label, instreamId, and type from the available text tracklist.
 - "language" match always takes precedence over "rendition" match.
 - While playing passively to new periods with different track order/availability, or when tuning to new locator, heuristic for track selection is automatically re-applied.
 - Behavior is similar to setPreferredTextLanguage
