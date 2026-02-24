@@ -37,7 +37,7 @@ public:
 	virtual ~MockDrmSession() = default;
 
 	MOCK_METHOD(void, generateDRMSession, (const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData), (override));
-	MOCK_METHOD(DrmData*, generateKeyRequest, (string& destinationURL, uint32_t timeout), (override));
+	MOCK_METHOD(DrmData*, generateKeyRequest, (std::string& destinationURL, uint32_t timeout), (override));
 	MOCK_METHOD(int, processDRMKey, (DrmData* key, uint32_t timeout), (override));
 	MOCK_METHOD(KeyState, getState, (), (override));
 	MOCK_METHOD(void, clearDecryptContext, (), (override));

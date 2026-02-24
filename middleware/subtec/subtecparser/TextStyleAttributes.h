@@ -195,7 +195,7 @@ private:
     /**
      * @fn getColor
      * @param[in] input - input color value
-     * @patam[out] colorOut - color option for the input value
+     * @param[out] colorOut - color option for the input value
      * @return int - 0 for success, -1 for failure
      */
     int getColor(std::string input, SupportedColors *colorOut);
@@ -203,7 +203,7 @@ private:
     /**
      * @fn getEdgeType
      * @param[in] input - input edge type value
-     * @patam[out] edgeTypeOut - edge type option for the input value
+     * @param[out] edgeTypeOut - edge type option for the input value
      * @return int - 0 for success, -1 for failure
      */
     int getEdgeType(std::string input, EdgeType *edgeTypeOut);
@@ -211,7 +211,7 @@ private:
     /**
      * @fn getOpacity
      * @param[in] input - input opacity value
-     * @patam[out] edgeTypeOut - opacity option for the input value
+     * @param[out] edgeTypeOut - opacity option for the input value
      * @return int - 0 for success, -1 for failure
      */
     int getOpacity(std::string input, Opacity *opacityOut);

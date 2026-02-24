@@ -24,6 +24,7 @@
 
 #include "ContentSecurityManager.h"
 #include <string.h>
+#include <mutex>
 #include "_base64.h"
 #include <inttypes.h> // For PRId64
 #include <uuid/uuid.h>

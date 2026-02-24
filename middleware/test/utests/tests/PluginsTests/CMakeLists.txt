@@ -55,7 +55,7 @@ if (JSC_INCDIR)
 endif()
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(FAKE_SOURCE ${UTEST_ROOT}/fakes/FakeDRMSessionManager.cpp)
+set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeDRMSessionManager.cpp)
 
 set(TEST_SOURCES PlayerClearKeyDecryptorTests.cpp
 				PlayerPlayReadyDecryptorTests.cpp

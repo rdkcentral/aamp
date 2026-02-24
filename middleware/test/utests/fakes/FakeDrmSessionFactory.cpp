@@ -26,19 +26,19 @@
 #include "MockDrmSessionFactory.h"
 
 // Global pointer to the mock DrmSessionFactory instance
-MockDrmSessionFactory* g_MockDrmSessionFactory = nullptr;
+MockDrmSessionFactory* g_mockDrmSessionFactory = nullptr;
 
 /**
  * @brief Fake implementation of GetDrmSession
  * 
- * If g_MockDrmSessionFactory is set, delegates to the mock.
+ * If g_mockDrmSessionFactory is set, delegates to the mock.
  * Otherwise returns nullptr.
  */
 DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks)
 {
-	if (g_MockDrmSessionFactory)
+	if (g_mockDrmSessionFactory)
 	{
-		return g_MockDrmSessionFactory->GetDrmSession(drmHelper, drmCallbacks);
+		return g_mockDrmSessionFactory->GetDrmSession(drmHelper, drmCallbacks);
 	}
 	return nullptr;
 }

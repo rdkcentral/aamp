@@ -145,8 +145,10 @@ struct MediaCodecInfo
         : mCodecFormat(exchange(other.mCodecFormat, GST_FORMAT_INVALID))
         , mCodecData(exchange(other.mCodecData, {}))
         , mIsEncrypted(exchange(other.mIsEncrypted, false))
-        , mInfo(exchange(other.mInfo, {})) // POD union - exchange with zero-initialized union
+        , mInfo(other.mInfo) // Copy union, then reset source
     {
+        // Zero-initialize the source union
+        std::memset(&other.mInfo, 0, sizeof(other.mInfo));
     }
 
 	/**
@@ -161,7 +163,9 @@ struct MediaCodecInfo
 			mCodecFormat = exchange(other.mCodecFormat, GST_FORMAT_INVALID);
 			mCodecData = exchange(other.mCodecData, {});
 			mIsEncrypted = exchange(other.mIsEncrypted, false);
-			mInfo = exchange(other.mInfo, {}); // POD union - exchange with zero-initialized union
+			// Copy union and reset source
+			mInfo = other.mInfo;
+			std::memset(&other.mInfo, 0, sizeof(other.mInfo));
 		}
 		return *this;
 	}

@@ -51,7 +51,7 @@ set(PLAYER_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeGStreamer.cpp
-                  ${UTESTS_ROOT}fakes/FakeGLib.cpp)
+                  ${UTESTS_ROOT}/fakes/FakeGLib.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
