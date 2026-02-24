@@ -944,7 +944,9 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{ // clamp - more bytes in write_callback than needed to complete current chunk
 					n = context->m_ChunkedBytesRemaining;
 				}
-				context->buffer->AppendBytes( ptr, n );
+				context->buffer->insert(context->buffer->GetVector().end(),
+										ptr,
+										ptr + n);
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
 				if( context->m_ChunkedBytesRemaining == 0 )
@@ -1108,7 +1110,9 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			}
 			else
 			{
-				context->buffer->AppendBytes( ptr, numBytesForBlock );
+				context->buffer->insert(context->buffer->GetVector().end(),
+										ptr,
+										ptr + numBytesForBlock);
 			}
 		}
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
@@ -9325,6 +9329,22 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 	else
 	{
 		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot notify reservation complete for reservationId: %s ", reservationId.c_str());
+	}
+}
+
+/**
+ * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ */
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+    if (mCdaiObject) {
+        mCdaiObject->CancelReservation(playingReservationId, cancelAtReservationId);
+    }
+	else
+	{
+		AAMPLOG_ERR("[AAMP] CDAIObject not set. Cannot cancel reservation for reservationId: %s ", cancelAtReservationId.c_str());
 	}
 }
 

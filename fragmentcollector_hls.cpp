@@ -1354,7 +1354,8 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			//TODO: This needs to be handled at server side and this workaround has to be removed
 			if (!fetched && http_error == 404 && type == eTRACK_SUBTITLE)
 			{
-				cachedFragment->fragment.AppendBytes( "WEBVTT", 7);
+				const uint8_t webvttHeader[] = {'W', 'E', 'B', 'V', 'T', 'T'};
+				cachedFragment->fragment.assign(webvttHeader, webvttHeader + sizeof(webvttHeader));
 				fetched = true;
 			}
 			if (!fetched)
@@ -1665,8 +1666,8 @@ void TrackState::FetchFragment()
 			AampTime position{playTarget - playTargetOffset};
 			if (type == eTRACK_SUBTITLE)
 			{ // avoids crash - need to revisit
-				static const char zeros[2] = { 0, 0 };
-				cachedFragment->fragment.AppendBytes( zeros,sizeof(zeros) );
+				static const uint8_t zeros[2] = { 0, 0 };
+				cachedFragment->fragment.insert(cachedFragment->fragment.GetVector().end(), zeros, zeros + sizeof(zeros));
 			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{

@@ -8975,8 +8975,19 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 			(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached))
 		{
 			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
-			mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
-			mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+				AAMPLOG_INFO("Video EOS Marked after checking EOS on manifest");
+			});
+			if(ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+			{
+				aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+			}
+			else
+			{
+				dashWorkerJob->Execute();
+			}
 		}
 		ret = true;
 	}
@@ -9665,7 +9676,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
-							aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+							{
+								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+							}
+							else
+							{
+								dashWorkerJob->Execute();
+							}
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
 						if (audioEnabled)
@@ -9677,7 +9695,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								{
+									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+								}
+								else
+								{
+									dashWorkerJob->Execute();
+								}
 							}
 						}
 						else
