@@ -1434,11 +1434,11 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 - ###### Example :
 ```js
 {
-    "name": "English"
+    "name": "English",
     "label": "native",
     "languages": "eng",
-    "codec": "stpp"
-    "type": "CLOSED-CAPTIONS"
+    "codec": "stpp",
+    "type": "CLOSED-CAPTIONS",
     "rendition": "alternate",
     "accessibility":
     {
@@ -1459,7 +1459,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
     "preferred-text-languages" : ["eng", "ger", "mul"],
     "preferred-text-label": "native",
     "preferred-text-rendition": "",
-    "preferred-text-type": ""
+    "preferred-text-type": "",
     "preferred-text-accessibility":
     {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
@@ -1491,7 +1491,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 | ---- | ---- | ---- |
 | language | String | Language of desired text track in the available text tracklist |
 | rendition | String | Rendition of desired text track in the available text tracklist |
-| label	| String	| Label of the text track |
+| label	| String	| Optional label of the text track |
 | instreamId	| String	| Optional preferred instreamId for closed captions (i.e. CC1, CC2) |
 | type	| String	| Optional preferred accessibility type for descriptive text |
 
