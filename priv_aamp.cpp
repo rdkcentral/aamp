@@ -9329,6 +9329,22 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 }
 
 /**
+ * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ */
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+    if (mCdaiObject) {
+        mCdaiObject->CancelReservation(playingReservationId, cancelAtReservationId);
+    }
+	else
+	{
+		AAMPLOG_ERR("[AAMP] CDAIObject not set. Cannot cancel reservation for reservationId: %s ", cancelAtReservationId.c_str());
+	}
+}
+
+/**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
