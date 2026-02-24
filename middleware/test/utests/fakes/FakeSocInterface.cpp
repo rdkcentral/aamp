@@ -29,7 +29,7 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
         std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
         return obj;
 }
-std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool)
+std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
         std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
         return obj;
