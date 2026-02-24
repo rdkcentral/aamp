@@ -19,7 +19,7 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_2"
-OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="4c1d90a24338c342599ac098e247a8d644ea28e1"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="231dbb281a4a920a19dec01665e3e43f14d1902d"
 OPTION_PLAYER_INTERFACE_SOURCE="internal"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
@@ -145,7 +145,7 @@ function install_options_fn()
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
         [--player-interface-source=internal|external] Choose player interface source (default: internal)
-        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 269f2b1a38492c26f2f7cfb41d194029a8ea88d2)
+        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 231dbb281a4a920a19dec01665e3e43f14d1902d)
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"
 

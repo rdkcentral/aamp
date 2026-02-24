@@ -335,7 +335,11 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
         set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS}" ${JSCORE_FRAMEWORK})
 		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
-        target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+		if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+			target_link_libraries(aampjsbindings PUBLIC aamp tsb ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES} ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+		else()
+			target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+		endif()
         set_target_properties(aampjsbindings PROPERTIES
             COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES} "
             LINK_FLAGS "-framework JavaScriptCore"
