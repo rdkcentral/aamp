@@ -29,6 +29,7 @@
 #include <atomic>
 #include <cstring>
 #include "priv_aamp.h"
+#include "FileLogger.h"
 using namespace std;
 
 
