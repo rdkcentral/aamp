@@ -1,0 +1,75 @@
+{
+	"segment_duration_s": 2.0,
+	"profiles": [
+		{
+			"id": 0,
+			"name": "240p",
+			"bitrate_bps": 235000,
+			"width": 426,
+			"height": 240,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		},
+		{
+			"id": 1,
+			"name": "360p",
+			"bitrate_bps": 375000,
+			"width": 640,
+			"height": 360,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		},
+		{
+			"id": 2,
+			"name": "480p",
+			"bitrate_bps": 750000,
+			"width": 854,
+			"height": 480,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		},
+		{
+			"id": 3,
+			"name": "720p",
+			"bitrate_bps": 1400000,
+			"width": 1280,
+			"height": 720,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		},
+		{
+			"id": 4,
+			"name": "1080p",
+			"bitrate_bps": 2800000,
+			"width": 1920,
+			"height": 1080,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		},
+		{
+			"id": 5,
+			"name": "1080p high",
+			"bitrate_bps": 5000000,
+			"width": 1920,
+			"height": 1080,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		},
+		{
+			"id": 6,
+			"name": "4K",
+			"bitrate_bps": 8000000,
+			"width": 3840,
+			"height": 2160,
+			"framerate": 0,
+			"audio_bitrate": 0,
+			"enabled": true
+		}
+	]
+}
