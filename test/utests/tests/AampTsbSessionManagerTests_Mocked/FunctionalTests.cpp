@@ -594,9 +594,20 @@ TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification)
 	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-	// Raise the notification from the main thread
 	mAampTSBSessionManager->RaiseNewVideoTsbContentNotification();
 
-	// Wait for the consumer thread to complete
+	consumerThread.join();
+}
+
+// Test that WaitForNewVideoTsbFragment returns immediately when notification is already raised
+TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification_BeforeWait)
+{
+	mAampTSBSessionManager->RaiseNewVideoTsbContentNotification();
+
+	// Spawn a thread that waits for the notification
+	std::thread consumerThread([this]() {
+		mAampTSBSessionManager->WaitForNewVideoTsbFragment();
+	});
+
 	consumerThread.join();
 }

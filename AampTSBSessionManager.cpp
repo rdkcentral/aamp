@@ -109,6 +109,7 @@ void AampTSBSessionManager::Init()
 			mStopThread_.store(false);
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);
+			mStopWaitingForVideoTsb = false;
 			mInitialized_ = true;
 		}
 	}
