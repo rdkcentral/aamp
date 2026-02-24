@@ -582,17 +582,15 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_BoS)
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
 
-// Test RaiseNewVideoTsbContentNotification when downloads are enabled
-TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification_DownloadsEnabled)
+// Test RaiseNewVideoTsbContentNotification functionality
+TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification)
 {
-	mAamp->mDownloadsEnabled = true;
-
-	// Spawn a thread that waits for and consumes the notification
+	// Spawn a thread that waits for and consume the notification
 	std::thread consumerThread([this]() {
 		mAampTSBSessionManager->WaitForNewVideoTsbFragment();
 	});
 
-	// Brief sleep to allow thread to enter waiting state on condition variable
+	// Brief sleep to allow thread to enter waiting state
 	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -602,43 +600,3 @@ TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification_Downloads
 	// Wait for the consumer thread to complete
 	consumerThread.join();
 }
-
-// Test RaiseNewVideoTsbContentNotification when downloads are disabled
-TEST_F(AampTsbSessionManagerTests, RaiseNewVideoTsbContentNotification_DownloadsDisabled)
-{
-	// Necessary to ensure that waitForNewVideoTsbFragment does not return immediately
-	mAamp->mDownloadsEnabled = true;
-
-	// Spawn a thread that waits for and consumes the notification
-	std::thread consumerThread([this]() {
-		mAampTSBSessionManager->WaitForNewVideoTsbFragment();
-	});
-
-	// Brief sleep to allow thread to enter waiting state on condition variable
-	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-	//waitForNewVideoTsbFragment thread is running, now exercise the test criteria
-	mAamp->mDownloadsEnabled = false;
-
-	// Raise the notification from the main thread
-	mAampTSBSessionManager->RaiseNewVideoTsbContentNotification();
-
-	// Wait for the consumer thread to complete
-	consumerThread.join();
-}
-
-
-// Test WaitForNewVideoTsbFragment returns immediately when downloads are disabled
-TEST_F(AampTsbSessionManagerTests, WaitForNewVideoTsbFragment_DownloadsDisabled)
-{
-	mAamp->mDownloadsEnabled = false;
-
-	// Spawn a thread that waits for and consumes the notification
-	std::thread consumerThread([this]() {
-		mAampTSBSessionManager->WaitForNewVideoTsbFragment();
-	});
-	// Wait for the consumer thread to complete
-	consumerThread.join();
-}
-

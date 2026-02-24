@@ -63,7 +63,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mCurrentWritePosition(0)
 		, mLastAdReservationMetaDataProcessed()
 		, mLastAdPlacementMetaDataProcessed()
-		, mHasNewVideoTsbContent(false)
+		, mStopWaitingForVideoTsb(false)
 {
 }
 
@@ -377,20 +377,17 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 }
 
 void AampTSBSessionManager::RaiseNewVideoTsbContentNotification()
-{	// The predicate used for the wait is an OR of the new video TSB content and downloads disabled flags.
-	if (mAamp->mDownloadsEnabled)
-	{
-		std::unique_lock<std::mutex> lock(mReadMutex);
-		mHasNewVideoTsbContent = true;
-	}
+{
+	std::unique_lock<std::mutex> lock(mReadMutex);
+	mStopWaitingForVideoTsb = true;
 	mNewVideoTsbContentCV.notify_one();
 }
 
 void AampTSBSessionManager::WaitForNewVideoTsbFragment()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
-	mNewVideoTsbContentCV.wait(lock, [this]() { return mHasNewVideoTsbContent || !mAamp->mDownloadsEnabled; });
-	mHasNewVideoTsbContent = false;
+	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
+	mStopWaitingForVideoTsb = false;
 }
 
 /**

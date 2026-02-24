@@ -423,7 +423,7 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
 	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
-	bool mHasNewVideoTsbContent;			// Flag used in conjunction with conditional variable mNewVideoTsbContentCV to signal a segment has been added to the TSB
+	bool mStopWaitingForVideoTsb;			// Flag to signal video TSB reader to stop waiting (new content available or downloads disabled)
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
