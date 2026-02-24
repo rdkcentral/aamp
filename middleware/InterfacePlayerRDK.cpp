@@ -3973,6 +3973,8 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 	{
 		DestroyPipeline();
 	}
+//neil
+	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	MW_LOG_MIL("Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
 	interfacePlayerPriv->gstPrivateContext->pipeline = gst_pipeline_new(pipelineName); //get it from app
 
