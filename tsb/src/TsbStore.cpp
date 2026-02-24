@@ -27,6 +27,7 @@
 #include "TsbSem.h"
 #include "TsbLocationLock.h"
 #include "TsbFs.h"
+#include "FileLogger.h"
 
 #define TSB_BYTES_IN_MIB    (1024 * 1024)
 
@@ -285,6 +286,8 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 		throw std::invalid_argument("Failed to create flushDir");
 	}
 
+	FileLogger::setCustomFilename(mLocation);
+
 	mLocationLock = std::make_unique<LocationLock>(mLocation);
 	if (mLocationLock->Lock() == Status::FAILED)
 	{
@@ -302,6 +305,9 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 	// Move any stale files / directories present in the storage due to a non clean shutdown.
 	for (const auto& dir_entry : FS::directory_iterator{mLocation})
 	{
+		std::string filename = dir_entry.path().filename().string();
+		if (filename.find(FileLogger::LOG_FILENAME_BASE) != 0)  // Skip files starting with LOG_FILENAME_BASE
+		{
 		if (dir_entry.path() != flushDir)
 		{
 			FS::rename(dir_entry.path(), flushDir / dir_entry.path().filename(), ec);
@@ -310,6 +316,7 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 				TSB_LOG_ERROR(mLogger, "Failed to move stale directory", "path",
 								dir_entry.path(), "errorCode", ec);
 			}
+		}
 		}
 	}
 

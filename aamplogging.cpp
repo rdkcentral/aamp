@@ -36,7 +36,11 @@ using namespace std;
 #include <ethanlog.h>
 #else
 // stubs for use if USE_ETHAN_LOG not defined
-void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
+int ethanlog_vprint(int level, const char *filename, const char *function, int line, const char *format, va_list ap){
+	// Fallback to FileLogger - always log when ethanlog not available
+	FileLogger::getInstance().writeLog(format, ap);
+	return 0;
+}
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
 #define ETHAN_LOG_WARNING 2
@@ -154,7 +158,12 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* func, int line, const ch
 						ethanLogLevel = ETHAN_LOG_MILESTONE;
 						break;
 				}
-				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				int ethanlog_result = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				// Only fall back to FileLogger if ethanlog failed
+				if (ethanlog_result < 0) {
+					int saved_errno = errno;
+					FileLogger::getInstance().writeLog(format_ptr, args, saved_errno);
+				}
 			}
 			else
 			{

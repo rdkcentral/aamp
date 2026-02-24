@@ -31,12 +31,17 @@
 #include <atomic>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
+#include "FileLogger.h"
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
 #else
 // stubs for use if USE_ETHAN_LOG not defined
-static void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
+static int ethanlog_vprint(int level, const char *filename, const char *function, int line, const char *format, va_list ap){
+	// Fallback to FileLogger - always log when ethanlog not available
+	FileLogger::getInstance().writeLog(format, ap);
+	return 0;
+}
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
 #define ETHAN_LOG_WARNING 2
@@ -157,10 +162,16 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
 					    ethanLogLevel = ETHAN_LOG_MILESTONE;
 					    break;
 			    }
-			    vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+			    int ethanlog_result = ethanlog_vprint(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+			    // Only fall back to FileLogger if ethanlog failed
+			    if (ethanlog_result < 0) {
+				    int saved_errno = errno;
+				    FileLogger::getInstance().writeLog(format_ptr, args, saved_errno);
+			    }
 		    }
 		    else
 		    {
+				FileLogger::getInstance().writeLog(format_ptr, args);
 			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 			    sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 		    }

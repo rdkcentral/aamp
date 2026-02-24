@@ -51,8 +51,8 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
-# CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
-# option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
+# CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface"
+# option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface
 # components should be sourced from external repositories or built from the local aamp repository.
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
@@ -60,7 +60,7 @@ if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
 	pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
 	pkg_check_modules(SUBTEC REQUIRED libsubtec)
-endif()	
+endif()
 
 if(CMAKE_PREINIT_DECODER)
        message("CMAKE_PREINIT_DECODER Set")
@@ -221,14 +221,14 @@ set(LIBAAMP_DEPENDS
 
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 
-	list(APPEND LIBAAMP_DEPENDS 
-	${PLAYERFBINTERFACE_LINK_LIBRARIES} 
-	${BASECONVERSION_LINK_LIBRARIES} 
-	${PLAYERLOGMANAGER_LINK_LIBRARIES} 
-	${PLAYERGSTINTERFACE_LINK_LIBRARIES} 
+	list(APPEND LIBAAMP_DEPENDS
+	${PLAYERFBINTERFACE_LINK_LIBRARIES}
+	${BASECONVERSION_LINK_LIBRARIES}
+	${PLAYERLOGMANAGER_LINK_LIBRARIES}
+	${PLAYERGSTINTERFACE_LINK_LIBRARIES}
 	${SUBTEC_LINK_LIBRARIES} )
 
-	# TDB needs to bring back for UT. 
+	# TDB needs to bring back for UT.
 	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
 	# External player interface include directories
@@ -240,7 +240,7 @@ if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 		${SUBTEC_INCLUDE_DIRS}
 	)
 else()
-	# TDB needs to bring back for UT. 
+	# TDB needs to bring back for UT.
 	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 	# Adding subdirectories for internal libraries
 	include_directories(
@@ -318,14 +318,14 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
                 jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp
             )
         endif()
-	
+
 	add_library(aampjsbindings SHARED ${LIBJSBINDINGS_SOURCES})
 
     if(APPLE)
 
 		set(LIBJSBINDINGS_SIMULATOR_SOURCES
 			test/jsBindingTest/UVEBinding.cpp)
-        
+
         find_library(JSCORE_FRAMEWORK JavaScriptCore)
         if(NOT JSCORE_FRAMEWORK)
             message(FATAL_ERROR "JavaScriptCore framework not found on macOS")
@@ -340,7 +340,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
             COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES} "
             LINK_FLAGS "-framework JavaScriptCore"
         )
-		
+
 		install(TARGETS
 		 		aampjsbindings DESTINATION lib
 		)
@@ -402,7 +402,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
 		)
     endif()
 
-	
+
 
 else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
@@ -441,6 +441,7 @@ set(LIBAAMP_SOURCES
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
+	FileLogger.cpp
 	AampConfig.cpp AampConfig.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
@@ -665,6 +666,7 @@ install(FILES
 	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
+	FileLogger.h
 	AampDemuxDataTypes.h
 	abr/abr.h
 	abr/RollingMedianOutlierEstimator.h
