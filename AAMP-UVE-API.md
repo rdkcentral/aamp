@@ -89,7 +89,7 @@ This document is targeted to application developers who are interested in evalua
 	<body>
 		<div id="videoContainer">
 			<video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
-			    <source src="dummy.mp4" type=”video/ave”> <!-- hole  punching -->
+			    <source src="dummy.mp4" type=”video/ave”> <!-- hole punching -->
 			</video>
 		</div>
 	</body>
@@ -2469,7 +2469,7 @@ Example:
 - sessionHandle:string
 - system:string Identifies the content watermarking protection provider, i.e. "fmts_asid" (FriendMTS).  Note: this is only valid when using SecManager.
 - status:string Additional information regarding security system state.  See below table:
-  
+
 | Code      | Name         |   Definition
 | --------- |------------- |--------------
 | 1         | GRANTED      | No security issues
@@ -2712,12 +2712,12 @@ Response:
 ```
 
 
-## Inband (CEA608/708) Closed Caption Management (legacy XREReceiver API) 
+## Inband (CEA608/708) Closed Caption Management (legacy XREReceiver API)
 * on scaled X1 devices this is mapped directly to receiver APIs interacting with RDK CC Manager
     * here by default will inherit X1 caption style settings as set by user through guide settings
     * apps can override caption styling, but typically wouldn't need to do so
 * on non-XRE devices this is implemented as a wrapper for backwards compatibility, but with limitations - only default styles will ever be applied, and with no way for app to change, and won't reflect guide settings
- 
+
 To use legacy XREReceiver inband closed captions, first register an event listener to discover decoder handle:
 ```
 player.addEventListener("decoderAvailable", decoderHandleAvailable);
@@ -2749,7 +2749,7 @@ XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
 
 ## Inband (CEA608/708) Closed Caption Management (modern UVE/AAMP API)
 
-Configure nativeCCRendering to true to signal use of subtec for caption rendering. 
+Configure nativeCCRendering to true to signal use of subtec for caption rendering.
 ```
 player.initConfig( { nativeCCRendering: true } );
 
@@ -2759,19 +2759,22 @@ Toggle CC display on or off at runtime:
 player.setClosedCaptionStatus(true); // show captions (off by default)
 player.setClosedCaptionStatus(false); // mute captions
 ```
+
 Get/Set CC track at runtime:
-```
+
+```javascript
 player.getTextTrack(); // returns json object listing track attributes
 player.setTextTrack(trackIdentifier);
-
-Get/Set CC style options at runtime
 ```
-player.getTextStyleOptions(); // returns JSON object reflecting currently styling options
-player.setTextStyleOptions(options); // TODO: include examples known to work with RDK CC Manager and/or subtec
 
-On newer devices there is no need to call setTextStyleOptions, as the Text Track plugin will automatically map guide-configured caption styling.
+Get/Set CC style options at runtime:
 
+```javascript
+player.getTextStyleOptions(); // returns JSON object reflecting current styling options
+player.setTextStyleOptions(options);
 ```
+
+On newer devices there is no need to call `setTextStyleOptions`, as the Text Track plugin will automatically map guide-configured caption styling.
 
 ---
 
