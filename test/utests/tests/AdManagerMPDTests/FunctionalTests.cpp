@@ -123,7 +123,7 @@ public:
   {
     /* Setup fake AampGrowableBuffer contents. */
     buffer->clear();
-    buffer->AppendBytes((char *)mManifest, strlen(mManifest));
+    buffer->assign(mManifest, mManifest + strlen(mManifest));
     effectiveUrl = remoteUrl;
     *httpError = 200;
 
@@ -976,7 +976,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
       .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
         {
             buffer->clear();
-            buffer->AppendBytes((char*)manifest, strlen(manifest));
+            buffer->assign(manifest, manifest + strlen(manifest));
             *httpError = 200;
             effectiveUrl = remoteUrl;
             if (!this->mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->empty())

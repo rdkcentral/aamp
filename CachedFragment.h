@@ -125,9 +125,8 @@ public:
 	/**
 	 * @brief Copy content from another CachedFragment
 	 * @param other Source CachedFragment to copy from
-	 * @param len Length of data to copy from the fragment buffer
 	 */
-	void Copy(CachedFragment* other, size_t len);
+	void Copy(CachedFragment* other);
 
 	/**
 	 * @brief Clear all fragment data and reset to default values
