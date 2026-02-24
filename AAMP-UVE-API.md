@@ -258,6 +258,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preferredAudioType | String | - | Preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also. |
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs. Available in version 2.6. Values: 0 - NO_LANGCODE_PREFERENCE, 1 - 3_CHAR_BIBLIOGRAPHIC_LANGCODE, 2 - 3_CHAR_TERMINOLOGY_LANGCODE, 3 - 2_CHAR_LANGCODE |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions. |
+| preferredSubtitleLabel | String | - | Label of desired text track in the available text tracks list. Same can be done with setTextTrack API also. |
 | nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
 | enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
 | liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
@@ -1262,6 +1263,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | Name  | Type | Description |
 | ---- | ---- | ---- |
 | name  | String | Human readable language name e.g: sub_eng. |
+| label  | String | Represents the label of the text track. |
 | language  | String | iso language code. e.g: eng |
 | codec  | String | codec associated with text track. e.g: stpp |
 | rendition  | String | Role for DASH. e.g: caption,subtitle,main. |
@@ -1393,9 +1395,9 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | languages | String | comma-delimited ISO-639 text language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
-| label	| String | Preferred Label for automatic text selection |
-| accessibilityType | String |	Optional preferred accessibility Node for descriptive audio.|
-| accessibility | Object | Optional preferred accessibility object for audio |
+| label	| String | Optional preferred label for automatic text selection |
+| accessibilityType | String |	Optional preferred accessibility Node for descriptive text.|
+| accessibility | Object | Optional preferred accessibility object for text |
 | accessibility.scheme | String | Preferred Accessibility scheme Id  |
 | accessibility.int_value | Number | Preferred Accessibility scheme Id value |
 
@@ -1405,6 +1407,7 @@ var trackPreferenceObject =
 {
     "languages": ["en", "de", "mul"],
     "rendition": "subtitle",
+    "label": "native",
     "accessibility":
     {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
@@ -1432,6 +1435,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ```js
 {
     "name": "English"
+    "label": "native",
     "languages": "eng",
     "codec": "stpp"
     "type": "CLOSED-CAPTIONS"
@@ -1453,7 +1457,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ```js
 {
     "preferred-text-languages" : ["eng", "ger", "mul"],
-    "preferred-text-labels": "subtitle",
+    "preferred-text-label": "native",
     "preferred-text-rendition": "",
     "preferred-text-type": ""
     "preferred-text-accessibility":
@@ -1473,6 +1477,35 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 |Name|Type|Description|
 |----|----|-----------|
 | trackIndex | Number | Index of desired text track in the available text tracks list |
+
+---
+
+### setTextTrack( trackDescriptorObj )
+- Supported UVE version 3.2 and above.
+- Set the text track by language, rendition, label and instreamId from the available text tracklist.
+- "language" match always takes precedence over "rendition" match.
+- While playing passively to new periods with different track order/availability, or when tuning to new locator, heuristic for track selection is automatically re-applied.
+- Behavior is similar to setPreferredTextLanguage
+
+| Name  | Type | Description |
+| ---- | ---- | ---- |
+| language | String | Language of desired text track in the available text tracklist |
+| rendition | String | Rendition of desired text track in the available text tracklist |
+| label	| String	| Label of the text track |
+| instreamId	| String	| Optional preferred instreamId for closed captions (i.e. CC1, CC2) |
+| type	| String	| Optional preferred accessibility type for descriptive text |
+
+- ###### Example:
+```js
+var trackDescriptorObject =
+{
+    "language": "en",
+    "rendition": "subtitle",
+    "label": "native",
+    "type" : "subtitles"
+}
+playerInstance.setTextTrack( trackDescriptorObject );
+```
 
 ---
 
