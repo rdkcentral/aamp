@@ -506,7 +506,7 @@ void AampMPDDownloader::downloadMPDThread1()
 		}
 
 		//Timeout case during live refresh
-		if(!firstDownload && (CURLE_OPERATION_TIMEDOUT == mMPDData->mMPDDownloadResponse->iHttpRetValue  || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
 			AAMPLOG_WARN("Refresh every 500ms to handle a manifest timeout error.");
 			//Forcefully go with 500 ms refresh
