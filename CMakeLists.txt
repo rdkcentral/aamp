@@ -336,10 +336,13 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
 		set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
 
 		if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-			target_link_libraries(aampjsbindings PUBLIC aamp tsb ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES} ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+			list(APPEND LIBAAMPJSBINDINGS_DEPENDS ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES})
 		else()
-			target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+			list(APPEND LIBAAMPJSBINDINGS_DEPENDS playergstinterface playerfbinterface)
 		endif()
+
+		target_link_libraries(aampjsbindings PUBLIC aamp tsb ${AAMP_CLI_LD_FLAGS} ${LIBAAMPJSBINDINGS_DEPENDS})
+				
         set_target_properties(aampjsbindings PROPERTIES
             COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES} "
             LINK_FLAGS "-framework JavaScriptCore"
@@ -551,11 +554,13 @@ set(COMMON_COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
-else()
-	target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+
+if(NOT CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	list(APPEND LIBAAMP_DEPENDS playergstinterface playerfbinterface)
 endif()
+
+target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
@@ -577,12 +582,14 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+
+if(NOT CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 	# Note: Most libraries are already included via the aamp library dependency
-	target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
-else()
-	target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
+	list(APPEND AAMP_CLI_LD_FLAGS playergstinterface playerfbinterface)
 endif()
+
+target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
+
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
