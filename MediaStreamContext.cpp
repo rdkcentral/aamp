@@ -207,10 +207,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
 		cachedFragment->absPosition = 0;
 		cachedFragment->downloadStartTime = dnldStartTime;
-<<<<<<< VPLAY_10933_phase2_revised_helpers
-=======
 		cachedFragment->fragment.assign(ptr, ptr + size);
->>>>>>> dev_sprint_25_2
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		if (mActiveDownloadInfo)
 		{
@@ -258,14 +255,14 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 /**
  *  @brief Transfer buffer data into a CachedFragment.
  *
- *  In chunk mode the CURL buffer is ephemeral, so we must copy via AppendBytes().
- *  In fragment mode the download buffer can be moved via Replace() for zero-copy.
+ *  In chunk mode the data is assigned directly from the CURL callback pointer.
+ *  In fragment mode the download buffer contents are assigned and the source is freed.
  *
  *  @param[out] cached         Destination CachedFragment.
  *  @param[in]  chunkPayload   Chunk data pointer (chunk mode only).
  *  @param[in]  downloadBuffer Source growable buffer (fragment mode only).
  *  @param[in]  payloadSize    Chunk payload size in bytes.
- *  @param[in]  isChunkMode    true = AppendBytes, false = Replace.
+ *  @param[in]  isChunkMode    true = assign from raw pointer, false = assign from download buffer.
  */
 void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
                                                 const char* chunkPayload,
@@ -275,13 +272,15 @@ void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
 {
 	if (isChunkMode)
 	{
-		cached->fragment.AppendBytes(chunkPayload, payloadSize);
+		cached->fragment.assign(chunkPayload, chunkPayload + payloadSize);
 	}
 	else
 	{
 		if (downloadBuffer)
 		{
-			cached->fragment.Replace(downloadBuffer);
+			cached->fragment.assign(downloadBuffer->data(),
+									downloadBuffer->data() + downloadBuffer->size());
+			downloadBuffer->Free();
 		}
 	}
 }
