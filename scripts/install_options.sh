@@ -68,6 +68,9 @@ function install_options_fn()
   # Set remaining arguments for getopts processing
   set -- "${remaining_args[@]}"
 
+  # Reset OPTIND to ensure getopts starts from $1
+  OPTIND=1
+
   # Parse optional command line parameters
   while getopts ":d:b:cef:np:r:g:qsktu" OPT; do
     case ${OPT} in
@@ -157,23 +160,26 @@ function install_options_fn()
     esac
   done
 
+  # Shift off all processed option arguments, leaving only positional args
+  shift $((OPTIND - 1))
+
   # Parse project clean first, allows for subtec [clean]
-  if [[ ${@:$OPTIND:1} = "clean" ]]; then
+  if [[ ${1} = "clean" ]]; then
       OPTION_CLEAN=true
       shift
   fi
 
   # Parse subtec options
-  if  [[  ${@:$OPTIND:1} = "subtec" ]]; then
+  if  [[  ${1} = "subtec" ]]; then
     OPTION_SUBTEC_BUILD=true
     shift
-    if  [[  ${@:$OPTIND:1} = "clean" ]]; then
+    if  [[  ${1} = "clean" ]]; then
         OPTION_SUBTEC_CLEAN=true
         shift
     fi
   fi
 
-  if  [[ ${@:$OPTIND:1} = "rialto" ]]; then
+  if  [[ ${1} = "rialto" ]]; then
     OPTION_RIALTO_BUILD=true
     shift
   fi
