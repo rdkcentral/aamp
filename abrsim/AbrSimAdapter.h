@@ -215,6 +215,7 @@ private:
 	std::unique_ptr<ABRManager> mAbrManager;
 	bool mInitialized;
 	int mNetworkConsistencyCount;
+	int mDownloadCount;  // Track number of downloads for warmup period
 };
 
 } // namespace abrsim

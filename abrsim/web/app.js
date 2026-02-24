@@ -31,8 +31,13 @@ let bandwidthChart = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+	if (typeof Chart === 'undefined') {
+		showStatus('Failed to load Chart.js library. Please check your internet connection.', 'error');
+		return;
+	}
 	initializeUI();
 	loadPersonas();
+	loadProfiles();
 	setupEventListeners();
 });
 
@@ -96,6 +101,62 @@ async function loadScenarios() {
 		console.error('Failed to load scenarios:', error);
 		showStatus('Failed to load network scenarios', 'error');
 	}
+}
+
+// Store loaded profiles globally
+let availableProfiles = [];
+
+async function loadProfiles() {
+	try {
+		const response = await fetch(`${API_BASE}/api/profiles`);
+		const data = await response.json();
+		
+		availableProfiles = data.profiles || [];
+		
+		// Render profile checkboxes
+		const container = document.getElementById('profilesContainer');
+		container.innerHTML = '';
+		
+		if (availableProfiles.length === 0) {
+			container.innerHTML = '<div style="color: #666;">No profiles available</div>';
+			return;
+		}
+		
+		availableProfiles.forEach(profile => {
+			const label = document.createElement('label');
+			label.style.display = 'block';
+			label.style.marginBottom = '4px';
+			label.style.fontSize = '0.9em';
+			
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.value = profile.id;
+			checkbox.checked = profile.enabled !== false; // default to enabled
+			checkbox.id = `profile_${profile.id}`;
+			
+			const bitrateKbps = (profile.bitrate_bps / 1000).toFixed(0);
+			const text = document.createTextNode(` ${profile.name} (${bitrateKbps} kbps, ${profile.width}x${profile.height})`);
+			
+			label.appendChild(checkbox);
+			label.appendChild(text);
+			container.appendChild(label);
+		});
+	} catch (error) {
+		console.error('Failed to load profiles:', error);
+		const container = document.getElementById('profilesContainer');
+		container.innerHTML = '<div style="color: #c00;">Failed to load profiles</div>';
+	}
+}
+
+function getEnabledProfiles() {
+	const enabled = [];
+	availableProfiles.forEach(profile => {
+		const checkbox = document.getElementById(`profile_${profile.id}`);
+		if (checkbox && checkbox.checked) {
+			enabled.push(profile.id);
+		}
+	});
+	return enabled;
 }
 
 function updateScenarioInfo() {
@@ -175,7 +236,8 @@ async function runSimulation() {
 			is_live: document.getElementById('isLive').checked,
 			target_latency: parseFloat(document.getElementById('targetLatency').value),
 			max_buffer: parseFloat(document.getElementById('maxBuffer').value),
-			seed: parseInt(document.getElementById('seed').value)
+			seed: parseInt(document.getElementById('seed').value),
+			enabled_profiles: getEnabledProfiles() // Add selected profiles
 		};
 		
 		if (mode === 'persona') {
@@ -298,12 +360,26 @@ function displaySummary(summary, params) {
 }
 
 function displayCharts(events) {
+	// Check if we have any events
+	if (!events || events.length === 0) {
+		console.warn('No events to display');
+		showStatus('Simulation completed but produced no events. Check profile selection.', 'warning');
+		return;
+	}
+	
 	// Extract actual segment downloads with valid data (same filter for all charts)
 	const downloads = events.filter(e => 
 		e.event_type === 'download' && 
 		e.download_ms > 0 && 
 		e.throughput_bps > 0
 	);
+	
+	// Check if we have any valid downloads
+	if (downloads.length === 0) {
+		console.warn('No valid download events to display');
+		showStatus('Simulation completed but produced no valid downloads. Check profile selection.', 'warning');
+		return;
+	}
 	
 	// Find maximum timestamp across all events for consistent X-axis
 	const maxTime = Math.max(...events.map(e => e.time_s));
@@ -326,11 +402,14 @@ function displayCharts(events) {
 		};
 	});
 	
-	// Prepare timeline data
+	// Prepare timeline data and determine which profiles were actually used
+	const usedProfileIndices = new Set();
 	const timelineData = downloads.map(d => {
 		const downloadDuration = d.download_ms / 1000;
 		const endTime = d.time_s;
 		const startTime = Math.max(0, endTime - downloadDuration);
+		
+		usedProfileIndices.add(d.profile_idx);
 		
 		return {
 			profileIdx: d.profile_idx,
@@ -340,10 +419,25 @@ function displayCharts(events) {
 		};
 	});
 	
+	// Build profile info for the profiles that were actually used
+	// The enabled profiles in sequential order (0, 1, 2...) after renumbering
+	const enabledProfiles = availableProfiles.filter(p => {
+		const checkbox = document.getElementById(`profile_${p.id}`);
+		return checkbox && checkbox.checked;
+	}).sort((a, b) => a.id - b.id); // Sort by original ID to match C++ ordering
+	
+	// Create profile info array for timeline chart (maps renumbered index to profile data)
+	const profilesForTimeline = enabledProfiles.map((p, idx) => ({
+		index: idx,
+		name: p.name,
+		bitrate_bps: p.bitrate_bps,
+		used: usedProfileIndices.has(idx)
+	}));
+	
 	// Create/update charts with consistent time range
 	createBufferChart(times, bufferLevels, maxTime);
 	createBandwidthChart(bandwidthData, maxTime);
-	createTimelineChart(timelineData, maxTime);
+	createTimelineChart(timelineData, profilesForTimeline, maxTime);
 }
 
 function createBitrateChart(times, bitrates, profileChanges) {
@@ -575,17 +669,9 @@ function createBandwidthChart(bandwidthData, maxTime) {
 }
 
 function getBitrateFromProfile(profileIdx) {
-	// Standard profile bitrates (matching abrsim.cpp)
-	const profiles = [
-		235000,   // 0: 240p
-		375000,   // 1: 360p
-		750000,   // 2: 480p
-		1400000,  // 3: 720p
-		2800000,  // 4: 1080p
-		5000000,  // 5: 1080p high
-		8000000   // 6: 4K
-	];
-	return profiles[profileIdx] || 0;
+	// Look up bitrate from loaded profiles
+	const profile = availableProfiles.find(p => p.id === profileIdx);
+	return profile ? profile.bitrate_bps : 0;
 }
 
 function showStatus(message, type = 'info') {
@@ -598,36 +684,44 @@ function showStatus(message, type = 'info') {
 // Global variable for timeline chart
 let timelineChart = null;
 
-function createTimelineChart(timelineData, maxTime) {
+function createTimelineChart(timelineData, profilesInfo, maxTime) {
 	const ctx = document.getElementById('timelineChart');
 	
 	if (timelineChart) {
 		timelineChart.destroy();
 	}
 	
-	// Debug: Log first 10 downloads
-	console.log('Timeline data (first 10):');
-	timelineData.slice(0, 10).forEach((d, i) => {
-		console.log(`  ${i}: Profile ${d.profileIdx} at ${d.startTime.toFixed(2)}s-${d.endTime.toFixed(2)}s`);
+	// Debug: Log profile mapping
+	console.log('Profile mapping for timeline:');
+	profilesInfo.forEach(p => {
+		console.log(`  Index ${p.index}: ${p.name} (${(p.bitrate_bps/1000).toFixed(0)} kbps) - ${p.used ? 'USED' : 'unused'}`);
 	});
 	
-	// Build dataset for each profile
-	const profileBitrates = [235000, 375000, 750000, 1400000, 2800000, 5000000, 8000000];
-	const profileNames = [
-		'235k',
-		'375k',
-		'750k',
-		'1.4M',
-		'2.8M',
-		'5.0M',
-		'8.0M'
-	];
+	// Build Y-axis labels from enabled profiles (all enabled, not just used)
+	const yLabels = profilesInfo.map(p => {
+		const kbps = (p.bitrate_bps / 1000).toFixed(0);
+		return `${kbps}k`;
+	});
 	
-	// Single dataset with all downloads - Y position indicates profile
+	// Create index to label mapping
+	const indexToLabel = {};
+	profilesInfo.forEach((p, i) => {
+		indexToLabel[p.index] = yLabels[i];
+		console.log(`  indexToLabel[${p.index}] = '${yLabels[i]}'`);
+	});
+	
+	// Single dataset with all downloads - Y value is the category label string
+	// Store profileIdx for tooltip access
 	const data = timelineData.map(d => ({
 		x: [d.startTime, d.endTime],
-		y: d.profileIdx
+		y: indexToLabel[d.profileIdx], // Use category label instead of numeric index
+		profileIdx: d.profileIdx // Store for tooltip
 	}));
+	
+	console.log(`Sample timeline data points (first 5):`);
+	data.slice(0, 5).forEach((d, i) => {
+		console.log(`  [${i}] profileIdx=${timelineData[i].profileIdx} -> y='${d.y}' | time: ${d.x[0].toFixed(2)}-${d.x[1].toFixed(2)}s`);
+	});
 	
 	const datasets = [{
 		label: 'Segment Downloads',
@@ -661,12 +755,15 @@ function createTimelineChart(timelineData, maxTime) {
 							const data = context[0].raw;
 							const start = data.x[0].toFixed(2);
 							const end = data.x[1].toFixed(2);
-							const duration = (data.x[1] - data.x[0]).toFixed(3);
-							return `Download: ${start}s - ${end}s (${duration}s)`;
+							const profileIdx = data.profileIdx; // Use stored numeric index
+							const profile = profilesInfo.find(p => p.index === profileIdx);
+							const bitrate = profile ? (profile.bitrate_bps / 1000).toFixed(0) : 'Unknown';
+							return `Profile: ${bitrate} kbps | ${start}s - ${end}s`;
 						},
 						label: (context) => {
-							const profileIdx = context.raw.y;
-							return profileNames[Math.round(profileIdx)];
+							const data = context[0].raw;
+							const duration = (data.x[1] - data.x[0]).toFixed(3);
+							return `Duration: ${duration}s`;
 						}
 					}
 				}
@@ -677,37 +774,20 @@ function createTimelineChart(timelineData, maxTime) {
 					position: 'bottom',
 					title: {
 						display: true,
-						text: 'Simulation Time (seconds)'
+						text: 'Time (seconds)'
 					},
 					min: 0,
-					max: maxTime,
-					grid: {
-						display: true
-					}
+					max: maxTime
 				},
 				y: {
-					type: 'linear',
-					min: -0.5,
-					max: 6.5,
-					reverse: false,
-					ticks: {
-						stepSize: 1,
-						callback: function(value) {
-							const idx = Math.round(value);
-							if (idx >= 0 && idx <= 6) {
-								return profileNames[idx];
-							}
-							return '';
-						}
-					},
+					type: 'category',
+					labels: yLabels,
+					reverse: true, // Highest profiles at top
 					title: {
 						display: true,
-						text: 'Video Bitrate'
+						text: 'Bitrate Profile'
 					},
-					grid: {
-						display: true,
-						drawBorder: true
-					}
+					offset: true
 				}
 			}
 		}

@@ -73,6 +73,7 @@ AbrSimAdapter::AbrSimAdapter()
 	: mAbrManager(std::make_unique<ABRManager>())
 	, mInitialized(false)
 	, mNetworkConsistencyCount(DEFAULT_ABR_NW_CONSISTENCY_COUNT)
+	, mDownloadCount(0)
 {
 	// Use Harmonic EWMA by default (smoother for simulation)
 	mAbrManager->SelectBandwidthEstimationAlgorithm(
@@ -109,6 +110,9 @@ void AbrSimAdapter::reportDownload(const SimDownloadMetrics& metrics, bool isLow
 		// Report to AAMP's bandwidth estimator
 		DownloadMetrics aampMetrics = toAampMetrics(metrics);
 		mAbrManager->ReportDownloadComplete(downloadBps, isLowLatency, aampMetrics);
+		
+		// Track download count for warmup period
+		mDownloadCount++;
 	}
 }
 
@@ -131,6 +135,11 @@ int AbrSimAdapter::getInitialProfile(bool chooseMedium) {
 
 int AbrSimAdapter::makeAbrDecision(int currentProfile, const AbrDecisionContext& context) {
 	if (!mInitialized) {
+		return currentProfile;
+	}
+	
+	// Warmup period: Stay at initial profile for first 3 segments to gather bandwidth samples
+	if (mDownloadCount < 3) {
 		return currentProfile;
 	}
 	

@@ -72,6 +72,8 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			self.handle_list_personas()
 		elif parsed_path.path == '/api/scenarios':
 			self.handle_list_scenarios()
+		elif parsed_path.path == '/api/profiles':
+			self.handle_list_profiles()
 		elif parsed_path.path == '/api/status':
 			self.handle_status()
 		
@@ -149,6 +151,21 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		except Exception as e:
 			self.send_error(500, f"Error listing scenarios: {str(e)}")
 	
+	def handle_list_profiles(self):
+		"""Load and return available ABR profiles"""
+		try:
+			profiles_file = ABRSIM_DIR / 'profiles.json'
+			if not profiles_file.exists():
+				self.send_error(404, "profiles.json not found")
+				return
+			
+			with open(profiles_file) as f:
+				profiles_data = json.load(f)
+			
+			self.send_json_response(profiles_data)
+		except Exception as e:
+			self.send_error(500, f"Error loading profiles: {str(e)}")
+	
 	def handle_status(self):
 		"""Return server status"""
 		status = {
@@ -225,13 +242,31 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			if seed > 0:
 				cmd.extend(['--seed', str(seed)])
 			
+			# Add enabled profiles if specified
+			enabled_profiles = params.get('enabled_profiles', [])
+			if enabled_profiles:
+				for profile_id in enabled_profiles:
+					cmd.extend(['--enable-profile', str(profile_id)])
+			
 			# Run simulation
+			print(f"\n{'='*60}")
+			print(f"Running: {' '.join(cmd)}")
+			print(f"{'='*60}")
 			result = subprocess.run(
 				cmd,
 				capture_output=True,
 				text=True,
 				timeout=60
 			)
+			
+			# Print stdout/stderr for debugging
+			if result.stdout:
+				print("--- Simulation Output ---")
+				print(result.stdout)
+			if result.stderr:
+				print("--- Simulation Errors ---")
+				print(result.stderr)
+			print(f"{'='*60}\n")
 			
 			if result.returncode != 0:
 				self.send_error(500, f"Simulation failed: {result.stderr}")

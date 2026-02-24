@@ -544,6 +544,87 @@ static bool LoadPersona(const std::string& filename, NetworkCharacteristics& nc)
 	return true;
 }
 
+// Helper function to find array in JSON and extract profile objects
+static bool LoadProfiles(const std::string& filename, VideoProfileLadder& ladder, 
+                         const std::vector<int>& enabledIds = {}) {
+	std::ifstream ifs(filename);
+	if (!ifs) {
+		std::cerr << "Failed to open profiles file: " << filename << std::endl;
+		return false;
+	}
+	
+	std::stringstream buf;
+	buf << ifs.rdbuf();
+	std::string json = buf.str();
+	
+	// Parse segment duration
+	FindNumber(json, "segment_duration_s", ladder.segmentDurationS);
+	
+	// Find profiles array
+	size_t profilesStart = json.find("\"profiles\"");
+	if (profilesStart == std::string::npos) {
+		std::cerr << "No 'profiles' array found in JSON\n";
+		return false;
+	}
+	
+	size_t arrayStart = json.find('[', profilesStart);
+	if (arrayStart == std::string::npos) return false;
+	
+	// Parse each profile object
+	size_t pos = arrayStart + 1;
+	int nextIndex = 0; // Renumber profiles sequentially starting from 0
+	while (pos < json.size()) {
+		// Find next object start
+		size_t objStart = json.find('{', pos);
+		if (objStart == std::string::npos) break;
+		
+		// Find matching closing brace
+		size_t objEnd = json.find('}', objStart);
+		if (objEnd == std::string::npos) break;
+		
+		std::string profileObj = json.substr(objStart, objEnd - objStart + 1);
+		
+		// Extract profile fields
+		int id = 0;
+		double bitrate = 0, width = 0, height = 0;
+		
+		if (FindInt(profileObj, "id", id) &&
+		    FindNumber(profileObj, "bitrate_bps", bitrate) &&
+		    FindNumber(profileObj, "width", width) &&
+		    FindNumber(profileObj, "height", height)) {
+			
+			// Check if this profile should be enabled
+			bool shouldAdd = enabledIds.empty(); // If no filter, add all
+			if (!shouldAdd) {
+				for (int enabledId : enabledIds) {
+					if (enabledId == id) {
+						shouldAdd = true;
+						break;
+					}
+				}
+			}
+			
+			if (shouldAdd) {
+				// Use sequential index instead of original ID to avoid gaps
+				ladder.addProfile(nextIndex++, static_cast<int64_t>(bitrate), 
+				                 static_cast<int>(width), static_cast<int>(height), 0, 0);
+			}
+		}
+		
+		pos = objEnd + 1;
+		
+		// Check if we've reached end of profiles array
+		size_t nextComma = json.find(',', pos);
+		size_t arrayEnd = json.find(']', pos);
+		if (arrayEnd != std::string::npos && 
+		    (nextComma == std::string::npos || arrayEnd < nextComma)) {
+			break;
+		}
+	}
+	
+	return !ladder.profiles.empty();
+}
+
 static bool LoadScenario(const std::string& filename, NetworkScenario& scenario) {
 	std::ifstream ifs(filename);
 	if (!ifs) {
@@ -672,9 +753,12 @@ public:
 		// Select bandwidth estimation algorithm (use Harmonic EWMA for smoother results)
 		mAbrAdapter->selectBandwidthEstimationAlgorithm(1); // 1 = Harmonic EWMA
 		
-		// Get initial profile from ABR
-		mCurrentProfile = mAbrAdapter->getInitialProfile(false);
+		// Get initial profile from ABR (true = choose middle profile)
+		// Note: false would use DEFAULT_BITRATE (1Mbps) which is too conservative
+		mCurrentProfile = mAbrAdapter->getInitialProfile(true);
 		std::cout << "Using AAMP's real ABR algorithm\n";
+		std::cout << "Initial profile selected: " << mCurrentProfile << " (" 
+		          << ladder.getProfile(mCurrentProfile)->bitrateBps / 1000 << " kbps)\n";
 #else
 		// Start with mid-range profile
 		mCurrentProfile = ladder.profiles.size() / 2;
@@ -972,8 +1056,33 @@ private:
 			metrics.timeToFirstByteSeconds = 0.1; // Approximate TTFB
 			mAbrAdapter->reportDownload(metrics, mIsLive);
 			
+			// Get bandwidth estimates for debugging
+			int64_t currentBw = mAbrAdapter->getCurrentBandwidth();
+			int64_t networkBw = mAbrAdapter->getNetworkBandwidth();
+			
 			// Get ABR decision
 			int decision = mAbrAdapter->makeAbrDecision(mCurrentProfile, context);
+			
+			// Debug: Log ABR decisions and bandwidth periodically
+			if (mCurrentSegmentNum % 10 == 0) {
+				std::cout << "[ABR] seg=" << mCurrentSegmentNum 
+				          << " profile=" << mCurrentProfile 
+				          << " dlThr=" << (result.throughputBps / 1000) << "kbps"
+				          << " currentBw=" << (currentBw / 1000) << "kbps"
+				          << " networkBw=" << (networkBw / 1000) << "kbps"
+				          << " buffer=" << std::fixed << std::setprecision(1) << context.currentBufferSeconds << "s";
+				if (decision != mCurrentProfile) {
+					std::cout << " -> SWITCHING to " << decision;
+				}
+				std::cout << "\n";
+			}
+			
+			// Also log actual profile changes
+			if (decision != mCurrentProfile) {
+				std::cout << "[ABR] PROFILE CHANGE at t=" << mSimTimeS << "s: " 
+				          << mCurrentProfile << " -> " << decision << "\n";
+			}
+			
 			return decision;
 		}
 #endif
@@ -1018,6 +1127,8 @@ void printUsage(const char* progName) {
 	          << "Options:\n"
 	          << "  --persona <file>      Network persona JSON file\n"
 	          << "  --scenario <file>     Network scenario JSON file (multi-stage simulation)\n"
+	          << "  --profiles <file>     Profiles configuration file (default: profiles.json)\n"
+	          << "  --enable-profile <id> Enable only specific profile ID (can be used multiple times)\n"
 	          << "  --duration <secs>     Simulation duration in seconds (default: 3600)\n"
 	          << "  --out <file>          Output CSV filename (default: abrsim.csv)\n"
 	          << "  --seed <n>            Random seed (default: random)\n"
@@ -1028,18 +1139,22 @@ void printUsage(const char* progName) {
 	          << "\nExamples:\n"
 	          << "  VOD:      " << progName << " --persona network.json --max-buffer 20 --duration 7200\n"
 	          << "  Live:     " << progName << " --persona network.json --live --target-latency 8 --duration 3600\n"
-	          << "  Scenario: " << progName << " --scenario degradation.json --duration 140\n";
+	          << "  Scenario: " << progName << " --scenario degradation.json --duration 140\n"
+	          << "  Custom profiles: " << progName << " --persona network.json --profiles my_profiles.json\n"
+	          << "  Limited profiles: " << progName << " --persona network.json --enable-profile 2 --enable-profile 3 --enable-profile 4\n";
 }
 
 int main(int argc, char* argv[]) {
 	std::string personaFile;
 	std::string scenarioFile;
+	std::string profilesFile = "profiles.json"; // Default profiles configuration
 	double durationS = 3600.0;
 	std::string outFile = "abrsim.csv";
 	uint64_t seed = 0;
 	bool isLive = false;
 	double targetLatencyS = 8.0;
 	double maxBufferS = 20.0;
+	std::vector<int> enabledProfiles; // Empty = all profiles enabled
 	
 	// Parse command line arguments
 	for (int i = 1; i < argc; ++i) {
@@ -1048,6 +1163,10 @@ int main(int argc, char* argv[]) {
 			personaFile = argv[++i];
 		} else if (arg == "--scenario" && i + 1 < argc) {
 			scenarioFile = argv[++i];
+		} else if (arg == "--profiles" && i + 1 < argc) {
+			profilesFile = argv[++i];
+		} else if (arg == "--enable-profile" && i + 1 < argc) {
+			enabledProfiles.push_back(std::stoi(argv[++i]));
 		} else if (arg == "--duration" && i + 1 < argc) {
 			durationS = std::stod(argv[++i]);
 		} else if (arg == "--out" && i + 1 < argc) {
@@ -1083,20 +1202,14 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 	
-	// Create typical DASH video profile ladder
+	// Load video profile ladder from JSON configuration
 	VideoProfileLadder ladder;
-	ladder.segmentDurationS = 2.0;
+	if (!LoadProfiles(profilesFile, ladder, enabledProfiles)) {
+		std::cerr << "Error: Failed to load profiles from " << profilesFile << std::endl;
+		return 1;
+	}
 	
-	// Add profiles (typical HLS/DASH ladder)
-	ladder.addProfile(0,  235000,   426,  240, 0, 0);  // 235 kbps
-	ladder.addProfile(1,  375000,   640,  360, 0, 0);  // 375 kbps
-	ladder.addProfile(2,  750000,   854,  480, 0, 0);  // 750 kbps
-	ladder.addProfile(3, 1400000,  1280,  720, 0, 0);  // 1.4 Mbps
-	ladder.addProfile(4, 2800000,  1920, 1080, 0, 0);  // 2.8 Mbps
-	ladder.addProfile(5, 5000000,  1920, 1080, 0, 0);  // 5.0 Mbps
-	ladder.addProfile(6, 8000000,  3840, 2160, 0, 0);  // 8.0 Mbps
-	
-	std::cout << "Created profile ladder with " << ladder.profiles.size() << " profiles\n";
+	std::cout << "Loaded profile ladder with " << ladder.profiles.size() << " profiles\n";
 	
 	// Run simulation (either single persona or multi-stage scenario)
 	if (!scenarioFile.empty()) {
