@@ -221,7 +221,7 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
  * @param[out] referenced_duration referenced duration
  * @retval true on success
  */
-bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
+bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
 {
 	if (!start)
 	{
@@ -229,7 +229,7 @@ bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, uns
 		return false;
 	}
 
-	const char **f = &start;
+	const uint8_t **f = &start;
 
 	unsigned int len = Read32(f);
 	if (len != size)
@@ -297,14 +297,14 @@ bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, uns
  * @param[in] n word size in bytes
  * @retval 32 bit value
  */
-uint64_t ReadWordHelper( const char **pptr, int n )
+uint64_t ReadWordHelper( const uint8_t **pptr, int n )
 {
-	const char *ptr = *pptr;
+	const uint8_t *ptr = *pptr;
 	uint64_t rc = 0;
 	while( n-- )
 	{
 		rc <<= 8;
-		rc |= (unsigned char)*ptr++;
+		rc |= *ptr++;
 	}
 	*pptr = ptr;
 	return rc;
@@ -315,7 +315,7 @@ uint64_t ReadWordHelper( const char **pptr, int n )
  * @param pptr pointer to read from
  * @retval word value
  */
-unsigned int Read16( const char **pptr)
+unsigned int Read16( const uint8_t **pptr)
 {
 	return (unsigned int)ReadWordHelper(pptr,2);
 }
@@ -325,7 +325,7 @@ unsigned int Read16( const char **pptr)
  * @param pptr pointer to read from
  * @retval word value
  */
-unsigned int Read32( const char **pptr)
+unsigned int Read32( const uint8_t **pptr)
 {
 	return (unsigned int)ReadWordHelper(pptr,4);
 }
@@ -335,7 +335,7 @@ unsigned int Read32( const char **pptr)
  * @param pptr pointer to read from
  * @retval word value
  */
-uint64_t Read64( const char **pptr)
+uint64_t Read64( const uint8_t **pptr)
 {
 	return ReadWordHelper(pptr,8);
 }

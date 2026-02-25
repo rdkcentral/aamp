@@ -1616,7 +1616,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				{
 					unsigned int firstOffset;
 					ParseSegmentIndexBox(
-										 reinterpret_cast<char*>(pMediaStreamContext->IDX.data()),
+										 pMediaStreamContext->IDX.data(),
 										 pMediaStreamContext->IDX.size(),
 										 0,
 										 NULL,
@@ -1633,7 +1633,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 					{
 						if (ParseSegmentIndexBox(
-												 reinterpret_cast<char*>(pMediaStreamContext->IDX.data()),
+												 pMediaStreamContext->IDX.data(),
 												 pMediaStreamContext->IDX.size(),
 												 i,
 												 &referenced_size,
@@ -1650,7 +1650,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				unsigned int referenced_size;
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(
-										 reinterpret_cast<char*>(pMediaStreamContext->IDX.data()),
+										 pMediaStreamContext->IDX.data(),
 										 pMediaStreamContext->IDX.size(),
 										 pMediaStreamContext->fragmentIndex++,
 										 &referenced_size,
@@ -1664,7 +1664,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					float nextfragmentDuration;
 					uint64_t nextfragmentOffset;
 					if (ParseSegmentIndexBox(
-							reinterpret_cast<char*>(pMediaStreamContext->IDX.data()),
+							pMediaStreamContext->IDX.data(),
 							pMediaStreamContext->IDX.size(),
 							pMediaStreamContext->fragmentIndex,
 							&nextReferencedSize,
@@ -2446,7 +2446,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				while ((fragmentTime < skipTime + presentationTimeOffsetSec ) || skipToEnd)
 				{
 					if (ParseSegmentIndexBox(
-											 reinterpret_cast<char*>(pMediaStreamContext->IDX.data()),
+											 pMediaStreamContext->IDX.data(),
 											 pMediaStreamContext->IDX.size(),
 											 fragmentIndex++,
 											 &referenced_size,
@@ -8276,7 +8276,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								unsigned int referenced_size;
 								float fragmentDuration;
 								if (ParseSegmentIndexBox(
-										reinterpret_cast<char*>(pMediaStreamContext->IDX.data()),
+										pMediaStreamContext->IDX.data(),
 										pMediaStreamContext->IDX.size(),
 										pMediaStreamContext->fragmentIndex,
 										&referenced_size,

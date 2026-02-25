@@ -62,7 +62,7 @@ void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *f
  * @param[out] referenced_duration referenced duration
  * @retval true on success
  */
-bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
+bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
 {
 	return true;
 }

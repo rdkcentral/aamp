@@ -245,7 +245,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		 */
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, reinterpret_cast<const void*>(cachedFragment->fragment.data()));
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, static_cast<const void*>(cachedFragment->fragment.data()));
 		UpdateTSAfterChunkFetch();
 	}
 	else
@@ -638,7 +638,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, reinterpret_cast<const void*>(cachedFragment->fragment.data()), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, static_cast<const void*>(cachedFragment->fragment.data()), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
@@ -870,7 +870,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			{
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
-										reinterpret_cast<const char*>(IDX.data()),
+										IDX.data(),
 										IDX.size(),
 										0,
 										NULL,
@@ -887,7 +887,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				for (int i = 0; i < dlInfo->fragmentIndex; i++)
 				{
 					if (ParseSegmentIndexBox(
-												reinterpret_cast<const char*>(IDX.data()),
+												IDX.data(),
 												IDX.size(),
 												i,
 												&referenced_size,
@@ -901,7 +901,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			unsigned int referenced_size;
 			float fragmentDuration;
 			if (ParseSegmentIndexBox(
-										reinterpret_cast<const char*>(IDX.data()),
+										IDX.data(),
 										IDX.size(),
 										dlInfo->fragmentIndex,
 										&referenced_size,
