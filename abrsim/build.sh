@@ -24,6 +24,14 @@
 
 set -e
 
+# Verify we're running from the correct directory
+if [ ! -f "abrsim.cpp" ] || [ ! -f "build.sh" ]; then
+    echo "✗ Error: Must be run from the abrsim directory"
+    echo "  Current directory: $(pwd)"
+    echo "  Expected files: abrsim.cpp, build.sh"
+    exit 1
+fi
+
 echo "Building AAMP ABR Simulator..."
 
 # Compiler settings

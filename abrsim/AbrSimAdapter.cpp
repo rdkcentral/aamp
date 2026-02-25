@@ -29,6 +29,10 @@
 namespace abrsim {
 
 // Default network consistency count if not defined by AAMP
+// This controls how many consecutive bandwidth samples must support a profile
+// change before ABR will switch. Lower values = more responsive to changes,
+// higher values = more stable but slower to adapt.
+// Value of 2 means ABR needs 2 consecutive measurements supporting the change.
 #ifndef DEFAULT_ABR_NW_CONSISTENCY_COUNT
 #define DEFAULT_ABR_NW_CONSISTENCY_COUNT 2
 #endif

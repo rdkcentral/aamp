@@ -42,7 +42,7 @@
  *         ../abr/RollingMedianOutlierEstimator.cpp
  * 
  * Usage:
- *   ./abrsim --manifest profiles.json --persona network.json \
+ *   ./abrsim --manifest profiles-uhd.json --persona network.json \
  *            --duration 7200 --out report.csv
  */
 
@@ -1042,7 +1042,13 @@ private:
 			abrsim::AbrDecisionContext context{};
 			context.currentBufferSeconds = mBuffer.getCurrentBuffer();
 			context.targetBufferSeconds = mIsLive ? mTargetLatencyS : mMaxBufferS;
+			
+			// Minimum buffer threshold for ABR ramp-down decisions
+			// When buffer drops below this, ABR becomes more aggressive about
+			// switching to lower profiles to avoid rebuffering.
+			// Value of 2.0 seconds provides safety margin before playback stalls.
 			context.minBufferSeconds = 2.0;
+			
 			context.isLive = mIsLive;
 			context.currentLatencySeconds = mIsLive ? 
 				(mLiveEdgeS - (mSimTimeS - mBuffer.getCurrentBuffer())) : 0.0;
@@ -1127,7 +1133,7 @@ void printUsage(const char* progName) {
 	          << "Options:\n"
 	          << "  --persona <file>      Network persona JSON file\n"
 	          << "  --scenario <file>     Network scenario JSON file (multi-stage simulation)\n"
-	          << "  --profiles <file>     Profiles configuration file (default: profiles.json)\n"
+	          << "  --profiles <file>     Profiles configuration file (default: profiles-uhd.json)\n"
 	          << "  --enable-profile <id> Enable only specific profile ID (can be used multiple times)\n"
 	          << "  --duration <secs>     Simulation duration in seconds (default: 3600)\n"
 	          << "  --out <file>          Output CSV filename (default: abrsim.csv)\n"
@@ -1140,14 +1146,14 @@ void printUsage(const char* progName) {
 	          << "  VOD:      " << progName << " --persona network.json --max-buffer 20 --duration 7200\n"
 	          << "  Live:     " << progName << " --persona network.json --live --target-latency 8 --duration 3600\n"
 	          << "  Scenario: " << progName << " --scenario degradation.json --duration 140\n"
-	          << "  Custom profiles: " << progName << " --persona network.json --profiles my_profiles.json\n"
+	          << "  Custom profiles: " << progName << " --persona network.json --profiles profiles-custom.json\n"
 	          << "  Limited profiles: " << progName << " --persona network.json --enable-profile 2 --enable-profile 3 --enable-profile 4\n";
 }
 
 int main(int argc, char* argv[]) {
 	std::string personaFile;
 	std::string scenarioFile;
-	std::string profilesFile = "profiles.json"; // Default profiles configuration
+	std::string profilesFile = "profiles-uhd.json"; // Default profiles configuration
 	double durationS = 3600.0;
 	std::string outFile = "abrsim.csv";
 	uint64_t seed = 0;

@@ -96,10 +96,36 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		else:
 			self.send_error(404, "Endpoint not found")
 	
-	def serve_file(self, filepath, content_type):
-		"""Serve a static file"""
+	def _safe_static_path(self, filepath):
+		"""
+		Validate that filepath is within WEB_DIR to prevent path traversal.
+		
+		Returns the resolved safe path if valid, None otherwise.
+		"""
 		try:
-			with open(filepath, 'rb') as f:
+			# Resolve both base directory and requested file to absolute paths
+			base_dir = WEB_DIR.resolve()
+			requested_path = filepath.resolve()
+			
+			# Check if requested path is within base directory
+			requested_path.relative_to(base_dir)
+			
+			return requested_path
+		except (ValueError, RuntimeError):
+			# relative_to raises ValueError if not relative
+			# resolve() can raise RuntimeError if path doesn't exist (with strict=True)
+			return None
+	
+	def serve_file(self, filepath, content_type):
+		"""Serve a static file with path traversal protection"""
+		# Validate path is within WEB_DIR
+		safe_path = self._safe_static_path(filepath)
+		if safe_path is None:
+			self.send_error(403, "Access denied")
+			return
+		
+		try:
+			with open(safe_path, 'rb') as f:
 				content = f.read()
 			self.send_response(200)
 			self.send_header('Content-type', content_type)
@@ -107,7 +133,7 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			self.end_headers()
 			self.wfile.write(content)
 		except FileNotFoundError:
-			self.send_error(404, f"File not found: {filepath}")
+			self.send_error(404, f"File not found")
 		except Exception as e:
 			self.send_error(500, f"Internal error: {str(e)}")
 	
@@ -154,9 +180,9 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 	def handle_list_profiles(self):
 		"""Load and return available ABR profiles"""
 		try:
-			profiles_file = ABRSIM_DIR / 'profiles.json'
+			profiles_file = ABRSIM_DIR / 'profiles-uhd.json'
 			if not profiles_file.exists():
-				self.send_error(404, "profiles.json not found")
+				self.send_error(404, "profiles-uhd.json not found")
 				return
 			
 			with open(profiles_file) as f:
