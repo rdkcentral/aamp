@@ -427,7 +427,7 @@ function displayCharts(events) {
 	const enabledProfiles = availableProfiles.filter(p => {
 		const checkbox = document.getElementById(`profile_${p.id}`);
 		return checkbox && checkbox.checked;
-	}).sort((a, b) => a.id - b.id); // Sort by original ID to match C++ ordering
+	}).sort((a, b) => b.bitrate_bps - a.bitrate_bps); // Sort by bitrate descending (highest first)
 	
 	// Create profile info array for timeline chart (maps renumbered index to profile data)
 	const profilesForTimeline = enabledProfiles.map((p, idx) => ({
@@ -702,8 +702,7 @@ function createTimelineChart(timelineData, profilesInfo, maxTime) {
 	
 	// Build Y-axis labels from enabled profiles (all enabled, not just used)
 	const yLabels = profilesInfo.map(p => {
-		const kbps = (p.bitrate_bps / 1000).toFixed(0);
-		return `${kbps}k`;
+		return p.name; // Use profile name (e.g., "720p")
 	});
 	
 	// Create index to label mapping
@@ -730,8 +729,8 @@ function createTimelineChart(timelineData, profilesInfo, maxTime) {
 		label: 'Segment Downloads',
 		data: data,
 		backgroundColor: 'rgba(75, 192, 192, 0.7)',
-		borderColor: 'rgba(75, 192, 192, 1)',
-		borderWidth: 1,
+		borderColor: 'rgba(0, 0, 0, 0.5)',
+		borderWidth: 1.5,
 		categoryPercentage: 1.0,
 		barPercentage: 0.8
 	}];
@@ -785,7 +784,7 @@ function createTimelineChart(timelineData, profilesInfo, maxTime) {
 				y: {
 					type: 'category',
 					labels: yLabels,
-					reverse: true, // Highest profiles at top
+					reverse: false, // Already sorted highest to lowest
 					title: {
 						display: true,
 						text: 'Bitrate Profile'
