@@ -81,9 +81,19 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		elif parsed_path.path == '/' or parsed_path.path == '/index.html':
 			self.serve_file(WEB_DIR / 'index.html', 'text/html')
 		elif parsed_path.path.endswith('.js'):
-			self.serve_file(WEB_DIR / parsed_path.path.lstrip('/'), 'application/javascript')
+			# Normalize path to prevent traversal before constructing full path
+			relative_path = parsed_path.path.lstrip('/')
+			if '..' in relative_path or relative_path.startswith('/'):
+				self.send_error(403, "Access denied")
+				return
+			self.serve_file(WEB_DIR / relative_path, 'application/javascript')
 		elif parsed_path.path.endswith('.css'):
-			self.serve_file(WEB_DIR / parsed_path.path.lstrip('/'), 'text/css')
+			# Normalize path to prevent traversal before constructing full path
+			relative_path = parsed_path.path.lstrip('/')
+			if '..' in relative_path or relative_path.startswith('/'):
+				self.send_error(403, "Access denied")
+				return
+			self.serve_file(WEB_DIR / relative_path, 'text/css')
 		else:
 			self.send_error(404, "File not found")
 	
@@ -95,7 +105,6 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			self.handle_simulate()
 		else:
 			self.send_error(404, "Endpoint not found")
-	
 	def _safe_static_path(self, filepath):
 		"""
 		Validate that filepath is within WEB_DIR to prevent path traversal.
