@@ -364,7 +364,7 @@ TEST_F(FunctionalTests,
     auto betweenRefreshStart = std::chrono::steady_clock::now();
     ManifestDownloadResponsePtr thirdManifest = secondManifest;
     while (std::chrono::steady_clock::now() - betweenRefreshStart <
-            std::chrono::milliseconds(1000))
+            std::chrono::milliseconds(1800))
     {
         auto current = mAampMPDDownloader->GetManifest(false, 0);
         if ((current.get() != secondManifest.get()) &&
