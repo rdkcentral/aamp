@@ -345,16 +345,37 @@ TEST_F(FunctionalTests,
     ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
     ASSERT_TRUE(firstManifest->mIsLiveManifest);
 
-    ManifestDownloadResponsePtr secondManifest =
-        mAampMPDDownloader->GetManifest(true, 3000);
-    ASSERT_TRUE(secondManifest != nullptr);
+    ManifestDownloadResponsePtr secondManifest = firstManifest;
+    auto secondStart = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - secondStart <
+            std::chrono::seconds(8))
+    {
+        auto current = mAampMPDDownloader->GetManifest(false, 0);
+        if ((current.get() != firstManifest.get()) &&
+            IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
+        {
+            secondManifest = current;
+            break;
+        }
+        usleep(100 * 1000);
+    }
     ASSERT_TRUE(secondManifest.get() != firstManifest.get());
-    ASSERT_TRUE(IsCurlTimeoutFailure(
-        secondManifest->mMPDDownloadResponse->iHttpRetValue));
 
-    ManifestDownloadResponsePtr thirdManifest =
-        mAampMPDDownloader->GetManifest(true, 1500);
-    ASSERT_TRUE(thirdManifest != nullptr);
+    auto betweenRefreshStart = std::chrono::steady_clock::now();
+    ManifestDownloadResponsePtr thirdManifest = secondManifest;
+    while (std::chrono::steady_clock::now() - betweenRefreshStart <
+            std::chrono::milliseconds(1000))
+    {
+        auto current = mAampMPDDownloader->GetManifest(false, 0);
+        if ((current.get() != secondManifest.get()) &&
+            IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
+        {
+            thirdManifest = current;
+            break;
+        }
+        usleep(100 * 1000);
+    }
+
     EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
     EXPECT_TRUE(IsCurlTimeoutFailure(
         thirdManifest->mMPDDownloadResponse->iHttpRetValue));
