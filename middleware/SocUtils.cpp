@@ -114,7 +114,10 @@ namespace SocUtils
 	{
 		return socInterface->ResetNewSegmentEvent();
 	}
-	bool IsRialtoSink(bool isrialto)
+	/**
+	 * @brief Sets the variable if  rialtos sink is enabled
+	 */
+	bool SetRialtoSinkEnabled(bool isrialto)
 	{
 		mIsRialtoSink = isrialto;
 		return mIsRialtoSink;

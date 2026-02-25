@@ -94,7 +94,7 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 	interfacePlayerPriv = new InterfacePlayerPriv();
 	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
-	SocUtils::IsRialtoSink(isRialto);
+	SocUtils::SetRialtoSinkEnabled(isRialto);
 	
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
