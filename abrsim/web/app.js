@@ -22,6 +22,9 @@
  * Main application logic
  */
 
+(function() {
+	'use strict';
+
 const API_BASE = '';
 
 // Chart instances
@@ -32,7 +35,7 @@ let bandwidthChart = null;
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
 	if (typeof Chart === 'undefined') {
-		showStatus('Failed to load Chart.js library. Please check your internet connection.', 'error');
+		showStatus('Failed to load Chart.js library. Please ensure chart.min.js is present in the web directory.', 'error');
 		return;
 	}
 	initializeUI();
@@ -793,3 +796,4 @@ function createTimelineChart(timelineData, profilesInfo, maxTime) {
 		}
 	});
 }
+})(); // End IIFE

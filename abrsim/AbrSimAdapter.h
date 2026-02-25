@@ -40,8 +40,10 @@ namespace abrsim {
 
 /**
  * @brief Minimal types for simulation (avoids AAMP headers)
+ * Note: Using 'long' to match AAMP's BitsPerSecond typedef from AampMediaType.h
+ * This ensures compatibility across platforms where long may be 32-bit.
  */
-using BitsPerSecond = int64_t;
+using BitsPerSecond = long;
 
 /**
  * @brief Download metrics for bandwidth estimation
