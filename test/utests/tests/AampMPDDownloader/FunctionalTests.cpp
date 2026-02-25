@@ -28,6 +28,7 @@
 #include "priv_aamp.h"
 #include <thread>
 #include <unistd.h>
+#include <atomic>
 
 using ::testing::_;
 using ::testing::An;
@@ -299,4 +300,85 @@ TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
 
 	EXPECT_NO_THROW(mAampMPDDownloader->UnRegisterCallback());
 	EXPECT_NO_THROW(mAampMPDDownloader->Release());
+}
+
+TEST_F(FunctionalTests,
+    AampMPDDownloader_LiveRefreshRetriesAt500MsOnTimeoutClassFailure)
+{
+    static const char *kLiveMpdManifest =
+    R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M3.0S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+    <Period id="901591170" start="PT416006H37M27.854S">
+        <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+            <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+                <SegmentTimeline>
+                    <S t="1377581813" d="172800" r="14"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+
+    std::shared_ptr<ManifestDownloadConfig> inpData =
+        std::make_shared<ManifestDownloadConfig>(-1);
+    inpData->mTuneUrl = url1;
+
+    std::atomic<int> preProcessCount(0);
+    auto preProcessCallback = [&preProcessCount]() -> std::string
+    {
+        if (preProcessCount.fetch_add(1) == 0)
+        {
+            return std::string(kLiveMpdManifest);
+        }
+        return std::string();
+    };
+
+    mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+    mAampMPDDownloader->Start();
+
+    ManifestDownloadResponsePtr firstManifest =
+        mAampMPDDownloader->GetManifest(true, 2000);
+    ASSERT_TRUE(firstManifest != nullptr);
+    ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
+    ASSERT_TRUE(firstManifest->mIsLiveManifest);
+
+    ManifestDownloadResponsePtr secondManifest = firstManifest;
+    auto secondStart = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - secondStart <
+            std::chrono::seconds(8))
+    {
+        auto current = mAampMPDDownloader->GetManifest(false, 0);
+        if ((current.get() != firstManifest.get()) &&
+            IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
+        {
+            secondManifest = current;
+            break;
+        }
+        usleep(100 * 1000);
+    }
+    ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+
+    auto betweenRefreshStart = std::chrono::steady_clock::now();
+    ManifestDownloadResponsePtr thirdManifest = secondManifest;
+    while (std::chrono::steady_clock::now() - betweenRefreshStart <
+            std::chrono::milliseconds(1800))
+    {
+        auto current = mAampMPDDownloader->GetManifest(false, 0);
+        if ((current.get() != secondManifest.get()) &&
+            IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
+        {
+            thirdManifest = current;
+            break;
+        }
+        usleep(100 * 1000);
+    }
+
+    EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
+    EXPECT_TRUE(IsCurlTimeoutFailure(
+        thirdManifest->mMPDDownloadResponse->iHttpRetValue));
+
+    mAampMPDDownloader->Release();
 }
