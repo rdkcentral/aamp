@@ -107,6 +107,7 @@ void AampTSBSessionManager::Init()
 			// Initialize TSB readers
 			InitializeTsbReaders();
 			mStopThread_.store(false);
+			// Clear flag, mReadMutex does not need to be locked because the threads that access this variable are not running yet.
 			mStopWaitingForVideoTsb = false;
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);

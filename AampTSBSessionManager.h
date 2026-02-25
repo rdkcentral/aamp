@@ -89,7 +89,7 @@ public:
 	 */
 	void ProcessWriteQueue();
 	/**
-	 * @brief Wait for new TSB video fragment to be available or abort signal
+	 * @brief Wait for new TSB video fragment to be available or abort signal. Abort signal is set when downloads are disabled.
 	 */
 	void WaitForVideoTsbContentOrAbort();
 	/**
