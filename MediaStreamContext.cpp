@@ -205,7 +205,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
@@ -222,13 +222,23 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->absPosition = 0;
 		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.AppendBytes(ptr, size);
+		cachedFragment->fragment.assign(ptr, ptr + size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->uri = std::move(remoteUrl);
 		if (mActiveDownloadInfo)
 		{
 			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 			cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
+			cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+			mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
+			// Only update when absPosition is set to avoid messing up the values.
+			if (cachedFragment->absPosition > 0)
+			{
+				AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
+					name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
+					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+			}
 		}
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
@@ -307,7 +317,7 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
 void MediaStreamContext::ABRProfileChanged(void)
 {
 	// TODO: Use this lock across all the functions which uses shared variables
-	AcquireMediaStreamContextLock();
+	std::lock_guard<std::recursive_mutex> lock(mMediaStreamContextMutex);
 	struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
 	// Get AdaptationSet Index and Representation Index from the corresponding profile
 	int adaptIdxFromProfile = profileMap.adaptationSetIndex;
@@ -355,7 +365,6 @@ void MediaStreamContext::ABRProfileChanged(void)
 		AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
 				representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth());
 	}
-	ReleaseMediaStreamContextLock();
 }
 
 /**
@@ -499,8 +508,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
-		cachedFragment->fragment.clear();
-		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
+		cachedFragment->Copy(fragment.get());
 		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
@@ -541,7 +549,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		return IsLocalTSBInjection() &&
 			   AAMP_NORMAL_PLAY_RATE == aamp->rate &&
-			   !aamp->pipeline_paused &&
+			   !aamp->mSinkPaused.load() &&
 			   eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
 			   tsbSessionManager &&
 			   tsbSessionManager->GetTsbReader((AampMediaType)type) &&
@@ -573,7 +581,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	if(tsbSessionManager && cachedFragment->fragment.size())
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
+		fragmentToTsbSessionMgr->Copy(cachedFragment);
 		if(fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -596,7 +604,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
 			aamp->UpdateLocalAAMPTsbInjection();
 		}
-		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
+		else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->mSinkPaused.load())
 		{
 			// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 			if (aamp->GetLLDashChunkMode())
@@ -614,7 +622,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	else if (aamp->GetLLDashChunkMode() && dlInfo->isInitSegment)
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
+		fragmentToTsbSessionMgr->Copy(cachedFragment);
 		if (fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -625,11 +633,12 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 
 	// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
+	bool isPipelinePaused = aamp->mSinkPaused.load();
 	if (tsbSessionManager &&
-		(IsLocalTSBInjection() || (aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus())))
+		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->pipeline_paused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused, aamp->GetBufUnderFlowStatus());
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
+			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
@@ -647,7 +656,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
 		{
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
-			fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.size());
+			fragmentToCache->Copy(cachedFragment);
 			CacheTsbFragment(std::move(fragmentToCache));
 		}
 

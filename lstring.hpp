@@ -83,7 +83,14 @@ public:
 		ptr = NULL;
 		len = 0;
 	}
-	
+
+	/**
+ 	* @brief Converts the internal character buffer to a double.
+ 	*
+	* @return The parsed double value.
+ 	*/
+	double atof() const;
+
 	size_t find( char c ) const
 	{ // returns offset to first occurrence of character, or length if not found
 		size_t rc;
@@ -212,56 +219,7 @@ public:
 	{
 		return (int)atoll();
 	}
-	
-	double atof() const
-	{
-		long long ival = 0;
-		long long precision = 1;
-		bool afterDecimal = false;
-		int i = 0;
-		if( startswith('-') )
-		{
-			i++; // skip leading negative sign
-			precision = -1; // ensure final value is negated
-		}
-		for(; i<len; i++ )
-		{
-			char c = ptr[i];
-			if( c>='0' && c<='9' )
-			{
-				ival*=10;
-				ival += (c-'0');
-				if( afterDecimal )
-				{
-					precision*=10;
-				}
-			}
-			else if( c=='.' )
-			{
-				if (afterDecimal)
-				{
-					throw std::runtime_error(
-						std::string("lstring::atof: multiple decimal points in string '") +
-						std::string(ptr, len) + "'"
-					);
-				}
-				afterDecimal = true;
-			}
-			else if( c==',' )
-			{
-				break;
-			}
-			else
-			{
-				throw std::runtime_error(
-					std::string("lstring::atof: unexpected character '") + c +
-					"' in string '" + std::string(ptr, len) + "'"
-				);
-			}
-		}
-		return ival/(double)precision;
-	}
-	
+
 	bool empty( void ) const
 	{
 		return len==0;

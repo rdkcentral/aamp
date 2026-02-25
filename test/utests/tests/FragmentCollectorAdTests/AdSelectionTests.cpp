@@ -1670,7 +1670,7 @@ TEST_F(AdSelectionTests, AdTransitionTest_PausedWithAampTSB)
 	InitializeAdMPDObject(adManifest);
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mSinkPaused = true;
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 
 	bool ret = false;

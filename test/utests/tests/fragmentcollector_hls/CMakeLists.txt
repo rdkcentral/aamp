@@ -27,7 +27,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 set(TEST_SOURCES byteRangeTests.cpp
 		 fragmentCollector_hls.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp ${AAMP_ROOT}/lstring.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

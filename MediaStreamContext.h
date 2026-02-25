@@ -133,8 +133,9 @@ public:
      * @param size CURL provided chunk data size
      * @param remoteUrl url of fragment
      * @param dnldStartTime of the download
+     * @param durationInTicks duration of the chunk in ticks
      */
-    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime);
+    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
 
     /**
      * @fn CacheFragmentData
@@ -280,18 +281,6 @@ public:
      */
     bool DownloadFragment(DownloadInfoPtr downloadInfo);
 
-    /**
-     * @fn AcquireMediaStreamContextLock
-     * @brief Acquire lock for MediaStreamContext
-     */
-    inline void AcquireMediaStreamContextLock() { mMediaStreamContextMutex.lock(); }
-
-    /**
-     * @fn ReleaseMediaStreamContextLock
-     * @brief Release lock for MediaStreamContext
-     */
-    inline void ReleaseMediaStreamContextLock() { mMediaStreamContextMutex.unlock(); }
-
     AampMediaType mediaType;
     struct FragmentDescriptor fragmentDescriptor;
     const IAdaptationSet *adaptationSet;
@@ -330,7 +319,7 @@ public:
     bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
     std::mutex fetchChunkBufferMutex;
     DownloadInfoPtr mActiveDownloadInfo;
-    std::mutex mMediaStreamContextMutex;
+    std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
