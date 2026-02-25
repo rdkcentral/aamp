@@ -350,7 +350,7 @@ void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
 		TsbFragmentDataPtr adjFragment = currFragment->prev;
 		if (adjFragment)
 		{
-      // Calculate the expected PTS of the current fragment by adding the
+			// Calculate the expected PTS of the current fragment by adding the
 			// duration of the previous fragment to its PTS.
 			AampTime nextPTSCal = adjFragment->GetPTS() + adjFragment->GetDuration();
 

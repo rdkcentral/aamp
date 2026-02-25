@@ -75,7 +75,7 @@ typedef struct HlsStreamInfo: public StreamInfo
 	std::string uri;	/**< URI Information */
 
 	// rarely present
-	long averageBandwidth;			/**< Average Bandwidth */
+	BitsPerSecond averageBandwidth;			/**< Average Bandwidth */
 	std::string closedCaptions;		/**< CC if present */
 	std::string subtitles;			/**< Subtitles */
 	StreamOutputFormat audioFormat; /**< Audio codec format*/
@@ -744,11 +744,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *
 		 * @param[out] primaryOutputFormat video format
 		 * @param[out] audioOutputFormat audio format
-		 * @param[out] auxOutputFormat auxiliary audio format
 		 * @param[out] subFormat subtitle format
 		 * @return void
 		 ***************************************************************************/
-		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subOutputFormat) override;
+		void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat) override;
 		/***************************************************************************
 		 * @fn GetStreamPosition
 		 * @brief Function to return current playing position of stream
@@ -988,7 +987,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		StreamOutputFormat GetStreamOutputFormatForTrack(TrackType type);
 		/***************************************************************************
-		 * @brief  Function to get output format for audio/aux track
+		 * @brief  Function to get output format for audio track
 		 *
 		 *************************************************************************/
 		StreamOutputFormat GetStreamOutputFormatForAudio(void);
@@ -1002,7 +1001,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 
 		/***************************************************************************
-		 * @brief  Function to get output format for audio/aux track
+		 * @brief  Function to get output format for audio track
 		 *
 		 *************************************************************************/
 		void InitiateDrmProcess();

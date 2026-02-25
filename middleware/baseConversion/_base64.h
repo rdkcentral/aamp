@@ -38,13 +38,6 @@ char *base64_Encode(const unsigned char *src, size_t len);
  * @fn base64_Decode
  * @param src pointer to cstring containing base64-encoded data
  * @param len receives byte length of returned pointer, or zero upon failure
- */
-unsigned char *base64_Decode(const char *src, size_t *len);
-
-/**
- * @fn base64_Decode
- * @param src pointer to cstring containing base64-encoded data
- * @param len receives byte length of returned pointer, or zero upon failure
  * @param srcLen string length of src
  */
 unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen);

@@ -24,11 +24,14 @@
 
 #include <iomanip>
 #include <regex>
+#include <limits>
 #include "Aampcli.h"
 #include "AampcliPlaybackCommand.h"
 #include "scte35/AampSCTE35.h"
 #include "AampStreamSinkManager.h"
+#include "AampDefine.h"
 #include <curl/curl.h>
+#include "MP4Demux.h"
 
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
@@ -37,13 +40,25 @@ std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<s
 std::vector<std::string> PlaybackCommand::commands(0);
 static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
 std::vector<AdvertInfo> mAdvertList;
+/**
+ * @brief Global MP4 demuxer instance for CLI parsing operations
+ * 
+ * Lifecycle management:
+ * - Lazily initialized in parse() command when first needed
+ * - Explicitly reset in HandleCommandExit() when player is destroyed
+ * - Automatically cleaned up at program termination via shared_ptr destructor
+ * 
+ * Note: This is a test/CLI utility, so global state is acceptable for simplicity.
+ * In production code, this would be encapsulated in a class with proper RAII.
+ */
+std::shared_ptr<Mp4Demux> gMp4Demux = nullptr;
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
 	//Parse the command line to see if all lines should be displayed, a range from start to end, or a number of lines from the end of the list.
 	//If tail is 0, start & end specify the range. If tail is non-zero it is the number of lines to display from the end of the list.
 	start = 0;
-	end = ULLONG_MAX;
+	end = std::numeric_limits<unsigned long>::max();
 	tail = 0;
 	if( !strcmp(cmd, "list"))
 	{
@@ -75,7 +90,7 @@ void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned l
 	if(start > end)
 	{
 		start = 0;
-		end = ULLONG_MAX;
+		end = std::numeric_limits<unsigned long>::max();
 		tail = 0;
 	}
 }
@@ -353,12 +368,37 @@ void PlaybackCommand::HandleCommandGetConfig( const char *cmd, PlayerInstanceAAM
 	}
 }
 
+/**
+ * @brief Cleanup global MP4 demuxer resources
+ * 
+ * This function ensures proper cleanup of the global mp4Demux shared_ptr.
+ * Called from HandleCommandExit() and provides explicit resource cleanup.
+ * 
+ * Note: For additional safety during abnormal program termination, this function
+ * could be registered as an atexit() handler in the main() function:
+ *   std::atexit(CleanupMp4DemuxResources);
+ * 
+ * However, since mp4Demux is a shared_ptr, it will automatically be cleaned up
+ * when the program terminates, even without explicit cleanup.
+ */
+static void CleanupMp4DemuxResources()
+{
+	if (gMp4Demux)
+	{
+		gMp4Demux.reset();  // Explicitly reset shared_ptr
+	}
+}
+
 void PlaybackCommand::HandleCommandExit( void )
 {
 	for( auto player: mAampcli.mPlayerInstances )
 	{
 		SAFE_DELETE( player );
 	}
+
+	// Clean up global MP4 demuxer resources to prevent resource leaks
+	CleanupMp4DemuxResources();
+
 	termPlayerLoop();
 }
 
@@ -1071,7 +1111,6 @@ void PlaybackCommand::addCommand(std::string command,std::string description)
 	commands.push_back(command);
 }
 
-#include "mp4demux.hpp"
 void PlaybackCommand::parse( const char *path )
 {
 	while( *path == ' ' )
@@ -1095,10 +1134,73 @@ void PlaybackCommand::parse( const char *path )
 					size_t rc = fread(ptr,1,len,f);
 					if( rc == len )
 					{
-						auto mp4Demux = new Mp4Demux(true);
-						// coverity[TAINTED_SCALAR]:SUPPRESS
-						mp4Demux->Parse(ptr,len);
-						delete mp4Demux;
+						// Lazy initialization of global MP4 demuxer
+						// This will be cleaned up in HandleCommandExit() or at program termination
+						if (!gMp4Demux)
+						{
+							gMp4Demux = std::make_shared<Mp4Demux>();
+						}
+						gMp4Demux->Parse(ptr,len);
+						auto samples = gMp4Demux->GetSamples();
+						if (samples.empty())
+						{
+							AAMPCLI_PRINTF("No samples found in file '%s'\n", path );
+							auto codecInfo = gMp4Demux->GetCodecInfo();
+							std::string codecDataHex;
+							for (auto b : codecInfo.mCodecData)
+							{
+								char hexByte[3];
+								snprintf(hexByte, sizeof(hexByte), "%02x", static_cast<uint8_t>(b));
+								codecDataHex += hexByte;
+							}
+							AAMPCLI_PRINTF("Codec Info: Format=%d, Encrypted:%d, CodecDataSize:%zu, CodecData=%s\n",
+								codecInfo.mCodecFormat,
+								codecInfo.mIsEncrypted ? 1 : 0,
+								codecInfo.mCodecData.size(),
+								codecDataHex.c_str()
+								);
+						}
+						else
+						{
+							for (auto &sample : samples)
+							{
+								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf, DRM:%d\n",
+										sample.mData.GetPtr(),
+										sample.mData.GetLen(),
+										(double)sample.mPts,
+										(double)sample.mDts,
+										(double)sample.mDuration,
+										sample.mDrmMetadata.mIsEncrypted ? 1 : 0
+										);
+								if (sample.mDrmMetadata.mIsEncrypted)
+								{
+									// Build hex strings for keyID and IV to avoid messy logs with multiple AAMPCLI_PRINTF calls
+									std::string ivHex;
+									for (auto b : sample.mDrmMetadata.mIV)
+									{
+										char hexByte[3];
+										snprintf(hexByte, sizeof(hexByte), "%02x", static_cast<uint8_t>(b));
+										ivHex += hexByte;
+									}
+
+									std::string keyIdHex;
+									for (auto b : sample.mDrmMetadata.mKeyId)
+									{
+										char hexByte[3];
+										snprintf(hexByte, sizeof(hexByte), "%02x", static_cast<uint8_t>(b));
+										keyIdHex += hexByte;
+									}
+
+									AAMPCLI_PRINTF("  DRM Info: Cipher:%d KID=%s, IV=0x%s, SubSamples=%" PRIu16 ", CryptByteBlock: %d, SkipBytes: %d\n",
+										sample.mDrmMetadata.mCipher,
+										keyIdHex.c_str(),
+										ivHex.c_str(),
+										sample.mDrmMetadata.mNumSubSamples,
+										sample.mDrmMetadata.mCryptByteBlock,
+										sample.mDrmMetadata.mSkipByteBlock);
+								}
+							}
+						}
 					}
 					free( ptr );
 				}

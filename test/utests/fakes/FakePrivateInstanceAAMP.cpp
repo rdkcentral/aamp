@@ -89,13 +89,11 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	preferredTextTypeString(""),
 	preferredTextAccessibilityNode(),
 	mProgressReportOffset(-1),
-	mFirstFragmentTimeOffset(-1),
 	mScheduler(NULL),
 	mConfig(config),
 	mSubLanguage(),
 	mPlayerId(PLAYERID_CNTR++),
 	mIsWVKIDWorkaround(false),
-	mAuxAudioLanguage(),
 	mAbsoluteEndPosition(0),
 	mIsLive(false),
 	mIsLiveStream(false),
@@ -137,8 +135,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mVideoFormat(),
 	mAudioFormat(),
 	mPreviousAudioType(),
-	mAuxFormat(),
-	mCurlShared()
+	mCurlShared(),
+	mIsChunkMode(false)
 {
 }
 
@@ -195,15 +193,15 @@ AAMPPlayerState PrivateInstanceAAMP::GetState()
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetState(state);
+		g_mockPrivateInstanceAAMP->SetState(state, sendStateChangeEvent);
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 }
 
@@ -425,7 +423,12 @@ long PrivateInstanceAAMP::GetCurrentLatency()
 
 bool PrivateInstanceAAMP::IsAtLivePoint()
 {
-	return false;
+	bool result = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsAtLivePoint();
+	}
+	return result;
 }
 
 ContentType PrivateInstanceAAMP::GetContentType() const
@@ -525,7 +528,12 @@ std::string PrivateInstanceAAMP::GetAppName()
 
 int PrivateInstanceAAMP::GetAudioTrack()
 {
-	return 0;
+	int retValue = 0;
+	if(g_mockPrivateInstanceAAMP != nullptr) 
+	{
+		retValue = g_mockPrivateInstanceAAMP->GetAudioTrack();
+	}
+	return retValue;
 }
 
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
@@ -846,11 +854,6 @@ long long PrivateInstanceAAMP::GetPositionMs()
 	return positionMs;
 }
 
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
-{
-    return true;
-}
-
 bool PrivateInstanceAAMP::IsPlayEnabled()
 {
     return true;
@@ -1135,7 +1138,12 @@ void PrivateInstanceAAMP::StopBuffering(bool forceStop)
 
 bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 {
-    return true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->TrackDownloadsAreEnabled(type);
+	}
+
+	return true;
 }
 
 void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
@@ -1202,7 +1210,12 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 
 bool PrivateInstanceAAMP::IsLiveStream(void)
 {
-	return mIsLiveStream;
+	bool result = mIsLiveStream;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsLiveStream();
+	}
+	return result;
 }
 
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
@@ -1307,11 +1320,11 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
 	return true;
 }
 
-void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat, auxFormat);
+		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat);
 	}
 }
 
@@ -1736,4 +1749,25 @@ const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void )
 {
 	static std::vector<TimedMetadata> rc;
 	return rc;
+}
+
+void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetStreamCaps(type, std::move(codecInfo));
+	}
+}
+
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, sample);
+	}
+}
+
+bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
+{
+	return false;
 }

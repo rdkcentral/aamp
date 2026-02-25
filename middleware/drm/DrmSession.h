@@ -52,7 +52,8 @@ typedef	enum
 	KEY_READY = 2,			/**< Has a usable key */
 	KEY_ERROR = 3,			/**< Has an error */
 	KEY_CLOSED = 4,			/**< Has been closed */
-	KEY_ERROR_EMPTY_SESSION_ID = 5	/**< Has Empty DRM session id */
+	KEY_ERROR_EMPTY_SESSION_ID = 5,	/**< Has Empty DRM session id */
+	KEY_ERROR_SESSION_CREATE_FAILED = 6 /**< Session creation failed (OCDM) */
 	
 } KeyState;
 
@@ -134,6 +135,13 @@ public:
 	 *        So that new init data can be bound.
 	 */
 	virtual void clearDecryptContext() = 0;
+
+	/**
+	 * @brief Get the list of usable key IDs from the DRM session
+	 * @retval Reference to vector of usable key IDs
+	 * @note Default implementation returns the reference to an empty vector
+	 */
+	virtual const std::vector<std::vector<uint8_t>>& getUsableKeys() const;
 
 	/**
 	 * @fn DrmSession

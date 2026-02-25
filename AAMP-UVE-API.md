@@ -1,40 +1,79 @@
+<!--
+If not stated otherwise in this file or this component's license file the
+following copyright and licenses apply:
+
+Copyright 2026 RDK Management
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
+
 # V7.07
 
 ## Overview
 
 ### Unified Video Engine (UVE)
+
 UVE is a flexible, full-featured video playback API designed for use from JavaScript. This document and sample applications demonstrate how to use the UVE APIs for video playback.
 
 ### Advanced Adaptive Media Player (AAMP)
-AAMP is an open source native video engine that is built on top of GStreamer and optimized for performance, memory use, and code size.  On RDK platforms, UVE-JS is the primary recommended way to interact with AAMP.  AAMP's JavaScript bindings are made available using WebKit Injectedbundle.
+
+AAMP is an open source native video engine that is built on top of GStreamer and optimized for performance, memory use, and code size. On RDK platforms, UVE-JS is the primary recommended way to interact with AAMP. AAMP's JavaScript bindings are made available using WebKit Injectedbundle.
 
 ## Target Audience
-This document is targeted to application developers  who are interested in evaluating/adopting AAMP for their media player applications on settops running RDKV based firmware.  UVE API wrapper also exists which can be used in non-RDK browsers.
+
+This document is targeted to application developers who are interested in evaluating/adopting AAMP for their media player applications on set-top boxes running RDKV based firmware. UVE API wrapper also exists which can be used in non-RDK browsers.
 
 ## Features
-- Formats: HLS, DASH, Fragmented MP4 HLS,  Progressive MP4
-- DRM Systems: Clear Key, Vanilla AES-128, PlayReady, Widevine
-- Captions: CEA-608/708 Captions, WebVTT
-- Client DAI / Server Side Ad Insertion
-- Thumbnail / Watermarking
-- Intra Asset Encryption / DRM License Rotation
-- DD+, Dolby ATMOS, AC4 Support
-- Low Latency DASH
-- [Time Shift Buffer](#tsb-feature) for DASH
+
+- **Formats:** HLS, DASH, Fragmented MP4 HLS, Progressive MP4
+- **DRM Systems:** Clear Key, Vanilla AES-128, PlayReady, Widevine
+- **Captions:** CEA-608/708 Captions, WebVTT
+- **Ad Insertion:** Client DAI / Server Side Ad Insertion
+- **Security:** Thumbnail / Watermarking, Intra Asset Encryption / DRM License Rotation
+- **Audio:** DD+, Dolby ATMOS, AC4 Support
+- **Low Latency:** Low Latency DASH
+- **DVR:** [Time Shift Buffer](#tsb-feature) for DASH
 
 ## Acronyms
-    - AAMP      Advanced Adaptive Media Player
-    - UVE       Universal Video Engine
-    - JS        Javascript
-    - HLS       HTTP Live Streaming
-    - DASH      Dynamic Adaptive Streaming over HTTP
-    - DAI       Dynamic Ad Insertion
-    - VTT       Video Text Track
-    - ATSC      Advanced Television Systems Committee
 
+- **AAMP** - Advanced Adaptive Media Player
+- **ABR** - Adaptive Bitrate
+- **AC3/AC4** - Audio Codec 3/4
+- **ATSC** - Advanced Television Systems Committee
+- **CDVR** - Cloud Digital Video Recording
+- **CMCD** - Common Media Client Data
+- **DAI** - Dynamic Ad Insertion
+- **DASH** - Dynamic Adaptive Streaming over HTTP
+- **DRM** - Digital Rights Management
+- **DVR** - Digital Video Recorder
+- **HLS** - HTTP Live Streaming
+- **JS** - JavaScript
+- **LLHLS** - Low Latency HLS
+- **LLDASH** - Low Latency DASH
+- **MP4** - MPEG-4 Part 14
+- **MPEG** - Moving Picture Experts Group
+- **OTT** - Over The Top
+- **RDK** - Reference Design Kit
+- **RDKV** - Reference Design Kit for Video
+- **TSB** - Time Shift Buffer
+- **UVE** - Universal Video Engine
+- **VOD** - Video On Demand
+- **VTT** - Video Text Track
+- **WebVTT** - Web Video Text Tracks
 
+---
 
 ## Minimal Sample Player
 
@@ -43,7 +82,7 @@ This document is targeted to application developers  who are interested in evalu
 	<script>
 	    window.onload = function() {
 		    var player = new AAMPMediaPlayer();
-		    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
+		    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL
 		    player.load(url);
 	    }
 	</script>
@@ -58,236 +97,268 @@ This document is targeted to application developers  who are interested in evalu
 ```
 Click [here](#setup-reference-player) for Reference player setup for RDK
 
-<div style="page-break-after: always;"></div>
+---
 
-# Universal Video Engine
+# Table of Contents
 
-* [Configuration](#configuration)
-* [API / Methods](#methods)
-* [Events](#uve-events)
-* [Error List](#universal-video-engine-player-errors)
-* [Client DAI](#client-dai-feature-support)
-* [ATSC Support](#atsc---unified-video-engine-features)
+## Quick Links
 
+- [Getting Started](#minimal-sample-player)
+- [Architecture & Setup](ARCHITECTURE.md)
+- [Configuration Guide](CONFIGURATION.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+
+## Core Sections
+
+1. [Configuration](#configuration)
+   - [initConfig()](#configuration)
+   - [setDRMConfig()](#setdrmconfig-config-)
+2. [Properties](#properties)
+3. [API Methods](#methods)
+   - [Playback Control](#load-uri-autoplay-tuneparams)
+   - [Audio & Video Tracks](#getavailableaudiotracks-all)
+   - [Text Tracks & Captions](#getavailabletexttracksalltracks)
+   - [Thumbnails](#getthumbnails)
+4. [Events](#uve-events)
+5. [Error Codes](#universal-video-engine-player-errors)
+6. [Setup & Reference](#setup-reference-player)
+
+## Advanced Features
+
+- [Client DAI](#client-dai-feature-support)
+- [ATSC Support](#atsc---unified-video-engine-features)
+- [TSB (Time Shift Buffer)](#tsb-feature)
+- [Thumbnails & Watermarking](#thumbnails)
+- [Captions](#captions-support)
+
+---
 
 ## Configuration
 
-Configuration options are passed to AAMP using the UVE initConfig method. This allows the application override default configuration used by AAMP player to give more control over player behavior.  Parameter is a JSON Object with one or more attribute/value pairs as follows:
+Configuration options are passed to AAMP using the UVE `initConfig()` method. This allows the application to override default configuration used by AAMP player to give more control over player behavior. The parameter is a JSON Object with one or more attribute/value pairs as follows:
 
 | Property | Type | Default Value | Description |
-| ----- | ----- | ----- | ----- |
-| abr | Boolean | True | Configuration to enable/disable adaptive bitrate logic. |
-| abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
-| abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milliseconds). |
-| abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
-| abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement by 1. This is to avoid frequent profile switching with network change. |
-| abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
-| audioOnlyPlayback | Boolean | False | Configuration to enable/disable Audio only Playback. |
-| cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |
-| customHeader | String | - | Custom header data to be appended to curl request. |
-| contentProtectionDataUpdateTimeout | Number | 5000ms | Timeout for Content Protection Data Update on Dynamic Key Rotation. Player waits for [setContentProtectionDataConfig]()#setcontentprotectiondataconfig_json-string)  API update within the timeout interval .On timeout use last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout)  |
-| disableLowLatencyABR | Boolean | True | Enables Low Latency ABR handling. |
-| disablePlaylistIndexEvent | Boolean | True | Configuration to enable/disable generation of playlist indexed event by AAMP on tune/trickplay/seek. |
-| downloadBufferChunks | Number | 20 | Low Latency Fragment chunk cache length. |
-| enableLowLatencyCorrection | Boolean | True | If disabled, latency may gradually drift from the live edge, especially under poor network conditions. |
-| enableLowLatencyDash | Boolean | True | Enables Low Latency DASH playback mode, allowing media chunks to be injected earlier (even before full fragment download is complete), allowing player to start and stay closer to live edge. |
-| enableSubscribedTags | Boolean | True | Configuration to enable/disable subscribed tags. |
-| enableVideoEndEvent | Boolean | True | Configuration to enable/disable Video End event generation. |
-| enableVideoRectangle | Boolean | True | Configuration to enable/disable setting of rectangle property for sink element. |
-| forceHttp | Boolean | False | Configuration to enable/disable forcing of HTTP protocol for HTTPS URLs. |
+| -------- | ------- | ------------- | ----------- |
+| abr | Boolean | true | Enable/disable adaptive bitrate logic. |
+| abrCacheLength | Number | 3 | Length of ABR cache for network bandwidth calculation. |
+| abrCacheLife | Number | 5000 | Lifetime value for ABR cache for network bandwidth calculation (in milliseconds). |
+| abrCacheOutlier | Number | 5000000 | Outlier difference to ignore from network bandwidth calculation (default: 5 MB in bytes). |
+| abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement. Prevents frequent profile switching with network fluctuations. |
+| abrSkipDuration | Number | 6 | Minimum duration of fragment to download before triggering ABR (in seconds). |
+| audioOnlyPlayback | Boolean | false | Enable/disable audio-only playback. |
+| cdvrLiveOffset | Number | 30 | Live offset time in seconds for CDVR. AAMP starts live playback this much time before the live point for in-progress CDVR. |
+| customHeader | String | - | Custom header data to append to HTTP requests. |
+| contentProtectionDataUpdateTimeout | Number | 5000 | Timeout for Content Protection Data Update on Dynamic Key Rotation (milliseconds). Player waits for [setContentProtectionDataConfig](#setcontentprotectiondataconfig_json-string) API update within the timeout interval. On timeout, uses last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout). |
+| disableLowLatencyABR | Boolean | true | Enable Low Latency ABR handling. |
+| disablePlaylistIndexEvent | Boolean | true | Enable/disable generation of playlist indexed event by AAMP on tune/trickplay/seek. |
+| downloadBufferChunks | Number | 20 | Low Latency fragment chunk cache length. |
+| enableLowLatencyCorrection | Boolean | true | Enable latency correction. If disabled, latency may gradually drift from the live edge, especially under poor network conditions. |
+| enableLowLatencyDash | Boolean | true | Enable Low Latency DASH playback mode. Allows media chunks to be injected earlier (even before full fragment download completes), allowing player to start and stay closer to live edge. |
+| enableSubscribedTags | Boolean | true | Enable/disable subscribed tags. |
+| enableVideoEndEvent | Boolean | true | Enable/disable Video End event generation. |
+| enableVideoRectangle | Boolean | true | Enable/disable setting of rectangle property for sink element. |
+| forceHttp | Boolean | false | Enable/disable forcing of HTTP protocol for HTTPS URLs. |
 | fragmentRetryLimit | Number | -1 | Set fragment rampdown/retry limit for video fragment failure. |
-| id3 | Boolean | False | Configuration to enable/disable ID3 tag. |
-| iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets. |
-| iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets. |
+| id3 | Boolean | false | Enable/disable ID3 tag processing. |
+| iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets (0 = auto). |
+| iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets (0 = auto). |
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
 | latencyMonitorDelay | Number | 9 | Delay in seconds before starting latency monitoring after tune completion. |
 | latencyMonitorInterval | Number | 1 | Time between latency checks in seconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
-| licenseAnonymousRequest | Boolean | False | Configuration to enable/disable acquiring of license without token. |
-| licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time in msecs. |
-| licenseRetryWaitTime | Number | 500 | License retry wait interval in msecs. |
+| licenseAnonymousRequest | Boolean | false | Enable/disable acquiring of license without token. |
+| licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time (milliseconds). |
+| licenseRetryWaitTime | Number | 500 | License retry wait interval (milliseconds). |
 | licenseServerUrl | String | - | URL to be used for license requests for encrypted(PR/WV) assets. |
 | linearTrickPlayFps | Number | 8 | Specify the framerate for Linear trickplay. |
-| lowLatencyMinValue | Number | 3 | Minimum acceptable latency in seconds. Avoids getting too close to live edge, preventing buffering. If latency drops below this, playback slows down to increase delay and avoid buffer underrun. |
-| lowLatencyTargetValue | Number | 6 | Target latency for playback in seconds. If reduced, playback will be closer to live edge, but with increased chance of buffering. |
-| lowLatencyMaxValue | Number | 9 | Maximum acceptable latency in seconds. Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
-| lowLatencyMinBuffer | Float | 2 | It is used by low latency buffering logic to set the minimum buffer level(in seconds) the player should maintain. |
-| lowLatencyTargetBuffer | Float | 4 | Target buffer size in seconds for low latency mode. Balances latency and stability by keeping a healthy buffer. |
+| lowLatencyMinValue | Number | 3 | Minimum acceptable latency (seconds). Avoids getting too close to live edge, preventing buffering. If latency drops below this, playback slows down to increase delay and avoid buffer underrun. |
+| lowLatencyTargetValue | Number | 6 | Target latency for playback (seconds). If reduced, playback will be closer to live edge, but with increased chance of buffering. |
+| lowLatencyMaxValue | Number | 9 | Maximum acceptable latency (seconds). Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
+| lowLatencyMinBuffer | Float | 2 | Minimum buffer level the player should maintain for low latency buffering (seconds). |
+| lowLatencyTargetBuffer | Float | 4 | Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. |
 | maxABRBufferRampup | Number | 15 | Maximum ABR Buffer for Rampup in secs. |
 | maxLatencyCorrectionPlaybackRate | Float | 1.03 | Maximum playback speed for latency correction. When the player detects that it’s too far from the live edge (or fall behind target latency), it can speeds up playback slightly to catch up with the live edge without noticeable fast-forward effect. |
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
 | minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed for latency correction. When the player detects that it’s too close to the live edge (or ahead of target latency), it can slow down playback slightly to increase latency without causing noticeable slow motion. |
 | normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. |
-| playreadyOutputProtection | Boolean | False | Configuration to enable/disable HDCP output protection for DASH-PlayReady playback. |
-| preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 -No DRM  , 1 - Widevine, 2 - PlayReady ( Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
-| ceaFormat | Number | -1 | Preferred CEA option for CC. Default stream based. 0 - CEA 608, 1 - CEA 708  |
-| preFetchIframePlaylist | Boolean | False | Configuration to enable/disable prefetching of I-Frame playlist. |
-| preplayBuffercount | Number | 1 | Count of segments to be downloaded until play state. |
-| ptsErrorThreshold | Number | 4 | Maximum number of back-to-back pts errors to be considered for triggering a retune. |
-| seekMidFragment | Boolean | False | Configuration to enable/disable mid-Fragment seek. |
-| segmentInjectFailThreshold | Number | 10 | Configuration to enable/disable mid-Fragment seek. |
-| sendUserAgentInLicense | Boolean | False | Configuration to enable/disable sending user agent in the DRM license request header. |
-| stallTimeout | Number | 10000 | Stall detection timeout in milliseconds. |
-| thresholdSizeABR | Number | 6000 | ABR threshold size. |
-| uriParameter | String | - | Uri parameter data to be appended on download-url during curl request. |
-| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx http errors in milliseconds. |
-| wifiCurlHeader | Boolean | False | Configuration to enable/disable wifi custom curl header inclusion. |
-| initialBitrate | Number | 2500000 | Initial bitrate (bps) for playback |
-| initialBitrate4K | Number | 13000000 | Initial bitrate (bps) for 4k video playback |
-| minBitrate | Number | - | Input for minimum profile clamping (in bps).Default is lowest bitrate profile in the manifest |
-| maxBitrate | Number | - | Input for maximum profile clamping (in bps) .Default is highest bitrate profile in the manifest|
-| disable4K | Boolean | False | Configuration to disable 4K profile playback and restrict only to non-4K video profiles |
-| limitResolution | Boolean | False | Configuration to enable setting maximum playback video profile resolution based on TV display resolution setting . Default disabled, player selects every profile irrespective of TV resolution. |
-| persistBitrateOverSeek | Boolean | False | To enable player persist video profile bitrate during Seek/Trickplay/Audio switching operation .By default player picks initialBitrate configured |
-| useAverageBandwidth | Boolean | False | Configuration to enable using AVERAGE-BANDWIDTH instead of BANDWIDTH in HLS Stream variants for ABR switching |
-| Offset | Number | 0 | Play position offset in seconds to start playback(same as seek() method to resume at a position) |
-| liveOffset | Number | 15 | Allows override the default/stream-defined distance from a live point for live stream playback (in seconds) |
-| liveOffset4K | Number | 15 | Allows override the default/stream-defined distance from a live point for 4K live stream playback (in seconds) |
-| networkTimeout | Number | 10 | Network request timeout for fragment/playlist/manifest downloads (in seconds) |
-| manifestTimeout | Number | 10 | Manifest download timeout; overrides networkTimeout if both present; Applied to Main manifest in HLS and DASH manifest download. (in seconds) |
-| playlistTimeout | Number | 10 | HLS playlist download timeout; overrides networkTimeout if both present; available starting with version 1.0 (in seconds) |
-| downloadStallTimeout | Number | - | Optional optimization - Allow fast-failure for class of curl-detectable mid-download stalls (in seconds) |
-| downloadStartTimeout | Number | - | Optional optimization  - Allow fast-failure for class of curl-detectable stall at start of download (in seconds) |
-| persistHighNetworkBandwidth | Boolean | False | Optional field to enable persist High Network bitrate from previous tune for profile selection in next tune ( if attempted within 10 sec) . This will override initialBitrate settings  |
-| persistLowNetworkBandwidth | Boolean | True | Optional field to disable persisting low Network bitrate from previous tune for profile selection in next tune ( if attempted within 10 sec) . This will override initialBitrate settings  |
-| supportTLS | Number | 6 | Default set to CURL_SSLVERSION_TLSv1_2 (value of 6, uses CURLOPT_SSLVERSION values)  |
-| sharedSSL | Boolean | True | Optional field to disable sharing SSL context for all download sessions, across manifest, playlist and segments .  |
-| sslVerifyPeer | Boolean | True | Optional field to enable/disable SSL peer verification .Default enabled |
-| networkProxy | String | - | Network proxy to use for all downloads (Format <http/https>://<IP:PORT>). Use licenseProxy for license request routing |
-| licenseProxy | String | - | Network proxy to use for license requests (Format same as network proxy) |
-| initialBuffer | Number | 0 | Optional setting. Pre-tune buffering (in seconds) before playback start. With default of 0,player starts playback with 1st segment downloaded|
-| downloadBuffer | Number | 4 | Max number of segments which can be cached ahead of play head(including initialization header segment).This applies to every track type(Video/Audio/Text). This is player buffer in addition to streamer playback buffer which varies with platform |
-| bulkTimedMetadata | Boolean | False | Send timed metadata using single JSON array string instead of individual events  available starting with version 0.8 |
-| bulkTimedMetadataLive | Boolean | False | equivalent of bulkTimedMetadata delivered also for live streams  available starting with version 6.12 |
-| parallelPlaylistDownload | Boolean | True | Optional optimization – download audio and video playlists in parallel for HLS; available starting with version 0.8 |
-| parallelPlaylistRefresh | Boolean | True | Optionally disable audio video playlist parallel download for linear (only for HLS) |
-| preCachePlaylistTime | Number | - | Optionally enable PreCaching of Playlist and TimeWindow for Cache(minutes) ( version 1.0) |
-| maxPlaylistCacheSize | Number | 0 | Optional field to configure maximum cache size in Kbytes to store different profile HLS VOD playlist |
-| maxInitFragCachePerTrack | Number | 5 | Number of initialization header file cached per player instance per track type. Use cached data instead of network re-download  |
-| progressReportingInterval | Number | 1 | Optionally change Progress Report Interval (in seconds) |
-| progress | Boolean | False | Enables Progress logging |
-| progressLoggingDivisor | Number | 4 | If Progress logging is enabled, this divides the progressReportingInterval to reduce the amount of logging |
-| useRetuneForUnpairedDiscontinuity | Boolean | True | Optional unpaired discontinuity retune config ( version 1.0) |
-| useMatchingBaseUrl | Boolean | False | use DASH main manifest hostname to select from multiple base urls in DASH (when present).  By default, will always choose first (version 2.4) |
-| initFragmentRetryCount | Number | 1 | Maximum number of retries for MP4 header fragment download failures (version 2.4)  |
-| useRetuneForGstInternalError | Boolean | True | Optional Gstreamer error retune config ( version 2.7) |
-| reportVideoPTS | Boolean | False | Optional field to enable Video PTS reporting along with progressReport (version 3.0) |
-| propagateUriParameters | Boolean | True | Optional field to disable propagating URI parameters from Main manifest to segment downloads |
-| enableSeekableRange | Boolean | False | Optional field to enable reporting of seekable range for linear scrubbing  |
-| livePauseBehavior | Number | 0 | Optional field to configure player live pause behavior on linear streams when live window touches eldest position. Options: 0 – Autoplay immediate; 1 – Live immediate; 2 – Autoplay defer; 3 – Live defer; Default – Autoplay immediate . Refer [Appendix](#live-pause-configuration)|
-| asyncTune | Boolean | True | Optional field to enable asynchronous player API processing. Application / UI caller threads returned immediately without any processing delays. |
-| useAbsoluteTimeline | Boolean | False | Optional field to enable progress reporting based on Availability Start Time of stream (DASH Only) |
-| tsbInterruptHandling | Boolean | False | Optional field to enable support for Network interruption handling with TSB.  Network failures will be ignored and TSB will continue building. |
-| fragmentDownloadFailThreshold | Number | 10 | Maximum number of fragment download failures before reporting playback error |
-| useSecManager | Boolean | True | Optional field to enable /disable usage of SecManager for Watermarking functionality (for Comcast streams only)|
-| drmDecryptFailThreshold | Number | 10 | Maximum number of fragment decrypt failures before reporting playback error (version 1.0) |
-| customHeaderLicense | String |  | Optional field to provide custom header data to add in license request during tune. This can be set with addCustomHTTPHeader API during playback for license rotation if required|
-| setLicenseCaching | Boolean | True | Optional field to disable License Caching in player . By default 3 DRM Sessions are Cached . |
-| authToken | String | - | Optional field to set AuthService token for license acquisition(version 2.7) |
-| configRuntimeDRM | Boolean | False | Optional field to  enable DRM notification and get Application configuration for every license request. Also refer [API](#configruntimedrm_enableconfiguration)|
+| playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
+| preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
+| ceaFormat | Number | -1 | Preferred CEA option for closed captions. Default is stream-based. 0 - CEA 608, 1 - CEA 708 |
+| preFetchIframePlaylist | Boolean | false | Enable/disable prefetching of I-Frame playlist. |
+| preplayBuffercount | Number | 1 | Count of segments to download until reaching play state. |
+| ptsErrorThreshold | Number | 4 | Maximum number of back-to-back PTS errors before triggering a retune. |
+| seekMidFragment | Boolean | false | Enable/disable mid-fragment seek. |
+| segmentInjectFailThreshold | Number | 10 | Maximum number of consecutive segment injection failures allowed before the player triggers its segment error-handling logic. |
+| sendUserAgentInLicense | Boolean | false | Enable/disable sending user agent in the DRM license request header. |
+| stallTimeout | Number | 10000 | Stall detection timeout (milliseconds). |
+| thresholdSizeABR | Number | 6000 | ABR threshold size (bytes). |
+| uriParameter | String | - | URI parameter data to append to download URLs during HTTP requests. |
+| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx HTTP errors (milliseconds). |
+| wifiCurlHeader | Boolean | false | Enable/disable WiFi custom HTTP header inclusion. |
+| initialBitrate | Number | 2500000 | Initial bitrate for playback (bps). |
+| initialBitrate4K | Number | 13000000 | Initial bitrate for 4K video playback (bps). |
+| minBitrate | Number | - | Minimum profile clamping (bps). Default is lowest bitrate profile in the manifest. |
+| maxBitrate | Number | - | Maximum profile clamping (bps). Default is highest bitrate profile in the manifest. |
+| disable4K | Boolean | false | Disable 4K profile playback and restrict to non-4K video profiles. |
+| limitResolution | Boolean | false | Enable setting maximum playback video profile resolution based on TV display resolution setting. Default disabled, player selects every profile irrespective of TV resolution. |
+| persistBitrateOverSeek | Boolean | false | Enable player to persist video profile bitrate during Seek/Trickplay/Audio switching operation. By default player picks initialBitrate configured. |
+| useAverageBandwidth | Boolean | false | Enable using AVERAGE-BANDWIDTH instead of BANDWIDTH in HLS stream variants for ABR switching. |
+| Offset | Number | 0 | Play position offset to start playback (seconds). Same as seek() method to resume at a position. |
+| liveOffset | Number | 15 | Override the default/stream-defined distance from live point for live stream playback (seconds). |
+| liveOffset4K | Number | 15 | Override the default/stream-defined distance from live point for 4K live stream playback (seconds). |
+| networkTimeout | Number | 10 | Network request timeout for fragment/playlist/manifest downloads (seconds). |
+| manifestTimeout | Number | 10 | Manifest download timeout; overrides networkTimeout if both present. Applied to main manifest in HLS and DASH manifest download (seconds). |
+| playlistTimeout | Number | 10 | HLS playlist download timeout; overrides networkTimeout if both present. Available starting with version 1.0 (seconds). |
+| downloadStallTimeout | Number | - | Optional optimization - Allow fast-failure for class of curl-detectable mid-download stalls (seconds). |
+| downloadStartTimeout | Number | - | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of download (seconds). |
+| persistHighNetworkBandwidth | Boolean | false | Enable persist high network bitrate from previous tune for profile selection in next tune (if attempted within 10 sec). This will override initialBitrate settings. |
+| persistLowNetworkBandwidth | Boolean | true | Disable persisting low network bitrate from previous tune for profile selection in next tune (if attempted within 10 sec). This will override initialBitrate settings. |
+| supportTLS | Number | 6 | TLS version to use. Default set to CURL_SSLVERSION_TLSv1_2 (value of 6, uses CURLOPT_SSLVERSION values). |
+| sharedSSL | Boolean | true | Enable/disable sharing SSL context for all download sessions, across manifest, playlist and segments. |
+| sslVerifyPeer | Boolean | true | Enable/disable SSL peer verification. Default enabled. |
+| networkProxy | String | - | Network proxy to use for all downloads (Format: `<http/https>://<IP:PORT>`). Use licenseProxy for license request routing. |
+| licenseProxy | String | - | Network proxy to use for license requests (Format same as network proxy). |
+| initialBuffer | Number | 0 | Pre-tune buffering (seconds) before playback start. With default of 0, player starts playback with 1st segment downloaded. |
+| downloadBuffer | Number | 4 | Max number of segments which can be cached ahead of play head (including initialization header segment). This applies to every track type (Video/Audio/Text). This is player buffer in addition to streamer playback buffer which varies with platform. |
+| bulkTimedMetadata | Boolean | false | Send timed metadata using single JSON array string instead of individual events. Available starting with version 0.8. |
+| bulkTimedMetadataLive | Boolean | false | Equivalent of bulkTimedMetadata delivered also for live streams. Available starting with version 6.12. |
+| parallelPlaylistDownload | Boolean | true | Optional optimization – download audio and video playlists in parallel for HLS. Available starting with version 0.8. |
+| parallelPlaylistRefresh | Boolean | true | Optionally disable audio/video playlist parallel download for linear (only for HLS). |
+| preCachePlaylistTime | Number | - | Optionally enable pre-caching of playlist and time window for cache (minutes). Available in version 1.0. |
+| maxPlaylistCacheSize | Number | 0 | Maximum cache size in KB to store different profile HLS VOD playlists. |
+| maxInitFragCachePerTrack | Number | 5 | Number of initialization header files cached per player instance per track type. Use cached data instead of network re-download. |
+| progressReportingInterval | Number | 1 | Optionally change progress report interval (seconds). |
+| progress | Boolean | false | Enable progress logging. |
+| progressLoggingDivisor | Number | 4 | If progress logging is enabled, this divides the progressReportingInterval to reduce the amount of logging. |
+| useRetuneForUnpairedDiscontinuity | Boolean | true | Optional unpaired discontinuity retune config. Available in version 1.0. |
+| useMatchingBaseUrl | Boolean | false | Use DASH main manifest hostname to select from multiple base URLs in DASH (when present). By default, will always choose first. Available in version 2.4. |
+| initFragmentRetryCount | Number | 1 | Maximum number of retries for MP4 header fragment download failures. Available in version 2.4. |
+| useRetuneForGstInternalError | Boolean | true | Optional GStreamer error retune config. Available in version 2.7. |
+| reportVideoPTS | Boolean | false | Enable Video PTS reporting along with progressReport. Available in version 3.0. |
+| propagateUriParameters | Boolean | true | Enable/disable propagating URI parameters from main manifest to segment downloads. |
+| enableSeekableRange | Boolean | false | Enable reporting of seekable range for linear scrubbing. |
+| livePauseBehavior | Number | 0 | Configure player live pause behavior on linear streams when live window touches eldest position. Options: 0 - Autoplay immediate; 1 - Live immediate; 2 - Autoplay defer; 3 - Live defer; Default - Autoplay immediate. Refer [Appendix](#live-pause-configuration). |
+| asyncTune | Boolean | true | Enable asynchronous player API processing. Application/UI caller threads returned immediately without any processing delays. |
+| useAbsoluteTimeline | Boolean | false | Enable progress reporting based on Availability Start Time of stream (DASH only). |
+| tsbInterruptHandling | Boolean | false | Enable support for network interruption handling with TSB. Network failures will be ignored and TSB will continue building. |
+| fragmentDownloadFailThreshold | Number | 10 | Maximum number of fragment download failures before reporting playback error. |
+| useSecManager | Boolean | true | Enable/disable usage of SecManager for watermarking functionality (for Comcast streams only). |
+| drmDecryptFailThreshold | Number | 10 | Maximum number of fragment decrypt failures before reporting playback error. Available in version 1.0. |
+| customHeaderLicense | String | - | Custom header data to add in license request during tune. This can be set with addCustomHTTPHeader API during playback for license rotation if required. |
+| setLicenseCaching | Boolean | true | Enable/disable license caching in player. By default 3 DRM sessions are cached. |
+| authToken | String | - | AuthService token for license acquisition. Available in version 2.7. |
+| configRuntimeDRM | Boolean | false | Enable DRM notification and get application configuration for every license request. Also refer [API](#configruntimedrm_enableconfiguration). |
 | preferredAudioLanguage | String | en | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority: ‘<HIGHEST>,<...>,<LOWEST>’.Preferred language can be set using APIs [setAudioTrack](#setaudiotrack_index)/[setAudioLanguage](#setaudiolanguage_language)/[setPreferredAudioLanguage](#setpreferredaudiolanguage_languages_rendition_accessibility_codeclist_label) |
-| stereoOnly | Boolean | False | Optional forcing of playback to only select stereo audio track  available starting with version 0.8 |
-| disableEC3 | Boolean | False | Optional field to disable selection of EC3/AC3 audio track |
-| disableATMOS | Boolean | False | Optional field to disable selection of ATMOS audio track |
-| disableAC4 | Boolean | False | Optional field to disable selection of AC4 audio track |
-| preferredAudioRendition | String |  | Optional field to set preferred Audio rendition setting DASH : caption,subtitle, main; HLS : GROUP-ID  |
-| preferredAudioCodec | String |  | Optional field to set preferred Audio codec. Comma-delimited list of formats, where each format specifies a media sample type that is present in one or more Renditions specified by the Variant Stream. Example: mp4a.40.2, avc1.4d401e |
-| preferredAudioLabel | String |  | Optional field to set label of desired audio track in the available audio tracks list. Same can be done with setAudioTrack API also|
-| preferredAudioType | String |  | Optional preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also|
-| langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs (version 2.6) NO_LANGCODE_PREFERENCE = 0, 3_CHAR_BIBLIOGRAPHIC_LANGCODE = 1, 3_CHAR_TERMINOLOGY_LANGCODE = 2, 2_CHAR_LANGCODE = 3 |
-| preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions |
-| nativeCCRendering | Boolean | False | Use native ClosedCaption support in AAMP (version 2.6) |
-| enableLiveLatencyCorrection | Boolean | False | Optional field to enable correction of playback delay during regular live streaming ( non LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
-| liveOffsetDriftCorrectionInterval | Number | 1 | Optional field to set the allowed delta from live offset configured |
-| sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
-| enableCMCD | Boolean | True | Optional field to enable/disable CMCD Metrics reporting from player |
-| userAgent | String |  | Optional The User-Agent request header for HTTP request  |
-| drmNetworkTimeout | Number | 5 | Network request timeout for DRM license (in seconds) |
-| drmStallTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable mid-download stalls for DRM license request (in seconds) |
-| drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
-| connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
-| dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
-| tsbType | String |  | Use the "tsbType" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbType" is not provided, default to "none," means play as-is. For detailed behavior, see [TSB Feature](#tsb-feature). |
-| telemetryInterval | Number | 300 | telemetry log interval . Default of 300 seconds . 0 to disable telemetry logging |
-| sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
-| useSinglePipeline | Boolean | False | Optional field to enable single pipeline while switching between multiple player instances( Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage |
-| mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
-| enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa. Currently only applicable to DASH content. |
-| subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
-| showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration)
-| localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage in AAMP.  This is a development-only configuration, not to be used by apps. |
-| tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change). Refer to [TSB Feature](#tsb-feature) for complete details. |
-| monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, and av sync issues |
-| monitorAVReportingInterval | Number | 1000 | sampling delay (ms) between reported MonitorAV events |
-| monitorAVSyncThresholdPositive | Number | 100 | threshold (ms) for leading (early) audio to be considered worth reporting |
-| monitorAVSyncThresholdNegative | Number | 100 | threshold (ms) for lagging (late) audio to be considered worth reporting |
-| monitorAVJumpThreshold  | Number | 100 | threshold (ms) for aligned audio,video positions advancing together to be considered worth reporting |
+| stereoOnly | Boolean | false | Force playback to only select stereo audio track. Available starting with version 0.8. |
+| disableEC3 | Boolean | false | Disable selection of EC3/AC3 audio track. |
+| disableATMOS | Boolean | false | Disable selection of ATMOS audio track. |
+| disableAC4 | Boolean | false | Disable selection of AC4 audio track. |
+| preferredAudioRendition | String | - | Preferred audio rendition setting. DASH: caption, subtitle, main; HLS: GROUP-ID. |
+| preferredAudioCodec | String | - | Preferred audio codec. Comma-delimited list of formats, where each format specifies a media sample type present in one or more renditions. Example: mp4a.40.2, avc1.4d401e |
+| preferredAudioLabel | String | - | Label of desired audio track in the available audio tracks list. Same can be done with setAudioTrack API also. |
+| preferredAudioType | String | - | Preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also. |
+| langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs. Available in version 2.6. Values: 0 - NO_LANGCODE_PREFERENCE, 1 - 3_CHAR_BIBLIOGRAPHIC_LANGCODE, 2 - 3_CHAR_TERMINOLOGY_LANGCODE, 3 - 2_CHAR_LANGCODE |
+| preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions. |
+| nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
+| enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
+| liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
+| sendLicenseResponseHeaders | Boolean | false | Enable headers in DRM metadata event after license request. |
+| enableCMCD | Boolean | true | Enable/disable CMCD (Common Media Client Data) metrics reporting from player. |
+| userAgent | String | - | The User-Agent request header for HTTP requests. |
+| drmNetworkTimeout | Number | 5 | Network request timeout for DRM license (seconds). |
+| drmStallTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable mid-download stalls for DRM license request (seconds). |
+| drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (seconds). |
+| connectTimeout | Number | 3 | cURL socket connection timeout for fragment/playlist/manifest downloads (seconds). |
+| dnsCacheTimeout | Number | 180 | Lifetime for DNS cache entries. Name resolve results are cached for manifest and used for this number of seconds. |
+| tsbType | String | - | Use the "tsbType" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbType" is not provided, default to "none," means play as-is. For detailed behavior, see [TSB Feature](#tsb-feature). |
+| telemetryInterval | Number | 300 | Telemetry log interval (seconds). Default of 300 seconds. Set to 0 to disable telemetry logging. |
+| sendUserAgentInLicense | Boolean | false | Optional field to enable sending User Agent string in license request also |
+| useSinglePipeline | Boolean | false | Enable single pipeline while switching between multiple player instances (Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage. |
+| mpdStichingSupport | Boolean | true | Enable/disable DASH MPD stitching functionality with dual manifest (one manifest used during tune and another manifest during refresh). |
+| enablePTSReStamp | Boolean | false | Enable/disable PTS re-stamping functionality across discontinuity while moving from content to ads or vice-versa. Currently only applicable to DASH content. |
+| subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module (seconds). Default of 30 seconds. |
+| showDiagnosticsOverlay | Number | 0 | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration). |
+| localTSBEnabled | Boolean | false | Enable use of time shift buffer (TSB) for live playback, leveraging local storage in AAMP. This is a development-only configuration, not to be used by apps. |
+| tsbLength | Number | 3600 or 1500 | Max duration (seconds) of local TSB to build up before culling. 3600 (1 hour) or 1500 (25 min). Not recommended for apps to change. Refer to [TSB Feature](#tsb-feature) for complete details. |
+| monitorAV | Boolean | false | Enable background monitoring of audio/video positions to infer video freeze, audio drop, and AV sync issues. |
+| monitorAVReportingInterval | Number | 1000 | Sampling delay between reported MonitorAV events (milliseconds). |
+| monitorAVSyncThresholdPositive | Number | 100 | Threshold for leading (early) audio to be considered worth reporting (milliseconds). |
+| monitorAVSyncThresholdNegative | Number | 100 | Threshold for lagging (late) audio to be considered worth reporting (milliseconds). |
+| monitorAVJumpThreshold | Number | 100 | Threshold for aligned audio/video positions advancing together to be considered worth reporting (milliseconds). |
 
-Example:
-```js
-    {
-        // configuration setting for player
-        var playerInitConfig = {
-            initialBitrate: 2500000,
-            offset: 0,
-            networkTimeout: 10,
-            preferredAudioLanguage: "en",
-        };
-	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
-	    var player = new AAMPMediaPlayer();
-	    player.initConfig(playerInitConfig);
-	    player.load(url);
-    }
+**Example:**
 
+```javascript
+// Configuration settings for player
+var playerInitConfig = {
+    initialBitrate: 2500000,    // Start with 2.5 Mbps
+    offset: 0,                   // Start from beginning
+    networkTimeout: 10,          // 10 second timeout
+    preferredAudioLanguage: "en" // English audio preference
+};
+
+// Replace with your actual stream URL
+var url = "https://example.com/multilang/sample.m3u8";
+
+// Create player instance and initialize with config
+var player = new AAMPMediaPlayer();
+player.initConfig(playerInitConfig);
+player.load(url);
 ```
 ---
 
 ### setDRMConfig( config )
-DRM configuration options are passed to AAMP using the setDRMConfig method. Parameter is JSON object with pairs of protectionScheme: licenseServerUrl pairs, along with  preferredKeySystem specifying a preferred protectionScheme.
+
+DRM configuration options are passed to AAMP using the `setDRMConfig()` method. The parameter is a JSON object with pairs of protectionScheme: licenseServerUrl, along with preferredKeySystem specifying a preferred protection scheme.
 
 | Property | Type | Description |
-| ---- | ---- | ----- |
-| com.microsoft.playready | String | License server endpoint to use with PlayReady DRM. Example: http://test.playready.microsoft.com/service/rightsmanager.asmx |
-| com.widevine.alpha | String | License server endpoint to use with Widevine DRM. Example: https://widevine-proxy.appspot.com/proxy |
+| -------- | ---- | ----------- |
+| com.microsoft.playready | String | License server endpoint to use with PlayReady DRM. Example: `http://test.playready.microsoft.com/service/rightsmanager.asmx` |
+| com.widevine.alpha | String | License server endpoint to use with Widevine DRM. Example: `https://widevine-proxy.appspot.com/proxy` |
 | org.w3.clearkey | String | License server endpoint to use with Clearkey DRM. |
-| preferredKeysystem | String | Used to disambiguate which DRM type to use, when manifest advertises multiple supported DRM systems. Example: com.widevine.alpha |
-| customLicenseData | String | Optional field to provide Custom data for license request |
+| preferredKeysystem | String | Used to disambiguate which DRM type to use when manifest advertises multiple supported DRM systems. Example: `com.widevine.alpha` |
+| customLicenseData | String | Optional custom data for license request. |
 
-Example:
-```js
-    {
-        // configuration for DRM -Sample for Widevine
-        var DrmConfig = {
-	    'https://example.com/AcquireLicense', // replace with valid URL!
-	        'preferredKeysystem':'com.widevine.alpha'
-        };
-        var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
-        var player = new AAMPMediaPlayer();
-	    player.setDRMConfig(DrmConfig);
-	    player.load(url);
-    }
+**Example:**
 
+```javascript
+// Configuration for DRM - Sample for Widevine
+var drmConfig = {
+    'com.widevine.alpha': 'https://example.com/AcquireLicense', // Replace with valid URL
+    'preferredKeysystem': 'com.widevine.alpha'
+};
+
+// Replace with your actual stream URL
+var url = "https://example.com/multilang/sample.m3u8";
+
+// Create player instance and configure DRM
+var player = new AAMPMediaPlayer();
+player.setDRMConfig(drmConfig);
+player.load(url);
 ```
 ---
 
 ## Properties
 
 | Name | Type | Description |
-| ---- | ---- | --------- |
-| version | number | May be used to confirm if RDKV build in use supports a newer feature |
-| AAMP.version | number | Global variable for applications to get UVE API version without creating a player instance. Value will be same as player.version |
+| ---- | ---- | ----------- |
+| version | Number | May be used to confirm if RDKV build in use supports a newer feature. |
+| AAMP.version | Number | Global variable for applications to get UVE API version without creating a player instance. Value will be same as `player.version`. |
 
-<div style="page-break-after: always;"></div>
+---
 
 ## Methods
 
-### load (uri, autoplay, tuneParams)
+### load( uri, autoplay, tuneParams )
+
 Begin streaming the specified content.
 
+**Parameters:**
+
 | Name | Type | Description |
-| ---- | ---- | ---------- |
-| uri | String | URI of the Media to be played by the Video Engine |
-| autoplay | Boolean | optional 2nd parameter (defaults to true). If false, causes stream to be prerolled/prebuffered only, but not automatically presented. Available starting with version 0.8 |
-| tuneParams | Object | optional 3rd parameter; The tuneParams Object includes four elements contentType, traceId, isInitialAttempt, isFinalAttempt, sessionId and manifest. Details provided in below table |
+| ---- | ---- | ----------- |
+| uri | String | URI of the media to be played by the Video Engine. |
+| autoplay | Boolean | Optional 2nd parameter (defaults to true). If false, causes stream to be prerolled/prebuffered only, but not automatically presented. Available starting with version 0.8. |
+| tuneParams | Object | Optional 3rd parameter. The tuneParams object includes six elements: contentType, traceId, isInitialAttempt, isFinalAttempt, sessionId and manifest. Details provided in table below. |
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
@@ -298,163 +369,221 @@ Begin streaming the specified content.
 | sessionId | String | ID of the Session set by the Video Engine to identify each player. All events emitted by a player will contain a property reporting the player's ID; if the sessionId is not set, then the sessionId will be an empty string. |
 | manifest | String | prefetched/preprocessed manifest (plaintext xml) to use instead of the manifest normally downloaded using <uri>. If provided, updated live dash manifest is expected for each manifest refresh interval (refer needManifest event). This is available only for DASH
 
-|ContentType|Description|
-|-----------|-----------|
-|CDVR|Cloud Digital Video Recording|
-|VOD|Static Video on Demand|
-|LINEAR_TV|Live Content|
-|IVOD|Video on Demand for Events|
-|EAS|Emergency Alert System|
-|PPV|Pay Per View|
-|OTT|Over the Top|
-|OTA|Over the Air content|
-|HDMI_IN|presenting an HDMI input|
-|COMPOSITE_IN|presenting composite input|
-|SLE|Single Live Event (similar to IVOD)|
+**Content Types:**
 
-Example:
-```js
-    {
-	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
-	    player.load(url); // for autoplayback
-    }
-    // support for multiple player instances
-    {
-	    var player1 = new AAMPMediaPlayer();
-	    var player2 = new AAMPMediaPlayer();
-	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
-	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
-	    player1.load(url1); // for immediate playback
-	    player2.load(url2,false); // for background buffering,no playback.
-    }
-    // support for multiple player instances with session ID
-    {
-	    var player1 = new AAMPMediaPlayer();
-	    var player2 = new AAMPMediaPlayer();
-	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
-	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
+| ContentType | Description |
+| ----------- | ----------- |
+| CDVR | Cloud Digital Video Recording |
+| VOD | Static Video on Demand |
+| LINEAR_TV | Live Content |
+| IVOD | Video on Demand for Events |
+| EAS | Emergency Alert System |
+| PPV | Pay Per View |
+| OTT | Over the Top |
+| OTA | Over the Air content |
+| HDMI_IN | Presenting an HDMI input |
+| COMPOSITE_IN | Presenting composite input |
+| SLE | Single Live Event (similar to IVOD) |
 
-	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" }; // base16
-	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" }; // base16
+**Examples:**
 
-	    player1.load(url1, true, params_1); // for immediate playback
-	    player2.load(url2, false, params_2); // for background buffering,no playback.
-    }
-    // support for preprocessed DASH manifest
-    {
-	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd";  // replace with valid URL!
-        // replace below with valid full DASH manifest XML
-	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...;
-	    player.load(url,true,{ manifest: xml});
-      }
+```javascript
+// Example 1: Simple autoplay
+var player = new AAMPMediaPlayer();
+var url = "https://example.com/multilang/sample.m3u8"; // Replace with valid URL
+player.load(url); // Starts playing immediately
+```
+
+```javascript
+// Example 2: Multiple player instances
+var player1 = new AAMPMediaPlayer();
+var player2 = new AAMPMediaPlayer();
+
+var url1 = "https://example.com/multilang/sample.m3u8";  // Replace with valid URL
+var url2 = "https://example.com/multilang/sample1.m3u8"; // Replace with valid URL
+
+player1.load(url1);        // For immediate playback
+player2.load(url2, false); // For background buffering, no playback
+```
+
+```javascript
+// Example 3: Multiple player instances with session IDs
+var player1 = new AAMPMediaPlayer();
+var player2 = new AAMPMediaPlayer();
+
+var url1 = "https://example.com/multilang/sample.m3u8";  // Replace with valid URL
+var url2 = "https://example.com/multilang/sample1.m3u8"; // Replace with valid URL
+
+var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" }; // base16
+var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" }; // base16
+
+player1.load(url1, true, params_1);  // For immediate playback
+player2.load(url2, false, params_2); // For background buffering, no playback
+```
+
+```javascript
+// Example 4: Preprocessed DASH manifest
+var player = new AAMPMediaPlayer();
+var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd";  // Replace with valid URL
+
+// Replace below with valid full DASH manifest XML
+const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" /* ... */;
+
+player.load(url, true, { manifest: xml });
 ```
 
 ---
 
 ### play()
 
-- Supported UVE version 0.7 and above.
-- Start playback (if stream is in prebuffered state), or resume playback at normal speed.  Equivalent to setPlaybackRate(1).
+Start playback (if stream is in prebuffered state), or resume playback at normal speed. Equivalent to `setPlaybackRate(1)`.
 
-Example:
-```js
-    {
-	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
-	    player.load(url,false); // for background buffering,no playback.
-	    // application can start the playback background session using play API
-	    player.play();  // Or player.setPlaybackRate(1);
-    }
+- **Supported:** UVE version 0.7 and above.
+
+**Example:**
+
+```javascript
+var player = new AAMPMediaPlayer();
+var url = "https://example.com/multilang/main.m3u8"; // Replace with valid URL
+
+// Load stream in background (prebuffered state)
+player.load(url, false);
+
+// Application can start the playback later using play API
+player.play();  // Or player.setPlaybackRate(1);
 ```
 ---
 
-### pause()
+### pause( position )
 
-- Supported UVE version 0.7 and above.
-- Pauses playback.  Equivalent to setPlaybackRate(0).
+Pauses playback. Equivalent to `setPlaybackRate(0)`.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Parameters:**
 
 | Name | Type | Description |
-| ---- | ---- | ---------- |
-| position | number | Optional input. Position value where player need to pause (value in seconds) during play or trickplay. <br/> To cancel a scheduled pause, call pause API with input -1. |
+| ---- | ---- | ----------- |
+| position | Number | Optional input. Position value where player needs to pause during play or trickplay (value in seconds). To cancel a scheduled pause, call pause API with input -1. |
 
-Example:
-```js
-    {
-	    .....
-	    // for immediate pause of playback
-	    player.pause();  // Or player.setPlaybackRate(0);
-	    // to schedule a pause at later play position
-	    player.pause(60);  // schedules a pause at 60 sec of play
-	    // to cancel a scheduled pause
-	    player.pause(-1);
+**Examples:**
 
-    }
+```javascript
+// Example 1: Immediate pause of playback
+player.pause();  // Or player.setPlaybackRate(0);
 ```
 
-Note: starting in RDK 6.9, we support ability to start video paused on first frame.  Example:
-```js
-    {
-	    .....
-	    // start playback backgrounded with autoplay=false
-            // Use valid URL instead of example
-	    player.load("https://example.com/public/aamptest/streams/main.mpd", false); // replace with valid URL!
-	    player.seek(30); // optionally jump to new position
-	    player.pause(); // bring video to foreground, and show first frame of video
-    }
+```javascript
+// Example 2: Schedule a pause at later play position
+player.pause(60);  // Schedules a pause at 60 sec of play
+```
+
+```javascript
+// Example 3: Cancel a scheduled pause
+player.pause(-1);
+```
+
+**Note:** Starting in RDK 6.9, we support ability to start video paused on first frame.
+
+**Example:**
+
+```javascript
+// Start playback backgrounded with autoplay=false
+player.load("https://example.com/public/aamptest/streams/main.mpd", false); // Replace with valid URL
+
+player.seek(30); // Optionally jump to new position
+
+player.pause();  // Bring video to foreground and show first frame of video
 ```
 
 ---
 
-### stop()
-- Supported UVE version 0.7 and above.
-- Stop playback and free resources associated with playback.
-Usage example:
-```js
-    {
-	    .....
-	    // for immediate stop of playback
-	    player.stop();
-    }
+### stop( forceCleanup )
+### stop( sendStateChangeEvent, forceCleanup )
+
+Stop playback and free resources associated with playback.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Single Parameter Form:**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| forceCleanup | Boolean | Optional parameter. If true, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. Prevents playback failures after device wake-up from Deep Sleep by clearing stale DRM sessions and failed key IDs. |
+
+**Two Parameter Form (Advanced Usage):**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sendStateChangeEvent | Boolean | If true, sends state change events during stop operation. Default is true. |
+| forceCleanup | Boolean | If true, forces DRM handle cleanup for Deep Sleep scenarios. Default is false. |
+
+**Usage Examples:**
+
+```javascript
+// Standard stop - sends state change events
+player.stop();
+
+// Stop with DRM cleanup before Deep Sleep
+player.stop(true);
+
+// Advanced: Stop without state events, with DRM cleanup
+player.stop(false, true);
 ```
 ---
+
 ### detach()
-- Supported UVE version 0.9 and above.
-- Optional API that can be used to quickly stop playback of active stream before transitioning to next prebuffered stream.
 
-##### Example:
-```js
+Optional API that can be used to quickly stop playback of active stream before transitioning to next prebuffered stream.
 
-      {
-          var player = new AAMPMediaPlayer();
-          // begin streaming main content
-          player.load( "http://test.com/content.m3u8" );
-          ..
-          // create background player
-          var adPlayer = new AAMPMediaPlayer();
-          // preroll with autoplay = false
-          adPlayer.load( "http://test.com/ad.m3u8", false );
-          ..
-          player.detach(); // stop playback of active player
-          adPlayer.play(); // activate background player (fast transition)
-          player.stop(); // release remaining resources for initial player instance
-      }
+- **Supported:** UVE version 0.9 and above.
+
+**Example:**
+
+```javascript
+var player = new AAMPMediaPlayer();
+
+// Begin streaming main content
+player.load("http://test.com/content.m3u8");
+
+// Create background player
+var adPlayer = new AAMPMediaPlayer();
+
+// Preroll with autoplay = false
+adPlayer.load("http://test.com/ad.m3u8", false);
+
+// Stop playback of active player
+player.detach();
+
+// Activate background player (fast transition)
+adPlayer.play();
+
+// Release remaining resources for initial player instance
+player.stop();
 ```
 ---
 
 ### resetConfiguration()
-- API that can be used to reset the player instance configuration to default values that can be called by the application any time necessary.
+
+Reset the player instance configuration to default values. Can be called by the application at any time.
+
 ---
 
 ### getConfiguration()
-- API that can be used to retrieve player configuration.
+
+Retrieve current player configuration.
+
+**Returns:** Object containing current player configuration.
 
 ---
 
 ### release()
-- Immediately release any native memory associated with player instance. The player instance must no longer be used following release() call.
-- If this API is not explicitly called, then garbage collector will eventually takes care of this memory release.
+
+Immediately release any native memory associated with player instance. The player instance must no longer be used following `release()` call.
+
+**Warning:** This is a terminal operation. Do not use the player instance after calling this method.
+
+**Note:** If this API is not explicitly called, the garbage collector will eventually take care of this memory release.
 
 ---
 
@@ -484,14 +613,22 @@ Example:
 ---
 
 ### getCurrentPosition()
-* Supported UVE version 0.7 and above.
-* Returns current playback position in seconds.
+
+Returns current playback position in seconds.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Returns:** Number - Current playback position (seconds).
 
 ---
 
 ### getCurrentState()
-* Supported UVE version 0.7 and above.
-* Returns one of below logical player states as number:
+
+Returns one of the logical player states as a number.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Player States:**
 
 | State Name | Value | Semantics | Remarks |
 | ---- | ---- | ---------- | ------- |
@@ -513,62 +650,99 @@ Example:
 ---
 
 ### getDurationSec()
-- Supported UVE version 0.7 and above.
-- Returns current duration of content in seconds. <br/> Duration is fixed for VOD content, but may grow with Linear content.
+
+Returns current duration of content in seconds.
+
+- **Supported:** UVE version 0.7 and above.
+- Duration is fixed for VOD content, but may grow with linear content.
+
+**Returns:** Number - Duration in seconds.
 
 ---
 
 ### getVolume()
-- Supported UVE version 0.7 and above.
-- Get current volume (value between 0 and 100).  Default audio volume is 100. Volume is normally mapped from remote directly to TV, with video engine used to manage an independent mute/unmute state for parental control.
+
+Get current volume (value between 0 and 100).
+
+- **Supported:** UVE version 0.7 and above.
+- Default audio volume is 100.
+- Volume is normally mapped from remote directly to TV, with video engine used to manage an independent mute/unmute state for parental control.
+
+**Returns:** Number - Current volume (0-100).
 
 ---
 
-### setVolume ( volume )
-- Supported UVE version 0.7 and above.
-- Sets the current volume (value between 0 and 100). Updated value reflected in subsequent calls to getVolume()
-- Returns true if setVolume has been performed.
+### setVolume( volume )
+
+Sets the current volume (value between 0 and 100). Updated value reflected in subsequent calls to `getVolume()`.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Parameters:**
 
 | Name | Type | Description |
-| ---- | ---- | ---------- |
-| Volume | Number | Pass zero to mute audio. Pass 100 for normal (max) audio volume. |
+| ---- | ---- | ----------- |
+| volume | Number | Pass 0 to mute audio. Pass 100 for normal (max) audio volume. |
+
+**Returns:** Boolean - true if setVolume has been performed.
 
 ---
 
 ### setVideoMute( state )
-- Supported UVE version 0.7 and above.
-- Black out video for parental control purposes or enable the video playback .
-- Returns true if setVideoMute has been performed.
+
+Black out video for parental control purposes or enable the video playback.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Parameters:**
 
 | Name | Type | Description |
-| ---- | ---- | ---------- |
-| state | Boolean | True to Mute video. <br/>False to disable video mute and enable video playback |
+| ---- | ---- | ----------- |
+| state | Boolean | true to mute video. false to disable video mute and enable video playback. |
+
+**Returns:** Boolean - true if setVideoMute has been performed.
 
 ---
 
 ### getPlaybackRate()
-- Supported UVE version 0.7 and above.
-- Returns the current playback rate. Refer table in setPlaybackRate for details.
+
+Returns the current playback rate.
+
+- **Supported:** UVE version 0.7 and above.
+- Refer table in `setPlaybackRate()` for rate values.
+
+**Returns:** Number - Current playback rate.
 
 ---
 
 ### setPlaybackRate( rate )
-- Supported UVE version 0.7 and above.
-- Change playback rate, supported speeds are given below
-- Returns true if setPlaybackRate has been performed.
 
-|Value |Description|
-|------|-----------|
-|     0|Pause|
-|     1|Normal Play|
-|     4|2x Fast Forward (using iframe track)|
-|    16|4x Fast Forward (using iframe track)|
-|    32|8x Fast Forward (using iframe track)|
-|    64|16x Fast Forward (using iframe track)|
-|    -4|2x Rewind (using iframe track)|
-|   -16|4x Rewind (using iframe track)|
-|   -32|8x Rewind (using iframe track)|
-|   -64|16x Rewind (using iframe track)|
+Change playback rate. Supported speeds are given below.
+
+- **Supported:** UVE version 0.7 and above.
+
+**Parameters:**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| rate | Number | Playback rate (see table below). |
+
+**Returns:** Boolean - true if setPlaybackRate has been performed.
+
+**Supported Playback Rates:**
+
+| Value | Description |
+| ----- | ----------- |
+| 0 | Pause |
+| 1 | Normal Play |
+| 4 | 2x Fast Forward (using iframe track) |
+| 16 | 4x Fast Forward (using iframe track) |
+| 32 | 8x Fast Forward (using iframe track) |
+| 64 | 16x Fast Forward (using iframe track) |
+| -4 | 2x Rewind (using iframe track) |
+| -16 | 4x Rewind (using iframe track) |
+| -32 | 8x Rewind (using iframe track) |
+| -64 | 16x Rewind (using iframe track) |
 
 ---
 
@@ -641,7 +815,7 @@ Example:
 		var player;
 		window.onload = function() {
 			player = new AAMPMediaPlayer(); // create player instance for AAMP
-			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)"; // replace with valid URL!
+			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)"; // replace with valid URL
 			console.log("loading " + url );
 			player.load( url ); // tune using AMP
 			console.log("screen size: " + screen.width + "x" + screen.height); // typically 1280x720
@@ -726,12 +900,12 @@ Example:
     {
             // configuration for DRM -Sample for Widevine
             var DrmConfig = {
-            'com.widevine.alpha':'https://example.com/AcquireLicense', // replace with valid URL!
+            'com.widevine.alpha':'https://example.com/AcquireLicense', // replace with valid URL
             'preferredKeysystem':'com.widevine.alpha'
             };
 
 
-	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    // custom header message for license request
@@ -1453,7 +1627,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
     Linear Streams:
     {
         // Use valid URL instead of example
-        "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL!
+        "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL
         "raw_w":1600,
         "raw_h":900,
         "width":320,
@@ -1470,7 +1644,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
     VOD Streams:
     {
-        "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL!
+        "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL
         "raw_w": 3744,
         "raw_h": 3978,
         "width": 416,
@@ -1528,7 +1702,7 @@ acquisition |
 ```
  {
     "keyID" : [57, 49, 49, 100, 98, 54, 99, 99, 45],
-    "com.widevine.alpha" : "example.com", // replace with valid URL!
+    "com.widevine.alpha" : "example.com", // replace with valid URL
     "customData" : “data”,
     "authToken"  : “token string”,
  }
@@ -2420,46 +2594,51 @@ When a player instance is no longer needed, recommend to call explicit release()
 
 ## Universal Video Engine Player Errors
 
-| Error Code | Code | Error String |
-| ---- | ---- | ----- |
-| AAMP_TUNE_INIT_FAILED | 10 | AAMP: init failed |
-| AAMP_TUNE_INIT_FAILED_MANIFEST_DNLD_ERROR | 10 | AAMP: init failed (unable to download manifest) |
-| AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR | 10 | AAMP: init failed (manifest missing tracks) |
-| AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR | 10 | AAMP: init failed (corrupt/invalid manifest) |
-| AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR | 10 | AAMP: init failed (unsynchronized tracks) |
-| AAMP_TUNE_MANIFEST_REQ_FAILED | 10 | AAMP: Manifest Download failed; Playlist refresh failed |
-| AAMP_TUNE_INIT_FAILED_PLAYLIST_VIDEO_DNLD_ERROR | 10 | AAMP: init failed (unable to download video playlist) |
-| AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR | 10 | AAMP: init failed (unable to download audio playlist) |
-| AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE | 10 | AAMP: fragment download failures |
-| AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE | 10 | AAMP: init fragment download failed |
-| AAMP_TUNE_INVALID_MANIFEST_FAILURE | 10 | AAMP: Invalid Manifest, parse failed |
-| AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING | 10 | AAMP: init fragments missing in playlist |
-| AAMP_TUNE_CONTENT_NOT_FOUND | 20 | AAMP: Resource was not found at the URL(HTTP 404) |
-| AAMP_TUNE_AUTHORIZATION_FAILURE | 40 | AAMP: Authorization failure |
-| AAMP_TUNE_UNTRACKED_DRM_ERROR | 50 | AAMP: DRM error untracked error |
-| AAMP_TUNE_DRM_INIT_FAILED | 50 | AAMP: DRM Initialization Failed |
-| AAMP_TUNE_DRM_DATA_BIND_FAILED | 50 | AAMP: InitData-DRM Binding Failed |
-| AAMP_TUNE_DRM_SESSIONID_EMPTY | 50 | AAMP: DRM Session ID Empty |
-| AAMP_TUNE_DRM_CHALLENGE_FAILED | 50 | AAMP: DRM License Challenge Generation Failed |
-| AAMP_TUNE_LICENCE_TIMEOUT | 50 | AAMP: DRM License Request Timed out |
-| AAMP_TUNE_LICENCE_REQUEST_FAILED | 50 | AAMP: DRM License Request Failed |
-| AAMP_TUNE_INVALID_DRM_KEY | 50 | AAMP: Invalid Key Error, from DRM |
-| AAMP_TUNE_UNSUPPORTED_STREAM_TYPE | 60 | AAMP: Unsupported Stream Type. Unable to determine stream type for DRM Init |
-| AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE | 60 | AAMP: No supported Audio Types in Manifest |
-| AAMP_TUNE_FAILED_TO_GET_KEYID | 50 | AAMP: Failed to parse key id from PSSH |
-| AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN | 50 | AAMP: Failed to get access token from Auth Service |
-| AAMP_TUNE_CORRUPT_DRM_METADATA | 50 | AAMP: DRM failure due to Bad DRMMetadata in stream |
-| AAMP_TUNE_DRM_DECRYPT_FAILED | 50 | AAMP: DRM Decryption Failed for Fragments |
-| AAMP_TUNE_DRM_UNSUPPORTED | 50 | AAMP: DRM format Unsupported |
-| AAMP_TUNE_DRM_SELF_ABORT | 50 | AAMP: DRM license request aborted by player |
-| AAMP_TUNE_DRM_KEY_UPDATE_FAILED | 50 | AAMP: Failed to process DRM key |
-| AAMP_TUNE_CORRUPT_DRM_DATA | 51 | AAMP: DRM failure due to Corrupt DRM files |
-| AAMP_TUNE_DEVICE_NOT_PROVISIONED | 52 | AAMP: Device not provisioned |
-| AAMP_TUNE_HDCP_COMPLIANCE_ERROR | 53 | AAMP: HDCP Compliance Check Failure |
-| AAMP_TUNE_GST_PIPELINE_ERROR | 80 | AAMP: Error from gstreamer pipeline |
-| AAMP_TUNE_FAILED_PTS_ERROR | 80 | AAMP: Playback failed due to PTS error |
-| AAMP_TUNE_PLAYBACK_STALLED | 7600 | AAMP: Playback was stalled due to lack of new fragments |
-| AAMP_TUNE_FAILURE_UNKNOWN | 100 | AAMP: Unknown Failure |
+| Error Code | Code | SubCode | Error String |
+| ---- | ---- | ----- | ----- |
+| AAMP_TUNE_INIT_FAILED | 10 | 1 | AAMP: init failed |
+| AAMP_TUNE_INIT_FAILED_MANIFEST_DNLD_ERROR | 10 | 2 | AAMP: init failed (unable to download manifest) |
+| AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR | 10 | 3 | AAMP: init failed (manifest missing tracks) |
+| AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR | 10 | 4 | AAMP: init failed (corrupt/invalid manifest) |
+| AAMP_TUNE_INIT_FAILED_PLAYLIST_VIDEO_DNLD_ERROR | 10 | 5 | AAMP: init failed (unable to download video playlist) |
+| AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR | 10 | 6 | AAMP: init failed (unable to download audio playlist) |
+| AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR | 10 | 7 | AAMP: init failed (unsynchronized tracks) |
+| AAMP_TUNE_CONTENT_NOT_FOUND | 20 | 1 | AAMP: Resource was not found at the URL(HTTP 404) |
+| AAMP_TUNE_MANIFEST_REQ_FAILED | 30 | 1 | AAMP: Manifest Download failed |
+| AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE | 30 | 2 | AAMP: fragment download failures |
+| AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE | 30 | 3 | AAMP: init fragment download failed |
+| AAMP_TUNE_INVALID_MANIFEST_FAILURE | 30 | 4 | AAMP: Invalid Manifest, parse failed |
+| AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING | 30 | 5 | AAMP: init fragments missing in playlist |
+| AAMP_TUNE_DNS_RESOLVE_TIMEOUT | 30 | 6 | AAMP: Manifest download failed due to DNS resolve timeout |
+| AAMP_TUNE_CURL_CONNECTION_TIMEOUT | 30 | 7 | AAMP: Manifest download failed due to connection timeout |
+| AAMP_TUNE_DATA_TRANSFER_TIMEOUT | 30 | 8 | AAMP: Manifest download failed due to data transfer timeout |
+| AAMP_TUNE_AUTHORIZATION_FAILURE | 40 | 1 | AAMP: Authorization failure |
+| AAMP_TUNE_UNTRACKED_DRM_ERROR | 50 | 1 | AAMP: DRM error untracked error |
+| AAMP_TUNE_DRM_INIT_FAILED | 50 | 2 | AAMP: DRM Initialization Failed |
+| AAMP_TUNE_DRM_DATA_BIND_FAILED | 50 | 3 | AAMP: InitData-DRM Binding Failed |
+| AAMP_TUNE_DRM_SESSIONID_EMPTY | 50 | 4 | AAMP: DRM Session ID Empty |
+| AAMP_TUNE_DRM_CHALLENGE_FAILED | 50 | 5 | AAMP: DRM License Challenge Generation Failed |
+| AAMP_TUNE_LICENCE_TIMEOUT | 50 | 6 | AAMP: DRM License Request Timed out |
+| AAMP_TUNE_LICENCE_REQUEST_FAILED | 50 | 7 | AAMP: DRM License Request Failed |
+| AAMP_TUNE_INVALID_DRM_KEY | 50 | 8 | AAMP: Invalid Key Error, from DRM |
+| AAMP_TUNE_FAILED_TO_GET_KEYID | 50 | 9 | AAMP: Failed to parse key id from PSSH |
+| AAMP_TUNE_CORRUPT_DRM_DATA | 50 | 10 | AAMP: DRM failure due to Corrupt DRM files |
+| AAMP_TUNE_CORRUPT_DRM_METADATA | 50 | 11 | AAMP: DRM failure due to Bad DRMMetadata in stream |
+| AAMP_TUNE_DRM_DECRYPT_FAILED | 50 | 12 | AAMP: DRM Decryption Failed for Fragments |
+| AAMP_TUNE_DRM_UNSUPPORTED | 50 | 13 | AAMP: DRM format Unsupported |
+| AAMP_TUNE_DRM_SELF_ABORT | 50 | 14 | AAMP: DRM license request aborted by player |
+| AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN | 50 | 15 | AAMP: Failed to get access token from Auth Service |
+| AAMP_TUNE_DRM_KEY_UPDATE_FAILED | 50 | 16 | AAMP: Failed to process DRM key |
+| AAMP_TUNE_DEVICE_NOT_PROVISIONED | 51 | 1 | AAMP: Device not provisioned |
+| AAMP_TUNE_HDCP_COMPLIANCE_ERROR | 52 | 1 | AAMP: HDCP Compliance Check Failure |
+
+| AAMP_TUNE_UNSUPPORTED_STREAM_TYPE | 60 | 1 | AAMP: Unsupported Stream Type |
+| AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE | 60 | 2 | AAMP: No supported Audio Types in Manifest |
+| AAMP_TUNE_GST_PIPELINE_ERROR | 80 | 1 | AAMP: Error from gstreamer pipeline |
+| AAMP_TUNE_FAILED_PTS_ERROR | 80 | 2 | AAMP: Playback failed due to PTS error |
+
+| AAMP_TUNE_PLAYBACK_STALLED | 7600 | 1 | AAMP: Playback was stalled due to lack of new fragments |
+| AAMP_TUNE_FAILURE_UNKNOWN | 100 | 1 | AAMP: Unknown Failure |
 
 ---
 
@@ -2583,6 +2762,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### stop
 - Stop playback and free resources
+- Optional forceCleanup parameter for DRM cleanup in Deep Sleep scenarios
 
 ##### getAudioTrack
 - Get the index of the currently selected Audio track

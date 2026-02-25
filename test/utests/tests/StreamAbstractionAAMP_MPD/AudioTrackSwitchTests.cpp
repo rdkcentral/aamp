@@ -92,6 +92,7 @@ protected:
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_UseMp4Demux, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -127,6 +128,7 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -229,6 +231,8 @@ public:
 				.WillRepeatedly(Return(b.second));
 		}
 
+		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
+		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -237,11 +241,14 @@ public:
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+			.Times(AnyNumber())
+			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
@@ -294,7 +301,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillRepeatedly(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -431,7 +438,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillRepeatedly(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -477,7 +484,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     </Period>
 </MPD>
 )";
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
         .WillOnce(Return(true));
     status = InitializeMPD(manifest);
     EXPECT_EQ(status, eAAMPSTATUS_OK);

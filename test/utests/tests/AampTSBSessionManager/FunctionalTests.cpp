@@ -157,9 +157,6 @@ TEST_F(FunctionalTests, ConvertMediaType)
 	convertedType = mAampTSBSessionManager->ConvertMediaType(eMEDIATYPE_INIT_SUBTITLE);
 	EXPECT_EQ(convertedType, eMEDIATYPE_SUBTITLE);
 
-	convertedType = mAampTSBSessionManager->ConvertMediaType(eMEDIATYPE_INIT_AUX_AUDIO);
-	EXPECT_EQ(convertedType, eMEDIATYPE_AUX_AUDIO);
-
 	convertedType = mAampTSBSessionManager->ConvertMediaType(eMEDIATYPE_INIT_IFRAME);
 	EXPECT_EQ(convertedType, eMEDIATYPE_IFRAME);
 }
@@ -181,14 +178,15 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
-	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
+	// After std::vector refactoring, use fragment.GetPtr() which returns the internal buffer pointer
+	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.GetPtr(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).WillRepeatedly(Return(0));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
 	// Add video init fragment to TSB which already exists
-	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
+	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.GetPtr(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
@@ -336,6 +334,8 @@ TEST_F(FunctionalTests, TSBReadTests)
 	constexpr double FRAG_FIRST_PTS = 69.0;
 	constexpr double FRAG_PTS_OFFSET = -50.0;
 	size_t TEST_DATA_LEN = strlen(TEST_DATA);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer))
+		.WillOnce(Return(DEFAULT_MAX_DOWNLOAD_BUFFER));
 	class MediaStreamContext videoCtx(eTRACK_VIDEO, NULL, aamp, "video");
 
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();

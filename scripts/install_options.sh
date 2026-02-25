@@ -29,18 +29,17 @@ OPTION_QUICK=false
 OPTION_RIALTO_REFERENCE="v0.2.2"
 OPTION_RIALTO_BUILD=false
 OPTION_SUBTEC_SKIP=false
-OPTION_AAMPCLIKOTLIN_SKIP=false
+OPTION_AAMPCLIKOTLIN_SKIP=true
 OPTION_SUBTEC_BUILD=true
 OPTION_SUBTEC_CLEAN=false
 OPTION_CLEAN_BUILD=false
 OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
-
-
+OPTION_UBUNTU_SANITIZER=false
 
 function install_options_fn()
 {
   # Parse optional command line parameters
-  while getopts ":d:b:cf:np:r:g:qskt" OPT; do
+  while getopts ":d:b:cf:np:r:g:qsktu" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -70,24 +69,28 @@ function install_options_fn()
         OPTION_QUICK=true
         echo "Skip AAMPCli : ${QUICK}"
         ;;
-      r ) 
+      r )
         OPTION_RIALTO_REFERENCE=${OPTARG}
         echo "rialto tag : ${RIALTO_REFERENCE}"
         ;;
-      s ) 
+      s )
         OPTION_SUBTEC_SKIP=true
         # overrides any subtec or subtec clean setting
         echo "Skip subtec: ${OPTION_SKIP_SUBTEC}"
         ;;
-      k ) 
-        OPTION_AAMPCLIKOTLIN_SKIP=true
+      u )
+        OPTION_UBUNTU_SANITIZER=true
+        echo "Enable Ubuntu sanitizer: ${OPTION_UBUNTU_SANITIZER}"
+        ;;
+      k )
+        OPTION_AAMPCLIKOTLIN_SKIP=false
         echo "Skip aamp-cli on Kotlin: ${OPTION_AAMPCLIKOTLIN_SKIP}"
         ;;
-      p )     
+      p )
         OPTION_PROTOBUF_REFERENCE=${OPTARG}
         echo "protobuf branch : ${PROTOBUF_REFERENCE}"
-        ;; 
-      t )     
+        ;;
+      t )
         OPTION_CLEAN_BUILD=true
         echo "Will remove .libs and build directories before build"
         ;;
@@ -102,9 +105,10 @@ function install_options_fn()
 
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
-        [-k] Skip aamp-cli Kotlin build and installation]
-        [-t] Remove .libs and build directories before build (full rebuild)"
-        
+        [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
+        [-t] Remove .libs and build directories before build (full rebuild)
+        [-u] Enable Ubuntu address sanitizer (Linux only)"
+
         echo "
         [-r] Specify rialto to be built
         [-p] Specify protobuf branch name] (Linux only)"
@@ -124,7 +128,7 @@ function install_options_fn()
 
   # Parse subtec options
   if  [[  ${@:$OPTIND:1} = "subtec" ]]; then
-    OPTION_SUBTEC_BUILD=true 
+    OPTION_SUBTEC_BUILD=true
     shift
     if  [[  ${@:$OPTIND:1} = "clean" ]]; then
         OPTION_SUBTEC_CLEAN=true

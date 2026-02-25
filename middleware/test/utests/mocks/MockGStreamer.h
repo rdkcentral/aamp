@@ -65,7 +65,8 @@ public:
 	MOCK_METHOD(void, gst_app_src_set_stream_type, (GstAppSrc *appsrc, GstAppStreamType type));
 	MOCK_METHOD(gboolean, gst_element_seek_simple, (GstElement *element, GstFormat format, GstSeekFlags seek_flags,gint64 seek_pos));
 	MOCK_METHOD(const GValue *, gst_structure_get_value, (const GstStructure *structure, const gchar *fieldname));
-	MOCK_METHOD(guint64 ,g_value_get_uint64, (const GValue *value));
+	MOCK_METHOD(guint64, g_value_get_uint64, (const GValue *value));
+	MOCK_METHOD(void, gst_structure_free, (GstStructure *structure));
 	MOCK_METHOD(gboolean,gst_element_query, (GstElement *element, GstQuery *query));
 	MOCK_METHOD(void,gst_query_parse_segment, (GstQuery *query, gdouble *rate, GstFormat *format, gint64 *start_value, gint64 *stop_value));
 	MOCK_METHOD(void,gst_query_parse_position, (GstQuery *query, GstFormat *format, gint64 *cur));
@@ -84,6 +85,9 @@ public:
 	MOCK_METHOD(void, gst_segment_init, (GstSegment *segment, GstFormat format));
 	MOCK_METHOD(GstEvent *, gst_event_new_segment, (GstSegment *segment));
 	MOCK_METHOD(GstEvent*, gst_event_new_custom, (GstEventType type, GstStructure* structure), ());
+	MOCK_METHOD(void, gst_caps_set_simple, (GstCaps *, const char *));
+	MOCK_METHOD(GstBuffer*, gst_buffer_new_allocate, (GstAllocator *allocator, gsize size, GstAllocationParams *params));
+	MOCK_METHOD(void, gst_structure_set, (GstStructure * structure, const char * fieldname));
 
 	/*
 gst_app_sink_get_type

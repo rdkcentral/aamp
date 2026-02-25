@@ -241,15 +241,6 @@ class RealtekSocInterface : public SocInterface
 		bool RequiredElementSetup()override{return true;}
 
 		/**
-		 * @brief Set audio routing properties on source.
-		 *
-		 * Sets audio routing properties on the given source element.
-		 *
-		 * @param source The source element.
-		 */
-		void SetAudioRoutingProperties(GstElement *source)override;
-
-		/**
 		 * @brief Check if first audio frame callback is set.
 		 *
 		 * Determines if a callback function has been set for the first audio frame.

@@ -29,7 +29,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 }
 
 
-	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
+	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames, bool powerEvt) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
 	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
@@ -51,7 +51,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 									std::string session_id,
 									const char *preprocessedManifest
 									) { }
-    void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent) {  }
+    void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }
 	void PlayerInstanceAAMP::SetRate(float rate, int overshootcorrection) {  }
 	void PlayerInstanceAAMP::PauseAt(double  position) {  }
@@ -127,7 +127,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
 	void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList) {  }
-	void PlayerInstanceAAMP::SetPreferredLabels(const char *lableList) {  }
+	void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList) {  }
 	void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList) {  }
 	void PlayerInstanceAAMP::SetTuneEventConfig(int tuneEventType) {  }
 	void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty) {  }
@@ -164,7 +164,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
-	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }
 	void PlayerInstanceAAMP::SetLicenseCustomData(const char *customData) {  }
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }

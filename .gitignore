@@ -1,6 +1,7 @@
 oe-*
 .vscode
 /build/
+/build/XcodeDerivedData/
 nbproject/
 test/utests/build/
 Linux/gst-plugins-good-*/

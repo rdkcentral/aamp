@@ -30,17 +30,19 @@
 #include "MockAampConfig.h"
 #include "MockIsoBmffBuffer.h"
 #include "StreamAbstractionAAMP.h"
+#include "AampDownloadInfo.hpp"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
 
 using ::testing::_;
-using ::testing::NiceMock;;
+using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
+using ::testing::DoAll;
 
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
@@ -148,7 +150,10 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
-			{eAAMPConfig_EnableIFrameTrackExtract, false}
+			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_useRialtoSink, false},
+			{eAAMPConfig_UseMp4Demux, false},
+			{eAAMPConfig_EnableABR, true},
 		};
 
 		BoolConfigSettings mBoolConfigSettings;
@@ -165,6 +170,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter,DEFAULT_ABR_BUFFER_COUNTER},
+			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 			{eAAMPConfig_MaxFragmentChunkCached,DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 		};
 
@@ -317,10 +323,12 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			}
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunk));
 			if(init)
 			{
 				EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
+				EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(90000), Return(true)));
 				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVidTimeScale(_)).Times(AtLeast(1));
 			}
 		}
@@ -346,7 +354,19 @@ TEST_P(MediaStreamContextTest, CacheFragment)
 		testParam.expectedFragmentChunksCached,
 		testParam.expectedFragmentCached);
 	Initialize(testParam.lowlatency, testParam.chunk, testParam.tsb, testParam.eos, testParam.paused, testParam.underflow, testParam.init, testParam.rate);
-	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.init, false, false, 0, 0, false);
+	URIInfo uriInfo;
+	uriInfo.url = "remoteUrl";
+	URLBitrateMap urlList = { { 0, uriInfo } };
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO, 10, 2, "", -1, 0, testParam.init, false, false, false, 0.0, 0, 1, 0, 0, urlList);
+	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.init, false, false, 0);
+	if(retResult)
+	{
+		mMediaStreamContext->OnFragmentDownloadSuccess(mMediaStreamContext->mActiveDownloadInfo);
+	}
+	else
+	{
+		mMediaStreamContext->OnFragmentDownloadFailed(mMediaStreamContext->mActiveDownloadInfo);
+	}
 
 	if (testParam.eos && !testParam.paused)
 	{

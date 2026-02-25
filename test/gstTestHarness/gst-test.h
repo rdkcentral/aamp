@@ -54,7 +54,7 @@ public:
 	Track& operator=(const Track&)=delete;
 };
 
-class MyPipelineContext : PipelineContext
+class MyPipelineContext : public PipelineContext
 {
 public:
 	class Pipeline *pipeline;
@@ -65,8 +65,8 @@ public:
 	MyPipelineContext( void );
 	~MyPipelineContext();
 	void ReachedEOS( void );
-	void NeedData( MediaType mediaType );
-	void EnoughData( MediaType mediaType );
+	void NeedData( MediaType mediaType ) override;
+	void EnoughData( MediaType mediaType ) override;
 	void PadProbeCallback( MediaType mediaType );
 	
 	MyPipelineContext(const MyPipelineContext&)=delete;

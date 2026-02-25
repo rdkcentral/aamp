@@ -367,7 +367,10 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
 	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
-	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true}
+	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true},
+	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false},
+	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
+	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -442,11 +445,12 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_DISCONTINUITY_TIMEOUT,"discontinuityTimeout",eAAMPConfig_DiscontinuityTimeout,false},
 	{0,"minBitrate",eAAMPConfig_MinBitrate,true},
 	{INT_MAX,"maxBitrate",eAAMPConfig_MaxBitrate,true},
-	{CURL_SSLVERSION_TLSv1_2,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION},
+	{CURL_SSLVERSION_DEFAULT,"supportTLS",eAAMPConfig_TLSVersion,true,eCONFIG_RANGE_CURL_SSL_VERSION}, // by default, allow libcurl to negotiate best version supported by client and server, typically TLS1.3
 	{DEFAULT_DRM_NETWORK_TIMEOUT,"drmNetworkTimeout",eAAMPConfig_DrmNetworkTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStallTimeout",eAAMPConfig_DrmStallTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"drmStartTimeout",eAAMPConfig_DrmStartTimeout,true,eCONFIG_RANGE_TIMEOUT},
 	{0,"timeBasedBufferSeconds",eAAMPConfig_TimeBasedBufferSeconds,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
+	{DEFAULT_MAX_DOWNLOAD_BUFFER,"maxDownloadBuffer",eAAMPConfig_MaxDownloadBuffer,true,eCONFIG_RANGE_PLAYBACK_OFFSET},
 	{DEFAULT_TELEMETRY_REPORT_INTERVAL,"telemetryInterval",eAAMPConfig_TelemetryInterval,true},
 	{0,"rateCorrectionDelay", eAAMPConfig_RateCorrectionDelay,true},
 	{-1,"harvestDuration",eAAMPConfig_HarvestDuration,false,eCONFIG_RANGE_HARVEST_DURATION},
@@ -466,7 +470,11 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,true,eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD },
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
-	// aliases, kept for backwards compatibility
+	{DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC,"utcSyncMinIntervalSec",eAAMPConfig_UTCSyncMinIntervalSec,true },
+	{DEFAULT_EARLY_ABORT_PROFILE_BANDWIDTH_PERCENT,"earlyAbortProfileBandwidthPercent",eAAMPConfig_EarlyAbortProfileBandwidthPercent,true},
+	// Add new integer config entries above this line, before the aliases section.
+	//
+	// Aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
 };
@@ -493,7 +501,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_MIN_BUFFER_LOW_LATENCY,"lowLatencyMinBuffer",eAAMPConfig_LowLatencyMinBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{DEFAULT_TARGET_BUFFER_LOW_LATENCY,"lowLatencyTargetBuffer",eAAMPConfig_LowLatencyTargetBuffer,true, eCONFIG_RANGE_LLDBUFFER},
-	{GST_BW_TO_BUFFER_FACTOR,"bandwidthToBufferFactor", eAAMPConfig_BWToGstBufferFactor,true},
+	{GST_BW_TO_BUFFER_FACTOR,"bandwidthToBufferFactor", eAAMPConfig_BWToGstBufferFactor,true}
 };
 
 /**
@@ -1629,7 +1637,7 @@ void AampConfig::ReadAampCfgFromEnv()
 		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 		size_t iConfigLen = strEnvConfig.length();
 		AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ", strEnvConfig.c_str(), iConfigLen);
-		char *strConfig = (char *)base64_Decode(strEnvConfig.c_str(), &iConfigLen);
+		char *strConfig = (char *)base64_Decode(strEnvConfig.c_str(), &iConfigLen, strEnvConfig.length());
 		if (NULL != strConfig)
 		{
 			ProcessBase64AampCfg(strConfig, iConfigLen, AAMP_DEV_CFG_SETTING);

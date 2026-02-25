@@ -93,6 +93,22 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
         bool GetActiveInterface()override{return false;}
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override {}
+
+	void SetPowerEvent(bool powerEvt) override {}
+
+    bool GetPowerEvent() override { return false; }
+
+    /**
+     * @brief Set callback function for fake tune operations (stub implementation)
+     * @param[in] t_doFakeTuneCallback Function to call for fake tune operations
+     */
+    void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback) override {}
+
+    /**
+     * @brief Get callback function for fake tune operations (stub implementation)
+     * @return nullptr for fake implementation
+     */
+    std::function<void()> GetDoFakeTuneCallBack() override { return nullptr; }
         
         ~FakePlayerExternalsInterface(){}
 };
@@ -196,6 +212,25 @@ public:
 
     void SetUseFireBoltSDK(bool t_use_firebolt_sdk);
 
+    void SetPowerEvent(bool powerEvt);
+
+    bool GetPowerEvent();
+
+    /**
+     * @brief Set callback function for fake tune operations
+     * @param[in] t_doFakeTuneCallback Function to call for fake tune operations
+     */
+    void SetDoFakeTuneCallBack(const std::function<void()>& t_doFakeTuneCallback);
+
+    /**
+     * @brief Checks if platform device properties are accessible.
+     *
+     * Device properties are only exposed via platform services when running
+     * with IARM manager in a native (non-container) environment. This helper
+     * therefore returns true if and only if those platform services are
+     * expected to be available.
+     */
+    static bool IsDevicePropertiesPresent();
 };
 
 #endif // PlayerExternalsInterface_h

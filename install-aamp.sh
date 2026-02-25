@@ -54,6 +54,8 @@ source scripts/install_rialto.sh
 source scripts/install_aampcli.sh
 # aampcli on Kotlin install and build
 source scripts/install_aampcliKotlin.sh
+# jsbindings install and build
+source scripts/install_jsbindings.sh
 
 # Elapsed time
 SECONDS=0
@@ -115,7 +117,6 @@ if [ ! -d ${LOCAL_DEPS_BUILD_DIR} ]; then
     mkdir ${LOCAL_DEPS_BUILD_DIR}
 fi
 
-
 # Install prebuilt dependencies
 #
 if [ ${OPTION_QUICK} = false ] ; then
@@ -172,7 +173,11 @@ INSTALL_STATUS_ARR+=("subtec_install_run_script check passed.")
 aampcli_install_build_fn "${CLEAN}"
 INSTALL_STATUS_ARR+=("aampcli_install_build check passed.")
 
-if [ ${OPTION_AAMPCLIKOTLIN_SKIP} = false ] ; then
+# Build jsbindings
+jsbindings_install_build_fn
+INSTALL_STATUS_ARR+=("jsbindings_install_build check passed.")
+
+if [ "${OPTION_AAMPCLIKOTLIN_SKIP}" = false ] ; then
     cd ${AAMP_DIR}
     build_kotlin_libraries_fn
     build_aampcli_kotlin_bindings_fn

@@ -54,7 +54,7 @@ StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *
 }
 
 /**
- * @brief StreamAbstractionAAMP_RMF Distructor
+ * @brief StreamAbstractionAAMP_RMF Destructor
  */
 StreamAbstractionAAMP_RMF::~StreamAbstractionAAMP_RMF()
 {
@@ -175,7 +175,7 @@ void StreamAbstractionAAMP_RMF::EnableContentRestrictions()
 /**
  * @brief Get output format of stream.
  */
-void StreamAbstractionAAMP_RMF::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+void StreamAbstractionAAMP_RMF::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 }
 

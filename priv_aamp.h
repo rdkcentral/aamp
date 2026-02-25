@@ -54,6 +54,7 @@
 #include <algorithm>
 #include <glib.h>
 #include <cjson/cJSON.h>
+#include <future>
 #include "AampConfig.h"
 #include <atomic>
 #include <memory>
@@ -61,18 +62,27 @@
 #include <type_traits>
 #include <chrono>
 #include "AampEventManager.h"
-#include <HybridABRManager.h>
+#include "abr.h"
 #include "AampCMCDCollector.h"
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AampTrackWorkerManager.hpp"
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
+#include "AampDemuxDataTypes.h"
 
+#define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
+
+// forward declaration to avoid circular dependency
 class AampMPDDownloader;
+
+// forward declaration
+struct CurlCallbackContext;
+
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 /**
@@ -91,6 +101,12 @@ typedef struct PreCacheUrlData
 typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
+
+namespace aamp
+{
+	// Other declarations
+	class AampTrackWorkerManager; // Forward declaration
+}
 #include "ID3Metadata.hpp"
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
@@ -871,7 +887,7 @@ public:
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
-	std::vector< std::pair<long long,long> > mAbrBitrateData;
+	std::vector< std::pair<long long,BitsPerSecond>> mAbrBitrateData;
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
@@ -885,12 +901,11 @@ public:
 	StreamOutputFormat mVideoFormat;
 	StreamOutputFormat mAudioFormat;
 	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
-	StreamOutputFormat mAuxFormat;
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
 	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
-	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
+	ABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
 	ProfileEventAAMP profiler;
 	bool licenceFromManifest;
 	AudioType previousAudioType; 			/**< Used to maintain previous audio type */
@@ -924,7 +939,7 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
-	long mNetworkBandwidth;
+	BitsPerSecond mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;
@@ -1057,7 +1072,7 @@ public:
 	std::string preferredTextRenditionString; 		/**< String value for rendition */
 	std::string preferredTextTypeString; 			/**< String value for text type */
 	std::string preferredTextLabelString; 			/**< String value for label */
-	std::string preferredTextSubTypeString; 		/**< String value for sub-type */
+	std::string preferredTextSubTypeString; 		/**< String value for sub-type  (i.e. "SUBTITLES" or "CLOSED-CAPTIONS") */
 	std::string preferredInstreamIdString;			/**< String value for instreamId */
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
@@ -1123,7 +1138,6 @@ public:
 	std::thread mPreCachePlaylistThreadId;
 	bool mbPlayEnabled;					/**< Send buffer to pipeline or just cache them */
 	std::thread createDRMSessionThreadID; 			/**< thread ID for DRM session creation */
-	bool drmSessionThreadStarted; 				/**< flag to indicate the thread is running on not */
 	AampDRMLicenseManager *mDRMLicenseManager;
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
 	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
@@ -1146,7 +1160,6 @@ public:
 	double mProgressReportOffset; 				/**< Offset time for progress reporting */
 	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
-	double mFirstFragmentTimeOffset;			/**< Offset time for first fragment injected */
 	AampConfig *mConfig;
 	long mDiscStartTime;					/**< start time of discontinuity */
 	bool mRateCorrectionDelay;				/**<Disable live latency correction when discontinuity is playing */
@@ -1364,7 +1377,13 @@ public:
 	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
 	 * @return true iff successful
 	 */
-	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
+				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				int *http_error = NULL, double *downloadTime = NULL,
+				const char *range = NULL, unsigned int curlInstance = 0,
+				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
+				int *fogError = NULL, double fragmentDurationS = 0,
+				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
 
 	/**
 	 * @fn getUUID
@@ -1603,14 +1622,14 @@ public:
 	 * @param[in] bandwidth - Bandwidth in bps
 	 * @return void
 	 */
-	void SetPersistedBandwidth(long bandwidth) {mAvailableBandwidth = bandwidth;}
+	void SetPersistedBandwidth(BitsPerSecond bandwidth) {mAvailableBandwidth = bandwidth;}
 
 	/**
 	 * @brief Get persisted bandwidth
 	 *
 	 * @return Bandwidth
 	 */
-	long GetPersistedBandwidth(){return mAvailableBandwidth;}
+	BitsPerSecond GetPersistedBandwidth(){return mAvailableBandwidth;}
 
 	/**
 	 * @fn UpdateDuration
@@ -1731,8 +1750,8 @@ public:
 	void UnlockGetPositionMilliseconds();
 
 	long long GetPositionRelativeToSeekMilliseconds(long long rate, long long trickStartUTCMS);
-	long long GetPositionRelativeToSeekMilliseconds(void){return GetPositionRelativeToSeekMilliseconds(rate, trickStartUTCMS);;}
-	double GetPositionRelativeToSeekSeconds(void){return static_cast<double>(GetPositionRelativeToSeekMilliseconds())/1000.0;;}
+	long long GetPositionRelativeToSeekMilliseconds(void){return GetPositionRelativeToSeekMilliseconds(rate, trickStartUTCMS);}
+	double GetPositionRelativeToSeekSeconds(void){return static_cast<double>(GetPositionRelativeToSeekMilliseconds())/1000.0;}
 
 	/**
 	 *   @fn GetPositionMilliseconds
@@ -1780,6 +1799,15 @@ public:
 	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
 
 	/**
+	 *   @fn SendStreamTransfer
+	 *
+	 *   @param[in]  mediaType - Type of the media.
+	 *   @param[in]  sample - Media sample
+	 *   @return void
+	 */
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
+
+	/**
 	 * @fn IsLive
 	 *
 	 * @return True if stream is live, False if not
@@ -1803,9 +1831,10 @@ public:
 	/**
 	 * @fn Stop
 	 *
+	 * @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 * @return void
 	 */
-	void Stop( bool isDestructing = false );
+	void Stop( bool sendStateChangeEvent = true );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -2107,7 +2136,7 @@ public:
 	 * @param[in] profile		- Profile id.
 	 * @return void
 	 */
-	void ResetCurrentlyAvailableBandwidth(long bitsPerSecond,bool trickPlay,int profile=0);
+	void ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,bool trickPlay,int profile=0);
 
 	/**
 	 * @fn GetCurrentlyAvailableBandwidth
@@ -2308,9 +2337,10 @@ public:
 	 *   @fn SetState
 	 *
 	 *   @param[in] state - New state
+	 *   @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 *   @return void
 	 */
-	void SetState(AAMPPlayerState state);
+	void SetState(AAMPPlayerState state, bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn GetState
@@ -2571,12 +2601,12 @@ public:
 	std::string GetPreferredTextProperties();
 
 	/**
-	 *   @brief Set DRM type
+	 * @brief Set current DRM helper
 	 *
-	 *   @param[in] drm - New DRM type
-	 *   @return void
+	 * @param[in] drm - DRM helper instance
+	 * @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
+	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -2680,7 +2710,7 @@ public:
 	 *
 	 *   @return preferred bitrate.
 	 */
-	long GetVideoBitrate();
+	BitsPerSecond GetVideoBitrate();
 
 	/**
 	 *   @fn GetNetworkProxy
@@ -3343,20 +3373,18 @@ public:
 	 *
 	 *   @param[in] videoFormat - video stream format
 	 *   @param[in] audioFormat - audio stream format
-	 *   @param[in] auxFormat - aux stream format
 	 *   @return void
 	 */
-	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat,  StreamOutputFormat auxFormat);
+	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat);
 
 	/**
 	 *   @fn IsAudioOrVideoOnly
 	 *
 	 *   @param[in] videoFormat - video stream format
 	 *   @param[in] audioFormat - audio stream format
-	 *   @param[in] auxFormat - aux stream format
 	 *   @return bool
 	 */
-	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat);
+	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat);
 
 	/**
 	 *   @fn DisableContentRestrictions
@@ -3445,28 +3473,6 @@ public:
 	void UpdateLiveOffset();
 
 	/**
-	 *   @fn IsAuxiliaryAudioEnabled
-	 *
-	 *   @return bool - true if aux audio is enabled
-	 */
-	bool IsAuxiliaryAudioEnabled(void);
-
-	/**
-	 *   @brief Set auxiliary language
-	 *
-	 *   @param[in] language - auxiliary language
-	 *   @return void
-	 */
-	void SetAuxiliaryLanguage(const std::string &language) { mAuxAudioLanguage = language; }
-
-	/**
-	 *   @brief Get auxiliary language
-	 *
-	 *   @return std::string auxiliary audio language
-	 */
-	std::string GetAuxiliaryAudioLanguage() { return mAuxAudioLanguage; }
-
-	/**
 	 *   @fn GetPauseOnFirstVideoFrameDisp
 	 *   @return bool
 	 */
@@ -3527,14 +3533,6 @@ public:
 	 * @return uint32_t - Subtitle TimeScale
 	 */
 	uint32_t GetSubTimeScale(void);
-
-	/**
-	 *   @fn SetLLDashSpeedCache
-	 *
-	 *   @param[in] speedCache - Speed Cache
-	 *   @return void
-	 */
-	void SetLLDashSpeedCache(struct SpeedCache &speedCache);
 
 	/**
 	 *   @fn GetLLDashSpeedCache
@@ -3784,6 +3782,20 @@ public:
 	 * @retval size consumed or 0 if interrupted
 	 */
 	size_t HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata );
+	
+	/**
+	 * @fn chunked_write_callback
+	 *
+	 * @brief Handle write callback for data received using chunked transfer encoding.
+	 *
+	 * @param ptr pointer to buffer containing the received data
+	 * @param numBytes number of valid bytes in the buffer
+	 * @param userdata CurlCallbackContext pointer or user-defined data associated
+	 *        with this transfer
+	 *
+	 * @return None
+	 */
+	void chunked_write_callback( const char *ptr, size_t numBytes, void *userdata );
 
 	/**
 	 * @fn HandleSSLProgressCallback
@@ -3989,6 +4001,15 @@ public:
 	void CalculateTrickModePositionEOS(void);
 
 	/**
+	 * @fn GetAampTrackWorkerManager
+	 * @brief Get the AampTrackWorkerManager instance
+	 *
+	 * @return AampTrackWorkerManager instance
+	 */
+	std::shared_ptr<aamp::AampTrackWorkerManager> GetAampTrackWorkerManager() { return mAampTrackWorkerManager; }
+
+
+	/**
 	 * @fn GetLivePlayPosition
 	 *
 	 * @brief Get current live play stream position.
@@ -4005,7 +4026,23 @@ public:
 	 */
 	double GetFormatPositionOffsetInMSecs();
 
+	/**
+	 * @fn SetStreamCaps
+	 * @brief Set stream capabilities based on codec info
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] codecInfo - Codec information
+	 */
+	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
+
 protected:
+
+	/**
+	 * @brief Check if chunk download should be aborted early based on transfer rate
+	 * @param context Curl callback context
+	 * @retval true if chunk download should be aborted
+	 */
+	bool CheckForChunkEarlyAbort(CurlCallbackContext *context);
 
 	/**
 	 *   @fn IsWideVineKIDWorkaround
@@ -4132,16 +4169,13 @@ protected:
 	 *
 	 *   @param[out]  primaryOutputFormat - format of primary track
 	 *   @param[out]  audioOutputFormat - format of audio track
-	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
 	 *   @param[out]  subtitleOutputFormat - format of subtitle  track
 	 *   @return void
 	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
-
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
-	bool mPausePositionMonitoringThreadStarted;			// Flag to indicate PausePositionMonitoring thread started
 	TuneType mTuneType;
 	int m_fd;
 	bool mIsLive;				// Flag to indicate manifest type.
@@ -4159,7 +4193,7 @@ protected:
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
-	long mAvailableBandwidth;
+	BitsPerSecond mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
 	bool mIsDiscontinuityIgnored[AAMP_TRACK_COUNT];
 	bool mDiscontinuityTuneOperationInProgress;
@@ -4205,7 +4239,6 @@ protected:
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
-	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */
 	int mCCId;
 	AampLLDashServiceData mAampLLDashServiceData; /**< Low Latency Service Configuration Data */
 	bool bLowLatencyServiceConfigured;
@@ -4242,6 +4275,7 @@ protected:
 
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
+	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:

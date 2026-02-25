@@ -310,7 +310,7 @@ static void releaseNativeResources(AAMPMediaPlayer_JS *privObj)
 		{
 			//when finalizing JS object, don't generate state change events
 			LOG_WARN(privObj," aamp->Stop(false)");
-			privObj->_aamp->Stop(false);
+			privObj->_aamp->Stop(false, true);  // sendStateChangeEvent=false, forceCleanup=true
 			privObj->clearCallbackForAllAdIds();
 			if (privObj->_listeners.size() > 0)
 			{
@@ -839,7 +839,7 @@ JSValueRef AAMPMediaPlayerJS_pause (JSContextRef ctx, JSObjectRef function, JSOb
  * @param[in] function JSObject that is the function being called
  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
  * @param[in] argumentCount number of args
- * @param[in] arguments[] JSValue array of args
+ * @param[in] arguments[] JSValue array of args - Optional forceCleanup boolean parameter
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
@@ -853,8 +853,30 @@ JSValueRef AAMPMediaPlayerJS_stop (JSContextRef ctx, JSObjectRef function, JSObj
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call stop() on instances of AAMPPlayer");
 		return JSValueMakeUndefined(ctx);
 	}
-	LOG_WARN(privObj," _aamp->Stop()");
-	privObj->_aamp->Stop();
+	
+	bool sendStateChangeEvent = true;   // Default: send state change events
+	bool forceCleanup = false;          // Default: no DRM cleanup
+	
+	if (argumentCount >= 1)
+	{
+		// For backward compatibility and UVE API design:
+		// - If 1 argument: treat as forceCleanup (boolean)
+		// - If 2 arguments: treat as (sendStateChangeEvent, forceCleanup)
+		if (argumentCount == 1)
+		{
+			// stop(forceCleanup) - send events by default, cleanup based on argument
+			forceCleanup = JSValueToBoolean(ctx, arguments[0]);
+		}
+		else if (argumentCount >= 2)
+		{
+			// stop(sendStateChangeEvent, forceCleanup) - both explicit
+			sendStateChangeEvent = JSValueToBoolean(ctx, arguments[0]);
+			forceCleanup = JSValueToBoolean(ctx, arguments[1]);
+		}
+	}
+	
+	LOG_WARN(privObj," _aamp->Stop() sendStateChangeEvent=%d forceCleanup=%d", sendStateChangeEvent, forceCleanup);
+	privObj->_aamp->Stop(sendStateChangeEvent, forceCleanup);
 	LOG_TRACE("Exit");
 	return JSValueMakeUndefined(ctx);
 }
@@ -1173,7 +1195,7 @@ JSValueRef AAMPMediaPlayerJS_setThumbnailTrack (JSContextRef ctx, JSObjectRef fu
 		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeBoolean(ctx, false);;
+	return JSValueMakeBoolean(ctx, false);
 }
 
 /**
@@ -3280,45 +3302,6 @@ JSValueRef AAMPMediaPlayerJS_enableContentRestrictions (JSContextRef ctx, JSObje
 }
 
 /**
- * @brief API invoked from JS when executing AAMPMediaPlayer.setAuxiliaryLanguage()
- * @param[in] ctx JS execution context
- * @param[in] function JSObject that is the function being called
- * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
- * @param[in] argumentCount number of args
- * @param[in] arguments[] JSValue array of args
- * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- * @retval JSValue that is the function's return value
- */
-static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
-{
-	LOG_TRACE("Enter");
-	bool bRet = false;
-	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
-	if(!privObj || !privObj->_aamp)
-	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setAuxiliaryLanguage() on instances of AAMPPlayer");
-	}
-	else
-	{
-		if (argumentCount == 1)
-		{
-			const char *lang = aamp_JSValueToCString(ctx, arguments[0], NULL);
-			LOG_WARN(privObj,"_aamp->SetAuxiliaryLanguage(%s)",lang);
-			privObj->_aamp->SetAuxiliaryLanguage(std::string(lang));
-			bRet = true;
-			SAFE_DELETE_ARRAY(lang);
-		}
-		else
-		{
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
-			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAuxiliaryLanguage() - 1 argument required");
-		}
-	}
-	LOG_TRACE("Exit");
-	return JSValueMakeBoolean(ctx, bRet);
-}
-/**
  * @brief API invoked from JS when executing AAMPMediaPlayer.getPlaybackStats()
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called
@@ -3648,7 +3631,6 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "setPreferredAudioLanguage", AAMPMediaPlayerJS_setPreferredAudioLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setPreferredTextLanguage", AAMPMediaPlayerJS_setPreferredTextLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setPreferredAudioCodec", AAMPMediaPlayerJS_setPreferredAudioCodec, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
-	{ "setAuxiliaryLanguage", AAMPMediaPlayerJS_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMPMediaPlayerJS_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMPMediaPlayerJS_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -4146,6 +4128,9 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
+#ifdef USE_PREINIT_DECODING
+	doFakeTune();
+#endif
 	LOG_TRACE("Exit");
 }
 

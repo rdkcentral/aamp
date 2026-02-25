@@ -41,6 +41,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${MW_ROOT}/playerLogManager)
 include_directories(${MW_ROOT}/baseConversion)
 include_directories(${MW_ROOT}/playerJsonObject)
+include_directories(${MW_ROOT}/vendor)
 include_directories(${MW_ROOT})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
@@ -97,6 +98,11 @@ if (CMAKE_WPEFRAMEWORK_REQUIRED)
     endif()
 endif()
 
+if(CMAKE_DS_EVENT_SUPPORTED)
+       message("CMAKE_DS_EVENT_SUPPORTED Set")
+       set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_DS_EVENT_SUPPORTED=1")
+endif()
+
 set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
     contentsecuritymanager/PlayerSecInterface.cpp
     contentsecuritymanager/ContentSecurityManager.cpp
@@ -108,6 +114,13 @@ if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
 	if(CMAKE_USE_SECMANAGER)
 		set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/ThunderAccessPlayer.cpp contentsecuritymanager/SecManagerThunder.cpp)
 	endif()
+endif()
+
+if(CMAKE_PREINIT_DECODER)
+	message("PLAYER PREINIT_DECODING set")
+	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampabr)
+	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_PREINIT_DECODING=1")
+	list(APPEND LIB_EXT_DEPENDS -lWPEFrameworkPowerController)
 endif()
 
 #IARM/RFC
