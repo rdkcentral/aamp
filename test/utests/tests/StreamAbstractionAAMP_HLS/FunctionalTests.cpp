@@ -1565,7 +1565,7 @@ TEST_F(TrackStateTests, FindTimedMetadata_New)
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSubscribedTags)).WillOnce(Return(true));
     AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
         //buffer.AppendBytes(10);
-    buffer.GetPtr();
+    buffer.data();
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 

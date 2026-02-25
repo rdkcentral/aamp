@@ -978,7 +978,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
+			mSubtitleParser->processData(reinterpret_cast<const char*>(cachedFragment->fragment.data()), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
@@ -1009,7 +1009,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
-	unParsedBuffer = unparsedBufferChunk.GetPtr();
+	unParsedBuffer = reinterpret_cast<char*>(unparsedBufferChunk.data());
 	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.size();
 	isobuf.setBuffer(unparsedBufferChunk.GetVector());
 	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.size() );
@@ -1107,7 +1107,7 @@ bool MediaTrack::ProcessFragmentChunk()
 
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.size(), fpts, fduration);
+			mSubtitleParser->processData(reinterpret_cast<const char*>(parsedBufferChunk.data()), parsedBufferChunk.size(), fpts, fduration);
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
@@ -1408,7 +1408,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
-			auto ptr = cachedFragment->fragment.GetPtr();
+			auto ptr = reinterpret_cast<const char*>(cachedFragment->fragment.data());
 			auto len = cachedFragment->fragment.size();
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{
@@ -1531,10 +1531,8 @@ bool MediaTrack::InjectFragment()
 			AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
 		}
 
-		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
-					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
-
-		if (cachedFragment->fragment.capacity() != 0)
+	AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
+				  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());		if (cachedFragment->fragment.capacity() != 0)
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
 			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
@@ -1876,7 +1874,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 	{
 		if (cachedFragment->fragment.capacity() != 0)
 		{
-			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
+			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.data(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
 		}
 		cachedFragment->fragment.clear();
 	}

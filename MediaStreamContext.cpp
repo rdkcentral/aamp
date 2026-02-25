@@ -205,7 +205,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
@@ -245,7 +245,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		 */
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, reinterpret_cast<const void*>(cachedFragment->fragment.data()));
 		UpdateTSAfterChunkFetch();
 	}
 	else
@@ -638,7 +638,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, reinterpret_cast<const void*>(cachedFragment->fragment.data()), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
@@ -870,7 +870,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			{
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
-										IDX.GetPtr(),
+										reinterpret_cast<const char*>(IDX.data()),
 										IDX.size(),
 										0,
 										NULL,
@@ -887,7 +887,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				for (int i = 0; i < dlInfo->fragmentIndex; i++)
 				{
 					if (ParseSegmentIndexBox(
-												IDX.GetPtr(),
+												reinterpret_cast<const char*>(IDX.data()),
 												IDX.size(),
 												i,
 												&referenced_size,
@@ -901,7 +901,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			unsigned int referenced_size;
 			float fragmentDuration;
 			if (ParseSegmentIndexBox(
-										IDX.GetPtr(),
+										reinterpret_cast<const char*>(IDX.data()),
 										IDX.size(),
 										dlInfo->fragmentIndex,
 										&referenced_size,

@@ -1780,7 +1780,7 @@ void TSProcessor::setBasePTS(double position, long long pts)
 double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
 {
 	double firstPts = 0.0;
-	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->size(), true );
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->data(), pBuffer->size(), true );
 	if( tsDemux )
 	{
 		firstPts = tsDemux->getPts(0);
@@ -1813,7 +1813,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
-	char *segment = pBuffer->GetPtr();
+	char *segment = reinterpret_cast<char*>(pBuffer->data());
 	int len = (int)(pBuffer->size());
 	bool ret = false;
 	ptsError = false;

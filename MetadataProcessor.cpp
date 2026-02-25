@@ -49,7 +49,7 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 	AAMPLOG_INFO(" [metadata][%p] Processing metadata.", this);
 	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
 
-	char * data_ptr = const_cast<char *>(cachedFragment->fragment.GetPtr());
+	const uint8_t* data_ptr = cachedFragment->fragment.data();
 	auto data_len = cachedFragment->fragment.size();
 
 	if (discontinuity_pending && mPtsOffsetUpdate)
@@ -71,7 +71,7 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 
 	AAMPLOG_INFO(" [metadata][%p] Has valid PTS, processing the fragment", this);
 
-	ProcessID3Metadata(type, data_ptr, data_len);
+	ProcessID3Metadata(type, reinterpret_cast<const char*>(data_ptr), data_len);
 }
 
 bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
