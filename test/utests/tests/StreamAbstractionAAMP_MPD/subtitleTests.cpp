@@ -217,7 +217,7 @@ public:
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)mManifest, (uint8_t *)(mManifest + strlen(mManifest)));
+		response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
@@ -256,7 +256,7 @@ public:
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));

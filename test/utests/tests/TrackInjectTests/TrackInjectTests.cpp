@@ -111,14 +111,13 @@ public:
 
 	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)
 	{
-		unsigned char data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 		int fragmentIdxToFetch = 0;
 		// int fragmentIdxToFetch = 0;
 		CachedFragment *cachFragment = nullptr;
 		if (isLLD)
 		{
 			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-			cachFragment->fragment.clear();
 		}
 		else
 		{
@@ -129,7 +128,7 @@ public:
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
-		cachFragment->fragment.AppendBytes(data, sizeof(data));
+		cachFragment->fragment.assign(data, data + sizeof(data));
 		if (isLLD)
 		{
 			UpdateTSAfterChunkFetch();
@@ -360,8 +359,8 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, (AampMediaType)eMEDIATYPE_VIDEO, 0));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
@@ -385,7 +384,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, (AampMediaType)eMEDIATYPE_VIDEO, 0));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 

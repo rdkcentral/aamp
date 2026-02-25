@@ -263,7 +263,7 @@ public:
 				response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 				response->mMPDDownloadResponse->iHttpRetValue = 200;
 				response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-				response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
+				response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
 				GetMPDFromManifest(response);
 				mResponse = response;
 				return response;
@@ -314,7 +314,7 @@ public:
 				mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 				/* Initialize MPD. */
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
 
 				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 						.Times(AnyNumber())
@@ -395,7 +395,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _))
 			.WillOnce([pMediaStreamContext]()
 					  {
-						  pMediaStreamContext->mDownloadedFragment.AppendBytes("0x0a", 2);
+						  static constexpr const uint8_t fragmentData[] = "0x0a";
+						  constexpr size_t fragmentDataLen = sizeof(fragmentData) - 1; // Exclude null terminator
+						  pMediaStreamContext->mDownloadedFragment.assign(fragmentData, fragmentData + fragmentDataLen);
 						  return false;
 					  });
 		EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())

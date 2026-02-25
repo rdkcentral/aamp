@@ -26,6 +26,7 @@
 #include "PlayerRialtoCCManager.h"
 #include "PlayerLogManager.h" // Included for MW_LOG
 #include <glib-object.h>  // Included for g_object_set
+#include <cctype> // std::isdigit()
 
 /**
  * @brief stores Handle
@@ -50,7 +51,7 @@ int PlayerRialtoCCManager::Initialize(void * handle)
 	{
 		// Configure the new handle.
 		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Handle changed, reconfiguring track: %s", GetTrack().c_str());
-		(void) SetTrack(GetTrack());
+		(void) SetTrack(GetTrack(), mTrackFormat);
 	}
 
 	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::Initialize: EXIT - returning 0");
@@ -113,14 +114,35 @@ void PlayerRialtoCCManager::Release(int id)
  */
 int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat format)
 {
+	// Cache the original track string and the format so the prefix (if any)
+	// can be re-applied correctly from the cached values.
 	mTrack = track;	// For PlayerCCManager::GetTrack()
+	mTrackFormat = format;
 
 	MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: ENTRY - track=\"%s\", format=%d", track.c_str(), format);
 
 	if (nullptr != mSubtitleControlHandle)
 	{
 		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: Calling g_object_set with text-track-identifier=\"%s\"", track.c_str());
-		g_object_set(mSubtitleControlHandle, "text-track-identifier", track.c_str(), NULL);
+		// We expect 'track' to have an alphabetic prefix. If it does not,
+		// add one based on 'format'.
+		std::string textTrackIdentifier;
+		if (!track.empty() && std::isdigit(static_cast<unsigned char>(track[0])))
+		{
+			if (eCLOSEDCAPTION_FORMAT_608 == format)
+			{
+				textTrackIdentifier = "CC";
+			}
+			else if (eCLOSEDCAPTION_FORMAT_708 == format)
+			{
+				textTrackIdentifier = "SERVICE";
+			}
+		}
+		textTrackIdentifier += track;
+
+		MW_LOG_INFO("PlayerRialtoCCManager::set track (modified) \"%s\"", textTrackIdentifier.c_str());
+
+		g_object_set(mSubtitleControlHandle, "text-track-identifier", textTrackIdentifier.c_str(), NULL);
 		MW_LOG_INFO("[INBAND_CC_FLOW] PlayerRialtoCCManager::SetTrack: g_object_set completed successfully");
 	}
 	else

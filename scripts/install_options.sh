@@ -18,11 +18,14 @@
 # limitations under the License.
 
 # default values
-OPTION_AAMP_BRANCH="dev_sprint_25_1"
+OPTION_AAMP_BRANCH="dev_sprint_25_2"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="4c1d90a24338c342599ac098e247a8d644ea28e1"
+OPTION_PLAYER_INTERFACE_SOURCE="internal"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
 OPTION_COVERAGE=false
+OPTION_NET_TRACE=false
 OPTION_DONT_RUN_AAMPCLI=false
 OPTION_PROTOBUF_REFERENCE="3.11.x"
 OPTION_QUICK=false
@@ -38,8 +41,35 @@ OPTION_UBUNTU_SANITIZER=false
 
 function install_options_fn()
 {
+  
+  # Parse long-form options first to avoid getopts limitations
+  local remaining_args=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --player-interface-source=*)
+        OPTION_PLAYER_INTERFACE_SOURCE="${1#*=}"
+        if [[ "${OPTION_PLAYER_INTERFACE_SOURCE}" != "internal" && "${OPTION_PLAYER_INTERFACE_SOURCE}" != "external" ]]; then
+          echo "Error: --player-interface-source must be 'internal' or 'external'"
+          return 1
+        fi
+        echo "Player interface source: ${OPTION_PLAYER_INTERFACE_SOURCE}"
+        ;;
+      --middleware-player-interface-commit-id=*)
+        OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${1#*=}"
+        echo "Middleware player interface commit ID: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        ;;
+      *)
+        remaining_args+=("$1")
+        ;;
+    esac
+    shift
+  done
+
+  # Set remaining arguments for getopts processing
+  set -- "${remaining_args[@]}"
+
   # Parse optional command line parameters
-  while getopts ":d:b:cf:np:r:g:qsktu" OPT; do
+  while getopts ":d:b:cef:np:r:g:qsktu" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -51,6 +81,10 @@ function install_options_fn()
       c ) # process option c coverage
         OPTION_COVERAGE=ON
         echo coverage "${OPTION_COVERAGE}"
+        ;;
+      e ) # process option e enable network trace
+        OPTION_NET_TRACE=ON
+        echo "Network trace enabled: ${OPTION_NET_TRACE}"
         ;;
       f )# process option f to get compiler flags
          # add flags for cmake build by splitting buildargs with separator ','
@@ -99,13 +133,16 @@ function install_options_fn()
         [-b] Specify aamp branch name (default: current sprint branch)
         [-d] Local setup directory name (default: current working directory)
         [-c] Test coverage scan on
-        [-f] Add compiler flags
+        [-e] Enable network activity tracing (ENABLE_AAMP_NET_TRACE)
+        [-f] Add compiler flags (e.g., -f \"-DENABLE_SOMETHING=ON\")
         [-g] Specify gtest release test to be built. Default - tags/release-1.11.0
         [-q] Quick build, skips installed (not built) dependency checks
 
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
+        [--player-interface-source=internal|external] Choose player interface source (default: internal)
+        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 269f2b1a38492c26f2f7cfb41d194029a8ea88d2)
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"
 

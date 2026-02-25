@@ -340,3 +340,415 @@ TEST_F(AampCacheHandlerTest, InitFragCacheLRU)
 
 	EXPECT_EQ(actual, expected);
 }
+
+/**
+ * @brief Test fixture for testing AampCache::reduceCacheSize() functionality
+ *
+ * This test fixture tests the reduceCacheSize() private method indirectly through
+ * public API methods (InsertToPlaylistCache) that trigger cache reduction when
+ * size limits are exceeded. This follows L1 testing best practices.
+ */
+class AampCacheReduceSizeTest : public ::testing::Test
+{
+protected:
+	AampCacheHandler* handler;
+
+	void SetUp() override
+	{
+		handler = new AampCacheHandler(-1);
+	}
+
+	void TearDown() override
+	{
+		delete handler;
+		handler = nullptr;
+	}
+
+	/**
+	 * @brief Helper to insert test playlist data
+	 */
+	void InsertTestPlaylist(const std::string& url, AampMediaType mediaType, size_t dataSize)
+	{
+		std::vector<uint8_t> buffer(dataSize, 'x');
+		handler->InsertToPlaylistCache(url, buffer, url, false, mediaType);
+	}
+
+	/**
+	 * @brief Helper to check if URL is cached
+	 */
+	bool IsCached(const std::string& url)
+	{
+		return handler->IsPlaylistUrlCached(url);
+	}
+};
+
+/**
+ * @test AampCache_reduceCacheSize_FirstPassRemovesSpecificType
+ * @brief Verify that reduceCacheSize() first pass removes only playlists of the specified media type
+ *
+ * Test validates that when cache reduction is triggered (via exceeding max cache size):
+ * - Playlists of the triggering type are removed first
+ * - Manifest entries are preserved
+ * - Playlists of other types are preserved
+ *
+ * Tests reduceCacheSize() indirectly by filling cache to capacity and inserting new item.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_FirstPassRemovesSpecificType)
+{
+	// Set small cache size to trigger reduction
+	handler->SetMaxPlaylistCacheSize(500);
+
+	// Insert manifest (should always be preserved)
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 50);
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+
+	// Insert audio playlists
+	InsertTestPlaylist("http://example.com/audio1.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+	InsertTestPlaylist("http://example.com/audio2.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+	EXPECT_TRUE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/audio2.m3u8"));
+
+	// Insert video playlist (different type - should be preserved)
+	InsertTestPlaylist("http://example.com/video1.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 100);
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+
+	// Insert another audio that will exceed cache size
+	// This should trigger reduceCacheSize() for AUDIO type, removing audio1 and audio2
+	InsertTestPlaylist("http://example.com/audio3.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 200);
+
+	// Verify: New audio playlist was added
+	EXPECT_TRUE(IsCached("http://example.com/audio3.m3u8"));
+	// Verify: Old audio playlists are removed
+	EXPECT_FALSE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_FALSE(IsCached("http://example.com/audio2.m3u8"));
+
+	// Verify: Manifest preserved
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+
+	// Verify: Video (different type) preserved
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_PreservesManifestAlways
+ * @brief Verify that manifest entries are never removed by reduceCacheSize()
+ *
+ * Test validates that regardless of cache pressure, manifest entries
+ * (eMEDIATYPE_MANIFEST) are always preserved during cache reduction.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_PreservesManifestAlways)
+{
+	// Set very small cache size
+	handler->SetMaxPlaylistCacheSize(200);
+
+	// Insert manifest
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 100);
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+
+	// Insert video playlists that fill cache
+	InsertTestPlaylist("http://example.com/video1.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 100);
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+
+	// Insert another video exceeding cache - should trigger reduction
+	InsertTestPlaylist("http://example.com/video2.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 150);
+
+	// Verify: Manifest still preserved after cache reduction
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_RemovesOldest
+ * @brief Verify that when same media type playlists exist, reduction works correctly
+ *
+ * Test validates cache reduction logic when multiple playlists of the same type
+ * exist and cache size limit is exceeded.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_RemovesOldest)
+{
+	// Set cache size to hold about 3 items
+	handler->SetMaxPlaylistCacheSize(350);
+
+	// Insert manifest (50 bytes)
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 50);
+
+	// Insert audio playlists (100 bytes each)
+	InsertTestPlaylist("http://example.com/audio1.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+	InsertTestPlaylist("http://example.com/audio2.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+	InsertTestPlaylist("http://example.com/audio3.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+
+	// All should be cached at this point (350 bytes total)
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+	EXPECT_TRUE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/audio2.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/audio3.m3u8"));
+
+	// Insert large audio that exceeds cache - triggers reduction
+	InsertTestPlaylist("http://example.com/audio4.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 200);
+
+	// New audio should be added
+	EXPECT_TRUE(IsCached("http://example.com/audio4.m3u8"));
+
+	// Verify oldest items are removed
+	EXPECT_FALSE(IsCached("http://example.com/audio1.m3u8")); // Oldest audio - should be removed
+	EXPECT_FALSE(IsCached("http://example.com/audio2.m3u8")); // Second oldest - should be removed
+
+	// Manifest should remain
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_MultipleMediaTypes
+ * @brief Verify correct behavior with multiple media types in cache
+ *
+ * Test validates that reduceCacheSize() correctly handles cache with multiple
+ * different media types (audio, video, subtitle) and only removes the
+ * type that triggered the reduction.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_MultipleMediaTypes)
+{
+	// Set medium cache size
+	handler->SetMaxPlaylistCacheSize(500);
+
+	// Insert manifest
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 50);
+
+	// Insert playlists of different types
+	InsertTestPlaylist("http://example.com/audio.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+	InsertTestPlaylist("http://example.com/video.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 100);
+	InsertTestPlaylist("http://example.com/subtitle.m3u8", eMEDIATYPE_PLAYLIST_SUBTITLE, 100);
+
+	// All should be cached (350 bytes total)
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+	EXPECT_TRUE(IsCached("http://example.com/audio.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/subtitle.m3u8"));
+
+	// Insert large video that exceeds cache - triggers reduction for VIDEO type
+	InsertTestPlaylist("http://example.com/video2.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 250);
+
+	// Verify: Different media types preserved
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+	EXPECT_TRUE(IsCached("http://example.com/audio.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/subtitle.m3u8"));
+
+	// New video should be present
+	EXPECT_TRUE(IsCached("http://example.com/video2.m3u8"));
+	// Old video is removed
+	EXPECT_FALSE(IsCached("http://example.com/video.m3u8"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_UnlimitedCacheSize
+ * @brief Verify behavior when cache size is set to unlimited
+ *
+ * Test validates that when maxPlaylistCacheBytes is set to PLAYLIST_CACHE_SIZE_UNLIMITED,
+ * no cache reduction occurs regardless of cache size.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_UnlimitedCacheSize)
+{
+	// Set unlimited cache size
+	handler->SetMaxPlaylistCacheSize(PLAYLIST_CACHE_SIZE_UNLIMITED);
+
+	// Insert many large playlists
+	for (int i = 0; i < 20; i++)
+	{
+		std::string url = "http://example.com/audio" + std::to_string(i) + ".m3u8";
+		InsertTestPlaylist(url, eMEDIATYPE_PLAYLIST_AUDIO, 1000);
+	}
+
+	// All should be cached (no reduction with unlimited size)
+	for (int i = 0; i < 20; i++)
+	{
+		std::string url = "http://example.com/audio" + std::to_string(i) + ".m3u8";
+		EXPECT_TRUE(IsCached(url));
+	}
+}
+
+/**
+ * @test AampCache_reduceCacheSize_ManifestInsertion
+ * @brief Verify that inserting new manifest clears all playlists
+ *
+ * Test validates special behavior: when a new manifest is inserted,
+ * all old playlists associated with previous manifest are cleared.
+ * This is different from reduceCacheSize() but related cache management.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_ManifestInsertion)
+{
+	// Insert initial manifest and playlists
+	InsertTestPlaylist("http://example.com/manifest1.mpd", eMEDIATYPE_MANIFEST, 100);
+	InsertTestPlaylist("http://example.com/audio1.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+	InsertTestPlaylist("http://example.com/video1.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 100);
+
+	EXPECT_TRUE(IsCached("http://example.com/manifest1.mpd"));
+	EXPECT_TRUE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+
+	// Insert new manifest - should clear old playlists
+	InsertTestPlaylist("http://example.com/manifest2.mpd", eMEDIATYPE_MANIFEST, 100);
+
+	// Old playlists should be cleared
+	EXPECT_FALSE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_FALSE(IsCached("http://example.com/video1.m3u8"));
+
+	// Old manifest should also be cleared
+	EXPECT_FALSE(IsCached("http://example.com/manifest1.mpd"));
+
+	// New manifest should be present
+	EXPECT_TRUE(IsCached("http://example.com/manifest2.mpd"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_ZeroCacheSize
+ * @brief Verify behavior when max cache size is set to zero
+ *
+ * Test validates edge case where maxPlaylistCacheBytes is 0.
+ * Manifest should still be cached but playlists may not be.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_ZeroCacheSize)
+{
+	// Set cache size to 0
+	handler->SetMaxPlaylistCacheSize(0);
+
+	// Try to insert manifest (special type, should succeed even with size 0)
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 100);
+
+	// Manifest insertion triggers Clear() for manifest type, so it will be inserted
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+
+	// Try to insert regular playlist - should fail due to size constraint
+	InsertTestPlaylist("http://example.com/audio.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 100);
+
+	// Audio playlist should not be cached (exceeds maxPlaylistCacheBytes of 0)
+	EXPECT_FALSE(IsCached("http://example.com/audio.m3u8"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_LiveVsVOD
+ * @brief Verify that live playlists are not cached (reduceCacheSize not triggered)
+ *
+ * Test validates that isLive=true prevents caching, so reduceCacheSize() is never
+ * triggered for live playlists.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_LiveVsVOD)
+{
+	handler->SetMaxPlaylistCacheSize(300);
+
+	// Insert VOD playlist (isLive=false) - should be cached
+	std::vector<uint8_t> buffer(100, 'x');
+	handler->InsertToPlaylistCache("http://example.com/vod.m3u8", buffer,
+		"http://example.com/vod.m3u8", false, eMEDIATYPE_PLAYLIST_VIDEO);
+	EXPECT_TRUE(IsCached("http://example.com/vod.m3u8"));
+
+	// Insert live playlist (isLive=true) - should NOT be cached
+	handler->InsertToPlaylistCache("http://example.com/live.m3u8", buffer,
+		"http://example.com/live.m3u8", true, eMEDIATYPE_PLAYLIST_VIDEO);
+	EXPECT_FALSE(IsCached("http://example.com/live.m3u8"));
+
+	// VOD should still be cached
+	EXPECT_TRUE(IsCached("http://example.com/vod.m3u8"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_SecondPassNotTriggered
+ * @brief Verify second pass does NOT trigger when first pass reduces cache sufficiently
+ *
+ * This test validates that when the first pass removes enough playlists to meet the
+ * target cache size (totalCachedBytes <= targetCacheSize), the second pass is skipped.
+ * Video and subtitle playlists should remain cached when only audio cleanup is sufficient.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_SecondPassNotTriggered)
+{
+	handler->SetMaxPlaylistCacheSize(500);
+
+	// Insert manifest (50 bytes)
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 50);
+
+	// Insert audio playlists (150 bytes total)
+	InsertTestPlaylist("http://example.com/audio1.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 75);
+	InsertTestPlaylist("http://example.com/audio2.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 75);
+
+	// Insert video playlists (150 bytes total)
+	InsertTestPlaylist("http://example.com/video1.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 75);
+	InsertTestPlaylist("http://example.com/video2.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 75);
+
+	// Insert subtitle (100 bytes)
+	InsertTestPlaylist("http://example.com/subtitle.m3u8", eMEDIATYPE_PLAYLIST_SUBTITLE, 100);
+
+	// Current: manifest(50) + audio(150) + video(150) + subtitle(100) = 450 bytes
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+	EXPECT_TRUE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/audio2.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video2.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/subtitle.m3u8"));
+
+	// Insert new audio (150 bytes): total would be 600, exceeding 500 limit
+	// Target for reduction: 500 - 150 = 350 bytes
+	// First pass will remove all AUDIO playlists (150 bytes)
+	// After first pass BEFORE inserting new: 50 + 150 + 100 = 300 bytes
+	// 300 <= 350? YES - second pass should NOT trigger
+	InsertTestPlaylist("http://example.com/audio3.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 150);
+
+	// Verify: New audio added, old audio removed
+	EXPECT_TRUE(IsCached("http://example.com/audio3.m3u8"));
+	EXPECT_FALSE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_FALSE(IsCached("http://example.com/audio2.m3u8"));
+
+	// CRITICAL: Verify second pass did NOT trigger (video and subtitle still present)
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video2.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/subtitle.m3u8"));
+
+	// Manifest always preserved
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+}
+
+/**
+ * @test AampCache_reduceCacheSize_SecondPassTriggered
+ * @brief Verify second pass DOES trigger when first pass cannot reduce cache sufficiently
+ *
+ * This test validates that when the first pass doesn't remove enough playlists to meet
+ * the target cache size (totalCachedBytes > targetCacheSize), the second pass executes
+ * and removes all non-manifest playlists to make room for the new playlist.
+ */
+TEST_F(AampCacheReduceSizeTest, AampCache_reduceCacheSize_SecondPassTriggered)
+{
+	handler->SetMaxPlaylistCacheSize(300);
+
+	// Insert manifest (50 bytes)
+	InsertTestPlaylist("http://example.com/manifest.mpd", eMEDIATYPE_MANIFEST, 50);
+
+	// Insert only one small audio playlist (50 bytes)
+	InsertTestPlaylist("http://example.com/audio1.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 50);
+
+	// Insert large video playlists (200 bytes total)
+	InsertTestPlaylist("http://example.com/video1.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 100);
+	InsertTestPlaylist("http://example.com/video2.m3u8", eMEDIATYPE_PLAYLIST_VIDEO, 100);
+
+	// Current: manifest(50) + audio(50) + video(200) = 300 bytes
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+	EXPECT_TRUE(IsCached("http://example.com/audio1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video1.m3u8"));
+	EXPECT_TRUE(IsCached("http://example.com/video2.m3u8"));
+
+	// Insert large audio (200 bytes): total would be 500, exceeding 300 limit
+	// Target for reduction: 300 - 200 = 100 bytes
+	// First pass will remove AUDIO playlists (only 50 bytes removed)
+	// After first pass BEFORE new insert: manifest(50) + video(200) = 250 bytes
+	// 250 > 100? YES - second pass SHOULD trigger
+	// Second pass will remove ALL non-manifest (video playlists removed)
+	InsertTestPlaylist("http://example.com/audio2.m3u8", eMEDIATYPE_PLAYLIST_AUDIO, 200);
+
+	// Verify: New audio added
+	EXPECT_TRUE(IsCached("http://example.com/audio2.m3u8"));
+
+	// Verify: Old audio removed by first pass
+	EXPECT_FALSE(IsCached("http://example.com/audio1.m3u8"));
+
+	// CRITICAL: Verify second pass DID trigger (videos removed)
+	EXPECT_FALSE(IsCached("http://example.com/video1.m3u8"));
+	EXPECT_FALSE(IsCached("http://example.com/video2.m3u8"));
+
+	// Manifest always preserved
+	EXPECT_TRUE(IsCached("http://example.com/manifest.mpd"));
+}
