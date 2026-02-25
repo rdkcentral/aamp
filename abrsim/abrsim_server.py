@@ -303,19 +303,20 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			with open(output_file, 'r') as f:
 				reader = csv.DictReader(f)
 				for row in reader:
-				try:
 					events.append({
-						'time_s': float(row['time_s']) if row.get('time_s') else 0.0,
-						'event_type': row.get('event_type', ''),
-						'profile_idx': int(row['profile_idx']) if row.get('profile_idx') else 0,
-						'download_ms': float(row['download_ms']) if row.get('download_ms') else 0.0,
-						'throughput_bps': float(row['throughput_bps']) if row.get('throughput_bps') else 0.0,
-						'buffer_s': float(row['buffer_s']) if row.get('buffer_s') else 0.0,
-						'description': row.get('description', '')
+						'time_s': float(row['time_s']),
+						'event_type': row['event_type'],
+						'profile_idx': int(row['profile_idx']),
+						'download_ms': float(row['download_ms']),
+						'throughput_bps': float(row['throughput_bps']),
+						'buffer_s': float(row['buffer_s']),
+						'description': row['description']
 					})
-				except (ValueError, KeyError) as e:
-					print(f"Warning: Skipping malformed CSV row: {e}")
-					continue
+			
+			# Clean up temp file
+			os.unlink(output_file)
+			
+			# Extract summary statistics from stdout
 			summary = self.parse_summary(result.stdout)
 			
 			response = {
@@ -337,38 +338,17 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		lines = stdout.split('\n')
 		
 		for line in lines:
-		try:
 			if 'Rebuffer events:' in line:
-				parts = line.split(':')
-				if len(parts) > 1 and parts[1].strip():
-					summary['rebuffer_events'] = int(parts[1].strip())
+				summary['rebuffer_events'] = int(line.split(':')[1].strip())
 			elif 'Total rebuffer time:' in line:
-				parts = line.split(':')
-				if len(parts) > 1:
-					value_parts = parts[1].strip().split()
-					if value_parts:
-						summary['total_rebuffer_time'] = float(value_parts[0])
+				summary['total_rebuffer_time'] = float(line.split(':')[1].strip().split()[0])
 			elif 'Final buffer level:' in line:
-				parts = line.split(':')
-				if len(parts) > 1:
-					value_parts = parts[1].strip().split()
-					if value_parts:
-						summary['final_buffer'] = float(value_parts[0])
+				summary['final_buffer'] = float(line.split(':')[1].strip().split()[0])
 			elif 'Average latency:' in line:
-				parts = line.split(':')
-				if len(parts) > 1:
-					value_parts = parts[1].strip().split()
-					if value_parts:
-						summary['avg_latency'] = float(value_parts[0])
+				summary['avg_latency'] = float(line.split(':')[1].strip().split()[0])
 			elif 'Speed-up factor:' in line:
-				parts = line.split(':')
-				if len(parts) > 1:
-					value_str = parts[1].strip().replace('x', '')
-					if value_str:
-						summary['speedup'] = float(value_str)
-		except (ValueError, IndexError) as e:
-			print(f"Warning: Failed to parse summary line '{line.strip()}': {e}")
-			continue
+				summary['speedup'] = float(line.split(':')[1].strip().replace('x', ''))
+		
 		return summary
 	
 	def send_json_response(self, data):
