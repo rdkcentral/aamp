@@ -81,23 +81,31 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		elif parsed_path.path == '/' or parsed_path.path == '/index.html':
 			self.serve_file(WEB_DIR / 'index.html', 'text/html')
 		elif parsed_path.path.endswith('.js'):
-			# Normalize path to prevent traversal before constructing full path
-			relative_path = parsed_path.path.lstrip('/')
-			if '..' in relative_path or relative_path.startswith('/'):
-				self.send_error(403, "Access denied")
-				return
-			self.serve_file(WEB_DIR / relative_path, 'application/javascript')
-		elif parsed_path.path.endswith('.css'):
-			# Normalize path to prevent traversal before constructing full path
-			relative_path = parsed_path.path.lstrip('/')
-			if '..' in relative_path or relative_path.startswith('/'):
-				self.send_error(403, "Access denied")
-				return
-			self.serve_file(WEB_DIR / relative_path, 'text/css')
-		else:
-			self.send_error(404, "File not found")
-	
-	def do_POST(self):
+		# Normalize and validate path to prevent traversal
+		relative_path = parsed_path.path.lstrip('/')
+		# Reject paths with '..' or that would escape the directory
+		if '..' in relative_path or relative_path.startswith('/') or '\\' in relative_path:
+			self.send_error(403, "Access denied")
+			return
+		# Construct path and validate it resolves within WEB_DIR
+		full_path = (WEB_DIR / relative_path).resolve()
+		if not str(full_path).startswith(str(WEB_DIR.resolve())):
+			self.send_error(403, "Access denied")
+			return
+		self.serve_file(full_path, 'application/javascript')
+	elif parsed_path.path.endswith('.css'):
+		# Normalize and validate path to prevent traversal
+		relative_path = parsed_path.path.lstrip('/')
+		# Reject paths with '..' or that would escape the directory
+		if '..' in relative_path or relative_path.startswith('/') or '\\' in relative_path:
+			self.send_error(403, "Access denied")
+			return
+		# Construct path and validate it resolves within WEB_DIR
+		full_path = (WEB_DIR / relative_path).resolve()
+		if not str(full_path).startswith(str(WEB_DIR.resolve())):
+			self.send_error(403, "Access denied")
+			return
+		self.serve_file(full_path, 'text/css')
 		"""Handle POST requests"""
 		parsed_path = urlparse(self.path)
 		
