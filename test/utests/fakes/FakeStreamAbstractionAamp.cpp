@@ -18,6 +18,7 @@
 */
 
 #include "StreamAbstractionAAMP.h"
+#include "AampUnderflowMonitor.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockMediaTrack.h"
 #include <memory>
@@ -31,6 +32,19 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 
 StreamAbstractionAAMP::~StreamAbstractionAAMP()
 {
+}
+
+void StreamAbstractionAAMP::StartUnderflowMonitor()
+{
+}
+
+void StreamAbstractionAAMP::StopUnderflowMonitor()
+{
+}
+
+bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
+{
+	return false;
 }
 
 void StreamAbstractionAAMP::DisablePlaylistDownloads()

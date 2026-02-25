@@ -286,7 +286,7 @@ void ABRManager::updateProfile()
 		
 		if (mDefaultIframeBitrate > 0) {
 			mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[0].idx;
-			for (int cnt = 0; cnt < iframeTrackCount; cnt++) {
+			for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
 				// find the track less than default bw set, apply to both desired and lower ( for all speed of trick)
 				if(iframeTrackInfo[cnt].bandwidth >= mDefaultIframeBitrate) {
 					break;
@@ -299,7 +299,7 @@ void ABRManager::updateProfile()
 				int desiredProfileIndexNonIframe = (int)profileCount / 2;
 				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
 				mDesiredIframeProfile = mLowestIframeProfile = 0;
-				for (int cnt = 0; cnt < iframeTrackCount; cnt++) {
+				for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
 					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
 					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
 						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
@@ -313,7 +313,7 @@ void ABRManager::updateProfile()
 				}
 			} else {
 				//Keeping old logic for non 4K streams
-				for (int cnt = 0; cnt < iframeTrackCount; cnt++) {
+				for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
 					if (mLowestIframeProfile == INVALID_PROFILE) {
 						// first pick the lowest profile available
 						mLowestIframeProfile = mDesiredIframeProfile = iframeTrackInfo[cnt].idx;
@@ -353,7 +353,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 				break;
 			} else if (profile.bandwidthBitsPerSecond < bandwidth) {
 				// fragment file name bandwidth doesn't match the profile bandwidth, will be always less
-				if((i+1) == profileCount) {
+				if (static_cast<size_t>(i + 1) == profileCount) {
 					desiredProfileIndex = i;
 					break;
 				}
@@ -364,8 +364,8 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 	}
 #if defined(DEBUG_ENABLED)
 	AAMPLOG_MIL("Get best matched profile index = %d bitrate = %" BITSPERSECOND_FORMAT,
-				desiredProfileIndex,
-				(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
+				desiredProfileIndex, (desiredProfileIndex != INVALID_PROFILE &&	static_cast<size_t>(desiredProfileIndex) < profileCount) ?
+				mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
 #endif
 	return desiredProfileIndex;
 }
@@ -379,7 +379,7 @@ int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::st
 	size_t profileCount = mProfiles.size();
 	
 	// Clamp the param to avoid overflow
-	if (currentProfileIndex >= profileCount) {
+	if (static_cast<size_t>(currentProfileIndex) >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}
@@ -420,7 +420,7 @@ int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::stri
 	size_t profileCount = mProfiles.size();
 	int desiredProfileIndex = currentProfileIndex;
 	
-	if (profileCount == 0 || currentProfileIndex >= profileCount) {
+	if (profileCount == 0 || static_cast<size_t>(currentProfileIndex) >= profileCount) {
 		AAMPLOG_WARN("No profiles/input profile %d more than profileCount %zu", currentProfileIndex, profileCount);
 		return desiredProfileIndex;
 	}
@@ -452,7 +452,7 @@ int ABRManager::getUserDataOfProfile(int currentProfileIndex)
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	int userData = -1;
 	size_t profileCount = mProfiles.size();
-	if (profileCount == 0 || currentProfileIndex >= profileCount) {
+	if (profileCount == 0 || static_cast<size_t>(currentProfileIndex) >= profileCount) {
 		AAMPLOG_WARN("No profiles/input profile %d more than profileCount %zu", currentProfileIndex, profileCount);
 	}
 	else
@@ -470,7 +470,7 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	size_t profileCount = mProfiles.size();
 	
-	if (currentProfileIndex >= profileCount) {
+	if (static_cast<size_t>(currentProfileIndex) >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}
@@ -498,7 +498,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, Bi
 	// Clamp the param to avoid overflow
 	size_t profileCount = mProfiles.size();
 	
-	if (currentProfileIndex >= profileCount) {
+	if (static_cast<size_t>(currentProfileIndex) >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}
@@ -543,8 +543,8 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, Bi
 		mAbrProfileChangeDownCount = 0;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("Ramp up profile index = %d, bitrate = %" BITSPERSECOND_FORMAT " networkBandwidth = %" BITSPERSECOND_FORMAT,
-					desiredProfileIndex,
-					(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
+					desiredProfileIndex, (desiredProfileIndex != INVALID_PROFILE &&	static_cast<size_t>(desiredProfileIndex) < profileCount) ?
+					mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
 	} else {
 		// if networkBandwidth < than current bandwidth
@@ -583,8 +583,8 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, Bi
 		mAbrProfileChangeUpCount = 0;
 #if defined(DEBUG_ENABLED)
 		AAMPLOG_MIL("Ramp down profile index = %d, bitrate = %" BITSPERSECOND_FORMAT " networkBandwidth = %" BITSPERSECOND_FORMAT,
-					desiredProfileIndex,
-					(profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
+					desiredProfileIndex, (desiredProfileIndex != INVALID_PROFILE &&	static_cast<size_t>(desiredProfileIndex) < profileCount) ?
+						mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0, networkBandwidth);
 #endif
 	}
 	
@@ -611,7 +611,7 @@ BitsPerSecond ABRManager::getBandwidthOfProfile(int profileIndex)
 		AAMPLOG_WARN( "No profiles found" );
 		return 0;
 	}
-	if (profileIndex >= profileCount){
+	if (static_cast<size_t>(profileIndex) >= profileCount){
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", profileIndex, profileCount);
 		profileIndex--;
 	}
@@ -711,7 +711,7 @@ int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int curren
 		return modifiedProfileIndex;
 	}
 	
-	if (currentProfileIndex >= profileCount) {
+	if (static_cast<size_t>(currentProfileIndex) >= profileCount) {
 		AAMPLOG_WARN("Invalid profileIndex %d exceeds the current profile count %zu", currentProfileIndex, profileCount);
 		currentProfileIndex--;
 	}

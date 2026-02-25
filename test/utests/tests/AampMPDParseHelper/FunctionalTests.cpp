@@ -206,7 +206,7 @@ public:
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
+		response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
 		GetMPDFromManifest(response);
 		return response;
 	}
@@ -233,7 +233,7 @@ TEST_F(FunctionalTests, Live_TSBEmpty_PerioDurationTest)
    </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -276,7 +276,7 @@ TEST_F(FunctionalTests, SinglePeriod_withDurationTag)
  </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -321,7 +321,7 @@ TEST_F(FunctionalTests, SinglePeriod_withoutDurationTag)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -755,7 +755,7 @@ TEST_F(FunctionalTests, SinglePeriod_withStartTimeTag_Live)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -770,7 +770,7 @@ TEST_F(FunctionalTests, SinglePeriod_withStartTimeTag_Live)
 	double periodStartTime = ParseHelper->GetPeriodStartTime(0,mpdDownloadTime);
 
 	// Check period startTime for index 0
-	// StartTime from the format "PT25S" 
+	// StartTime from the format "PT25S"
 	EXPECT_EQ(periodStartTime, 25);
 }
 
@@ -791,7 +791,7 @@ TEST_F(FunctionalTests, SinglePeriod_withoutStartTimeTag_Live)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -804,7 +804,7 @@ TEST_F(FunctionalTests, SinglePeriod_withoutStartTimeTag_Live)
 	uint64_t mpdDownloadTime ;
 	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
 	double periodStartTime = ParseHelper->GetPeriodStartTime(0,mpdDownloadTime);
- 
+
 	EXPECT_EQ(periodStartTime, 0);
 }
 
@@ -841,7 +841,7 @@ TEST_F(FunctionalTests, MultiPeriod_withoutStartTag_Live)
 	</Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -878,7 +878,7 @@ TEST_F(FunctionalTests, PeriodEndTime1)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -916,7 +916,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase2)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -933,7 +933,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase2)
 	// To Check period Endime for index 0
 	// If it's the last period either use (in this strict order!) the media presentation duration or the period's duration- As per this priority given to mpd duration 60s and periodStart 0s =>periodEndTime = periodStart + duration =60
 	EXPECT_EQ(periodEndTime,60);
-	
+
 }
 
 
@@ -960,7 +960,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase3)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -1000,7 +1000,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase4)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -1034,7 +1034,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase5)
   </Period>
 </MPD>
 )";
-	
+
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
 	ManifestDownloadResponsePtr respData = nullptr;
@@ -1214,4 +1214,463 @@ TEST_F(FunctionalTests, TestForAbsoluteTime)
 	// Check if periodStart time parsed from MPD is as given in MPD
 
 	EXPECT_EQ(periodStartTime, 1721828763.00);
+}
+
+/*
+* Set of tests to test the various functions related to period start time calculation for a live asset
+* Specifically added for GetPeriodDurationFromStart() which should only return a
+* non zero value if the duration can be determined.
+*/
+TEST_F(FunctionalTests, Multiperiod_StartTimeLive1)
+{
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="9081974761380831163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT0H0M4.000S" maxSegmentDuration="PT0H0M2.016S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2026-01-15T21:02:05.609Z">
+  <Period id="921098606" start="PT426410H58M28.193S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="643474069">
+      <Event presentationTime="643474069" duration="19098000">
+        <scte35:Signal>
+          <scte35:Binary>/DA3AAFvo8NFAP/wBQb+trbfUAAhAh9DVUVJCJPQ/3//AAEjaZABCTE0MzkwNTAyMzQAAAAAR2eV9g==</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098980" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="20002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098980" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="30002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+       <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,20002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098980" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video0" bandwidth="6052400" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098944" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659825267" d="181440" r="0"/>
+          <S t="660006707" d="161280" r="0"/>
+          <S t="660167987" d="181440" r="0"/>
+          <S t="660349427" d="161280" r="0"/>
+          <S t="660510707" d="181440" r="1"/>
+          <S t="660873587" d="161280" r="0"/>
+          <S t="661034867" d="181440" r="0"/>
+          <S t="661216307" d="161280" r="0"/>
+          <S t="661377587" d="181440" r="0"/>
+          <S t="661559027" d="161280" r="0"/>
+          <S t="661720307" d="181440" r="1"/>
+          <S t="662083187" d="161280" r="0"/>
+          <S t="662244467" d="181440" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+    <AdaptationSet id="4" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098833" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659833738" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio130" bandwidth="126400" codecs="mp4a.40.5" audioSamplingRate="24000"/>
+    </AdaptationSet>
+    <AdaptationSet id="30050" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" codingDependency="false" maxPlayoutRate="24">
+
+      <EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="10002 20002 30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" id="1" value="alternate"/>
+      <SegmentTemplate initialization="blah/track-iframe-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-iframe-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098974" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="iframe0" bandwidth="605240" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	ManifestDownloadResponsePtr respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 1);
+
+	EXPECT_EQ(ParseHelper->IsLiveManifest(),true);
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodDuration = ParseHelper->aamp_GetPeriodDuration(0,mpdDownloadTime);
+	// Check period duration
+	EXPECT_NEAR(periodDuration, 28800, 1); // = (14+1)*172800/90000 = 28800 milliseconds
+
+	double periodDuration1 = ParseHelper->GetPeriodDuration(0,mpdDownloadTime, false, false);
+	// Check period duration
+	EXPECT_NEAR(periodDuration1, 28800, 1);
+
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 0);
+	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period since no 2nd period and 1st period may be still ongoing
+}
+
+TEST_F(FunctionalTests, Multiperiod_StartTimeLive2)
+{
+	dash::mpd::IMPD *mpd;
+
+	//Harvested manifest with 30S TSB, Has 2 periods,
+	//2nd period has just been added so has no segments or start time
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="9081974761380831163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT0H0M4.000S" maxSegmentDuration="PT0H0M2.016S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2026-01-15T21:02:05.609Z">
+  <Period id="921098606" start="PT426410H58M28.193S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="643474069">
+      <Event presentationTime="643474069" duration="19098000">
+        <scte35:Signal>
+          <scte35:Binary>/DA3AAFvo8NFAP/wBQb+trbfUAAhAh9DVUVJCJPQ/3//AAEjaZABCTE0MzkwNTAyMzQAAAAAR2eV9g==</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098980" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="20002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098980" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="30002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+       <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,20002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098980" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video0" bandwidth="6052400" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098944" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659825267" d="181440" r="0"/>
+          <S t="660006707" d="161280" r="0"/>
+          <S t="660167987" d="181440" r="0"/>
+          <S t="660349427" d="161280" r="0"/>
+          <S t="660510707" d="181440" r="1"/>
+          <S t="660873587" d="161280" r="0"/>
+          <S t="661034867" d="181440" r="0"/>
+          <S t="661216307" d="161280" r="0"/>
+          <S t="661377587" d="181440" r="0"/>
+          <S t="661559027" d="161280" r="0"/>
+          <S t="661720307" d="181440" r="1"/>
+          <S t="662083187" d="161280" r="0"/>
+          <S t="662244467" d="181440" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+    <AdaptationSet id="4" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098833" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659833738" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio130" bandwidth="126400" codecs="mp4a.40.5" audioSamplingRate="24000"/>
+    </AdaptationSet>
+    <AdaptationSet id="30050" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" codingDependency="false" maxPlayoutRate="24">
+
+      <EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="10002 20002 30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" id="1" value="alternate"/>
+      <SegmentTemplate initialization="blah/track-iframe-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-iframe-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098974" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="659818069" d="172800" r="14"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="iframe0" bandwidth="605240" codecs="hvc1.1.6.L123.90" width="1920" height="1080" frameRate="50000/1000"/>
+    </AdaptationSet>
+  </Period>
+  <Period id="921098607">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="662572069">
+      <Event presentationTime="662572069" duration="0">
+        <scte35:Signal>
+          <scte35:Binary>/DAwAAFvo8NFAP/wBQb+t9pI4AAaAhhDVUVJCJPQ/3+/AQkxNDM5MDUwMjM1AABavf9e</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+  </Period>
+  <SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="blah"/>
+</MPD>
+)";
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	ManifestDownloadResponsePtr respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 2);
+
+	EXPECT_EQ(ParseHelper->IsLiveManifest(),true);
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodDuration = ParseHelper->aamp_GetPeriodDuration(0,mpdDownloadTime);
+	// Check period duration
+	EXPECT_NEAR(periodDuration, 28800, 1); // = (14+1)*172800/90000 = 28800 milliseconds
+
+	double periodDuration1 = ParseHelper->GetPeriodDuration(0,mpdDownloadTime, false, false);
+	// Check period duration
+	EXPECT_NEAR(periodDuration1, 28800, 1);
+
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 0);
+	EXPECT_EQ(periodDuration2, 0); //Cannot determine duration of period since start time missing from 2nd period
+}
+TEST_F(FunctionalTests, Multiperiod_StartTimeLive3)
+{
+	dash::mpd::IMPD *mpd;
+
+	//Harvested manifest with 30S TSB, Has 2 periods both with start time but 2nd has no segments yet.
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="9081974761380831163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT0H0M4.000S" maxSegmentDuration="PT0H0M2.134S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2026-01-15T21:02:11.365Z">
+  <Period id="921098606" start="PT426410H58M28.193S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="643474069">
+      <Event presentationTime="643474069" duration="19098000">
+        <scte35:Signal>
+          <scte35:Binary>/DA3AAFvo8NFAP/wBQb+trbfUAAhAh9DVUVJCJPQ/3//AAEjaZABCTE0MzkwNTAyMzQAAAAAR2eV9g==</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098983" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="660336469" d="172800" r="11"/>
+          <S t="662410069" d="162000" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098947" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="660349427" d="161280" r="0"/>
+          <S t="660510707" d="181440" r="1"/>
+          <S t="660873587" d="161280" r="0"/>
+          <S t="661034867" d="181440" r="0"/>
+          <S t="661216307" d="161280" r="0"/>
+          <S t="661377587" d="181440" r="0"/>
+          <S t="661559027" d="161280" r="0"/>
+          <S t="661720307" d="181440" r="1"/>
+          <S t="662083187" d="161280" r="0"/>
+          <S t="662244467" d="181440" r="0"/>
+          <S t="662425907" d="161280" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+  </Period>
+  <Period id="921098607" start="PT426411H2M0.300S">
+  </Period>
+  <SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="blah"/>
+</MPD>
+)";
+
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	ManifestDownloadResponsePtr respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 2);
+	EXPECT_EQ(ParseHelper->IsLiveManifest(),true);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodDuration = ParseHelper->aamp_GetPeriodDuration(0,mpdDownloadTime);
+	// Check period duration
+	EXPECT_NEAR(periodDuration, 24840, 1); //Duration by adding up segments
+
+	double periodDuration1 = ParseHelper->GetPeriodDuration(0,mpdDownloadTime, false, false);
+	// Check period duration
+	EXPECT_NEAR(periodDuration1, 24747, 1);
+
+	// start time but no segments in 2nd period cannot calculate duration
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 0);
+	EXPECT_NEAR(periodDuration2, 0 , 1);
+}
+
+TEST_F(FunctionalTests, Multiperiod_StartTimeLive4)
+{
+	dash::mpd::IMPD *mpd;
+
+	//Harvested manifest with 30S TSB, Has 3 periods both with start time and segments.
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="9081974761380831163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT0H0M4.000S" maxSegmentDuration="PT0H0M2.134S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2026-01-15T21:02:11.365Z">
+  <Period id="921098606" start="PT426410H58M28.193S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="643474069">
+      <Event presentationTime="643474069" duration="19098000">
+        <scte35:Signal>
+          <scte35:Binary>/DA3AAFvo8NFAP/wBQb+trbfUAAhAh9DVUVJCJPQ/3//AAEjaZABCTE0MzkwNTAyMzQAAAAAR2eV9g==</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098983" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="660336469" d="172800" r="11"/>
+          <S t="662410069" d="162000" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-header.mp4" media="blah-eac3/track-audio-periodid-921098606-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098947" presentationTimeOffset="643474069">
+        <SegmentTimeline>
+          <S t="660349427" d="161280" r="0"/>
+          <S t="660510707" d="181440" r="1"/>
+          <S t="660873587" d="161280" r="0"/>
+          <S t="661034867" d="181440" r="0"/>
+          <S t="661216307" d="161280" r="0"/>
+          <S t="661377587" d="181440" r="0"/>
+          <S t="661559027" d="161280" r="0"/>
+          <S t="661720307" d="181440" r="1"/>
+          <S t="662083187" d="161280" r="0"/>
+          <S t="662244467" d="181440" r="0"/>
+          <S t="662425907" d="161280" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+  </Period>
+  <Period id="921098999" start="PT426411H2M0.300S">
+  <!-- Empty period as can occur -->
+  </Period>
+  <Period id="921098607" start="PT426411H2M0.300S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="662572069">
+      <Event presentationTime="662572069" duration="0">
+        <scte35:Signal>
+          <scte35:Binary>/DAwAAFvo8NFAP/wBQb+t9pI4AAaAhhDVUVJCJPQ/3+/AQkxNDM5MDUwMjM1AABavf9e</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah/track-video-periodid-921098607-repid-$RepresentationID$-tc-0-header.mp4" media="blah/track-video-periodid-921098607-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098996" presentationTimeOffset="662572069">
+        <SegmentTimeline>
+          <S t="662572069" d="183600" r="0"/>
+          <S t="662755669" d="172800" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+      <Representation id="root_video3" bandwidth="1328400" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+      <Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540" frameRate="50000/1000"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="de">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="a000"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="blah-eac3/track-audio-periodid-921098607-repid-$RepresentationID$-tc-0-header.mp4" media="blah-eac3/track-audio-periodid-921098607-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="921098960" presentationTimeOffset="662572069">
+        <SegmentTimeline>
+          <S t="662587187" d="181440" r="0"/>
+          <S t="662768627" d="161280" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="root_audio110" bandwidth="215200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+  </Period>
+  <SupplementalProperty schemeIdUri="urn:scte:dash:powered-by" value="blah"/>
+</MPD>
+)";
+
+	mManifest = manifest;
+	string currentTimeISO = "2023-01-01T00:10:00Z";
+	ManifestDownloadResponsePtr respData = nullptr;
+	respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+	EXPECT_NE(mpd, nullptr);
+	EXPECT_EQ(mpd->GetPeriods().size(), 3);
+	EXPECT_EQ(ParseHelper->IsLiveManifest(),true);
+
+	uint64_t mpdDownloadTime ;
+	mpdDownloadTime  = ISO8601DateTimeToUTCSeconds(currentTimeISO.c_str());
+	double periodDuration = ParseHelper->aamp_GetPeriodDuration(0,mpdDownloadTime);
+	// Check period duration
+	EXPECT_NEAR(periodDuration, 24840, 1); //Duration by adding up segments
+
+	double periodDuration1 = ParseHelper->GetPeriodDuration(0,mpdDownloadTime, false, false);
+	// Check period duration
+	EXPECT_NEAR(periodDuration1, 24747, 1);
+
+	// Duration calculated by start(n+1) - start(n) I.E "PT426410H58M28.193S" - "PT426411H2M0.300S"
+	int periodIdx = 0;
+	double periodDuration2 = ParseHelper->GetPeriodDurationFromStart(periodIdx);
+	EXPECT_EQ(periodIdx, 2);
+	EXPECT_NEAR(periodDuration2, 212107, 1);
 }
