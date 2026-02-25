@@ -115,12 +115,11 @@ namespace SocUtils
 		return socInterface->ResetNewSegmentEvent();
 	}
 	/**
-	 * @brief Sets the variable if  rialtos sink is enabled
+	 * @brief Sets the variable if  rialto sink is enabled
 	 */
-	bool SetRialtoSinkEnabled(bool isrialto)
+	void  SetRialtoSinkEnabled(bool isrialto)
 	{
 		mIsRialtoSink = isrialto;
-		return mIsRialtoSink;
 	}
 	/**
 	 *	@brief Check if GST Subtec is enabled

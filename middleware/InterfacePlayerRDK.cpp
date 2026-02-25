@@ -91,10 +91,9 @@ InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
-	interfacePlayerPriv = new InterfacePlayerPriv();
+	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
 	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
-	SocUtils::SetRialtoSinkEnabled(isRialto);
 	
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
@@ -123,10 +122,10 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	delete interfacePlayerPriv;
 }
 
-InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
+InterfacePlayerPriv::InterfacePlayerPriv(bool isRialto):mPlayerName()
 {
 	gstPrivateContext = new GstPlayerPriv();
-	socInterface = SocInterface::CreateSocInterface(gstPrivateContext->usingRialtoSink);
+	socInterface = SocInterface::CreateSocInterface(isRialto);
 
 }
 

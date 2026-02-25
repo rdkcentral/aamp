@@ -167,15 +167,13 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 	static std::shared_ptr<SocInterface> socInterface;
 	if( !socInterface)
 	{
-		if(mIsRialtoMode)
-		{
-			socInterface = std::make_shared<DefaultSocInterface>();
-			return socInterface;
-		}	
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
 		if(platformType == SOC_PLATFORM_DEFAULT)
 		{
-			platformType = InferPlatformFromPluginScan();
+		        if(!mIsRialtoMode)
+			{
+				platformType = InferPlatformFromPluginScan();
+			}
 		}
 		switch (platformType)
 		{

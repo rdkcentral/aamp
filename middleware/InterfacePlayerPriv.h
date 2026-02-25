@@ -262,7 +262,7 @@ class InterfacePlayerPriv
 	private:
 	protected:
 	public:
-		InterfacePlayerPriv();
+		InterfacePlayerPriv(bool isRialto);
 		~InterfacePlayerPriv();
 		GstPlayerPriv *gstPrivateContext;
 		std::shared_ptr<SocInterface> socInterface;

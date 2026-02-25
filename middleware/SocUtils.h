@@ -97,6 +97,6 @@ namespace SocUtils
 	/**
 	 * 	@brief check if rialto is enabled 
 	 */
-	bool SetRialtoSinkEnabled(bool );
+	void SetRialtoSinkEnabled(bool );
 }
 #endif // SOC_UTILS_H
