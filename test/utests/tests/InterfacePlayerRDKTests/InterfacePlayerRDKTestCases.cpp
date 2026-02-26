@@ -45,7 +45,6 @@ class InterfacePlayerRDKCallbackTest : public ::testing::Test
 {
 protected:
 	InterfacePlayerRDK *m_player;
-	InterfacePlayerPriv *m_privatePlayer;
 	guint capturedTimerId;
 	GSourceFunc capturedTimerFunc;
 	gpointer capturedUserData;
@@ -61,17 +60,11 @@ protected:
 		// Create player instance
 		m_player = new InterfacePlayerRDK();
 		
-		// Get private player context - stored for potential future use in tests
-		m_privatePlayer = m_player->GetPrivatePlayer();
-		
-		// Initialize config parameters
-		// Note: We allocate this because the player doesn't own it in test context
-		if (!m_player->m_gstConfigParam)
-		{
-			m_player->m_gstConfigParam = new Configs();
-			m_player->m_gstConfigParam->progressTimer = 1.0; // 1 second default
-			m_player->m_gstConfigParam->monitorAV = false;
-		}
+		// Initialize config parameters for test
+		// Note: m_gstConfigParam is always null after construction, so we allocate it
+		m_player->m_gstConfigParam = new Configs();
+		m_player->m_gstConfigParam->progressTimer = 1.0; // 1 second default
+		m_player->m_gstConfigParam->monitorAV = false;
 		
 		// Initialize capture variables
 		capturedTimerId = 0;
@@ -184,9 +177,9 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullProgressCb_DoesNotSetupT
  */
 TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_ValidProgressCb_SetupsTimer)
 {
-	// Arrange: Set a valid progressCb
+	// Arrange: Set a valid progressCb (empty for this test as we only verify timer setup)
 	m_player->callbackMap[InterfaceCB::progressCb] = []() {
-		// Callback implementation - would be invoked when timer fires
+		// Empty callback - this test only verifies timer setup, not callback execution
 	};
 	
 	SetupTimerMocks();

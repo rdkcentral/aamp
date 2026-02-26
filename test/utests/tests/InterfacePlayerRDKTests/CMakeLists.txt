@@ -23,7 +23,7 @@ set(EXEC_NAME InterfacePlayerRDKTests)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
+include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES InterfacePlayerRDKTestCases.cpp
                  InterfacePlayerRDKTests.cpp)
