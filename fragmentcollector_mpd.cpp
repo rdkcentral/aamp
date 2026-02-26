@@ -4520,7 +4520,8 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
 							if(mLocalUtcTime > 0)
 							{
-								mTimeSyncClient.lastSync = currentTimeMS;
+								//GetNetworkTime() may take some Ms so call aamp_GetCurrentTimeMS() again
+								mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
 								mDeltaTime =  mLocalUtcTime - (double)mTimeSyncClient.lastSync / 1000;
 								mTimeSyncClient.lastOffset = mDeltaTime;
 								mTimeSyncClient.hasSynced = true;

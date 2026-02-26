@@ -3108,8 +3108,10 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
-		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
+		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+		//2nd call to CallFindServerUTCTime
+		.WillOnce(Return(secondCallTimeMS)); // long long currentTimeMS = aamp_GetCurrentTimeMS();
 
 	// Expect network call only on first sync
 	const double serverTime = 1000000.5;
@@ -3166,8 +3168,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
-		.WillOnce(Return(secondCallTimeMS));  // Second call: elapsed time check
+		//1st call to CallFindServerUTCTime
+		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+		//2nd call to CallFindServerUTCTime
+		.WillOnce(Return(secondCallTimeMS)) // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(secondCallTimeMS));       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
 
 	// Expect network call on both syncs
 	const double serverTime1 = 1000000.5;
@@ -3225,8 +3231,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
-		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
+		//1st call to CallFindServerUTCTime
+		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+		//2nd call to CallFindServerUTCTime
+		.WillOnce(Return(secondCallTimeMS)); // long long currentTimeMS = aamp_GetCurrentTimeMS();
+
 
 	// Only first call should trigger network sync
 	const double serverTime = 1000000.5;
