@@ -94,7 +94,6 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
 	MW_LOG_MIL("[deepika]InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
-	
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
