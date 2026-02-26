@@ -346,7 +346,10 @@ uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
 
 	IsoBmffBuffer buffer;
 	buffer.setBuffer(cached->fragment.GetVector());
-	buffer.parseBuffer();
+	if (!buffer.parseBuffer())
+	{
+		return 0;
+	}
 
 	if (buffer.isInitSegment())
 	{

@@ -40,7 +40,7 @@
 #include "MockMediaTrack.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockIsoBmffBuffer.h"
-#include "fragmentcollector_mpd.h"
+
 #include "StreamAbstractionAAMP.h"
 
 using namespace testing;
@@ -431,7 +431,32 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_GetTimeScaleFails_NoTimesc
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_))
 		.WillOnce(Return(false));
-	// No SetAudTimeScale call expected
+	// Returns 0, caller won't set timescale
+
+	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
+		&cached, true);
+
+	EXPECT_EQ(result, 0u);
+}
+
+/**
+ * @brief ISO BMFF parseBuffer fails: graceful degradation, no timescale set.
+ *
+ * Verifies that when parseBuffer() returns false, ProcessInitSegmentIfNeeded
+ * returns 0 and does not attempt to inspect the buffer further.
+ */
+TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_ParseBufferFails_GracefulNoTimescale)
+{
+	CachedFragment cached;
+	cached.type = eMEDIATYPE_INIT_VIDEO;
+	const char data[] = "bad-init";
+	cached.fragment.assign(data, data + sizeof(data) - 1);
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).Times(0);
 
 	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
 		&cached, true);
