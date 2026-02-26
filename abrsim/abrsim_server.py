@@ -81,19 +81,17 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		elif parsed_path.path == '/' or parsed_path.path == '/index.html':
 			self.serve_file(WEB_DIR / 'index.html', 'text/html')
 		elif parsed_path.path.endswith('.js'):
-			# Normalize path to prevent traversal before constructing full path
-			relative_path = parsed_path.path.lstrip('/')
-			if '..' in relative_path or relative_path.startswith('/'):
+			full_path = self._validate_static_path(parsed_path.path)
+			if full_path is None:
 				self.send_error(403, "Access denied")
 				return
-			self.serve_file(WEB_DIR / relative_path, 'application/javascript')
+			self.serve_file(full_path, 'application/javascript')
 		elif parsed_path.path.endswith('.css'):
-			# Normalize path to prevent traversal before constructing full path
-			relative_path = parsed_path.path.lstrip('/')
-			if '..' in relative_path or relative_path.startswith('/'):
+			full_path = self._validate_static_path(parsed_path.path)
+			if full_path is None:
 				self.send_error(403, "Access denied")
 				return
-			self.serve_file(WEB_DIR / relative_path, 'text/css')
+			self.serve_file(full_path, 'text/css')
 		else:
 			self.send_error(404, "File not found")
 	
@@ -105,36 +103,30 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			self.handle_simulate()
 		else:
 			self.send_error(404, "Endpoint not found")
-	def _safe_static_path(self, filepath):
+	def _validate_static_path(self, url_path):
 		"""
-		Validate that filepath is within WEB_DIR to prevent path traversal.
+		Validate and resolve a URL path for static file serving.
+		Prevents directory traversal attacks.
 		
-		Returns the resolved safe path if valid, None otherwise.
+		Returns a resolved Path object if valid, None otherwise.
 		"""
+		relative_path = url_path.lstrip('/')
+		# Reject suspicious patterns before constructing the path
+		if '..' in relative_path or relative_path.startswith('/') or '\\' in relative_path:
+			return None
 		try:
-			# Resolve both base directory and requested file to absolute paths
-			base_dir = WEB_DIR.resolve()
-			requested_path = filepath.resolve()
-			
-			# Check if requested path is within base directory
-			requested_path.relative_to(base_dir)
-			
-			return requested_path
-		except (ValueError, RuntimeError):
-			# relative_to raises ValueError if not relative
-			# resolve() can raise RuntimeError if path doesn't exist (with strict=True)
+			full_path = (WEB_DIR / relative_path).resolve()
+			# Verify resolved path is within WEB_DIR
+			if not str(full_path).startswith(str(WEB_DIR.resolve())):
+				return None
+			return full_path
+		except (ValueError, RuntimeError, OSError):
 			return None
 	
 	def serve_file(self, filepath, content_type):
-		"""Serve a static file with path traversal protection"""
-		# Validate path is within WEB_DIR
-		safe_path = self._safe_static_path(filepath)
-		if safe_path is None:
-			self.send_error(403, "Access denied")
-			return
-		
+		"""Serve a static file"""
 		try:
-			with open(safe_path, 'rb') as f:
+			with open(filepath, 'rb') as f:
 				content = f.read()
 			self.send_response(200)
 			self.send_header('Content-type', content_type)
