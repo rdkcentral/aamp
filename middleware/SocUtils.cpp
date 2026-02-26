@@ -27,7 +27,6 @@
 
 namespace SocUtils
 {
-	//printf("socutils created");
 	bool mIsRialtoSink = false;
 	static std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	/**
