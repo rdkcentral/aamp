@@ -80,8 +80,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->appSrcForProgressivePlayback = config->IsConfigSet(eAAMPConfig_UseAppSrcForProgressivePlayback);
 	interfacePlayer->m_gstConfigParam->enablePTSReStamp = config->IsConfigSet(eAAMPConfig_EnablePTSReStamp);
 	interfacePlayer->m_gstConfigParam->seamlessAudioSwitch = config->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch);
-	interfacePlayer->m_gstConfigParam->videoBufBytes = config->GetConfigValue(eAAMPConfig_GstVide
-		oBufBytes);
+	interfacePlayer->m_gstConfigParam->videoBufBytes = config->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
 	interfacePlayer->m_gstConfigParam->enableDisconnectSignals = config->IsConfigSet(eAAMPConfig_enableDisconnectSignals);
 	interfacePlayer->m_gstConfigParam->eosInjectionMode = config->GetConfigValue(eAAMPConfig_EOSInjectionMode);
 	interfacePlayer->m_gstConfigParam->vodTrickModeFPS =  config->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
