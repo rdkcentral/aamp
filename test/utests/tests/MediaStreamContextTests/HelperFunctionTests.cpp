@@ -110,7 +110,7 @@ protected:
  * Verifies that when isChunkMode is true, the chunk payload data is
  * assigned into the cached fragment buffer via assign().
  */
-TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AppendsBytes)
+TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AssignsData)
 {
 	CachedFragment cached;
 	const char payload[] = "chunk-data";
@@ -274,8 +274,9 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NotInitSegment_NoOp)
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_VIDEO;
 
-	// If parsing occurred, mock would be called - StrictMock on
-	// g_mockIsoBmffBuffer would catch unexpected calls
+	// When isInitSegment is false, we expect an early return and no ISO BMFF
+	// parsing. Note: g_mockIsoBmffBuffer is a NiceMock, so this test verifies
+	// the return value but does not use strict expectations to catch calls.
 	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
 		&cached, false);
 

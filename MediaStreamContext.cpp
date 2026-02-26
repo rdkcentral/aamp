@@ -69,7 +69,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
-	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, false);
+	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, discontinuity);
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->absPosition = 0;
 	if (mActiveDownloadInfo)
@@ -207,7 +207,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
 		cachedFragment->absPosition = 0;
 		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.assign(ptr, ptr + size);
+
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		if (mActiveDownloadInfo)
 		{
@@ -318,8 +318,10 @@ void MediaStreamContext::PopulateCommonMetadata(CachedFragment* cached,
  *  @brief Parse an init segment and extract the timescale.
  *
  *  When isInitSegment is true the cached fragment buffer is parsed as ISO BMFF.
- *  If a valid timescale is found it is applied to the corresponding AAMP track
- *  (video, audio, or subtitle).  This is a no-op for non-init segments.
+ *  If a valid timescale is found it is extracted and returned to the caller,
+ *  which is responsible for applying it to the appropriate AAMP track
+ *  (video, audio, or subtitle). This function is a no-op for non-init segments
+ *  or non-init media types and returns 0 in those cases.
  *
  *  @param[in] cached        CachedFragment containing the init segment data.
  *  @param[in] isInitSegment true if this fragment is an init segment.
