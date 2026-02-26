@@ -322,63 +322,63 @@ TEST_F(FunctionalTests,
 </MPD>
 )";
 
-    std::shared_ptr<ManifestDownloadConfig> inpData =
-        std::make_shared<ManifestDownloadConfig>(-1);
-    inpData->mTuneUrl = url1;
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
 
-    std::atomic<int> preProcessCount(0);
-    auto preProcessCallback = [&preProcessCount]() -> std::string
-    {
-        if (preProcessCount.fetch_add(1) == 0)
-        {
-            return std::string(kLiveMpdManifest);
-        }
-        return std::string();
-    };
+	std::atomic<int> preProcessCount(0);
+	auto preProcessCallback = [&preProcessCount]() -> std::string
+	{
+		if (preProcessCount.fetch_add(1) == 0)
+		{
+			return std::string(kLiveMpdManifest);
+		}
+		return std::string();
+	};
 
-    mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
-    mAampMPDDownloader->Start();
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
 
-    ManifestDownloadResponsePtr firstManifest =
-        mAampMPDDownloader->GetManifest(true, 2000);
-    ASSERT_TRUE(firstManifest != nullptr);
-    ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
-    ASSERT_TRUE(firstManifest->mIsLiveManifest);
+	ManifestDownloadResponsePtr firstManifest =
+		mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+	ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
+	ASSERT_TRUE(firstManifest->mIsLiveManifest);
 
-    ManifestDownloadResponsePtr secondManifest = firstManifest;
-    auto secondStart = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - secondStart <
-            std::chrono::seconds(8))
-    {
-        auto current = mAampMPDDownloader->GetManifest(false, 0);
-        if ((current.get() != firstManifest.get()) &&
-            IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
-        {
-            secondManifest = current;
-            break;
-        }
-        usleep(100 * 1000);
-    }
-    ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+	ManifestDownloadResponsePtr secondManifest = firstManifest;
+	auto secondStart = std::chrono::steady_clock::now();
+	while (std::chrono::steady_clock::now() - secondStart <
+			std::chrono::seconds(8))
+	{
+		auto current = mAampMPDDownloader->GetManifest(false, 0);
+		if ((current.get() != firstManifest.get()) &&
+			IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
+		{
+			secondManifest = current;
+			break;
+		}
+		usleep(100 * 1000);
+	}
+	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
 
-    auto betweenRefreshStart = std::chrono::steady_clock::now();
-    ManifestDownloadResponsePtr thirdManifest = secondManifest;
-    while (std::chrono::steady_clock::now() - betweenRefreshStart <
-            std::chrono::milliseconds(1800))
-    {
-        auto current = mAampMPDDownloader->GetManifest(false, 0);
-        if ((current.get() != secondManifest.get()) &&
-            IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
-        {
-            thirdManifest = current;
-            break;
-        }
-        usleep(100 * 1000);
-    }
+	auto betweenRefreshStart = std::chrono::steady_clock::now();
+	ManifestDownloadResponsePtr thirdManifest = secondManifest;
+	while (std::chrono::steady_clock::now() - betweenRefreshStart <
+			std::chrono::milliseconds(1800))
+	{
+		auto current = mAampMPDDownloader->GetManifest(false, 0);
+		if ((current.get() != secondManifest.get()) &&
+			IsCurlTimeoutFailure(current->mMPDDownloadResponse->iHttpRetValue))
+		{
+			thirdManifest = current;
+			break;
+		}
+		usleep(100 * 1000);
+	}
 
-    EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
-    EXPECT_TRUE(IsCurlTimeoutFailure(
-        thirdManifest->mMPDDownloadResponse->iHttpRetValue));
+	EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
+	EXPECT_TRUE(IsCurlTimeoutFailure(
+		thirdManifest->mMPDDownloadResponse->iHttpRetValue));
 
-    mAampMPDDownloader->Release();
+	mAampMPDDownloader->Release();
 }
