@@ -152,15 +152,15 @@ public:
      * @brief Transfer buffer data into a CachedFragment using the appropriate
      *        semantics for the caching mode.
      *
-     * Fragment mode: zero-copy move via Replace() from a download buffer.
-     * Chunk mode: copy via AppendBytes() from an ephemeral CURL buffer.
+     * Fragment mode: assign from download buffer, then free the source.
+     * Chunk mode: assign from an ephemeral CURL buffer pointer.
      *
      * @param[out] cached        Destination CachedFragment whose fragment buffer
      *                           will be populated.
      * @param[in]  chunkPayload  Pointer to chunk data (chunk mode only, may be nullptr).
      * @param[in]  downloadBuffer Source growable buffer (fragment mode only, may be nullptr).
      * @param[in]  payloadSize   Size of chunk payload in bytes (chunk mode only).
-     * @param[in]  isChunkMode   true for chunk (AppendBytes), false for fragment (Replace).
+     * @param[in]  isChunkMode   true for chunk (assign from pointer), false for fragment (assign from buffer).
      */
     static void TransferFragmentBuffer(CachedFragment* cached,
                                        const char* chunkPayload,

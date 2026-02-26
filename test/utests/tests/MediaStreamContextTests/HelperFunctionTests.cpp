@@ -105,10 +105,10 @@ protected:
 // ============================================================================
 
 /**
- * @brief Chunk mode: AppendBytes is called with the provided payload.
+ * @brief Chunk mode: payload is assigned into the cached fragment.
  *
  * Verifies that when isChunkMode is true, the chunk payload data is
- * appended to the cached fragment buffer via AppendBytes().
+ * assigned into the cached fragment buffer via assign().
  */
 TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AppendsBytes)
 {
@@ -119,7 +119,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AppendsBytes)
 	MediaStreamContext::TransferFragmentBuffer(
 		&cached, payload, nullptr, payloadSize, true);
 
-	// Fake AppendBytes does pointer assignment — verify size was recorded
+	// Fake assign does pointer copy — verify size was recorded
 	EXPECT_EQ(cached.fragment.size(), payloadSize);
 }
 
@@ -136,7 +136,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_ReplacesBuffer)
 	AampGrowableBuffer downloadBuffer("test-download");
 
 	const char data[] = "fragment-data";
-	downloadBuffer.AppendBytes(data, sizeof(data) - 1);
+	downloadBuffer.assign(data, data + sizeof(data) - 1);
 
 	MediaStreamContext::TransferFragmentBuffer(
 		&cached, nullptr, &downloadBuffer, 0, false);
@@ -164,7 +164,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_NullBuffer_NoOp)
 }
 
 /**
- * @brief Chunk mode with zero-length payload: AppendBytes with size 0.
+ * @brief Chunk mode with zero-length payload: assign with size 0.
  *
  * Verifies that a zero-size chunk payload is handled gracefully.
  */
@@ -311,7 +311,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_VideoInit_SetsTimescale)
 	cached.type = eMEDIATYPE_INIT_VIDEO;
 	// Put some dummy data in the fragment buffer so setBuffer has something
 	const char data[] = "fake-init-data";
-	cached.fragment.AppendBytes(data, sizeof(data) - 1);
+	cached.fragment.assign(data, data + sizeof(data) - 1);
 
 	constexpr uint32_t expectedTimeScale = 90000;
 
@@ -339,7 +339,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_AudioInit_SetsTimescale)
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_INIT_AUDIO;
 	const char data[] = "fake-init-data";
-	cached.fragment.AppendBytes(data, sizeof(data) - 1);
+	cached.fragment.assign(data, data + sizeof(data) - 1);
 
 	constexpr uint32_t expectedTimeScale = 48000;
 
@@ -367,7 +367,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_SubtitleInit_SetsTimescale
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_INIT_SUBTITLE;
 	const char data[] = "fake-init-data";
-	cached.fragment.AppendBytes(data, sizeof(data) - 1);
+	cached.fragment.assign(data, data + sizeof(data) - 1);
 
 	constexpr uint32_t expectedTimeScale = 1000;
 
@@ -396,7 +396,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_BufferNotInit_NoTimescale)
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_INIT_VIDEO;
 	const char data[] = "not-really-init";
-	cached.fragment.AppendBytes(data, sizeof(data) - 1);
+	cached.fragment.assign(data, data + sizeof(data) - 1);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
@@ -421,7 +421,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_GetTimeScaleFails_NoTimesc
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_INIT_AUDIO;
 	const char data[] = "corrupt-init";
-	cached.fragment.AppendBytes(data, sizeof(data) - 1);
+	cached.fragment.assign(data, data + sizeof(data) - 1);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
