@@ -406,7 +406,7 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
 void MediaStreamContext::ABRProfileChanged(void)
 {
 	// TODO: Use this lock across all the functions which uses shared variables
-	AcquireMediaStreamContextLock();
+	std::lock_guard<std::recursive_mutex> lock(mMediaStreamContextMutex);
 	struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
 	// Get AdaptationSet Index and Representation Index from the corresponding profile
 	int adaptIdxFromProfile = profileMap.adaptationSetIndex;
@@ -454,7 +454,6 @@ void MediaStreamContext::ABRProfileChanged(void)
 		AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
 				representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth());
 	}
-	ReleaseMediaStreamContextLock();
 }
 
 /**
