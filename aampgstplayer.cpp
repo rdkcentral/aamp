@@ -395,8 +395,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 
 {
 	privateContext = new AAMPGstPlayerPriv();
-	playerInstance = new InterfacePlayerRDK(ISCONFIGSET(eAAMPConfig_useRialtoSink));                                       // for time being to use across class and non-class members when progressive testing
-//	playerInstance = new InterfacePlayerRDK(true);                                       // for time being to use across class and non-class members when progressive testing
+	playerInstance = new InterfacePlayerRDK(ISCONFIGSET(eAAMPConfig_useRialtoSink));                                       // for time being to use across class and non-class members when progressive testing                                     // for time being to use across class and non-class members when progressive testing
 	RegisterBusCb(this, playerInstance);
 	if(privateContext)
 	{
