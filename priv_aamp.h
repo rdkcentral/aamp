@@ -1058,7 +1058,7 @@ public:
 	float rate; 						/**< most recent (non-zero) play rate for non-paused content */
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
-	bool pipeline_paused; 					/**< true if pipeline is paused */
+	std::atomic<bool> mSinkPaused; 			/**< true if pipeline is paused - atomic for thread safety */
 	bool mbNewSegmentEvtSent[AAMP_TRACK_COUNT];
 
 	char mLanguageList[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH]; /**< list of languages in stream */
@@ -1608,6 +1608,14 @@ public:
 	 * @param[in] reservationId The reservation identifier
 	 */
 	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
+	 * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+	 * @return void
+	 */
+	void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId);
 
 	/**
 	 * @fn getLastInjectedPosition

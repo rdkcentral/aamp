@@ -31,6 +31,7 @@
 #include <deque>
 #include <thread>
 #include <utility>
+#include <atomic>
 #include "AampDefine.h"
 #include "AampEvent.h"
 
@@ -173,7 +174,7 @@ protected:
 	int mNextTaskId;			/**< counter that holds ID value of next task to be scheduled */
 	int mCurrentTaskId;			/**< ID of current executed task */
 	bool mLockOut;				/**< flag indicates if the queue is locked out or not */
-	AAMPPlayerState mState;		        /**< Player State */
+	std::atomic<AAMPPlayerState> mState;	/**< Player State - atomic for thread safety */
 };
 
 #endif /* __AAMP_SCHEDULER_H__ */

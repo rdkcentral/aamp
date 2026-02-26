@@ -174,7 +174,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 /**
  *  @brief Update PTS and send pts for flush audio
  */
-void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -211,7 +211,8 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 
 		if(buffer.getFirstPTS(currentPTS))
 		{
-			double pos = (double)currentPTS / (double)currTimeScale;
+			AAMPLOG_INFO("IsoBmffProcessor %s First PTS from buffer is %" PRIu64 " with offset %lf", IsoBmffProcessorTypeName[type], currentPTS, ptsOffset);
+			double pos = ((double)currentPTS  / (double)currTimeScale) + ptsOffset;
 			p_aamp->FlushTrack((AampMediaType)type,pos);
 			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
 		}
@@ -1183,7 +1184,7 @@ void IsoBmffProcessor::cacheRestampInitSegment(AampMediaType type, const std::ve
 	stInitRestampSegment *pSt = new stInitRestampSegment;
 	memset(pSt,0,sizeof(stInitRestampSegment));
 	pSt->buffer =  new AampGrowableBuffer("cached-restamp-init-segment");
-	pSt->buffer->AppendBytes(reinterpret_cast<const char*>(segment.data()), segment.size());
+	pSt->buffer->assign(segment.data(), segment.data() + segment.size());
 	pSt->type = type;
 	pSt->position = pos;
 	pSt->duration = duration;
@@ -1200,7 +1201,7 @@ void IsoBmffProcessor::cacheInitSegment(const std::vector<uint8_t>& segment)
 	// Save init segment for later. Init segment will be pushed once basePTS is calculated
 	AAMPLOG_INFO("IsoBmffProcessor::[%s] Caching init fragment", IsoBmffProcessorTypeName[type]);
 	AampGrowableBuffer *buffer = new AampGrowableBuffer("cached-init-segment");
-	buffer->AppendBytes(reinterpret_cast<const char*>(segment.data()), segment.size());
+	buffer->assign(segment.data(), segment.data() + segment.size());
 	initSegment.push_back(buffer);
 }
 

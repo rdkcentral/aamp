@@ -68,6 +68,19 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 }
 
 /**
+ * @brief Cancel ad reservation
+ * @param[in] playingReservationId The reservation identifier which is currently playing
+ * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ */
+void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+	if (mPrivObj)
+	{
+		mPrivObj->CancelReservation(playingReservationId, cancelAtReservationId);
+	}
+}
+
+/**
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
@@ -383,7 +396,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								//matches the current periodId.This avoid incorrect calculation in split period cases
 								//where an ad spans next into the next period which could otherwise result in a negative value.
 								if( abObj.ads->at(mPlacementObj.curAdIdx).basePeriodId == periodId )
-								{ 
+								{
 									periodDurationAvailable -= abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset;
 									if (periodDurationAvailable < 0)
 									{
@@ -529,6 +542,8 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								// No ads left to place. lets mark the adbreak as complete
 								setAdMarkers(p2AdData.duration,periodDelta);
 								AAMPLOG_INFO("[CDAI] Current Ad completely placed.end period:%s end period offset:%" PRIu64 " adjustEndPeriodOffset:%d",periodId.c_str(),abObj.endPeriodOffset,abObj.adjustEndPeriodOffset);
+								//Remember segment number when the Ad ends so we know when subsequent segments added
+								mWaitForManifestUpdate = mPlacementObj.curEndNumber;
 								break;
 							}
 						}
@@ -581,45 +596,45 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				else
 				{
 					// get current period duration
-					uint64_t currPeriodDuration = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0);
-					int diff = (int)(currPeriodDuration - abObj.endPeriodOffset);
-					//--> Inserted Ads finishes < 2 seconds in new period : Channel play-back starts from new period.
-					if (diff < OFFSET_ALIGN_FACTOR)
+					uint64_t currPeriodDuration = adMPDParseHelper->GetPeriodDurationFromStart(iter);
+					int64_t diff = static_cast<int64_t>(currPeriodDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
+					//Take copy because we do not want to change the value of mWaitForManifestUpdate via pass by ref.
+					uint64_t WaitForManifestUpdate_copy = mWaitForManifestUpdate;
+					int64_t periodDelta = static_cast<int64_t>(adMPDParseHelper->GetPeriodNewContentDurationMs(periods.at(iter), WaitForManifestUpdate_copy));
+
+					if ( currPeriodDuration == 0 && periodDelta < OFFSET_ALIGN_FACTOR )
 					{
-						// If the current period is not closed, we have to wait for it.
-						// This is because in following iterations, the current period could be updated such that
-						// diff > OFFSET_ALIGN_FACTOR, in which case its a partial ad.
-						// diff < OFFSET_ALIGN_FACTOR, in which case we have to align to next period.
-						// So check if next period available with valid duration
-						for (iter = iter+1; iter < periods.size(); iter++)
-						{
-							if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
-							{
-								break;
-							}
-						}
-						if (iter < periods.size())
-						{
-							auto nextPeriod = periods.at(iter);
-							// done with Adjustment
-							abObj.adjustEndPeriodOffset = false;
-							// Aligning to next period start
-							abObj.endPeriodOffset = 0;
-							abObj.endPeriodId = nextPeriod->GetId();
-							abObj.mAdBreakPlaced = true;
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s",
-											diff, currPeriodDuration, abObj.endPeriodId.c_str());
-						}
-						else
-						{
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "], but next period not available, waiting",
-											diff, currPeriodDuration);
-						}
+						// Cannot determine the duration of the period where the ads were inserted because the start time of
+						// the following period is not available.
+						// AND less than 2Sec of segments has been added to the period since the AD finished.
+						// This may be for a couple of reasons
+						// 1) The current period duration is significantly longer that the inserted ADs
+						// 2) Just closing the current period and the next period start not added to manifest.
+
+						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64,
+							 periods.at(iter)->GetId().c_str(), periodDelta);
+
+					}
+					else if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
+					{
+						// Ads have finished close to end of the period
+
+						auto nextPeriod = periods.at(iter);
+						// done with Adjustment
+						abObj.adjustEndPeriodOffset = false;
+						// Aligning to next period start
+						abObj.endPeriodOffset = 0;
+						abObj.endPeriodId = nextPeriod->GetId();
+						abObj.mAdBreakPlaced = true;
+						AAMPLOG_INFO("[CDAI] diff %" PRIi64 " close to period end duration %" PRIu64 ",Aligning to next-period:%s",
+									 diff, currPeriodDuration, abObj.endPeriodId.c_str());
 					}
 					// --> Inserted Ads finishes >= 2 seconds in current period : Channel playback starts from that position in the current period.
+					// OR we do not know when current period ends, have not established duration
 					else
 					{
-						AAMPLOG_INFO("[CDAI] diff [%d] NOT close to period end, period:%s duration[%" PRIu64 "]", diff, mPlacementObj.pendingAdbrkId.c_str(), currPeriodDuration);
+						AAMPLOG_INFO("[CDAI] diff %" PRIi64 " NOT close to period end, endPeriodId:%s duration %" PRIu64 " periodDelta %" PRIi64,
+							diff, abObj.endPeriodId.c_str(), currPeriodDuration, periodDelta);
 						// done with Adjustment
 						abObj.adjustEndPeriodOffset = false;
 						// adbrk duration not equal to src period duration continue to play source period for remaining duration
@@ -651,7 +666,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					}
 					AAMPLOG_MIL("[CDAI] Detected split period: %s", splitStr.str().c_str());
 				}
-				//Printing the placement positions
+				//Printing the placement positions. Long log lines get truncated
 				std::stringstream ss;
 				ss<<"{AdbreakId: "<<mPlacementObj.pendingAdbrkId;
 				ss<<", duration: "<<abObj.adsDuration;
@@ -1907,5 +1922,44 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 	else
 	{
 		AAMPLOG_WARN("[CDAI] NotifyReservationComplete: adBreakId %s not found", reservationId.c_str());
+	}
+}
+
+/**
+ * @brief Cancel the reservation for the ad break
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ */
+void PrivateCDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx); // Ensure thread safety if ad state is shared
+
+	// Log the action for audit/debug
+	AAMPLOG_INFO("[CDAI] playingReservationId=%s, cancelAtReservationId=%s",
+		playingReservationId.c_str(), cancelAtReservationId.c_str());
+
+	// Validate against the placement state: the adbreak being placed/in progress
+	const bool isTargetCurrentPlacement =
+		(!mPlacementObj.pendingAdbrkId.empty() &&
+		(playingReservationId == mPlacementObj.pendingAdbrkId));
+
+	if (!isTargetCurrentPlacement)
+	{
+		AAMPLOG_WARN("[CDAI] CancelReservation ignored: placementBreakId=%s, requested=%s",
+			mPlacementObj.pendingAdbrkId.c_str(), playingReservationId.c_str());
+		return;
+	}
+
+	if (isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
+	{
+		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
+		abObj.cancelAtPeriodId = cancelAtReservationId;
+		AAMPLOG_INFO("[CDAI] CancelReservation applied: breakId=%s will truncate at %s.",
+			mPlacementObj.pendingAdbrkId.c_str(), cancelAtReservationId.c_str());
+	}
+	else
+	{
+		AAMPLOG_WARN("[CDAI] CancelReservation: adBreakId %s not found; no state updated",
+			mPlacementObj.pendingAdbrkId.c_str());
 	}
 }

@@ -213,7 +213,7 @@ void MediaTrack::MonitorBufferHealth()
 			GetContext()?GetContext()->CheckForMediaTrackInjectionStall(type):void();
 
 			lock.lock();
-			if((!aamp->pipeline_paused) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
+			if((!aamp->mSinkPaused.load()) && aamp->IsDiscontinuityProcessPending() && discontinuityTimeoutValue)
 			{
 				aamp->CheckForDiscontinuityStall((AampMediaType)type);
 			}
@@ -305,18 +305,20 @@ void MediaTrack::UpdateSubtitleClockTask()
 					if( (!playbackStarted) && (timeSinceValidUpdateMs<warningTimeoutMs) )
 					{
 						// Underflow/paused/pts not ready/injection blocked?
-						if (!aamp->pipeline_paused)
+						bool isPipelinePaused = aamp->mSinkPaused.load();
+						if (!isPipelinePaused)
 						{
 							AAMPLOG_DEBUG("Subtitle clock update failed during startup; paused=%d, timetimeSinceValidUpdateMs=%d ms",
-							aamp->pipeline_paused, timeSinceValidUpdateMs);
+							isPipelinePaused, timeSinceValidUpdateMs);
 						}
 					}
 					else
 					{
-						if (!aamp->pipeline_paused)
+						bool isPipelinePaused = aamp->mSinkPaused.load();
+						if (!isPipelinePaused)
 						{
-							AAMPLOG_WARN("Subtitle clock failed unexpectedly; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, paused=%d, mTrackInjectionBlocked. Underflow/paused/injection blocked?",
-								playbackStarted, timeSinceValidUpdateMs, aamp->pipeline_paused);
+							AAMPLOG_WARN("Subtitle clock failed unexpectedly; playbackStarted=%d, timeSinceValidUpdateMs=%d ms, paused=%d.  Underflow/paused/injection blocked?",
+										 playbackStarted, timeSinceValidUpdateMs, isPipelinePaused);
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE
 							if ((timeSinceValidUpdateMs<warningTimeoutMs) && (monitorIntervalMs!=fastMonitorIntervalMs) )
 							{
@@ -523,7 +525,9 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		if(playContext)
 		{
-			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
+						 cachedFragment->position, cachedFragment->PTSOffsetSec);
+			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
 		}
 		else
 		{
@@ -997,7 +1001,9 @@ bool MediaTrack::ProcessFragmentChunk()
 	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.size(), unparsedBufferChunk.size(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size() );
+	unparsedBufferChunk.insert(unparsedBufferChunk.GetVector().end(),
+			cachedFragment->fragment.data(),
+			cachedFragment->fragment.data() + cachedFragment->fragment.size());
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
@@ -1079,7 +1085,9 @@ bool MediaTrack::ProcessFragmentChunk()
 	if(parsedBufferSize)
 	{
 		//Prepare parsed buffer
-		parsedBufferChunk.AppendBytes( unparsedBufferChunk.GetPtr(), parsedBufferSize);
+		parsedBufferChunk.insert(parsedBufferChunk.GetVector().end(),
+				unparsedBufferChunk.data(),
+				unparsedBufferChunk.data() + parsedBufferSize);
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
 			if (pContext && pContext->trickplayMode)
@@ -1119,9 +1127,10 @@ bool MediaTrack::ProcessFragmentChunk()
 	{
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
 		AampGrowableBuffer tempBuffer("tempBuffer");
-		tempBuffer.AppendBytes(unParsedBuffer,unParsedBufferSize);
+		tempBuffer.assign(unParsedBuffer, unParsedBuffer + unParsedBufferSize);
 		unparsedBufferChunk.Free();
-		unparsedBufferChunk.AppendBytes(tempBuffer.GetPtr(),tempBuffer.size());
+		unparsedBufferChunk.assign(tempBuffer.GetVector().data(),
+				tempBuffer.GetVector().data() + tempBuffer.GetVector().size());
 		tempBuffer.Free();
 	}
 	else
@@ -1419,8 +1428,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.clear();
-						cachedFragment->fragment.AppendBytes(str.data(),str.size());
+						cachedFragment->fragment.assign(str.data(), str.data() + str.size());
 						if(mSubtitleParser)
 						{
 							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
