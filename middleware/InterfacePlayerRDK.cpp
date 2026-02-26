@@ -92,7 +92,7 @@ mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
 	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
-	MW_LOG_MIL("[deepika]InterfacePlayerRDK constructed using built-in library");
+	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
