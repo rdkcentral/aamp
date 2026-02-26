@@ -35,9 +35,6 @@ MtkSocInterface::MtkSocInterface()
  */
 bool MtkSocInterface::UseAppSrc()
 {
-#if defined (__APPLE__)
-	return true;
-#endif
 	return false;
 }
 
@@ -50,9 +47,6 @@ void MtkSocInterface::SetAudioProperty(const char * &volume, const char * &mute,
 	isSinkBinVolume = false;
 	volume = "volume";
 	mute = "mute";
-#if defined(__APPLE__)
-	isSinkBinVolume = true;
-#endif
 }
 
 /**
@@ -117,12 +111,7 @@ bool MtkSocInterface::IsAudioOrVideoDecoder(const char* name)
  */
 void MtkSocInterface::SetPlaybackFlags(gint &flags, bool isSub)
 {
-#if defined(__APPLE__)
-	// on OSX, just use working defaults
-	// note that if PLAY_FLAG_DEINTERLACE is not included, video freezes on first frame
-#else
 	flags = PLAY_FLAG_VIDEO | PLAY_FLAG_AUDIO | PLAY_FLAG_SOFT_VOLUME;
-#endif
 	if(isSub)
 	{
 		flags = PLAY_FLAG_TEXT;
@@ -136,61 +125,30 @@ bool MtkSocInterface::IsSimulatorFirstFrame()
 
 bool MtkSocInterface::IsSimulatorSink()
 {
-#if !defined(UBUNTU)
-	return false;
-#endif
 	return true;
 }
 
 void MtkSocInterface::ConfigurePluginPriority()
 {
-#ifdef UBUNTU
-	GstPluginFeature* pluginFeature = gst_registry_lookup_feature(gst_registry_get(), "pulsesink");
-	if (pluginFeature != NULL)
-	{
-		MW_LOG_INFO("InterfacePlayerRDK: pulsesink plugin priority set to GST_RANK_SECONDARY");
-		gst_plugin_feature_set_rank(pluginFeature, GST_RANK_SECONDARY);
-		gst_object_unref(pluginFeature);
-	}
-#endif
+
 }
 
 bool MtkSocInterface::ShouldTearDownForTrickplay()
 {
-#if defined(__APPLE__) || defined(UBUNTU)
-	return true;
-#endif
 	return false;
 }
 
 bool MtkSocInterface::IsSimulatorVideoSample()
 {
-#if defined(__APPLE__)
-	return true;
-#endif
 	return true;
 }
 
 void MtkSocInterface::SetH264Caps(GstCaps *caps)
 {
-#ifdef UBUNTU
-	// below required on Ubuntu - harmless on OSX, but breaks RPI
-	gst_caps_set_simple (caps,
-			"alignment", G_TYPE_STRING, "au",
-			"stream-format", G_TYPE_STRING, "avc",
-			NULL);
-#endif
 }
 
 void MtkSocInterface::SetHevcCaps(GstCaps *caps)
 {
-#ifdef UBUNTU
-	// below required on Ubuntu - harmless on OSX, but breaks RPI
-	gst_caps_set_simple(caps,
-			"alignment", G_TYPE_STRING, "au",
-			"stream-format", G_TYPE_STRING, "hev1",
-			NULL);
-#endif
 }
 
 /**
@@ -202,14 +160,7 @@ void MtkSocInterface::SetHevcCaps(GstCaps *caps)
  */
 bool MtkSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync)
 {
-        bool status = false;
-        if (StartsWith(GST_OBJECT_NAME(src), "amlhalasink") == true)
-        {
-                gst_object_replace((GstObject **)audio_sink, src);
-                g_object_set(audio_sink, "disable-xrun", TRUE, NULL);
-                status = true;
-        }
-        return status;
+    return false;
 }
 
 /**
@@ -224,40 +175,36 @@ bool MtkSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src
  */
 bool MtkSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
-	#if defined(__APPLE__) || defined(UBUNTU)
+	if(!pipeline)
+	{
+		MW_LOG_ERR("Failed to set playback rate");
 		return false;
-    #else
-		if(!pipeline)
-		{
-			MW_LOG_ERR("Failed to set playback rate");
-			return false;
-		}
-		MW_LOG_MIL("=send custom-instant-rate-change : %f ...", rate);
-		GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
-		if(!structure)
-		{
-			MW_LOG_ERR("Failed to create custom-instant-rate-change structure");
-			return false;
-		}
-		/* The above statement creates a new GstStructure with the name
-		   'custom-instant-rate-change' that has a member variable
-		   'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
-		GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
-		if (!rate_event)
-		{
-			MW_LOG_ERR("Failed to create rate_event");
-			gst_structure_free (structure);
-			return false;
-		}
-		int ret = gst_element_send_event(pipeline, rate_event );
-		if(!ret)
-		{
-			MW_LOG_ERR("Rate change failed : %g [gst_element_send_event]", rate);
-			return false;
-		}
-		MW_LOG_MIL("Current rate: %g", rate);
-		return true;
-	#endif
+	}
+	MW_LOG_MIL("=send custom-instant-rate-change : %f ...", rate);
+	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
+	if(!structure)
+	{
+		MW_LOG_ERR("Failed to create custom-instant-rate-change structure");
+		return false;
+	}
+	/* The above statement creates a new GstStructure with the name
+		'custom-instant-rate-change' that has a member variable
+		'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
+	GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
+	if (!rate_event)
+	{
+		MW_LOG_ERR("Failed to create rate_event");
+		gst_structure_free (structure);
+		return false;
+	}
+	int ret = gst_element_send_event(pipeline, rate_event );
+	if(!ret)
+	{
+		MW_LOG_ERR("Rate change failed : %g [gst_element_send_event]", rate);
+		return false;
+	}
+	MW_LOG_MIL("Current rate: %g", rate);
+	return true;
 }
 
 bool MtkSocInterface::IsVideoMaster(GstElement *videoSink)
