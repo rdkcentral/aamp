@@ -130,7 +130,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AssignsData)
  * provided, the data is copied into the destination and the source
  * buffer is freed.
  */
-TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_ReplacesBuffer)
+TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_CopiesAndFreesBuffer)
 {
 	CachedFragment cached;
 	AampGrowableBuffer downloadBuffer("test-download");
@@ -141,7 +141,6 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_ReplacesBuffer)
 	MediaStreamContext::TransferFragmentBuffer(
 		&cached, nullptr, &downloadBuffer, 0, false);
 
-	// After Replace, source should be empty (moved)
 	EXPECT_EQ(downloadBuffer.size(), 0u);
 	// Destination should have the data
 	EXPECT_GT(cached.fragment.size(), 0u);
