@@ -46,6 +46,16 @@ WEB_DIR = ABRSIM_DIR / "web"
 PERSONAS_DIR = ABRSIM_DIR / "personas"
 SCENARIOS_DIR = ABRSIM_DIR / "scenarios"
 
+# Whitelist of allowed static files: URL path -> (filesystem Path, MIME type)
+# Paths are hardcoded constants so user input never reaches path construction.
+_STATIC_FILE_MAP = {
+	'/':              (WEB_DIR / 'index.html',    'text/html'),
+	'/index.html':    (WEB_DIR / 'index.html',    'text/html'),
+	'/app.js':        (WEB_DIR / 'app.js',         'application/javascript'),
+	'/chart.min.js':  (WEB_DIR / 'chart.min.js',  'application/javascript'),
+	'/style.css':     (WEB_DIR / 'style.css',      'text/css'),
+}
+
 class ReuseAddrHTTPServer(HTTPServer):
 	"""HTTPServer that allows address reuse"""
 	allow_reuse_address = True
@@ -77,21 +87,10 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 		elif parsed_path.path == '/api/status':
 			self.handle_status()
 		
-		# Static files
-		elif parsed_path.path == '/' or parsed_path.path == '/index.html':
-			self.serve_file(WEB_DIR / 'index.html', 'text/html')
-		elif parsed_path.path.endswith('.js'):
-			full_path = self._validate_static_path(parsed_path.path)
-			if full_path is None:
-				self.send_error(403, "Access denied")
-				return
-			self.serve_file(full_path, 'application/javascript')
-		elif parsed_path.path.endswith('.css'):
-			full_path = self._validate_static_path(parsed_path.path)
-			if full_path is None:
-				self.send_error(403, "Access denied")
-				return
-			self.serve_file(full_path, 'text/css')
+		# Static files — served from hardcoded whitelist only
+		elif parsed_path.path in _STATIC_FILE_MAP:
+			file_path, content_type = _STATIC_FILE_MAP[parsed_path.path]
+			self.serve_file(file_path, content_type)
 		else:
 			self.send_error(404, "File not found")
 	
@@ -103,26 +102,6 @@ class ABRSimHandler(BaseHTTPRequestHandler):
 			self.handle_simulate()
 		else:
 			self.send_error(404, "Endpoint not found")
-	def _validate_static_path(self, url_path):
-		"""
-		Validate and resolve a URL path for static file serving.
-		Prevents directory traversal attacks.
-		
-		Returns a resolved Path object if valid, None otherwise.
-		"""
-		relative_path = url_path.lstrip('/')
-		# Reject suspicious patterns before constructing the path
-		if '..' in relative_path or relative_path.startswith('/') or '\\' in relative_path:
-			return None
-		try:
-			full_path = (WEB_DIR / relative_path).resolve()
-			# Verify resolved path is within WEB_DIR
-			if not str(full_path).startswith(str(WEB_DIR.resolve())):
-				return None
-			return full_path
-		except (ValueError, RuntimeError, OSError):
-			return None
-	
 	def serve_file(self, filepath, content_type):
 		"""Serve a static file"""
 		try:
