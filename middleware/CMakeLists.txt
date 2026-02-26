@@ -135,6 +135,7 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	vendor/realtek/RealtekSocInterface.h
 	vendor/brcm/BrcmSocInterface.h
 	vendor/default/DefaultSocInterface.h
+	vendor/mtk/MtkSocInterface.h
 	subtitle/vttCue.h
 	ProcessHandler.h
 	DemuxDataTypes.h
@@ -191,6 +192,7 @@ if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
 						vendor/realtek/RealtekSocInterface.cpp
 						vendor/brcm/BrcmSocInterface.cpp
+						vendor/mtk/MtkSocInterface.cpp
 						vendor/default/DefaultSocInterface.cpp
 						vendor/SocInterface.cpp)
 else()

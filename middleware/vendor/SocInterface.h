@@ -62,6 +62,7 @@ enum SocPlatformType
 	SOC_PLATFORM_AMLOGIC,     /**< Amlogic */
 	SOC_PLATFORM_REALTEK,     /**< Realtek */
 	SOC_PLATFORM_BROADCOM,    /**< Broadcom */
+	SOC_PLATFORM_MEDIATEK,	 /**< MediaTek */
 };
 
 /**
