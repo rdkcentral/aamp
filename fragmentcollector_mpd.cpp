@@ -8975,8 +8975,19 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 			(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached))
 		{
 			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
-			mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
-			mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+				AAMPLOG_INFO("Video EOS Marked after checking EOS on manifest");
+			});
+			if(ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+			{
+				aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+			}
+			else
+			{
+				dashWorkerJob->Execute();
+			}
 		}
 		ret = true;
 	}
@@ -9665,7 +9676,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
-							aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+							{
+								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+							}
+							else
+							{
+								dashWorkerJob->Execute();
+							}
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
 						if (audioEnabled)
@@ -9677,7 +9695,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								{
+									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+								}
+								else
+								{
+									dashWorkerJob->Execute();
+								}
 							}
 						}
 						else
@@ -10015,9 +10040,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
 					// Acquire lock to update current period to sync with ABR changes on video track
-					mMediaStreamContext[eMEDIATYPE_VIDEO]->AcquireMediaStreamContextLock();
+					std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 					ret = IndexNewMPDDocument();
-					mMediaStreamContext[eMEDIATYPE_VIDEO]->ReleaseMediaStreamContextLock();
 				}
 			}
 		}
@@ -13967,6 +13991,8 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 		else if (pMediaStreamContext->profileChanged)
 		{ // Profile changed case, reuse the same downloadInfo for init header fetch
 			AAMPLOG_DEBUG("%s Profile changed, reuse downloadInfo for init header fetch", GetMediaTypeName(downloadInfo->mediaType));
+			// Lock the media stream context while fetching and injecting initialization to avoid race conditions
+			std::lock_guard<std::recursive_mutex> lock(pMediaStreamContext->mMediaStreamContextMutex);
 			// The absolute position for init fragment will be taken from latest media stream context last injected duration
 			// This is taken in DownloadFragment after scheduling new init fragment from here.
 			FetchAndInjectInitialization(downloadInfo->mediaType, downloadInfo->isDiscontinuity);

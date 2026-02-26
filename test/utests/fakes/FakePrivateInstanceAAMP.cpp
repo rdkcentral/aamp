@@ -291,6 +291,11 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 	}
 }
 
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }

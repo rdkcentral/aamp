@@ -111,14 +111,13 @@ public:
 
 	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)
 	{
-		unsigned char data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 		int fragmentIdxToFetch = 0;
 		// int fragmentIdxToFetch = 0;
 		CachedFragment *cachFragment = nullptr;
 		if (isLLD)
 		{
 			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-			cachFragment->fragment.clear();
 		}
 		else
 		{
@@ -129,7 +128,7 @@ public:
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
-		cachFragment->fragment.AppendBytes(data, sizeof(data));
+		cachFragment->fragment.assign(data, data + sizeof(data));
 		if (isLLD)
 		{
 			UpdateTSAfterChunkFetch();
