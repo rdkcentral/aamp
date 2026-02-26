@@ -1635,7 +1635,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 /**
  * @brief PrivateInstanceAAMP Constructor
  */
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mBufferingStartTimeMS(-1), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
@@ -3246,11 +3246,28 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStart)
 	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(bufferAvailable, GetSessionId());
 
 	SetBufUnderFlowStatus(bufferingStart);
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
+
+	long long bufferingDurationMs = 0;
+	if (bufferingStart)
+	{
+		mBufferingStartTimeMS = aamp_GetCurrentTimeMS();
+	}
+	else 
+	{
+		if (mBufferingStartTimeMS >= 0)
+		{
+			bufferingDurationMs = aamp_GetCurrentTimeMS() - mBufferingStartTimeMS;
+			mBufferingStartTimeMS = -1;
+		}
+	}
+
+	AAMPLOG_WARN("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
 	std::string telemetryName = bufferingStart?"VideoBufferingStart":"VideoBufferingEnd";
-	at2.send(telemetryName,{/*int data*/},{/*string data*/},{/*float data*/});
+	std::map<std::string,int> intData;
+	intData["dur"] = static_cast<int>(bufferingDurationMs);
+	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 
