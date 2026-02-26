@@ -6298,7 +6298,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		else
 		{
-			//Set mFlushPositionSec to -1 as there is no need of Flush
+			//Set mFlushPositionSec to -1 as there is no need of Flush.
 			mFlushPositionSec = -1;
 		}
 
