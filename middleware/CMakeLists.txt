@@ -187,7 +187,7 @@ set(SOURCES
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
-if(CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
 						vendor/realtek/RealtekSocInterface.cpp
 						vendor/brcm/BrcmSocInterface.cpp
