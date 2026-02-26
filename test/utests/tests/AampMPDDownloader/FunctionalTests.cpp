@@ -345,19 +345,50 @@ TEST_F(FunctionalTests,
 	ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
 	ASSERT_TRUE(firstManifest->mIsLiveManifest);
 
-	// Wait up to 8 seconds for the second manifest to become available,
-	// instead of polling with a tight loop and usleep.
-	ManifestDownloadResponsePtr secondManifest =
-		mAampMPDDownloader->GetManifest(false, 8000);
+	// Wait up to 8 seconds for the second manifest to become available.
+	// Since GetManifest(false, ...) does not block for new data, poll
+	// until the returned pointer differs from the first manifest or the
+	// deadline is reached.
+	ManifestDownloadResponsePtr secondManifest;
+	{
+		auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(8000);
+		do
+		{
+			secondManifest = mAampMPDDownloader->GetManifest(false, 0);
+			if (!secondManifest ||
+				secondManifest.get() != firstManifest.get())
+			{
+				break;
+			}
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(50));
+		} while (std::chrono::steady_clock::now() < deadline);
+	}
 	ASSERT_TRUE(secondManifest != nullptr);
 	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
 	ASSERT_TRUE(IsCurlTimeoutFailure(
 		secondManifest->mMPDDownloadResponse->iHttpRetValue));
 
-	// Wait up to 1.8 seconds for the next manifest refresh instead of
-	// polling in a loop with periodic sleeps.
-	ManifestDownloadResponsePtr thirdManifest =
-		mAampMPDDownloader->GetManifest(false, 1800);
+	// Wait up to 1.8 seconds for the next manifest refresh. As above,
+	// poll until a different manifest pointer is observed or the
+	// deadline expires.
+	ManifestDownloadResponsePtr thirdManifest;
+	{
+		auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(1800);
+		do
+		{
+			thirdManifest = mAampMPDDownloader->GetManifest(false, 0);
+			if (!thirdManifest ||
+				thirdManifest.get() != secondManifest.get())
+			{
+				break;
+			}
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(50));
+		} while (std::chrono::steady_clock::now() < deadline);
+	}
 
 	EXPECT_TRUE(thirdManifest != nullptr);
 	EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
