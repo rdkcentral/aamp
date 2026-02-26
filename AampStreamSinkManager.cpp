@@ -427,6 +427,11 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 					//Do not edit or remove this log - it is used in L2 test
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, setting active PLAYER[%d]", this, aamp->mPlayerId);
 
+					AAMPLOG_INFO("aamp->mFlushPositionSec:%lf, position:%lf", aamp->mFlushPositionSec, position);
+					if(aamp->mFlushPositionSec >= 0)
+					{
+						position = aamp->mFlushPositionSec;
+					}
 					mActiveGstPlayersMap.insert({aamp, mGstPlayer});
 					SetActive(aamp, position);
 				}

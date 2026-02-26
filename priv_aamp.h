@@ -1055,6 +1055,7 @@ public:
 	volatile std::atomic <long long> mPausePositionMilliseconds;	/**< Requested pause position, can be 0 or more, or AAMP_PAUSE_POSITION_INVALID_POSITION */
 	MediaFormat mMediaFormat;
 	double seek_pos_seconds; 				/**< indicates the playback position at which most recent playback activity began */
+	double mFlushPositionSec;				/**< indicates the position at which the player is seeked to when the playback activity began */
 	float rate; 						/**< most recent (non-zero) play rate for non-paused content */
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
