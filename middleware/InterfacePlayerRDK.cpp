@@ -147,7 +147,7 @@ using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(fa
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
 lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
-numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
+numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
 firstTuneWithWesterosSinkOff(false),
@@ -188,7 +188,6 @@ GstPlayerPriv::~GstPlayerPriv()
 		g_clear_object(&protectionEvent[i]);
 	}
 	g_clear_object(&positionQuery);
-	g_clear_object(&durationQuery);
 }
 
 /**
