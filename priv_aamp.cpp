@@ -1729,7 +1729,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mCurrentVideoTrackId(-1)
 	, mIsTrackIdMismatch(false)
 	, mIsDefaultOffset(false)
-	, mPlayFromLive(false)
+	, mOffsetNegativeOne(false)
 	, mNextPeriodDuration(0)
 	, mNextPeriodStartTime(0)
 	, mNextPeriodScaledPtoStartTime(0)
@@ -6687,7 +6687,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	mIsDefaultOffset = (AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos_seconds);
-	mPlayFromLive = false;
+	mOffsetNegativeOne = false;
 	if (mIsDefaultOffset)
 	{
 		// eTUNETYPE_NEW_NORMAL
@@ -6699,7 +6699,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		// eTUNETYPE_NEW_NORMAL
 		// behavior is play live streams from 'live' point and VOD streams skip to the end (this will
 		// be corrected later for vod)
-		mPlayFromLive = true; // IVOD/CDVR case play from live(offset = -1), so set the flag to true
+		mOffsetNegativeOne = true; // IVOD/CDVR case play from live(offset = -1), so set the flag to true
 		seek_pos_seconds = 0;
 	}
 	else
@@ -9957,7 +9957,7 @@ bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 		case ContentType_CDVR:
 			// IVOD within live window should use live adjustment
 			// Check if manifest is dynamic AND play from live was requested
-			if (mIsLiveStream &&  mPlayFromLive)
+			if (mIsLiveStream && mOffsetNegativeOne)
 			{
 				retValue = true;  // Treat as live
 			}

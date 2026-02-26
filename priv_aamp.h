@@ -1137,7 +1137,7 @@ public:
 	bool mIsTrackIdMismatch;				/**< Indicate track_id mismatch in the trak box between periods */
 
 	bool mIsDefaultOffset; 					/**< Playback offset is not specified and we are using the default value/behavior */
-	bool mPlayFromLive;                     /**< Set to true when offset=-1 is passed from application to play IVOD/CDVR content from live edge */
+	bool mOffsetNegativeOne;                     /**< Set to true when offset=-1 is passed from application to play IVOD/CDVR content from live edge */
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
