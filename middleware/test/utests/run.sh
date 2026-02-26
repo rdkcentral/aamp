@@ -97,10 +97,10 @@ mkdir -p build
 cd build
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${PLAYERDIR}/.libs/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_RDKE_TEST_RUN=$rdke_build ../
+    PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${PLAYERDIR}/.libs/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_RDKE_TEST_RUN=$rdke_build -DUSE_DS_EVENT_SUPPORTED=ON ../
 elif [[ "$OSTYPE" == "linux"* ]]; then
     echo "PLAYER DIR[${PLAYERDIR}]"
-    PKG_CONFIG_PATH=${PLAYERDIR}/.libs/lib/pkgconfig cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${PLAYERDIR}/.libs -DCMAKE_PLATFORM_UBUNTU=1 -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=${PLAYERDIR}/.libs/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -DCMAKE_RDKE_TEST_RUN=$rdke_build -S../ -B$PWD -G "Unix Makefiles"
+    PKG_CONFIG_PATH=${PLAYERDIR}/.libs/lib/pkgconfig cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${PLAYERDIR}/.libs -DCMAKE_PLATFORM_UBUNTU=1 -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=${PLAYERDIR}/.libs/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -DCMAKE_RDKE_TEST_RUN=$rdke_build -DUSE_DS_EVENT_SUPPORTED=ON -S../ -B$PWD -G "Unix Makefiles"
     export LD_LIBRARY_PATH=${PLAYERDIR}/.libs/lib
 else
     #abort the script if its not macOS or linux
