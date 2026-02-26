@@ -44,11 +44,11 @@ using ::testing::Invoke;
 class InterfacePlayerRDKCallbackTest : public ::testing::Test
 {
 protected:
-	InterfacePlayerRDK *mPlayer;
-	InterfacePlayerPriv *mPrivatePlayer;
-	guint mCapturedTimerId;
-	GSourceFunc mCapturedTimerFunc;
-	gpointer mCapturedUserData;
+	InterfacePlayerRDK *m_player;
+	InterfacePlayerPriv *m_privatePlayer;
+	guint capturedTimerId;
+	GSourceFunc capturedTimerFunc;
+	gpointer capturedUserData;
 	
 	void SetUp() override
 	{
@@ -59,37 +59,39 @@ protected:
 		g_mockPlayerUtils = new NiceMock<MockPlayerUtils>();
 		
 		// Create player instance
-		mPlayer = new InterfacePlayerRDK();
+		m_player = new InterfacePlayerRDK();
 		
-		// Get private player context
-		mPrivatePlayer = mPlayer->GetPrivatePlayer();
+		// Get private player context - stored for potential future use in tests
+		m_privatePlayer = m_player->GetPrivatePlayer();
 		
-		// Initialize config parameters if needed
-		if (!mPlayer->m_gstConfigParam)
+		// Initialize config parameters
+		// Note: We allocate this because the player doesn't own it in test context
+		if (!m_player->m_gstConfigParam)
 		{
-			mPlayer->m_gstConfigParam = new Configs();
-			mPlayer->m_gstConfigParam->progressTimer = 1.0; // 1 second default
-			mPlayer->m_gstConfigParam->monitorAV = false;
+			m_player->m_gstConfigParam = new Configs();
+			m_player->m_gstConfigParam->progressTimer = 1.0; // 1 second default
+			m_player->m_gstConfigParam->monitorAV = false;
 		}
 		
 		// Initialize capture variables
-		mCapturedTimerId = 0;
-		mCapturedTimerFunc = nullptr;
-		mCapturedUserData = nullptr;
+		capturedTimerId = 0;
+		capturedTimerFunc = nullptr;
+		capturedUserData = nullptr;
 	}
 	
 	void TearDown() override
 	{
 		// Clean up player
-		if (mPlayer)
+		// Note: We delete m_gstConfigParam because we allocated it in SetUp
+		if (m_player)
 		{
-			if (mPlayer->m_gstConfigParam)
+			if (m_player->m_gstConfigParam)
 			{
-				delete mPlayer->m_gstConfigParam;
-				mPlayer->m_gstConfigParam = nullptr;
+				delete m_player->m_gstConfigParam;
+				m_player->m_gstConfigParam = nullptr;
 			}
-			delete mPlayer;
-			mPlayer = nullptr;
+			delete m_player;
+			m_player = nullptr;
 		}
 		
 		// Clean up mocks
@@ -116,9 +118,9 @@ protected:
 			.WillByDefault(Invoke([this](gint priority, guint interval, 
 				GSourceFunc function, gpointer data, GDestroyNotify notify) -> guint
 			{
-				mCapturedTimerFunc = function;
-				mCapturedUserData = data;
-				return ++mCapturedTimerId;
+				capturedTimerFunc = function;
+				capturedUserData = data;
+				return ++capturedTimerId;
 			}));
 	}
 };
@@ -132,14 +134,14 @@ protected:
 TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullProgressCb_DoesNotCrash)
 {
 	// Arrange: Set progressCb to nullptr (simulating unregistered callback)
-	mPlayer->callbackMap[InterfaceCB::progressCb] = nullptr;
+	m_player->callbackMap[InterfaceCB::progressCb] = nullptr;
 	
 	// Mock g_source_remove to avoid actual GLib calls
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_))
 		.WillRepeatedly(Return(FALSE));
 	
 	// Act: Call IdleCallback - should not crash even with nullptr callback
-	gboolean result = InterfacePlayerRDK::IdleCallback(mPlayer);
+	gboolean result = InterfacePlayerRDK::IdleCallback(m_player);
 	
 	// Assert: Should return G_SOURCE_REMOVE
 	EXPECT_EQ(result, G_SOURCE_REMOVE);
@@ -154,7 +156,7 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullProgressCb_DoesNotCrash)
 TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullProgressCb_DoesNotSetupTimer)
 {
 	// Arrange: Set progressCb to nullptr
-	mPlayer->callbackMap[InterfaceCB::progressCb] = nullptr;
+	m_player->callbackMap[InterfaceCB::progressCb] = nullptr;
 	
 	SetupTimerMocks();
 	
@@ -167,10 +169,10 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullProgressCb_DoesNotSetupT
 		.Times(0);
 	
 	// Act: Call IdleCallback
-	gboolean result = InterfacePlayerRDK::IdleCallback(mPlayer);
+	gboolean result = InterfacePlayerRDK::IdleCallback(m_player);
 	
 	// Assert: Timer function should not be captured (remains null)
-	EXPECT_EQ(mCapturedTimerFunc, nullptr);
+	EXPECT_EQ(capturedTimerFunc, nullptr);
 	EXPECT_EQ(result, G_SOURCE_REMOVE);
 }
 
@@ -183,9 +185,8 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullProgressCb_DoesNotSetupT
 TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_ValidProgressCb_SetupsTimer)
 {
 	// Arrange: Set a valid progressCb
-	bool callbackInvoked = false;
-	mPlayer->callbackMap[InterfaceCB::progressCb] = [&callbackInvoked]() {
-		callbackInvoked = true;
+	m_player->callbackMap[InterfaceCB::progressCb] = []() {
+		// Callback implementation - would be invoked when timer fires
 	};
 	
 	SetupTimerMocks();
@@ -195,16 +196,16 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_ValidProgressCb_SetupsTimer)
 		.WillRepeatedly(Return(FALSE));
 	
 	// Expect that timer is added exactly once
-	EXPECT_CALL(*g_mockGLib, g_timeout_add_full(_, _, NotNull(), mPlayer, _))
+	EXPECT_CALL(*g_mockGLib, g_timeout_add_full(_, _, NotNull(), m_player, _))
 		.Times(1)
 		.WillOnce(Return(123)); // Return a fake timer ID
 	
 	// Act: Call IdleCallback
-	gboolean result = InterfacePlayerRDK::IdleCallback(mPlayer);
+	gboolean result = InterfacePlayerRDK::IdleCallback(m_player);
 	
 	// Assert: Timer function should be captured
-	EXPECT_NE(mCapturedTimerFunc, nullptr);
-	EXPECT_EQ(mCapturedUserData, mPlayer);
+	EXPECT_NE(capturedTimerFunc, nullptr);
+	EXPECT_EQ(capturedUserData, m_player);
 	EXPECT_EQ(result, G_SOURCE_REMOVE);
 }
 
@@ -217,13 +218,13 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_ValidProgressCb_SetupsTimer)
 TEST_F(InterfacePlayerRDKCallbackTest, ProgressCallbackOnTimeout_NullProgressCb_DoesNotCrash)
 {
 	// Arrange: Set progressCb to nullptr (simulating unregistered callback)
-	mPlayer->callbackMap[InterfaceCB::progressCb] = nullptr;
+	m_player->callbackMap[InterfaceCB::progressCb] = nullptr;
 	
 	// Disable AV monitoring to simplify test
-	mPlayer->m_gstConfigParam->monitorAV = false;
+	m_player->m_gstConfigParam->monitorAV = false;
 	
 	// Act: Call ProgressCallbackOnTimeout - should not crash
-	gboolean result = InterfacePlayerRDK::ProgressCallbackOnTimeout(mPlayer);
+	gboolean result = InterfacePlayerRDK::ProgressCallbackOnTimeout(m_player);
 	
 	// Assert: Should return G_SOURCE_CONTINUE (periodic timer continues)
 	EXPECT_EQ(result, G_SOURCE_CONTINUE);
@@ -245,19 +246,19 @@ TEST_F(InterfacePlayerRDKCallbackTest, CallbacksUnregistered_ThenTriggered_DoesN
 	bool progressCalled = false;
 	bool idleCalled = false;
 	
-	mPlayer->callbackMap[InterfaceCB::progressCb] = [&progressCalled]() {
+	m_player->callbackMap[InterfaceCB::progressCb] = [&progressCalled]() {
 		progressCalled = true;
 	};
-	mPlayer->callbackMap[InterfaceCB::idleCb] = [&idleCalled]() {
+	m_player->callbackMap[InterfaceCB::idleCb] = [&idleCalled]() {
 		idleCalled = true;
 	};
 	
 	// Simulate callbacks being unregistered (as would happen in UnregisterFirstFrameCallbacks)
-	mPlayer->callbackMap[InterfaceCB::progressCb] = nullptr;
-	mPlayer->callbackMap[InterfaceCB::idleCb] = nullptr;
+	m_player->callbackMap[InterfaceCB::progressCb] = nullptr;
+	m_player->callbackMap[InterfaceCB::idleCb] = nullptr;
 	
 	// Disable AV monitoring
-	mPlayer->m_gstConfigParam->monitorAV = false;
+	m_player->m_gstConfigParam->monitorAV = false;
 	
 	// Mock timer operations
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_))
@@ -265,8 +266,8 @@ TEST_F(InterfacePlayerRDKCallbackTest, CallbacksUnregistered_ThenTriggered_DoesN
 	
 	// Act: Trigger callbacks that might have been scheduled before unregistration
 	// This should not crash even though callbacks are now nullptr
-	gboolean idleResult = InterfacePlayerRDK::IdleCallback(mPlayer);
-	gboolean progressResult = InterfacePlayerRDK::ProgressCallbackOnTimeout(mPlayer);
+	gboolean idleResult = InterfacePlayerRDK::IdleCallback(m_player);
+	gboolean progressResult = InterfacePlayerRDK::ProgressCallbackOnTimeout(m_player);
 	
 	// Assert: Both should return without crashing
 	EXPECT_EQ(idleResult, G_SOURCE_REMOVE);
