@@ -113,6 +113,8 @@ protected:
 			{
 				capturedTimerFunc = function;
 				capturedUserData = data;
+				// Note: GDestroyNotify parameter is intentionally ignored in tests
+				// as we're only verifying timer setup, not cleanup behavior
 				return ++capturedTimerId;
 			}));
 	}
