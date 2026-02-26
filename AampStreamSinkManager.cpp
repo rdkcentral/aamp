@@ -24,6 +24,7 @@
 
 #include "AampStreamSinkManager.h"
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 
 AampStreamSinkManager::AampStreamSinkManager() :
 	mGstPlayer(nullptr),
