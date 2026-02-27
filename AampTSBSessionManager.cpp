@@ -361,6 +361,7 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 {
 	bool deleteInit = false;
 	TsbFragmentDataPtr removedFragment = GetTsbDataManager(mediatype)->RemoveFragment(deleteInit);
+	AAMPLOG_WARN("RemoveFragmentDeleteInit for mediaType %s, deleteInit %d", GetMediaTypeName(mediatype), deleteInit);
 	if (removedFragment && deleteInit)
 	{
 		TsbInitDataPtr removedFragmentInit = removedFragment->GetInitFragData();
@@ -538,11 +539,14 @@ double AampTSBSessionManager::CullSegments()
 	LockReadMutex();
 	double culledduration = 0;
 	double lastVideoPos = mLastVideoPos;
+	AAMPLOG_WARN("CullSegments begin: tsbLength=%d, videoStoreDuration=%lf, lastVideoPos=%lf", mTsbLength, GetTotalStoreDuration(eMEDIATYPE_VIDEO), mLastVideoPos);
 	int iter = eMEDIATYPE_VIDEO;
 	while (iter < AAMP_TRACK_COUNT)
 	{
-		if (GetTotalStoreDuration((AampMediaType)iter) == 0)
+		double currentTrackDuration = GetTotalStoreDuration((AampMediaType)iter);
+		if (currentTrackDuration == 0)
 		{
+			AAMPLOG_WARN("CullSegments: skip mediaType=%s because track duration is zero", GetMediaTypeName((AampMediaType)iter));
 			iter++;
 			continue;
 		}
@@ -550,9 +554,12 @@ double AampTSBSessionManager::CullSegments()
 		double videoFirstPosition = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
 
 		// Check if video position has changed
+		AAMPLOG_WARN("CullSegments: video first position moved from %lf to %lf", lastVideoPos, videoFirstPosition);
 		if ((eMEDIATYPE_VIDEO == iter) && (AAMP_PAUSE_POSITION_INVALID_POSITION != mLastVideoPos))
 		{
+			
 			culledduration += (videoFirstPosition - lastVideoPos); // Adjust culledduration for write failures
+			AAMPLOG_WARN("CullSegments: Adjusted culled duration for video track by %lf seconds based on video position change", (videoFirstPosition - lastVideoPos));
 		}
 		lastVideoPos = videoFirstPosition; // Update lastVideoPos
 
@@ -567,11 +574,21 @@ double AampTSBSessionManager::CullSegments()
 		{
 			// Take the next eldest position incase this particular fragment gets removed
 			adjacentFragmentPosition = firstFragment->GetDuration().inSeconds() + trackFirstPosition;
+			AAMPLOG_WARN("CullSegments: first fragment position for mediaType=%s is %lf with duration %lf, next adjacent position is %lf", GetMediaTypeName((AampMediaType)iter), trackFirstPosition, firstFragment->GetDuration().inSeconds(), adjacentFragmentPosition);
 		}
+		else
+		{
+			AAMPLOG_WARN("CullSegments: firstFragment is null for mediaType=%s at firstPosition=%lf", GetMediaTypeName((AampMediaType)iter), trackFirstPosition);
+		}
+
+		AAMPLOG_WARN("CullSegments: mediaType=%s, trackDuration=%lf, videoDuration=%lf, trackFirst=%lf, trackLast=%lf, nextAdjacent=%lf, videoFirst=%lf",
+			GetMediaTypeName((AampMediaType)iter), currentTrackDuration, GetTotalStoreDuration(eMEDIATYPE_VIDEO), trackFirstPosition, trackLastPosition, adjacentFragmentPosition, videoFirstPosition);
 
 		// Check if we need to cull any segments
 		if (GetTotalStoreDuration(eMEDIATYPE_VIDEO) <= mTsbLength && (videoFirstPosition < adjacentFragmentPosition))
 		{
+			AAMPLOG_WARN("CullSegments: no cull for mediaType=%s (videoDuration=%lf <= tsbLength=%d and videoFirst=%lf < nextAdjacent=%lf)",
+				GetMediaTypeName((AampMediaType)iter), GetTotalStoreDuration(eMEDIATYPE_VIDEO), mTsbLength, videoFirstPosition, adjacentFragmentPosition);
 			AAMPLOG_TRACE("[%s]Total Store duration (%lf / %d), firstFragment:%lf last:%lf, next:%lf, videoFirstFrag:%lf", GetMediaTypeName((AampMediaType) iter), GetTotalStoreDuration((AampMediaType) iter), mTsbLength, trackFirstPosition, trackLastPosition, adjacentFragmentPosition, videoFirstPosition);
 			iter++;
 			continue; // No need to cull segments for this mediaType
@@ -579,19 +596,26 @@ double AampTSBSessionManager::CullSegments()
 
 		// Determine which segments to remove based on first PTS
 		AampMediaType mediaTypeToRemove = (GetTotalStoreDuration(eMEDIATYPE_VIDEO) > mTsbLength) ? eMEDIATYPE_VIDEO : (AampMediaType)iter;
+		AAMPLOG_WARN("CullSegments: candidate removal mediaType=%s (videoDuration=%lf, tsbLength=%d, iterMediaType=%s)",
+			GetMediaTypeName(mediaTypeToRemove), GetTotalStoreDuration(eMEDIATYPE_VIDEO), mTsbLength, GetMediaTypeName((AampMediaType)iter));
 
 		bool skip = false;
 		// Check if removing from video can keep audio ahead
 		if (mediaTypeToRemove == iter)
 		{
 			TsbFragmentDataPtr nearestFragment = GetTsbDataManager(mediaTypeToRemove)->GetNearestFragment(trackFirstPosition);
-			if (nearestFragment && nearestFragment->GetDuration() > (videoFirstPosition - trackFirstPosition))
+			double trackLagFromVideo = (videoFirstPosition - trackFirstPosition);
+			AAMPLOG_WARN("CullSegments: skip-check mediaType=%s nearestDuration=%lf trackLagFromVideo=%lf nearestExists=%d",
+				GetMediaTypeName(mediaTypeToRemove), nearestDuration, trackLagFromVideo, nearestFragment ? 1 : 0);
+			if (nearestFragment && nearestFragment->GetDuration() > trackLagFromVideo)
 			{
 				skip = true;
+				AAMPLOG_WARN("CullSegments: skipping removal for mediaType=%s due to track-sync guard", GetMediaTypeName(mediaTypeToRemove));
 			}
 		}
 		if (!skip)
 		{
+			AAMPLOG_WARN("CullSegments: attempting fragment removal for mediaType=%s", GetMediaTypeName(mediaTypeToRemove));
 			// Remove the oldest segment
 			TsbFragmentDataPtr removedFragment = RemoveFragmentDeleteInit(mediaTypeToRemove);
 			if (removedFragment)
@@ -603,10 +627,13 @@ double AampTSBSessionManager::CullSegments()
 				UnlockReadMutex();
 				mTSBStore->Delete(removedFragmentUrl);
 				LockReadMutex();
+				AAMPLOG_WARN("CullSegments: removed mediaType=%s duration=%lf url=%s absPosition=%lf pts=%lf",
+					GetMediaTypeName(mediaTypeToRemove), durationInSeconds, removedFragmentUrl.c_str(), removedFragment->GetAbsolutePosition().inSeconds(), removedFragment->GetPTS().inSeconds());
 				AAMPLOG_INFO("[%s] Removed %lf fragment duration seconds, Url: %s, AbsPosition: %lf, pts %lf", GetMediaTypeName(mediaTypeToRemove), durationInSeconds, removedFragmentUrl.c_str(), removedFragment->GetAbsolutePosition().inSeconds(), removedFragment->GetPTS().inSeconds());
 
 				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
 				{
+					AAMPLOG_WARN("CullSegments: removing metadata for video fragment at position %lf", removedFragment->GetAbsolutePosition() + removedFragment->GetDuration());
 					(void)mMetaDataManager.RemoveMetaData(removedFragment->GetAbsolutePosition() + removedFragment->GetDuration());
 				}
 
@@ -615,12 +642,14 @@ double AampTSBSessionManager::CullSegments()
 			}
 			else
 			{
+				AAMPLOG_WARN("CullSegments: RemoveFragmentDeleteInit returned null for mediaType=%s", GetMediaTypeName(mediaTypeToRemove));
 				AAMPLOG_ERR("[%s] No fragments to remove", GetMediaTypeName(mediaTypeToRemove));
 				iter++;
 			}
 		}
 		else
 		{
+			AAMPLOG_WARN("CullSegments: removal skipped for mediaType=%s", GetMediaTypeName(mediaTypeToRemove));
 			iter++;
 		}
 	}
@@ -634,6 +663,7 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mCulledDuration += culledduration;
 	}
+	AAMPLOG_WARN("CullSegments end: culledduration=%lf, accumulatedCulled=%lf, updatedLastVideoPos=%lf", culledduration, mCulledDuration, mLastVideoPos);
 	UnlockReadMutex();
 	return culledduration;
 }
@@ -689,6 +719,8 @@ double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
 		if(dataMgr->GetLastFragment())
 		{
 			totalDuration = (dataMgr->GetLastFragmentPosition() + dataMgr->GetLastFragment()->GetDuration().inSeconds()) - dataMgr->GetFirstFragmentPosition();
+			AAMPLOG_WARN("GetTotalStoreDuration for mediaType=%s: firstFragmentPosition=%lf, lastFragmentPosition=%lf, lastFragmentDuration=%lf, totalDuration=%lf",
+				GetMediaTypeName(mediaType), dataMgr->GetFirstFragmentPosition(), dataMgr->GetLastFragmentPosition(), dataMgr->GetLastFragment()->GetDuration().inSeconds(), totalDuration);
 		}
 		else
 		{
@@ -1089,7 +1121,9 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	INIT_CHECK_RETURN_VOID();
 
 	double culledSeconds = 0.0;
+	AAMPLOG_WARN("UpdateProgress begin: manifestDuration=%lf, manifestCulledSecondsFromStart=%lf", manifestDuration, manifestCulledSecondsFromStart);
 	culledSeconds = CullSegments();
+	AAMPLOG_WARN("UpdateProgress after CullSegments: culledSeconds=%lf", culledSeconds);
 	if (culledSeconds > 0.0)
 	{
 		// Update culled seconds based on seconds culled in store
@@ -1104,10 +1138,13 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	{
 		AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
 	}
+	AAMPLOG_WARN("UpdateProgress store positions: culledSeconds=%lf, storeEndPosition=%lf, absoluteEndPosition=%lf, videoStoreDuration=%lf",
+		mAamp->culledSeconds, mStoreEndPosition, mAamp->mAbsoluteEndPosition, GetTotalStoreDuration(eMEDIATYPE_VIDEO));
 	UnlockReadMutex();
 	double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
 	AAMPLOG_TRACE("Updating duration: %lf", duration);
 	mAamp->UpdateDuration(duration);
+	AAMPLOG_WARN("UpdateProgress end: updatedDuration=%lf", duration);
 }
 
 /**
