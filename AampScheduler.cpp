@@ -224,16 +224,13 @@ void AampScheduler::SuspendScheduler()
  */
 void AampScheduler::ResumeScheduler()
 {
-	// Update state while still holding the exclusive gate to avoid a race window
-    if (mExLock.mutex() && mExLock.owns_lock()) {
-        std::lock_guard<std::mutex>lock(mQMutex);
-        mLockOut = false;
-        mExLock.unlock();  // release gate last
-    } else {
-        // Already unlocked (or not bound): still clear the flag safely
-        std::lock_guard<std::mutex>lock(mQMutex);
-        mLockOut = false;
+	// First release the execution gate, then update the lock-out state
+	if (mExLock.owns_lock())
+	{
+		mExLock.unlock();
 	}
+	std::lock_guard<std::mutex> lock(mQMutex);
+	mLockOut = false;
 }
 
 /**
