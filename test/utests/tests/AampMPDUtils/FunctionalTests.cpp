@@ -18,9 +18,12 @@
 */
 
 #include <cstdlib>
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <string.h>
+#include <vector>
+#include <utility>
 
 //include the google test dependencies
 #include <gtest/gtest.h>
@@ -99,4 +102,304 @@ TEST(AampMPDUtils, ComputeFragmentDurationTest1)
 
 	double result = ComputeFragmentDuration(duration,timeScale);
 	EXPECT_DOUBLE_EQ(result,2.0);
+}
+
+// ---------------------------------------------------------------------------
+// ParseSegmentIndexBox test helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Write a big-endian 32-bit value into a byte buffer.
+ * @param[out] dest  Destination pointer (must have >= 4 bytes available).
+ * @param[in]  val   Value to write.
+ */
+static void WriteBE32(uint8_t *dest, uint32_t val)
+{
+	dest[0] = static_cast<uint8_t>((val >> 24) & 0xFF);
+	dest[1] = static_cast<uint8_t>((val >> 16) & 0xFF);
+	dest[2] = static_cast<uint8_t>((val >> 8)  & 0xFF);
+	dest[3] = static_cast<uint8_t>( val        & 0xFF);
+}
+
+/**
+ * @brief Write a big-endian 16-bit value into a byte buffer.
+ * @param[out] dest  Destination pointer (must have >= 2 bytes available).
+ * @param[in]  val   Value to write.
+ */
+static void WriteBE16(uint8_t *dest, uint16_t val)
+{
+	dest[0] = static_cast<uint8_t>((val >> 8) & 0xFF);
+	dest[1] = static_cast<uint8_t>( val       & 0xFF);
+}
+
+/**
+ * @brief Represents a single SIDX reference entry for test construction.
+ */
+struct SidxEntry
+{
+	uint32_t referencedSize;
+	uint32_t subsegmentDuration;
+};
+
+/**
+ * @brief Build a version-0 SIDX box in memory for testing.
+ *
+ * Layout (version 0, all big-endian):
+ *   size(4) | 'sidx'(4) | version+flags(4) | reference_ID(4) |
+ *   timescale(4) | earliest_presentation_time(4) | first_offset(4) |
+ *   reserved(2) | reference_count(2) |
+ *   [ referenced_size(4) | subsegment_duration(4) | SAP_flags(4) ] * N
+ *
+ * @param[in] timescale    Timescale for duration calculation.
+ * @param[in] entries      Vector of reference entries.
+ * @param[in] firstOffset  Value for the first_offset field.
+ * @return                 Byte vector containing the complete SIDX box.
+ */
+static std::vector<char> BuildSidxBoxV0(
+	uint32_t timescale,
+	const std::vector<SidxEntry> &entries,
+	uint32_t firstOffset = 0)
+{
+	constexpr uint32_t HEADER_SIZE = 32;
+	constexpr uint32_t ENTRY_SIZE  = 12;
+	const auto entryCount = static_cast<uint32_t>(entries.size());
+	const uint32_t boxSize = HEADER_SIZE + entryCount * ENTRY_SIZE;
+
+	std::vector<char> buf(boxSize, 0);
+	auto *p = reinterpret_cast<uint8_t *>(buf.data());
+
+	WriteBE32(p,      boxSize);
+	p[4] = 's'; p[5] = 'i'; p[6] = 'd'; p[7] = 'x';
+	WriteBE32(p + 8,  0);           // version 0 + flags 0
+	WriteBE32(p + 12, 1);           // reference_ID
+	WriteBE32(p + 16, timescale);
+	WriteBE32(p + 20, 0);           // earliest_presentation_time
+	WriteBE32(p + 24, firstOffset);
+	WriteBE16(p + 28, 0);           // reserved
+	WriteBE16(p + 30, static_cast<uint16_t>(entryCount));
+
+	uint8_t *ep = p + HEADER_SIZE;
+	for (const auto &entry : entries)
+	{
+		WriteBE32(ep,     entry.referencedSize & 0x7FFFFFFF);
+		WriteBE32(ep + 4, entry.subsegmentDuration);
+		WriteBE32(ep + 8, 0);  // SAP flags
+		ep += ENTRY_SIZE;
+	}
+
+	return buf;
+}
+
+// ---------------------------------------------------------------------------
+// ParseSegmentIndexBox tests
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Null start pointer returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_NullStart_ReturnsFalse)
+{
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(nullptr, 0, 0, &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Mismatched size field in box header returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_WrongSize_ReturnsFalse)
+{
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	// Pass a size that does not match the box header
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size() + 1, 0,
+									  &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Mismatched size field zeroes firstOffset and returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_WrongSize_ZeroesFirstOffset)
+{
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	unsigned int firstOff = 99;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size() + 1, 0,
+									  nullptr, nullptr, &firstOff));
+	EXPECT_EQ(firstOff, 0u);
+}
+
+/**
+ * @brief Wrong box type returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_WrongType_ReturnsFalse)
+{
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	// Corrupt the type field ('sidx' at bytes 4-7)
+	sidx[4] = 'f'; sidx[5] = 'r'; sidx[6] = 'e'; sidx[7] = 'e';
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									  &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Request firstOffset returns the correct value and exits early.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_FirstOffset_ReturnsCorrectValue)
+{
+	constexpr uint32_t EXPECTED_OFFSET = 42;
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}}, EXPECTED_OFFSET);
+	unsigned int firstOff = 0;
+	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									 nullptr, nullptr, &firstOff));
+	EXPECT_EQ(firstOff, EXPECTED_OFFSET);
+}
+
+/**
+ * @brief Parse the first segment entry (index 0).
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_Index0_ReturnsCorrectValues)
+{
+	constexpr uint32_t TIMESCALE = 1000;
+	constexpr uint32_t REF_SIZE = 5000;
+	constexpr uint32_t DURATION = 2000;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
+
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									 &refSize, &refDuration, nullptr));
+	EXPECT_EQ(refSize, REF_SIZE);
+	EXPECT_FLOAT_EQ(refDuration,
+					 static_cast<float>(DURATION) / static_cast<float>(TIMESCALE));
+}
+
+/**
+ * @brief Parse multiple entries — key regression test for the *f += fix.
+ *
+ * Before the fix, `start += 12*segmentIndex` could produce incorrect
+ * results if the pointer aliasing through `f` were ever broken.  The
+ * corrected `*f += SIDX_ENTRY_SIZE * segmentIndex` is consistent with
+ * every other cursor operation in the function.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_MultipleEntries_CorrectIndexing)
+{
+	constexpr uint32_t TIMESCALE = 48000;
+	const std::vector<SidxEntry> entries = {
+		{10000, 48000},
+		{20000, 96000},
+		{30000, 144000}
+	};
+	auto sidx = BuildSidxBoxV0(TIMESCALE, entries);
+
+	for (int i = 0; i < static_cast<int>(entries.size()); ++i)
+	{
+		unsigned int refSize = 0;
+		float refDuration = 0.0f;
+		EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), i,
+										 &refSize, &refDuration, nullptr))
+			<< "Failed for segment index " << i;
+		EXPECT_EQ(refSize, entries[i].referencedSize)
+			<< "Wrong referenced_size for segment index " << i;
+		EXPECT_FLOAT_EQ(refDuration,
+						 static_cast<float>(entries[i].subsegmentDuration) /
+						 static_cast<float>(TIMESCALE))
+			<< "Wrong referenced_duration for segment index " << i;
+	}
+}
+
+/**
+ * @brief Segment index equal to reference_count returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_IndexEqualToCount_ReturnsFalse)
+{
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}, {200, 2000}});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 2,
+									  &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Segment index far out of range returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_IndexFarOutOfRange_ReturnsFalse)
+{
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 99,
+									  &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Verify every entry in a large SIDX box is correctly indexed.
+ *
+ * This catches cumulative offset errors or off-by-one issues that only
+ * manifest when many entries must be skipped.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_LargeEntryCount_AllCorrect)
+{
+	constexpr uint32_t TIMESCALE = 90000;
+	constexpr int ENTRY_COUNT = 50;
+	std::vector<SidxEntry> entries;
+	entries.reserve(ENTRY_COUNT);
+	for (int i = 0; i < ENTRY_COUNT; ++i)
+	{
+		entries.push_back({static_cast<uint32_t>(1000 * (i + 1)),
+						   static_cast<uint32_t>(90000 * (i + 1))});
+	}
+	auto sidx = BuildSidxBoxV0(TIMESCALE, entries);
+
+	for (int i = 0; i < ENTRY_COUNT; ++i)
+	{
+		unsigned int refSize = 0;
+		float refDuration = 0.0f;
+		EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), i,
+										 &refSize, &refDuration, nullptr))
+			<< "Failed for segment index " << i;
+		EXPECT_EQ(refSize, entries[i].referencedSize)
+			<< "Wrong referenced_size for segment index " << i;
+		EXPECT_FLOAT_EQ(refDuration,
+						 static_cast<float>(entries[i].subsegmentDuration) /
+						 static_cast<float>(TIMESCALE))
+			<< "Wrong referenced_duration for segment index " << i;
+	}
+}
+
+/**
+ * @brief Zero reference_count SIDX box with index 0 returns false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_ZeroEntries_ReturnsFalse)
+{
+	auto sidx = BuildSidxBoxV0(1000, {});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									  &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Last valid entry in a multi-entry box is returned correctly.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_LastEntry_ReturnsCorrectValues)
+{
+	constexpr uint32_t TIMESCALE = 44100;
+	const std::vector<SidxEntry> entries = {
+		{1000, 44100},
+		{2000, 88200},
+		{3000, 132300}
+	};
+	auto sidx = BuildSidxBoxV0(TIMESCALE, entries);
+
+	const int lastIdx = static_cast<int>(entries.size()) - 1;
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), lastIdx,
+									 &refSize, &refDuration, nullptr));
+	EXPECT_EQ(refSize, entries[lastIdx].referencedSize);
+	EXPECT_FLOAT_EQ(refDuration,
+					 static_cast<float>(entries[lastIdx].subsegmentDuration) /
+					 static_cast<float>(TIMESCALE));
 }

@@ -225,13 +225,16 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 {
 	if (!start)
 	{
-		// If the fragment pointer is NULL then return from here, no need to process it further.
 		return false;
 	}
 
+	constexpr int SIDX_ENTRY_SIZE = 12;
+	constexpr uint32_t SIDX_BOX_TYPE =
+		('s' << 24) | ('i' << 16) | ('d' << 8) | 'x';
+
 	const uint8_t **f = &start;
 
-	unsigned int len = Read32(f);
+	auto len = Read32(f);
 	if (len != size)
 	{
 		AAMPLOG_WARN("Wrong size in ParseSegmentIndexBox %d found, %zu expected", len, size);
@@ -239,8 +242,8 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 		return false;
 	}
 
-	unsigned int type = Read32(f);
-	if (type != 'sidx')
+	auto type = Read32(f);
+	if (type != SIDX_BOX_TYPE)
 	{
 		AAMPLOG_WARN("Wrong type in ParseSegmentIndexBox %c%c%c%c found, %zu expected",
 					 (type >> 24) % 0xff, (type >> 16) & 0xff, (type >> 8) & 0xff, type & 0xff, size);
@@ -248,43 +251,46 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 		return false;
 	}
 
-	unsigned int version = Read32(f); (void) version;
-	unsigned int reference_ID = Read32(f); (void)reference_ID;
-	unsigned int timescale = Read32(f);
-	uint64_t earliest_presentation_time;
-	uint64_t first_offset;
-	if( version==0 )
+	auto version = Read32(f);
+	// Skip reference_ID (4 bytes)
+	*f += 4;
+	auto timescale = Read32(f);
+
+	uint64_t first_offset{0};
+	if (version == 0)
 	{
-		earliest_presentation_time = Read32(f);
-		(void)earliest_presentation_time; // unused
+		// Skip earliest_presentation_time (4 bytes)
+		*f += 4;
 		first_offset = Read32(f);
 	}
 	else
 	{
-		earliest_presentation_time = Read64(f);
-		(void)earliest_presentation_time; // unused
+		// Skip earliest_presentation_time (8 bytes)
+		*f += 8;
 		first_offset = Read64(f);
 	}
-	unsigned int reserved = Read16(f); (void)reserved;
-	unsigned int reference_count = Read16(f);
+
+	// Skip reserved (2 bytes)
+	*f += 2;
+	auto reference_count = Read16(f);
+
 	if (firstOffset)
 	{
-		*firstOffset = (unsigned int)first_offset;
+		*firstOffset = static_cast<unsigned int>(first_offset);
 		return true;
 	}
-	if( segmentIndex<reference_count )
+
+	if (segmentIndex < static_cast<int>(reference_count))
 	{
-		start += 12*segmentIndex;
-		*referenced_size = Read32(f)&0x7fffffff;
+		*f += SIDX_ENTRY_SIZE * segmentIndex;
+		*referenced_size = Read32(f) & 0x7fffffff;
 		// top bit is "reference_type"
 
-		*referenced_duration = Read32(f)/(float)timescale;
+		*referenced_duration = Read32(f) / static_cast<float>(timescale);
 
-		unsigned int flags = Read32(f);
-		(void)flags;
-		// starts_with_SAP (1 bit)
-		// SAP_type (3 bits)
-		// SAP_delta_time (28 bits)
+		// Skip SAP flags (4 bytes):
+		// starts_with_SAP (1 bit) | SAP_type (3 bits) | SAP_delta_time (28 bits)
+		*f += 4;
 
 		return true;
 	}
