@@ -1,0 +1,19 @@
+{
+  "description": "Moderate Cable/DSL - reliable mid-tier connection",
+  "base_rtt_ms": 45.0,
+  "rtt_jitter_ms": 15.0,
+  "ttfb_spike_p": 0.05,
+  "ttfb_spike_ms": 150.0,
+  "mean_thr_mbps": 3.5,
+  "thr_sigma_ln": 0.45,
+  "thr_rho": 0.75,
+  "bursts_per_segment": 8,
+  "burst_bytes_cv": 0.40,
+  "cadence_ms": 150.0,
+  "cadence_jitter_ms": 40.0,
+  "flush_jitter_ms": 10.0,
+  "late_chunk_p": 0.03,
+  "late_chunk_extra_ms": 180.0,
+  "p_conn_reuse": 0.90,
+  "new_conn_penalty_ms": 140.0
+}
