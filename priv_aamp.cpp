@@ -364,9 +364,10 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 		aamp->rate = AAMP_NORMAL_PLAY_RATE;
 		aamp->mSinkPaused = false;
 		aamp->mSeekFromPausedState = false;
-		aamp->AcquireStreamLock();
-		aamp->TuneHelper(tuneType);
-		aamp->ReleaseStreamLock();
+		{
+			std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+			aamp->TuneHelper(tuneType);
+		}
 	}
 
 	aamp->ResumeDownloads();
@@ -443,9 +444,10 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 		aamp->mIsRetuneInProgress = true;
 		lock.unlock();
 
-		aamp->AcquireStreamLock();
-		aamp->TuneHelper(eTUNETYPE_RETUNE);
-		aamp->ReleaseStreamLock();
+		{
+			std::lock_guard<std::recursive_mutex> streamLock(aamp->GetStreamLock());
+			aamp->TuneHelper(eTUNETYPE_RETUNE);
+		}
 
 		lock.lock();
 		aamp->mIsRetuneInProgress = false;
@@ -3814,9 +3816,10 @@ void PrivateInstanceAAMP::PlayFromTsbStart()
 		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
 	}
 	rate = AAMP_NORMAL_PLAY_RATE;
-	AcquireStreamLock();
-	TuneHelper(eTUNETYPE_SEEK);
-	ReleaseStreamLock();
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		TuneHelper(eTUNETYPE_SEEK);
+	}
 	NotifySpeedChanged(rate);
 }
 
@@ -3893,9 +3896,10 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
 			rate = AAMP_NORMAL_PLAY_RATE;
-			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEKTOLIVE);
-			ReleaseStreamLock();
+			{
+				std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+				TuneHelper(eTUNETYPE_SEEKTOLIVE);
+			}
 			NotifySpeedChanged(rate);
 		}
 	}
@@ -5518,29 +5522,30 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AcquireStreamLock();
-		AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
-		mpStreamAbstractionAAMP->StopUnderflowMonitor();
-		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		{
+			std::lock_guard<std::recursive_mutex> streamLock(mStreamLock);
+			AAMPLOG_INFO("TeardownStream: Stopping StreamAbstraction");
+			mpStreamAbstractionAAMP->StopUnderflowMonitor();
+			mpStreamAbstractionAAMP->Stop(disableDownloads);
 
-		if(mContentType == ContentType_HDMIIN)
-		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else if(mContentType == ContentType_COMPOSITEIN)
-		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			if(!IsLocalAAMPTsb())
+			if(mContentType == ContentType_HDMIIN)
 			{
-				SAFE_DELETE(mpStreamAbstractionAAMP);
+				StreamAbstractionAAMP_HDMIIN::ResetInstance();
+				mpStreamAbstractionAAMP = NULL;
+			}
+			else if(mContentType == ContentType_COMPOSITEIN)
+			{
+				StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
+				mpStreamAbstractionAAMP = NULL;
+			}
+			else
+			{
+				if(!IsLocalAAMPTsb())
+				{
+					SAFE_DELETE(mpStreamAbstractionAAMP);
+				}
 			}
 		}
-		ReleaseStreamLock();
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -6867,26 +6872,27 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	SAFE_DELETE(mCdaiObject);
 
-	AcquireStreamLock();
-	TuneHelper(tuneType);
-
-	//Apply the cached video mute call as it got invoked when stream lock was not available
-	if(mApplyCachedVideoMute)
 	{
-		mApplyCachedVideoMute = false;
-		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted.load());
-		if (mpStreamAbstractionAAMP)
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		TuneHelper(tuneType);
+
+		//Apply the cached video mute call as it got invoked when stream lock was not available
+		if(mApplyCachedVideoMute)
 		{
-			//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
-			SetVideoMuteInternal(video_muted.load());
-			SetCCStatusInternal();
-		}
-		else
-		{
-			AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
+			mApplyCachedVideoMute = false;
+			AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted.load());
+			if (mpStreamAbstractionAAMP)
+			{
+				//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
+				SetVideoMuteInternal(video_muted.load());
+				SetCCStatusInternal();
+			}
+			else
+			{
+				AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
+			}
 		}
 	}
-	ReleaseStreamLock();
 
 	// To check and apply stored video rectangle properties
 	if (mApplyVideoRect)
@@ -7411,7 +7417,7 @@ void PrivateInstanceAAMP::disableEventProcessing()
 void PrivateInstanceAAMP::detach()
 {
 	// Protect against StreamAbstraction being modified from a different thread
-	AcquireStreamLock();
+	std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 	if(mpStreamAbstractionAAMP && mbPlayEnabled) //Player is running
 	{
 		mSinkPaused = true;
@@ -7453,7 +7459,6 @@ void PrivateInstanceAAMP::detach()
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
-	ReleaseStreamLock();
 }
 
 /**
@@ -7582,8 +7587,9 @@ DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
 std::string PrivateInstanceAAMP::GetThumbnailTracks()
 {
 	std::string op;
-	AcquireStreamLock();
-	if(mpStreamAbstractionAAMP)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if(mpStreamAbstractionAAMP)
 	{
 		AAMPLOG_TRACE("Entering PrivateInstanceAAMP");
 		std::vector<StreamInfo*> data = mpStreamAbstractionAAMP->GetAvailableThumbnailTracks();
@@ -7626,7 +7632,6 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 		}
 		AAMPLOG_TRACE("In PrivateInstanceAAMP::Json string:%s",op.c_str());
 	}
-	ReleaseStreamLock();
 	return op;
 }
 
@@ -7636,8 +7641,9 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 {
 	std::string rc;
-	AcquireStreamLock();
-	if(mpStreamAbstractionAAMP && mthumbIndexValue != -1)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if(mpStreamAbstractionAAMP && mthumbIndexValue != -1)
 	{
 		std::string baseurl;
 		int raw_w = 0, raw_h = 0, width = 0, height = 0;
@@ -7904,16 +7910,17 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
 	subtitles_muted = muted;
-	AcquireStreamLock();
-	if (mpStreamAbstractionAAMP)
 	{
-		SetSubtitleMuteInternal(video_muted.load() || muted);
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if (mpStreamAbstractionAAMP)
+		{
+			SetSubtitleMuteInternal(video_muted.load() || muted);
+		}
+		else
+		{
+			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+		}
 	}
-	else
-	{
-		AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-	}
-	ReleaseStreamLock();
 }
 
 /**
@@ -8393,29 +8400,30 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
-		AcquireStreamLock();
-		if(DownloadsAreEnabled())
 		{
-			// Parallel TuneHelper after EOS or retune re-enables downloads
-			// but we need to disable them again before stopping the player
-			AAMPLOG_WARN("Re-Enabled downloads after Stop, Disabling again!!");
-			DisableDownloads(); // disable download
+			std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+			if(DownloadsAreEnabled())
+			{
+				// Parallel TuneHelper after EOS or retune re-enables downloads
+				// but we need to disable them again before stopping the player
+				AAMPLOG_WARN("Re-Enabled downloads after Stop, Disabling again!!");
+				DisableDownloads(); // disable download
+			}
+			if (mDRMLicenseManager)
+			{
+				ReleaseDynamicDRMToUpdateWait();
+				mDRMLicenseManager->setLicenseRequestAbort(true);
+				// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
+				// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
+				// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
+				// of StreamAbstractionAamp.
+				mDRMLicenseManager->SetLicenseFetcher(nullptr);
+			}
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->ResetSubtitle();
+			}
 		}
-		if (mDRMLicenseManager)
-		{
-			ReleaseDynamicDRMToUpdateWait();
-			mDRMLicenseManager->setLicenseRequestAbort(true);
-			// Reset the mFetchInstance in AampLicensePreFetcher as we are going to delete
-			// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
-			// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
-			// of StreamAbstractionAamp.
-			mDRMLicenseManager->SetLicenseFetcher(nullptr);
-		}
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->ResetSubtitle();
-		}
-		ReleaseStreamLock();
 	}
 	TeardownStream(true,true); //disable download as well
 
@@ -10714,9 +10722,10 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						double downloadTime;
 						bool ret = false;
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
-						AcquireStreamLock();
-						ret = GetFile(newelem.url, newelem.type, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
-						ReleaseStreamLock();
+						{
+							std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+							ret = GetFile(newelem.url, newelem.type, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
+						}
 						if(ret != false)
 						{
 							// If successful download , then insert into Cache
@@ -10952,9 +10961,8 @@ void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 	AAMPPlayerState state = GetState();
 	if (state > eSTATE_PREPARING)
 	{
-		AcquireStreamLock();
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		TuneHelper(eTUNETYPE_RETUNE);
-		ReleaseStreamLock();
 	}
 }
 
@@ -11403,12 +11411,13 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 int PrivateInstanceAAMP::GetAudioTrack()
 {
 	int idx = -1;
-	AcquireStreamLock();
-	if (mpStreamAbstractionAAMP)
 	{
-		idx = mpStreamAbstractionAAMP->GetAudioTrack();
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if (mpStreamAbstractionAAMP)
+		{
+			idx = mpStreamAbstractionAAMP->GetAudioTrack();
+		}
 	}
-	ReleaseStreamLock();
 	return idx;
 }
 
@@ -11722,10 +11731,11 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 							{
 								discardEnteringLiveEvt = true;
 								seek_pos_seconds = GetPositionSeconds();
-								AcquireStreamLock();
-								TeardownStream(false);
-								TuneHelper(eTUNETYPE_SEEK);
-								ReleaseStreamLock();
+								{
+									std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+									TeardownStream(false);
+									TuneHelper(eTUNETYPE_SEEK);
+								}
 								discardEnteringLiveEvt = false;
 							}
 						}
@@ -11814,8 +11824,9 @@ void PrivateInstanceAAMP::RefreshSubtitles()
 int PrivateInstanceAAMP::GetTextTrack()
 {
 	int idx = -1;
-	AcquireStreamLock();
-	if (PlayerCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if (PlayerCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
 	{
 		std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
 		if (!trackId.empty())
@@ -11841,17 +11852,17 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
-	// Set subtitles_muted flag to the value requested by the app
-	subtitles_muted = !enabled;
-	SetCCStatusInternal();
-	ReleaseStreamLock();
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		// Set subtitles_muted flag to the value requested by the app
+		subtitles_muted = !enabled;
+		SetCCStatusInternal();
+	}
 }
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
-	// StreamLock is recursive, so it is fine to call this method with it locked.
-	AcquireStreamLock();
+	// Note: Caller MUST hold mStreamLock
 	if (mpStreamAbstractionAAMP)
 	{
 		// Mute subtitles if either video is muted or subtitles are muted
@@ -12118,17 +12129,18 @@ bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, Str
  */
 void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
 {
-	AcquireStreamLock();
-	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->DisableContentRestrictions(grace, time, eventChange);
-		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if (mpStreamAbstractionAAMP)
 		{
-			PlayerCCManager::GetInstance()->SetParentalControlStatus(false);
+			mpStreamAbstractionAAMP->DisableContentRestrictions(grace, time, eventChange);
+			if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
+			{
+				PlayerCCManager::GetInstance()->SetParentalControlStatus(false);
+			}
 		}
+		mApplyContentRestriction = false;
 	}
-	mApplyContentRestriction = false;
-	ReleaseStreamLock();
 }
 
 /**
@@ -12136,23 +12148,24 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
  */
 void PrivateInstanceAAMP::EnableContentRestrictions()
 {
-	AcquireStreamLock();
-	AAMPPlayerState state = GetState();
-	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->EnableContentRestrictions();
-		if( mMediaFormat != eMEDIAFORMAT_OTA )
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		AAMPPlayerState state = GetState();
+		if (mpStreamAbstractionAAMP)
 		{
-			AAMPLOG_INFO("MediaFormat: %d (%s) is not OTA ,ContentRestrictions is applied on next Tune request to OTA channel",mMediaFormat,mMediaFormatName[mMediaFormat]);
-			mApplyContentRestriction = true;
+			mpStreamAbstractionAAMP->EnableContentRestrictions();
+			if( mMediaFormat != eMEDIAFORMAT_OTA )
+			{
+				AAMPLOG_INFO("MediaFormat: %d (%s) is not OTA ,ContentRestrictions is applied on next Tune request to OTA channel",mMediaFormat,mMediaFormatName[mMediaFormat]);
+				mApplyContentRestriction = true;
+			}
 		}
-	}
-	else
-	{
-		AAMPLOG_INFO("mpStreamAbstractionAAMP is not Ready, %d", state);
+		else
+		{
+			AAMPLOG_INFO("mpStreamAbstractionAAMP is not Ready, %d", state);
 		mApplyContentRestriction = true;
 	}
-	ReleaseStreamLock();
+	}
 }
 
 
