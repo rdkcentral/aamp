@@ -68,48 +68,7 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 }
 
 /**
- * @brief Read 16 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-unsigned int Read16( const uint8_t **pptr)
-{
-	return 0;
-}
 
-/**
- * @brief Read 32 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-unsigned int Read32( const uint8_t **pptr)
-{
-	return 0;
-}
-
-/**
- * @brief Read 64 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-uint64_t Read64( const uint8_t **pptr)
-{
-	return 0;
-}
-
-/**
- * @brief read unsigned multi-byte value and update buffer pointer
- * @param[in] pptr buffer
- * @param[in] n word size in bytes
- * @retval 32 bit value
- */
-uint64_t ReadWordHelper( const uint8_t **pptr, int n )
-{
-	return 0;
-}
-
-/**
- * @brief Replace matching token with given number
  * @param str String in which operation to be performed
  * @param from token
  * @param toNumber number to replace token

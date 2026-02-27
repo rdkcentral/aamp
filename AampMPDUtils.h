@@ -29,6 +29,7 @@
 #include "libdash/xml/DOMParser.h"
 #include <libxml/xmlreader.h>
 #include <thread>
+#include <type_traits>
 #include "AampLogManager.h"
 #include "AampUtils.h"
 #include "AampMPDPeriodInfo.h"
@@ -96,33 +97,72 @@ void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *f
 bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset);
 
 /**
- * @brief Read 16 word helper function
- * @param pptr pointer to read from
- * @retval word value
+ * @brief Lightweight cursor for reading big-endian ISOBMFF box fields.
+ *
+ * Provides typed Read<T>() and Skip<T>() operations that replace the
+ * legacy Read16/Read32/Read64 free functions and raw pointer arithmetic.
+ * The caller is responsible for validating the box size field before
+ * reading individual fields.
  */
-unsigned int Read16( const uint8_t **pptr);
+class BoxReader final
+{
+public:
+	constexpr explicit BoxReader(const uint8_t *data) noexcept
+		: mCursor{data}
+	{
+	}
 
-/**
- * @brief Read 32 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-unsigned int Read32( const uint8_t **pptr);
+	/**
+	 * @brief Read a big-endian integer field and advance the cursor.
+	 * @tparam T  Integral type whose sizeof determines the field width.
+	 * @return    The value read in host byte order.
+	 */
+	template <typename T>
+	[[nodiscard]] T Read() noexcept
+	{
+		static_assert(std::is_integral_v<T>,
+					  "Read<T> requires an integral type");
+		static_assert(sizeof(T) == 1 || sizeof(T) == 2 ||
+					  sizeof(T) == 4 || sizeof(T) == 8,
+					  "Read<T> only supports 1/2/4/8-byte types");
 
-/**
- * @brief Read 64 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-uint64_t Read64( const uint8_t **pptr);
+		uint64_t val{0};
+		for (size_t i = 0; i < sizeof(T); ++i)
+		{
+			val = (val << 8) | static_cast<uint8_t>(mCursor[i]);
+		}
+		mCursor += sizeof(T);
+		return static_cast<T>(val);
+	}
 
-/**
- * @brief read unsigned multi-byte value and update buffer pointer
- * @param[in] pptr buffer
- * @param[in] n word size in bytes
- * @retval 32 bit value
- */
-uint64_t ReadWordHelper( const uint8_t **pptr, int n );
+	/**
+	 * @brief Skip a field without reading it.
+	 * @tparam T  Integral type whose sizeof determines the skip width.
+	 */
+	template <typename T>
+	void Skip() noexcept
+	{
+		static_assert(std::is_integral_v<T>,
+					  "Skip<T> requires an integral type");
+		static_assert(sizeof(T) == 1 || sizeof(T) == 2 ||
+					  sizeof(T) == 4 || sizeof(T) == 8,
+					  "Skip<T> only supports 1/2/4/8-byte types");
+
+		mCursor += sizeof(T);
+	}
+
+	/**
+	 * @brief Skip a runtime number of bytes.
+	 * @param n  Number of bytes to advance.
+	 */
+	void Skip(size_t n) noexcept
+	{
+		mCursor += n;
+	}
+
+private:
+	const uint8_t *mCursor;
+};
 
 /**
  * @brief Replace matching token with given number

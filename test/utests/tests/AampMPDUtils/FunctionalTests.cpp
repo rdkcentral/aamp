@@ -155,7 +155,7 @@ struct SidxEntry
  * @param[in] firstOffset  Value for the first_offset field.
  * @return                 Byte vector containing the complete SIDX box.
  */
-static std::vector<char> BuildSidxBoxV0(
+static std::vector<uint8_t> BuildSidxBoxV0(
 	uint32_t timescale,
 	const std::vector<SidxEntry> &entries,
 	uint32_t firstOffset = 0)
@@ -165,8 +165,8 @@ static std::vector<char> BuildSidxBoxV0(
 	const auto entryCount = static_cast<uint32_t>(entries.size());
 	const uint32_t boxSize = HEADER_SIZE + entryCount * ENTRY_SIZE;
 
-	std::vector<char> buf(boxSize, 0);
-	auto *p = reinterpret_cast<uint8_t *>(buf.data());
+	std::vector<uint8_t> buf(boxSize, 0);
+	auto *p = buf.data();
 
 	WriteBE32(p,      boxSize);
 	p[4] = 's'; p[5] = 'i'; p[6] = 'd'; p[7] = 'x';
