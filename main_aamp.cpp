@@ -2814,7 +2814,7 @@ std::string PlayerInstanceAAMP::GetAppName()
  *  @brief Enable or disable AAMP-managed CC rendering.
  *
  *  When enable is true, AAMP takes ownership of the CC rendering lifecycle
- *  via PlayerCCManager: initialisation on first frame, trickplay muting,
+ *  via PlayerCCManager: initialization on first frame, trickplay muting,
  *  parental control gating (SERVICE_PIN_LOCKED events), CEA-608/708 track
  *  selection, and session teardown on stop.
  *
