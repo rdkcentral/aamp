@@ -62,7 +62,7 @@ protected:
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP( mPrivateInstanceAAMP2);
+        g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP2);
 
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP1);
 
