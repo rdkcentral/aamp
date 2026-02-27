@@ -19,6 +19,8 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <future>
+#include <thread>
 
 #include "AampUtils.h"
 #include "AampConfig.h"
@@ -820,4 +822,70 @@ TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 	EXPECT_EQ(videoTrack.GetCachedFragmentChunksSize(), kMaxFragmentChunkCached);
+}
+
+/**
+ * @brief Test that WaitForManifestUpdate can be aborted successfully.
+ * This is important to avoid deadlocks if the manifest update takes a long time or fails to complete.
+ */
+TEST_F(MediaTrackTests, WaitForManifestUpdateTest)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	std::thread manifestUpdateThread([&videoTrack]() {
+		videoTrack.WaitForManifestUpdate();
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(200)); // Give the thread a moment to start and block on the wait
+	videoTrack.AbortWaitForManifestUpdate();
+	manifestUpdateThread.join();
+}
+
+/**
+ * @brief Test that GetManifestUpdateCounter() returns the current counter value and
+ * that AbortWaitForManifestUpdate() increments it.
+ */
+TEST_F(MediaTrackTests, GetManifestUpdateCounterTest)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	const uint32_t initialCounter = videoTrack.GetManifestUpdateCounter();
+
+	videoTrack.AbortWaitForManifestUpdate();
+	EXPECT_EQ(videoTrack.GetManifestUpdateCounter(), initialCounter + 1);
+
+	videoTrack.AbortWaitForManifestUpdate();
+	EXPECT_EQ(videoTrack.GetManifestUpdateCounter(), initialCounter + 2);
+}
+
+/**
+ * @brief Test the race prevention pattern: snapshot the counter with
+ * GetManifestUpdateCounter() *before* doing work, then call
+ * WaitForManifestUpdate(snapshotCounter).  If AbortWaitForManifestUpdate() fires
+ * between the snapshot and the wait call, the predicate is already satisfied and
+ * WaitForManifestUpdate(snapshotCounter) must return immediately without blocking.
+ */
+TEST_F(MediaTrackTests, WaitForManifestUpdateSnapshotRacePreventionTest)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Step 1: snapshot the counter before any work begins
+	const uint32_t snapshot = videoTrack.GetManifestUpdateCounter();
+
+	// Step 2: simulate the race — AbortWaitForManifestUpdate() fires BEFORE the wait call
+	videoTrack.AbortWaitForManifestUpdate();
+
+	// Step 3: WaitForManifestUpdate(snapshot) must return immediately because the
+	// counter has already advanced past the snapshot.  Run it on a background thread
+	// so we can enforce a tight deadline without hanging the test runner.
+	auto future = std::async(std::launch::async, [&videoTrack, snapshot]() {
+		videoTrack.WaitForManifestUpdate(snapshot);
+	});
+
+	// 500 ms is generous for an already-satisfied predicate; any blocking would fail this.
+	EXPECT_EQ(future.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
+		<< "WaitForManifestUpdate(snapshotCounter) blocked even though the counter was "
+		   "already incremented — lost-wakeup race prevention is broken";
 }
