@@ -20,7 +20,7 @@
 #include "MtkSocInterface.h"
 
 /**
- @brief this interface implementation used with Rialto
+ @brief this interface implementation used with Mtk SoC platforms
  */
 MtkSocInterface::MtkSocInterface()
 {
@@ -62,9 +62,7 @@ void MtkSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 
 bool MtkSocInterface::IsVideoSink(const char* name)
 {
-	return name && (
-					StartsWith(name,"rialtomsevideosink") ||
-					StartsWith(name, "westerossink") );
+	return name && StartsWith(name, "westerossink");
 }
 
 /**
@@ -74,9 +72,7 @@ bool MtkSocInterface::IsVideoSink(const char* name)
  */
 bool MtkSocInterface::IsVideoDecoder(const char* name)
 {
-	return name && (
-					StartsWith(name,"rialtomsevideosink") ||
-					StartsWith(name, "westerossink") );
+	return name && StartsWith(name, "westerossink");
 }
 
 /**
@@ -90,10 +86,6 @@ bool MtkSocInterface::IsAudioOrVideoDecoder(const char* name)
 
 	// ignore audio/video decoder check if westeros sink disabled via config, UseWesterosSink()
     if(UseWesterosSink() && StartsWith(name, "westerossink"))
-    {
-        AudioOrVideoDecoder = true;
-    }
-    else if(StartsWith(name, "rialtomse"))
     {
         AudioOrVideoDecoder = true;
     }
@@ -175,6 +167,7 @@ bool MtkSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src
  */
 bool MtkSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
+	//For rialto sinks default soc routine will be called
 	if(!pipeline)
 	{
 		MW_LOG_ERR("Failed to set playback rate");
@@ -209,12 +202,5 @@ bool MtkSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, G
 
 bool MtkSocInterface::IsVideoMaster(GstElement *videoSink)
 {
-	gboolean isMaster{TRUE};
-	GParamSpec *pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(videoSink),"is-master");
-	if( pspec!=NULL )
-	{ // rialto-specific
-		g_object_get(videoSink, "is-master", &isMaster, nullptr);
-		MW_LOG_INFO("is-master %d", isMaster);
-	}
-	return (isMaster == TRUE);
+	return true;
 }
