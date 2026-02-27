@@ -84,6 +84,7 @@ protected:
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
+        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = nullptr;
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
 
