@@ -12804,9 +12804,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					{
 						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 						if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
-					{
-						AAMPLOG_WARN("Seamless audio switch has been enabled");
-						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);
+						{
+							AAMPLOG_WARN("Seamless audio switch has been enabled");
+							mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);
 					}
 					else
 					{
@@ -13283,7 +13283,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 					std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 
 					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
-				{
+						{
 					AAMPLOG_WARN("Seamless Text switch has been enabled");
 					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
 				}
