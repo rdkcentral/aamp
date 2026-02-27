@@ -27,6 +27,7 @@
 #include "aampgstplayer.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamSink.h"
+#include "MockStreamAbstractionAAMP.h"
 #include "MockPrivateInstanceAAMP.h"
 
 using ::testing::_;
@@ -61,7 +62,11 @@ protected:
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP( mPrivateInstanceAAMP2);
+
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP1);
+
+        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
         const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         mId3HandlerCallback1 = id3_callback;
@@ -78,6 +83,9 @@ protected:
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
+
+        delete g_mockStreamAbstractionAAMP;
+        g_mockStreamAbstractionAAMP = nullptr;
 
         delete mPrivateInstanceAAMP2;
         mPrivateInstanceAAMP2 = nullptr;
@@ -327,13 +335,15 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
 
-    /* ActivatePlayer() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
-    second AAMP private instance and AAMPGstPlayer::Flush() with the position in seconds. */
-    long long positionMs = 5000;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));
-    double positionSec = (positionMs / 1000.0);
+    mPrivateInstanceAAMP2->mMediaFormat = eMEDIAFORMAT_DASH;
+    /* ActivatePlayer() calls GetFirstPTS() of StreamAbstractionAAMP to get the
+    flush position of the second AAMP private instance and
+    AAMPGstPlayer::Flush() gets called with this position in seconds. */
+    double flushPosition = 5.0;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetFirstPTS()).WillOnce(Return(flushPosition));
+
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(1);
-    EXPECT_CALL(*g_mockAampGstPlayer, Flush(positionSec, _, true)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 
