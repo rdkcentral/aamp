@@ -605,8 +605,9 @@ double AampTSBSessionManager::CullSegments()
 		{
 			TsbFragmentDataPtr nearestFragment = GetTsbDataManager(mediaTypeToRemove)->GetNearestFragment(trackFirstPosition);
 			double trackLagFromVideo = (videoFirstPosition - trackFirstPosition);
+			double nearestDuration = nearestFragment ? nearestFragment->GetDuration().inSeconds() : 0.0;
 			AAMPLOG_WARN("CullSegments: skip-check mediaType=%s nearestDuration=%lf trackLagFromVideo=%lf nearestExists=%d",
-				GetMediaTypeName(mediaTypeToRemove), nearestFragment->GetDuration().inSeconds, trackLagFromVideo, nearestFragment ? 1 : 0);
+				GetMediaTypeName(mediaTypeToRemove), nearestDuration, trackLagFromVideo, nearestFragment ? 1 : 0);
 			if (nearestFragment && nearestFragment->GetDuration() > trackLagFromVideo)
 			{
 				skip = true;
