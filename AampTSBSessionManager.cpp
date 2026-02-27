@@ -630,7 +630,7 @@ double AampTSBSessionManager::CullSegments()
 			TsbFragmentDataPtr nearestFragment = GetTsbDataManager(mediaTypeToRemove)->GetNearestFragment(trackFirstPosition);
 			double trackLagFromVideo = (videoFirstPosition - trackFirstPosition);
 			AAMPLOG_WARN("CullSegments: skip-check mediaType=%s nearestDuration=%lf trackLagFromVideo=%lf nearestExists=%d",
-				GetMediaTypeName(mediaTypeToRemove), nearestDuration, trackLagFromVideo, nearestFragment ? 1 : 0);
+				GetMediaTypeName(mediaTypeToRemove), nearestFragment->GetDuration().inSeconds, trackLagFromVideo, nearestFragment ? 1 : 0);
 			if (nearestFragment && nearestFragment->GetDuration() > trackLagFromVideo)
 			{
 				skip = true;
@@ -657,7 +657,7 @@ double AampTSBSessionManager::CullSegments()
 
 				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
 				{
-					AAMPLOG_WARN("CullSegments: removing metadata for video fragment at position %lf", removedFragment->GetAbsolutePosition() + removedFragment->GetDuration());
+					AAMPLOG_WARN("CullSegments: removing metadata for video fragment");
 					(void)mMetaDataManager.RemoveMetaData(removedFragment->GetAbsolutePosition() + removedFragment->GetDuration());
 				}
 
