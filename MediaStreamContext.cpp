@@ -245,7 +245,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		 */
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, static_cast<const void*>(cachedFragment->fragment.data()));
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.data());
 		UpdateTSAfterChunkFetch();
 	}
 	else
@@ -638,7 +638,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, static_cast<const void*>(cachedFragment->fragment.data()), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)

@@ -589,7 +589,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			}
 
 			//Step 6.Now time to restamp the PTS
-			buffer.restampPTS(sumPTS,currentPTS,(uint8_t *)(pBuffer->data()),(uint32_t)(pBuffer->size()));
+			buffer.restampPTS(sumPTS,currentPTS,pBuffer->data(),static_cast<uint32_t>(pBuffer->size()));
 			double newPos = ((double)sumPTS / (double) currTimeScale);
 			prevPTS = currentPTS;
 

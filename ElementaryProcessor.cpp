@@ -56,7 +56,9 @@ bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer,double positio
 		sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 	}
 	return true;
-}/**
+}
+
+/**
  *  @brief send stream based on media format
  */
 void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset,bool discontinuous,bool isInit)

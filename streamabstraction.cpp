@@ -1531,8 +1531,9 @@ bool MediaTrack::InjectFragment()
 			AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
 		}
 
-	AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
-				  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());		if (cachedFragment->fragment.capacity() != 0)
+		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
+					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());
+		if (cachedFragment->fragment.capacity() != 0)
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
 			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
