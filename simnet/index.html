@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Visualization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a1020;
+      --bg-soft: #111a33;
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-border: rgba(255, 255, 255, 0.12);
+      --text: #eaf0ff;
+      --text-soft: #9fb0d5;
+      --accent: #59b8ff;
+      --accent-2: #8a7dff;
+      --success: #53d6a4;
+    }
+
+    body {
+      font-family: Inter, sans-serif;
+      background:
+        radial-gradient(circle at top right, #1f346f 0%, rgba(31, 52, 111, 0) 45%),
+        radial-gradient(circle at bottom left, #3d1f60 0%, rgba(61, 31, 96, 0) 45%),
+        var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0 0 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    header {
+      width: 100%;
+      background: linear-gradient(120deg, rgba(89, 184, 255, 0.2), rgba(138, 125, 255, 0.2));
+      color: var(--text);
+      padding: 1.5rem 0;
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid var(--panel-border);
+      backdrop-filter: blur(8px);
+    }
+
+    .container {
+      width: 95%;
+      max-width: 1440px;
+      margin: 1.25rem auto;
+    }
+
+    .file-inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .drop-zone {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      min-height: 126px;
+      padding: 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.3rem;
+      transition: all 0.18s ease;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .drop-zone:hover {
+      border-color: rgba(89, 184, 255, 0.65);
+      transform: translateY(-2px);
+    }
+
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(89, 184, 255, 0.2);
+      box-shadow: 0 0 0 2px rgba(89, 184, 255, 0.35);
+    }
+
+    .drop-title {
+      font-size: 0.97rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .drop-sub {
+      font-size: 0.84rem;
+      color: var(--text-soft);
+    }
+
+    .drop-file {
+      margin-top: 0.3rem;
+      font-size: 0.82rem;
+      color: var(--success);
+      min-height: 1.2rem;
+      font-weight: 500;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .control-actions {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .load-btn {
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 10px;
+      padding: 0.7rem 1.1rem;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(42, 95, 242, 0.35);
+      transition: transform 0.15s ease;
+    }
+
+    .load-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .secondary-btn {
+      border: 1px solid var(--panel-border);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 10px;
+      padding: 0.7rem 1.1rem;
+      background: rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .secondary-btn:hover:not(:disabled) {
+      border-color: rgba(89, 184, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .secondary-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      color: var(--text-soft);
+      font-size: 0.86rem;
+    }
+
+    .metric-inline {
+      margin: 0.2rem 0 0.5rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-soft);
+      font-size: 0.86rem;
+      font-weight: 500;
+    }
+
+    .chart {
+      margin: 1rem 0;
+      background: var(--panel);
+      padding: 1rem;
+      border-radius: 14px;
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+      backdrop-filter: blur(4px);
+    }
+
+    @media (max-width: 700px) {
+      header {
+        font-size: 1.3rem;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>Network Visualization</header>
+
+<div class="container">
+  <div class="file-inputs">
+    <div class="drop-zone" id="networkDrop">
+      <div class="drop-title">Network Requests CSV</div>
+      <div class="drop-sub">Drop file here or click to browse</div>
+      <div class="drop-file" id="networkFileName">No file selected</div>
+      <input type="file" id="networkFile" accept=".csv">
+    </div>
+    <div class="drop-zone" id="burstDrop">
+      <div class="drop-title">Network Bursts CSV</div>
+      <div class="drop-sub">Drop file here or click to browse</div>
+      <div class="drop-file" id="burstFileName">No file selected</div>
+      <input type="file" id="burstFile" accept=".csv">
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-actions">
+      <button class="load-btn" onclick="processFiles()">Load and Plot</button>
+      <button class="secondary-btn" id="downloadCaptureBtn" onclick="downloadOnePageCapture()" disabled>
+        Download
+      </button>
+    </div>
+    <div class="status" id="statusText">Select or drop both CSV files to begin.</div>
+  </div>
+
+  <div id="bufferChart" class="chart" style="height:400px;"></div>
+  <div id="bandwidthStatsInline" class="metric-inline">Bandwidth stats: Min - | Max - | Avg -</div>
+  <div id="bandwidthChart" class="chart" style="height:400px;"></div>
+  <div id="segmentChart" class="chart" style="height:500px;"></div>
+  <div id="ttfbStatsInline" class="metric-inline">TTFB stats: Min - | Max - | Avg -</div>
+  <div id="ttfbChart" class="chart" style="height:400px;"></div>
+  <div id="connectionReuseChart" class="chart" style="height:400px;"></div>
+</div>
+
+<script>
+let networkData = [];
+let burstData = [];
+let metricSummary = {
+  bandwidth: null,
+  ttfb: null
+};
+
+function updateStatus(message) {
+  document.getElementById('statusText').textContent = message;
+}
+
+function bindDropZone(dropZoneId, fileInputId, labelId) {
+  const dropZone = document.getElementById(dropZoneId);
+  const fileInput = document.getElementById(fileInputId);
+  const fileLabel = document.getElementById(labelId);
+
+  dropZone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    fileLabel.textContent = file ? file.name : 'No file selected';
+  });
+
+  ['dragenter', 'dragover'].forEach((eventName) => {
+    dropZone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach((eventName) => {
+    dropZone.addEventListener(eventName, () => {
+      dropZone.classList.remove('drag-over');
+    });
+  });
+
+  dropZone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (!file) {
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      updateStatus('Please drop CSV files only.');
+      return;
+    }
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileLabel.textContent = file.name;
+  });
+}
+
+function toNumber(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sanitizeNetworkRows(rows) {
+  return rows
+    .map((row) => ({
+      req_id: toNumber(row.req_id),
+      when_start_s: toNumber(row.when_start_s),
+      total_s: toNumber(row.total_s),
+      ttfb_s: toNumber(row.ttfb_s),
+      bytes_total: toNumber(row.bytes_total),
+      conn_reused: toNumber(row.conn_reused),
+      media_type: row.media_type
+    }))
+    .filter((row) =>
+      row.req_id !== null &&
+      row.when_start_s !== null &&
+      row.total_s !== null &&
+      row.bytes_total !== null &&
+      row.total_s > 0
+    );
+}
+
+function sanitizeBurstRows(rows) {
+  return rows
+    .map((row) => ({
+      req_id: toNumber(row.req_id),
+      burst_idx: toNumber(row.burst_idx),
+      t_start_s: toNumber(row.t_start_s),
+      duration_s: toNumber(row.duration_s),
+      bytes: toNumber(row.bytes),
+      class: row.class
+    }))
+    .filter((row) =>
+      row.req_id !== null &&
+      row.burst_idx !== null &&
+      row.t_start_s !== null &&
+      row.duration_s !== null &&
+      row.bytes !== null
+    );
+}
+
+function formatNumber(value, decimals) {
+  return Number.isFinite(value) ? value.toFixed(decimals) : '-';
+}
+
+function calculateStats(values) {
+  const validValues = values.filter((value) => Number.isFinite(value));
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  const min = Math.min(...validValues);
+  const max = Math.max(...validValues);
+  const sum = validValues.reduce((acc, value) => acc + value, 0);
+  const avg = sum / validValues.length;
+  return {min, max, avg};
+}
+
+function updateStatsCards() {
+  const bandwidthText = metricSummary.bandwidth
+    ? `Bandwidth stats: Min ${formatNumber(metricSummary.bandwidth.min, 2)} | ` +
+      `Max ${formatNumber(metricSummary.bandwidth.max, 2)} | ` +
+      `Avg ${formatNumber(metricSummary.bandwidth.avg, 2)} Mbps`
+    : 'Bandwidth stats: Min - | Max - | Avg -';
+  const ttfbText = metricSummary.ttfb
+    ? `TTFB stats: Min ${formatNumber(metricSummary.ttfb.min, 4)} | ` +
+      `Max ${formatNumber(metricSummary.ttfb.max, 4)} | ` +
+      `Avg ${formatNumber(metricSummary.ttfb.avg, 4)} s`
+    : 'TTFB stats: Min - | Max - | Avg -';
+
+  document.getElementById('bandwidthStatsInline').textContent = bandwidthText;
+  document.getElementById('ttfbStatsInline').textContent = ttfbText;
+}
+
+function resetStats() {
+  metricSummary = {
+    bandwidth: null,
+    ttfb: null
+  };
+  updateStatsCards();
+}
+
+function processFiles() {
+  const networkFile = document.getElementById('networkFile').files[0];
+  const burstFile = document.getElementById('burstFile').files[0];
+
+  if (!networkFile || !burstFile) {
+    updateStatus('Please provide both CSV files.');
+    return;
+  }
+
+  updateStatus('Parsing CSV files...');
+  document.getElementById('downloadCaptureBtn').disabled = true;
+  resetStats();
+
+  Papa.parse(networkFile, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+      networkData = sanitizeNetworkRows(results.data);
+      Papa.parse(burstFile, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: function(results2) {
+          burstData = sanitizeBurstRows(results2.data);
+
+          if (networkData.length === 0) {
+            updateStatus('No valid rows found in network.csv.');
+            return;
+          }
+
+          if (burstData.length === 0) {
+            updateStatus('No valid rows found in burst.csv. Plots use network data only.');
+          }
+
+          plotDashboard();
+          updateStatus(`Loaded ${networkData.length} network rows and ${burstData.length} burst rows.`);
+        }
+      });
+    }
+  });
+}
+
+// ----------- Core Dashboard Functions -----------
+
+function plotDashboard() {
+  plotBufferLevel();
+  plotBandwidth();
+  plotSegments();
+  plotTTFB();
+  plotConnectionReuse();
+  updateStatsCards();
+  document.getElementById('downloadCaptureBtn').disabled = false;
+}
+
+function getTimeOrigin() {
+  return Math.min(...networkData.map((row) => row.when_start_s));
+}
+
+function toRelativeTime(value, origin) {
+  return value - origin;
+}
+
+function getChartLayout(title, xTitle, yTitle, extras = {}) {
+  return {
+    title,
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(255,255,255,0.03)',
+    font: {color: '#eaf0ff'},
+    xaxis: {
+      title: xTitle,
+      tickformat: '.2f',
+      gridcolor: 'rgba(255,255,255,0.08)',
+      zerolinecolor: 'rgba(255,255,255,0.14)'
+    },
+    yaxis: {
+      title: yTitle,
+      gridcolor: 'rgba(255,255,255,0.08)',
+      zerolinecolor: 'rgba(255,255,255,0.14)'
+    },
+    margin: {t: 50},
+    ...extras
+  };
+}
+
+const plotConfig = {
+  responsive: true,
+  displaylogo: false
+};
+
+// --------- 1. Bandwidth over time ---------
+function plotBandwidth() {
+  const timeOrigin = getTimeOrigin();
+  const sorted = networkData
+    .slice()
+    .sort((a, b) => a.when_start_s - b.when_start_s);
+  const x = sorted.map((r) => toRelativeTime(r.when_start_s, timeOrigin));
+  const y = sorted.map((r) => (r.bytes_total * 8) / r.total_s / 1e6); // Mbps
+  metricSummary.bandwidth = calculateStats(y);
+
+  Plotly.newPlot('bandwidthChart', [{
+    x, y, type:'scatter', mode:'lines+markers', line:{color:'#4a90e2'}
+  }], getChartLayout('Bandwidth Over Time', 'Time (s)', 'Bandwidth (Mbps)'), plotConfig);
+}
+
+// --------- 2. Segment Download Timeline (Gantt) ---------
+function plotSegments() {
+  const timeOrigin = getTimeOrigin();
+  const sorted = networkData
+    .slice()
+    .sort((a, b) => a.when_start_s - b.when_start_s);
+
+  const bars = sorted.map((r) => ({
+    x: [r.total_s],
+    y: [String(r.req_id)],
+    base: toRelativeTime(r.when_start_s, timeOrigin),
+    type: 'bar',
+    orientation: 'h',
+    marker: {color:'#f5a623'},
+    name: `Segment ${r.req_id}`
+  }));
+
+  Plotly.newPlot(
+    'segmentChart',
+    bars,
+    getChartLayout('Segment Download Timeline', 'Time (s)', 'Segment ID', {
+      barmode: 'stack',
+      yaxis: {
+        title: 'Segment ID',
+        autorange: 'reversed',
+        gridcolor: 'rgba(255,255,255,0.08)',
+        zerolinecolor: 'rgba(255,255,255,0.14)'
+      }
+    }),
+    plotConfig
+  );
+}
+
+// --------- 3. Buffer Level Simulation ---------
+function plotBufferLevel() {
+  // Assume each segment = 2s duration
+  const segmentDuration = 2;
+  const timeOrigin = getTimeOrigin();
+  const completionTimes = networkData
+    .map((r) => r.when_start_s + r.total_s)
+    .filter((t) => Number.isFinite(t));
+  const playbackStart = Math.min(...completionTimes);
+
+  let times = [];
+  let buffer = [];
+  let bufferLevel = 0;
+  const sortedSegments = networkData
+    .slice()
+    .sort((a,b) => (a.when_start_s + a.total_s) - (b.when_start_s + b.total_s));
+  let nextSegment = 0;
+
+  const lastTime = Math.max(...completionTimes) + 10;
+  for (let t = playbackStart; t <= lastTime; t += 0.1) {
+    while (nextSegment < sortedSegments.length) {
+      const segment = sortedSegments[nextSegment];
+      const completeTime = segment.when_start_s + segment.total_s;
+      if (completeTime <= t) {
+        bufferLevel += segmentDuration;
+        nextSegment += 1;
+      } else {
+        break;
+      }
+    }
+
+    // Drain buffer
+    bufferLevel = Math.max(0, bufferLevel - 0.1);
+    times.push(toRelativeTime(t, timeOrigin));
+    buffer.push(bufferLevel);
+  }
+
+  Plotly.newPlot('bufferChart', [{
+    x: times,
+    y: buffer,
+    type:'scatter',
+    mode:'lines',
+    line:{color:'#7ed321'}
+  }], getChartLayout('Buffer Level Over Time', 'Time (s)', 'Buffer Level (s)'), plotConfig);
+}
+
+// --------- 4. TTFB Over Time ---------
+function plotTTFB() {
+  const timeOrigin = getTimeOrigin();
+  const sorted = networkData
+    .filter((r) => r.ttfb_s !== null)
+    .slice()
+    .sort((a, b) => a.when_start_s - b.when_start_s);
+  const x = sorted.map((r) => toRelativeTime(r.when_start_s, timeOrigin));
+  const y = sorted.map((r) => r.ttfb_s);
+  metricSummary.ttfb = calculateStats(y);
+
+  Plotly.newPlot('ttfbChart', [{
+    x, y, type:'scatter', mode:'lines+markers', line:{color:'#d0021b'}
+  }], getChartLayout('TTFB (Time to First Byte) Over Time', 'Time (s)', 'TTFB (s)'), plotConfig);
+}
+
+// --------- 5. Connection Reuse Over Time ---------
+function plotConnectionReuse() {
+  const timeOrigin = getTimeOrigin();
+  const sorted = networkData
+    .filter((r) => r.conn_reused !== null)
+    .slice()
+    .sort((a, b) => a.when_start_s - b.when_start_s);
+
+  let reusedCount = 0;
+  const x = [];
+  const y = [];
+
+  sorted.forEach((row, index) => {
+    if (row.conn_reused === 1) {
+      reusedCount += 1;
+    }
+    x.push(toRelativeTime(row.when_start_s, timeOrigin));
+    y.push((reusedCount / (index + 1)) * 100);
+  });
+
+  Plotly.newPlot('connectionReuseChart', [{
+    x,
+    y,
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: {color:'#9013fe'}
+  }], getChartLayout('Connection Reuse Over Time', 'Time (s)', 'Reuse Ratio (%)', {
+    yaxis: {
+      title: 'Reuse Ratio (%)',
+      range: [0, 100],
+      gridcolor: 'rgba(255,255,255,0.08)',
+      zerolinecolor: 'rgba(255,255,255,0.14)'
+    }
+  }), plotConfig);
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius, fillStyle, strokeStyle) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.closePath();
+  if (fillStyle) {
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+  }
+  if (strokeStyle) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.stroke();
+  }
+}
+
+function loadDataUrlImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+}
+
+async function getChartImage(chartId, width, height) {
+  const chartNode = document.getElementById(chartId);
+  return Plotly.toImage(chartNode, {
+    format: 'png',
+    width,
+    height,
+    scale: 2
+  });
+}
+
+function getStatsLine(metricName) {
+  if (metricName === 'bandwidth') {
+    const stats = metricSummary.bandwidth;
+    return stats
+      ? `Min ${formatNumber(stats.min, 2)} | Max ${formatNumber(stats.max, 2)} | Avg ${formatNumber(stats.avg, 2)} Mbps`
+      : 'Min - | Max - | Avg -';
+  }
+  const stats = metricSummary.ttfb;
+  return stats
+    ? `Min ${formatNumber(stats.min, 4)} | Max ${formatNumber(stats.max, 4)} | Avg ${formatNumber(stats.avg, 4)} s`
+    : 'Min - | Max - | Avg -';
+}
+
+async function downloadOnePageCapture() {
+  if (networkData.length === 0) {
+    updateStatus('Load data before downloading a capture.');
+    return;
+  }
+
+  updateStatus('Generating high-quality one-page capture...');
+
+  try {
+    const pageWidth = 4200;
+    const pageHeight = 3000;
+    const margin = 70;
+    const colGap = 30;
+    const rowGap = 30;
+    const headerHeight = 220;
+    const chartWidth = (pageWidth - margin * 2 - colGap) / 2;
+    const chartHeight = 810;
+    const fullWidth = pageWidth - margin * 2;
+    const thirdRowY = headerHeight + (chartHeight + rowGap) * 2;
+    const thirdRowHeight = pageHeight - margin - thirdRowY;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = pageWidth;
+    canvas.height = pageHeight;
+    const ctx = canvas.getContext('2d');
+
+    const gradient = ctx.createLinearGradient(0, 0, pageWidth, pageHeight);
+    gradient.addColorStop(0, '#0a1020');
+    gradient.addColorStop(1, '#151c35');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, pageWidth, pageHeight);
+
+    ctx.fillStyle = '#eaf0ff';
+    ctx.font = '700 64px Inter';
+    ctx.fillText('Network Report', margin, 92);
+    ctx.fillStyle = '#9fb0d5';
+    ctx.font = '32px Inter';
+    ctx.fillText(
+      `Generated ${new Date().toLocaleString()} | Rows: ${networkData.length}`,
+      margin,
+      140
+    );
+
+    const placements = [
+      {id: 'bufferChart', title: 'Buffer Level Over Time', x: margin, y: headerHeight, w: chartWidth, h: chartHeight},
+      {
+        id: 'connectionReuseChart',
+        title: 'Connection Reuse Over Time',
+        x: margin + chartWidth + colGap,
+        y: headerHeight,
+        w: chartWidth,
+        h: chartHeight
+      },
+      {id: 'segmentChart', title: 'Segment Download Timeline', x: margin, y: headerHeight + chartHeight + rowGap, w: chartWidth, h: chartHeight},
+      {
+        id: 'bandwidthChart',
+        title: 'Bandwidth Over Time',
+        subtitle: getStatsLine('bandwidth'),
+        x: margin + chartWidth + colGap,
+        y: headerHeight + chartHeight + rowGap,
+        w: chartWidth,
+        h: chartHeight
+      },
+      {
+        id: 'ttfbChart',
+        title: 'TTFB Over Time',
+        subtitle: getStatsLine('ttfb'),
+        x: margin,
+        y: thirdRowY,
+        w: fullWidth,
+        h: thirdRowHeight
+      }
+    ];
+
+    for (const placement of placements) {
+      drawRoundedRect(
+        ctx,
+        placement.x,
+        placement.y,
+        placement.w,
+        placement.h,
+        16,
+        'rgba(255,255,255,0.06)',
+        'rgba(255,255,255,0.14)'
+      );
+
+      ctx.fillStyle = '#eaf0ff';
+      ctx.font = '600 30px Inter';
+      ctx.fillText(placement.title, placement.x + 18, placement.y + 42);
+
+      let chartTopInset = 56;
+      if (placement.subtitle) {
+        ctx.fillStyle = '#9fb0d5';
+        ctx.font = '24px Inter';
+        ctx.fillText(placement.subtitle, placement.x + 18, placement.y + 76);
+        chartTopInset = 92;
+      }
+
+      const imageDataUrl = await getChartImage(
+        placement.id,
+        Math.round(placement.w - 20),
+        Math.round(placement.h - (chartTopInset + 10))
+      );
+      const image = await loadDataUrlImage(imageDataUrl);
+      ctx.drawImage(
+        image,
+        placement.x + 10,
+        placement.y + chartTopInset,
+        placement.w - 20,
+        placement.h - (chartTopInset + 10)
+      );
+    }
+
+    const dataUrl = canvas.toDataURL('image/png', 1.0);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = dataUrl;
+    link.download = `network-dashboard${timestamp}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    updateStatus('High-quality capture downloaded.');
+  } catch (error) {
+    updateStatus('Failed to generate capture. Try plotting again and retry.');
+    console.error(error);
+  }
+}
+
+bindDropZone('networkDrop', 'networkFile', 'networkFileName');
+bindDropZone('burstDrop', 'burstFile', 'burstFileName');
+resetStats();
+</script>
+
+</body>
+</html>

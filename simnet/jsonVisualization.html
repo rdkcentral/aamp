@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network JSON Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1220;
+    --panel: #121a2b;
+    --panel-2: #1a2440;
+    --text: #e5ecff;
+    --muted: #9ab0e0;
+    --accent: #5ea0ff;
+    --accent-2: #4dd2a8;
+    --warn: #f7b955;
+    --danger: #ff6d8d;
+    --line: #263252;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: radial-gradient(circle at top right, #1a2a4c 0%, var(--bg) 45%);
+    color: var(--text);
+  }
+
+  main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, #17213a 0%, var(--panel) 100%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 150px;
+    resize: vertical;
+    background: #0e1628;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    color: var(--text);
+    font-size: 0.92rem;
+  }
+
+  .input-row,
+  .action-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  input[type="file"],
+  input[type="text"],
+  button {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #111a2d;
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 0.9rem;
+  }
+
+  input[type="text"] {
+    min-width: 220px;
+    flex: 1;
+  }
+
+  button {
+    cursor: pointer;
+    background: linear-gradient(180deg, #2d518d 0%, #274578 100%);
+  }
+
+  button:hover {
+    filter: brightness(1.08);
+  }
+
+  button.secondary {
+    background: #1c2743;
+  }
+
+  .status {
+    margin-top: 10px;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  .status.error {
+    color: var(--danger);
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .kpi {
+    padding: 12px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #1c2b4c 0%, var(--panel-2) 100%);
+    border: 1px solid #2f426f;
+  }
+
+  .kpi-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .kpi-value {
+    font-size: 1.24rem;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 14px;
+  }
+
+  .table-wrap {
+    max-height: 340px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    background: #1a2744;
+  }
+
+  th,
+  td {
+    padding: 10px;
+    border-bottom: 1px solid #223257;
+    text-align: left;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge.good {
+    background: rgba(77, 210, 168, 0.2);
+    color: var(--accent-2);
+  }
+
+  .badge.warn {
+    background: rgba(247, 185, 85, 0.2);
+    color: var(--warn);
+  }
+
+  .badge.risk {
+    background: rgba(255, 109, 141, 0.2);
+    color: var(--danger);
+  }
+
+  .raw-json {
+    max-height: 340px;
+    overflow: auto;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #0d1524;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  .chart {
+    height: 320px;
+  }
+
+  @media (max-width: 980px) {
+    .controls,
+    .content-grid,
+    .charts {
+      grid-template-columns: 1fr;
+    }
+
+    .kpi-grid {
+      grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="header">
+    <div>
+      <h1 class="title">Network JSON Dashboard</h1>
+      <p class="subtitle">
+        Load file or paste JSON to inspect throughput, RTT, burst and risk
+        metrics quickly.
+      </p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <section class="panel">
+      <label for="jsonInput">JSON Input</label>
+      <textarea id="jsonInput" placeholder="Paste network profile JSON here..."></textarea>
+      <div class="input-row">
+        <input type="file" id="jsonFile" accept=".json,application/json">
+        <button id="loadFromFileBtn">Load File</button>
+        <button class="secondary" id="loadFromTextBtn">Load Pasted JSON</button>
+      </div>
+      <div class="status" id="statusText">
+        Waiting for JSON input.
+      </div>
+    </section>
+
+    <section class="panel">
+      <label for="keyFilter">Find metric</label>
+      <div class="action-row">
+        <input type="text" id="keyFilter" placeholder="Filter by key name (e.g., rtt, burst, spike)">
+      </div>
+      <div class="action-row">
+        <button class="secondary" id="copyJsonBtn">Copy Pretty JSON</button>
+        <button class="secondary" id="downloadJsonBtn">Download Pretty JSON</button>
+        <button class="secondary" id="resetFilterBtn">Clear Filter</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="kpi-grid" id="kpiGrid"></section>
+
+  <div class="content-grid">
+    <section class="panel">
+      <h3>Metric Table</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Value</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="metricTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <h3>Raw JSON</h3>
+      <div class="raw-json" id="rawJsonView">No data loaded yet.</div>
+    </section>
+  </div>
+
+  <section class="charts">
+    <div class="panel"><div id="throughputChart" class="chart"></div></div>
+    <div class="panel"><div id="rttChart" class="chart"></div></div>
+    <div class="panel"><div id="ttfbChart" class="chart"></div></div>
+    <div class="panel"><div id="burstChart" class="chart"></div></div>
+    <div class="panel"><div id="connectionChart" class="chart"></div></div>
+    <div class="panel"><div id="riskRadarChart" class="chart"></div></div>
+  </section>
+</main>
+
+<script>
+  let jsonData = null;
+  let filteredKeys = [];
+
+  const REQUIRED_KEYS = [
+    "base_rtt_ms",
+    "mean_thr_mbps",
+    "p_conn_reuse",
+    "ttfb_spike_p",
+    "late_chunk_p"
+  ];
+
+  const statusText = document.getElementById("statusText");
+  const jsonInput = document.getElementById("jsonInput");
+  const keyFilter = document.getElementById("keyFilter");
+  const metricTableBody = document.getElementById("metricTableBody");
+  const rawJsonView = document.getElementById("rawJsonView");
+  const kpiGrid = document.getElementById("kpiGrid");
+
+  function setStatus(message, isError) {
+    statusText.textContent = message;
+    statusText.className = isError ? "status error" : "status";
+  }
+
+  function roundTo(value, decimals) {
+    if (!Number.isFinite(value)) {
+      return "-";
+    }
+    return Number(value).toFixed(decimals);
+  }
+
+  function percent(value) {
+    if (!Number.isFinite(value)) {
+      return "-";
+    }
+    return `${(value * 100).toFixed(2)}%`;
+  }
+
+  function parseJsonAndRender(content, sourceLabel) {
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      setStatus("Invalid JSON format. Please verify input.", true);
+      return;
+    }
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      setStatus("Input must be a JSON object with metric keys.", true);
+      return;
+    }
+
+    jsonData = parsed;
+    keyFilter.value = "";
+    filteredKeys = Object.keys(jsonData);
+    renderAll();
+
+    const missingKeys = REQUIRED_KEYS.filter((key) =>
+      jsonData[key] === undefined
+    );
+    if (missingKeys.length > 0) {
+      setStatus(
+        `Loaded from ${sourceLabel}. Missing recommended keys: ${missingKeys.join(", ")}`,
+        false
+      );
+    } else {
+      setStatus(`Loaded ${Object.keys(jsonData).length} metrics from ${sourceLabel}.`, false);
+    }
+  }
+
+  function classifyMetric(key, value) {
+    if (!Number.isFinite(value)) {
+      return { label: "Unknown", style: "warn" };
+    }
+
+    if (key.endsWith("_p")) {
+      if (value >= 0.1) {
+        return { label: "High", style: "risk" };
+      }
+      if (value >= 0.02) {
+        return { label: "Medium", style: "warn" };
+      }
+      return { label: "Low", style: "good" };
+    }
+
+    if (key.includes("rtt") || key.includes("jitter") || key.includes("penalty")) {
+      if (value >= 150) {
+        return { label: "High", style: "risk" };
+      }
+      if (value >= 60) {
+        return { label: "Medium", style: "warn" };
+      }
+      return { label: "Low", style: "good" };
+    }
+
+    if (key.includes("thr") && value < 10) {
+      return { label: "Low", style: "risk" };
+    }
+
+    return { label: "Normal", style: "good" };
+  }
+
+  function renderTable() {
+    metricTableBody.innerHTML = "";
+    const keys = filteredKeys.length > 0 ? filteredKeys : Object.keys(jsonData);
+
+    if (keys.length === 0) {
+      const row = document.createElement("tr");
+      row.innerHTML = "<td colspan='3'>No matching metrics for filter.</td>";
+      metricTableBody.appendChild(row);
+      return;
+    }
+
+    keys
+      .sort((left, right) => left.localeCompare(right))
+      .forEach((key) => {
+        const value = jsonData[key];
+        const status = classifyMetric(key, Number(value));
+        const row = document.createElement("tr");
+        const displayValue = Number.isFinite(Number(value))
+          ? roundTo(Number(value), 4)
+          : String(value);
+
+        row.innerHTML = `
+          <td>${key}</td>
+          <td>${displayValue}</td>
+          <td><span class="badge ${status.style}">${status.label}</span></td>
+        `;
+        metricTableBody.appendChild(row);
+      });
+  }
+
+  function renderKpis() {
+    const riskScore = [
+      Number(jsonData.ttfb_spike_p || 0),
+      Number(jsonData.late_chunk_p || 0),
+      Number(jsonData.capacity_drop_p || 0)
+    ].reduce((sum, value) => sum + value, 0) * 100;
+
+    const cards = [
+      {
+        label: "Mean Throughput",
+        value: `${roundTo(Number(jsonData.mean_thr_mbps), 2)} Mbps`
+      },
+      {
+        label: "Base RTT",
+        value: `${roundTo(Number(jsonData.base_rtt_ms), 2)} ms`
+      },
+      {
+        label: "Conn Reuse",
+        value: percent(Number(jsonData.p_conn_reuse))
+      },
+      {
+        label: "Burst + Delay Risk",
+        value: `${roundTo(riskScore, 2)} score`
+      }
+    ];
+
+    kpiGrid.innerHTML = cards
+      .map((card) => `
+        <div class="kpi">
+          <div class="kpi-label">${card.label}</div>
+          <div class="kpi-value">${card.value}</div>
+        </div>
+      `)
+      .join("");
+  }
+
+  function chartLayout(title) {
+    return {
+      title: { text: title, font: { color: "#d8e4ff", size: 16 } },
+      paper_bgcolor: "#121a2b",
+      plot_bgcolor: "#121a2b",
+      font: { color: "#d8e4ff" },
+      xaxis: { gridcolor: "#243357", zerolinecolor: "#243357" },
+      yaxis: { gridcolor: "#243357", zerolinecolor: "#243357" },
+      margin: { l: 50, r: 20, t: 48, b: 55 }
+    };
+  }
+
+  function plotCharts() {
+    Plotly.newPlot(
+      "throughputChart",
+      [{
+        x: ["Mean Mbps", "Sigma ln", "Rho"],
+        y: [
+          Number(jsonData.mean_thr_mbps),
+          Number(jsonData.thr_sigma_ln),
+          Number(jsonData.thr_rho)
+        ],
+        type: "bar",
+        marker: { color: ["#5ea0ff", "#7eb5ff", "#a4c9ff"] }
+      }],
+      chartLayout("Throughput")
+    );
+
+    Plotly.newPlot(
+      "rttChart",
+      [{
+        x: ["Base RTT", "RTT Jitter", "RTT Inflation", "Flush Jitter"],
+        y: [
+          Number(jsonData.base_rtt_ms),
+          Number(jsonData.rtt_jitter_ms),
+          Number(jsonData.rtt_inflation_ms),
+          Number(jsonData.flush_jitter_ms)
+        ],
+        type: "bar",
+        marker: { color: ["#4dd2a8", "#6dd5b2", "#8dd8bc", "#a9dcc8"] }
+      }],
+      chartLayout("RTT / Jitter (ms)")
+    );
+
+    Plotly.newPlot(
+      "ttfbChart",
+      [{
+        x: ["TTFB Spike P", "TTFB Spike ms", "New Conn Penalty ms"],
+        y: [
+          Number(jsonData.ttfb_spike_p),
+          Number(jsonData.ttfb_spike_ms),
+          Number(jsonData.new_conn_penalty_ms)
+        ],
+        type: "bar",
+        marker: { color: ["#f7b955", "#f2a948", "#eb9334"] }
+      }],
+      chartLayout("TTFB")
+    );
+
+    Plotly.newPlot(
+      "burstChart",
+      [{
+        x: ["Bursts/segment", "Burst CV", "Cadence ms", "Cadence Jitter ms"],
+        y: [
+          Number(jsonData.bursts_per_segment),
+          Number(jsonData.burst_bytes_cv),
+          Number(jsonData.cadence_ms),
+          Number(jsonData.cadence_jitter_ms)
+        ],
+        type: "bar",
+        marker: { color: ["#8fb0ff", "#749bf5", "#648ce3", "#577bd0"] }
+      }],
+      chartLayout("Burst Pattern")
+    );
+
+    Plotly.newPlot(
+      "connectionChart",
+      [{
+        labels: ["Reused", "New Connections"],
+        values: [
+          Number(jsonData.p_conn_reuse),
+          Math.max(0, 1 - Number(jsonData.p_conn_reuse || 0))
+        ],
+        type: "pie",
+        hole: 0.56,
+        marker: { colors: ["#4dd2a8", "#ff6d8d"] },
+        textinfo: "label+percent"
+      }],
+      {
+        title: { text: "Connection Reuse" },
+        paper_bgcolor: "#121a2b",
+        font: { color: "#d8e4ff" },
+        margin: { l: 10, r: 10, t: 40, b: 10 }
+      }
+    );
+
+    Plotly.newPlot(
+      "riskRadarChart",
+      [{
+        type: "scatterpolar",
+        r: [
+          Number(jsonData.ttfb_spike_p || 0) * 100,
+          Number(jsonData.late_chunk_p || 0) * 100,
+          Number(jsonData.capacity_drop_p || 0) * 100,
+          Number(jsonData.capacity_drop_factor || 0) * 100,
+          Number(jsonData.burst_bytes_cv || 0) * 100
+        ],
+        theta: [
+          "TTFB spikes",
+          "Late chunks",
+          "Capacity drops",
+          "Drop factor",
+          "Burst variance"
+        ],
+        fill: "toself",
+        line: { color: "#ff6d8d" },
+        fillcolor: "rgba(255,109,141,0.23)"
+      }],
+      {
+        title: { text: "Risk Radar" },
+        paper_bgcolor: "#121a2b",
+        font: { color: "#d8e4ff" },
+        polar: {
+          bgcolor: "#121a2b",
+          radialaxis: {
+            visible: true,
+            gridcolor: "#243357"
+          },
+          angularaxis: {
+            gridcolor: "#243357"
+          }
+        },
+        margin: { l: 30, r: 30, t: 40, b: 25 }
+      }
+    );
+  }
+
+  function renderRawJson() {
+    rawJsonView.textContent = JSON.stringify(jsonData, null, 2);
+  }
+
+  function renderAll() {
+    renderKpis();
+    renderTable();
+    renderRawJson();
+    plotCharts();
+  }
+
+  function updateFilter() {
+    if (!jsonData) {
+      return;
+    }
+    const token = keyFilter.value.trim().toLowerCase();
+    if (!token) {
+      filteredKeys = Object.keys(jsonData);
+    } else {
+      filteredKeys = Object.keys(jsonData).filter((key) =>
+        key.toLowerCase().includes(token)
+      );
+    }
+    renderTable();
+  }
+
+  document.getElementById("loadFromFileBtn").addEventListener("click", () => {
+    const file = document.getElementById("jsonFile").files[0];
+    if (!file) {
+      setStatus("Select a JSON file first.", true);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      parseJsonAndRender(String(event.target.result || ""), file.name);
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById("loadFromTextBtn").addEventListener("click", () => {
+    const text = jsonInput.value.trim();
+    if (!text) {
+      setStatus("Paste JSON content first.", true);
+      return;
+    }
+    parseJsonAndRender(text, "pasted input");
+  });
+
+  keyFilter.addEventListener("input", updateFilter);
+
+  document.getElementById("resetFilterBtn").addEventListener("click", () => {
+    keyFilter.value = "";
+    updateFilter();
+  });
+
+  document.getElementById("copyJsonBtn").addEventListener("click", async () => {
+    if (!jsonData) {
+      setStatus("Load JSON before copying.", true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(jsonData, null, 2));
+      setStatus("Pretty JSON copied to clipboard.", false);
+    } catch (error) {
+      setStatus("Clipboard access blocked. Copy manually from Raw JSON.", true);
+    }
+  });
+
+  document.getElementById("downloadJsonBtn").addEventListener("click", () => {
+    if (!jsonData) {
+      setStatus("Load JSON before downloading.", true);
+      return;
+    }
+    const content = JSON.stringify(jsonData, null, 2);
+    const blob = new Blob([content], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "network-profile.pretty.json";
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus("Downloaded pretty JSON.", false);
+  });
+</script>
+</body>
+</html>
