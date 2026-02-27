@@ -37,6 +37,8 @@
 
 using namespace testing;
 
+static constexpr uint32_t PLAYBACK_TIMESCALE{90000};
+
 AampConfig *gpGlobalConfig{nullptr};
 
 class MediaTrackTest : public MediaTrack
@@ -125,7 +127,7 @@ public:
 			this->mCachedFragment = new CachedFragment[3];
 			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
 		}
-		cachFragment->timeScale = 1;
+		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;

@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <memory>
 
 #include "AampUtils.h"
 #include "AampConfig.h"
@@ -188,6 +189,64 @@ protected:
 		AampLLDashServiceData dashData{};
 		dashData.lowLatencyMode = isEnabled;
 		mPrivateInstanceAAMP->SetLLDashServiceData(dashData);
+	}
+
+	/**
+	 * @brief Set up a TestableMediaTrack in chunk mode with an init fragment already injected
+	 *        and a media fragment queued with the given timescale.
+	 *
+	 * Configures low-latency / chunk mode, sets common mock expectations, creates the
+	 * track, injects an init fragment, then queues one media fragment whose timescale is
+	 * set to @p timeScale.  Returns a pair of the track and a pointer to the queued
+	 * (buffered) media fragment.
+	 */
+	std::pair<std::unique_ptr<TestableMediaTrack>, CachedFragment*>
+	SetUpChunkModeTrackWithMediaFragment(uint32_t timeScale)
+	{
+		SetLowLatencyMode(true);
+		mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+		mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+		mStreamAbstractionAAMP_MPD->trickplayMode = false;
+
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
+			.WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
+			.WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+			.WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+			.WillRepeatedly(Return(1));
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+			.WillRepeatedly(Return(1));
+		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
+
+		auto videoTrack = std::make_unique<TestableMediaTrack>(
+			eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD);
+
+		// Inject an init fragment (required before media fragments)
+		CachedFragment initFragment{};
+		initFragment.initFragment = true;
+		initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
+		CachedFragment* buf = videoTrack->GetFetchChunkBuffer(true);
+		videoTrack->numberOfFragmentChunksCached = 1;
+		buf->Copy(&initFragment);
+		EXPECT_TRUE(videoTrack->InjectFragment());
+
+		// Queue a media fragment with the requested timescale
+		CachedFragment mediaFragment{};
+		mediaFragment.initFragment = false;
+		mediaFragment.duration = FRAGMENT_DURATION.inSeconds();
+		mediaFragment.position = FIRST_PTS.inSeconds();
+		mediaFragment.timeScale = timeScale;
+		mediaFragment.uri = "test_segment.m4s";
+		mediaFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
+
+		buf = videoTrack->GetFetchChunkBuffer(true);
+		videoTrack->numberOfFragmentChunksCached = 1;
+		buf->Copy(&mediaFragment);
+
+		return {std::move(videoTrack), buf};
 	}
 };
 
@@ -838,51 +897,7 @@ TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 {
 	constexpr uint32_t kFragmentTimeScale{90000};
-	CachedFragment* bufferedFragment{nullptr};
-
-	// Configure low-latency mode since ProcessFragmentChunk is used for chunk-based injection
-	SetLowLatencyMode(true);
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-	mStreamAbstractionAAMP_MPD->trickplayMode = false;
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
-		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
-		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
-
-	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
-								  mStreamAbstractionAAMP_MPD};
-
-	// First inject an init fragment (required before media fragments)
-	CachedFragment initFragment{};
-	initFragment.initFragment = true;
-	initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
-	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&initFragment);
-	ASSERT_TRUE(videoTrack.InjectFragment());
-
-	// Now inject a media fragment with a valid timescale
-	CachedFragment testFragment{};
-	testFragment.initFragment = false;
-	testFragment.duration = FRAGMENT_DURATION.inSeconds();
-	testFragment.position = FIRST_PTS.inSeconds();
-	testFragment.timeScale = kFragmentTimeScale;
-	testFragment.uri = "test_segment.m4s";
-	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-
-	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
-	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&testFragment);
+	auto [videoTrack, bufferedFragment] = SetUpChunkModeTrackWithMediaFragment(kFragmentTimeScale);
 
 	// Key assertion: ParseChunkData should be called with the fragment's timescale
 	EXPECT_CALL(*g_mockIsoBmffBuffer,
@@ -890,7 +905,7 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 		.WillOnce(DoAll(SetArgReferee<5>(bufferedFragment->position),
 						SetArgReferee<6>(bufferedFragment->duration), Return(true)));
 
-	ASSERT_TRUE(videoTrack.InjectFragment());
+	ASSERT_TRUE(videoTrack->InjectFragment());
 }
 
 /**
@@ -904,54 +919,10 @@ TEST_F(MediaTrackTests, ProcessFragmentChunkUsesFragmentTimescale)
 TEST_F(MediaTrackTests, ProcessFragmentChunkWithZeroTimescale)
 {
 	constexpr uint32_t kZeroTimeScale{0};
-	CachedFragment* bufferedFragment{nullptr};
-
-	// Configure low-latency mode since ProcessFragmentChunk is used for chunk-based injection
-	SetLowLatencyMode(true);
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-	mStreamAbstractionAAMP_MPD->trickplayMode = false;
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
-		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
-		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
-
-	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
-								  mStreamAbstractionAAMP_MPD};
-
-	// First inject an init fragment (required before media fragments)
-	CachedFragment initFragment;
-	initFragment.initFragment = true;
-	initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
-	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&initFragment);
-	ASSERT_TRUE(videoTrack.InjectFragment());
-
-	// Now inject a media fragment with zero timescale (edge case)
-	CachedFragment testFragment;
-	testFragment.initFragment = false;
-	testFragment.duration = FRAGMENT_DURATION.inSeconds();
-	testFragment.position = FIRST_PTS.inSeconds();
-	testFragment.timeScale = kZeroTimeScale;
-	testFragment.uri = "test_segment.m4s";
-	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-
-	bufferedFragment = videoTrack.GetFetchChunkBuffer(true);
-	videoTrack.numberOfFragmentChunksCached = 1;
-	bufferedFragment->Copy(&testFragment);
+	auto [videoTrack, bufferedFragment] = SetUpChunkModeTrackWithMediaFragment(kZeroTimeScale);
 
 	// When timescale is 0, ProcessFragmentChunk returns early without calling ParseChunkData
 	EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _)).Times(0);
 
-	ASSERT_TRUE(videoTrack.InjectFragment());
+	ASSERT_TRUE(videoTrack->InjectFragment());
 }
