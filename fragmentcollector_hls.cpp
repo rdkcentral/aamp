@@ -3299,7 +3299,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	{
 		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.size(), this->mainManifest.data());
+			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.size(), reinterpret_cast<const char*>(this->mainManifest.data()));
 		}
 
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
@@ -3338,7 +3338,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if(mainManifestResult == eAAMPSTATUS_MANIFEST_CONTENT_ERROR || mainManifestResult == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
 			{ // use printf to avoid 2048 char syslog limitation
 				// Dump the invalid manifest content before reporting error
-				printf("ERROR: Invalid Main Manifest : %.*s\n", (int)this->mainManifest.size(), this->mainManifest.data() );
+				printf("ERROR: Invalid Main Manifest : %.*s\n", (int)this->mainManifest.size(), reinterpret_cast<const char*>(this->mainManifest.data()) );
 				return mainManifestResult;
 			}
 		}
@@ -3597,7 +3597,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				bool playContextConfigured = false;
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
-					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.size(), ts->playlist.data() );
+					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.size(), reinterpret_cast<const char*>(ts->playlist.data()) );
 				}
 				// Flag also denotes if first encrypted init fragment was pushed or not
 				ts->mCheckForInitialFragEnc = true; //force encrypted header at the start

@@ -115,7 +115,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 {
 	namespace aih = aamp::id3_metadata::helpers;
 
-	if (data.capacity() != 0)
+	if (!data.empty())
 	{
 		const size_t data_len = data.size();
 		uint8_t *seg_buffer = const_cast<uint8_t *>(data.data());
