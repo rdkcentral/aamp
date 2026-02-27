@@ -3846,28 +3846,30 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		*/
 		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
 		// mpStreamAbstractionAAMP not null & IsEOSReached()
-		if( TryStreamLock() )
 		{
-			int ret = false;
-			if(!mpStreamAbstractionAAMP)
+			std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+			if( lock.owns_lock() )
 			{
-				AAMPLOG_ERR("null Stream Abstraction AAMP");
-				ret = true;
+				int ret = false;
+				if(!mpStreamAbstractionAAMP)
+				{
+					AAMPLOG_ERR("null Stream Abstraction AAMP");
+					ret = true;
+				}
+				else if (!mpStreamAbstractionAAMP->IsEOSReached())
+				{
+					AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
+					ret = true;
+				}
+				if (ret)
+				{
+					return; // lock released automatically
+				}
 			}
-			else if (!mpStreamAbstractionAAMP->IsEOSReached())
+			else
 			{
-				AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
-				ret = true;
+				AAMPLOG_WARN("StreamLock not available");
 			}
-			ReleaseStreamLock();
-			if (ret)
-			{
-				return;
-			}
-		}
-		else
-		{
-			AAMPLOG_WARN("StreamLock not available");
 		}
 
 		if (!isLive && rate > AAMP_RATE_PAUSE)
@@ -4573,7 +4575,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			// Early abort and profile bps are relevant only for video fragments
 			if (mediaType == eMEDIATYPE_VIDEO)
 			{
-				if (TryStreamLock())
+				std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+				if (lock.owns_lock())
 				{
 					if (mpStreamAbstractionAAMP)
 					{
@@ -4587,7 +4590,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// Default values set in CurlCallbackContext constructor
 						AAMPLOG_WARN("StreamAbstractionAAMP is NULL");
 					}
-					ReleaseStreamLock();
 				}
 				else
 				{
@@ -7590,47 +7592,48 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		if(mpStreamAbstractionAAMP)
-	{
-		AAMPLOG_TRACE("Entering PrivateInstanceAAMP");
-		std::vector<StreamInfo*> data = mpStreamAbstractionAAMP->GetAvailableThumbnailTracks();
-		cJSON *root;
-		cJSON *item;
-		if(!data.empty())
 		{
-			root = cJSON_CreateArray();
-			if(root)
+			AAMPLOG_TRACE("Entering PrivateInstanceAAMP");
+			std::vector<StreamInfo*> data = mpStreamAbstractionAAMP->GetAvailableThumbnailTracks();
+			cJSON *root;
+			cJSON *item;
+			if(!data.empty())
 			{
-				for( int i = 0; i < data.size(); i++)
+				root = cJSON_CreateArray();
+				if(root)
 				{
-					cJSON_AddItemToArray(root, item = cJSON_CreateObject());
-					if(data[i]->bandwidthBitsPerSecond >= 0)
+					for( int i = 0; i < data.size(); i++)
 					{
-						char buf[32];
-						snprintf(buf,sizeof(buf), "%dx%d",data[i]->resolution.width,data[i]->resolution.height);
-						cJSON_AddStringToObject(item,"RESOLUTION",buf);
-						cJSON_AddNumberToObject(item,"BANDWIDTH",data[i]->bandwidthBitsPerSecond);
+						cJSON_AddItemToArray(root, item = cJSON_CreateObject());
+						if(data[i]->bandwidthBitsPerSecond >= 0)
+						{
+							char buf[32];
+							snprintf(buf,sizeof(buf), "%dx%d",data[i]->resolution.width,data[i]->resolution.height);
+							cJSON_AddStringToObject(item,"RESOLUTION",buf);
+							cJSON_AddNumberToObject(item,"BANDWIDTH",data[i]->bandwidthBitsPerSecond);
+						}
 					}
-				}
-				char *jsonStr = cJSON_Print(root);
-				if (jsonStr)
-				{
-					op.assign(jsonStr);
-					free(jsonStr);
-				}
-
-				{
-					char * tracks_str = cJSON_PrintUnformatted(root);
-					if (tracks_str)
+					char *jsonStr = cJSON_Print(root);
+					if (jsonStr)
 					{
-						AAMPLOG_TRACE(" Current ThumbnailTracks: %s .", tracks_str);
+						op.assign(jsonStr);
+						free(jsonStr);
 					}
-					cJSON_free(tracks_str);
-				}
 
-				cJSON_Delete(root);
+					{
+						char * tracks_str = cJSON_PrintUnformatted(root);
+						if (tracks_str)
+						{
+							AAMPLOG_TRACE(" Current ThumbnailTracks: %s .", tracks_str);
+						}
+						cJSON_free(tracks_str);
+					}
+
+					cJSON_Delete(root);
+				}
 			}
+			AAMPLOG_TRACE("In PrivateInstanceAAMP::Json string:%s",op.c_str());
 		}
-		AAMPLOG_TRACE("In PrivateInstanceAAMP::Json string:%s",op.c_str());
 	}
 	return op;
 }
@@ -7644,53 +7647,52 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		if(mpStreamAbstractionAAMP && mthumbIndexValue != -1)
-	{
-		std::string baseurl;
-		int raw_w = 0, raw_h = 0, width = 0, height = 0;
-		std::vector<ThumbnailData> datavec = mpStreamAbstractionAAMP->GetThumbnailRangeData(tStart, tEnd, &baseurl, &raw_w, &raw_h, &width, &height);
-		cJSON *root = cJSON_CreateObject();
-		if(!baseurl.empty())
 		{
-			cJSON_AddStringToObject(root,"baseUrl",baseurl.c_str());
-		}
-		if(raw_w > 0)
-		{
-			cJSON_AddNumberToObject(root,"raw_w",raw_w);
-		}
-		if(raw_h > 0)
-		{
-			cJSON_AddNumberToObject(root,"raw_h",raw_h);
-		}
-		cJSON_AddNumberToObject(root,"width",width);
-		cJSON_AddNumberToObject(root,"height",height);
-
-		cJSON *tile = cJSON_AddArrayToObject(root,"tile");
-		for( const ThumbnailData &iter : datavec )
-		{
-			cJSON *item;
-			cJSON_AddItemToArray(tile, item = cJSON_CreateObject() );
-			if(!iter.url.empty())
+			std::string baseurl;
+			int raw_w = 0, raw_h = 0, width = 0, height = 0;
+			std::vector<ThumbnailData> datavec = mpStreamAbstractionAAMP->GetThumbnailRangeData(tStart, tEnd, &baseurl, &raw_w, &raw_h, &width, &height);
+			cJSON *root = cJSON_CreateObject();
+			if(!baseurl.empty())
 			{
-				cJSON_AddStringToObject(item,"url",iter.url.c_str());
+				cJSON_AddStringToObject(root,"baseUrl",baseurl.c_str());
 			}
-			cJSON_AddNumberToObject(item,"t",iter.t);
-			cJSON_AddNumberToObject(item,"d",iter.d);
-			cJSON_AddNumberToObject(item,"x",iter.x);
-			cJSON_AddNumberToObject(item,"y",iter.y);
-		}
-		char *jsonStr = cJSON_Print(root);
-		if( jsonStr )
-		{
-			rc.assign( jsonStr );
-		}
-		cJSON_Delete(root);
-	}
-	else if (mthumbIndexValue == -1)
-	{
-		AAMPLOG_WARN("No thumbnail track is currently selected: no information is available.");
-	}
+			if(raw_w > 0)
+			{
+				cJSON_AddNumberToObject(root,"raw_w",raw_w);
+			}
+			if(raw_h > 0)
+			{
+				cJSON_AddNumberToObject(root,"raw_h",raw_h);
+			}
+			cJSON_AddNumberToObject(root,"width",width);
+			cJSON_AddNumberToObject(root,"height",height);
 
-	ReleaseStreamLock();
+			cJSON *tile = cJSON_AddArrayToObject(root,"tile");
+			for( const ThumbnailData &iter : datavec )
+			{
+				cJSON *item;
+				cJSON_AddItemToArray(tile, item = cJSON_CreateObject() );
+				if(!iter.url.empty())
+				{
+					cJSON_AddStringToObject(item,"url",iter.url.c_str());
+				}
+				cJSON_AddNumberToObject(item,"t",iter.t);
+				cJSON_AddNumberToObject(item,"d",iter.d);
+				cJSON_AddNumberToObject(item,"x",iter.x);
+				cJSON_AddNumberToObject(item,"y",iter.y);
+			}
+			char *jsonStr = cJSON_Print(root);
+			if( jsonStr )
+			{
+				rc.assign( jsonStr );
+			}
+			cJSON_Delete(root);
+		}
+		else if (mthumbIndexValue == -1)
+		{
+			AAMPLOG_WARN("No thumbnail track is currently selected: no information is available.");
+		}
+	}
 	return rc;
 }
 
@@ -7803,41 +7805,43 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
 	AAMPPlayerState state = GetState();
-	if( TryStreamLock() )
 	{
-		switch( mMediaFormat )
+		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+		if( lock.owns_lock() )
 		{
-			case eMEDIAFORMAT_OTA:
-			case eMEDIAFORMAT_HDMI:
-			case eMEDIAFORMAT_COMPOSITE:
-			case eMEDIAFORMAT_RMF:
-				if( mpStreamAbstractionAAMP )
-				{
-					mpStreamAbstractionAAMP->SetVideoRectangle(x, y, w, h);
-				}
-				break;
-			default: // IP Playback
-				if( state > eSTATE_PREPARING)
-				{
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-					if (sink)
+			switch( mMediaFormat )
+			{
+				case eMEDIAFORMAT_OTA:
+				case eMEDIAFORMAT_HDMI:
+				case eMEDIAFORMAT_COMPOSITE:
+				case eMEDIAFORMAT_RMF:
+					if( mpStreamAbstractionAAMP )
 					{
-						sink->SetVideoRectangle(x, y, w, h);
+						mpStreamAbstractionAAMP->SetVideoRectangle(x, y, w, h);
 					}
-				}
-				else
-				{
-					AAMPLOG_INFO("state: %d", state );
-					UpdateVideoRectangle (x, y, w, h);
-				}
-				break;
+					break;
+				default: // IP Playback
+					if( state > eSTATE_PREPARING)
+					{
+						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+						if (sink)
+						{
+							sink->SetVideoRectangle(x, y, w, h);
+						}
+					}
+					else
+					{
+						AAMPLOG_INFO("state: %d", state );
+						UpdateVideoRectangle (x, y, w, h);
+					}
+					break;
+			}
 		}
-		ReleaseStreamLock();
-	}
-	else
-	{
-		AAMPLOG_INFO("StreamLock not available; state: %d", state );
-		UpdateVideoRectangle (x, y, w, h);
+		else
+		{
+			AAMPLOG_INFO("StreamLock not available; state: %d", state );
+			UpdateVideoRectangle (x, y, w, h);
+		}
 	}
 }
 /**
@@ -7861,24 +7865,26 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	video_muted = muted;
 
 	//If lock could not be acquired, then cache it
-	if (TryStreamLock())
 	{
-		if (mpStreamAbstractionAAMP)
+		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+		if (lock.owns_lock())
 		{
-			SetVideoMuteInternal(muted); // hide/show video plane
-			SetCCStatusInternal();
+			if (mpStreamAbstractionAAMP)
+			{
+				SetVideoMuteInternal(muted); // hide/show video plane
+				SetCCStatusInternal();
+			}
+			else
+			{
+				AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+				mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
+			}
 		}
 		else
 		{
-			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-			mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
+			AAMPLOG_WARN("StreamLock is not available, value has been cached");
+			mApplyCachedVideoMute = true;
 		}
-		ReleaseStreamLock();
-	}
-	else
-	{
-		AAMPLOG_WARN("StreamLock is not available, value has been cached");
-		mApplyCachedVideoMute = true;
 	}
 }
 
@@ -9739,13 +9745,15 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
  */
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
 {
-	if(TryStreamLock())
 	{
-		if (mpStreamAbstractionAAMP)
+		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+		if(lock.owns_lock())
 		{
-			mpStreamAbstractionAAMP->StartSubtitleParser();
+			if (mpStreamAbstractionAAMP)
+			{
+				mpStreamAbstractionAAMP->StartSubtitleParser();
+			}
 		}
-		ReleaseStreamLock();
 	}
 }
 
@@ -9755,13 +9763,15 @@ void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
  */
 void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
-	if(TryStreamLock())
 	{
-		if (mpStreamAbstractionAAMP)
+		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+		if(lock.owns_lock())
 		{
-			mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+			if (mpStreamAbstractionAAMP)
+			{
+				mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+			}
 		}
-		ReleaseStreamLock();
 	}
 }
 
@@ -11827,25 +11837,25 @@ int PrivateInstanceAAMP::GetTextTrack()
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		if (PlayerCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
-	{
-		std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
-		if (!trackId.empty())
 		{
-			std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-			for (auto it = tracks.begin(); it != tracks.end(); it++)
+			std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
+			if (!trackId.empty())
 			{
-				if (it->instreamId == trackId)
+				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+				for (auto it = tracks.begin(); it != tracks.end(); it++)
 				{
-					idx = static_cast<int>( std::distance(tracks.begin(), it) );
+					if (it->instreamId == trackId)
+					{
+						idx = static_cast<int>( std::distance(tracks.begin(), it) );
+					}
 				}
 			}
 		}
+		if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
+		{
+			idx = mpStreamAbstractionAAMP->GetTextTrack();
+		}
 	}
-	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted.load())
-	{
-		idx = mpStreamAbstractionAAMP->GetTextTrack();
-	}
-	ReleaseStreamLock();
 	return idx;
 }
 
@@ -11885,7 +11895,6 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 			SetSubtitleMuteInternal(mute_subtitles_applied);
 		}
 	}
-	ReleaseStreamLock();
 }
 
 /**
@@ -12792,8 +12801,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					discardEnteringLiveEvt = true;
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 					mLanguageChangeInProgress = true;
-					AcquireStreamLock();
-					if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
+					{
+						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+						if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || mMediaFormat == eMEDIAFORMAT_DASH )  && !codecChange)
 					{
 						AAMPLOG_WARN("Seamless audio switch has been enabled");
 						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);
@@ -12841,8 +12851,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							TuneHelper(eTUNETYPE_SEEKTOLIVE);
 						}
 					}
-					discardEnteringLiveEvt = false;
-					ReleaseStreamLock();
+						discardEnteringLiveEvt = false;
+					}
 				}
 				else if(!trackIndexStr.empty())
 				{
@@ -13269,9 +13279,10 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
-				AcquireStreamLock();
+				{
+					std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 
-				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
 					AAMPLOG_WARN("Seamless Text switch has been enabled");
 					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
@@ -13332,7 +13343,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 
 					discardEnteringLiveEvt = false;
 				}
-				ReleaseStreamLock();
+				}
 			}
 			if (closedCaptionTrackId >= 0)
 			{

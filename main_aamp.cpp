@@ -897,9 +897,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
-						aamp->AcquireStreamLock();
-						aamp->TuneHelper(eTUNETYPE_SEEK, false);
-						aamp->ReleaseStreamLock();
+						{
+							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
 					}
 					else
 					{
