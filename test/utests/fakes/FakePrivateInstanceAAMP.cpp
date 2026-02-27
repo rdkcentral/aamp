@@ -1381,21 +1381,24 @@ void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, Aamp
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
 		g_mockPrivateInstanceAAMP->SetVidTimeScale(vidTimeScale);
 	}
 }
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
 		g_mockPrivateInstanceAAMP->SetAudTimeScale(audTimeScale);
 	}
 }
 
 void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
 		g_mockPrivateInstanceAAMP->SetSubTimeScale(subTimeScale);
 	}
 }

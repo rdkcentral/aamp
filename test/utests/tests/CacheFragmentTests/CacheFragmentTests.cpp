@@ -327,6 +327,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunk));
 			if(init)
 			{
+				EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 				EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 				EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(90000), Return(true)));
 				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVidTimeScale(_)).Times(AtLeast(1));

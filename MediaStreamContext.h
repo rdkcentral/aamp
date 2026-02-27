@@ -152,18 +152,18 @@ public:
      * @brief Transfer buffer data into a CachedFragment using the appropriate
      *        semantics for the caching mode.
      *
-     * Fragment mode: move/transfer payload from the download buffer into the
-     *                CachedFragment, releasing the source buffer afterwards.
-     * Chunk mode: attach/transfer payload originating from a CURL-provided
-     *             chunk buffer into the CachedFragment.
+     * Fragment mode: zero-copy move via Replace() from the download buffer
+     *                into the CachedFragment, leaving the source empty.
+     * Chunk mode: assign payload from an ephemeral CURL-provided chunk buffer
+     *             into the CachedFragment.
      *
      * @param[out] cached        Destination CachedFragment whose fragment buffer
      *                           will be populated.
      * @param[in]  chunkPayload  Pointer to chunk data (chunk mode only, may be nullptr).
      * @param[in]  downloadBuffer Source growable buffer (fragment mode only, may be nullptr).
      * @param[in]  payloadSize   Size of chunk payload in bytes (chunk mode only).
-     * @param[in]  isChunkMode   true for chunk mode (use chunkPayload), false for
-     *                           fragment mode (use downloadBuffer).
+     * @param[in]  isChunkMode   true for chunk (assign from pointer), false for
+     *                           fragment (Replace from download buffer).
      */
     static void TransferFragmentBuffer(CachedFragment* cached,
                                        const char* chunkPayload,
@@ -182,14 +182,14 @@ public:
      *       - Chunk mode: set by the caller immediately
      *
      * @param[out] cached        Destination CachedFragment to populate.
-     * @param[in]  url           Fragment URL (for debug/logging).
+     * @param[in]  url           Fragment URL (moved into cached->uri).
      * @param[in]  mediaType     The AampMediaType of this fragment.
      * @param[in]  profileIndex  ABR profile index.
      * @param[in]  isInitSegment true if this is an initialisation segment.
      * @param[in]  isDiscontinuity true if a PTS discontinuity precedes this fragment.
      */
     static void PopulateCommonMetadata(CachedFragment* cached,
-                                       const std::string& url,
+                                       std::string url,
                                        AampMediaType mediaType,
                                        int profileIndex,
                                        bool isInitSegment,

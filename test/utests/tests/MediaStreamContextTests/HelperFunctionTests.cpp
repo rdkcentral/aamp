@@ -124,13 +124,13 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AssignsData)
 }
 
 /**
- * @brief Fragment mode: download buffer data is assigned to the cached fragment.
+ * @brief Fragment mode: Replace is called to move download buffer data.
  *
  * Verifies that when isChunkMode is false and a download buffer is
- * provided, the data is copied into the destination and the source
- * buffer is freed.
+ * provided, the data is moved via Replace() (zero-copy). The source
+ * buffer is emptied and the destination receives the data.
  */
-TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_CopiesAndFreesBuffer)
+TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_ReplacesBuffer)
 {
 	CachedFragment cached;
 	AampGrowableBuffer downloadBuffer("test-download");

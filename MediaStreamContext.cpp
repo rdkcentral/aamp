@@ -69,7 +69,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
-	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, discontinuity);
+	PopulateCommonMetadata(cachedFragment, std::move(fragmentUrl), actualType, 0, initSegment, discontinuity);
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->absPosition = 0;
 	if (mActiveDownloadInfo)
@@ -203,7 +203,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 			AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
 			return false;
 		}
-		PopulateCommonMetadata(cachedFragment, remoteUrl, actualType, 0, false, false);
+		PopulateCommonMetadata(cachedFragment, std::move(remoteUrl), actualType, 0, false, false);
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
 		cachedFragment->absPosition = 0;
 		cachedFragment->downloadStartTime = dnldStartTime;
@@ -256,13 +256,14 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
  *  @brief Transfer buffer data into a CachedFragment.
  *
  *  In chunk mode the data is assigned directly from the CURL callback pointer.
- *  In fragment mode the download buffer contents are assigned and the source is freed.
+ *  In fragment mode the download buffer is moved (zero-copy) into the cached
+ *  fragment via Replace(), leaving the source empty.
  *
  *  @param[out] cached         Destination CachedFragment.
  *  @param[in]  chunkPayload   Chunk data pointer (chunk mode only).
  *  @param[in]  downloadBuffer Source growable buffer (fragment mode only).
  *  @param[in]  payloadSize    Chunk payload size in bytes.
- *  @param[in]  isChunkMode    true = assign from raw pointer, false = assign from download buffer.
+ *  @param[in]  isChunkMode    true = assign from raw pointer, false = Replace from download buffer.
  */
 void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
                                                 const char* chunkPayload,
@@ -272,15 +273,23 @@ void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
 {
 	if (isChunkMode)
 	{
+		if (payloadSize == 0)
+		{
+			return;
+		}
+
+		if (chunkPayload == nullptr)
+		{
+			return;
+		}
+
 		cached->fragment.assign(chunkPayload, chunkPayload + payloadSize);
 	}
 	else
 	{
 		if (downloadBuffer)
 		{
-			cached->fragment.assign(downloadBuffer->data(),
-									downloadBuffer->data() + downloadBuffer->size());
-			downloadBuffer->Free();
+			cached->fragment.Replace(downloadBuffer);
 		}
 	}
 }
@@ -294,14 +303,14 @@ void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
  *    - Chunk mode: set by the caller immediately after this helper returns
  *
  *  @param[out] cached          Destination CachedFragment.
- *  @param[in]  url             Fragment URL (debug/logging).
+ *  @param[in]  url             Fragment URL (moved into cached->uri).
  *  @param[in]  mediaType       AampMediaType of this fragment.
  *  @param[in]  profileIndex    ABR profile index.
  *  @param[in]  isInitSegment   true for init segments.
  *  @param[in]  isDiscontinuity true when a PTS discontinuity precedes this fragment.
  */
 void MediaStreamContext::PopulateCommonMetadata(CachedFragment* cached,
-                                                const std::string& url,
+                                                std::string url,
                                                 AampMediaType mediaType,
                                                 int profileIndex,
                                                 bool isInitSegment,
@@ -309,7 +318,7 @@ void MediaStreamContext::PopulateCommonMetadata(CachedFragment* cached,
 {
 	cached->type = mediaType;
 	cached->initFragment = isInitSegment;
-	cached->uri = url;
+	cached->uri = std::move(url);
 	cached->profileIndex = profileIndex;
 	cached->discontinuity = isDiscontinuity;
 }
