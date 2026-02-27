@@ -160,7 +160,7 @@ typedef enum
 														AAMP does not interfere with trickplay muting, parental
 														control gating, or CC track selection.
 														On platforms without XREReceiver, set to true so AAMP
-														takes over the full CC lifecycle. 
+														takes over the full CC lifecycle.
 														Note: Regardless of this flag, AAMP's CC APIs still
 														route through PlayerCCManager and apps must refrain from
 														using them when the flag is set to false.*/
