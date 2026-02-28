@@ -388,7 +388,7 @@ void AampTSBSessionManager::NotifyVideoTsbWaiters()
 void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
-	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
+	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb || mStopThread_.load(); });
 	mStopWaitingForVideoTsb = false;
 }
 
@@ -537,6 +537,12 @@ void AampTSBSessionManager::Flush()
 	{
 		// Notify the monitor thread in case it's waiting
 		mWriteThreadCV.notify_one();
+		// Unblock any TsbReader thread waiting for new video TSB content
+		{
+			std::unique_lock<std::mutex> lock(mReadMutex);
+			mStopWaitingForVideoTsb = true;
+			mNewVideoTsbContentCV.notify_all();
+		}
 		if (mWriteThread.joinable())
 		{
 			mWriteThread.join();

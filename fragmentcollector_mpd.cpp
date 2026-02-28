@@ -10018,7 +10018,10 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 					else
 					{
-						AAMPLOG_WARN("No segment found for rate <= AAMP_NORMAL_PLAY_RATE");
+						// Unexpected: no segment found at normal/slow rate outside of EOS. Sleep to
+						// avoid a tight loop and throttle log output until the condition resolves.
+						AAMPLOG_TRACE("No segment found for rate <= AAMP_NORMAL_PLAY_RATE, retrying");
+						aamp->interruptibleMsSleep(50);
 					}
 				}
 			} // Loop 2 : TSB FetchLoop
@@ -10493,6 +10496,13 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		abortTsbReader = true;
 		// Signal TsbReader thread to exit wait for manifest update if waiting
 		AbortWaitForManifestUpdate();
+		// Unblock TsbReader if it is waiting for new video TSB content (e.g. during FF
+		// on local AAMP TSB where DisableDownloads is not called and therefore
+		// NotifyVideoTsbWaiters is not triggered via the downloads-disabled path).
+		if (AampTSBSessionManager *tsbMgr = aamp->GetTSBSessionManager())
+		{
+			tsbMgr->NotifyVideoTsbWaiters();
+		}
 		tsbReaderThreadID.join();
 		AAMPLOG_INFO("Joined tsbReaderThreadID");
 	}
