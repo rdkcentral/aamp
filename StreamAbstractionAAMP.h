@@ -1732,9 +1732,13 @@ public:
 	/**
 	 * @fn StopUnderflowMonitor
 	 * @brief Stop UnderflowMonitor Thread.
+	 * @note Must be called before Stop() or before destroying the StreamAbstractionAAMP
+	 *       instance. The underflow monitor holds raw pointers back into the stream and
+	 *       the AAMP instance; stopping it joins the background thread and prevents any
+	 *       use-after-free that would otherwise arise during teardown.
 	 * @return void
 	 */
-	void StopUnderflowMonitor();
+	virtual void StopUnderflowMonitor();
 
 	/**
 	 * @fn IsUnderflowMonitorRunning
