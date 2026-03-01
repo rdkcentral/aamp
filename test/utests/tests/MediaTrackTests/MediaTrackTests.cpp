@@ -63,7 +63,7 @@ AampConfig* gpGlobalConfig{nullptr};
 MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
 {
 	const AampGrowableBuffer& buffer = bufferStdConstRef.get();
-	return std::memcmp(arg.GetPtr(), buffer.GetPtr(), buffer.size()) == 0;
+	return std::memcmp(arg.GetPtr(), buffer.data(), buffer.size()) == 0;
 }
 
 MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
