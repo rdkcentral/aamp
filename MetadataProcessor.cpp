@@ -118,10 +118,9 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 	if (!data.empty())
 	{
 		const size_t data_len = data.size();
-		uint8_t *seg_buffer = const_cast<uint8_t *>(data.data());
 
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(seg_buffer, data_len);
+		buffer.setBuffer(data.data(), data_len);
 		buffer.parseBuffer();
 		if (!buffer.isInitSegment())
 		{
