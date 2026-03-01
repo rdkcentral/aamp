@@ -2716,28 +2716,47 @@ XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
 
 ## Inband (CEA608/708) Closed Caption Management (modern UVE/AAMP API)
 
-Configure nativeCCRendering to true to signal use of subtec for caption rendering. 
-```
+Whether AAMP manages CC visibility and styles directly depends on the platform.
+On **X1 devices**, CC is owned by **XREReceiver**, which runs independently of AAMP.
+`nativeCCRendering` must remain `false` (the default) so AAMP does not interfere with
+XREReceiver's trickplay muting, parental control gating, or style management.
+On **platforms without XREReceiver**, the app must set `nativeCCRendering: true` to
+hand AAMP ownership of the CC lifecycle via `PlayerCCManager`. Apps must refrain from
+using AAMP CC APIs when `nativeCCRendering` is set to false.
+
+### Platform Summary
+
+| Device Class | `nativeCCRendering` | `player.setTextStyleOptions` |
+|---|---|---|
+| X1 (XREReceiver present) | `false` (default — do not set to true) | Do **not** call AAMP CC APIs; XREReceiver owns CC visibility and styling and applies guide-configured styles automatically |
+| Non-XRE but pre-ENT-OS | `true` (must be explicitly enabled) | Required to apply caption styling; guide settings are not automatically propagated |
+| ENT-OS (with Text Track plugin) | `true` | Not required; Text Track plugin automatically maps guide-configured caption styling |
+
+### Configuration
+
+For non-XRE platforms, opt AAMP into managing CC before calling `load()`:
+```js
 player.initConfig( { nativeCCRendering: true } );
+```
 
+### Runtime CC Control
+
+Toggle CC display on or off:
+```js
+player.setClosedCaptionStatus(true);  // show captions (off by default)
+player.setClosedCaptionStatus(false); // hide captions
 ```
-Toggle CC display on or off at runtime:
-```
-player.setClosedCaptionStatus(true); // show captions (off by default)
-player.setClosedCaptionStatus(false); // mute captions
-```
-Get/Set CC track at runtime:
-```
-player.getTextTrack(); // returns json object listing track attributes
+
+Get/Set CC track:
+```js
+player.getTextTrack();             // returns JSON object listing track attributes
 player.setTextTrack(trackIdentifier);
-
-Get/Set CC style options at runtime
 ```
-player.getTextStyleOptions(); // returns JSON object reflecting currently styling options
-player.setTextStyleOptions(options); // TODO: include examples known to work with RDK CC Manager and/or subtec
 
-On newer devices there is no need to call setTextStyleOptions, as the Text Track plugin will automatically map guide-configured caption styling.
-
+Get/Set CC style options:
+```js
+player.getTextStyleOptions();      // returns JSON object reflecting current styling options
+player.setTextStyleOptions(options); // set styling options (see setTextStyleOptions API for format)
 ```
 
 ---

@@ -2114,16 +2114,6 @@ TEST_F(TrackStateTests, EnterTimedWaitForPlaylistRefreshTests)
     TrackStateobj->EnterTimedWaitForPlaylistRefresh(-22);
 }
 
-TEST_F(TrackStateTests, AbortFragmentDownloaderWaitTests)
-{
-    TrackStateobj->AbortFragmentDownloaderWait();
-}
-
-TEST_F(TrackStateTests, WaitForManifestUpdateTests)
-{
-    TrackStateobj->WaitForManifestUpdate();
-}
-
 TEST_F(TrackStateTests, GetBufferStatusTest)
 {
     // Call the function under test
@@ -2147,11 +2137,6 @@ TEST_F(TrackStateTests, ProcessFragmentChunkTests)
 {
     double result = TrackStateobj->ProcessFragmentChunk();
     ASSERT_FALSE(result);
-}
-
-TEST_F(TrackStateTests, NotifyFragmentCollectorWaittest)
-{
-    TrackStateobj->NotifyFragmentCollectorWait();
 }
 
 TEST_F(TrackStateTests, GetTotalInjectedDurationtest)

@@ -102,7 +102,7 @@ void MediaTrack::StopPlaylistDownloaderThread()
 	{
 		abortPlaylistDownloader = true;
 		AbortWaitForPlaylistDownload();
-		AbortFragmentDownloaderWait();
+		AbortWaitForManifestUpdate();
 		playlistDownloaderThread->join();
 		SAFE_DELETE(playlistDownloaderThread);
 		AAMPLOG_WARN("[%s] Aborted", name);
@@ -2047,8 +2047,8 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
-		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
-		,frDownloadWait(),prevDownloadStartTime(-1)
+		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
+		,mManifestUpdateWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
@@ -4268,7 +4268,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 		if (track && track->enabled)
 		{
 			track->AbortWaitForPlaylistDownload();
-			track->AbortFragmentDownloaderWait();
+			track->AbortWaitForManifestUpdate();
 		}
 	}
 }
@@ -4279,6 +4279,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
 	std::unique_lock<std::mutex> lock(dwnldMutex);
+	// This API is called to trigger an immediate playlist download after updating the playlist URL.
 	if((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
 	{
 		plDownloadWait.notify_one();
@@ -4309,30 +4310,73 @@ void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
 }
 
 /**
- * @brief Abort fragment downloader wait
+ * @brief Abort wait for manifest update
+ * This function is called to signal the fragment collector thread to wake up from WaitForManifestUpdate.
  */
-void MediaTrack::AbortFragmentDownloaderWait()
+void MediaTrack::AbortWaitForManifestUpdate()
 {
-	std::unique_lock<std::mutex> lock(dwnldMutex);
-	if(fragmentCollectorWaitingForPlaylistUpdate)
+	std::lock_guard<std::mutex> lock(dwnldMutex);
+	// Increment the update counter while holding the mutex, then wake all
+	// waiters. Each waiter holds its own snapshot of the previous value, so
+	// every thread that was blocked will find (live != snapshot) == true and
+	// proceed. No thread can "steal" the signal from another by resetting a
+	// shared flag.
+	++mManifestUpdateCounter;
+	mManifestUpdateWait.notify_all();
+}
+
+/**
+ * @brief Return the current manifest update counter.
+ * The caller must snapshot this value BEFORE any check or download work
+ * that might cause it to decide to wait, then pass it to
+ * WaitForManifestUpdate(snapshotCounter).
+ */
+uint32_t MediaTrack::GetManifestUpdateCounter()
+{
+	std::lock_guard<std::mutex> lock(dwnldMutex);
+	return mManifestUpdateCounter;
+}
+
+/**
+ * @brief Wait for manifest update — caller-snapshot overload.
+ * Blocks until the counter advances past snapshotCounter.
+ * If AbortWaitForManifestUpdate() already ran after the snapshot was
+ * taken, the predicate is immediately true and wait() skips blocking.
+ * @param[in] snapshotCounter - the value that was snapshot before deciding to wait
+ */
+void MediaTrack::WaitForManifestUpdate(uint32_t snapshotCounter)
+{
+	if(aamp->DownloadsAreEnabled())
 	{
-		frDownloadWait.notify_one();
+		std::unique_lock<std::mutex> lock(dwnldMutex);
+		AAMPLOG_DEBUG("[%d] Waiting for manifest update (snapshotCounter=%u, currentCounter=%u)...",
+		              type, snapshotCounter, mManifestUpdateCounter);
+		mManifestUpdateWait.wait(lock, [this, snapshotCounter]
+		{
+			return mManifestUpdateCounter != snapshotCounter;
+		});
+		AAMPLOG_DEBUG("[%d] Manifest update received (counter=%u).", type, mManifestUpdateCounter);
 	}
 }
 
 /**
- * @brief Wait for playlist download and update
+ * @brief Wait for manifest update
+ * This function is called by the fragment collector thread to wait until a manifest update is received.
  */
 void MediaTrack::WaitForManifestUpdate()
 {
-	if(aamp->DownloadsAreEnabled() && fragmentCollectorWaitingForPlaylistUpdate)
+	if(aamp->DownloadsAreEnabled())
 	{
 		std::unique_lock<std::mutex> lock(dwnldMutex);
-		AAMPLOG_INFO("[%s] Waiting for manifest update", name);
-		frDownloadWait.wait(lock);
+		// Snapshot the manifest update counter under the mutex before blocking.
+		const uint32_t snapshotCounter = mManifestUpdateCounter;
+		AAMPLOG_DEBUG("[%d] Waiting for manifest update (snapshotCounter=%u)...", type, snapshotCounter);
+		mManifestUpdateWait.wait(lock, [this, snapshotCounter]
+		{
+			return mManifestUpdateCounter != snapshotCounter;
+		});
+		AAMPLOG_DEBUG("[%d] Manifest update received (counter=%u).", type, mManifestUpdateCounter);
 	}
-	fragmentCollectorWaitingForPlaylistUpdate = false;
-	AAMPLOG_INFO("Exit");
 }
 
 /**
@@ -4519,12 +4563,11 @@ void MediaTrack::PlaylistDownloader()
 				aamp->SendHTTPHeaderResponse();
 			}
 
-			if(fragmentCollectorWaitingForPlaylistUpdate && gotManifest)
+			if(gotManifest)
 			{
 				// (gotManifest => false) If manifest download failed due to ABR request from HLS, don't abort wait.
-				// DASH waits for manifest update only at EOS from all tracks, proceed only with fresh manifest.
 				// Signal fragment collector to abort it's wait for playlist process
-				AbortFragmentDownloaderWait();
+				AbortWaitForManifestUpdate();
 			}
 
 			// Check whether downloads are still enabled after processing playlist
