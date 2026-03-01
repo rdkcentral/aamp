@@ -103,7 +103,7 @@ uint64_t Read64( const uint8_t **pptr)
  * @param[in] n word size in bytes
  * @retval 32 bit value
  */
-uint64_t ReadWordHelper( const char **pptr, int n )
+uint64_t ReadWordHelper( const uint8_t **pptr, int n )
 {
 	return 0;
 }
