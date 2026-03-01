@@ -135,7 +135,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 	if (memcmp_actual_vs_expected)
 	{
 		std::cout << "Result differs from expected!"  << std::endl;
-		uint8_t* res = (uint8_t*)src_data.data();
+		uint8_t* res = src_data.data();
 		uint8_t* exp = td.expected_data;
 		uint32_t ii = 0;
 		dumpCommonBytes(res, exp, ii);

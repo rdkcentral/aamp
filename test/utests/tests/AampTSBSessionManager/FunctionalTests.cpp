@@ -178,7 +178,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
-	// After std::vector refactoring, use fragment.GetPtr() which returns the internal buffer pointer
+	// After std::vector refactoring, use fragment.data() to access the internal buffer pointer
 	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).WillRepeatedly(Return(0));
