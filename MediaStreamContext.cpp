@@ -209,6 +209,11 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
+	if (ptr == NULL && size > 0)
+	{
+		AAMPLOG_WARN("[%s] Null fragment pointer with non-zero size %zu", name, size);
+		return false;
+	}
 	bool ret = true;
 	if (WaitForCachedFragmentChunkInjected())
 	{
