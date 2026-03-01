@@ -1843,6 +1843,16 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	m_lastPTSOfSegment = -1;
 	packetStart = segment;
 
+	// Guard against null or too-short buffer before dereferencing TS header bytes
+	if (segment == nullptr || len < 4)
+	{
+		AAMPLOG_ERR("Empty or invalid segment buffer, discarding.");
+		std::lock_guard<std::mutex> guard(m_mutex);
+		m_processing = false;
+		m_throttleCond.notify_one();
+		return false;
+	}
+
 	// It seems some ts have an invalid packet at the start, so try skipping it
 	while (((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00)) && (len > 188))
 	{
