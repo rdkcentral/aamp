@@ -210,7 +210,7 @@ TEST_F(MediaStreamContextTest, DefaultDurationTest)
 
 TEST_F(MediaStreamContextTest, CacheFragmentChunkTestWithDurationInTicks)
 {
-    char testData[] = "This is a test data buffer";
+    uint8_t testData[] = "This is a test data buffer";
     size_t testDataSize = sizeof(testData) - 1; // Exclude null terminator
     std::string remoteUrl = "http://example.com";
     uint64_t dnldStartTime = 123456789;

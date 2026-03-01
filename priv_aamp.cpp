@@ -724,7 +724,7 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buf
 	chunkDurationInTicks = 0;
 
 	IsoBmffBuffer isobmffBuffer;
-	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->size() - bufferOffset);
+	isobmffBuffer.setBuffer(buffer->data() + bufferOffset, buffer->size() - bufferOffset);
 
 	try
 	{
@@ -1162,7 +1162,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						}
 						if (ret > 0)
 						{
-							const char *bufferPtr = reinterpret_cast<const char*>(context->buffer->data()) + context->bufferOffset;
+							const uint8_t *bufferPtr = context->buffer->data() + context->bufferOffset;
 							if (context->chunkBoundary > context->bufferOffset)
 							{
 								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
@@ -5203,7 +5203,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (buffer->capacity() != 0)
 				{
-					if(aamp_WriteFile(remoteUrl, buffer->GetPtr(), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
+					if(aamp_WriteFile(remoteUrl, reinterpret_cast<const char*>(buffer->data()), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
@@ -7065,7 +7065,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 
 		if(gotManifest)
 		{
-			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.GetPtr(), "#EXTM3U8", 7) == 0)
+			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.data(), "#EXTM3U8", 7) == 0)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
