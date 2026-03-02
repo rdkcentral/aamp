@@ -3023,22 +3023,21 @@ void StreamAbstractionAAMP::StartUnderflowMonitor()
 {
 	if (!GetMediaTrack(eTRACK_VIDEO))
 	{
-		if (mUnderflowMonitor)
-		{
-			// No video track: delete the monitor to avoid wasted resources
-			mUnderflowMonitor.reset();
-			AAMPLOG_INFO("StartUnderflowMonitor: no video track; deleted AampUnderflowMonitor");
-		}
-		else
-		{
-			AAMPLOG_WARN("StartUnderflowMonitor: video track unavailable");
-		}
+		// No video track: keep existing monitor instance (if any), just skip starting it
+ 		AAMPLOG_INFO("StartUnderflowMonitor: video track unavailable; not starting AampUnderflowMonitor");
 		return;
 	}
 	if (mUnderflowMonitor)
 	{
-		mUnderflowMonitor->Start();
-		AAMPLOG_INFO("Started AampUnderflowMonitor for video");
+		if (!mUnderflowMonitor->IsRunning())
+		{
+			mUnderflowMonitor->Start();
+			AAMPLOG_INFO("Started AampUnderflowMonitor for video");
+		}
+		else
+		{
+			AAMPLOG_WARN("StartUnderflowMonitor: AampUnderflowMonitor already running for video");
+		}
 	}
 }
 
@@ -3047,8 +3046,7 @@ void StreamAbstractionAAMP::StopUnderflowMonitor()
 	if (mUnderflowMonitor)
 	{
 		mUnderflowMonitor->Stop();
-		mUnderflowMonitor.reset();
-		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video; resetting monitor instance");
+		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video");
 	}
 }
 

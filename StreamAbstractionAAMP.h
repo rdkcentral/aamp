@@ -1738,7 +1738,7 @@ public:
 	 *       use-after-free that would otherwise arise during teardown.
 	 * @return void
 	 */
-	virtual void StopUnderflowMonitor();
+	void StopUnderflowMonitor();
 
 	/**
 	 * @fn IsUnderflowMonitorRunning

@@ -246,11 +246,11 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
 void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 {
 	if(fragmentCollectorThreadID.joinable())
-    {
-        aamp->DisableDownloads();
-        fragmentCollectorThreadID.join();
-        aamp->EnableDownloads();
-    }
+	{
+		aamp->DisableDownloads();
+		fragmentCollectorThreadID.join();
+		aamp->EnableDownloads();
+	}
  }
 
 /**

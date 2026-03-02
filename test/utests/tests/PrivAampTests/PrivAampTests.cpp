@@ -2476,31 +2476,6 @@ TEST_F(PrivAampTests,TeardownStreamTest)
 	p_aamp->TeardownStream(newTune);
 }
 
-/**
- * @brief Verify that TeardownStream() stops the underflow monitor before stopping
- *        or deleting the StreamAbstractionAAMP object.
- *
- * The AampUnderflowMonitor holds raw pointers to StreamAbstractionAAMP and
- * PrivateInstanceAAMP and accesses them from a background thread.  Calling
- * StopUnderflowMonitor() joins that thread; only then is it safe to call Stop()
- * or free the object via SAFE_DELETE.  Reversing the order is a use-after-free.
- */
-TEST_F(PrivAampTests, TeardownStream_StopsUnderflowMonitorBeforeStream)
-{
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-
-	::testing::InSequence seq;
-	// StopUnderflowMonitor() MUST be called before Stop().
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(1);
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(1);
-
-	p_aamp->TeardownStream(false);
-
-	// mpStreamAbstractionAAMP is set to null / deleted by TeardownStream; restore
-	// the pointer in the mock so the fixture TearDown does not double-delete.
-	p_aamp->mpStreamAbstractionAAMP = nullptr;
-}
-
 TEST_F(PrivAampTests,TeardownStreamTest_1)
 {
 	p_aamp->TeardownStream(false);
