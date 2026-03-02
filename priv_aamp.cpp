@@ -12772,50 +12772,50 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							AAMPLOG_WARN("Seamless audio switch has been enabled");
 							mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_AUDIO);
-					}
-					else
-					{
-						seek_pos_seconds = GetPositionSeconds();
-						AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
-						if (IsLocalAAMPTsb())
-						{
-							mAampTsbLanguageChangeInProgress = true;
-						}
-						TeardownStream(false);
-						if(IsFogTSBSupported() &&
-								((languagePresent && !languageAvailabilityInManifest) ||
-								 (renditionPresent && !renditionAvailabilityInManifest) ||
-								 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
-								 (labelPresent && !labelAvailabilityInManifest) ||
-								 (namePresent && !nameAvailabilityInManifest)))
-						{
-							ReloadTSB();
-						}
-
-						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-						if(IsLocalAAMPTsb())
-						{
-							if(mTSBSessionManager)
-							{
-								AAMPLOG_INFO("Recreate the TSB Session Manager");
-								CreateTsbSessionManager();
-								SetLocalAAMPTsbInjection(false);
-								TuneHelper(eTUNETYPE_SEEKTOLIVE);
-							}
-							else
-							{
-								AAMPLOG_ERR("TSB Session Manager is NULL");
-							}
-						}
-						else if(mDisableRateCorrection)
-						{
-							TuneHelper(eTUNETYPE_SEEK);
 						}
 						else
 						{
-							TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							seek_pos_seconds = GetPositionSeconds();
+							AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
+							if (IsLocalAAMPTsb())
+							{
+								mAampTsbLanguageChangeInProgress = true;
+							}
+							TeardownStream(false);
+							if(IsFogTSBSupported() &&
+							   ((languagePresent && !languageAvailabilityInManifest) ||
+								(renditionPresent && !renditionAvailabilityInManifest) ||
+								(accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
+								(labelPresent && !labelAvailabilityInManifest) ||
+								(namePresent && !nameAvailabilityInManifest)))
+							{
+								ReloadTSB();
+							}
+							
+							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+							if(IsLocalAAMPTsb())
+							{
+								if(mTSBSessionManager)
+								{
+									AAMPLOG_INFO("Recreate the TSB Session Manager");
+									CreateTsbSessionManager();
+									SetLocalAAMPTsbInjection(false);
+									TuneHelper(eTUNETYPE_SEEKTOLIVE);
+								}
+								else
+								{
+									AAMPLOG_ERR("TSB Session Manager is NULL");
+								}
+							}
+							else if(mDisableRateCorrection)
+							{
+								TuneHelper(eTUNETYPE_SEEK);
+							}
+							else
+							{
+								TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							}
 						}
-					}
 						discardEnteringLiveEvt = false;
 					}
 				}
