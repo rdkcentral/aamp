@@ -366,8 +366,12 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 #endif
 	// Check if already player in release state , then no need to send any events
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
-	if(mPlayerState == eSTATE_RELEASED)
+	// Added guard in SendEventSync() to skip event dispatch if player is in
+	// RELEASED state or  No listeners are registered for the specific event type (except AAMP_EVENT_ALL_EVENTS)
+	
+	if(mPlayerState == eSTATE_RELEASED || (mEventListeners[eventType] == NULL && eventType != AAMP_EVENT_ALL_EVENTS))
 	{
+		AAMPLOG_TRACE("No listeners for event %d or player released, not sending event", eventType);
 		return;
 	}
 	
