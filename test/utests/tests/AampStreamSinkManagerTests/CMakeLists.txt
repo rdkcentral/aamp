@@ -36,7 +36,7 @@ include_directories(${AAMP_ROOT}/middleware/vendor)
 set(TEST_SOURCES AampStreamSinkManagerTests.cpp
                  FunctionalTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampStreamSinkManager.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/AampStreamSinkManager.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
