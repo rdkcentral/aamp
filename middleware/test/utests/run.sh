@@ -184,7 +184,7 @@ if [ "$build_coverage" -eq "1" ]; then
 LCOV=lcov
 
 #Get initial baseline of files from player-cli build
-$LCOV --initial $IGNORE --directory ${PLAYER_BUILD_GCNO} -b $PLAYERDIR --capture --output-file baseline.info
+$LCOV --initial --directory ${PLAYER_BUILD_GCNO} -b $PLAYERDIR --capture --output-file baseline.info
 
 #Get a list of dirs which contain coverage data for player source files.
 TEST_DIRS=$(find tests -name '*.dir' -type d | grep -v _coverage.dir )

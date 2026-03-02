@@ -20,7 +20,6 @@
 #define GST_UTILS_H
 
 #include <gst/gst.h>
-#include "SocInterface.h"
 
 /**
  * @enum GstMediaType

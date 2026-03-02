@@ -18,12 +18,24 @@
  */
 
 #include <assert.h>
+#include <map>
+
 #include "SocInterface.h"
-#include "vendor/amlogic/AmlogicSocInterface.h"
-#include "vendor/brcm/BrcmSocInterface.h"
-#include "vendor/realtek/RealtekSocInterface.h"
-#include "vendor/default/DefaultSocInterface.h"
-#include "vendor/mtk/MtkSocInterface.h"
+
+#if defined(PLAYERVENDORINTERFACE_IMPL_AVAILABLE)
+#include "PlayerSocInterfaceImpl.h"
+#endif
+
+#include "PlayerLogManager.h"
+
+
+std::map<SocPlatformType, std::string> SocPlatformNames = {
+	{SOC_PLATFORM_DEFAULT, "Default"},
+	{SOC_PLATFORM_AMLOGIC, "Amlogic"},
+	{SOC_PLATFORM_REALTEK, "Realtek"},
+	{SOC_PLATFORM_BROADCOM, "Broadcom"},
+	{SOC_PLATFORM_MEDIATEK, "MediaTek"}
+};
 
 /**
  * @brief Checks if the input string starts with the given prefix.
@@ -160,34 +172,14 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 	static std::shared_ptr<SocInterface> socInterface;
 	if( !socInterface)
 	{
-		SocPlatformType platformType = InferPlatformFromDeviceProperties();
-		if(platformType == SOC_PLATFORM_DEFAULT)
-		{
-			platformType = InferPlatformFromPluginScan();
-		}
-		switch (platformType)
-		{
-			case SOC_PLATFORM_AMLOGIC:
-				MW_LOG_MIL("Setting up SoC Interface for AMLOGIC");
-				socInterface = std::make_shared<AmlogicSocInterface>();
-				break;
-			case SOC_PLATFORM_BROADCOM:
-				MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
-				socInterface = std::make_shared<BrcmSocInterface>();
-				break;
-			case SOC_PLATFORM_REALTEK:
-				MW_LOG_MIL("Setting up SoC Interface for REALTEK");
-				socInterface = std::make_shared<RealtekSocInterface>();
-				break;
-			case SOC_PLATFORM_MEDIATEK:
-				MW_LOG_MIL("Setting up SoC Interface for MEDIATEK");
-				socInterface = std::make_shared<MtkSocInterface>();
-				break;
-			default:
-				MW_LOG_MIL("Setting up SoC Interface for Default");
-				socInterface = std::make_shared<DefaultSocInterface>();
-				break;
-		}
+		MW_LOG_INFO("Setting up SoC Interface");
+#if defined(PLAYERVENDORINTERFACE_IMPL_AVAILABLE)		
+		socInterface = std::make_shared<PlayerSocInterfaceImpl>();
+		MW_LOG_MIL("SoC Interface created for platform: %d(%s)", socInterface->GetPlatformType(), SocPlatformNames[socInterface->GetPlatformType()].c_str());
+#else
+		socInterface = std::make_shared<DefaultSocInterface>();
+		MW_LOG_MIL("Default SoC Interface created");
+#endif
 	}
 	return socInterface;
 }

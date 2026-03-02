@@ -18,9 +18,8 @@
 */
 #include "SocInterface.h"
 #include "vendor/default/DefaultSocInterface.h"
-#include "vendor/amlogic/AmlogicSocInterface.h"
-#include "vendor/brcm/BrcmSocInterface.h"
-#include "vendor/realtek/RealtekSocInterface.h"
+#include "PlayerLogManager.h"
+
 DefaultSocInterface::DefaultSocInterface()
 {
 }

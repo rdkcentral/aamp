@@ -42,6 +42,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/baseConversion)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerLogManager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerJsonObject)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 
 
 set(LIBPLAYERGSTINTERFACE_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} -ldl)
@@ -51,6 +52,7 @@ add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
 add_subdirectory(playerJsonObject)
 add_subdirectory(externals)
+add_subdirectory(vendor)
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/PlayerCCManager.cpp PlayerUtils.cpp)
 
@@ -130,12 +132,6 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	drm/DrmCallbacks.h
 	drm/ocdm/opencdmsessionadapter.h
 	drm/DrmJsonObject.h
-	vendor/SocInterface.h
-	vendor/amlogic/AmlogicSocInterface.h
-	vendor/realtek/RealtekSocInterface.h
-	vendor/brcm/BrcmSocInterface.h
-	vendor/default/DefaultSocInterface.h
-	vendor/mtk/MtkSocInterface.h
 	subtitle/vttCue.h
 	ProcessHandler.h
 	DemuxDataTypes.h
@@ -165,7 +161,6 @@ install(FILES closedcaptions/CCTrackInfo.h
 	drm/helper/VanillaDrmHelper.h
 	drm/HlsOcdmBridgeInterface.h
 	drm/HlsDrmSessionManager.h
-	vendor/SocInterface.h
 	subtitle/subtitleParser.h
 	subtec/subtecparser/WebVttSubtecParser.hpp
 	subtec/subtecparser/TtmlSubtecParser.hpp
@@ -188,16 +183,12 @@ set(SOURCES
 	drm/processProtectionHls.cpp
 	ProcessHandler.cpp
 	)
-if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    list(APPEND SOURCES vendor/amlogic/AmlogicSocInterface.cpp
-						vendor/realtek/RealtekSocInterface.cpp
-						vendor/brcm/BrcmSocInterface.cpp
-						vendor/mtk/MtkSocInterface.cpp
-						vendor/default/DefaultSocInterface.cpp
-						vendor/SocInterface.cpp)
-else()
+
+if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(APPEND SOURCES test/utests/fakes/FakeSocInterface.cpp)
+	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 endif()
+
 set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp
 	drm/DrmSession.cpp
@@ -362,8 +353,7 @@ target_include_directories(playergstinterface PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/playerjsonobject
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/subtec
-	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/rialto
-	${CMAKE_CURRENT_SOURCE_DIR}/vendor)
+	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/rialto)
 
 if (CMAKE_SUBTITLE_SUPPORT)
 	target_link_libraries(playergstinterface subtec_connector)
@@ -372,6 +362,11 @@ endif()
 string(STRIP "${LIBPLAYERGSTINTERFACE_DEPENDS}" LIBPLAYERGSTINTERFACE_DEPENDS)
 message("Building middleware support libraries")
 add_subdirectory(gst-plugins)
+
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	list(APPEND LIBPLAYERGSTINTERFACE_DEPENDS
+		playervendorinterface)
+endif()
 
 target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
