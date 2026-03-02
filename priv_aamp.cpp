@@ -12166,8 +12166,8 @@ void PrivateInstanceAAMP::EnableContentRestrictions()
 		else
 		{
 			AAMPLOG_INFO("mpStreamAbstractionAAMP is not Ready, %d", state);
-		mApplyContentRestriction = true;
-	}
+			mApplyContentRestriction = true;
+		}
 	}
 }
 
