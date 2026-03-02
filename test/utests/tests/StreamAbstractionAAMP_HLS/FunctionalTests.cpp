@@ -1563,9 +1563,6 @@ TEST_F(TrackStateTests, FindTimedMetadata_New)
     bool reportBulkMeta = false;
     bool bInitCall = true; // Simulate the bInitCall flag being set
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSubscribedTags)).WillOnce(Return(true));
-    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
-        //buffer.AppendBytes(10);
-    buffer.GetPtr();
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 
@@ -2117,16 +2114,6 @@ TEST_F(TrackStateTests, EnterTimedWaitForPlaylistRefreshTests)
     TrackStateobj->EnterTimedWaitForPlaylistRefresh(-22);
 }
 
-TEST_F(TrackStateTests, AbortFragmentDownloaderWaitTests)
-{
-    TrackStateobj->AbortFragmentDownloaderWait();
-}
-
-TEST_F(TrackStateTests, WaitForManifestUpdateTests)
-{
-    TrackStateobj->WaitForManifestUpdate();
-}
-
 TEST_F(TrackStateTests, GetBufferStatusTest)
 {
     // Call the function under test
@@ -2150,11 +2137,6 @@ TEST_F(TrackStateTests, ProcessFragmentChunkTests)
 {
     double result = TrackStateobj->ProcessFragmentChunk();
     ASSERT_FALSE(result);
-}
-
-TEST_F(TrackStateTests, NotifyFragmentCollectorWaittest)
-{
-    TrackStateobj->NotifyFragmentCollectorWait();
 }
 
 TEST_F(TrackStateTests, GetTotalInjectedDurationtest)

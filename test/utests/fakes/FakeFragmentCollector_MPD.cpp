@@ -319,3 +319,20 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	return false;
 }
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
+{
+}
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
+{
+}
+
+uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
+{
+	return 0;
+}

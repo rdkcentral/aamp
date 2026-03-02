@@ -934,7 +934,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			finalManifest = true;
 		}
-		std::string manifestStr(manifest.GetPtr(), manifest.size());
+		std::string manifestStr(reinterpret_cast<const char*>(manifest.data()), manifest.size());
 		xmlTextReaderPtr reader = xmlReaderForMemory(manifestStr.c_str(), (int) manifestStr.size(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
@@ -968,8 +968,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
 					xmlFreeTextReader(reader);
-					reader = xmlReaderForMemory(fogManifest.GetPtr(), (int) fogManifest.size(), NULL, NULL, 0);
-					manifestStr.assign(fogManifest.GetPtr(), fogManifest.size());
+					reader = xmlReaderForMemory(reinterpret_cast<const char*>(fogManifest.data()), (int) fogManifest.size(), NULL, NULL, 0);
+					manifestStr.assign(reinterpret_cast<const char*>(fogManifest.data()), fogManifest.size());
 					manifest.Free();
 					manifest.Replace(&fogManifest);
 				}
@@ -1071,7 +1071,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.size(), manifest.GetPtr() );
+			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.size(), reinterpret_cast<const char*>(manifest.data()) );
 		}
 		manifest.Free();
 	}
