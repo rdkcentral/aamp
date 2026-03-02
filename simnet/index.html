@@ -241,7 +241,6 @@
   <div id="bufferChart" class="chart" style="height:400px;"></div>
   <div id="bandwidthStatsInline" class="metric-inline">Bandwidth stats: Min - | Max - | Avg -</div>
   <div id="bandwidthChart" class="chart" style="height:400px;"></div>
-  <div id="segmentChart" class="chart" style="height:500px;"></div>
   <div id="ttfbStatsInline" class="metric-inline">TTFB stats: Min - | Max - | Avg -</div>
   <div id="ttfbChart" class="chart" style="height:400px;"></div>
   <div id="connectionReuseChart" class="chart" style="height:400px;"></div>
@@ -439,7 +438,6 @@ function processFiles() {
 function plotDashboard() {
   plotBufferLevel();
   plotBandwidth();
-  plotSegments();
   plotTTFB();
   plotConnectionReuse();
   updateStatsCards();
@@ -496,39 +494,6 @@ function plotBandwidth() {
   }], getChartLayout('Bandwidth Over Time', 'Time (s)', 'Bandwidth (Mbps)'), plotConfig);
 }
 
-// --------- 2. Segment Download Timeline (Gantt) ---------
-function plotSegments() {
-  const timeOrigin = getTimeOrigin();
-  const sorted = networkData
-    .slice()
-    .sort((a, b) => a.when_start_s - b.when_start_s);
-
-  const bars = sorted.map((r) => ({
-    x: [r.total_s],
-    y: [String(r.req_id)],
-    base: toRelativeTime(r.when_start_s, timeOrigin),
-    type: 'bar',
-    orientation: 'h',
-    marker: {color:'#f5a623'},
-    name: `Segment ${r.req_id}`
-  }));
-
-  Plotly.newPlot(
-    'segmentChart',
-    bars,
-    getChartLayout('Segment Download Timeline', 'Time (s)', 'Segment ID', {
-      barmode: 'stack',
-      yaxis: {
-        title: 'Segment ID',
-        autorange: 'reversed',
-        gridcolor: 'rgba(255,255,255,0.08)',
-        zerolinecolor: 'rgba(255,255,255,0.14)'
-      }
-    }),
-    plotConfig
-  );
-}
-
 // --------- 3. Buffer Level Simulation ---------
 function plotBufferLevel() {
   // Assume each segment = 2s duration
@@ -572,7 +537,7 @@ function plotBufferLevel() {
     type:'scatter',
     mode:'lines',
     line:{color:'#7ed321'}
-  }], getChartLayout('Buffer Level Over Time', 'Time (s)', 'Buffer Level (s)'), plotConfig);
+  }], getChartLayout('Total Buffer Downloaded Over Time', 'Time (s)', 'Total Buffer (s)'), plotConfig);
 }
 
 // --------- 4. TTFB Over Time ---------
@@ -726,7 +691,7 @@ async function downloadOnePageCapture() {
     );
 
     const placements = [
-      {id: 'bufferChart', title: 'Buffer Level Over Time', x: margin, y: headerHeight, w: chartWidth, h: chartHeight},
+      {id: 'bufferChart', title: 'Total Buffer Downloaded Over Time', x: margin, y: headerHeight, w: chartWidth, h: chartHeight},
       {
         id: 'connectionReuseChart',
         title: 'Connection Reuse Over Time',
@@ -735,14 +700,13 @@ async function downloadOnePageCapture() {
         w: chartWidth,
         h: chartHeight
       },
-      {id: 'segmentChart', title: 'Segment Download Timeline', x: margin, y: headerHeight + chartHeight + rowGap, w: chartWidth, h: chartHeight},
       {
         id: 'bandwidthChart',
         title: 'Bandwidth Over Time',
         subtitle: getStatsLine('bandwidth'),
-        x: margin + chartWidth + colGap,
+        x: margin,
         y: headerHeight + chartHeight + rowGap,
-        w: chartWidth,
+        w: fullWidth,
         h: chartHeight
       },
       {
