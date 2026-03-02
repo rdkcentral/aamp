@@ -10020,7 +10020,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					{
 						// Unexpected: no segment found at normal/slow rate outside of EOS. Sleep to
 						// avoid a tight loop and throttle log output until the condition resolves.
-						AAMPLOG_ERROR("No segment found for rate <= AAMP_NORMAL_PLAY_RATE, retrying");
+						AAMPLOG_ERR("No segment found for rate <= AAMP_NORMAL_PLAY_RATE, retrying");
 						aamp->interruptibleMsSleep(50);
 					}
 				}
