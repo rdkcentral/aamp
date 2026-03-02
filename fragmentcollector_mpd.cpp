@@ -9813,8 +9813,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					lastPrdOffset = mBasePeriodOffset;
 				}
 
-				// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
-				tsbSessionManager->WaitForVideoTsbContentOrAbort();
+				// This sleep will hit when there is no content to download and cache is not full
+				// and refresh interval timeout not reached . To Avoid tight loop adding a min delay
+				aamp->interruptibleMsSleep(50);
 			} // Loop 2: end of while loop (!exitFetchLoop)
 			if(exitFetchLoop)
 			{
@@ -10012,10 +10013,8 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
 					{
-						// All the segments in TSB have been sent to gstreamer; avoid indefinite
-						// blocking in WaitForVideoTsbContentOrAbort by using a bounded, interruptible
-						// sleep before retrying the fetch loop.
-						aamp->interruptibleMsSleep(50);
+						// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
+						tsbSessionManager->WaitForVideoTsbContentOrAbort();
 					}
 					else
 					{
