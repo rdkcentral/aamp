@@ -10013,8 +10013,10 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
 					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
 					{
-						// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
-						tsbSessionManager->WaitForVideoTsbContentOrAbort();
+						// All the segments in TSB have been sent to gstreamer; avoid indefinite
+						// blocking in WaitForVideoTsbContentOrAbort by using a bounded, interruptible
+						// sleep before retrying the fetch loop.
+						aamp->interruptibleMsSleep(50);
 					}
 					else
 					{
