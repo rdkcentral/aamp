@@ -99,8 +99,7 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 /**
  * @brief Lightweight cursor for reading big-endian ISOBMFF box fields.
  *
- * Provides typed Read<T>() and Skip<T>() operations that replace the
- * legacy Read16/Read32/Read64 free functions and raw pointer arithmetic.
+ * Provides typed Read<T>() and Skip<T>() operations.
  * The caller is responsible for validating the box size field before
  * reading individual fields.
  */
