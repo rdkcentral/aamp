@@ -149,7 +149,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 						size_t curOffset = 0;
 						while (curOffset < data_len)
 						{
-							uint8_t * box_ptr = seg_buffer + curOffset;
+							uint8_t * box_ptr = const_cast<uint8_t*>(data.data() + curOffset);
 							Box *box = Box::constructBox(box_ptr, (uint32_t)(data_len - curOffset), false, -1);
 
 							box->setOffset((uint32_t)curOffset);
@@ -157,7 +157,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 
 							if (IS_TYPE(box->getType(), Box::EMSG))
 							{
-								uint8_t * ptr = seg_buffer + curOffset;
+								uint8_t * ptr = const_cast<uint8_t*>(data.data() + curOffset);
 								const uint8_t * src_box_ptr = ptr;
 								std::stringstream ss;
 
