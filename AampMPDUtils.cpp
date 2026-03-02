@@ -252,7 +252,8 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 		return false;
 	}
 
-	auto version   = reader.Read<uint32_t>();    // version (8b) + flags (24b)
+	// version is the top 8 bits; lower 24 bits are flags (ignored)
+	const auto version = static_cast<uint8_t>(reader.Read<uint32_t>() >> 24);
 	reader.Skip<uint32_t>();                     // reference_ID
 	auto timescale = reader.Read<uint32_t>();    // timescale
 
@@ -277,7 +278,7 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 		return true;
 	}
 
-	if (segmentIndex < static_cast<int>(reference_count))
+	if (segmentIndex >= 0 && segmentIndex < static_cast<int>(reference_count))
 	{
 		reader.Skip(SIDX_ENTRY_SIZE * segmentIndex);
 

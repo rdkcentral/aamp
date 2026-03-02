@@ -190,6 +190,109 @@ static std::vector<uint8_t> BuildSidxBoxV0(
 	return buf;
 }
 
+/**
+ * @brief Build a version-0 SIDX box with non-zero flags in the version+flags field.
+ *
+ * The version byte (top 8 bits) is 0; the lower 24 bits carry arbitrary flags.
+ * A correct parser must isolate the version byte and not treat the flags as
+ * part of the version.
+ *
+ * @param[in] flags       24-bit flags value (lower 24 bits only).
+ * @param[in] timescale   Timescale for duration calculation.
+ * @param[in] entries     Vector of reference entries.
+ * @return                Byte vector containing the complete SIDX box.
+ */
+static std::vector<uint8_t> BuildSidxBoxV0WithFlags(
+	uint32_t flags,
+	uint32_t timescale,
+	const std::vector<SidxEntry> &entries)
+{
+	constexpr uint32_t HEADER_SIZE = 32;
+	constexpr uint32_t ENTRY_SIZE  = 12;
+	const auto entryCount = static_cast<uint32_t>(entries.size());
+	const uint32_t boxSize = HEADER_SIZE + entryCount * ENTRY_SIZE;
+
+	std::vector<uint8_t> buf(boxSize, 0);
+	auto *p = buf.data();
+
+	WriteBE32(p,      boxSize);
+	p[4] = 's'; p[5] = 'i'; p[6] = 'd'; p[7] = 'x';
+	WriteBE32(p + 8,  flags & 0x00FFFFFFu); // version=0, flags=non-zero
+	WriteBE32(p + 12, 1);                   // reference_ID
+	WriteBE32(p + 16, timescale);
+	WriteBE32(p + 20, 0);                   // earliest_presentation_time (32-bit, v0)
+	WriteBE32(p + 24, 0);                   // first_offset (32-bit, v0)
+	WriteBE16(p + 28, 0);                   // reserved
+	WriteBE16(p + 30, static_cast<uint16_t>(entryCount));
+
+	uint8_t *ep = p + HEADER_SIZE;
+	for (const auto &entry : entries)
+	{
+		WriteBE32(ep,     entry.referencedSize & 0x7FFFFFFFu);
+		WriteBE32(ep + 4, entry.subsegmentDuration);
+		WriteBE32(ep + 8, 0);  // SAP flags
+		ep += ENTRY_SIZE;
+	}
+
+	return buf;
+}
+
+/**
+ * @brief Build a version-1 SIDX box in memory for testing.
+ *
+ * Version 1 uses 64-bit earliest_presentation_time and first_offset fields,
+ * making the header 40 bytes instead of 32.
+ *
+ * Layout (version 1, all big-endian):
+ *   size(4) | 'sidx'(4) | version+flags(4) | reference_ID(4) |
+ *   timescale(4) | earliest_presentation_time(8) | first_offset(8) |
+ *   reserved(2) | reference_count(2) |
+ *   [ referenced_size(4) | subsegment_duration(4) | SAP_flags(4) ] * N
+ *
+ * @param[in] timescale    Timescale for duration calculation.
+ * @param[in] entries      Vector of reference entries.
+ * @param[in] firstOffset  Value for the first_offset field.
+ * @return                 Byte vector containing the complete SIDX box.
+ */
+static std::vector<uint8_t> BuildSidxBoxV1(
+	uint32_t timescale,
+	const std::vector<SidxEntry> &entries,
+	uint64_t firstOffset = 0)
+{
+	constexpr uint32_t HEADER_SIZE = 40; // 4+4+4+4+4+8+8+2+2
+	constexpr uint32_t ENTRY_SIZE  = 12;
+	const auto entryCount = static_cast<uint32_t>(entries.size());
+	const uint32_t boxSize = HEADER_SIZE + entryCount * ENTRY_SIZE;
+
+	std::vector<uint8_t> buf(boxSize, 0);
+	auto *p = buf.data();
+
+	WriteBE32(p,      boxSize);
+	p[4] = 's'; p[5] = 'i'; p[6] = 'd'; p[7] = 'x';
+	WriteBE32(p + 8,  0x01000000u); // version=1, flags=0
+	WriteBE32(p + 12, 1);           // reference_ID
+	WriteBE32(p + 16, timescale);
+	// earliest_presentation_time (64-bit, offset 20)
+	WriteBE32(p + 20, 0);
+	WriteBE32(p + 24, 0);
+	// first_offset (64-bit, offset 28)
+	WriteBE32(p + 28, static_cast<uint32_t>(firstOffset >> 32));
+	WriteBE32(p + 32, static_cast<uint32_t>(firstOffset & 0xFFFFFFFFu));
+	WriteBE16(p + 36, 0); // reserved
+	WriteBE16(p + 38, static_cast<uint16_t>(entryCount));
+
+	uint8_t *ep = p + HEADER_SIZE;
+	for (const auto &entry : entries)
+	{
+		WriteBE32(ep,     entry.referencedSize & 0x7FFFFFFFu);
+		WriteBE32(ep + 4, entry.subsegmentDuration);
+		WriteBE32(ep + 8, 0);  // SAP flags
+		ep += ENTRY_SIZE;
+	}
+
+	return buf;
+}
+
 // ---------------------------------------------------------------------------
 // ParseSegmentIndexBox tests
 // ---------------------------------------------------------------------------
@@ -202,6 +305,68 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_NullStart_ReturnsFalse)
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
 	EXPECT_FALSE(ParseSegmentIndexBox(nullptr, 0, 0, &refSize, &refDuration, nullptr));
+}
+
+/**
+ * @brief Version-0 box with non-zero flags is parsed correctly.
+ *
+ * The version+flags field has version=0 in the top byte and non-zero
+ * values in the lower 24 bits (flags). The parser must isolate the top
+ * 8-bit version and treat this as a v0 box (32-bit time fields), not v1.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_V0WithNonZeroFlags_ParsedCorrectly)
+{
+	constexpr uint32_t TIMESCALE = 1000;
+	constexpr uint32_t FLAGS     = 0x000001u; // non-zero flags, version still 0
+	constexpr uint32_t REF_SIZE  = 5000;
+	constexpr uint32_t DURATION  = 2000;
+
+	auto sidx = BuildSidxBoxV0WithFlags(FLAGS, TIMESCALE, {{REF_SIZE, DURATION}});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									 &refSize, &refDuration, nullptr));
+	EXPECT_EQ(refSize, REF_SIZE);
+	EXPECT_FLOAT_EQ(refDuration,
+					 static_cast<float>(DURATION) / static_cast<float>(TIMESCALE));
+}
+
+/**
+ * @brief Version-1 SIDX box (64-bit time fields) is parsed correctly.
+ *
+ * Version 1 uses 8-byte earliest_presentation_time and first_offset.
+ * Verifies that the parser selects the correct (64-bit) read path and
+ * returns the right size/duration for the requested entry.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_V1_ParsedCorrectly)
+{
+	constexpr uint32_t TIMESCALE = 90000;
+	constexpr uint32_t REF_SIZE  = 12000;
+	constexpr uint32_t DURATION  = 90000;  // 1 second
+
+	auto sidx = BuildSidxBoxV1(TIMESCALE, {{REF_SIZE, DURATION}});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									 &refSize, &refDuration, nullptr));
+	EXPECT_EQ(refSize, REF_SIZE);
+	EXPECT_FLOAT_EQ(refDuration,
+					 static_cast<float>(DURATION) / static_cast<float>(TIMESCALE));
+}
+
+/**
+ * @brief Negative segment index returns false without UB.
+ *
+ * A negative segmentIndex must be rejected before the skip arithmetic,
+ * which would otherwise convert a negative product to a huge size_t.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_NegativeIndex_ReturnsFalse)
+{
+	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), -1,
+									  &refSize, &refDuration, nullptr));
 }
 
 /**
@@ -276,12 +441,11 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_Index0_ReturnsCorrectValues)
 }
 
 /**
- * @brief Parse multiple entries — key regression test for the *f += fix.
+ * @brief Parse multiple SIDX entries and verify correct indexing.
  *
- * Before the fix, `start += 12*segmentIndex` could produce incorrect
- * results if the pointer aliasing through `f` were ever broken.  The
- * corrected `*f += SIDX_ENTRY_SIZE * segmentIndex` is consistent with
- * every other cursor operation in the function.
+ * Ensures that ParseSegmentIndexBox correctly handles multiple entries
+ * in the SIDX box and, for each requested segment index, returns the
+ * expected referenced_size and referenced_duration values.
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_MultipleEntries_CorrectIndexing)
 {
