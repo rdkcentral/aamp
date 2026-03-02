@@ -4142,19 +4142,6 @@ TEST_F(PrivAampTests,RemoveAsyncTaskTest)
 	EXPECT_FALSE(flag);
 }
 
-TEST_F(PrivAampTests,AcquireStreamLockTest)
-{
-	p_aamp->AcquireStreamLock();
-}
-
-TEST_F(PrivAampTests,TryStreamLockTest)
-{
-	bool flag = p_aamp->TryStreamLock();
-	EXPECT_TRUE(flag);
-
-	p_aamp->ReleaseStreamLock();
-}
-
 TEST_F(PrivAampTests,ResetDiscontinuityInTracksTest)
 {
 	p_aamp->ResetDiscontinuityInTracks();

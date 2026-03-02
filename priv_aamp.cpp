@@ -3844,8 +3844,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		In this case it makes sense to exit this function ASAP.
 		A more complete (larger, higher risk, more time consuming, threadsafe) change to scheduling is required in the future.
 		*/
-		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
-		// mpStreamAbstractionAAMP not null & IsEOSReached()
 		{
 			std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
 			if( lock.owns_lock() )
@@ -12208,33 +12206,6 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 		ret = g_source_remove(taskId);
 	}
 	return ret;
-}
-
-
-/**
- *  @brief acquire streamsink lock
- */
-void PrivateInstanceAAMP::AcquireStreamLock()
-{
-	mStreamLock.lock();
-}
-
-/**
- * @brief try to acquire streamsink lock
- *
- */
-bool PrivateInstanceAAMP::TryStreamLock()
-{
-	return mStreamLock.try_lock();
-}
-
-/**
- * @brief release streamsink lock
- *
- */
-void PrivateInstanceAAMP::ReleaseStreamLock()
-{
-	mStreamLock.unlock();
 }
 
 /**

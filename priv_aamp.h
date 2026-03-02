@@ -3479,35 +3479,12 @@ public:
 	bool RemoveAsyncTask(int taskId);
 
 	/**
-	 *   @fn AcquireStreamLock
-	 *   @deprecated Use std::lock_guard<std::recursive_mutex> lock(mStreamLock) instead
-	 *   @return void
-	 */
-	[[deprecated("Use std::lock_guard<std::recursive_mutex> instead")]]
-	void AcquireStreamLock();
-
-	/**
-	 *   @fn TryStreamLock
-	 *
-	 *   @return True if it could I acquire it successfully else false
-	 */
-	bool TryStreamLock();
-
-	/**
 	 *   @fn GetStreamLock
 	 *   @brief Get reference to stream lock for RAII usage
 	 *   @note Prefer: std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock())
 	 *   @return Reference to mStreamLock
 	 */
 	std::recursive_mutex& GetStreamLock() { return mStreamLock; }
-
-	/**
-	 *   @fn ReleaseStreamLock
-	 *   @deprecated Use std::lock_guard<std::recursive_mutex> lock(mStreamLock) instead
-	 *   @return void
-	 */
-	[[deprecated("Use std::lock_guard<std::recursive_mutex> instead")]]
-	void ReleaseStreamLock();
 
 	/**
 	 *  @fn UpdateLiveOffset
