@@ -7615,7 +7615,7 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 					if (jsonStr)
 					{
 						op.assign(jsonStr);
-						free(jsonStr);
+						cJSON_free(jsonStr);
 					}
 
 					{
