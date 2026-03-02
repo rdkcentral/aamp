@@ -378,18 +378,22 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		}
 		if(interfacePlayerPriv->socInterface->ShouldTearDownForTrickplay())
 		{
-		if(interfacePlayerPriv->gstPrivateContext->rate > 1 || interfacePlayerPriv->gstPrivateContext->rate < 0)
-		{
-			if (eGST_MEDIATYPE_VIDEO == i)
-				configureStream[i] = true;
-			else
+			if(interfacePlayerPriv->gstPrivateContext->rate > 1 || interfacePlayerPriv->gstPrivateContext->rate < 0)
 			{
-				MW_LOG_INFO("NEIL Tear down stream %d for trickplay rate %d", i, interfacePlayerPriv->gstPrivateContext->rate);
-				TearDownStream((int)i);
-				configureStream[i] = false;
+				if (eGST_MEDIATYPE_VIDEO == i)
+					configureStream[i] = true;
+				else
+				{
+					MW_LOG_INFO("NEIL Tear down stream %d for trickplay rate %d", i, interfacePlayerPriv->gstPrivateContext->rate);
+					TearDownStream((int)i);
+					configureStream[i] = false;
+				}
 			}
 		}
-		}
+		else
+			MW_LOG_INFO("NEIL Tear down should not be done for trickplay rate %d", interfacePlayerPriv->gstPrivateContext->rate);
+
+
 		/* Force configure the bin for mid stream audio type change */
 		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
 		{
