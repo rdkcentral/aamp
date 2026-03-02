@@ -52,7 +52,10 @@ add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
 add_subdirectory(playerJsonObject)
 add_subdirectory(externals)
-add_subdirectory(vendor)
+
+if(NOT CMAKE_PLATFORM_UBUNTU AND NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	add_subdirectory(vendor)
+endif()
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/PlayerCCManager.cpp PlayerUtils.cpp)
 
