@@ -150,15 +150,22 @@ struct SidxEntry
  *   reserved(2) | reference_count(2) |
  *   [ referenced_size(4) | subsegment_duration(4) | SAP_flags(4) ] * N
  *
+ * The @p flags parameter populates the lower 24 bits of the version+flags
+ * field (version byte is always 0). Defaults to 0 for the common case.
+ *
  * @param[in] timescale    Timescale for duration calculation.
  * @param[in] entries      Vector of reference entries.
- * @param[in] firstOffset  Value for the first_offset field.
+ * @param[in] firstOffset  Value for the first_offset field (default 0).
+ * @param[in] flags        24-bit flags value in the lower bits of the
+ *                         version+flags field (default 0). The version
+ *                         byte (top 8 bits) is always 0.
  * @return                 Byte vector containing the complete SIDX box.
  */
 static std::vector<uint8_t> BuildSidxBoxV0(
 	uint32_t timescale,
 	const std::vector<SidxEntry> &entries,
-	uint32_t firstOffset = 0)
+	uint32_t firstOffset = 0,
+	uint32_t flags = 0)
 {
 	constexpr uint32_t HEADER_SIZE = 32;
 	constexpr uint32_t ENTRY_SIZE  = 12;
@@ -170,58 +177,11 @@ static std::vector<uint8_t> BuildSidxBoxV0(
 
 	WriteBE32(p,      boxSize);
 	p[4] = 's'; p[5] = 'i'; p[6] = 'd'; p[7] = 'x';
-	WriteBE32(p + 8,  0);           // version 0 + flags 0
-	WriteBE32(p + 12, 1);           // reference_ID
-	WriteBE32(p + 16, timescale);
-	WriteBE32(p + 20, 0);           // earliest_presentation_time
-	WriteBE32(p + 24, firstOffset);
-	WriteBE16(p + 28, 0);           // reserved
-	WriteBE16(p + 30, static_cast<uint16_t>(entryCount));
-
-	uint8_t *ep = p + HEADER_SIZE;
-	for (const auto &entry : entries)
-	{
-		WriteBE32(ep,     entry.referencedSize & 0x7FFFFFFF);
-		WriteBE32(ep + 4, entry.subsegmentDuration);
-		WriteBE32(ep + 8, 0);  // SAP flags
-		ep += ENTRY_SIZE;
-	}
-
-	return buf;
-}
-
-/**
- * @brief Build a version-0 SIDX box with non-zero flags in the version+flags field.
- *
- * The version byte (top 8 bits) is 0; the lower 24 bits carry arbitrary flags.
- * A correct parser must isolate the version byte and not treat the flags as
- * part of the version.
- *
- * @param[in] flags       24-bit flags value (lower 24 bits only).
- * @param[in] timescale   Timescale for duration calculation.
- * @param[in] entries     Vector of reference entries.
- * @return                Byte vector containing the complete SIDX box.
- */
-static std::vector<uint8_t> BuildSidxBoxV0WithFlags(
-	uint32_t flags,
-	uint32_t timescale,
-	const std::vector<SidxEntry> &entries)
-{
-	constexpr uint32_t HEADER_SIZE = 32;
-	constexpr uint32_t ENTRY_SIZE  = 12;
-	const auto entryCount = static_cast<uint32_t>(entries.size());
-	const uint32_t boxSize = HEADER_SIZE + entryCount * ENTRY_SIZE;
-
-	std::vector<uint8_t> buf(boxSize, 0);
-	auto *p = buf.data();
-
-	WriteBE32(p,      boxSize);
-	p[4] = 's'; p[5] = 'i'; p[6] = 'd'; p[7] = 'x';
-	WriteBE32(p + 8,  flags & 0x00FFFFFFu); // version=0, flags=non-zero
+	WriteBE32(p + 8,  flags & 0x00FFFFFFu); // version=0, optional flags
 	WriteBE32(p + 12, 1);                   // reference_ID
 	WriteBE32(p + 16, timescale);
-	WriteBE32(p + 20, 0);                   // earliest_presentation_time (32-bit, v0)
-	WriteBE32(p + 24, 0);                   // first_offset (32-bit, v0)
+	WriteBE32(p + 20, 0);                   // earliest_presentation_time
+	WriteBE32(p + 24, firstOffset);
 	WriteBE16(p + 28, 0);                   // reserved
 	WriteBE16(p + 30, static_cast<uint16_t>(entryCount));
 
@@ -321,7 +281,7 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_V0WithNonZeroFlags_ParsedCorrectly)
 	constexpr uint32_t REF_SIZE  = 5000;
 	constexpr uint32_t DURATION  = 2000;
 
-	auto sidx = BuildSidxBoxV0WithFlags(FLAGS, TIMESCALE, {{REF_SIZE, DURATION}});
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}}, 0, FLAGS);
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
 	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
@@ -362,7 +322,10 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_V1_ParsedCorrectly)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_NegativeIndex_ReturnsFalse)
 {
-	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	constexpr uint32_t TIMESCALE = 1000;
+	constexpr uint32_t REF_SIZE  = 100;
+	constexpr uint32_t DURATION  = 1000;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
 	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), -1,
@@ -413,8 +376,11 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_WrongType_ReturnsFalse)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_FirstOffset_ReturnsCorrectValue)
 {
+	constexpr uint32_t TIMESCALE      = 1000;
+	constexpr uint32_t REF_SIZE       = 100;
+	constexpr uint32_t DURATION       = 1000;
 	constexpr uint32_t EXPECTED_OFFSET = 42;
-	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}}, EXPECTED_OFFSET);
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}}, EXPECTED_OFFSET);
 	unsigned int firstOff = 0;
 	EXPECT_TRUE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
 									 nullptr, nullptr, &firstOff));
@@ -478,10 +444,13 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_MultipleEntries_CorrectIndexing)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_IndexEqualToCount_ReturnsFalse)
 {
-	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}, {200, 2000}});
+	constexpr uint32_t TIMESCALE = 1000;
+	const std::vector<SidxEntry> entries = {{100, 1000}, {200, 2000}};
+	auto sidx = BuildSidxBoxV0(TIMESCALE, entries);
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
-	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 2,
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(),
+									  static_cast<int>(entries.size()),
 									  &refSize, &refDuration, nullptr));
 }
 
@@ -490,10 +459,14 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_IndexEqualToCount_ReturnsFalse)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_IndexFarOutOfRange_ReturnsFalse)
 {
-	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	constexpr uint32_t TIMESCALE      = 1000;
+	constexpr uint32_t REF_SIZE       = 100;
+	constexpr uint32_t DURATION       = 1000;
+	constexpr int      OUT_OF_RANGE   = 99;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
-	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 99,
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), OUT_OF_RANGE,
 									  &refSize, &refDuration, nullptr));
 }
 
@@ -537,7 +510,8 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_LargeEntryCount_AllCorrect)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_ZeroEntries_ReturnsFalse)
 {
-	auto sidx = BuildSidxBoxV0(1000, {});
+	constexpr uint32_t TIMESCALE = 1000;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {});
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
 	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
