@@ -345,15 +345,17 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL || interfacePlayerPriv->gstPrivateContext->bus == NULL)
 	{
-		MW_LOG_MIL("Create pipeline %s (pipeline %p bus %p)", pipelineName, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
+		MW_LOG_MIL("Neil Create pipeline %s (pipeline %p bus %p)", pipelineName, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
 		CreatePipeline(pipelineName, PipelinePriority); 		/*Create a new pipeline if pipeline or the message bus does not exist*/
 	}
+	
+	MW_LOG_ERR("Neil pipe line creator done");
 
 	if(setReadyAfterPipelineCreation)
 	{
 		if(SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_READY failed on forceful set");
+			MW_LOG_ERR("Neil InterfacePlayerRDK_Configure GST_STATE_READY failed on forceful set");
 		}
 		else
 		{
@@ -3986,7 +3988,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 	}
 //neil
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
-	MW_LOG_MIL("Neil Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
+	MW_LOG_MIL("Neil1 Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
 	interfacePlayerPriv->gstPrivateContext->pipeline = gst_pipeline_new(pipelineName); //get it from app
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
