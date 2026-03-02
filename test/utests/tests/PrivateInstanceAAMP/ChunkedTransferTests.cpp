@@ -26,20 +26,16 @@
 #include "priv_aamp.h"
 #include "AampUtils.h"  // hexCharToInt
 
-extern void AampGrowableBuffer_EnableMemoryCopying(bool enable);
-
 // Minimal helper to drive the callback with a given input,
 // preserving state across invocations.
 struct ChunkHarness {
 	PrivateInstanceAAMP aamp;
-	AampGrowableBuffer buffer;
+	std::vector<uint8_t> buffer;
 	CurlCallbackContext ctx;
 
 	ChunkHarness()
-		: buffer(), ctx(buffer.GetVector(), &aamp)
+		: buffer(), ctx(buffer, &aamp)
 	{
-		AampGrowableBuffer_EnableMemoryCopying(true);
-		
 		// Initialize context as parser expects
 		ctx.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 		ctx.m_ChunkedBytesRemaining = 0;

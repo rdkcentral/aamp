@@ -874,11 +874,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -935,12 +935,12 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
+	std::vector<uint8_t> buffer;
 	const char* dummyData = "dummy data";
 	buffer.assign(dummyData, dummyData + strlen(dummyData));
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1002,11 +1002,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1057,11 +1057,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1085,9 +1085,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 // the chunked MDAT data arriving over multiple callbacks.
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 {
-	// Enable realistic AppendBytes accumulation for this test
-	AampGrowableBuffer_EnableMemoryCopying(true);
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1107,15 +1104,15 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 	const uint8_t initialData[] = "dummy data";
 	constexpr size_t initialDataLen = sizeof(initialData) - 1; // Exclude null terminator
 	buffer.assign(initialData, initialData + initialDataLen);
 
 	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1181,9 +1178,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 // Test HandleSSLWriteCallback when multiple mdat boxes are received
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 {
-	// Enable realistic AppendBytes accumulation for this test
-	AampGrowableBuffer_EnableMemoryCopying(true);
-
 	// Enable LL DASH chunk mode
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1203,11 +1197,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(2048);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(2048);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 2048;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1282,9 +1276,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 {
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Setting up");
 
-	// Enable realistic AppendBytes accumulation for this test
-	AampGrowableBuffer_EnableMemoryCopying(true);
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1308,16 +1299,16 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
+	std::vector<uint8_t> buffer;
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
 	buffer.assign(testData, testData + testDataLen);
 	char inputData[] = "test data with chunk early abort";
 	constexpr size_t inputDataLen = sizeof(inputData) - 1; // Exclude null terminator
-	buffer.ReserveBytes(1024);
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer.GetVector(), p_aamp);
+	CurlCallbackContext context(buffer, p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -5494,8 +5485,8 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)
 // Pass CurlCallbackContext with dataTransferTime = -1 or earlyAbortEnabled = false
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 {
-	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(buffer.GetVector(), aamp);
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(buffer, aamp);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
 			.Times(0);
 
@@ -5512,8 +5503,8 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 // Pass valid CurlCallbackContext with profileBps = 0 or coeff = 0
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 {
-	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(buffer.GetVector(), aamp);
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(buffer, aamp);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
 	context.buffer.assign(testData, testData + testDataLen);
@@ -5537,8 +5528,8 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 // Pass valid CurlCallbackContext with different params
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
 {
-	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(buffer.GetVector(), aamp);
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(buffer, aamp);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
 	context.buffer.assign(testData, testData + testDataLen);
