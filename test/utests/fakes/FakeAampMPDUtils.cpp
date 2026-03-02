@@ -68,7 +68,7 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 }
 
 /**
-
+ * @brief Replace matching token with given number
  * @param str String in which operation to be performed
  * @param from token
  * @param toNumber number to replace token

@@ -19,6 +19,7 @@
 
 #include "AampMPDUtils.h"
 #include <inttypes.h>
+#include <type_traits>
 
 /**
  * @brief Get xml node form reader
@@ -211,6 +212,76 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
 	return newduration;
 }
 
+namespace
+{
+/**
+ * @brief Lightweight cursor for reading big-endian ISOBMFF box fields.
+ *
+ * Provides typed Read<T>() and Skip<T>() operations.
+ * The caller is responsible for validating the box size field before
+ * reading individual fields.
+ */
+class BoxReader final
+{
+public:
+	constexpr explicit BoxReader(const uint8_t *data) noexcept
+		: mCursor{data}
+	{
+	}
+
+	/**
+	 * @brief Read a big-endian integer field and advance the cursor.
+	 * @tparam T  Integral type whose sizeof determines the field width.
+	 * @return    The value read in host byte order.
+	 */
+	template <typename T>
+	[[nodiscard]] T Read() noexcept
+	{
+		static_assert(std::is_integral_v<T>,
+					  "Read<T> requires an integral type");
+		static_assert(sizeof(T) == 1 || sizeof(T) == 2 ||
+					  sizeof(T) == 4 || sizeof(T) == 8,
+					  "Read<T> only supports 1/2/4/8-byte types");
+
+		uint64_t val{0};
+		for (size_t i = 0; i < sizeof(T); ++i)
+		{
+			val = (val << 8) | static_cast<uint8_t>(mCursor[i]);
+		}
+		mCursor += sizeof(T);
+		return static_cast<T>(val);
+	}
+
+	/**
+	 * @brief Skip a field without reading it.
+	 * @tparam T  Integral type whose sizeof determines the skip width.
+	 */
+	template <typename T>
+	void Skip() noexcept
+	{
+		static_assert(std::is_integral_v<T>,
+					  "Skip<T> requires an integral type");
+		static_assert(sizeof(T) == 1 || sizeof(T) == 2 ||
+					  sizeof(T) == 4 || sizeof(T) == 8,
+					  "Skip<T> only supports 1/2/4/8-byte types");
+
+		mCursor += sizeof(T);
+	}
+
+	/**
+	 * @brief Skip a runtime number of bytes.
+	 * @param n  Number of bytes to advance.
+	 */
+	void Skip(size_t n) noexcept
+	{
+		mCursor += n;
+	}
+
+private:
+	const uint8_t *mCursor;
+};
+} // namespace
+
 /**
  * @brief Parse segment index box
  * @note The SegmentBase indexRange attribute points to Segment Index Box location with segments and random access points.
@@ -223,7 +294,7 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
  */
 bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
 {
-	if (!start)
+	if ((!start) || (size < 4))
 	{
 		return false;
 	}
@@ -245,9 +316,9 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 	auto type = reader.Read<uint32_t>();
 	if (type != SIDX_BOX_TYPE)
 	{
-		AAMPLOG_WARN("Wrong type in ParseSegmentIndexBox %c%c%c%c found, %zu expected",
+		AAMPLOG_WARN("Wrong type in ParseSegmentIndexBox %c%c%c%c found, sidx expected",
 					 (type >> 24) & 0xff, (type >> 16) & 0xff,
-					 (type >> 8) & 0xff, type & 0xff, size);
+					 (type >> 8) & 0xff, type & 0xff);
 		if (firstOffset) *firstOffset = 0;
 		return false;
 	}
@@ -263,10 +334,16 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 		reader.Skip<uint32_t>();                 // earliest_presentation_time
 		first_offset = reader.Read<uint32_t>();  // first_offset
 	}
-	else
+	else if (version == 1)
 	{
 		reader.Skip<uint64_t>();                 // earliest_presentation_time
 		first_offset = reader.Read<uint64_t>();  // first_offset
+	}
+	else
+	{
+		AAMPLOG_WARN("Unsupported version in ParseSegmentIndexBox %u found, 0 or 1 expected", version);
+		if (firstOffset) *firstOffset = 0;
+		return false;
 	}
 
 	reader.Skip<uint16_t>();                     // reserved
@@ -294,7 +371,7 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 }
 
 /**
-
+ * @brief Replace matching token with given number
  * @param str String in which operation to be performed
  * @param from token
  * @param toNumber number to replace token

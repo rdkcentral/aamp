@@ -268,6 +268,54 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_NullStart_ReturnsFalse)
 }
 
 /**
+ * @brief Size less than 4 bytes returns false without reading any data.
+ *
+ * The function must guard against reading the 4-byte size field when
+ * the buffer is too short to contain it.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_SizeLessThanFour_ReturnsFalse)
+{
+	constexpr uint32_t TIMESCALE = 1000;
+	constexpr uint32_t REF_SIZE  = 100;
+	constexpr uint32_t DURATION  = 1000;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
+
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	// Sizes 0, 1, 2, 3 must all be rejected before any field is read
+	for (size_t sz = 0; sz < 4; ++sz)
+	{
+		EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sz, 0,
+										  &refSize, &refDuration, nullptr))
+			<< "Expected false for size=" << sz;
+	}
+}
+
+/**
+ * @brief A version byte other than 0 or 1 returns false.
+ *
+ * The version+flags field is a full 32-bit value. The top 8 bits are
+ * the version. Any version other than 0 or 1 is unsupported and must
+ * cause the parser to return false.
+ */
+TEST(AampMPDUtils, ParseSegmentIndexBox_InvalidVersion_ReturnsFalse)
+{
+	constexpr uint32_t TIMESCALE      = 1000;
+	constexpr uint32_t REF_SIZE       = 100;
+	constexpr uint32_t DURATION       = 1000;
+	constexpr uint32_t INVALID_VERSION = 2u; // only 0 and 1 are valid
+
+	// Build a v0 box then overwrite byte 8 (the version byte) with 2
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
+	sidx[8] = static_cast<uint8_t>(INVALID_VERSION);
+
+	unsigned int refSize = 0;
+	float refDuration = 0.0f;
+	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size(), 0,
+									  &refSize, &refDuration, nullptr));
+}
+
+/**
  * @brief Version-0 box with non-zero flags is parsed correctly.
  *
  * The version+flags field has version=0 in the top byte and non-zero
@@ -337,7 +385,10 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_NegativeIndex_ReturnsFalse)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_WrongSize_ReturnsFalse)
 {
-	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	constexpr uint32_t TIMESCALE = 1000;
+	constexpr uint32_t REF_SIZE  = 100;
+	constexpr uint32_t DURATION  = 1000;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
 	unsigned int refSize = 0;
 	float refDuration = 0.0f;
 	// Pass a size that does not match the box header
@@ -350,7 +401,10 @@ TEST(AampMPDUtils, ParseSegmentIndexBox_WrongSize_ReturnsFalse)
  */
 TEST(AampMPDUtils, ParseSegmentIndexBox_WrongSize_ZeroesFirstOffset)
 {
-	auto sidx = BuildSidxBoxV0(1000, {{100, 1000}});
+	constexpr uint32_t TIMESCALE = 1000;
+	constexpr uint32_t REF_SIZE  = 100;
+	constexpr uint32_t DURATION  = 1000;
+	auto sidx = BuildSidxBoxV0(TIMESCALE, {{REF_SIZE, DURATION}});
 	unsigned int firstOff = 99;
 	EXPECT_FALSE(ParseSegmentIndexBox(sidx.data(), sidx.size() + 1, 0,
 									  nullptr, nullptr, &firstOff));
