@@ -1616,7 +1616,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				{
 					unsigned int firstOffset;
 					ParseSegmentIndexBox(
-										 pMediaStreamContext->IDX.GetPtr(),
+										 pMediaStreamContext->IDX.data(),
 										 pMediaStreamContext->IDX.size(),
 										 0,
 										 NULL,
@@ -1633,7 +1633,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 					{
 						if (ParseSegmentIndexBox(
-												 pMediaStreamContext->IDX.GetPtr(),
+												 pMediaStreamContext->IDX.data(),
 												 pMediaStreamContext->IDX.size(),
 												 i,
 												 &referenced_size,
@@ -1650,7 +1650,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				unsigned int referenced_size;
 				float fragmentDuration;
 				if (ParseSegmentIndexBox(
-										 pMediaStreamContext->IDX.GetPtr(),
+										 pMediaStreamContext->IDX.data(),
 										 pMediaStreamContext->IDX.size(),
 										 pMediaStreamContext->fragmentIndex++,
 										 &referenced_size,
@@ -1664,7 +1664,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					float nextfragmentDuration;
 					uint64_t nextfragmentOffset;
 					if (ParseSegmentIndexBox(
-							pMediaStreamContext->IDX.GetPtr(),
+							pMediaStreamContext->IDX.data(),
 							pMediaStreamContext->IDX.size(),
 							pMediaStreamContext->fragmentIndex,
 							&nextReferencedSize,
@@ -2446,7 +2446,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				while ((fragmentTime < skipTime + presentationTimeOffsetSec ) || skipToEnd)
 				{
 					if (ParseSegmentIndexBox(
-											 pMediaStreamContext->IDX.GetPtr(),
+											 pMediaStreamContext->IDX.data(),
 											 pMediaStreamContext->IDX.size(),
 											 fragmentIndex++,
 											 &referenced_size,
@@ -2742,7 +2742,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 			aamp->SetManifestUrl(locationUrl[0].c_str());
 		}
 
-		mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
+		mLastPlaylistDownloadTimeMs = mpdDnldResp->mLastPlaylistDownloadTimeMs;
 		if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai))
 		{
 			mCdaiObject->PlaceAds(mMPDParseHelper);
@@ -4419,6 +4419,8 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			AAMPLOG_ERR("manifest download failed");
 		}
 	}
+	// Inform fetch loop to proceed with the new manifest
+	AbortWaitForManifestUpdate();
 }
 
 /**
@@ -8276,7 +8278,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								unsigned int referenced_size;
 								float fragmentDuration;
 								if (ParseSegmentIndexBox(
-										pMediaStreamContext->IDX.GetPtr(),
+										pMediaStreamContext->IDX.data(),
 										pMediaStreamContext->IDX.size(),
 										pMediaStreamContext->fragmentIndex,
 										&referenced_size,
@@ -9183,9 +9185,13 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						// Update manifest and check for period validity in the next iteration
 						// For CDAI empty period at the end, we should re-iterate the loop
 						AAMPLOG_WARN("Period ID not changed WaitForManifestUpdate");
+						// Snapshot counter before UpdateMPD(); if AbortWaitForManifestUpdate()
+						// fires inside UpdateMPD() the predicate will fire immediately.
+						uint32_t snapshotCounter = GetManifestUpdateCounter();
 						if (AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
 						{
-							aamp->interruptibleMsSleep(500); // Sleep for 500ms to avoid tight looping
+							// Wait for manifest update and check for period change again
+							WaitForManifestUpdate(snapshotCounter);
 						}
 						mpdChanged = true;
 						ret = false;
@@ -9521,14 +9527,21 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							break;
 						}
 					}
+					// Adbreak placement needs to be completed before we can move to next period
+					// so wait for manifest update and check for period change again.
+					// Snapshot counter before UpdateMPD() so a concurrent AbortWaitForManifestUpdate()
+					// inside UpdateMPD() is not missed.
+					uint32_t snapshotCounter = GetManifestUpdateCounter();
 					AAMPStatusType ret = UpdateMPD();
 					if (eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR == ret)
 					{
+						// For download error, wait for manifest update to avoid unnecessary looping.
 						AAMPLOG_TRACE("Wait for manifest refresh");
-						aamp->interruptibleMsSleep(MAX_WAIT_TIMEOUT_MS);
+						WaitForManifestUpdate(snapshotCounter);
 					}
 					else if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == ret)
 					{
+						// For content error, disable downloads and exit fetcher loop.
 						aamp->DisableDownloads();
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 						break;
@@ -9542,14 +9555,20 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 				else if(mIterPeriodIndex >= mNumberOfPeriods)
 				{
+					// New period is not available yet, so wait for manifest update and check for period change again.
+					// Snapshot counter before UpdateMPD() so a concurrent AbortWaitForManifestUpdate()
+					// inside UpdateMPD() is not missed.
+					uint32_t snapshotCounter = GetManifestUpdateCounter();
 					AAMPStatusType ret = UpdateMPD();
 					if (eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR == ret)
 					{
+						// For download error, wait for manifest update to avoid unnecessary looping.
 						AAMPLOG_TRACE("Wait for manifest refresh");
-						aamp->interruptibleMsSleep(MAX_WAIT_TIMEOUT_MS);
+						WaitForManifestUpdate(snapshotCounter);
 					}
 					else if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == ret)
 					{
+						// For content error, disable downloads and exit fetcher loop.
 						aamp->DisableDownloads();
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 						break;
@@ -9739,6 +9758,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 						// TODO:	This is required now as we profile ABR from current period, after decoupling the ABR
 						//			dependency by saving period based profile data, this wait can be removed.
+						// Snapshot before ShouldWaitForFragments() which calls UpdateMPD() internally;
+						uint32_t snapshotCounter = GetManifestUpdateCounter();
 						// Wait for pending fragment downloads if necessary
 						if (ShouldWaitForFragments())
 						{
@@ -9762,7 +9783,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						// Decide whether to wait or exit
 						if (IsAtLiveEdge() && mCdaiObject->mAdState != AdState::IN_ADBREAK_WAIT2CATCHUP)
 						{
-							aamp->interruptibleMsSleep(500);
+							// At live edge, wait for manifest update to get new segments or period.
+							// Avoids tight looping.
+							WaitForManifestUpdate(snapshotCounter);
 						}
 						else
 						{
@@ -9959,7 +9982,10 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						break;
 					}
 					AAMPLOG_TRACE("EOS from both tracks - Wait for next fragment");
-					aamp->interruptibleMsSleep(500);
+					// Snapshot counter before waiting. If AbortWaitForManifestUpdate()
+					// fired between EOS detection and here, the predicate fires
+					// immediately and we re-enter the loop to check for new segments.
+					WaitForManifestUpdate(GetManifestUpdateCounter());
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
@@ -10020,8 +10046,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 	if(mIsLiveManifest)
 	{
 		// let all the track threads to pause for manifest update
-		//playlistDownloaderContext->NotifyFragmentCollectorWait();
-		//playlistDownloaderContext->WaitForManifestUpdate();
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		// Get the Manifest with a wait of Manifest Timeout time
 		ManifestDownloadResponsePtr tmpManifestDnldRespPtr ;
@@ -10040,9 +10064,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
 					// Acquire lock to update current period to sync with ABR changes on video track
-					mMediaStreamContext[eMEDIATYPE_VIDEO]->AcquireMediaStreamContextLock();
+					std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 					ret = IndexNewMPDDocument();
-					mMediaStreamContext[eMEDIATYPE_VIDEO]->ReleaseMediaStreamContextLock();
 				}
 			}
 		}
@@ -10438,6 +10461,8 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	if (!aamp->DownloadsAreEnabled())
 	{
 		aamp->GetAampTrackWorkerManager()->StopWorkers();
+		// Signal collector thread to exit wait for manifest update if waiting
+		AbortWaitForManifestUpdate();
 		if (fragmentCollectorThreadID.joinable())
 		{
 			fragmentCollectorThreadID.join();
@@ -10449,10 +10474,11 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		AAMPLOG_INFO("Abort TsbReader");
 		abortTsbReader = true;
+		// Signal TsbReader thread to exit wait for manifest update if waiting
+		AbortWaitForManifestUpdate();
 		tsbReaderThreadID.join();
 		AAMPLOG_INFO("Joined tsbReaderThreadID");
 	}
-
 
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
@@ -10496,9 +10522,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		if(tsbReaderThreadID.joinable())
 		{
 			abortTsbReader = true;
+			// Signal TsbReader thread to exit wait for manifest update if waiting
+			AbortWaitForManifestUpdate();
 			tsbReaderThreadID.join();
 		}
-
 	}
 
 	if (!aamp->DownloadsAreEnabled())
@@ -13851,6 +13878,14 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		{
 			durMs += periodInfo.duration;
 		}
+		if (mLowLatencyMode && iter == periods.size() - 1)
+		{
+			// Lets see how far behind the live edge is compared to wall clock time. Also lets compare against publish time
+			double manifestEndDelta = ((double)mLastPlaylistDownloadTimeMs / 1000.00) - periodInfo.periodEndTime;
+			AAMPLOG_DEBUG("LLD manifest publishTime:%lf periodEndTime:%lf wallClockTime:%lf manifestEndDelta:%lf",
+					mMPDParseHelper->GetPublishTime(), periodInfo.periodEndTime,
+					(double)mLastPlaylistDownloadTimeMs / 1000.00, manifestEndDelta);
+		}
 	}
 }
 
@@ -13992,6 +14027,8 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 		else if (pMediaStreamContext->profileChanged)
 		{ // Profile changed case, reuse the same downloadInfo for init header fetch
 			AAMPLOG_DEBUG("%s Profile changed, reuse downloadInfo for init header fetch", GetMediaTypeName(downloadInfo->mediaType));
+			// Lock the media stream context while fetching and injecting initialization to avoid race conditions
+			std::lock_guard<std::recursive_mutex> lock(pMediaStreamContext->mMediaStreamContextMutex);
 			// The absolute position for init fragment will be taken from latest media stream context last injected duration
 			// This is taken in DownloadFragment after scheduling new init fragment from here.
 			FetchAndInjectInitialization(downloadInfo->mediaType, downloadInfo->isDiscontinuity);
@@ -14351,4 +14388,79 @@ bool StreamAbstractionAAMP_MPD::ShouldCheckOnlyIframeAdaptation() const
 bool StreamAbstractionAAMP_MPD::IsEmptyPeriod(int iPeriodIndex) const
 {
 	return mMPDParseHelper->IsEmptyPeriod(iPeriodIndex, ShouldCheckOnlyIframeAdaptation());
+}
+
+/**
+ * @fn GetManifestUpdateCounter
+ * @brief Returns the current manifest update counter from the video track.
+ *        Callers should snapshot this before performing any check or download work
+ *        that leads to WaitForManifestUpdate(sinceGeneration).
+ */
+uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if (video)
+	{
+		return video->GetManifestUpdateCounter();
+	}
+	AAMPLOG_WARN("BUG! Video track is not available to get manifest update counter");
+	return 0;
+}
+
+/**
+ * @fn WaitForManifestUpdate
+ * @brief Waits for the manifest update to complete by waiting on the video track's manifest update condition variable.
+ */
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
+{
+	// Let's use video as the primary track for synchronizing manifest updates.
+	// Compared to HLS, there is only one fetcher thread for DASH for video, audio and subtitle tracks.
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if (video)
+	{
+		video->WaitForManifestUpdate();
+	}
+	else
+	{
+		// Video should be always present. In case of audio-only playback, it's currently masked as a video track.
+		AAMPLOG_WARN("BUG! Video track is not available to wait for manifest update");
+	}
+}
+
+/**
+ * @fn WaitForManifestUpdate (sinceGeneration overload)
+ * @brief Waits until the update counter advances past snapshotCounter.
+ *        If AbortWaitForManifestUpdate() already ran after the snapshot was
+ *        taken, the predicate fires immediately — no lost-wakeup.
+ * @param[in] snapshotCounter The manifest update counter snapshot taken before the update that triggers this wait.
+ */
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t snapshotCounter)
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if (video)
+	{
+		video->WaitForManifestUpdate(snapshotCounter);
+	}
+	else
+	{
+		AAMPLOG_WARN("BUG! Video track is not available to wait for manifest update");
+	}
+}
+
+/**
+ * @fn AbortWaitForManifestUpdate
+ * @brief Aborts waiting for the manifest update by signaling the video track's manifest update condition variable.
+ */
+void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if (video)
+	{
+		video->AbortWaitForManifestUpdate();
+	}
+	else
+	{
+		// Video should be always present. In case of audio-only playback, it's currently masked as a video track.
+		AAMPLOG_WARN("BUG! Video track is not available to abort wait for manifest update");
+	}
 }

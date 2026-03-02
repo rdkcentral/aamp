@@ -160,7 +160,8 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 		if (CheckForSteadyState())
 		{
 			// Copy the segment data into a vector and pass it to the processing function
-			uint8_t * data_ptr = reinterpret_cast<uint8_t *>(es.GetPtr());
+			uint8_t * data_ptr = es.data();
+
 			const auto len = es.size();
 			std::vector<uint8_t> buf(len);
 			const auto info {UpdateSegmentInfo()};
@@ -457,22 +458,24 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						bytes_to_read = size;
 					}
 					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
-					pes_header.AppendBytes( data, bytes_to_read);
+					pes_header.insert(pes_header.GetVector().end(),
+									  data,
+									  data + bytes_to_read);
 					data += bytes_to_read;
 					size -= bytes_to_read;
 					if (pes_header.size() == aamp_ts::pes_min_data)
 					{
-						if (!IS_PES_PACKET_START(pes_header.GetPtr()))
+						if (!IS_PES_PACKET_START(pes_header.data()))
 						{
-							AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.GetPtr()[0],
-								pes_header.GetPtr()[1], pes_header.GetPtr()[2]);
+							AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.data()[0],
+								pes_header.data()[1], pes_header.data()[2]);
 							pes_state = PES_STATE_WAITING_FOR_HEADER;
 							break;
 						}
-						if (PES_OPTIONAL_HEADER_PRESENT(pes_header.GetPtr()))
+						if (PES_OPTIONAL_HEADER_PRESENT(pes_header.data()))
 						{
 							pes_state = PES_STATE_GETTING_HEADER_EXTENSION;
-							pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.GetPtr());
+							pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.data());
 							pes_header_ext_read = 0;
 							AAMPLOG_DEBUG(
 								"Optional header preset len = %d. Switching to PES_STATE_GETTING_HEADER_EXTENSION",
@@ -482,7 +485,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						{
 							AAMPLOG_WARN(
 								"Optional header not preset pesStart[6] 0x%x bytes_to_read %d- switching to PES_STATE_WAITING_FOR_HEADER",
-								pes_header.GetPtr()[6], bytes_to_read);
+								pes_header.data()[6], bytes_to_read);
 							pes_state = PES_STATE_WAITING_FOR_HEADER;
 						}
 					}
@@ -505,7 +508,9 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
 					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
-					es.AppendBytes(data, size);
+ 					es.insert(es.GetVector().end(),
+							data,
+							data + size);
 					size = 0;
 					break;
 				default:

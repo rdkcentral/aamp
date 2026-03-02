@@ -49,9 +49,9 @@ CachedFragment::CachedFragment()
 
 
 /**
- * @brief Copy content from another CachedFragment up to a specified length
+ * @brief Copy content from another CachedFragment
  */
-void CachedFragment::Copy(CachedFragment* other, size_t len)
+void CachedFragment::Copy(CachedFragment* other)
 {
 	// Clear existing data first
 	this->fragment.Free();
@@ -72,9 +72,11 @@ void CachedFragment::Copy(CachedFragment* other, size_t len)
 	this->isDummy = other->isDummy;
 	this->discontinuityIndex = other->discontinuityIndex;
 	
-	// Copy fragment data up to specified length
-	if (other && other->fragment.capacity() != 0 && len > 0) {
-		this->fragment.AppendBytes(other->fragment.GetPtr(), len);
+	// Copy fragment data vector from other to this using assign method
+	if (!other->fragment.GetVector().empty()) 
+  {
+		const auto& otherVec = other->fragment.GetVector();
+		this->fragment.assign(otherVec.data(), otherVec.data() + otherVec.size());
 	}
 }
 

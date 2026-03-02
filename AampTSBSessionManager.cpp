@@ -210,9 +210,8 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 			cachedFragment->fragment.resize(len);
 
 			UnlockReadMutex();
-			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
+			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.data(), len);
 			LockReadMutex();
-
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
@@ -279,7 +278,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		cachedFragment->fragment.resize(len);
 
 		UnlockReadMutex();
-		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
+		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.data(), len);
 		LockReadMutex();
 
 		if (status == TSB::Status::OK)
@@ -323,7 +322,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		// The PTS value will be restamped by the injector thread.
 		// This function is called in the context of the fetcher thread before the fragment is added to the list to be injected, to avoid
 		// any race conditions; so it cannot be moved to ProcessWriteQueue() or any other functions called from a different context.
-		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size());
+		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.data(), cachedFragment->fragment.size());
 
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
@@ -404,7 +403,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				std::string uniqueUrl = ToUniqueUrl(writeData.url, writeData.cachedFragment->absPosition);
 
 				// Call TSBHandler Write operation
-				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.size());
+				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.data(), writeData.cachedFragment->fragment.size());
 
 				if (status == TSB::Status::OK)
 				{

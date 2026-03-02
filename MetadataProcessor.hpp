@@ -178,10 +178,9 @@ private:
 	 * @brief Processes the IsoBMFF stream to extract ID3 metadata
 	 * 
 	 * @param type AampMediaType
-	 * @param data_ptr Pointer to the segment's data
-	 * @param data_len Length of the segment
+	 * @param data Reference to vector containing the segment's binary data
 	 */
-	void ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len);
+	void ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data);
 
     /// Flag for tracking whether the current PTS is valid (Initialized) or not
     bool processPTSComplete;
