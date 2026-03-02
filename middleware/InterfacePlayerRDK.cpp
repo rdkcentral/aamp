@@ -357,16 +357,20 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		}
 		else
 		{
-			MW_LOG_INFO("Forcefully set pipeline to ready state due to track_id change");
+			MW_LOG_INFO("Neil Forcefully set pipeline to ready state due to track_id change");
 			PipelineSetToReady = true;
 		}
 	}
 
 	//neil
 	bool configureStream[GST_TRACK_COUNT] = {};
+	MW_LOG_INFO("Neil before the track count loop");
+
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
+		MW_LOG_INFO("Neil track count loop %d, new format = %d", i, newFormat[i]);
+
 		if(stream->format != newFormat[i])
 		{
 			if (newFormat[i] != GST_FORMAT_INVALID)
