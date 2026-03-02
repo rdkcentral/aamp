@@ -394,13 +394,20 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 
 void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 {
-	double flushPosition = 0.0;
+	// N.B. GetPositionMs() must be called before locking the StreamSink mutex, to avoid deadlock.
+	// This is because PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() calls
+	// GetStreamSink, which also locks mStreamSinkMutex.
+	double position = aamp->GetPositionMs() / 1000.00;
+	// Initialize flushPosition with current playback position,
+	// as a fallback mechanism when streamAbstraction is null
+	double flushPosition = position;
 
 	// Access mpStreamAbstractionAAMP under the PrivateInstanceAAMP stream lock
 	aamp->AcquireStreamLock();
 	StreamAbstractionAAMP *streamAbstraction = aamp->mpStreamAbstractionAAMP;
 	if (streamAbstraction != nullptr)
 	{
+		//Update flushPosition from aamp->mpStreamAbstractionAAMP
 		if (aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
 			flushPosition = streamAbstraction->GetStreamPosition();
@@ -412,7 +419,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	}
 	aamp->ReleaseStreamLock();
 
-	AAMPLOG_INFO("flushPosition:%lf, position:%lf", flushPosition, (aamp->GetPositionMs() / 1000.00));
+	AAMPLOG_INFO("flushPosition:%lf, position:%lf", flushPosition, position);
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	

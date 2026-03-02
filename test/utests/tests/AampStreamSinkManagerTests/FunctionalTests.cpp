@@ -348,6 +348,46 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 
+/*
+    @brief: - verifies that progressive ActivatePlayer() uses stream position
+    Test Procedure
+    Initialize AampStreamSinkManager into single pipeline mode.
+    Create 1 sink, it will be the active sink.
+    For second player with progressive format, verify GetStreamPosition() is used
+*/
+TEST_F(AampStreamSinkManagerTests, ChangeAampTests_ProgressiveUsesStreamPosition)
+{
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _))
+        .Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _))
+        .Times(0);
+
+    AampStreamSinkManager::GetInstance().CreateStreamSink(
+        mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(
+        mPrivateInstanceAAMP1);
+
+    AampStreamSinkManager::GetInstance().CreateStreamSink(
+        mPrivateInstanceAAMP2, mId3HandlerCallback2);
+
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _))
+        .Times(0);
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
+
+    mPrivateInstanceAAMP2->mMediaFormat = eMEDIAFORMAT_PROGRESSIVE;
+    /* ActivatePlayer() calls GetStreamPosition() of StreamAbstractionAAMP to get the
+    flush position of the second AAMP private instance and
+    AAMPGstPlayer::Flush() gets called with this position in seconds. */
+    double flushPosition = 7.0;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetStreamPosition())
+        .WillOnce(Return(flushPosition));
+
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true)).Times(1);
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
+}
+
 /*  @brief: - Tests the API SetEncryptedAamp, SetEncryptedHeaders, GetEncryptedHeaders and ReinjectEncryptedHeaders.
     Test procedure
     Set the singlepipeline mode and create streamsink.
