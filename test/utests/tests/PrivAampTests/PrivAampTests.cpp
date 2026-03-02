@@ -408,12 +408,6 @@ public:
 	TestablePrivAamp *testp_aamp{nullptr};
 };
 
-// RAII guard to ensure memory copying is disabled on test exit
-struct MemoryCopyingGuard {
-	MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
-	~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
-};
-
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
 {
 	testp_aamp->GetAvailableTracks_obj();
@@ -884,7 +878,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	buffer.ReserveBytes(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -946,7 +940,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	buffer.assign(dummyData, dummyData + strlen(dummyData));
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1012,7 +1006,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	buffer.ReserveBytes(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1067,7 +1061,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	buffer.ReserveBytes(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1091,8 +1085,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 // the chunked MDAT data arriving over multiple callbacks.
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 {
-	// RAII guard to ensure memory copying is disabled on test exit (success or failure)
-	MemoryCopyingGuard guard;
+	// Enable realistic AppendBytes accumulation for this test
+	AampGrowableBuffer_EnableMemoryCopying(true);
 
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
@@ -1121,7 +1115,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 
 	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1182,14 +1176,13 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
 	EXPECT_EQ(buffer.size(), startBufferOffset + totalBufSize);
-	// guard destructor will call AampGrowableBuffer_EnableMemoryCopying(false)
 }
 
 // Test HandleSSLWriteCallback when multiple mdat boxes are received
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 {
-	// RAII guard to ensure memory copying is disabled on test exit
-	MemoryCopyingGuard guard;
+	// Enable realistic AppendBytes accumulation for this test
+	AampGrowableBuffer_EnableMemoryCopying(true);
 
 	// Enable LL DASH chunk mode
 	AampLLDashServiceData llData;
@@ -1214,7 +1207,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	buffer.ReserveBytes(2048);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 2048;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1289,8 +1282,8 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 {
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Setting up");
 
-	// RAII guard to ensure memory copying is disabled on test exit
-	MemoryCopyingGuard guard;
+	// Enable realistic AppendBytes accumulation for this test
+	AampGrowableBuffer_EnableMemoryCopying(true);
 
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
@@ -1324,7 +1317,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	buffer.ReserveBytes(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), p_aamp);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -2234,7 +2227,7 @@ TEST_F(PrivAampTests,GetFileTest)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
+EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
 									&bitrate,&fogError,0.0));
 }
 
@@ -2248,7 +2241,7 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
+EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
 									&bitrate,&fogError,0.0));
 }
 
@@ -2263,7 +2256,7 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
+EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
 									&bitrate,&fogError,0.0));
 }
 TEST_F(PrivAampTests,GetFileTest_3)
@@ -2280,7 +2273,7 @@ TEST_F(PrivAampTests,GetFileTest_3)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
 									&bitrate,&fogError,0.0));
 }
 
@@ -2298,7 +2291,7 @@ TEST_F(PrivAampTests,GetFileTest_4)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
 									&bitrate,&fogError,0.0));
 }
 
@@ -2347,7 +2340,7 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 		.WillOnce(Return(2.0))
 		.WillRepeatedly(Return(0.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -2417,7 +2410,7 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillRepeatedly(Return(3000.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
 								 eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0, PROFILE_BUCKET_TYPE_COUNT,
 								 maxInitTimeoutDuration));
 }
@@ -2469,7 +2462,7 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
 
-	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -5452,7 +5445,7 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl);
 }
 
 // Validates that low bandwidth timeout is disabled if the video is at the lowest profile
@@ -5487,7 +5480,7 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl);
 }
 
 // Pass null pointer as CurlCallbackContext and abort should be false
@@ -5502,7 +5495,7 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 {
 	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), aamp);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
 			.Times(0);
 
@@ -5520,10 +5513,10 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 {
 	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), aamp);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
-	context.buffer->assign(testData, testData + testDataLen);
+	context.buffer.assign(testData, testData + testDataLen);
 	context.earlyAbortEnabled = true;
 	context.profileBps = 0;
 
@@ -5545,10 +5538,10 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
 {
 	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(aamp, &buffer);
+	CurlCallbackContext context(buffer.GetVector(), aamp);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
-	context.buffer->assign(testData, testData + testDataLen);
+	context.buffer.assign(testData, testData + testDataLen);
 	context.earlyAbortEnabled = true;
 	context.profileBps = 12000;
 
@@ -5788,7 +5781,7 @@ TEST_F(PrivAampTests, NetTrace_ContextPointerNulledAfterGetFile)
 	// but the important part is verifying that NetTrace cleanup happens.
 	p_aamp->GetFile("http://127.0.0.1:0/test.m3u8"
 					eMEDIATYPE_MANIFEST,
-					&gBuff, 
+					gBuff.GetVector(), 
 					effectiveUrl,
 					&httpError, 
 					&downloadTime, 
@@ -5857,7 +5850,7 @@ TEST_F(PrivAampTests, NetTrace_GetFileBasicFunctionality)
 	// Attempt download - will fail without proper mocking, but shouldn't crash
 	bool result = p_aamp->GetFile("https://example.com/manifest.mpd",
 								  eMEDIATYPE_MANIFEST,
-								  &gBuff,
+								  gBuff.GetVector(),
 								  effectiveUrl,
 								  &httpError,
 								  &downloadTime,
@@ -5893,7 +5886,7 @@ TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
 	// First download attempt
 	p_aamp->GetFile("https://example.com/manifest1.mpd",
 					eMEDIATYPE_MANIFEST,
-					&gBuff1,
+					gBuff1.GetVector(),
 					effectiveUrl,
 					&httpError,
 					&downloadTime,
@@ -5908,7 +5901,7 @@ TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
 	// and properly clean up the first one
 	p_aamp->GetFile("https://example.com/manifest2.mpd",
 					eMEDIATYPE_MANIFEST,
-					&gBuff2,
+					gBuff2.GetVector(),
 					effectiveUrl,
 					&httpError,
 					&downloadTime,

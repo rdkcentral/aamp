@@ -29,7 +29,6 @@
 #include <cstring>
 #include <utility>
 #include <assert.h>
-#include <stdio.h>
 #include <vector>
 #include <cstdint>
 
@@ -44,11 +43,6 @@ public:
 		: buffer(other.buffer),
 		  name{other.name}
 	{
-		// If the copied buffer has allocated capacity, account for it.
-		if (buffer.capacity() > 0)
-		{
-			NETMEMORY_PLUS();
-		}
 	}
 
 	// Copy assignment
@@ -107,110 +101,32 @@ public:
 
 	// Vector-like convenience wrappers (lower-case names to match std::vector)
 	bool empty() const { return buffer.empty(); }
-	void shrink_to_fit() { buffer.shrink_to_fit(); } // If used may need to call NETMEMORY_MINUS()
-	void reserve(size_t n) { buffer.reserve(n); }	 // If used may need to call NETMEMORY_PLUS()
+	void shrink_to_fit() { buffer.shrink_to_fit(); }
+	void reserve(size_t n) { buffer.reserve(n); }
 	void resize(size_t n)
 	{
-		const size_t prevCap = buffer.capacity();
-
 		buffer.resize(n);
-		if (prevCap == 0 && buffer.capacity() > 0)
-		{
-			NETMEMORY_PLUS();
-		}
 	}
 	void insert(typename std::vector<uint8_t>::const_iterator pos, const void *first, const void *last)
 	{
 		const uint8_t* start = static_cast<const uint8_t*>(first);
 		const uint8_t* end = static_cast<const uint8_t*>(last);
-		const size_t oldCap = buffer.capacity();
 
 		buffer.insert(pos, start, end);
-		if (oldCap == 0 && buffer.capacity() > 0)
-		{
-			NETMEMORY_PLUS();
-		}
 	}
 	void assign(const void *first, const void *last)
 	{
 		const uint8_t* start = static_cast<const uint8_t*>(first);
 		const uint8_t* end = static_cast<const uint8_t*>(last);
-		const size_t oldCap = buffer.capacity();
 
-		// Perform the actual vector assignment
 		buffer.assign(start, end);
-
-		const size_t newCap = buffer.capacity();
-
-		// Honour the AAMP memory tracking logic
-		if (oldCap == 0 && newCap > 0)
-		{
-			NETMEMORY_PLUS();
-		}
-	}
-	/**
-	 * @brief Helper for external code to account NETMEMORY for capacity transitions
-	 *
-	 * Some callers copy cached data into an external std::vector which then
-	 * becomes the backing storage for an AampGrowableBuffer. This helper lets
-	 * external code notify the global accounting about a capacity change.
-	 *
-	 * @param prevCap previous capacity of the destination vector
-	 * @param newCap new capacity after the copy
-	 */
-	static void AccountCapacityTransition(size_t prevCap, size_t newCap)
-	{
-		if (prevCap == 0 && newCap > 0)
-		{
-			NETMEMORY_PLUS();
-		}
-		else if (prevCap > 0 && newCap == 0)
-		{
-			NETMEMORY_MINUS();
-		}
 	}
 	uint8_t *data() { return buffer.data(); }
 	const uint8_t *data() const { return buffer.data(); }
 
-	static void EnableLogging( bool enable );
-
 private:
 	const char *name;
 	std::vector<uint8_t> buffer;  /**< Vector holding buffer data */
-
-	static bool gbEnableLogging;
-	static int gNetMemoryCount;
-	static int gNetMemoryHighWatermark;
-
-	static void NETMEMORY_PLUS( void )
-	{
-		gNetMemoryCount++;
-		if( gNetMemoryCount>gNetMemoryHighWatermark )
-		{
-			gNetMemoryHighWatermark = gNetMemoryCount;
-			printf( "***gNetMemoryHighWatermark=%d\n", gNetMemoryHighWatermark );
-		}
-	}
-
-	/**
-	 * @brief subtracts from memory count
-	 */
-	static void NETMEMORY_MINUS( void )
-	{
-		if( gNetMemoryCount > 0 )
-		{
-			gNetMemoryCount--;
-			if( gNetMemoryCount == 0)
-			{
-				printf("***gNetMemoryCount=0\n");
-			}
-		}
-		else
-		{
-			printf("gNetMemoryCount is already 0");
-		}
-		assert( gNetMemoryCount >= 0 );
-	}
 };
 
 #endif /* __AAMP_GROWABLE_BUFFER_H__ */

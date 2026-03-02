@@ -27,15 +27,6 @@
 #include "AampLogManager.h"
 #include <assert.h>
 
-bool AampGrowableBuffer::gbEnableLogging = false;
-int AampGrowableBuffer::gNetMemoryCount = 0;
-int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
-
-void AampGrowableBuffer::EnableLogging(bool enable)
-{
-	gbEnableLogging = enable;
-}
-
 AampGrowableBuffer::~AampGrowableBuffer( void )
 {
 	Free();
@@ -46,15 +37,7 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	if( buffer.capacity() > 0 )
-	{
-		NETMEMORY_MINUS();
-		if( gbEnableLogging )
-		{
-			printf("AampGrowableBuffer::%s(%s:%d)\n", "Free",name,gNetMemoryCount);
-		}
-		buffer.clear();
-	}
+	buffer.clear();
 	buffer.shrink_to_fit();  // Release the allocated memory
 }
 
@@ -65,11 +48,6 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 	{
 		try {
 			buffer.reserve(numBytes);
-			NETMEMORY_PLUS();
-			if( gbEnableLogging )
-			{
-				printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
-			}
 		}
 		catch (const std::bad_alloc&)
 		{
@@ -85,7 +63,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		return;
 	}
 
-	bool isFirstAllocation = buffer.empty() && (buffer.capacity() == 0);
 	size_t required = buffer.size() + srcLen;
 
 	if( buffer.capacity() < required )
@@ -99,15 +76,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		try
 		{
 			buffer.reserve(newCapacity);
-
-			if( isFirstAllocation )
-			{
-				NETMEMORY_PLUS();
-				if( gbEnableLogging )
-				{
-					printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes",name,gNetMemoryCount);
-				}
-			}
 		}
 		catch (const std::bad_alloc&)
 		{
@@ -140,15 +108,6 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
 	assert( !buffer.empty() );
-
-	if( buffer.capacity() > 0 )
-	{
-		NETMEMORY_MINUS();
-		if( gbEnableLogging )
-		{
-			printf("AampGrowableBuffer::%s(%s:%d)\n", "ExtractVector",name,gNetMemoryCount);
-		}
-	}
 
 	// Move our data into a temporary vector for return
 	std::vector<uint8_t> extracted(std::move(buffer));

@@ -35,14 +35,14 @@ struct ChunkHarness {
 	AampGrowableBuffer buffer;
 	CurlCallbackContext ctx;
 
-	ChunkHarness() {
+	ChunkHarness()
+		: buffer(), ctx(buffer.GetVector(), &aamp)
+	{
 		AampGrowableBuffer_EnableMemoryCopying(true);
 		
 		// Initialize context as parser expects
 		ctx.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 		ctx.m_ChunkedBytesRemaining = 0;
-		ctx.buffer = &buffer;
-		ctx.aamp = &aamp;
 		ctx.mediaType = eMEDIATYPE_VIDEO;
 	}
 

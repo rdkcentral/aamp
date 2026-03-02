@@ -1386,7 +1386,7 @@ public:
 	 * @return true iff successful
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
-				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int *http_error = NULL, double *downloadTime = NULL,
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,

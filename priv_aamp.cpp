@@ -717,14 +717,14 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
  * @param[out] chunkDurationInTicks - duration of chunk if boundary found
  * @retval true if chunk boundary found
  */
-static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buffer, size_t bufferOffset, size_t &chunkBoundaryOffset, uint64_t &chunkDurationInTicks)
+static bool IdentifyMp4ChunkBoundary(AampMediaType type, std::vector<uint8_t> &buffer, size_t bufferOffset, size_t &chunkBoundaryOffset, uint64_t &chunkDurationInTicks)
 {
 	bool found = false;
 	chunkBoundaryOffset = 0;
 	chunkDurationInTicks = 0;
 
 	IsoBmffBuffer isobmffBuffer;
-	isobmffBuffer.setBuffer(buffer->data() + bufferOffset, buffer->size() - bufferOffset);
+	isobmffBuffer.setBuffer(buffer.data() + bufferOffset, buffer.size() - bufferOffset);
 
 	try
 	{
@@ -944,9 +944,9 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{ // clamp - more bytes in write_callback than needed to complete current chunk
 					n = context->m_ChunkedBytesRemaining;
 				}
-				context->buffer->insert(context->buffer->GetVector().end(),
-										ptr,
-										ptr + n);
+				context->buffer.insert(context->buffer.end(),
+										reinterpret_cast<const uint8_t*>(ptr),
+										reinterpret_cast<const uint8_t*>(ptr) + n);
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
 				if( context->m_ChunkedBytesRemaining == 0 )
@@ -1027,7 +1027,7 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 		AAMPLOG_DEBUG("[%d] start: %lld, elapsed: %lld", context->mediaType, context->dataTransferStartTime, dataTransferTime);
 		if (dataTransferTime > 0)
 		{
-			double bps = (double)(context->buffer->size() * BYTES_PER_MS_TO_BITS_PER_SEC) / (double)dataTransferTime;
+			double bps = (double)(context->buffer.size() * BYTES_PER_MS_TO_BITS_PER_SEC) / (double)dataTransferTime;
 			double coeff = GETCONFIGVALUE_PRIV(eAAMPConfig_EarlyAbortProfileBandwidthPercent) / 100.0;
 			if (context->profileBps > 0 && coeff > 0.0)
 			{
@@ -1069,7 +1069,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
 	if (context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		if ((context->buffer->capacity() == 0) && (context->contentLength > 0))
+		if ((context->buffer.capacity() == 0) && (context->contentLength > 0))
 		{
 			size_t len = context->contentLength;
 			if(context->downloadIsEncoded && (len < DEFAULT_ENCODED_CONTENT_BUFFER_SIZE))
@@ -1077,7 +1077,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
 				len = DEFAULT_ENCODED_CONTENT_BUFFER_SIZE;
 			}
-			context->buffer->ReserveBytes(len);
+			context->buffer.reserve(len);
 		}
 		size_t numBytesForBlock = size*nmemb;
 		ret = numBytesForBlock;
@@ -1089,14 +1089,14 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				context->net->OnWrite(size*nmemb, aamptrace::now_monotonic_s());
 			}
 #endif
-			if (context->buffer->size() == 0)
+			if (context->buffer.size() == 0)
 			{
 				// First byte received, record data transfer start time
 				context->dataTransferStartTime = NOW_STEADY_TS_MS;
 			}
 			if( ISCONFIGSET_PRIV(eAAMPConfig_DebugChunkTransfer) && context->chunkedDownload )
 			{
-				size_t prev_len = context->buffer->size();
+				size_t prev_len = context->buffer.size();
 				chunked_write_callback( ptr, numBytesForBlock, userdata );
 				if( context->m_ChunkedTransferState == ChunkedTransferState::ERROR )
 				{
@@ -1105,14 +1105,14 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 					ret = 0;
 					return ret;
 				}
-				ptr = reinterpret_cast<char*>(context->buffer->data()) + prev_len;
-				numBytesForBlock = context->buffer->size() - prev_len;
+				ptr = reinterpret_cast<char*>(context->buffer.data()) + prev_len;
+				numBytesForBlock = context->buffer.size() - prev_len;
 			}
 			else
 			{
-				context->buffer->insert(context->buffer->GetVector().end(),
-										ptr,
-										ptr + numBytesForBlock);
+				context->buffer.insert(context->buffer.end(),
+										reinterpret_cast<const uint8_t*>(ptr),
+										reinterpret_cast<const uint8_t*>(ptr) + numBytesForBlock);
 			}
 		}
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
@@ -1143,12 +1143,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						context->chunkDurationInTicks = chunkDurationInTicks;
 						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu duration %" PRIu64,
 								context->mediaType, context->chunkBoundary,
-								context->buffer->size(), context->chunkDurationInTicks);
+								context->buffer.size(), context->chunkDurationInTicks);
 					}
 				}
 				if (context->chunkBoundary > 0)
 				{
-					if (context->buffer->size() >= context->chunkBoundary)
+					if (context->buffer.size() >= context->chunkBoundary)
 					{
 						// Check for early abort conditions for video fragments
 						if (context->bufferOffset == 0 && context->mediaType == eMEDIATYPE_VIDEO)
@@ -1162,7 +1162,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						}
 						if (ret > 0)
 						{
-							const uint8_t *bufferPtr = context->buffer->data() + context->bufferOffset;
+							const uint8_t *bufferPtr = context->buffer.data() + context->bufferOffset;
 							if (context->chunkBoundary > context->bufferOffset)
 							{
 								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
@@ -1196,7 +1196,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 					}
 					else
 					{
-						AAMPLOG_TRACE("[%d] Waiting for more data to reach chunk boundary at offset %zu (current buffer len %zu)", context->mediaType, context->chunkBoundary, context->buffer->size());
+						AAMPLOG_TRACE("[%d] Waiting for more data to reach chunk boundary at offset %zu (current buffer len %zu)", context->mediaType, context->chunkBoundary, context->buffer.size());
 					}
 				}
 			}
@@ -1312,7 +1312,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 			}
 #endif
 		}
-		else if (0 == context->buffer->capacity() )
+		else if (0 == context->buffer.capacity() )
 		{
 			if (STARTS_WITH_IGNORE_CASE(ptr, CONTENTLENGTH_STRING))
 			{
@@ -1882,7 +1882,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-	AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
 }
@@ -4435,7 +4434,7 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
@@ -4488,7 +4487,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 	if (resetBuffer)
 	{
-		buffer->clear();
+		buffer.clear();
 	}
 
 	if (mDownloadsEnabled)
@@ -4501,7 +4500,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
 
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
-		CurlCallbackContext context;
+		CurlCallbackContext context(buffer, this);
 		
 		// ==== Begin additive instrumentation - no behavior change ====
 #ifdef AAMP_NET_TRACE
@@ -4563,7 +4562,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				context.remoteUrl = remoteUrl;
 			}
 			context.aamp = this;
-			context.buffer = buffer;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
 			context.mediaType = mediaType;
 			// Early abort and profile bps are relevant only for video fragments
@@ -4716,7 +4714,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				context.downloadStartTime = progressCtx.downloadStartTime;
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
 
-				buffer->clear();
+				buffer.clear();
 
 				isDownloadStalled = false;
 				abortReason = eCURL_ABORT_REASON_NONE;
@@ -4861,7 +4859,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 
 					// Do the empty buffer check only for successful downloads
-					if ((http_code == 200 || http_code == 204 || http_code == 206) && buffer->empty())
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && buffer.empty())
 					{
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
@@ -4883,13 +4881,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						(http_code == 200 || http_code == 204 || http_code == 206) &&
 						!mSinkPaused.load() &&
 						(context.chunkBoundary > 0) &&
-						(context.chunkBoundary < buffer->size()))
+						(context.chunkBoundary < buffer.size()))
 					{
 						// When pipeline paused, chunk injection will be paused, so the chunkBoundary will not match buffer length
 						// Otherwise, this is not expected.
 						// Buffer is already cached through CURL write callback for low latency and there is no course correction.
 						// Let's log here for awareness, as it's not clear if we should cache the extra data beyond chunk boundary.
-						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer->size(), buffer->size() - context.chunkBoundary);
+						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer.size(), buffer.size() - context.chunkBoundary);
 					}
 				}
 				else if (mAampLLDashServiceData.lowLatencyMode &&
@@ -5001,9 +4999,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 									loopAgain = true;
 									if (mediaType == eMEDIATYPE_VIDEO)
 									{
-										if (buffer->size())
+										if (buffer.size())
 										{
-											long downloadbps = ((long)(buffer->size() / downloadTimeMS) * 8000);
+											long downloadbps = ((long)(buffer.size() / downloadTimeMS) * 8000);
 											long currentProfilebps = mpStreamAbstractionAAMP->GetVideoBitrate();
 											if (currentProfilebps - downloadbps > BITRATE_ALLOWED_VARIATION_BAND)
 											{
@@ -5042,9 +5040,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				double connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
 				long reqSize, downloadbps = 0;
 				AAMP_LogLevel reqEndLogLevel = eLOGLEVEL_INFO;
-				if(downloadTimeMS != 0 && buffer->size() != 0)
+				if(downloadTimeMS != 0 && buffer.size() != 0)
 				{
-					downloadbps = ((long)(buffer->size() / downloadTimeMS)*8000);
+					downloadbps = ((long)(buffer.size() / downloadTimeMS)*8000);
 				}
 				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
 				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
@@ -5153,20 +5151,20 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
 		{
-			if ( IsCurlTimeoutFailure (http_code) && buffer->size() > 0)
+			if ( IsCurlTimeoutFailure (http_code) && buffer.size() > 0)
 			{
-				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer->size(), downloadTimeMS, isDownloadStalled);
+				AAMPLOG_WARN("Download timedout and obtained a partial buffer of size %zu for a downloadTime=%d and isDownloadStalled:%d", buffer.size(), downloadTimeMS, isDownloadStalled);
 			}
 
 			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
 				ABRManager::CurlAbortReason hybridAbortReason = (ABRManager::CurlAbortReason) abortReason;
-				if((buffer->size() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
+				if((buffer.size() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
 					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
-					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer->size(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
+					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer.size(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
 						DownloadMetrics downloadMetrics;
@@ -5201,9 +5199,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					getDefaultHarvestPath(harvestPath);
 					AAMPLOG_WARN("Harvest path has not configured, taking default path %s", harvestPath.c_str());
 				}
-				if (buffer->capacity() != 0)
+				if (buffer.capacity() != 0)
 				{
-					if(aamp_WriteFile(remoteUrl, reinterpret_cast<const char*>(buffer->data()), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
+					if(aamp_WriteFile(remoteUrl, reinterpret_cast<const char*>(buffer.data()), buffer.size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
@@ -5218,13 +5216,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				expectedContentLength = aamp_CurlEasyGetInfoDouble(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
 #endif
 				if( (static_cast<int>(lround(expectedContentLength)) > 0) &&
-				   (static_cast<int>(lround(expectedContentLength)) != (int)buffer->size()) )
+				   (static_cast<int>(lround(expectedContentLength)) != (int)buffer.size()) )
 				{
 					//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
-					AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->size() );
+					AAMPLOG_WARN("AAMP Content-Length=%d actual=%zu", static_cast<int>(expectedContentLength), buffer.size() );
 					http_code       =       416; // Range Not Satisfiable
 					ret             =       false; // redundant, but harmless
-					buffer->Free();
+					buffer = {};
 				}
 			}
 		}
@@ -5234,7 +5232,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
-			buffer->Free();
+			buffer = {};
 			if (rate != 1.0)
 			{
 				mediaType = eMEDIATYPE_IFRAME;
@@ -5354,7 +5352,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	}
 
 	// Strip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
-	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && !buffer->empty() && FORMAT_ISO_BMFF == this->mVideoFormat)
+	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && !buffer.empty() && FORMAT_ISO_BMFF == this->mVideoFormat)
 	{
 		AAMPLOG_INFO( "Received HTTP 200 for ranged request (chunked iframe: %s: %s), starting to strip the fragment", range, remoteUrl.c_str() );
 		size_t start;
@@ -5364,14 +5362,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				// #EXT-X-BYTERANGE:19301@88 from manifest is equivalent to 88-19388 in HTTP range request
 				size_t len = (end - start) + 1;
-				if( buffer->size() >= len)
+				if( buffer.size() >= len)
 				{
-					std::memmove(buffer->data(), buffer->data() + start, len);
-					buffer->resize(len);
+					std::memmove(buffer.data(), buffer.data() + start, len);
+					buffer.resize(len);
 				}
 				// hack - repair wrong size in box
 				IsoBmffBuffer repair;
-				repair.setBuffer(buffer->GetVector());
+				repair.setBuffer(buffer);
 				repair.parseBuffer(true);  //correctBoxSize=true
 				AAMPLOG_INFO("Stripping the fragment for range request completed");
 			}
@@ -7051,7 +7049,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		EnableMediaDownloads(eMEDIATYPE_MANIFEST);
 		bool gotManifest = GetFile(url,
 							eMEDIATYPE_MANIFEST,
-							&sniffedBytes,
+							sniffedBytes.GetVector(),
 							effectiveUrl,
 							&http_error,
 							&downloadTime,
@@ -7518,7 +7516,7 @@ BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(std::move(fragmentUrl), mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
+	if (!GetFile(std::move(fragmentUrl), mediaType, fragment->GetVector(), effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
 	{
 		profiler.ProfileError(bucketType, *http_code);
 		profiler.ProfileEnd(bucketType);
@@ -10715,7 +10713,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						bool ret = false;
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
 						AcquireStreamLock();
-						ret = GetFile(newelem.url, newelem.type, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
+						ret = GetFile(newelem.url, newelem.type, playlistStore.GetVector(), playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
 						ReleaseStreamLock();
 						if(ret != false)
 						{
