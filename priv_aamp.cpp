@@ -7685,6 +7685,7 @@ std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 			if( jsonStr )
 			{
 				rc.assign( jsonStr );
+				cJSON_free( jsonStr );
 			}
 			cJSON_Delete(root);
 		}
@@ -8946,13 +8947,15 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 
 		lock.unlock();
 
-		// Take a local copy of the stream abstraction to check for tune
-		// NOTE - this copy is taken outside of the mutex protection as it is only used to see if it has changed while waiting
-		// for the mutex (i.e. checks to see if a 'retune' occurred). It should NOT be dereferenced as it may be invalid after the lock
-		const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
 		std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
 
-		// Check that the stream abstraction has not changed while waiting for the mutex (we have not done some form of tune).
+		// Take a local copy of the stream abstraction to check for tune.
+		// This copy is now taken while holding mStreamLock, so the read is
+		// synchronized and well-defined.
+		const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
+
+		// Check that the stream abstraction has not changed while holding the
+		// mutex (i.e. verify no tune occurred that replaced it).
 		if (oldStreamAbstraction != mpStreamAbstractionAAMP)
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
@@ -9079,19 +9082,10 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		//pipeline error during trickplay
 		if(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL)
 		{
-			// Take a local copy of the stream abstraction to check for tune
-			// NOTE - this copy is taken outside of the mutex protection as it is only used to see if it has changed while waiting
-			// for the mutex (i.e. checks to see if a 'retune' occurred). It should NOT be dereferenced as it may be invalid after the lock
-			const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
+			// Protect mpStreamAbstractionAAMP and related state while processing
+			// the retune. All accesses must be serialized by this mutex to avoid
+			// undefined behaviour in the C++ memory model.
 			std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
-
-			// Check that the stream abstraction has not changed while waiting for the mutex (we have not done some form of tune).
-			if (oldStreamAbstraction != mpStreamAbstractionAAMP)
-			{
-				AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
-				return;
-			}
-
 			AAMPLOG_WARN("Processing retune for GstPipeline Internal Error and rate %f", rate);
 			SendAnomalyEvent(ANOMALY_WARNING, "%s GstPipeline Internal Error", GetMediaTypeName(trackType));
 			gLock.lock();
