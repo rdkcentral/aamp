@@ -1,3 +1,12 @@
+#include "MockStreamAbstractionAAMP.h"
+
+void StreamAbstractionAAMP::Stop(bool clearChannelData)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->Stop(clearChannelData);
+	}
+}
 /*
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:

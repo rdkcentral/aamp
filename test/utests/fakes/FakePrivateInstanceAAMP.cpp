@@ -211,8 +211,16 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
+
+void PrivateInstanceAAMP::Stop(bool sendStateChangeEvent)
 {
+	// Simulate state transitions as in production Stop()
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		// Simulate state transitions for tests
+		g_mockPrivateInstanceAAMP->SetState(eSTATE_STOPPING, sendStateChangeEvent);
+		g_mockPrivateInstanceAAMP->SetState(eSTATE_IDLE, sendStateChangeEvent);
+	}
 }
 
 void PrivateInstanceAAMP::SetAudioTrack(int)

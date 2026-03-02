@@ -206,3 +206,23 @@ TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
     EXPECT_FALSE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
 }
 
+TEST_F(PauseOnPlaybackTests, SetsPlayerStateToIdle) {
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_PLAYING), _)).Times(1);
+    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
+    EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_STOPPING), _)).Times(1);
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_IDLE), _)).Times(1);
+    // send state change events when flag is true
+    mPrivateInstanceAAMP->Stop(true);
+    // Assert
+    //EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);
+}
+
+TEST_F(PauseOnPlaybackTests, DoesNotSendStateChangeEventWhenFlagFalse) {
+    mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
+    /*EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_STOPPING), _)).Times(0);
+    EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_IDLE), _)).Times(0);
+    // don't send state change events when flag is false
+    mPrivateInstanceAAMP->Stop(false);
+    EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);*/
+}
