@@ -4304,6 +4304,55 @@ private:
 	void PlayFromTsbStart();
 
 	void SetCMCDTrackData(AampMediaType mediaType);
+
+	/**
+	 *   @brief Parse audio preferences from a JSON string and update member state.
+	 *          Handles the language, label, rendition, codec, accessibility, and
+	 *          name fields from a JSON object passed as the first argument to
+	 *          SetPreferredLanguages().
+	 *
+	 *   @param[in]  jsonStr              - Input string; may or may not be JSON.
+	 *   @param[out] isRetuneNeeded       - Set to true if any preference changed.
+	 *   @param[out] accessibilityPresent - Set to true if accessibility data changed.
+	 *   @return true if the input was valid JSON and was processed;
+	 *           false if the input is not JSON (caller should use the args path).
+	 */
+	bool ParseAudioPreferencesFromJson(
+		const char *jsonStr, bool &isRetuneNeeded, bool &accessibilityPresent);
+
+	/**
+	 *   @brief Parse audio preferences from individual string arguments and
+	 *          update member state. Only updates fields for which a non-null
+	 *          argument is provided; null rendition, type, accessibility, and
+	 *          name arguments explicitly clear the corresponding field.
+	 *
+	 *   @param[in]  languageList         - Comma-delimited language list, or NULL to leave unchanged.
+	 *   @param[in]  preferredRendition   - Preferred rendition/role, or NULL to clear.
+	 *   @param[in]  preferredType        - Preferred accessibility type, or NULL to clear.
+	 *   @param[in]  codecList            - Comma-delimited codec list, or NULL to leave unchanged.
+	 *   @param[in]  labelList            - Comma-delimited label list, or NULL to leave unchanged.
+	 *   @param[in]  accessibilityItem    - Preferred accessibility node, or NULL to clear.
+	 *   @param[in]  preferredName        - Preferred track name, or NULL to clear.
+	 *   @param[out] isRetuneNeeded       - Set to true if any preference changed.
+	 *   @param[out] accessibilityPresent - Set to true if accessibility data changed.
+	 */
+	void ParseAudioPreferencesFromArgs(
+		const char *languageList, const char *preferredRendition,
+		const char *preferredType, const char *codecList,
+		const char *labelList, const Accessibility *accessibilityItem,
+		const char *preferredName,
+		bool &isRetuneNeeded, bool &accessibilityPresent);
+
+	/**
+	 *   @brief Apply audio preference changes to an active playback session.
+	 *          If the player is idle, released, or in error state, does nothing.
+	 *          Otherwise decides between a seamless track switch, a full retune,
+	 *          or a no-op based on the current state and track availability.
+	 *
+	 *   @param[in] isRetuneNeeded       - true if any preference changed.
+	 *   @param[in] accessibilityPresent - true if accessibility data changed.
+	 */
+	void HandleAudioTrackRetune(bool isRetuneNeeded, bool accessibilityPresent);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
 
