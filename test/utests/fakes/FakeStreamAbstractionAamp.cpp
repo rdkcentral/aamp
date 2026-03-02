@@ -293,6 +293,19 @@ void MediaTrack::WaitForManifestUpdate()
 {
 }
 
+void MediaTrack::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void MediaTrack::AbortWaitForManifestUpdate()
+{
+}
+
+uint32_t MediaTrack::GetManifestUpdateCounter()
+{
+	return 0;
+}
+
 bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 {
 	return true;

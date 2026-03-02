@@ -33,7 +33,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	bool retval{true};
 	IsoBmffBuffer isoBmffBuffer{};
 
-	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.size() );
+	isoBmffBuffer.setBuffer(buffer.data(), buffer.size() );
 
 	if(isoBmffBuffer.parseBuffer())
 	{
@@ -53,7 +53,7 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
 
-	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer.GetPtr()), buffer.size() );
+	isoBmffBuffer.setBuffer(buffer.data(), buffer.size() );
 
 	if (!isoBmffBuffer.parseBuffer())
 	{
@@ -79,7 +79,7 @@ bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
 
-	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.size());
+	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
 
 	if (!isoBmffBuffer.parseBuffer())
 	{
@@ -98,7 +98,7 @@ bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, 
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
 
-	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.size());
+	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
 
 	if (!isoBmffBuffer.parseBuffer())
 	{
@@ -118,7 +118,7 @@ bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
 
-	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.size());
+	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
 
 	if (!isoBmffBuffer.parseBuffer())
 	{

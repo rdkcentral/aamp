@@ -45,11 +45,11 @@ ElementaryProcessor::~ElementaryProcessor()
  *  @brief Process and send Elementary fragment
  */
 bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
-											bool isInit,process_fcn_t processor, bool &ptsError)
+										bool isInit,process_fcn_t processor, bool &ptsError)
 {
 	ptsError = false;
 	bool ret = true;
-	ret = setTuneTimePTS(pBuffer->GetPtr(), pBuffer->size(), position, duration, discontinuous, ptsError);
+	ret = setTuneTimePTS(pBuffer->data(), pBuffer->size(), position, duration, discontinuous, ptsError);
 	if (ret)
 	{
 		AAMPLOG_INFO("IsoBmffProcessor:: eMEDIATYPE_SUBTITLE sending segment at pos:%f dur:%f", position, duration);
@@ -76,7 +76,7 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 /**
  *  @brief Process and set tune time PTS
  */
-bool ElementaryProcessor::setTuneTimePTS(char *segment, const size_t& size, double position, double duration, bool discontinuous, bool &ptsError)
+bool ElementaryProcessor::setTuneTimePTS(const uint8_t *segment, size_t size, double position, double duration, bool discontinuous, bool &ptsError)
 {
 	ptsError = false;
 	bool ret = true;
