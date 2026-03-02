@@ -44,6 +44,8 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::StrictMock;
+using ::testing::Invoke;
+using ::testing::WithArg;
 using ::testing::WithArgs;
 using ::testing::WithoutArgs;
 
@@ -2149,10 +2151,12 @@ struct TestParams
 {
 	const char *manifest;
 	double seekPos;
+	bool mockIDXDownload;
 	const char *videoInitFragment;
 	const char *audioInitFragment;
 	const char *videoFragmentP1;
 	const char *audioFragmentP1;
+	const char *endVideoFragmentP1;
 };
 
 // Test cases
@@ -2203,10 +2207,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		24.0,
+		false,
 		"video_p0_init.mp4",
 		"audio_p0_init.mp4",
 		"video_p1_init.mp4",
-		"audio_p1_init.mp4"},
+		"audio_p1_init.mp4",
+		"video_p1_18.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2253,10 +2259,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		false,
 		"video_p0_init.m4s",
 		"audio_p0_init.m4s",
 		"video_p1_init.m4s",
-		"audio_p1_init.m4s"},
+		"audio_p1_init.m4s",
+		"video_p1_2.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2307,10 +2315,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		false,
 		"video_p0.m4s",
 		"audio_p0.m4s",
 		"video_p1.m4s",
-		"audio_p1.m4s"},
+		"audio_p1.m4s",
+		"video_p1.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2345,10 +2355,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		true,
 		"video_p0.m4s",
 		"audio_p0.m4s",
 		"video_p1.m4s",
-		"audio_p1.m4s"},
+		"audio_p1.m4s",
+		"video_p1.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2391,17 +2403,52 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		true,
 		"video_p0.m4s",
 		"audio_p0.m4s",
 		"video_p1.m4s",
-		"audio_p1.m4s"}};
+		"audio_p1.m4s",
+		"video_p1.m4s"}
+};
+
+// Sample SIDX box for testing IndexedSegment download scenarios.
+// Contains 2 segment references with 2-second durations each.
+// timescale=1000, total duration=4000ms (4 seconds)
+static const uint8_t sidxBox[] = {
+	// Box size = 56
+	0x00, 0x00, 0x00, 0x38,
+	// Type = 'sidx'
+	0x73, 0x69, 0x64, 0x78,
+	// version=0, flags=0
+	0x00, 0x00, 0x00, 0x00,
+	// reference_ID = 1
+	0x00, 0x00, 0x00, 0x01,
+	// timescale = 1000
+	0x00, 0x00, 0x03, 0xE8,
+	// earliest_presentation_time = 0 (32-bit, version 0)
+	0x00, 0x00, 0x00, 0x00,
+	// first_offset = 0
+	0x00, 0x00, 0x00, 0x00,
+	// reserved = 0
+	0x00, 0x00,
+	// reference_count = 2
+	0x00, 0x02,
+	// Reference 0: size=16384, duration=2000, flags
+	0x00, 0x00, 0x40, 0x00,
+	0x00, 0x00, 0x07, 0xD0,
+	0x90, 0x00, 0x00, 0x00,
+	// Reference 1: size=12288, duration=2000, flags
+	0x00, 0x00, 0x30, 0x00,
+	0x00, 0x00, 0x07, 0xD0,
+	0x90, 0x00, 0x00, 0x00,
+};
 
 class AdvancedFetcherLoopTests : public FetcherLoopTests, public ::testing::WithParamInterface<TestParams>
 {
 public:
 	void SetUp() override
 	{
-		counter = 0;
+		shouldExitTest = false;
 		FetcherLoopTests::SetUp();
 	}
 
@@ -2409,7 +2456,7 @@ public:
 	{
 		FetcherLoopTests::TearDown();
 	}
-	int counter;
+	bool shouldExitTest;
 };
 
 /**
@@ -2428,14 +2475,24 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 	TestParams param = GetParam();
 	const char *manifest = param.manifest;
 	double seekPos = param.seekPos;
+	bool mockIDXDownload = param.mockIDXDownload;
 	const char *videoInitFragment = param.videoInitFragment;
 	const char *audioInitFragment = param.audioInitFragment;
 	const char *videoFragmentP1 = param.videoFragmentP1;
 	const char *audioFragmentP1 = param.audioFragmentP1;
+	std::string endVideoFragmentUrl = std::string(TEST_BASE_URL) + std::string(param.endVideoFragmentP1);
 
 	/* Initialize MPD. The video/audio initialization segment is cached. */
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoInitFragment);
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioInitFragment);
+	if (mockIDXDownload)
+	{
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+			.WillRepeatedly(WithArg<3>(Invoke([](AampGrowableBuffer *idxBuffer)
+			{
+				idxBuffer->AppendBytes((const uint8_t *)sidxBox, sizeof(sidxBox));
+			})));
+	}
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
@@ -2447,19 +2504,20 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	/* Push the first video segment to present.
-	 * The segment starts at time 40.0s and has a duration of 2.0s.
-	 */
+	// Run test until the end segment of the period is cached, then exit
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
-		.WillRepeatedly([this]() { return (++counter < 20); });
+		.WillRepeatedly([this]() { return !shouldExitTest; });
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoFragmentP1);
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioFragmentP1);
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 
+	// Default expect
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _)).WillRepeatedly(Return(true));
-
+	// Expect the last segment of the period to be cached, and then exit the test
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(endVideoFragmentUrl, _, _, _, _, false, _, _, _))
+		.WillOnce([this]() { shouldExitTest = true; return true; });
 	/* Invoke the fetcher loop. */
 	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
