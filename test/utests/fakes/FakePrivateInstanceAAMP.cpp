@@ -1612,7 +1612,7 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 	return false;
 }
 
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStart)
 {
 }
 

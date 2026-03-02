@@ -102,7 +102,6 @@ protected:
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
-	AampUnderflowMonitor *mUnderflowMonitor;
 	TestableStreamAbstractionAAMP *mStreamAbstractionAAMP;
 	AampConfig *mConfig;
 	std::shared_ptr<MockMediaProcessor> mMockMediaProcessor;
@@ -267,9 +266,9 @@ TEST_F(StreamAbstractionAAMP_Test, StartAndStopUnderflowMonitor_WrapperApi)
 	EXPECT_FALSE(mStreamAbstractionAAMP->IsUnderflowMonitorRunning());
 }
 
-TEST_F(StreamAbstractionAAMP_Test, StartUnderflowMonitor_CalledTwice_IsIdempotent)
+TEST_F(StreamAbstractionAAMP_Test, StartUnderflowMonitor_CalledTwice_StartsOnceAndRemainsRunning)
 {
-	EXPECT_CALL(*g_mockAampUnderflowMonitor, Start()).Times(2);
+	EXPECT_CALL(*g_mockAampUnderflowMonitor, Start()).Times(1);
 	EXPECT_CALL(*g_mockAampUnderflowMonitor, Stop()).Times(1);
 
 	mStreamAbstractionAAMP->StartUnderflowMonitor();

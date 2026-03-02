@@ -3255,7 +3255,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStart)
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 
 	// If rebuffering started, notify latency monitor to relax the latency band
-	if (bufferingStopped)
+	if (bufferingStart && mLatencyMonitor)
 	{
 		mLatencyMonitor->OnRebufferingStart();
 	}
