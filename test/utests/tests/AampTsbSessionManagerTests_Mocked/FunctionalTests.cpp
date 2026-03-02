@@ -19,6 +19,8 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <chrono>
+#include <thread>
 #include "priv_aamp.h"
 #include "AampTSBSessionManager.h"
 #include "AampTsbReader.h"
@@ -582,8 +584,8 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_BoS)
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
 
-// Test NotifyVideoTsbWaiters functionality
-TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters)
+// Test NotifyVideoTsbWaiter functionality
+TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiter)
 {
 	// Spawn a thread that waits for and consume the notification
 	std::thread consumerThread([this]() {
@@ -594,15 +596,15 @@ TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters)
 	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-	mAampTSBSessionManager->NotifyVideoTsbWaiters();
+	mAampTSBSessionManager->NotifyVideoTsbWaiter();
 
 	consumerThread.join();
 }
 
 // Test that WaitForVideoTsbContentOrAbort returns immediately when notification is already raised
-TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters_BeforeWait)
+TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiter_BeforeWait)
 {
-	mAampTSBSessionManager->NotifyVideoTsbWaiters();
+	mAampTSBSessionManager->NotifyVideoTsbWaiter();
 
 	// Spawn a thread that waits for the notification
 	std::thread consumerThread([this]() {

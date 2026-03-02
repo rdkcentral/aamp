@@ -377,7 +377,7 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::NotifyVideoTsbWaiters()
+void AampTSBSessionManager::NotifyVideoTsbWaiter()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
 	mStopWaitingForVideoTsb = true;
@@ -473,9 +473,8 @@ void AampTSBSessionManager::ProcessWriteQueue()
 
 					if (mediatype == eMEDIATYPE_VIDEO)
 					{
-						NotifyVideoTsbWaiters();
+						NotifyVideoTsbWaiter();
 					}
-
 				}
 				else if (status == TSB::Status::ALREADY_EXISTS)
 				{

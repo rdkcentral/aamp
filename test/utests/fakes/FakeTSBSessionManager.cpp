@@ -251,6 +251,6 @@ void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 {
 }
 
-void AampTSBSessionManager::NotifyVideoTsbWaiters()
+void AampTSBSessionManager::NotifyVideoTsbWaiter()
 {
 }

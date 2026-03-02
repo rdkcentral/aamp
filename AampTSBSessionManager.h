@@ -93,9 +93,9 @@ public:
 	 */
 	void WaitForVideoTsbContentOrAbort();
 	/**
-	 * @brief Notifies waiting threads when new video TSB content is available or downloads are disabled
+	 * @brief Notifies waiting thread when new video TSB content is available or downloads are disabled
 	 */
-	void NotifyVideoTsbWaiters();
+	void NotifyVideoTsbWaiter();
 	/**
 	 * @brief Set TSB length
 	 *
@@ -415,7 +415,7 @@ private:
 	std::mutex mWriteQueueMutex;			// Mutex to synchronize access to the write queue.
 	std::mutex mReadMutex;					// Mutex to synchronize access to the data manager from reader and writer.
 	std::condition_variable mWriteThreadCV; // Condition variable to signal when data is available in the write queue
-	std::condition_variable mNewVideoTsbContentCV;	// Conditional variable used to signal when content has been written to the TSB
+	std::condition_variable mNewVideoTsbContentCV;	// Condition variable used to signal when content has been written to the TSB
 	std::queue<TSBWriteData> mWriteQueue;	// Queue to store write data.
 	double mLastVideoPos;
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
