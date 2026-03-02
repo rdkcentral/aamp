@@ -34,7 +34,7 @@ struct ChunkHarness {
 	CurlCallbackContext ctx;
 
 	ChunkHarness()
-		: buffer(), ctx(buffer, &aamp)
+		: buffer(), ctx(&aamp, buffer)
 	{
 		// Initialize context as parser expects
 		ctx.m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;

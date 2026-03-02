@@ -285,11 +285,11 @@ struct CurlCallbackContext
 
 	/**
 	 * @brief Constructor to initialize CurlCallbackContext
+	 * @param[in] _aamp - PrivateInstanceAAMP pointer
 	 * @param[in] _buffer - Reference to the download destination vector
-	 * @param[in] _aamp - PrivateInstanceAAMP pointer (optional)
 	 */
-	explicit CurlCallbackContext(std::vector<uint8_t> &_buffer, PrivateInstanceAAMP *_aamp = nullptr)
-		: buffer(_buffer), aamp(_aamp) {}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, std::vector<uint8_t> &_buffer)
+		: aamp(_aamp), buffer(_buffer) {}
 
 	~CurlCallbackContext() {}
 

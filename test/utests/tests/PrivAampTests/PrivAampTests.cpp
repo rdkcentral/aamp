@@ -878,7 +878,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -940,7 +940,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	buffer.assign(dummyData, dummyData + strlen(dummyData));
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1006,7 +1006,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1061,7 +1061,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1112,7 +1112,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 
 	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1201,7 +1201,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	buffer.reserve(2048);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 2048;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1308,7 +1308,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(buffer, p_aamp);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -5486,7 +5486,7 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 {
 	std::vector<uint8_t> buffer;
-	CurlCallbackContext context(buffer, aamp);
+	CurlCallbackContext context(aamp, buffer);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
 			.Times(0);
 
@@ -5504,7 +5504,7 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 {
 	std::vector<uint8_t> buffer;
-	CurlCallbackContext context(buffer, aamp);
+	CurlCallbackContext context(aamp, buffer);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
 	context.buffer.assign(testData, testData + testDataLen);
@@ -5529,7 +5529,7 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
 {
 	std::vector<uint8_t> buffer;
-	CurlCallbackContext context(buffer, aamp);
+	CurlCallbackContext context(aamp, buffer);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
 	context.buffer.assign(testData, testData + testDataLen);
