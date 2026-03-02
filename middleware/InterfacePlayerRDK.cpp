@@ -345,7 +345,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL || interfacePlayerPriv->gstPrivateContext->bus == NULL)
 	{
-		MW_LOG_MIL("Neil Create pipeline %s (pipeline %p bus %p)", pipelineName, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
+		MW_LOG_ERR("Neil Create pipeline %s (pipeline %p bus %p)", pipelineName, interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
 		CreatePipeline(pipelineName, PipelinePriority); 		/*Create a new pipeline if pipeline or the message bus does not exist*/
 	}
 	
@@ -359,25 +359,25 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		}
 		else
 		{
-			MW_LOG_INFO("Neil Forcefully set pipeline to ready state due to track_id change");
+			MW_LOG_ERR("Neil Forcefully set pipeline to ready state due to track_id change");
 			PipelineSetToReady = true;
 		}
 	}
 
 	//neil
 	bool configureStream[GST_TRACK_COUNT] = {};
-	MW_LOG_INFO("Neil before the track count loop");
+	MW_LOG_ERR("Neil before the track count loop");
 
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
-		MW_LOG_INFO("Neil track count loop %d, new format = %d", i, newFormat[i]);
+		MW_LOG_ERR("Neil track count loop %d, new format = %d", i, newFormat[i]);
 
 		if(stream->format != newFormat[i])
 		{
 			if (newFormat[i] != GST_FORMAT_INVALID)
 			{
-				MW_LOG_MIL("Closing stream %d old format = %d, new format = %d",i, stream->format, newFormat[i]);
+				MW_LOG_ERR("NEIL Closing stream %d old format = %d, new format = %d",i, stream->format, newFormat[i]);
 				configureStream[i] = true;
 				interfacePlayerPriv->gstPrivateContext->NumberOfTracks++;
 			}
@@ -390,20 +390,20 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 					configureStream[i] = true;
 				else
 				{
-					MW_LOG_INFO("NEIL Tear down stream %d for trickplay rate %d", i, interfacePlayerPriv->gstPrivateContext->rate);
+					MW_LOG_ERR("NEIL Tear down stream %d for trickplay rate %d", i, interfacePlayerPriv->gstPrivateContext->rate);
 					TearDownStream((int)i);
 					configureStream[i] = false;
 				}
 			}
 		}
 		else
-			MW_LOG_INFO("NEIL Tear down should not be done for trickplay rate %d", interfacePlayerPriv->gstPrivateContext->rate);
+			MW_LOG_ERR("NEIL Tear down should not be done for trickplay rate %d", interfacePlayerPriv->gstPrivateContext->rate);
 
 
 		/* Force configure the bin for mid stream audio type change */
 		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
 		{
-			MW_LOG_MIL("AudioType Changed. Force configure pipeline");
+			MW_LOG_ERR("NEIL AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
 		}
 
