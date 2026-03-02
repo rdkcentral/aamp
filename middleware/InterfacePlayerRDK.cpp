@@ -361,6 +361,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
+
+	//neil
 	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
@@ -382,6 +384,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 			else
 			{
+				MW_LOG_INFO("NEIL Tear down stream %d for trickplay rate %d", i, interfacePlayerPriv->gstPrivateContext->rate);
 				TearDownStream((int)i);
 				configureStream[i] = false;
 			}
@@ -3975,7 +3978,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 	}
 //neil
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
-	MW_LOG_MIL("Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
+	MW_LOG_MIL("Neil Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
 	interfacePlayerPriv->gstPrivateContext->pipeline = gst_pipeline_new(pipelineName); //get it from app
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
