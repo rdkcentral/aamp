@@ -296,6 +296,7 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 {
 	if ((!start) || (size < 4))
 	{
+		AAMPLOG_WARN("Invalid parameters in ParseSegmentIndexBox: start=%p, size=%zu", start, size);
 		return false;
 	}
 
@@ -342,7 +343,10 @@ bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, 
 	else
 	{
 		AAMPLOG_WARN("Unsupported version in ParseSegmentIndexBox %u found, 0 or 1 expected", version);
-		if (firstOffset) *firstOffset = 0;
+		if (firstOffset) 
+		{
+			*firstOffset = 0;
+		}
 		return false;
 	}
 
