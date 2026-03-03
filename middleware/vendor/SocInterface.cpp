@@ -52,7 +52,7 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
  */
 SocPlatformType InferPlatformFromPluginScan()
 {
-	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
+	SocPlatformType platform = SOC_PLATFORM_REALTEK;
 	// Ensure GST is initialized
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
