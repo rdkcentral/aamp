@@ -456,3 +456,120 @@ TEST(Mp4Demux_Gaps, TrunOverrunDetection) {
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
 }
 
+// F) LL-DASH regression: two consecutive moof+mdat pairs in one Parse() call must not produce DATA_BOUNDARY_MISMATCH.
+// This validates that mdatStart/mdatEnd are reset at the end of each moof parsing, so that a subsequent moof+mdat pair is not erroneously validated against a previous mdat's range.
+TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
+{
+	std::vector<uint8_t> buf;
+
+	size_t moof1StartIdx = 0, moof2StartIdx = 0;
+	size_t trun1DataOffsetPos = 0, trun2DataOffsetPos = 0;
+	size_t mdat1PayloadStart = 0, mdat2PayloadStart = 0;
+
+	// --- moof1 + mdat1 ---
+	{
+		Box moof(buf, "moof"); moof1StartIdx = moof.start;
+		{
+			Box traf(buf, "traf");
+			{
+				// tfhd: default-sample-duration-present (0x8) | default-sample-size-present (0x10)
+				Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf, 0, 0x00008 | 0x00010);
+				write32be(buf, 1);      // track_ID
+				write32be(buf, 3000);   // default_sample_duration
+				write32be(buf, 8);      // default_sample_size (8 bytes per sample)
+				tfhd.close();
+			}
+			{
+				Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf, 0, 0);
+				write32be(buf, 0);      // baseMediaDecodeTime = 0
+				tfdt.close();
+			}
+			{
+				// trun: flags = 0x0001 (data-offset-present only; sizes from tfhd default)
+				Box trun(buf, "trun"); writeFullBoxHeader(buf, 0, 0x0001);
+				write32be(buf, 1);      // sample_count = 1
+				trun1DataOffsetPos = buf.size();
+				write32be(buf, 0);      // placeholder: data_offset (patched below)
+				trun.close();
+			}
+			traf.close();
+		}
+		moof.close();
+	}
+	// mdat1: 8-byte header + 8-byte payload
+	write32be(buf, 8 + 8); write4cc(buf, "mdat");
+	mdat1PayloadStart = buf.size();
+	for (int i = 0; i < 8; ++i) buf.push_back(uint8_t(0xA0 + i));
+
+	// --- moof2 + mdat2 ---
+	{
+		Box moof(buf, "moof"); moof2StartIdx = moof.start;
+		{
+			Box traf(buf, "traf");
+			{
+				Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf, 0, 0x00008 | 0x00010);
+				write32be(buf, 1);      // track_ID
+				write32be(buf, 3000);   // default_sample_duration
+				write32be(buf, 8);      // default_sample_size
+				tfhd.close();
+			}
+			{
+				Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf, 0, 0);
+				write32be(buf, 3000);   // baseMediaDecodeTime = 3000 (one chunk later)
+				tfdt.close();
+			}
+			{
+				Box trun(buf, "trun"); writeFullBoxHeader(buf, 0, 0x0001);
+				write32be(buf, 1);      // sample_count = 1
+				trun2DataOffsetPos = buf.size();
+				write32be(buf, 0);      // placeholder: data_offset (patched below)
+				trun.close();
+			}
+			traf.close();
+		}
+		moof.close();
+	}
+	// mdat2: 8-byte header + 8-byte payload
+	write32be(buf, 8 + 8); write4cc(buf, "mdat");
+	mdat2PayloadStart = buf.size();
+	for (int i = 0; i < 8; ++i) buf.push_back(uint8_t(0xB0 + i));
+
+	// Patch trun data_offset fields: offset is relative to the start of the owning moof box
+	auto patch32 = [&](size_t pos, int32_t v) {
+		buf[pos+0] = uint8_t((v >> 24) & 0xFF);
+		buf[pos+1] = uint8_t((v >> 16) & 0xFF);
+		buf[pos+2] = uint8_t((v >>  8) & 0xFF);
+		buf[pos+3] = uint8_t((v >>  0) & 0xFF);
+	};
+	patch32(trun1DataOffsetPos, int32_t(mdat1PayloadStart - moof1StartIdx));
+	patch32(trun2DataOffsetPos, int32_t(mdat2PayloadStart - moof2StartIdx));
+
+	Mp4Demux d;
+	bool ok = d.Parse(buf.data(), buf.size());
+	EXPECT_TRUE(ok) << "Multi-moof+mdat segment (LL-DASH) should parse without errors";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK) << "Should not raise DATA_BOUNDARY_MISMATCH";
+
+	auto samples = d.GetSamples();
+	ASSERT_EQ(samples.size(), 2u) << "Should extract one sample per moof+mdat pair";
+
+	// Validate sample 0 is bound to mdat1 payload (0xA0–0xA7)
+	EXPECT_EQ(samples[0].mData.size(), 8u) << "Sample 0 should be 8 bytes (mdat1 payload)";
+	const auto& s0 = samples[0].mData.GetVector();
+	for (int i = 0; i < 8; ++i)
+	{
+		EXPECT_EQ(s0[i], uint8_t(0xA0 + i))
+			<< "Sample 0 byte[" << i << "] should be mdat1 payload (0x"
+			<< std::hex << (0xA0 + i) << ")";
+	}
+
+	// Validate sample 1 is bound to mdat2 payload (0xB0–0xB7)
+	EXPECT_EQ(samples[1].mData.size(), 8u) << "Sample 1 should be 8 bytes (mdat2 payload)";
+	const auto& s1 = samples[1].mData.GetVector();
+	for (int i = 0; i < 8; ++i)
+	{
+		EXPECT_EQ(s1[i], uint8_t(0xB0 + i))
+			<< "Sample 1 byte[" << i << "] should be mdat2 payload (0x"
+			<< std::hex << (0xB0 + i) << ")";
+	}
+}
+

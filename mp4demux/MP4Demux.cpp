@@ -675,10 +675,6 @@ void Mp4Demux::ParseTrackRun()
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
-	if( mdatStart && (dataPtr < mdatStart || dataPtr >= mdatEnd) )
-	{
-		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: dataPtr outside mdat");
-	}
 	uint32_t sampleFlags = 0;
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
@@ -1192,6 +1188,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				gotAuxiliaryInformationOffset = false;
 				cencAuxInfoSizes.clear();
 				sencPresent = false;
+				// Each moof is followed by its own mdat. Reset the mdat range so that trun validation is not affected by a previous mdat's range.
+				mdatStart = nullptr;
+				mdatEnd = nullptr;
 				DemuxHelper(next);
 				MP4_LOG_DEBUG("Completed parsing 'moof' box, sampleOffset: %" PRIu64 " total samples: %zu", sampleOffset, samples.size());
 				if (!sencPresent && gotAuxiliaryInformationOffset)
