@@ -1276,6 +1276,41 @@ protected:
 	 */
 	bool IsEmptyPeriod(int iPeriodIndex) const;
 
+	/**
+	 * @fn GetManifestUpdateCounter
+	 * @brief Returns the current manifest update counter.
+	 *        Snapshot this BEFORE any check or download work that might
+	 *        lead to WaitForManifestUpdate(snapshotCounter), so that a
+	 *        concurrent AbortWaitForManifestUpdate() cannot be missed.
+	 */
+	uint32_t GetManifestUpdateCounter();
+
+	/**
+	 * @fn WaitForManifestUpdate
+	 * @brief Wait for manifest to be updated.
+	 * Called when the fetcher loop is waiting for the next manifest update.
+	 * This is used to avoid tight looping in fetcher loop and also to sync the manifest update and fetcher loop.
+	 */
+	void WaitForManifestUpdate();
+
+	/**
+	 * @fn WaitForManifestUpdate
+	 * @brief Overload accepting a caller-supplied counter snapshot.
+	 *        Blocks until the counter advances past snapshotCounter.
+	 *        Handles the case where AbortWaitForManifestUpdate() fires between
+	 *        the snapshot and the wait call — no lost-wakeup.
+	 * @param[in] snapshotCounter Snapshot from GetManifestUpdateCounter()
+	 *            taken before the caller's check or download work.
+	 */
+	void WaitForManifestUpdate(uint32_t snapshotCounter);
+
+	/**
+	 * @fn AbortWaitForManifestUpdate
+	 * @brief Abort waiting for manifest update.
+	 * This is used to stop the fetcher loop from waiting either on a manifest update or tear down.
+	 */
+	void AbortWaitForManifestUpdate();
+
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/

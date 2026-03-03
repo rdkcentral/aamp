@@ -95,6 +95,7 @@ public:
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
+	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

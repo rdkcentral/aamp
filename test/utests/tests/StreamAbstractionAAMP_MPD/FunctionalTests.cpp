@@ -65,6 +65,7 @@ protected:
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
+	uint64_t mLastPlaylistDownloadTimeMs;
 	static constexpr const char *TEST_HOST_URL = "http://host/";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
@@ -163,6 +164,7 @@ protected:
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
 		mCdaiObj = nullptr;
+		mLastPlaylistDownloadTimeMs = 0;
 	}
 
 	void TearDown()
@@ -273,6 +275,7 @@ public:
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
 		response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
+		response->mLastPlaylistDownloadTimeMs = mLastPlaylistDownloadTimeMs;
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
@@ -413,6 +416,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		delete mMPDParseHelper;
 
 		mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
+	}
+
+	void SetLastPlaylistDownloadTimeMs(uint64_t timeMs)
+	{
+		mLastPlaylistDownloadTimeMs = timeMs;
 	}
 };
 
@@ -715,15 +723,13 @@ protected:
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
+		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampUtils = new StrictMock<MockAampUtils>();
 
 		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
 		mStreamAbstractionAAMP_MPD->SetMPDParseHelper( std::make_shared<AampMPDParseHelper>() );
-
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
-
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
 		g_mockABRManager = new NiceMock<MockABRManager>();
 	}
 
@@ -978,6 +984,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - availabilityStartTime;
 	timeMS = 1000LL*((long long)currentTime);
+	SetLastPlaylistDownloadTimeMs(timeMS);
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(timeMS));
@@ -4925,3 +4932,4 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
 	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
+
