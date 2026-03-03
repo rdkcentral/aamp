@@ -724,7 +724,7 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buf
 	chunkDurationInTicks = 0;
 
 	IsoBmffBuffer isobmffBuffer;
-	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->size() - bufferOffset);
+	isobmffBuffer.setBuffer(buffer->data() + bufferOffset, buffer->size() - bufferOffset);
 
 	try
 	{
@@ -1162,7 +1162,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						}
 						if (ret > 0)
 						{
-							const char *bufferPtr = reinterpret_cast<const char*>(context->buffer->data()) + context->bufferOffset;
+							const uint8_t *bufferPtr = context->buffer->data() + context->bufferOffset;
 							if (context->chunkBoundary > context->bufferOffset)
 							{
 								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
@@ -5203,7 +5203,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (buffer->capacity() != 0)
 				{
-					if(aamp_WriteFile(remoteUrl, buffer->GetPtr(), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
+					if(aamp_WriteFile(remoteUrl, reinterpret_cast<const char*>(buffer->data()), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
@@ -7065,7 +7065,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 
 		if(gotManifest)
 		{
-			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.GetPtr(), "#EXTM3U8", 7) == 0)
+			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.data(), "#EXTM3U8", 7) == 0)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
@@ -8937,6 +8937,19 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 
 		lock.unlock();
 
+		// Take a local copy of the stream abstraction to check for tune
+		// NOTE - this copy is taken outside of the mutex protection as it is only used to see if it has changed while waiting
+		// for the mutex (i.e. checks to see if a 'retune' occurred). It should NOT be dereferenced as it may be invalid after the lock
+		const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
+		std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
+
+		// Check that the stream abstraction has not changed while waiting for the mutex (we have not done some form of tune).
+		if (oldStreamAbstraction != mpStreamAbstractionAAMP)
+		{
+			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
+			return;
+		}
+
 		if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->IsStreamerStalled())
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to playback stall");
@@ -9057,6 +9070,19 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		//pipeline error during trickplay
 		if(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL)
 		{
+			// Take a local copy of the stream abstraction to check for tune
+			// NOTE - this copy is taken outside of the mutex protection as it is only used to see if it has changed while waiting
+			// for the mutex (i.e. checks to see if a 'retune' occurred). It should NOT be dereferenced as it may be invalid after the lock
+			const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
+			std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
+
+			// Check that the stream abstraction has not changed while waiting for the mutex (we have not done some form of tune).
+			if (oldStreamAbstraction != mpStreamAbstractionAAMP)
+			{
+				AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
+				return;
+			}
+
 			AAMPLOG_WARN("Processing retune for GstPipeline Internal Error and rate %f", rate);
 			SendAnomalyEvent(ANOMALY_WARNING, "%s GstPipeline Internal Error", GetMediaTypeName(trackType));
 			gLock.lock();

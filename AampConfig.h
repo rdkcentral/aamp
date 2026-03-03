@@ -152,7 +152,18 @@ typedef enum
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
 	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
-	eAAMPConfig_NativeCCRendering,						/**< If native CC rendering to be supported */
+	eAAMPConfig_NativeCCRendering,					/**< Controls whether AAMP manages CC visibility/styles
+														directly via PlayerCCManager (true), or defers to an
+														external CC controller such as XREReceiver (false).
+														Default: false.
+														On X1 platforms XREReceiver owns CC; set to false so
+														AAMP does not interfere with trickplay muting, parental
+														control gating, or CC track selection.
+														On platforms without XREReceiver, set to true so AAMP
+														takes over the full CC lifecycle.
+														Note: Regardless of this flag, AAMP's CC APIs still
+														route through PlayerCCManager and apps must refrain from
+														using them when the flag is set to false.*/
 	eAAMPConfig_Subtec_subtitle,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_WebVTTNative,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_AsyncTune,						 	/**< To enable Asynchronous tune */

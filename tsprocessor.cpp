@@ -1780,7 +1780,7 @@ void TSProcessor::setBasePTS(double position, long long pts)
 double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
 {
 	double firstPts = 0.0;
-	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->size(), true );
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->data(), pBuffer->size(), true );
 	if( tsDemux )
 	{
 		firstPts = tsDemux->getPts(0);
@@ -1812,9 +1812,9 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
-	unsigned char * packetStart;
-	char *segment = pBuffer->GetPtr();
-	int len = (int)(pBuffer->size());
+	uint8_t *packetStart = nullptr;
+	uint8_t *segment = pBuffer->data();
+	size_t len = pBuffer->size();
 	bool ret = false;
 	ptsError = false;
 	{
@@ -1841,19 +1841,29 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	}
 	m_framesProcessedInSegment = 0;
 	m_lastPTSOfSegment = -1;
-	packetStart = (unsigned char *)segment;
+	packetStart = segment;
+
+	// Guard against null or too-short buffer before dereferencing TS header bytes
+	if (segment == nullptr || len < 4)
+	{
+		AAMPLOG_ERR("Empty or invalid segment buffer, discarding.");
+		std::lock_guard<std::mutex> guard(m_mutex);
+		m_processing = false;
+		m_throttleCond.notify_one();
+		return false;
+	}
 
 	// It seems some ts have an invalid packet at the start, so try skipping it
 	while (((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00)) && (len > 188))
 	{
 		packetStart += 188; // Just jump a packet
 		len -= 188;
-		if ((((char *)packetStart - segment) > 376) ||
+		if (((packetStart - segment) > 376) ||
 			(len < 188))
 		{
 			AAMPLOG_ERR("No valid ts packet found near the start of the segment");
-			packetStart = (unsigned char *)segment;
-			len = (int)(pBuffer->size());
+			packetStart = segment;
+			len = pBuffer->size();
 			break;
 		}
 	}
@@ -1868,11 +1878,11 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	}
 	if (len % m_packetSize)
 	{
-		int discardAtEnd = len % m_packetSize;
-		AAMPLOG_INFO("Discarding %d bytes at end", discardAtEnd);
+		size_t discardAtEnd = len % m_packetSize;
+		AAMPLOG_INFO("Discarding %zu bytes at end", discardAtEnd);
 		len = len - discardAtEnd;
 	}
-	ret = processBuffer((unsigned char*)packetStart, len, insPatPmt, discontinuous);
+	ret = processBuffer(packetStart, static_cast<int>(len), insPatPmt, discontinuous);
 	if (ret)
 	{
 		if (-1.0 == m_startPosition)
