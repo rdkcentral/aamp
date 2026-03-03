@@ -650,8 +650,8 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 
 
 	// Populate the time based buffer manager with the fragment duration before
-	// submitting the download job. The download job may complete and segment get injected
-	// before execution resumes on this thread. Thhe buffer manager needs to have the
+	// submitting the download job. The download job may complete and segment gets injected
+	// before execution resumes on this thread. The buffer manager needs to have the
 	// fragment duration populated before injection.
 	auto timeBasedBufferManager = pMediaStreamContext->GetTimeBasedBufferManager();
 	if (timeBasedBufferManager)
