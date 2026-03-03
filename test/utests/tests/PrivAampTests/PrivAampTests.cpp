@@ -5763,16 +5763,16 @@ TEST_F(PrivAampTests, NetTrace_ContextPointerNulledAfterGetFile)
 	
 	std::string effectiveUrl;
 	int httpError = 0;
-	AampGrowableBuffer gBuff("NetTraceTestBuffer");
+	std::vector<uint8_t> buffer;
 	double downloadTime = 0.0;
 	BitsPerSecond bitrate = 0;
 	int fogError = 0;
 	
 	// Attempt a download to localhost; the request is expected to fail quickly,
 	// but the important part is verifying that NetTrace cleanup happens.
-	p_aamp->GetFile("http://127.0.0.1:0/test.m3u8"
+	p_aamp->GetFile("http://127.0.0.1:0/test.m3u8",
 					eMEDIATYPE_MANIFEST,
-					gBuff.GetVector(), 
+					buffer,
 					effectiveUrl,
 					&httpError, 
 					&downloadTime, 
@@ -5830,7 +5830,7 @@ TEST_F(PrivAampTests, NetTrace_GetFileBasicFunctionality)
 {
 	std::string effectiveUrl;
 	int httpError = 0;
-	AampGrowableBuffer gBuff("NetTraceBasicTest");
+	std::vector<uint8_t> buffer;
 	double downloadTime = 0.0;
 	BitsPerSecond bitrate = 0;
 	int fogError = 0;
@@ -5841,7 +5841,7 @@ TEST_F(PrivAampTests, NetTrace_GetFileBasicFunctionality)
 	// Attempt download - will fail without proper mocking, but shouldn't crash
 	bool result = p_aamp->GetFile("https://example.com/manifest.mpd",
 								  eMEDIATYPE_MANIFEST,
-								  gBuff.GetVector(),
+								  buffer,
 								  effectiveUrl,
 								  &httpError,
 								  &downloadTime,
@@ -5868,8 +5868,8 @@ TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
 {
 	std::string effectiveUrl;
 	int httpError = 0;
-	AampGrowableBuffer gBuff1("NetTraceMulti1");
-	AampGrowableBuffer gBuff2("NetTraceMulti2");
+	std::vector<uint8_t> buffer1;
+	std::vector<uint8_t> buffer2;
 	double downloadTime = 0.0;
 	BitsPerSecond bitrate = 0;
 	int fogError = 0;
@@ -5877,7 +5877,7 @@ TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
 	// First download attempt
 	p_aamp->GetFile("https://example.com/manifest1.mpd",
 					eMEDIATYPE_MANIFEST,
-					gBuff1.GetVector(),
+					buffer1,
 					effectiveUrl,
 					&httpError,
 					&downloadTime,
@@ -5892,7 +5892,7 @@ TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
 	// and properly clean up the first one
 	p_aamp->GetFile("https://example.com/manifest2.mpd",
 					eMEDIATYPE_MANIFEST,
-					gBuff2.GetVector(),
+					buffer2,
 					effectiveUrl,
 					&httpError,
 					&downloadTime,
