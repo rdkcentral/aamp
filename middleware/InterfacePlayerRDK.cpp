@@ -68,7 +68,7 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
-mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
+mProtectionLock(), mPauseInjector(false), trickTeardown(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
 	interfacePlayerPriv = new InterfacePlayerPriv();
@@ -403,16 +403,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		MW_LOG_ERR("NEIL configure stream[%d] = %d bESChangeStatus = %d eGST_MEDIATYPE_AUDIO [%d] == %d", i, configureStream[i], bESChangeStatus, eGST_MEDIATYPE_AUDIO, i);
 
 		/* Force configure the bin for mid stream audio type change */
-//		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
-
-		if (!configureStream[i] && (eGST_MEDIATYPE_AUDIO == i) && (stream->format != newFormat[i]))
+		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
 		{
 			MW_LOG_ERR("NEIL AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
-		}
-		else
-		{
-			MW_LOG_ERR("NEIL AudioType not Changed. No need to force configure pipeline");
 		}
 
 		stream->resetPosition = true;
@@ -427,7 +421,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			/* Allow to create audio pipeline along with video pipeline if trickplay initiated before the pipeline going to play/paused state to fix unthrottled trickplay */
 			(trickTeardown && (eGST_MEDIATYPE_AUDIO == i))) // remove the trickTeardown api not required
 		{
-			trickTeardown = false;
+			if (eGST_MEDIATYPE_AUDIO == i)
+			{
+				trickTeardown = false;
+			}
 			TearDownStream((int)i);
 			stream->format = newFormat[i];
 			stream->trackId = trackId;
