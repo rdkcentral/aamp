@@ -464,11 +464,11 @@ protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
-	    // Add this getter for testing
-    	double GetServerUtcTime() const
-    	{
-        	return mServerUtcTime;
-    	}
+		// Add this getter for testing
+		double GetServerUtcTime() const
+		{
+			return mServerUtcTime;
+		}
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 											double seekpos, float rate)
@@ -3115,6 +3115,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		//1st call to CallFindServerUTCTime
 		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
 		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
 		//2nd call to CallFindServerUTCTime
@@ -3139,15 +3140,15 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	// First call - should sync
+	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call before interval - should use cached value, not sync
+	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2); // Should still return true using cached offset
-	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime+30, 0.001);
 	// Cleanup
 	delete rootNode;
@@ -3203,12 +3204,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	// First call - should sync
+	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime1, 0.001);
 
-	// Second call after interval - should sync again
+	// Second call after interval - should get server time from network again
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime2, 0.001);
@@ -3264,7 +3265,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	// First call - performs sync
+	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
