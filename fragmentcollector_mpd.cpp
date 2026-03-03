@@ -648,6 +648,17 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			this->OnFragmentDownloadComplete(status, downloadInfo);
 		});
 
+
+	// Populate the time based buffer manager with the fragment duration before
+	// submitting the download job. The download job may complete and segment get injected
+	// before execution resumes on this thread. Thhe buffer manager needs to have the
+	// fragment duration populated before injection.
+	auto timeBasedBufferManager = pMediaStreamContext->GetTimeBasedBufferManager();
+	if (timeBasedBufferManager)
+	{
+		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
+	}
+
 	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
@@ -666,11 +677,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		downloadJob->Execute();
 		AAMPLOG_DEBUG("Executed download job for fragment: %s", downloadInfo->uriList.begin()->second.url.c_str());
 		retval = true;
-	}
-	auto timeBasedBufferManager = pMediaStreamContext->GetTimeBasedBufferManager();
-	if (timeBasedBufferManager)
-	{
-		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
 	}
 
 	if (mPlayRate > AAMP_RATE_PAUSE)
@@ -7688,7 +7694,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
 				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
-				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 
+				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0
 					&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Make sure basePeriodOffset is updated
@@ -8161,9 +8167,9 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			mCulledSeconds = firstPeriodStart;
 		}
-		
+
 		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB()) / 1000.00);
-		
+
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
 			// Handling edge case just before dynamic => static transition.
