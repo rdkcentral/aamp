@@ -403,7 +403,9 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		MW_LOG_ERR("NEIL configure stream[%d] = %d bESChangeStatus = %d eGST_MEDIATYPE_AUDIO [%d] == %d", i, configureStream[i], bESChangeStatus, eGST_MEDIATYPE_AUDIO, i);
 
 		/* Force configure the bin for mid stream audio type change */
-		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
+//		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
+
+		if (!configureStream[i] && (eGST_MEDIATYPE_AUDIO == i) && (stream->format != newFormat[i]))
 		{
 			MW_LOG_ERR("NEIL AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
@@ -1686,7 +1688,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
-		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
+		MW_LOG_ERR("NEIL Trickplay rate %d - send eos to audio sink", rate);
 		GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
 	}
 
