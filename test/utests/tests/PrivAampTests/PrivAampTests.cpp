@@ -1171,7 +1171,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// This happens in the second call to HandleSSLWriteCallback when the complete chunked mdat is received in the buffer. The first call should not trigger CacheFragmentChunk() as the chunk is not complete yet.
 	// Lets make this a strict check using expected values
 	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragmentChunk(eMEDIATYPE_VIDEO, reinterpret_cast<const char*>(buffer.data()) + startBufferOffset, chunkBoundary - startBufferOffset, _, _, mdatDuration))
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.data() + startBufferOffset, chunkBoundary - startBufferOffset, _, _, mdatDuration))
 		.Times(1);
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
