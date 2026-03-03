@@ -5647,6 +5647,24 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrSt
 }
 
 /**
+ * @brief Validate the fix in detach().
+ */
+
+TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
+{
+	// Simulate async event sent before detach (crash scenario)
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_ASYNC_MODE)).Times(1);
+	p_aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, "test-session"), AAMP_EVENT_ASYNC_MODE);
+
+	EXPECT_CALL(*g_mockAampEventManager, FlushPendingEvents()).Times(1);
+	p_aamp->detach();
+
+	// After detach, sync events should not be called
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_SYNC_MODE)).Times(0);
+	sleep(1);
+}
+
+/**
  * @brief Validate UpdatePersistBandwidth does nothing when bandwidth invalid.
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ZeroBandwidth_DoesNotUpdateAbrStatics)
