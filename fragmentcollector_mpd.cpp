@@ -1487,7 +1487,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				AAMPLOG_INFO("Type[%d] EOS. pMediaStreamContext->lastSegmentNumber %" PRIu64 " fragmentDescriptor.Time=%f mPeriodEndTime=%f mPeriodStartTime %f  currentTimeSeconds %f FTime=%f", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPeriodStartTime, currentTimeSeconds, pMediaStreamContext->fragmentTime);
 				pMediaStreamContext->eos = true;
 			}
-			else if( mIsLiveStream &&  mHasServerUtcTime && fragmentRequestTime >= mServerUtcTime))
+			else if( mIsLiveStream &&  mHasServerUtcTime && (fragmentRequestTime >= mServerUtcTime))
 			{
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 

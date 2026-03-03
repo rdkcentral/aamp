@@ -465,9 +465,9 @@ protected:
 	{
 	public:
 	    // Add this getter for testing
-    	double GetLocalUtcTime() const
+    	double GetServerUtcTime() const
     	{
-        	return mLocalUtcTime;
+        	return mServerUtcTime;
     	}
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
@@ -3088,7 +3088,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 
 	// Verify sync occurred
 	EXPECT_TRUE(result);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3142,13 +3142,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	// First call - should sync
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call before interval - should use cached value, not sync
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2); // Should still return true using cached offset
 	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime+30, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime+30, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3206,12 +3206,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	// First call - should sync
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime1, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime1, 0.001);
 
 	// Second call after interval - should sync again
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime2, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime2, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3267,13 +3267,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	// First call - performs sync
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call - uses cached offset, still returns true
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
 	//2nd call happens 10Sec later
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetLocalUtcTime(),serverTime+10, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime+10, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
