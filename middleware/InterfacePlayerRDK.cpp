@@ -400,11 +400,17 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			MW_LOG_ERR("NEIL Tear down should not be done for trickplay rate %d", interfacePlayerPriv->gstPrivateContext->rate);
 
 
+		MW_LOG_ERR("NEIL configure stream[%d] = %d bESChangeStatus = %d eGST_MEDIATYPE_AUDIO [%d] == %d", i, configureStream[i], bESChangeStatus, eGST_MEDIATYPE_AUDIO, i);
+
 		/* Force configure the bin for mid stream audio type change */
 		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
 		{
 			MW_LOG_ERR("NEIL AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
+		}
+		else
+		{
+			MW_LOG_ERR("NEIL AudioType not Changed. No need to force configure pipeline");
 		}
 
 		stream->resetPosition = true;
