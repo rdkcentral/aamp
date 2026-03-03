@@ -311,7 +311,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	// Breakdown analysis to identify if delay is from network/buffering or Rialto pipeline
 	AAMPLOG_WARN("[RIALTO_DEBUG] TuneEnd: DECODE_BREAKDOWN tFirstFrameStart=%u, tDecryptFinish=%u, tFirstBuffer=%u, tDecode=%d (NEGATIVE=DECRYPT_ONGOING_DURING_FIRSTFRAME)",
 				 tFirstFrameStart, tDecryptVideoFinish, tFirstBufferStart, tDecode);
-	AAMPLOG_WARN("[RIALTO_DEBUG] BUCKET_DURATIONS: manifest=%u, initVideo=%u, fragVideo=%u, decryptVideo=%u, postDecryptRialtoDelay=%d",
+	AAMPLOG_WARN("[RIALTO_DEBUG] BUCKET_DURATIONS: manifest=%u, initVideo=%u, fragVideo=%u, decryptVideo=%u, postDecryptDelay=%d",
 				 bucketDuration(PROFILE_BUCKET_MANIFEST), bucketDuration(PROFILE_BUCKET_INIT_VIDEO), bucketDuration(PROFILE_BUCKET_FRAGMENT_VIDEO), bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO), (int)(tFirstFrameStart - tDecryptVideoFinish));
 	AAMPLOG_WARN("[RIALTO_DEBUG] ERROR_COUNTS: manifest=%u, initVideo=%u, fragVideo=%u, decrypt=%u (HIGH_ERRORS_SUGGEST_NETWORK_OR_RIALTO_RETRY)",
 				 buckets[PROFILE_BUCKET_MANIFEST].errorCount, buckets[PROFILE_BUCKET_INIT_VIDEO].errorCount, buckets[PROFILE_BUCKET_FRAGMENT_VIDEO].errorCount, buckets[PROFILE_BUCKET_DECRYPT_VIDEO].errorCount);
