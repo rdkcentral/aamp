@@ -1,0 +1,68 @@
+name: PR Merge Jira Comment
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  comment-on-jira:
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'feature/VPLAY-12852-test' }}
+    runs-on: comcast-ubuntu-latest
+    steps:
+      - name: Extract Jira ticket key from source branch
+        id: extract
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          ISSUE_KEY=$(echo "$BRANCH_NAME" | grep -Eio '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 | tr '[:lower:]' '[:upper:]' || true)
+
+          if [[ -z "$ISSUE_KEY" ]]; then
+            echo "No Jira ticket key found in branch: $BRANCH_NAME"
+            echo "issue_key=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found Jira ticket: $ISSUE_KEY"
+            echo "issue_key=$ISSUE_KEY" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post Jira comment
+        if: steps.extract.outputs.issue_key != ''
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          ISSUE_KEY: ${{ steps.extract.outputs.issue_key }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
+          MERGED_BY_LOGIN: ${{ github.event.pull_request.merged_by.login }}
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${JIRA_BASE_URL:-}" || -z "${JIRA_API_TOKEN:-}" ]]; then
+            echo "Missing Jira credentials. Please set JIRA_BASE_URL, and JIRA_API_TOKEN secrets."
+            exit 1
+          fi
+
+          MERGED_BY_NAME=$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/users/${MERGED_BY_LOGIN}" | jq -r '.name // empty')
+
+          if [[ -z "$MERGED_BY_NAME" ]]; then
+            MERGED_BY_NAME="$MERGED_BY_LOGIN"
+          fi
+
+          COMMENT_BODY="PR merged ${PR_URL} into ${TARGET_BRANCH} by ${MERGED_BY_NAME}"
+          PAYLOAD=$(jq -n --arg body "$COMMENT_BODY" '{body: $body}')
+
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${JIRA_API_TOKEN}" \
+            "${JIRA_BASE_URL}/rest/api/2/issue/${ISSUE_KEY}/comment" \
+            -d "$PAYLOAD"
