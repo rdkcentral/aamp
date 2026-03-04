@@ -1137,6 +1137,7 @@ public:
 	bool mIsTrackIdMismatch;				/**< Indicate track_id mismatch in the trak box between periods */
 
 	bool mIsDefaultOffset; 					/**< Playback offset is not specified and we are using the default value/behavior */
+	bool mIsOffsetNegativeOne;                     /**< Set to true when offset=-1 is passed from application to play IVOD/CDVR content from live edge */
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
@@ -2673,7 +2674,10 @@ public:
 	/**
 	 *   @fn IsLiveAdjustRequired
 	 *
-	 *   @return False if the content is either vod/ivod/cdvr/ip-dvr/eas
+	 *   @return True if live adjustment is required for the content.
+	 *           Returns true for live content (LINEAR_TV, SLE) and for IVOD/CDVR content 
+	 *           when playing from live edge (offset=-1 with dynamic manifest).
+	 *           Returns false for VOD, IP-DVR, EAS, and completed IVOD/CDVR recordings.
 	 */
 	bool IsLiveAdjustRequired();
 

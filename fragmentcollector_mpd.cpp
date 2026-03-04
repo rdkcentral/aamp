@@ -9860,9 +9860,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
  * @param[out] waitForFreeFrag - waitForFreeFragmentAvailable flag
  * @param[out] bCacheFullState - cache status for track
  *
- * @return void
+ * @return bool - true if a segment was found and cached, false otherwise
  */
-void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
+bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
 {
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	AampMediaType mediaType = (AampMediaType) trackIdx;
@@ -9873,6 +9873,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		tsbReader = tsbSessionManager->GetTsbReader(mediaType);
 	}
 	bool isAllowNextFrag = true;
+	bool fragmentCached {false};
 	int  maxCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentChunksSize();
 
 	if (waitForFreeFrag && !trickPlay)
@@ -9903,7 +9904,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 			// profile not changed and not at EOS
 			if(!pMediaStreamContext->profileChanged && tsbReader->TrackEnabled() && !tsbReader->IsEos())
 			{
-				bool fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
+				fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
 				AAMPLOG_TRACE("[%s] Fragment %s", GetMediaTypeName((AampMediaType)trackIdx), fragmentCached ? "cached" : "not cached");
 			}
 			if(pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack && bCacheFullState)
@@ -9911,6 +9912,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 				bCacheFullState = false;
 			}
 	}
+	return fragmentCached;
 }
 
 /**
@@ -9941,14 +9943,17 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 		{
 			while (!exitLoop)
 			{
+				bool segmentFound {false};
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					cacheFullStatus[trackIdx] = true;
 					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
-						AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
+						bool trackSegmentFound = AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
+						segmentFound = segmentFound || trackSegmentFound;
 					}
 				}
+
 				if(abortTsbReader)
 				{
 					AAMPLOG_INFO("Exit TsbReader due to abort");
@@ -9981,7 +9986,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						exitLoop = true;
 						break;
 					}
-					AAMPLOG_TRACE("EOS from both tracks - Wait for next fragment");
+					AAMPLOG_INFO("EOS from both tracks - Wait for next fragment");
 					// Snapshot counter before waiting. If AbortWaitForManifestUpdate()
 					// fired between EOS detection and here, the predicate fires
 					// immediately and we re-enter the loop to check for new segments.
@@ -10000,9 +10005,21 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 				}
 				else
-				{	// This sleep will hit when there is no content to download and cache is not full
-					// and refresh interval timeout not reached . To Avoid tight loop adding a min delay
-					aamp->interruptibleMsSleep(50);
+				{
+					if (segmentFound)
+					{
+						aamp->interruptibleMsSleep(50);				//To Avoid tight loop adding a small delay
+					}
+					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
+					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
+					{
+						// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
+						tsbSessionManager->WaitForVideoTsbContentOrAbort();
+					}
+					else
+					{
+						AAMPLOG_WARN("No segment found for rate <= AAMP_NORMAL_PLAY_RATE");
+					}
 				}
 			} // Loop 2 : TSB FetchLoop
 		}
