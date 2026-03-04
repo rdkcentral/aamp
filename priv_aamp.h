@@ -1836,7 +1836,7 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  buffer - Buffer containing the stream data (ownership transferred).
+	 *   @param[in,out]  buffer - Buffer containing the stream data (moved out and cleared).
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
@@ -1845,7 +1845,7 @@ public:
 	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t> buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 	/**
 	 *   @fn SendStreamTransfer

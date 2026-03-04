@@ -3010,10 +3010,11 @@ TEST_F(PrivAampTests,SendStreamCopyTest)
 // needs a better test implementation
 TEST_F(PrivAampTests, DISABLED_SendStreamTransferTest)
 {
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,true,true);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,false,false);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,true,false);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,false,true);
+	std::vector<uint8_t> buf;
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,true,true);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,false,false);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,true,false);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,false,true);
 }
 
 TEST_F(PrivAampTests,IsLiveTest)
