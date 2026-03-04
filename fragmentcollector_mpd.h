@@ -619,9 +619,9 @@ protected:
 	 * @param[out] waitForFreeFrag - waitForFreeFragmentAvailable flag
 	 * @param[out] bCacheFullState - cache status for track
 	 *
-	 * @return void
+	 * @return bool - true if a segment was found and cached, false otherwise
 	 */
-	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
+	bool AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
 
 	/**
 	 * @fn FetcherLoop
