@@ -1321,7 +1321,7 @@ protected:
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;
-	double mServerUtcTime; 				/**< Time periodically read from UTC time server and then updated from epoc time */
+	double mServerUtcTime; 				/**< Time periodically read from UTC time server and then updated from epoch time */
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/

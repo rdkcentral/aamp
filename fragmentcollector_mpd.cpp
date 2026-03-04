@@ -4494,7 +4494,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 					{
 						const std::string &value = node->GetAttributeValue("value");
 						mServerUtcTime = ISO8601DateTimeToUTCSeconds(value.c_str() );
-						mDeltaTime =  mServerUtcTime - currentTimeMS/1000;
+						mDeltaTime =  mServerUtcTime - (double)currentTimeMS/1000;
 						hasServerUtcTime = true;
 						break;
 					}
@@ -4513,7 +4513,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 						bool intervalElapsed = false;
 						if( !shouldSyncOnStartup )
 						{
-							const double elapsed = (double)(currentTimeMS - mTimeSyncClient.lastSync) / 1000;
+							const double elapsed = static_cast<double>(currentTimeMS - mTimeSyncClient.lastSync) / 1000;
 							intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
 						}
 						if (shouldSyncOnStartup || intervalElapsed)
@@ -4523,7 +4523,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							{
 								//GetNetworkTime() may take some Ms so call aamp_GetCurrentTimeMS() again
 								mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
-								mDeltaTime =  mServerUtcTime - (double)mTimeSyncClient.lastSync / 1000;
+								mDeltaTime =  mServerUtcTime - static_cast<double>(mTimeSyncClient.lastSync) / 1000;
 								mTimeSyncClient.lastOffset = mDeltaTime;
 								mTimeSyncClient.hasSynced = true;
 								hasServerUtcTime = true;
@@ -4544,7 +4544,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 						{
 							//We have a valid time sync and the interval has not elapsed,
 							//so use the previous mDeltaTime to update mServerUtcTime
-							mServerUtcTime = currentTimeMS / 1000 + mDeltaTime;
+							mServerUtcTime = static_cast<double>(currentTimeMS) / 1000 + mDeltaTime;
 							hasServerUtcTime = true;
 						}
 						break;
