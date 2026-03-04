@@ -477,6 +477,11 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 	if (sampleCount && gotAuxiliaryInformationOffset)
 	{
 		ptr = moofPtr + auxiliaryInformationOffset;
+		// Ensure the auxiliary information offset does not point past the end of the buffer
+		if (ptr >= endPtr)
+		{
+			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: auxiliaryInformationOffset exceeds buffer");
+		}
 		uint64_t maxSampleCount = sampleOffset + sampleCount;
 		if (samples.size() != maxSampleCount)
 		{
@@ -500,6 +505,10 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			// Skip IV data if present (comes before subsample data in auxiliary info)
 			if (ivSize)
 			{
+				if (ptr + ivSize > endPtr)
+				{
+					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: IV data exceeds buffer");
+				}
 				// Read IV if not already present from senc box
 				if (samples[i].mDrmMetadata.mIV.empty())
 				{
@@ -516,6 +525,10 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 				// Sub-sample encryption info present
 				uint16_t numSubSamples = ReadU16();
 				size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
+				if (ptr + subSamplesSize > endPtr)
+				{
+					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: subsample data OOB");
+				}
 				samples[i].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subSamplesSize);
 				samples[i].mDrmMetadata.mNumSubSamples = numSubSamples;
 				ptr += subSamplesSize;
@@ -639,6 +652,10 @@ void Mp4Demux::ParseSampleEncryption()
 		}
 		if (ivSize)
 		{
+			if (ptr + ivSize > endPtr)
+			{
+				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: IV data exceeds buffer");
+			}
 			samples[iSample].mDrmMetadata.mIV = std::vector<uint8_t>(ptr, ptr + ivSize);
 			ptr += ivSize;
 		}
@@ -650,6 +667,10 @@ void Mp4Demux::ParseSampleEncryption()
 		{ // sub sample encryption
 			uint16_t numSubSamples = ReadU16();
 			size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
+			if (ptr + subSamplesSize > endPtr)
+			{
+				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: subsample data OOB");
+			}
 			samples[iSample].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subSamplesSize);
 			samples[iSample].mDrmMetadata.mNumSubSamples = numSubSamples;
 			ptr += subSamplesSize;

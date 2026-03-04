@@ -681,3 +681,155 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 			<< std::hex << (0xB0 + i) << ")";
 	}
 }
+
+// H) No-init-segment: SAIO/SAIZ auxiliary info, no init segment fed.
+TEST(Mp4Demux_NoInitSegment, SaioSaizFragment_WithoutInitSegment_NoCrash)
+{
+    std::vector<uint8_t> buf;
+    size_t dataOffsetFieldPos = 0;
+    size_t saioOffsetFieldPos = 0;
+ 
+    {
+        Box moof(buf, "moof");
+        { Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); mfhd.close(); }
+        {
+            Box traf(buf, "traf");
+            { Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf,0,0x000018);
+              write32be(buf,1); write32be(buf,3000); write32be(buf,32); tfhd.close(); }
+            { Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf,0,0); write32be(buf,0); tfdt.close(); }
+            { Box trun(buf, "trun"); writeFullBoxHeader(buf,0,0x0001);
+              write32be(buf,2);
+              dataOffsetFieldPos = buf.size();
+              write32be(buf,0); // data_offset placeholder
+              trun.close(); }
+            // saiz: flags=0 (no aux_info_type), default_info_size=16, sample_count=2
+            // Each aux entry = 8-byte IV + u16 count + 6-byte subsample = 16 bytes total
+            { Box saiz(buf, "saiz"); writeFullBoxHeader(buf,0,0);
+              buf.push_back(16);    // default_info_size = 16
+              write32be(buf,2);     // sample_count = 2
+              saiz.close(); }
+            // saio: flags=0, version=0, entry_count=1, offset placeholder
+            { Box saio(buf, "saio"); writeFullBoxHeader(buf,0,0);
+              write32be(buf,1);                      // entry_count = 1
+              saioOffsetFieldPos = buf.size();
+              write32be(buf,0);                      // offset placeholder
+              saio.close(); }
+            traf.close();
+        }
+        moof.close();
+    }
+ 
+    size_t moofSize = buf.size();
+ 
+    // Aux info size: 2 samples × (8-byte IV + u16 numSubs + 6-byte entry) = 32 bytes
+    const size_t auxInfoSize = 32;
+ 
+    // TRUN data_offset: past moof + mdat-header + aux info
+    int32_t dataOffset = static_cast<int32_t>(moofSize + 8 + auxInfoSize);
+    buf[dataOffsetFieldPos+0] = uint8_t((dataOffset>>24)&0xFF);
+    buf[dataOffsetFieldPos+1] = uint8_t((dataOffset>>16)&0xFF);
+    buf[dataOffsetFieldPos+2] = uint8_t((dataOffset>>8 )&0xFF);
+    buf[dataOffsetFieldPos+3] = uint8_t((dataOffset>>0 )&0xFF);
+ 
+    // SAIO offset: from start of moof to first byte of aux info (right after mdat header)
+    uint32_t saioOffset = static_cast<uint32_t>(moofSize + 8);
+    buf[saioOffsetFieldPos+0] = uint8_t((saioOffset>>24)&0xFF);
+    buf[saioOffsetFieldPos+1] = uint8_t((saioOffset>>16)&0xFF);
+    buf[saioOffsetFieldPos+2] = uint8_t((saioOffset>>8 )&0xFF);
+    buf[saioOffsetFieldPos+3] = uint8_t((saioOffset>>0 )&0xFF);
+ 
+    // Append mdat: aux info (32 bytes) then sample data (64 bytes)
+    write32be(buf, static_cast<uint32_t>(8 + auxInfoSize + 64));
+    write4cc(buf, "mdat");
+    // aux info sample 0: 8-byte IV + 1 subsample entry
+    buf.insert(buf.end(), {0xA1,0xB2,0xC3,0xD4,0xE5,0xF6,0x07,0x08}); // IV[0]
+    write16be(buf,1); write16be(buf,16); write32be(buf,48);
+    // aux info sample 1: 8-byte IV + 1 subsample entry
+    buf.insert(buf.end(), {0xA1,0xB2,0xC3,0xD4,0xE5,0xF6,0x07,0x09}); // IV[1]
+    write16be(buf,1); write16be(buf,16); write32be(buf,48);
+    // sample data
+    for (int i = 0; i < 64; ++i) buf.push_back(uint8_t(i & 0xFF));
+ 
+    // Parse WITHOUT an init segment → ivSize stays 0
+    Mp4Demux d;
+    bool ok = d.Parse(buf.data(), buf.size()); // must NOT crash
+ 
+    // ProcessAuxiliaryInformation: cencAuxInfoSizes[i]=16 > 0==ivSize
+    EXPECT_FALSE(ok);
+    EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+}
+ 
+ 
+// I) SENC box with corrupted (huge) subsample_count
+TEST(Mp4Demux_Gaps, SencHugeSubsampleCount)
+{
+    std::vector<uint8_t> buf;
+    size_t dataOffsetFieldPos = 0;
+ 
+    {
+        Box moof(buf, "moof");
+        { Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf, 0, 0); write32be(buf, 1); mfhd.close(); }
+        {
+            Box traf(buf, "traf");
+            {
+                // tfhd: default-sample-duration-present (0x8) | default-sample-size-present (0x10)
+                Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf, 0, 0x000018);
+                write32be(buf, 1);     // track_ID
+                write32be(buf, 3000); // default_sample_duration
+                write32be(buf, 64);   // default_sample_size
+                tfhd.close();
+            }
+            {
+                Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf, 0, 0);
+                write32be(buf, 0);    // baseMediaDecodeTime = 0
+                tfdt.close();
+            }
+            {
+                // trun: data-offset-present only
+                Box trun(buf, "trun"); writeFullBoxHeader(buf, 0, 0x0001);
+                write32be(buf, 1);              // sample_count = 1
+                dataOffsetFieldPos = buf.size();
+                write32be(buf, 0);              // data_offset placeholder
+                trun.close();
+            }
+            {
+                // SENC: version=0, flags=0x000002 (use_subsamples), sample_count=1
+                // Sample 0: 8-byte IV followed by subsample_count=0xFFFF (corrupted).
+                // Attempting to read 0xFFFF*6 = 393,210 bytes must be caught by
+                // the bounds guard before any out-of-range memory access occurs.
+                Box senc(buf, "senc"); writeFullBoxHeader(buf, 0, 0x000002);
+                write32be(buf, 1); // sample_count = 1
+                // 8-byte IV
+                buf.insert(buf.end(), {0xDE,0xAD,0xBE,0xEF,0xCA,0xFE,0xBA,0xBE});
+                // subsample_count = 0xFFFF → requires 393,210 bytes → will overrun
+                write16be(buf, 0xFFFF);
+                senc.close();
+            }
+            traf.close();
+        }
+        moof.close();
+    }
+ 
+    size_t moofSize = buf.size();
+ 
+    // Patch trun data_offset to point past the mdat header
+    int32_t dataOffset = static_cast<int32_t>(moofSize + 8);
+    buf[dataOffsetFieldPos+0] = uint8_t((dataOffset >> 24) & 0xFF);
+    buf[dataOffsetFieldPos+1] = uint8_t((dataOffset >> 16) & 0xFF);
+    buf[dataOffsetFieldPos+2] = uint8_t((dataOffset >>  8) & 0xFF);
+    buf[dataOffsetFieldPos+3] = uint8_t((dataOffset >>  0) & 0xFF);
+ 
+    // Append mdat: 64 bytes of sample payload
+    write32be(buf, 8 + 64);
+    write4cc(buf, "mdat");
+    for (int i = 0; i < 64; ++i) buf.push_back(uint8_t(i & 0xFF));
+ 
+    Mp4Demux d;
+    bool ok = d.Parse(buf.data(), buf.size()); // must NOT crash
+ 
+    // subsample_count=0xFFFF → 393,210 bytes needed, far beyond buffer end;
+    // the parser must reject this with DATA_BOUNDARY_MISMATCH, not crash.
+    EXPECT_FALSE(ok);
+    EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+}
+ 
