@@ -263,3 +263,22 @@ TEST_F(AampEventManagerTest, IsSpecificEventListenerAvailableTest_1)
     EXPECT_FALSE(val);
     }
 }
+
+TEST_F(AampEventManagerTest, SendEventSyncAfterListenerRemovedTest)
+{
+    // Arrange: Add and then remove listener for a specific event
+    AAMPEventType eventType = AAMP_EVENT_STATE_CHANGED;
+
+    handler->AddEventListener(eventType, eventListener);
+    handler->RemoveEventListener(eventType, eventListener);
+
+    // Ensure listener is removed
+    EXPECT_FALSE(handler->IsSpecificEventListenerAvailable(eventType));
+
+    // Create event and call SendEventSync
+    AAMPEventPtr eventData = std::make_shared<AAMPEventObject>(eventType, session_id);
+
+    handler->CallSendEventSync(eventData);
+
+    // Assert: No crash and no listener should be invoked.
+}
