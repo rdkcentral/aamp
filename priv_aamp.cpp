@@ -8414,7 +8414,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 	TeardownStream(true,true); //disable download as well
 	
-	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
+	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
 	//Moved the Fog TSB delete to avoid the delay in MPDDownloaderInstance release which results in HTTP-404
 	if(IsFogTSBSupported())
 	{
