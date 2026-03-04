@@ -4494,7 +4494,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 					{
 						const std::string &value = node->GetAttributeValue("value");
 						mServerUtcTime = ISO8601DateTimeToUTCSeconds(value.c_str() );
-						mDeltaTime =  mServerUtcTime - (double)currentTimeMS/1000;
+						mDeltaTime =  mServerUtcTime - static_cast<double>(currentTimeMS) / 1000;
 						hasServerUtcTime = true;
 						break;
 					}
