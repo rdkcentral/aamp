@@ -204,6 +204,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
 		mDownloadedFragment = std::move(cachedFragment->fragment);
+		cachedFragment->fragment = {};
 		ret = false;
 	}
 	return ret;
