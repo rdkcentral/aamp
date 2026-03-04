@@ -403,7 +403,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		MW_LOG_ERR("NEIL configure stream[%d] = %d bESChangeStatus = %d eGST_MEDIATYPE_AUDIO [%d] == %d", i, configureStream[i], bESChangeStatus, eGST_MEDIATYPE_AUDIO, i);
 
 		/* Force configure the bin for mid stream audio type change */
-		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
+		if (!configureStream[i]  && (eGST_MEDIATYPE_AUDIO == i))
 		{
 			MW_LOG_ERR("NEIL AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
