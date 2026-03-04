@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   comment-on-jira:
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'feature/VPLAY-12852-test' }}
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev_sprint_25_2' }}
     runs-on: ubuntu-latest
     steps:
       - name: Extract Jira ticket key from source branch
