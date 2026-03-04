@@ -31,8 +31,10 @@
 #include "MockAampTimeBasedBufferManager.h"
 #include "fragmentcollector_mpd.h"
 #include "StreamAbstractionAAMP.h"
+#include <string_view>
 
 using namespace testing;
+using namespace std::literals;
 // Named constants for clarity
 static constexpr bool CHUNK_MODE_ENABLED{true};
 static constexpr bool CHUNK_MODE_DISABLED{false};
@@ -158,8 +160,8 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 
 	// Mock buffer creation for the test
 	auto cachedFragment = std::make_shared<CachedFragment>();
-	static constexpr uint8_t testData[] = {'t', 'e', 's', 't'};
-	cachedFragment->fragment.assign(std::begin(testData), std::end(testData));
+	static constexpr auto testData = "test"sv;
+	cachedFragment->fragment.assign(testData.begin(), testData.end());
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false)).WillOnce(Return(cachedFragment.get()));
 
 	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunkMode));

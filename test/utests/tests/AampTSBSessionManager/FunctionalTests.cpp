@@ -46,6 +46,9 @@
 
 #include <thread>
 #include <unistd.h>
+#include <string_view>
+
+using namespace std::literals;
 
 using ::testing::_;
 using ::testing::DoAll;
@@ -67,10 +70,7 @@ protected:
 	AampTSBSessionManager *mAampTSBSessionManager;
 	PrivateInstanceAAMP *aamp{};
 	static constexpr const char *TEST_BASE_URL = "http://server/";
-	static constexpr uint8_t TEST_DATA[] = {
-		'T','h','i','s',' ','i','s',' ','a',' ','d','u','m','m','y',' ','d','a','t','a'
-	};
-	static constexpr size_t TEST_DATA_LEN = sizeof(TEST_DATA);
+	static constexpr auto TEST_DATA = "This is a dummy data"sv;
 	std::string TEST_PERIOD_ID = "1";
 	std::shared_ptr<TSB::Store> mTSBStore;
 
@@ -173,7 +173,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
 	cachedFragment->absPosition = 1234.0;
-	cachedFragment->fragment.assign(std::begin(TEST_DATA), std::end(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA.begin(), TEST_DATA.end());
 
 	// Add video init fragment to TSB successfullly
 	const std::string INIT_URL = std::string(TEST_BASE_URL) + std::string("vinit.mp4");
@@ -182,14 +182,14 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
 	// After std::vector refactoring, use fragment.data() to access the internal buffer pointer
-	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), TEST_DATA_LEN)).WillOnce(Return(TSB::Status::OK));
+	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), TEST_DATA.size())).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).WillRepeatedly(Return(0));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
 	// Add video init fragment to TSB which already exists
-	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), TEST_DATA_LEN)).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
+	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), TEST_DATA.size())).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
@@ -264,7 +264,7 @@ TEST_F(FunctionalTests, Cullsegments)
 	double MANIFEST_DURATION = 30.0;
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
-	cachedFragment->fragment.assign(std::begin(TEST_DATA), std::end(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA.begin(), TEST_DATA.end());
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
@@ -343,7 +343,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
 	cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
-	cachedFragment->fragment.assign(std::begin(TEST_DATA), std::end(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA.begin(), TEST_DATA.end());
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
@@ -385,7 +385,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 	EXPECT_TRUE(mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->TrackEnabled());
 	EXPECT_FALSE(mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_AUDIO)->TrackEnabled());
 
-	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).WillRepeatedly(Return(TEST_DATA_LEN));
+	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).WillRepeatedly(Return(TEST_DATA.size()));
 	EXPECT_CALL(*g_mockTSBStore, Read(uniqueInitUrl, _, _)).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockTSBStore, Read(videoUrl1, _, _)).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockTSBStore, Read(videoUrl2, _, _)).WillOnce(Return(TSB::Status::OK));
