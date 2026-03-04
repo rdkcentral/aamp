@@ -154,7 +154,7 @@ public:
 
 	/**
 	 *   @brief Increment ErrorDropCount
-	 *   This is count which indicates if bitrate drop happned due to errors in downloads
+	 *   This is count which indicates if bitrate drop happened due to errors in downloads
 	 *
 	 *   @return None
 	 */
