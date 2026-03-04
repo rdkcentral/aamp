@@ -944,9 +944,22 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{ // clamp - more bytes in write_callback than needed to complete current chunk
 					n = context->m_ChunkedBytesRemaining;
 				}
-				context->buffer.insert(context->buffer.end(),
-										reinterpret_cast<const uint8_t*>(ptr),
-										reinterpret_cast<const uint8_t*>(ptr) + n);
+				// Guard against std::bad_alloc crossing the C curl callback boundary.
+				// On allocation failure, flag ERROR and exit the parsing loop so the
+				// caller can return 0 to libcurl to abort the transfer cleanly.
+				try
+				{
+					context->buffer.insert(context->buffer.end(),
+											reinterpret_cast<const uint8_t*>(ptr),
+											reinterpret_cast<const uint8_t*>(ptr) + n);
+				}
+				catch( const std::bad_alloc &e )
+				{
+					AAMPLOG_ERR( "chunked_write_callback: buffer allocation failed (%s); aborting transfer", e.what() );
+					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
+					ptr = fin; // consume remaining bytes to exit the parse loop
+					break;
+				}
 				ptr += n;
 				context->m_ChunkedBytesRemaining -= n;
 				if( context->m_ChunkedBytesRemaining == 0 )
@@ -1077,7 +1090,18 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
 				len = DEFAULT_ENCODED_CONTENT_BUFFER_SIZE;
 			}
-			context->buffer.reserve(len);
+			// Guard against std::bad_alloc crossing the C curl callback boundary.
+			// A failed pre-allocation under memory pressure is grounds to abort cleanly.
+			try
+			{
+				context->buffer.reserve(len);
+			}
+			catch( const std::exception &e )
+			{
+				AAMPLOG_ERR( "HandleSSLWriteCallback: buffer reserve(%zu) failed (%s); aborting transfer", len, e.what() );
+				context->abortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
+				return 0;
+			}
 		}
 		size_t numBytesForBlock = size*nmemb;
 		ret = numBytesForBlock;
@@ -1110,9 +1134,20 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			}
 			else
 			{
-				context->buffer.insert(context->buffer.end(),
-										reinterpret_cast<const uint8_t*>(ptr),
-										reinterpret_cast<const uint8_t*>(ptr) + numBytesForBlock);
+				// Guard against std::bad_alloc crossing the C curl callback boundary.
+				// On allocation failure, abort the transfer cleanly by returning 0 to libcurl.
+				try
+				{
+					context->buffer.insert(context->buffer.end(),
+											reinterpret_cast<const uint8_t*>(ptr),
+											reinterpret_cast<const uint8_t*>(ptr) + numBytesForBlock);
+				}
+				catch( const std::exception &e )
+				{
+					AAMPLOG_ERR( "HandleSSLWriteCallback: buffer insert(%zu bytes) failed (%s); aborting transfer", numBytesForBlock, e.what() );
+					context->abortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
+					return 0;
+				}
 			}
 		}
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
