@@ -293,7 +293,8 @@ struct CurlCallbackContext
 
 	~CurlCallbackContext() {}
 
-	// Disabled copy constructor and copy assignment (reference member prevents copy anyway)
+	// Disable copy constructor and copy assignment to avoid multiple contexts
+	// aliasing the same buffer and to keep ownership semantics explicit.
 	CurlCallbackContext(const CurlCallbackContext &other) = delete;
 	CurlCallbackContext& operator=(const CurlCallbackContext& other) = delete;
 
