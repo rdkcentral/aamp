@@ -44,7 +44,7 @@ public:
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override { return 0.0; };
+	double getFirstPts( std::vector<uint8_t>& buffer ) override { return 0.0; };
 
 	/**
 	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments

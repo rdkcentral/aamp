@@ -1777,10 +1777,10 @@ void TSProcessor::setBasePTS(double position, long long pts)
 /**
  * @brief given TS media segment (not yet injected), extract and report first PTS
  */
-double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+double TSProcessor::getFirstPts( std::vector<uint8_t>& buffer )
 {
 	double firstPts = 0.0;
-	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->data(), pBuffer->size(), true );
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, buffer.data(), buffer.size(), true );
 	if( tsDemux )
 	{
 		firstPts = tsDemux->getPts(0);

@@ -1766,15 +1766,11 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 		};
 
-		// Wrap the vector in a temporary AampGrowableBuffer for MediaProcessor APIs
-		AampGrowableBuffer tempBuf;
-		tempBuf.GetVector() = std::move(cachedFragment->fragment);
-
 		if (demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 		{
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 			{ // compute muxed AV track pts offset and save for use by subtitle track
-				double firstPts = playContext->getFirstPts(&tempBuf);
+				double firstPts = playContext->getFirstPts(cachedFragment->fragment);
 				double ptsOffset = m_totalDurationForPtsRestamping - firstPts;
 				AAMPLOG_MIL( "video pts_offset[%" PRIu64 "]=%lldms", cachedFragment->discontinuityIndex, llround(ptsOffset*1000) );
 				playContext->setPtsOffset( ptsOffset );
@@ -1782,6 +1778,10 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
+
+		// Wrap the vector in a temporary AampGrowableBuffer for sendSegment
+		AampGrowableBuffer tempBuf;
+		tempBuf.GetVector() = std::move(cachedFragment->fragment);
 
 		fragmentDiscarded = !playContext->sendSegment( &tempBuf,
 			position.inSeconds(),

@@ -35,28 +35,26 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 {
 	assert(!aamp->GetLLDashChunkMode());
 
-	// Wrap the vector in a temporary AampGrowableBuffer for APIs that still require it
-	AampGrowableBuffer tempBuf;
-	tempBuf.GetVector() = std::move(cachedFragment->fragment);
-
 	if(playContext)
 	{
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 		};
+		// Wrap the vector in a temporary AampGrowableBuffer for sendSegment
+		AampGrowableBuffer tempBuf;
+		tempBuf.GetVector() = std::move(cachedFragment->fragment);
 		fragmentDiscarded = !playContext->sendSegment( &tempBuf, cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
+		// Move data back in case the API modified the buffer (e.g. PTS restamping)
+		cachedFragment->fragment = std::move(tempBuf.GetVector());
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(tempBuf.GetVector(), (AampMediaType) type);
+		aamp->ProcessID3Metadata(cachedFragment->fragment, (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
-		aamp->SendStreamTransfer((AampMediaType)type, &tempBuf,
+		aamp->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
-
-	// Move data back in case the API modified the buffer (e.g. PTS restamping)
-	cachedFragment->fragment = std::move(tempBuf.GetVector());
 	fragmentDiscarded = false;
 } // InjectFragmentInternal
 

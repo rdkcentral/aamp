@@ -3008,13 +3008,12 @@ TEST_F(PrivAampTests,SendStreamCopyTest)
 
 // DISABLED - this is not actually testing anything, just calling the method to ensure no crash
 // needs a better test implementation
-// Calling SendStreamTransfer with null buffer will cause egv
 TEST_F(PrivAampTests, DISABLED_SendStreamTransferTest)
 {
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,true,true);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,false,false);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,true,false);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,false,true);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,true,true);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,false,false);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,true,false);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,{},182.34,374.567,465.7696,false,true);
 }
 
 TEST_F(PrivAampTests,IsLiveTest)

@@ -8314,18 +8314,14 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
 /**
  * @brief  API to send audio/video stream into the sink.
  */
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t> buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		// The temporary vector returned by ExtractVector is automatically moved into SendTransfer.
-		sink->SendTransfer(mediaType, buffer->ExtractVector(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
+		sink->SendTransfer(mediaType, std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
-	else
-	{
-		buffer->Free();
-	}
+	buffer = {};
 }
 
 void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)

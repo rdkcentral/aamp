@@ -1147,12 +1147,13 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 {
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t> buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
+		g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
+	buffer = {};
 }
 
 void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)

@@ -418,7 +418,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @param[in] discontinuity - true if there is a discontinuity, false otherwise
  * @return void
  */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
 	if (playContext)
 	{
@@ -427,16 +427,20 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 			// No-op processor for chunk injection
 		};
 		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
-			type, fpts, fDuration, fragmentPTSOffset, init, buffer->size());
+			type, fpts, fDuration, fragmentPTSOffset, init, buffer.size());
 		bool ptsError = false;
-		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
+		// sendSegment still takes AampGrowableBuffer*; move buffer in and back out
+		AampGrowableBuffer chunkView;
+		chunkView.GetVector() = std::move(buffer);
+		if (!playContext->sendSegment(&chunkView, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
 		{
 			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
 		}
+		buffer = std::move(chunkView.GetVector());
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(buffer->GetVector(), mediaType);
+		aamp->ProcessID3Metadata(buffer, mediaType);
 		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
 		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
 	}
@@ -984,10 +988,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
 
-			AampGrowableBuffer initChunkBuf; // temp buffer until the interfaces are updated to accept std::vector
-			initChunkBuf.GetVector() = std::move(cachedFragment->fragment);
-			InjectFragmentChunkInternal((AampMediaType)type, &initChunkBuf, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
-			cachedFragment->fragment = std::move(initChunkBuf.GetVector());
+			InjectFragmentChunkInternal((AampMediaType)type, cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -1101,7 +1102,7 @@ bool MediaTrack::ProcessFragmentChunk()
 				AAMPLOG_MIL( "curl-inject type=%d", type );
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%" BITSPERSECOND_FORMAT ",chunksize=%zu fpts=%f fduration=%f", name, bandwidthBitsPerSecond, parsedBufferChunk.size(), fpts, fduration);
-			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
+			InjectFragmentChunkInternal((AampMediaType)type, parsedBufferChunk.GetVector(), fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
 		}
 	}

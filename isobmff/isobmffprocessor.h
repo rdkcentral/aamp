@@ -157,7 +157,7 @@ public:
 	 */
 	void resetPTSOnAudioSwitch(const std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) override;
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	double getFirstPts( std::vector<uint8_t>& buffer ) override
 	{
 		return 0;
 	}

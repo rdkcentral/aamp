@@ -29,7 +29,7 @@ TSProcessor::~TSProcessor()
 {
 }
 
-double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+double TSProcessor::getFirstPts( std::vector<uint8_t>& buffer )
 {
 	return 0.0;
 }
