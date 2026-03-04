@@ -8362,19 +8362,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mAutoResumeTaskPending = false;
 	}
 	DisableDownloads();
-	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
-	if(IsFogTSBSupported())
-	{
-		std::string remoteUrl = "127.0.0.1:9080/tsb";
-		AampCurlDownloader T1;
-		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
-		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
-		inpData->bIgnoreResponseHeader	= true;
-		inpData->eRequestType = eCURL_DELETE;
-		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(std::move(inpData));
-		T1.Download(remoteUrl, std::move(respData) );
-	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
 	StopRateCorrectionWorkerThread();
@@ -8424,6 +8411,21 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		ReleaseStreamLock();
 	}
 	TeardownStream(true,true); //disable download as well
+	
+	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
+	//Moved the Fog TSB delete to avoid the delay in mpddownloaderinstance release which results in HTTP-404
+	if(IsFogTSBSupported())
+	{
+		std::string remoteUrl = "127.0.0.1:9080/tsb";
+		AampCurlDownloader T1;
+		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+		inpData->bIgnoreResponseHeader	= true;
+		inpData->eRequestType = eCURL_DELETE;
+		inpData->proxyName        = GetNetworkProxy();
+		T1.Initialize(std::move(inpData));
+		T1.Download(remoteUrl, std::move(respData) );
+	}
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
