@@ -258,7 +258,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preferredAudioType | String | - | Preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also. |
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs. Available in version 2.6. Values: 0 - NO_LANGCODE_PREFERENCE, 1 - 3_CHAR_BIBLIOGRAPHIC_LANGCODE, 2 - 3_CHAR_TERMINOLOGY_LANGCODE, 3 - 2_CHAR_LANGCODE |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions. |
-| preferredSubtitleLabel | String | - | Label of desired text track in the available text tracks list. Same can be done with setTextTrack API also. |
+| preferredTextLabel | String | - | Label of desired text track in the available text tracks list. Same can be done with setTextTrack API also. |
 | nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
 | enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
 | liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
@@ -1392,7 +1392,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 |Name|Type|Description|
 |----|----|-----------|
 | language | String | ISO-639 text language preference. 2-character and 3-character codes are supported. |
-| languages | String | comma-delimited ISO-639 text language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
+| languages | String | comma-delimited ISO-639 text language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ or it can be an array like ["eng","sp"]|
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Optional preferred label for automatic text selection |
@@ -1457,7 +1457,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ```js
 {
     "preferred-text-languages" : ["eng", "ger", "mul"],
-    "preferred-text-label": "native",
+    "preferred-text-labels": "native",
     "preferred-text-rendition": "",
     "preferred-text-type": "",
     "preferred-text-accessibility":
