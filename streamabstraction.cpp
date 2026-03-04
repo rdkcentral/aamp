@@ -371,7 +371,7 @@ void MediaTrack::UpdateTSAfterInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	mCachedFragment[fragmentIdxToInject].fragment = {};
+	std::vector<uint8_t>().swap(mCachedFragment[fragmentIdxToInject].fragment);
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -389,7 +389,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment = {};
+	std::vector<uint8_t>().swap(mCachedFragmentChunks[fragmentChunkIdxToInject].fragment);
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));

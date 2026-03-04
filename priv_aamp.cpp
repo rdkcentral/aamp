@@ -5258,7 +5258,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					AAMPLOG_WARN("AAMP Content-Length=%d actual=%zu", static_cast<int>(expectedContentLength), buffer.size() );
 					http_code       =       416; // Range Not Satisfiable
 					ret             =       false; // redundant, but harmless
-					buffer = {};
+					std::vector<uint8_t>().swap(buffer);
 				}
 			}
 		}
@@ -5268,7 +5268,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
-			buffer = {};
+			std::vector<uint8_t>().swap(buffer);
 			if (rate != 1.0)
 			{
 				mediaType = eMEDIATYPE_IFRAME;
@@ -8321,7 +8321,7 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	{
 		sink->SendTransfer(mediaType, std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
-	buffer = {};
+	std::vector<uint8_t>().swap(buffer);
 }
 
 void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)

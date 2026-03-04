@@ -1388,7 +1388,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
-				cachedFragment->fragment = {};
+				std::vector<uint8_t>().swap(cachedFragment->fragment);
 				lastDownloadedIFrameTarget = -1;
 				return false;
 			}
@@ -1472,7 +1472,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								}
 							}
 						}
-						cachedFragment->fragment = {};
+						std::vector<uint8_t>().swap(cachedFragment->fragment);
 						lastDownloadedIFrameTarget = -1;
 						return false;
 					}
@@ -4861,7 +4861,7 @@ TrackState::~TrackState()
 	int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	for (int j=0; j< maxCachedFragmentsPerTrack; j++)
 	{
-		mCachedFragment[j].fragment = {};
+		std::vector<uint8_t>().swap(mCachedFragment[j].fragment);
 	}
 	FlushIndex();
 	memset( mDrmInfo.iv, 0, sizeof(mDrmInfo.iv) );
@@ -6294,7 +6294,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if (!fetched)
 			{
 				AAMPLOG_ERR("TrackState::aamp_GetFile failed");
-				cachedFragment->fragment = {};
+				std::vector<uint8_t>().swap(cachedFragment->fragment);
 			}
 			else
 			{

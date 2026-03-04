@@ -98,7 +98,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	{
 		ret = true;
 		cachedFragment->fragment = std::move(mDownloadedFragment);
-		mDownloadedFragment = {};
+		std::vector<uint8_t>().swap(mDownloadedFragment);
 	}
 	else
 	{
@@ -135,7 +135,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			if (ret)
 			{
 				cachedFragment->fragment = std::move(mTempFragment);
-				mTempFragment = {};
+				std::vector<uint8_t>().swap(mTempFragment);
 			}
 		}
 
@@ -202,7 +202,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
 		mDownloadedFragment = std::move(cachedFragment->fragment);
-		cachedFragment->fragment = {};
+		std::vector<uint8_t>().swap(cachedFragment->fragment);
 		ret = false;
 	}
 	return ret;
@@ -528,7 +528,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 		else
 		{
 			AAMPLOG_TRACE("Empty fragment, not injecting");
-			cachedFragment->fragment = {};
+			std::vector<uint8_t>().swap(cachedFragment->fragment);
 		}
 	}
 	else
@@ -650,7 +650,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
 			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
-		cachedFragment->fragment = {};
+		std::vector<uint8_t>().swap(cachedFragment->fragment);
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
 		{
@@ -716,7 +716,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 	CachedFragment *cachedFragment = GetFetchBuffer(false);
 	mActiveDownloadInfo = nullptr;
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d", cachedFragment->type);
-	cachedFragment->fragment = {};
+	std::vector<uint8_t>().swap(cachedFragment->fragment);
 	if (aamp->DownloadsAreEnabled())
 	{
 		AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (dlInfo->isInitSegment) ? "Init " : " ", dlInfo->url.c_str());

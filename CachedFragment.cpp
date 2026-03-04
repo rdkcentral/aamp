@@ -79,7 +79,7 @@ void CachedFragment::Copy(CachedFragment* other)
  */
 void CachedFragment::Clear()
 {
-	fragment = {};
+	std::vector<uint8_t>().swap(fragment);
 	position = 0.0;
 	duration = 0.0;
 	initFragment = false;

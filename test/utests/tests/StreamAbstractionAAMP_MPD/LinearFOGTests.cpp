@@ -403,7 +403,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())
 			.Times(1)
 			.WillOnce([pMediaStreamContext]()
-					  { pMediaStreamContext->mDownloadedFragment = {}; });
+					  { std::vector<uint8_t>().swap(pMediaStreamContext->mDownloadedFragment); });
 
 		ret = PushNextFragment(eTRACK_VIDEO);
         EXPECT_EQ(ret, true);

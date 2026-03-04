@@ -187,7 +187,7 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 		EXPECT_EQ(cachedFragment->position, dlInfo->pts);
 	}
 
-	cachedFragment->fragment = {};
+	std::vector<uint8_t>().swap(cachedFragment->fragment);
 }
 
 /**
