@@ -86,7 +86,7 @@ struct TimeSyncClient
 	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
 	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
 	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
-	
+
 	/**
 	 * @brief Constructor initializes lastSync with current time and resets other members.
 	 */
@@ -721,7 +721,7 @@ protected:
 	 * @param root: XML root node
 	 */
 	bool FindServerUTCTime(Node* root);
-	
+
 	/**
 	 * @fn FetchDashManifest
 	 */
@@ -1321,14 +1321,14 @@ protected:
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;
-	double mLocalUtcTime;
+	double mServerUtcTime; 				/**< Time periodically read from UTC time server and then updated from epoch time */
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
-	
+
 public:
 	/**
 	 * @brief Client used for server time synchronization.
