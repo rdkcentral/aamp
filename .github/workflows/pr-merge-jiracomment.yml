@@ -10,7 +10,7 @@ permissions:
 jobs:
   comment-on-jira:
     if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'feature/VPLAY-12852-test' }}
-    runs-on: comcast-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Extract Jira ticket key from source branch
         id: extract
@@ -66,4 +66,3 @@ jobs:
             -H "Authorization: Bearer ${JIRA_API_TOKEN}" \
             "${JIRA_BASE_URL}/rest/api/2/issue/${ISSUE_KEY}/comment" \
             -d "$PAYLOAD"
-
