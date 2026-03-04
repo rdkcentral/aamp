@@ -3815,17 +3815,9 @@ void PrivateInstanceAAMP::PlayFromTsbStart()
 		AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
 	}
 	rate = AAMP_NORMAL_PLAY_RATE;
-	// Try to acquire the lock with a timeout to avoid deadlock
-	// If we can't get the lock, another operation is in progress
-	if (!TryStreamLock())
-	{
-		AAMPLOG_WARN("Could not acquire stream lock for PlayFromTsbStart, operation already in progress");
-	}
-	else
-	{
-		TuneHelper(eTUNETYPE_SEEK);
-		ReleaseStreamLock();
-	}
+	AcquireStreamLock();
+	TuneHelper(eTUNETYPE_SEEK);
+	ReleaseStreamLock();
 	NotifySpeedChanged(rate);
 }
 
