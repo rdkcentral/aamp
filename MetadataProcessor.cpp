@@ -68,7 +68,7 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 
 	AAMPLOG_INFO(" [metadata][%p] Has valid PTS, processing the fragment", this);
 
-	ProcessID3Metadata(type, cachedFragment->fragment.GetVector());
+	ProcessID3Metadata(type, cachedFragment->fragment);
 }
 
 bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
@@ -117,10 +117,8 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 
 	if (!data.empty())
 	{
-		const size_t data_len = data.size();
-
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(data.data(), data_len);
+		buffer.setBuffer(data.data(), data.size());
 		buffer.parseBuffer();
 		if (!buffer.isInitSegment())
 		{
@@ -138,7 +136,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 				{
 					AAMPLOG_TRACE(" Found ID3 metadata[%d]", type);
 
-					AAMPLOG_INFO(" packet size: %zu | message size: %u", data_len, messageLen);
+					AAMPLOG_INFO(" packet size: %zu | message size: %u", data.size(), messageLen);
 					std::stringstream ss;
 					ss << "Found ID3 metadata - PTS: " << presTime << " - timeScale: " << timeScale << " - duration: " << eventDuration;
 					AAMPLOG_INFO(" %s", ss.str().c_str());
@@ -147,10 +145,10 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 					if (dbg_print)
 					{
 						size_t curOffset = 0;
-						while (curOffset < data_len)
+						while (curOffset < data.size())
 						{
 							uint8_t * box_ptr = const_cast<uint8_t*>(data.data() + curOffset);
-							Box *box = Box::constructBox(box_ptr, (uint32_t)(data_len - curOffset), false, -1);
+							Box *box = Box::constructBox(box_ptr, (uint32_t)(data.size() - curOffset), false, -1);
 
 							box->setOffset((uint32_t)curOffset);
 							const auto box_size = box->getSize();
@@ -257,8 +255,9 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		}
 	};
 
-	const AampGrowableBuffer & frag_ptr = cachedFragment->fragment;
-	mProcessor->ProcessFragment(frag_ptr,
+	AampGrowableBuffer tempBuf("ts-metadata-fragment");
+	tempBuf.GetVector().assign(cachedFragment->fragment.begin(), cachedFragment->fragment.end());
+	mProcessor->ProcessFragment(tempBuf,
 		proc_position,
 		cachedFragment->duration,
 		discontinuity_pending,

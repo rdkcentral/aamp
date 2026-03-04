@@ -25,12 +25,12 @@
 #ifndef CACHED_FRAGMENT_H
 #define CACHED_FRAGMENT_H
 
-#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
 #include <cstdint>
 #include <string>
 #include <utility>  // For std::swap and std::move
+#include <vector>
 
 /**
  * @brief Structure holding the resolution of stream
@@ -69,7 +69,7 @@ struct StreamInfo
 class CachedFragment
 {
 public:
-	AampGrowableBuffer fragment;		/**< Buffer to keep fragment content */
+	std::vector<uint8_t> fragment;		/**< Buffer to keep fragment content */
 	double position;					/**< Position in the playlist, in seconds */
 	double duration;					/**< Duration of the fragment, in seconds; as specified in the manifest */
 	bool initFragment;					/**< Flag indicating whether this fragment is an initialization fragment */

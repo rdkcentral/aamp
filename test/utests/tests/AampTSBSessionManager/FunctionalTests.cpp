@@ -68,6 +68,7 @@ protected:
 	PrivateInstanceAAMP *aamp{};
 	static constexpr const char *TEST_BASE_URL = "http://server/";
 	static constexpr const char *TEST_DATA = "This is a dummy data";
+	static constexpr size_t TEST_DATA_LEN = 20;  // strlen("This is a dummy data")
 	std::string TEST_PERIOD_ID = "1";
 	std::shared_ptr<TSB::Store> mTSBStore;
 
@@ -170,7 +171,8 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
 	cachedFragment->absPosition = 1234.0;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA),
+		reinterpret_cast<const uint8_t*>(TEST_DATA) + TEST_DATA_LEN);
 
 	// Add video init fragment to TSB successfullly
 	const std::string INIT_URL = std::string(TEST_BASE_URL) + std::string("vinit.mp4");
@@ -261,7 +263,8 @@ TEST_F(FunctionalTests, Cullsegments)
 	double MANIFEST_DURATION = 30.0;
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA),
+		reinterpret_cast<const uint8_t*>(TEST_DATA) + TEST_DATA_LEN);
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
@@ -333,7 +336,6 @@ TEST_F(FunctionalTests, TSBReadTests)
 	constexpr double FRAG_DURATION = 2.0;
 	constexpr double FRAG_FIRST_PTS = 69.0;
 	constexpr double FRAG_PTS_OFFSET = -50.0;
-	size_t TEST_DATA_LEN = strlen(TEST_DATA);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer))
 		.WillOnce(Return(DEFAULT_MAX_DOWNLOAD_BUFFER));
 	class MediaStreamContext videoCtx(eTRACK_VIDEO, NULL, aamp, "video");
@@ -341,7 +343,8 @@ TEST_F(FunctionalTests, TSBReadTests)
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
 	cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + TEST_DATA_LEN);
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA),
+		reinterpret_cast<const uint8_t*>(TEST_DATA) + TEST_DATA_LEN);
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));

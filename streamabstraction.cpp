@@ -371,7 +371,7 @@ void MediaTrack::UpdateTSAfterInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	mCachedFragment[fragmentIdxToInject].fragment.Free();
+	mCachedFragment[fragmentIdxToInject].fragment = {};
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -389,7 +389,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
+	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment = {};
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
@@ -443,12 +443,24 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 }
 
 /**
+ * @brief Overload of InjectFragmentChunkInternal accepting a std::vector<uint8_t> buffer.
+ *        Wraps the vector in a temporary AampGrowableBuffer for APIs that still require it.
+ */
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
+{
+	AampGrowableBuffer tempBuf;
+	tempBuf.GetVector() = std::move(buffer);
+	InjectFragmentChunkInternal(mediaType, &tempBuf, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+	buffer = std::move(tempBuf.GetVector());
+}
+
+/**
  * @brief To flush the subtitle position even if the MediaProcessor is not not enabled.
  */
 void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(cachedFragment->fragment.GetVector());
+	buffer.setBuffer(cachedFragment->fragment);
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
@@ -465,7 +477,7 @@ void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cached
 void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(cachedFragment->fragment.GetVector());
+	buffer.setBuffer(cachedFragment->fragment);
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
@@ -527,7 +539,10 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		{
 			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
 						 cachedFragment->position, cachedFragment->PTSOffsetSec);
-			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
+			AampGrowableBuffer tempBuf("reset-pts-audio");
+			tempBuf.GetVector() = std::move(cachedFragment->fragment);
+			playContext->resetPTSOnAudioSwitch(&tempBuf, cachedFragment->position, cachedFragment->PTSOffsetSec);
+			cachedFragment->fragment = std::move(tempBuf.GetVector());
 		}
 		else
 		{
@@ -543,7 +558,10 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		if(playContext)
 		{
-			playContext->resetPTSOnSubtitleSwitch(&cachedFragment->fragment, cachedFragment->position);
+			AampGrowableBuffer tempBuf("reset-pts-subtitle");
+			tempBuf.GetVector() = std::move(cachedFragment->fragment);
+			playContext->resetPTSOnSubtitleSwitch(&tempBuf, cachedFragment->position);
+			cachedFragment->fragment = std::move(tempBuf.GetVector());
 		}
 		else
 		{
@@ -983,7 +1001,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
-			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+			InjectFragmentChunkInternal((AampMediaType)type, cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -1075,12 +1093,12 @@ bool MediaTrack::ProcessFragmentChunk()
 			{
 				AAMPLOG_INFO("%s LLD chunk fpts = %f, absPosition = %f", name, fpts, cachedFragment->absPosition);
 				fpts = cachedFragment->absPosition;
-				TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
+				TrickModePtsRestamp(parsedBufferChunk.GetVector(),fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
 			}
 			else
 			{
 				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk.GetVector(), ptsOffset, cachedFragment->uri,
 												 name, cachedFragment->timeScale);
 				fpts += cachedFragment->PTSOffsetSec;
 			}
@@ -1142,7 +1160,7 @@ void MediaTrack::ResetTrickModePtsRestamping(void)
 	mRestampedPts = 0.0;
 }
 
-void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
 									 bool initFragment, bool  discontinuity)
 {
 	// Trick mode PTS restamping is supported for fast-forward and rewind
@@ -1409,7 +1427,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.assign(str.data(), str.data() + str.size());
+						cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(str.data()), reinterpret_cast<const uint8_t*>(str.data()) + str.size());
 						if(mSubtitleParser)
 						{
 							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);

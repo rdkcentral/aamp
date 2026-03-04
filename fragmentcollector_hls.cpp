@@ -1316,7 +1316,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			}
 			// if fragment URI uses relative path, we don't want to replace effective URI
 			std::string tempEffectiveUrl;
-			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.capacity());
+			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %zu", static_cast<const void*>(&cachedFragment->fragment), cachedFragment->fragment.capacity());
 			double downloadTime = 0;
 
 			cachedFragment->discontinuityIndex = 0;
@@ -1348,7 +1348,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				}
 			}
 
-			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), cachedFragment->fragment.GetVector(),
+			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
 			//TODO: This needs to be handled at server side and this workaround has to be removed
@@ -1388,7 +1388,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
-				cachedFragment->fragment.Free();
+				cachedFragment->fragment = {};
 				lastDownloadedIFrameTarget = -1;
 				return false;
 			}
@@ -1472,7 +1472,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								}
 							}
 						}
-						cachedFragment->fragment.Free();
+						cachedFragment->fragment = {};
 						lastDownloadedIFrameTarget = -1;
 						return false;
 					}
@@ -1667,7 +1667,7 @@ void TrackState::FetchFragment()
 			if (type == eTRACK_SUBTITLE)
 			{ // avoids crash - need to revisit
 				static const uint8_t zeros[2] = { 0, 0 };
-				cachedFragment->fragment.insert(cachedFragment->fragment.GetVector().end(), zeros, zeros + sizeof(zeros));
+				cachedFragment->fragment.insert(cachedFragment->fragment.end(), zeros, zeros + sizeof(zeros));
 			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
@@ -1732,7 +1732,10 @@ void TrackState::resetPTSOnAudioSwitch(CachedFragment* cachedFragment)
 	if (playContext)
 	{
 		AAMPLOG_WARN("%s pos=%lf dur=%lf", name,cachedFragment->position,cachedFragment->duration);
-		playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+		AampGrowableBuffer tempBuf;
+		tempBuf.GetVector() = std::move(cachedFragment->fragment);
+		playContext->resetPTSOnAudioSwitch(&tempBuf, cachedFragment->position);
+		cachedFragment->fragment = std::move(tempBuf.GetVector());
 	}
 }
 
@@ -1765,11 +1768,16 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 				aamp->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
 			}
 		};
+
+		// Wrap the vector in a temporary AampGrowableBuffer for MediaProcessor APIs
+		AampGrowableBuffer tempBuf;
+		tempBuf.GetVector() = std::move(cachedFragment->fragment);
+
 		if (demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 		{
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 			{ // compute muxed AV track pts offset and save for use by subtitle track
-				double firstPts = playContext->getFirstPts(&cachedFragment->fragment);
+				double firstPts = playContext->getFirstPts(&tempBuf);
 				double ptsOffset = m_totalDurationForPtsRestamping - firstPts;
 				AAMPLOG_MIL( "video pts_offset[%" PRIu64 "]=%lldms", cachedFragment->discontinuityIndex, llround(ptsOffset*1000) );
 				playContext->setPtsOffset( ptsOffset );
@@ -1778,7 +1786,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
 
-		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
+		fragmentDiscarded = !playContext->sendSegment( &tempBuf,
 			position.inSeconds(),
 			cachedFragment->duration,
 			cachedFragment->PTSOffsetSec,
@@ -1786,13 +1794,16 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			cachedFragment->initFragment,
 			std::move(processor),
 			ptsError );
+
+		// Move data back in case the API modified the buffer
+		cachedFragment->fragment = std::move(tempBuf.GetVector());
 	}
 	else
 	{
 		fragmentDiscarded = false;
 		aamp->SendStreamCopy(
 			(AampMediaType)type,
-			cachedFragment->fragment.GetVector(),
+			cachedFragment->fragment,
 			cachedFragment->position,
 			cachedFragment->position,
 			cachedFragment->duration);
@@ -4853,7 +4864,7 @@ TrackState::~TrackState()
 	int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	for (int j=0; j< maxCachedFragmentsPerTrack; j++)
 	{
-		mCachedFragment[j].fragment.Free();
+		mCachedFragment[j].fragment = {};
 	}
 	FlushIndex();
 	memset( mDrmInfo.iv, 0, sizeof(mDrmInfo.iv) );
@@ -6257,7 +6268,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			long long ts_start, ts_end;
 			ts_start = aamp_GetCurrentTimeMS();
 #endif /* CHECK_PERFORMANCE */
-			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, cachedFragment->fragment.GetVector(), tempEffectiveUrl);
+			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, cachedFragment->fragment, tempEffectiveUrl);
 
 #ifdef CHECK_PERFORMANCE
 			ts_end = aamp_GetCurrentTimeMS();
@@ -6268,7 +6279,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if ( !fetched )
 			{
 				double tempDownloadTime{0.0};
-				fetched = aamp->GetFile(fragmentUrl, actualType, cachedFragment->fragment.GetVector(), tempEffectiveUrl, &http_code, &tempDownloadTime, range,
+				fetched = aamp->GetFile(fragmentUrl, actualType, cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
 						type, false );
 				AampTime downloadTime{tempDownloadTime};
 
@@ -6281,12 +6292,12 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 				aamp->UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, mEffectiveUrl, downloadTime.inSeconds());
 
 				if ( fetched )
-					aamp->getAampCacheHandler()->InsertToInitFragCache ( fragmentUrl, cachedFragment->fragment.GetVector(), tempEffectiveUrl, actualType);
+					aamp->getAampCacheHandler()->InsertToInitFragCache ( fragmentUrl, cachedFragment->fragment, tempEffectiveUrl, actualType);
 			}
 			if (!fetched)
 			{
 				AAMPLOG_ERR("TrackState::aamp_GetFile failed");
-				cachedFragment->fragment.Free();
+				cachedFragment->fragment = {};
 			}
 			else
 			{

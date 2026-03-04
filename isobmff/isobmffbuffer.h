@@ -219,6 +219,8 @@ public:
 	 */
 	void setBuffer(const uint8_t* buffer, size_t bufferLen);
 
+
+
 	/**
 	 * @fn parseBuffer
 	 *

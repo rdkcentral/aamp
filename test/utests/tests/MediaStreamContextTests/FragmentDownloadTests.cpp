@@ -159,7 +159,8 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	// Mock buffer creation for the test
 	auto cachedFragment = std::make_shared<CachedFragment>();
 	const char* testData = "test";
-	cachedFragment->fragment.assign(testData, testData + strlen(testData));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(testData),
+		reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false)).WillOnce(Return(cachedFragment.get()));
 
 	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunkMode));
@@ -185,7 +186,7 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 		EXPECT_EQ(cachedFragment->position, dlInfo->pts);
 	}
 
-	cachedFragment->fragment.Free();
+	cachedFragment->fragment = {};
 }
 
 /**

@@ -107,8 +107,11 @@ public:
 	{
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
-		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position,
+		AampGrowableBuffer tempBuf("inject-test");
+		tempBuf.GetVector() = std::move(cachedFragment->fragment);
+		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, &tempBuf, cachedFragment->position,
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
+		cachedFragment->fragment = std::move(tempBuf.GetVector());
 	}
 
 	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)

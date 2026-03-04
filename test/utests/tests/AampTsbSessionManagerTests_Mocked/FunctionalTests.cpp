@@ -45,6 +45,7 @@ class AampTsbSessionManagerTests : public ::testing::Test
 protected:
 	static constexpr const char *TEST_BASE_URL = "http://server/";
 	static constexpr const char *TEST_DATA = "This is a dummy data";
+	static constexpr size_t TEST_DATA_LEN = 20;  // strlen("This is a dummy data")
 	std::string TEST_PERIOD_ID = "1";
 
 	void SetUp() override
@@ -370,7 +371,8 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
 	cachedFragment->initFragment = true;
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA),
+		reinterpret_cast<const uint8_t*>(TEST_DATA) + TEST_DATA_LEN);
 	// Valid media types are only VIDEO, AUDIO, SUBTITLE and INIT fragments
 	cachedFragment->type = eMEDIATYPE_DEFAULT;
 
@@ -387,7 +389,8 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_InitFragmentSuccess)
 	cachedFragment->initFragment = true;
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(TEST_DATA),
+		reinterpret_cast<const uint8_t*>(TEST_DATA) + TEST_DATA_LEN);
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _)).Times(1).WillOnce(Return(0.0));

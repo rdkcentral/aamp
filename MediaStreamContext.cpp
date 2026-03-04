@@ -35,22 +35,28 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 {
 	assert(!aamp->GetLLDashChunkMode());
 
+	// Wrap the vector in a temporary AampGrowableBuffer for APIs that still require it
+	AampGrowableBuffer tempBuf;
+	tempBuf.GetVector() = std::move(cachedFragment->fragment);
+
 	if(playContext)
 	{
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 		};
-		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
+		fragmentDiscarded = !playContext->sendSegment( &tempBuf, cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(cachedFragment->fragment.GetVector(), (AampMediaType) type);
+		aamp->ProcessID3Metadata(tempBuf.GetVector(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
-		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
+		aamp->SendStreamTransfer((AampMediaType)type, &tempBuf,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
+	// Move data back in case the API modified the buffer (e.g. PTS restamping)
+	cachedFragment->fragment = std::move(tempBuf.GetVector());
 	fragmentDiscarded = false;
 } // InjectFragmentInternal
 
@@ -93,7 +99,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	if (!initSegment && mDownloadedFragment.capacity() != 0)
 	{
 		ret = true;
-		cachedFragment->fragment.Replace(&mDownloadedFragment);
+		cachedFragment->fragment = std::move(mDownloadedFragment);
+		mDownloadedFragment = {};
 	}
 	else
 	{
@@ -103,7 +110,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		bool bReadfromcache = false;
 		if (initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,cachedFragment->fragment.GetVector(),effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,cachedFragment->fragment,effectiveUrl);
 		}
 		if (!bReadfromcache)
 		{
@@ -122,15 +129,15 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment->GetVector(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetVector(), effectiveUrl, actualType);
+				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment, effectiveUrl, actualType);
 			}
 			if (ret)
 			{
-				cachedFragment->fragment = *mTempFragment;
-				mTempFragment->Free();
+				cachedFragment->fragment = std::move(mTempFragment);
+				mTempFragment = {};
 			}
 		}
 
@@ -142,7 +149,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// so upon upgrade to it or introduced a patch in qtdemux,
 			// this portion can be reverted
 			IsoBmffBuffer buffer;
-			buffer.setBuffer(cachedFragment->fragment.GetVector());
+			buffer.setBuffer(cachedFragment->fragment);
 			buffer.parseBuffer();
 			uint32_t track_id = 0;
 			buffer.getTrack_id(track_id);
@@ -196,7 +203,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
-		mDownloadedFragment.Replace(&cachedFragment->fragment);
+		mDownloadedFragment = std::move(cachedFragment->fragment);
 		ret = false;
 	}
 	return ret;
@@ -522,7 +529,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 		else
 		{
 			AAMPLOG_TRACE("Empty fragment, not injecting");
-			cachedFragment->fragment.Free();
+			cachedFragment->fragment = {};
 		}
 	}
 	else
@@ -644,7 +651,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
 			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
-		cachedFragment->fragment.Free();
+		cachedFragment->fragment = {};
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
 		{
@@ -710,7 +717,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 	CachedFragment *cachedFragment = GetFetchBuffer(false);
 	mActiveDownloadInfo = nullptr;
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d", cachedFragment->type);
-	cachedFragment->fragment.Free();
+	cachedFragment->fragment = {};
 	if (aamp->DownloadsAreEnabled())
 	{
 		AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (dlInfo->isInitSegment) ? "Init " : " ", dlInfo->url.c_str());

@@ -50,7 +50,7 @@ public:
             eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
 	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
             adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
-            mDownloadedFragment("downloaded-fragment"), discontinuity(false), mSkipSegmentOnError(true),
+            discontinuity(false), mSkipSegmentOnError(true),
             lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
@@ -62,7 +62,6 @@ public:
             GetMediaTypeName(mediaType));
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-        mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
         mTimeBasedBufferManager = std::make_shared<aamp::AampTimeBasedBufferManager>(GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer), std::abs(aamp->rate), mediaType);
     }
 
@@ -71,8 +70,6 @@ public:
      */
     ~MediaStreamContext()
     {
-        mDownloadedFragment.Free();
-        mTempFragment.reset();
         mTimeBasedBufferManager.reset();
     }
 
@@ -292,8 +289,8 @@ public:
     bool eos;
     bool profileChanged;
     bool discontinuity;
-    AampGrowableBuffer mDownloadedFragment;
-    std::shared_ptr<AampGrowableBuffer> mTempFragment;
+    std::vector<uint8_t> mDownloadedFragment;	/**< Fragment stored across ABR profile changes */
+    std::vector<uint8_t> mTempFragment;		/**< Scratch buffer for init/download fragments */
 
     double fragmentTime; // Absolute Fragment time from Availability start
     std::atomic<double> lastDownloadedPosition;

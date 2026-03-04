@@ -26,7 +26,7 @@
 #include <cinttypes>
 
 
-bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
+bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 {
 	AAMPLOG_TRACE("Function called with len = %zu", buffer.size());
 
@@ -48,7 +48,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	return retval;
 }
 
-bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
+bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
 {
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
@@ -74,7 +74,7 @@ bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, st
 	return retval;
 }
 
-bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
+bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScale)
 {
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
@@ -93,7 +93,7 @@ bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 	return retval;
 }
 
-bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
+bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration)
 {
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
@@ -113,7 +113,7 @@ bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, 
 	return retval;
 }
 
-bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
+bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
 {
 	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
