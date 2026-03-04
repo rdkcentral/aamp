@@ -1316,7 +1316,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			}
 			// if fragment URI uses relative path, we don't want to replace effective URI
 			std::string tempEffectiveUrl;
-			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %zu", static_cast<const void*>(&cachedFragment->fragment), cachedFragment->fragment.capacity());
+			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %zu", &cachedFragment->fragment, cachedFragment->fragment.capacity());
 			double downloadTime = 0;
 
 			cachedFragment->discontinuityIndex = 0;
@@ -1732,10 +1732,7 @@ void TrackState::resetPTSOnAudioSwitch(CachedFragment* cachedFragment)
 	if (playContext)
 	{
 		AAMPLOG_WARN("%s pos=%lf dur=%lf", name,cachedFragment->position,cachedFragment->duration);
-		AampGrowableBuffer tempBuf;
-		tempBuf.GetVector() = std::move(cachedFragment->fragment);
-		playContext->resetPTSOnAudioSwitch(&tempBuf, cachedFragment->position);
-		cachedFragment->fragment = std::move(tempBuf.GetVector());
+		playContext->resetPTSOnAudioSwitch(cachedFragment->fragment, cachedFragment->position);
 	}
 }
 

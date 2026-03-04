@@ -128,7 +128,7 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 /**
  *  @brief Update PTS and send pts for flush subtitle
  */
-void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
+void IsoBmffProcessor::resetPTSOnSubtitleSwitch(const std::vector<uint8_t>& fragment, double position)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -159,7 +159,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 	}
 	else
 	{
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragment.data(), fragment.size());
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 		if(buffer.getFirstPTS(currentPTS))
@@ -174,7 +174,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 /**
  *  @brief Update PTS and send pts for flush audio
  */
-void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(const std::vector<uint8_t>& fragment, double position, double ptsOffset)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -205,7 +205,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 	}
 	else
 	{
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragment.data(), fragment.size());
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 

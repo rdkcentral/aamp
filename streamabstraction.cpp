@@ -443,18 +443,6 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 }
 
 /**
- * @brief Overload of InjectFragmentChunkInternal accepting a std::vector<uint8_t> buffer.
- *        Wraps the vector in a temporary AampGrowableBuffer for APIs that still require it.
- */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
-{
-	AampGrowableBuffer tempBuf;
-	tempBuf.GetVector() = std::move(buffer);
-	InjectFragmentChunkInternal(mediaType, &tempBuf, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
-	buffer = std::move(tempBuf.GetVector());
-}
-
-/**
  * @brief To flush the subtitle position even if the MediaProcessor is not not enabled.
  */
 void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment )
@@ -539,10 +527,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		{
 			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
 						 cachedFragment->position, cachedFragment->PTSOffsetSec);
-			AampGrowableBuffer tempBuf("reset-pts-audio");
-			tempBuf.GetVector() = std::move(cachedFragment->fragment);
-			playContext->resetPTSOnAudioSwitch(&tempBuf, cachedFragment->position, cachedFragment->PTSOffsetSec);
-			cachedFragment->fragment = std::move(tempBuf.GetVector());
+			playContext->resetPTSOnAudioSwitch(cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
 		}
 		else
 		{
@@ -558,10 +543,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		if(playContext)
 		{
-			AampGrowableBuffer tempBuf("reset-pts-subtitle");
-			tempBuf.GetVector() = std::move(cachedFragment->fragment);
-			playContext->resetPTSOnSubtitleSwitch(&tempBuf, cachedFragment->position);
-			cachedFragment->fragment = std::move(tempBuf.GetVector());
+			playContext->resetPTSOnSubtitleSwitch(cachedFragment->fragment, cachedFragment->position);
 		}
 		else
 		{
@@ -1001,7 +983,11 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
-			InjectFragmentChunkInternal((AampMediaType)type, cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+
+			AampGrowableBuffer initChunkBuf; // temp buffer until the interfaces are updated to accept std::vector
+			initChunkBuf.GetVector() = std::move(cachedFragment->fragment);
+			InjectFragmentChunkInternal((AampMediaType)type, &initChunkBuf, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+			cachedFragment->fragment = std::move(initChunkBuf.GetVector());
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -3515,7 +3501,7 @@ void MediaTrack::OnSinkBufferFull()
 			sinkBufferIsFull = true;
 			cachingCompletedFlag = cachingCompleted;
 		}
-		
+
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
 			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
@@ -4800,8 +4786,8 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 /**
  *   @brief Re-initializes the injection
  *   @param[in] rate - play rate
- */	
-void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
+ */
+void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 {
 	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
 	SetTrickplayMode(rate);

@@ -751,21 +751,6 @@ protected:
 	 */
 	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
 
-	/**
-	 * @fn InjectFragmentChunkInternal
-	 * @brief Overload accepting a std::vector<uint8_t> fragment buffer
-	 *
-	 * @param[in] mediaType - Media type of the fragment
-	 * @param[in] buffer - vector containing fragment data to be processed and injected
-	 * @param[in] fpts - fragment PTS
-	 * @param[in] fdts - fragment DTS
-	 * @param[in] fDuration - fragment duration
-	 * @param[in] fragmentPTSOffset - PTS offset to be applied
-	 * @param[in] init - true if fragment is init fragment
-	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
-	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
-
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
 

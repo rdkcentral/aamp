@@ -54,6 +54,12 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
     }
 }
 
+void IsoBmffBuffer::setBuffer(const uint8_t *buf, size_t sz)
+{
+    // Delegate to the non-const overload — the fake does not mutate the buffer
+    setBuffer(const_cast<uint8_t*>(buf), sz);
+}
+
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
     if (g_mockIsoBmffBuffer)

@@ -255,9 +255,7 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		}
 	};
 
-	AampGrowableBuffer tempBuf("ts-metadata-fragment");
-	tempBuf.GetVector().assign(cachedFragment->fragment.begin(), cachedFragment->fragment.end());
-	mProcessor->ProcessFragment(tempBuf,
+	mProcessor->ProcessFragment(cachedFragment->fragment,
 		proc_position,
 		cachedFragment->duration,
 		discontinuity_pending,
