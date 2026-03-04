@@ -281,6 +281,17 @@ void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservatio
 }
 
 /**
+ *  @brief Cancel an ad reservation.
+ */
+void PlayerInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+    if (aamp)
+    {
+        aamp->CancelReservation(playingReservationId, cancelAtReservationId);
+    }
+}
+
+/**
  *   @brief API to reset configuration across tunes for single player instance
  */
 void PlayerInstanceAAMP::ResetConfiguration()
@@ -2800,7 +2811,27 @@ std::string PlayerInstanceAAMP::GetAppName()
 }
 
 /**
- *  @brief Enable/disable the native CC rendering feature
+ *  @brief Enable or disable AAMP-managed CC rendering.
+ *
+ *  When enable is true, AAMP takes ownership of the CC rendering lifecycle
+ *  via PlayerCCManager: initialization on first frame, trickplay muting,
+ *  parental control gating (SERVICE_PIN_LOCKED events), CEA-608/708 track
+ *  selection, and session teardown on stop.
+ *
+ *  When enable is false (the default), AAMP does not drive CC rendering
+ *  behaviour or policy decisions (e.g. trickplay muting, parental-control
+ *  integration, or CC-specific teardown). Internal components such as
+ *  PlayerCCManager may still be initialised but internally it will be
+ *  using PlayerFakeCCManager.
+ *
+ *  This is the correct setting for X1 platforms where XREReceiver controls
+ *  CC independently of AAMP. Enabling it on X1 would cause AAMP to overlap
+ *  with XREReceiver's CC management responsibilities.
+ *
+ *  Must be called before Tune() to take effect for a given session.
+ *
+ *  @param[in] enable  true  — AAMP manages CC (platforms without XREReceiver)
+ *                     false — external controller manages CC (X1 / XREReceiver)
  */
 void PlayerInstanceAAMP::SetNativeCCRendering(bool enable)
 {

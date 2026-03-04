@@ -291,6 +291,11 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 	}
 }
 
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
@@ -1291,7 +1296,10 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
-        return;
+	if (g_mockPrivateInstanceAAMP != nullptr){
+		g_mockPrivateInstanceAAMP->LoadIDX(bucketType, fragmentUrl, effectiveUrl, fragment, curlInstance, range, http_code, downloadTime, mediaType, fogError);
+	}
+	return;
 }
 
 bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
