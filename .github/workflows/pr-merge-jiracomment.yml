@@ -66,3 +66,5 @@ jobs:
             -H "Authorization: Bearer ${JIRA_API_TOKEN}" \
             "${JIRA_BASE_URL}/rest/api/2/issue/${ISSUE_KEY}/comment" \
             -d "$PAYLOAD"
+
+#just a change to trigger the workflow
