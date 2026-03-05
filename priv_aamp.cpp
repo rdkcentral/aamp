@@ -8988,19 +8988,6 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 
 		std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
 
-		// Take a local copy of the stream abstraction to check for tune.
-		// This copy is now taken while holding mStreamLock, so the read is
-		// synchronized and well-defined.
-		const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
-
-		// Check that the stream abstraction has not changed while holding the
-		// mutex (i.e. verify no tune occurred that replaced it).
-		if (oldStreamAbstraction != mpStreamAbstractionAAMP)
-		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
-			return;
-		}
-
 		if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->IsStreamerStalled())
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to playback stall");
@@ -12440,7 +12427,11 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
-		
+
+		// TODO(Issue #2): The preferred* member fields below are written without holding
+		// mStreamLock. If streaming threads read these fields under that lock, this is an
+		// unsynchronised data race. Audit all reading sites and, if confirmed, move the
+		// lock acquisition to before these writes.
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 			(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ) || (preferredNameString != inputNameString))
 		{
@@ -12476,6 +12467,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	}
 	else
 	{
+		// TODO(Issue #2): Same as above — the preferred* writes in this branch are also
+		// unprotected by mStreamLock. See the JSON path comment above.
 		if((languageList && preferredLanguagesString != languageList) ||
 		   (preferredRendition && preferredRenditionString != preferredRendition) ||
 		   (preferredType && preferredTypeString != preferredType) ||
@@ -12604,6 +12597,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 	}
 	
+	// Hold mStreamLock for the remainder of the function:
+	// - GetState() and mpStreamAbstractionAAMP must be read consistently
+	// - discardEnteringLiveEvt / mLanguageChangeInProgress are written before the
+	//   inner critical section; the outer lock prevents races with streaming threads.
+	// The inner lock_guard below is a benign recursive re-lock.
+	std::lock_guard<std::recursive_mutex> streamLock(mStreamLock);
 	AAMPPlayerState state = GetState();
 	AAMPLOG_INFO("state %d, isRetuneNeeded %d", state, isRetuneNeeded);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded)
@@ -13270,22 +13269,21 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
  */
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 {
-
 	bool isSelectionChange = false;
 	bool isAvailableInManifest = false;
 	int closedCaptionTrackId = -1;
-
+	
 	SavePreferredTextLanguages(param, isSelectionChange);
-
+	
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-
+			
 			CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
-
+			
 			if ((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) ||
 				(mMediaFormat == eMEDIAFORMAT_RMF))
 			{
@@ -13298,68 +13296,68 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				mLanguageChangeInProgress = true;
 				{
 					std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-
+					
 					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
-						{
-					AAMPLOG_WARN("Seamless Text switch has been enabled");
-					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
-				}
-				else
-				{
-					if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
 					{
-						TextTrackInfo selectedTextTrack;
-						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
-						{
-							// Find the index of the selected track in the available tracks list
-							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
-
-							AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
-										 closedCaptionTrackId, selectedTextTrack.language.c_str());
-							SetPreferredTextTrack(std::move(selectedTextTrack));
-						}
-						else
-						{
-							AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
-						}
-					}
-					seek_pos_seconds = GetPositionSeconds();
-
-					if (IsLocalAAMPTsb())
-					{
-						mAampTsbLanguageChangeInProgress = true;
-					}
-
-					TeardownStream(false);
-					if (IsFogTSBSupported() && (!isAvailableInManifest))
-					{
-						ReloadTSB();
-					}
-
-					if (IsLocalAAMPTsb())
-					{
-						AAMPLOG_WARN("Flush the TSB before seeking to live");
-
-						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-						if (mTSBSessionManager)
-						{
-							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
-							CreateTsbSessionManager();
-							SetLocalAAMPTsbInjection(false);
-							TuneHelper(eTUNETYPE_SEEKTOLIVE);
-						}
-						else
-						{
-							AAMPLOG_ERR("TSB Session Manager is NULL");
-						}
+						AAMPLOG_WARN("Seamless Text switch has been enabled");
+						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
 					}
 					else
 					{
-						TuneHelper(eTUNETYPE_SEEK);
+						if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
+						{
+							TextTrackInfo selectedTextTrack;
+							if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
+							{
+								// Find the index of the selected track in the available tracks list
+								closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
+								
+								AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
+											 closedCaptionTrackId, selectedTextTrack.language.c_str());
+								SetPreferredTextTrack(std::move(selectedTextTrack));
+							}
+							else
+							{
+								AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
+							}
+						}
+						seek_pos_seconds = GetPositionSeconds();
+						
+						if (IsLocalAAMPTsb())
+						{
+							mAampTsbLanguageChangeInProgress = true;
+						}
+						
+						TeardownStream(false);
+						if (IsFogTSBSupported() && (!isAvailableInManifest))
+						{
+							ReloadTSB();
+						}
+						
+						if (IsLocalAAMPTsb())
+						{
+							AAMPLOG_WARN("Flush the TSB before seeking to live");
+							
+							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+							if (mTSBSessionManager)
+							{
+								AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
+								CreateTsbSessionManager();
+								SetLocalAAMPTsbInjection(false);
+								TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							}
+							else
+							{
+								AAMPLOG_ERR("TSB Session Manager is NULL");
+							}
+						}
+						else
+						{
+							TuneHelper(eTUNETYPE_SEEK);
+						}
+						
+						discardEnteringLiveEvt = false;
 					}
-
-					discardEnteringLiveEvt = false;
-				}
 				}
 			}
 			if (closedCaptionTrackId >= 0)
