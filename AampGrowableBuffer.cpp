@@ -43,15 +43,19 @@ void AampGrowableBuffer::Free( void )
 
 bool AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
-	assert( buffer.empty() && buffer.capacity() == 0 );
+	if( !buffer.empty() || buffer.capacity() != 0 )
+	{
+		AAMPLOG_ERR("ReserveBytes called on non-empty buffer (size=%zu capacity=%zu); ignoring", buffer.size(), buffer.capacity());
+		return false;
+	}
 	if( numBytes > 0 )
 	{
 		try {
 			buffer.reserve(numBytes);
 		}
-		catch (const std::bad_alloc&)
+		catch (const std::exception &e)
 		{
-			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu", numBytes);
+			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu (%s)", numBytes, e.what());
 			return false;
 		}
 	}
@@ -79,9 +83,9 @@ bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		{
 			buffer.reserve(newCapacity);
 		}
-		catch (const std::bad_alloc&)
+		catch (const std::exception &e)
 		{
-			AAMPLOG_ERR("Memory re-allocation failed!! Requested capacity: %zu", newCapacity);
+			AAMPLOG_ERR("Memory re-allocation failed!! Requested capacity: %zu (%s)", newCapacity, e.what());
 			return false;
 		}
 	}

@@ -520,7 +520,7 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 			this->mDownloadResponse->mDownloadData.insert(
 				this->mDownloadResponse->mDownloadData.end(), bufferS, bufferE);
 		}
-		catch( const std::bad_alloc &e )
+		catch( const std::exception &e )
 		{
 			AAMPLOG_ERR("write_callback: buffer insert(%zu bytes) failed (%s); aborting transfer", retSize, e.what());
 			mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;

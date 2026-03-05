@@ -936,9 +936,9 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 											reinterpret_cast<const uint8_t*>(ptr),
 											reinterpret_cast<const uint8_t*>(ptr) + n);
 				}
-				catch( const std::bad_alloc &e )
+				catch( const std::exception &e )
 				{
-					AAMPLOG_ERR( "chunked_write_callback: buffer allocation failed (%s); aborting transfer", e.what() );
+					AAMPLOG_ERR( "chunked_write_callback: buffer insert failed (%s); aborting transfer", e.what() );
 					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					ptr = fin; // consume remaining bytes to exit the parse loop
 					break;
@@ -4919,6 +4919,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					AAMPLOG_INFO("Curl download aborted due to slow first chunk detection");
 					res = CURLE_OPERATION_TIMEDOUT;
 					http_code = res;
+				}
+				else if (res == CURLE_WRITE_ERROR &&
+						context.abortReason == eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE)
+				{
+					// Write callback aborted due to a buffer allocation failure (OOM/length_error).
+					// Retrying is futile under memory pressure; do not set loopAgain.
+					// Report as a distinct resource failure rather than a network error.
+					AAMPLOG_ERR("Curl download aborted due to buffer allocation failure (OOM); not retrying");
+					http_code = res; // preserve CURLE_WRITE_ERROR (23) for telemetry
 				}
 				else if (mAampLLDashServiceData.lowLatencyMode &&
 						context.bufferOffset > 0 &&
