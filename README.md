@@ -173,8 +173,11 @@ repairIframes			Enable/Disable iframe fragment repair (stripping and box adjustm
 sharedSSL			Enabled/Disable curl shared SSL session. Default: true
 enableLowLatencyDash		Enable/Disable Low Latency Dash. Default: false
 disableLowLatencyMonitor	Enable/Disable Low Latency Monitor. Default: true
-disableLowLatencyABR		Enable/Disable Low Latency ABR. Default: true
+disableLowLatencyABR		Disable the LLD-specific ABR behavior. When set to false, player can use low-latency ABR handling during LLD playback. Default: true
 enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default: false
+ignoreAppLiveOffset         When true, LLD setup ignores the live offset supplied by the application. When false, an application live offset can prevent LLD if it is greater than the allowed LLD latency. Default: false
+forceLLDFlow                When true, AAMP uses the LLD playback path even when the DASH stream is not identified as LLD. When false, AAMP uses LLD only when the manifest signals LLD support. Default: false
+enableChunkInjection        When true, AAMP can send downloaded media chunks to the pipeline before the complete segment is available. When false, chunk injection is disabled. Default: true
 enableFogConfig			Enable/Disable setting player configurations to Fog. Default: true
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
 gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in middleware-player-interface/gst-plugins repo)
@@ -240,8 +243,8 @@ downloadDelay			Delay for downloads to simulate network latency. Default: 0
 dashMaxDrmSessions		Max drm sessions that can be cached by AampDRMSessionManager. Default; 3
 log				New Configuration to override info/debug/trace. Default: 0
 livePauseBehavior               Player paused state behavior. Default is 0(ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
-latencyMonitorDelayMs		Low Latency Monitor delay. Default is 5000 (DEFAULT_LATENCY_MONITOR_DELAY_MS)
-latencyMonitorIntervalMs	Low Latency Monitor Interval. Default is 1000 (DEFAULT_LATENCY_MONITOR_INTERVAL_MS)
+latencyMonitorDelayMs		Delay in milliseconds before starting latency monitoring after tune completion. Default is 5000 (DEFAULT_LATENCY_MONITOR_DELAY_MS)
+latencyMonitorIntervalMs	Time between latency checks in milliseconds. Affects how frequently latency is sampled and corrective actions are attempted. Default is 1000 (DEFAULT_LATENCY_MONITOR_INTERVAL_MS)
 downloadBufferChunks		Low Latency Fragment chunk cache length. Defaults is 20
 fragmentDownloadFailThreshold	Max retry attempts for non-init fragment curl timeout failures, range 1-10, Default is 10.
 fogMaxConcurrentDownloads	Max concurrent download configured to Fog, Default is 5
@@ -293,6 +296,12 @@ playlistTimeout			Playlist download time out in sec. Default: 10s
 bufferLevelToEnableLatencySec 		Buffer level to enable latency correction in seconds. Default: 0.0s
 rebufferLatencyStepSec			Step value for latency increase when rebuffering occurs. Default: 1.0s
 rebufferLatencyMaxIncrementSec			Max latency increment allowed due to rebuffering. Default: 6.0s
+latencyDangerBufferSec      Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Default: 1.0
+latencyStableDurationSec        Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Default: 300.0
+lowLatencyTargetBuffer      Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. Default: 4
+maxLatencyCorrectionPlaybackRate        Upper playback-rate limit used by latency correction when latency rises above the max threshold. Increasing this value makes catch-up more aggressive and can introduce noticeable A/V artifacts (for example accelerated video cadence and audio quality changes such as robotic/timestretch artifacts) on some platforms. default: 1.03
+minLatencyCorrectionPlaybackRate        Lower playback-rate limit used by latency correction when latency drops below the min threshold. Decreasing this value makes slowdown more aggressive and can introduce noticeable A/V artifacts (for example perceived slow-motion effect and audio quality changes such as robotic/timestretch artifacts) on some platforms. Default: 0.97
+normalLatencyCorrectionPlaybackRate     Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. Default: 1.0
 
 *File Harvest Config :
     By default aamp will dump all the type of data, set 0 for disabling harvest
