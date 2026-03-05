@@ -5256,7 +5256,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					AAMPLOG_WARN("AAMP Content-Length=%d actual=%zu", static_cast<int>(expectedContentLength), buffer.size() );
 					http_code       =       416; // Range Not Satisfiable
 					ret             =       false; // redundant, but harmless
-					{ decltype(buffer) tmp; tmp.swap(buffer); } // free capacity, not just size
+					std::remove_reference_t<decltype(buffer)>().swap(buffer); // free capacity, not just size
 				}
 			}
 		}
@@ -5266,7 +5266,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
-			{ decltype(buffer) tmp; tmp.swap(buffer); } // free capacity, not just size
+			std::remove_reference_t<decltype(buffer)>().swap(buffer); // free capacity, not just size
 			if (rate != 1.0)
 			{
 				mediaType = eMEDIATYPE_IFRAME;
