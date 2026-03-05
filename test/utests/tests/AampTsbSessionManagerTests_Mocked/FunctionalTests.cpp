@@ -581,3 +581,33 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_BoS)
 
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
+
+// Test NotifyVideoTsbWaiters functionality
+TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters)
+{
+	// Spawn a thread that waits for and consume the notification
+	std::thread consumerThread([this]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+	});
+
+	// Brief sleep to allow thread to enter waiting state
+	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+	mAampTSBSessionManager->NotifyVideoTsbWaiters();
+
+	consumerThread.join();
+}
+
+// Test that WaitForVideoTsbContentOrAbort returns immediately when notification is already raised
+TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters_BeforeWait)
+{
+	mAampTSBSessionManager->NotifyVideoTsbWaiters();
+
+	// Spawn a thread that waits for the notification
+	std::thread consumerThread([this]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+	});
+
+	consumerThread.join();
+}

@@ -398,7 +398,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 {
 	/* test
 	 * for a http 502 error then we will retry MANIFEST_DOWNLOAD_502_RETRY_COUNT times
-	 * for other http erros then we retry DEFAULT_DOWNLOAD_RETRY_COUNT
+	 * for other http errors then we retry DEFAULT_DOWNLOAD_RETRY_COUNT
 	 * */
 	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
 	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();

@@ -166,7 +166,7 @@ void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
 void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance, bool &keyAcquisitionStatus, int &failureReason,  char** ptr)
 {
 	bool fetched = mpAamp->GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
-	*ptr =mAesKeyBuf.GetPtr();
+	*ptr = reinterpret_cast<char*>(mAesKeyBuf.data());
 	
 	if (fetched)
 	{

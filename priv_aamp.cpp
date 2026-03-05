@@ -724,7 +724,7 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, AampGrowableBuffer *buf
 	chunkDurationInTicks = 0;
 
 	IsoBmffBuffer isobmffBuffer;
-	isobmffBuffer.setBuffer(reinterpret_cast<uint8_t*>(buffer->GetPtr()) + bufferOffset, buffer->size() - bufferOffset);
+	isobmffBuffer.setBuffer(buffer->data() + bufferOffset, buffer->size() - bufferOffset);
 
 	try
 	{
@@ -1162,7 +1162,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 						}
 						if (ret > 0)
 						{
-							const char *bufferPtr = reinterpret_cast<const char*>(context->buffer->data()) + context->bufferOffset;
+							const uint8_t *bufferPtr = context->buffer->data() + context->bufferOffset;
 							if (context->chunkBoundary > context->bufferOffset)
 							{
 								size_t bufferLen = context->chunkBoundary - context->bufferOffset;
@@ -1729,6 +1729,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mCurrentVideoTrackId(-1)
 	, mIsTrackIdMismatch(false)
 	, mIsDefaultOffset(false)
+	, mIsOffsetNegativeOne(false)
 	, mNextPeriodDuration(0)
 	, mNextPeriodStartTime(0)
 	, mNextPeriodScaledPtoStartTime(0)
@@ -5203,7 +5204,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (buffer->capacity() != 0)
 				{
-					if(aamp_WriteFile(remoteUrl, buffer->GetPtr(), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
+					if(aamp_WriteFile(remoteUrl, reinterpret_cast<const char*>(buffer->data()), buffer->size(), mediaType, mManifestRefreshCount,harvestPath.c_str()))
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
@@ -6686,6 +6687,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	mIsDefaultOffset = (AAMP_DEFAULT_PLAYBACK_OFFSET == seek_pos_seconds);
+	mIsOffsetNegativeOne = false;
 	if (mIsDefaultOffset)
 	{
 		// eTUNETYPE_NEW_NORMAL
@@ -6697,6 +6699,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		// eTUNETYPE_NEW_NORMAL
 		// behavior is play live streams from 'live' point and VOD streams skip to the end (this will
 		// be corrected later for vod)
+		mIsOffsetNegativeOne = true; // IVOD/CDVR case play from live(offset = -1), so set the flag to true
 		seek_pos_seconds = 0;
 	}
 	else
@@ -7065,7 +7068,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 
 		if(gotManifest)
 		{
-			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.GetPtr(), "#EXTM3U8", 7) == 0)
+			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.data(), "#EXTM3U8", 7) == 0)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
@@ -7959,6 +7962,11 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 		mDownloadsEnabled = false;
 		mDownloadsDisabled.notify_all();
 	}
+	// Unblock thread waiting on this condition.
+	if (mTSBSessionManager)
+	{
+		mTSBSessionManager->NotifyVideoTsbWaiters();
+	}
 	// Notify playlist downloader threads
 	if(mpStreamAbstractionAAMP)
 	{
@@ -8356,19 +8364,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mAutoResumeTaskPending = false;
 	}
 	DisableDownloads();
-	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
-	if(IsFogTSBSupported())
-	{
-		std::string remoteUrl = "127.0.0.1:9080/tsb";
-		AampCurlDownloader T1;
-		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
-		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
-		inpData->bIgnoreResponseHeader	= true;
-		inpData->eRequestType = eCURL_DELETE;
-		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(std::move(inpData));
-		T1.Download(remoteUrl, std::move(respData) );
-	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
 	StopRateCorrectionWorkerThread();
@@ -8418,6 +8413,21 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		ReleaseStreamLock();
 	}
 	TeardownStream(true,true); //disable download as well
+	
+	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
+	// Moved the Fog TSB delete to avoid the delay in MPDDownloaderInstance release which results in HTTP-404
+	if(IsFogTSBSupported())
+	{
+		std::string remoteUrl = "127.0.0.1:9080/tsb";
+		AampCurlDownloader T1;
+		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
+		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
+		inpData->bIgnoreResponseHeader	= true;
+		inpData->eRequestType = eCURL_DELETE;
+		inpData->proxyName        = GetNetworkProxy();
+		T1.Initialize(std::move(inpData));
+		T1.Download(remoteUrl, std::move(respData) );
+	}
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
@@ -8932,6 +8942,19 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 
 		lock.unlock();
 
+		// Take a local copy of the stream abstraction to check for tune
+		// NOTE - this copy is taken outside of the mutex protection as it is only used to see if it has changed while waiting
+		// for the mutex (i.e. checks to see if a 'retune' occurred). It should NOT be dereferenced as it may be invalid after the lock
+		const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
+		std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
+
+		// Check that the stream abstraction has not changed while waiting for the mutex (we have not done some form of tune).
+		if (oldStreamAbstraction != mpStreamAbstractionAAMP)
+		{
+			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
+			return;
+		}
+
 		if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->IsStreamerStalled())
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to playback stall");
@@ -9052,6 +9075,19 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		//pipeline error during trickplay
 		if(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL)
 		{
+			// Take a local copy of the stream abstraction to check for tune
+			// NOTE - this copy is taken outside of the mutex protection as it is only used to see if it has changed while waiting
+			// for the mutex (i.e. checks to see if a 'retune' occurred). It should NOT be dereferenced as it may be invalid after the lock
+			const StreamAbstractionAAMP *oldStreamAbstraction = mpStreamAbstractionAAMP;
+			std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
+
+			// Check that the stream abstraction has not changed while waiting for the mutex (we have not done some form of tune).
+			if (oldStreamAbstraction != mpStreamAbstractionAAMP)
+			{
+				AAMPLOG_WARN("PrivateInstanceAAMP: Ignore reTune due to stream changed");
+				return;
+			}
+
 			AAMPLOG_WARN("Processing retune for GstPipeline Internal Error and rate %f", rate);
 			SendAnomalyEvent(ANOMALY_WARNING, "%s GstPipeline Internal Error", GetMediaTypeName(trackType));
 			gLock.lock();
@@ -9914,7 +9950,9 @@ double PrivateInstanceAAMP::GetMidSeekPosOffset()
 }
 
 /**
- * @brief Check if Live Adjust is required for current content. ( For "vod/ivod/ip-dvr/cdvr/eas", Live Adjust is not required ).
+ * @brief Check if Live Adjust is required for current content.
+ * Returns true for live content (LINEAR_TV, SLE) and for IVOD/CDVR when playing from live edge (offset=-1 with dynamic manifest).
+ * Returns false for VOD, IP-DVR, EAS, and completed IVOD/CDVR recordings.
  */
 bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 {
@@ -9923,8 +9961,19 @@ bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 	switch (mContentType)
 	{
 		case ContentType_IVOD:
-		case ContentType_VOD:
 		case ContentType_CDVR:
+			// IVOD within live window should use live adjustment
+			// Check if manifest is dynamic AND play from live was requested
+			if (mIsLiveStream && mIsOffsetNegativeOne)
+			{
+				retValue = true;  // Treat as live
+			}
+			else
+			{
+				retValue = false; // Treat as VOD
+			}
+			break;
+		case ContentType_VOD:
 		case ContentType_IPDVR:
 		case ContentType_EAS:
 			retValue = false;

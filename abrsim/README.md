@@ -7,33 +7,101 @@
 ## Features
 
 - **Faster-than-real-time simulation**: Simulate hours of playback in seconds
+- **Real AAMP ABR integration**: Use actual production ABR algorithms (optional build)
 - **Live streaming support**: Model live streams with target latency and buffer capping
 - **Realistic network modeling**: Uses NetTrace persona format for authentic network behavior
 - **DASH manifest abstraction**: Models typical video profile ladders with configurable bitrates
 - **Video-focused**: Concentrates on video segment downloads (ignores manifest refreshes and audio)
 - **Detailed reporting**: Generates CSV logs of all bitrate changes and rebuffering events
-- **Extensible**: Designed to integrate with AAMP's actual ABRManager from `abr/` folder
+- **Web UI**: User-friendly browser interface with real-time visualization
 
-## Building
+## Quick Start
 
-### Simple Build (Standalone)
+### Option 1: Web UI (Recommended for most users)
 
 ```bash
 cd abrsim
-g++ -std=c++17 -O2 -o abrsim abrsim.cpp
+./build.sh              # Or ./build.sh --real for AAMP ABR
+./abrsim_server.py      # Start web server
+# Open http://localhost:8080 in browser
 ```
 
-### Full Build (with ABR integration - future)
+See [WEB_UI_README.md](WEB_UI_README.md) for detailed web interface documentation.
+
+### Option 2: Command Line
 
 ```bash
-g++ -std=c++17 -O2 -I../abr -I.. -o abrsim abrsim.cpp \
-    ../abr/abr.cpp ../abr/HarmonicEwmaEstimator.cpp \
-    ../abr/RollingMedianOutlierEstimator.cpp
+cd abrsim
+./build.sh
+./abrsim --persona sample_network.json --duration 3600 --out report.csv
 ```
 
-Note: Full ABR integration requires resolving dependencies on AAMP's config and logging infrastructure.
+## Building
 
-## Usage
+### Simple Build (Standalone with placeholder ABR)
+
+```bash
+cd abrsim
+./build.sh
+```
+
+This builds with a simple placeholder ABR algorithm suitable for basic testing.
+
+### Full Build (with Real AAMP ABR)
+
+```bash
+cd abrsim
+./build.sh --real
+```
+
+This integrates AAMP's actual ABRManager with sophisticated bandwidth estimation algorithms:
+- Harmonic EWMA
+- Rolling Median with Outlier Detection
+- Buffer-aware ramping strategies
+- Network consistency tracking
+
+**Requirements for real ABR build:**
+- AAMP ABR sources in `../abr/`
+- C++17 compiler
+- All ABR dependencies resolved
+
+## Web Interface
+
+### Starting the Web UI
+
+The easiest way to use abrsim is through the web interface:
+
+```bash
+./start_web_ui.sh
+```
+
+Then open http://localhost:8080 in your browser.
+
+### Web UI Features
+
+- **Interactive parameter configuration**: Adjust all simulation settings via forms
+- **Real-time visualization**: See bitrate, buffer, and bandwidth charts
+- **Network persona selection**: Choose from pre-configured network profiles
+- **Results summary**: Instant feedback on rebuffering, latency, and performance
+- **Export capabilities**: Download CSV reports for further analysis
+
+For complete web UI documentation, see [WEB_UI_README.md](WEB_UI_README.md).
+
+### API Access
+
+The web server also provides a REST API for programmatic access:
+
+```bash
+# List available personas
+curl http://localhost:8080/api/personas
+
+# Run a simulation
+curl -X POST http://localhost:8080/api/simulate \
+  -H "Content-Type: application/json" \
+  -d '{"persona":"mobile_3g.json","duration":600,"is_live":false}'
+```
+
+## Command Line Usage
 
 ### Basic Usage
 

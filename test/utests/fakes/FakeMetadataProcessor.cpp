@@ -40,7 +40,7 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return true;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data)
 {}
 
 TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
