@@ -30,7 +30,7 @@
 #include <mutex>
 #include "AampMediaType.h"
 #include "BandwidthEstimatorBase.h"
-#include "../downloader/AampCurlDefine.h"
+#include "AampCurlDefine.h"
 
 enum BandwidthEstimationAlgorithm
 {
