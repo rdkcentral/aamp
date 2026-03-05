@@ -6381,9 +6381,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			AAMPLOG_INFO("[INBAND_CC_FLOW] Reusing existing CC manager ID: %d", mCCId);
 		}
 
-		AAMPLOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> DETECTED INBAND CC=============", mCCId);
 		//restore CC if it was enabled for previous content.
-		if(mIsInbandCC)
+		if(mIsInbandCC )
 		{
 			AAMPLOG_INFO("[INBAND_CC_FLOW] Inband CC detected! Restoring previous CC state: previousCCEnabled=%d", previousCCEnabled);
 			AAMPLOG_DEBUG("[INBAND_CC_FLOW] ================CC ID: %d ---> RESTORING INBAND CC=============", mCCId);
