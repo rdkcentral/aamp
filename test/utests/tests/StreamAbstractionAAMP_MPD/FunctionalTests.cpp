@@ -464,6 +464,7 @@ protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
+
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 											double seekpos, float rate)
@@ -3080,8 +3081,14 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 
 	// Call FindServerUTCTime - should perform network sync
 	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
+
 	// Verify sync occurred
 	EXPECT_TRUE(result);
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 	// Cleanup
 	delete rootNode;
@@ -3201,6 +3208,11 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime1, 0.001);
 
 	// Second call after interval - should get server time from network again
@@ -3262,6 +3274,11 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call - uses cached offset, still returns true

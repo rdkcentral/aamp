@@ -38,7 +38,7 @@ public:
 
 	MOCK_METHOD(void, SetState, (AAMPPlayerState state, bool sendStateChangeEvent));
 
-	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
+	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
 				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS));
