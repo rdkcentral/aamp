@@ -512,8 +512,8 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 	if(retSize)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		auto* const *bufferS = static_cast<std::uint8_t*>( buffer );
-		auto* const *bufferE = bufferS + retSize;
+		const std::uint8_t* bufferS = static_cast<const std::uint8_t*>(buffer);
+		const std::uint8_t* bufferE = bufferS + retSize;
 		try
 		{
 			this->mDownloadResponse->mDownloadData.insert(
