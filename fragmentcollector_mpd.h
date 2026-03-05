@@ -84,14 +84,14 @@ struct ProfileInfo
 class TimeSyncClient
 {
 private:
-	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
-	bool hasSynced;		/**< Flag indicating whether at least one successful sync has occurred. */
+	long long mLastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
+	bool mHasSynced;		/**< Flag indicating whether at least one successful sync has occurred. */
 	double mDeltaTime;	/**< Cached time delta (in seconds) between local and server time. */
 	bool mHasServerUtcTime; /**<true if time has been obtained from the server or manifest */
 	double mServerUtcTime; /**< Time periodically read from UTC time server and then updated from epoch time */
 public:
 	/**
-	 * @brief Constructor initializes lastSync with current time and resets other members.
+	 * @brief Constructor initializes mLastSync with current time and resets other members.
 	 */
 	TimeSyncClient();
 	double GetDelta() const { return mDeltaTime; };
@@ -1331,8 +1331,8 @@ public:
 	/**
 	 * @brief Client used for server time synchronization.
 	 *
-	 * @note TimeSyncClient maintains internal mutable state (e.g. lastSync,
-	 *       lastOffset, hasSynced) and is not internally thread-safe.
+	 * @note TimeSyncClient maintains internal mutable state (e.g. mLastSync,
+	 *       lastOffset, mHasSynced) and is not internally thread-safe.
 	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
 	 *       in the implementation) are expected to be serialized by the
 	 *       caller. By design, this member is accessed only from the

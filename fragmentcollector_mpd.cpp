@@ -1509,6 +1509,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			}
 			else
 			{
+				if (mIsLiveStream)
+				{
+					pMediaStreamContext->fragmentDescriptor.Number = pMediaStreamContext->lastSegmentNumber;
+				}
 				uint64_t lastSegmentNumberBackup = pMediaStreamContext->fragmentDescriptor.Number;
 				pMediaStreamContext->freshManifest = false;
 				if(pMediaStreamContext->fragmentDescriptor.nextfragmentNum == -1)
@@ -4468,11 +4472,12 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 	}
 }
 
-TimeSyncClient::TimeSyncClient() : lastSync(aamp_GetCurrentTimeMS()),
-								   hasSynced(false),
-								   mDeltaTime(0.0),
-								   mHasServerUtcTime(false),
-								   mServerUtcTime(0.0) {}
+TimeSyncClient::TimeSyncClient() :
+	mLastSync(aamp_GetCurrentTimeMS()),
+	mHasSynced(false),
+	mDeltaTime(0.0),
+	mHasServerUtcTime(false),
+	mServerUtcTime(0.0) {}
 
 /**
  * @brief Read UTCTiming _element_
@@ -4512,11 +4517,11 @@ bool TimeSyncClient::FindServerUTCTime(PrivateInstanceAAMP* aamp, Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
 
-						bool shouldSyncOnStartup = !hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
+						bool shouldSyncOnStartup = !mHasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
 						bool intervalElapsed = false;
 						if( !shouldSyncOnStartup )
 						{
-							const double elapsed = static_cast<double>(currentTimeMS - lastSync) / 1000;
+							const double elapsed = static_cast<double>(currentTimeMS - mLastSync) / 1000;
 							intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
 						}
 						if (shouldSyncOnStartup || intervalElapsed)
@@ -4525,14 +4530,14 @@ bool TimeSyncClient::FindServerUTCTime(PrivateInstanceAAMP* aamp, Node* root)
 							if(mServerUtcTime > 0)
 							{
 								//GetNetworkTime() may take some Ms so call aamp_GetCurrentTimeMS() again
-								lastSync = aamp_GetCurrentTimeMS();
-								mDeltaTime =  mServerUtcTime - static_cast<double>(lastSync) / 1000;
-								hasSynced = true;
+								mLastSync = aamp_GetCurrentTimeMS();
+								mDeltaTime =  mServerUtcTime - static_cast<double>(mLastSync) / 1000;
+								mHasSynced = true;
 								mHasServerUtcTime = true;
 							}
 							else
 							{
-								if (!hasSynced)
+								if (!mHasSynced)
 								{
 									AAMPLOG_ERR("Failed timeServer sync on startup [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
 								}
@@ -4542,7 +4547,7 @@ bool TimeSyncClient::FindServerUTCTime(PrivateInstanceAAMP* aamp, Node* root)
 								}
 							}
 						}
-						else if (hasSynced)
+						else if (mHasSynced)
 						{
 							//We have a valid time sync and the interval has not elapsed,
 							//so use the previous mDeltaTime to update mServerUtcTime
