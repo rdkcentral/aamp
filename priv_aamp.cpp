@@ -939,6 +939,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				catch( const std::exception &e )
 				{
 					AAMPLOG_ERR( "chunked_write_callback: buffer insert failed (%s); aborting transfer", e.what() );
+					context->abortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
 					context->m_ChunkedTransferState = ChunkedTransferState::ERROR;
 					ptr = fin; // consume remaining bytes to exit the parse loop
 					break;
