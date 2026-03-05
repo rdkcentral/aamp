@@ -509,16 +509,17 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 {
 	size_t retSize = sz * nmemb;
-
 	if(retSize)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
-		std::uint8_t *bufferE = bufferS + retSize;
+		auto* const *bufferS = static_cast<std::uint8_t*>( buffer );
+		auto* const *bufferE = bufferS + retSize;
 		try
 		{
 			this->mDownloadResponse->mDownloadData.insert(
 				this->mDownloadResponse->mDownloadData.end(), bufferS, bufferE);
+			mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+			mWriteCallbackBufferSize += retSize;
 		}
 		catch( const std::exception &e )
 		{
@@ -526,10 +527,7 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 			mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
 			return 0; // signals libcurl to abort with CURLE_WRITE_ERROR
 		}
-		mDownloadUpdatedTime = NOW_STEADY_TS_MS;
-		mWriteCallbackBufferSize += retSize;
 	}
-
 	return retSize;
 }
 
