@@ -71,26 +71,33 @@ struct ProfileInfo
 };
 
 /**
- * @struct TimeSyncClient
+ * @class TimeSyncClient
  *
  * @brief Maintains state for periodic synchronization of the local clock
  * with a remote UTC time server, used in DASH manifest processing.
  *
- * This struct tracks the last successful synchronization time and the
+ * This class tracks the last successful synchronization time and the
  * cached offset between the local system clock and the server's UTC time.
  * It supports logic to determine when a new synchronization request should
  * be made based on elapsed time and configuration.
  */
-struct TimeSyncClient
+class TimeSyncClient
 {
+private:
 	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
-	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
-	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
-
+	bool hasSynced;		/**< Flag indicating whether at least one successful sync has occurred. */
+	double mDeltaTime;	/**< Cached time delta (in seconds) between local and server time. */
+	bool mHasServerUtcTime; /**<true if time has been obtained from the server or manifest */
+	double mServerUtcTime; /**< Time periodically read from UTC time server and then updated from epoch time */
+public:
 	/**
 	 * @brief Constructor initializes lastSync with current time and resets other members.
 	 */
 	TimeSyncClient();
+	double GetDelta() const { return mDeltaTime; };
+	bool HasServerUtcTime() const { return mHasServerUtcTime; };
+	double GetServerUtcTime() const { return mServerUtcTime; };
+	bool FindServerUTCTime(PrivateInstanceAAMP *aamp, Node *root);
 };
 
 class AampDashWorkerJob : public aamp::AampTrackWorkerJob
@@ -716,13 +723,6 @@ protected:
 	AAMPStatusType UpdateMPD(bool init = false);
 
 	/**
-	 * @fn FindServerUTCTime
-	 * @param mpd:  MPD top level element
-	 * @param root: XML root node
-	 */
-	bool FindServerUTCTime(Node* root);
-
-	/**
 	 * @fn FetchDashManifest
 	 */
 	AAMPStatusType FetchDashManifest();
@@ -1184,8 +1184,7 @@ protected:
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;
 	int mMaxTracks; /* Max number of tracks for this session */
-	double mDeltaTime;
-	bool mHasServerUtcTime;
+
 	uint32_t prevTimeScale;
 	bool mIsFcsRepresentation;
 	int mFcsRepresentationId;
@@ -1321,7 +1320,6 @@ protected:
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;
-	double mServerUtcTime; 				/**< Time periodically read from UTC time server and then updated from epoch time */
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
