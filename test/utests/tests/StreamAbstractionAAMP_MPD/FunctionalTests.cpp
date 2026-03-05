@@ -525,7 +525,7 @@ protected:
 
 		bool CallFindServerUTCTime(Node *root)
 		{
-			return mTimeSyncClient.FindServerUTCTime(aamp,root);
+			return mTimeSyncClient.FindServerUTCTime(aamp, root);
 		}
 		AAMPStatusType CallFetchDashManifest()
 		{

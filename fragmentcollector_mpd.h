@@ -1332,7 +1332,7 @@ public:
 	 * @brief Client used for server time synchronization.
 	 *
 	 * @note TimeSyncClient maintains internal mutable state (e.g. mLastSync,
-	 *       lastOffset, mHasSynced) and is not internally thread-safe.
+	 *       mHasSynced) and is not internally thread-safe.
 	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
 	 *       in the implementation) are expected to be serialized by the
 	 *       caller. By design, this member is accessed only from the
