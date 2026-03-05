@@ -41,7 +41,7 @@ void AampGrowableBuffer::Free( void )
 	buffer.shrink_to_fit();  // Release the allocated memory
 }
 
-void AampGrowableBuffer::ReserveBytes( size_t numBytes )
+bool AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
 	assert( buffer.empty() && buffer.capacity() == 0 );
 	if( numBytes > 0 )
@@ -52,15 +52,17 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 		catch (const std::bad_alloc&)
 		{
 			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu", numBytes);
+			return false;
 		}
 	}
+	return true;
 }
 
-void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
+bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if( srcLen == 0 )
 	{
-		return;
+		return true;
 	}
 
 	size_t required = buffer.size() + srcLen;
@@ -80,13 +82,14 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		catch (const std::bad_alloc&)
 		{
 			AAMPLOG_ERR("Memory re-allocation failed!! Requested capacity: %zu", newCapacity);
-			return;
+			return false;
 		}
 	}
 
 	// Append the data (reserve guarantees this won't throw or reallocate)
 	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
 	buffer.insert(buffer.end(), bytes, bytes + srcLen);
+	return true;
 }
 
 /**

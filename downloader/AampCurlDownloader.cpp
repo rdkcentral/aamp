@@ -513,10 +513,19 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 	if(retSize)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		std::vector<std::uint8_t> op1;
 		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
 		std::uint8_t *bufferE = bufferS + retSize;
-		std::copy(bufferS, bufferE, std::back_inserter(this->mDownloadResponse->mDownloadData));
+		try
+		{
+			this->mDownloadResponse->mDownloadData.insert(
+				this->mDownloadResponse->mDownloadData.end(), bufferS, bufferE);
+		}
+		catch( const std::bad_alloc &e )
+		{
+			AAMPLOG_ERR("write_callback: buffer insert(%zu bytes) failed (%s); aborting transfer", retSize, e.what());
+			mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
+			return 0; // signals libcurl to abort with CURLE_WRITE_ERROR
+		}
 		mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 		mWriteCallbackBufferSize += retSize;
 	}

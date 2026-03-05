@@ -171,23 +171,6 @@ std::shared_ptr<PlayerExternalsInterface> pPlayerExternalsInterface = NULL;
 static unsigned int ui32CurlTrace = 0;
 
 /**
- * @struct CurlCbContextSyncTime
- * @brief context during curl callbacks
- */
-struct CurlCbContextSyncTime
-{
-	PrivateInstanceAAMP *aamp;
-	AampGrowableBuffer *buffer;
-
-	CurlCbContextSyncTime() : aamp(NULL), buffer(NULL){}
-	CurlCbContextSyncTime(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp),buffer(_buffer){}
-	~CurlCbContextSyncTime() {}
-
-	CurlCbContextSyncTime(const CurlCbContextSyncTime &other) = delete;
-	CurlCbContextSyncTime& operator=(const CurlCbContextSyncTime& other) = delete;
-};
-
-/**
  * @struct TuneFailureMap
  * @brief  Structure holding aamp tune failure code and corresponding application error code and description
  */
@@ -5195,12 +5178,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			if (downloadTimeMS > 0 && mediaType == eMEDIATYPE_VIDEO && CheckABREnabled())
 			{
 				int  AbrThresholdSize = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize);
-				ABRManager::CurlAbortReason hybridAbortReason = (ABRManager::CurlAbortReason) abortReason;
 				if((buffer.size() > AbrThresholdSize) && (!GetLLDashServiceData()->lowLatencyMode ||
 							( GetLLDashServiceData()->lowLatencyMode  && ISCONFIGSET_PRIV(eAAMPConfig_DisableLowLatencyABR))))
 				{
 					long currentProfilebps  = mpStreamAbstractionAAMP->GetVideoBitrate();
-					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer.size(),downloadTimeMS,currentProfilebps,fragmentDurationMs,hybridAbortReason);
+					long downloadbps = (long)mhAbrManager.CheckAbrThresholdSize((int)buffer.size(),downloadTimeMS,currentProfilebps,fragmentDurationMs,abortReason);
 					{
 						std::lock_guard<std::recursive_mutex> guard(mLock);
 						DownloadMetrics downloadMetrics;
