@@ -156,7 +156,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	const char* szJSLib = "libaamp.so";
 #endif
 	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
-	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
+	AAMPLOG_WARN("[SAMEE][AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
 #endif
 
 #ifdef AAMP_BUILD_INFO
