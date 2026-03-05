@@ -116,7 +116,7 @@ std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
 	if( buffer.empty() )
 	{
-		AAMPLOG_WARN("ExtractVector called on empty buffer");
+		AAMPLOG_ERR("ExtractVector called on empty buffer");
 
 		// Ensure buffer is in a known empty state (release any reserved capacity)
 		buffer.clear();

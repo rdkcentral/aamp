@@ -1109,7 +1109,13 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				if( context->m_ChunkedTransferState == ChunkedTransferState::ERROR )
 				{
 					AAMPLOG_ERR("Chunked transfer parser entered ERROR state; aborting write callback");
-					context->abortReason = eCURL_ABORT_REASON_CHUNKED_PARSER_ERROR;
+					// Preserve a more-specific reason already set by chunked_write_callback
+					// (e.g. BUFFER_ALLOC_FAILURE); only fall back to CHUNKED_PARSER_ERROR
+					// when no other reason has been recorded.
+					if( context->abortReason == eCURL_ABORT_REASON_NONE )
+					{
+						context->abortReason = eCURL_ABORT_REASON_CHUNKED_PARSER_ERROR;
+					}
 					ret = 0;
 					return ret;
 				}
@@ -5250,7 +5256,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					AAMPLOG_WARN("AAMP Content-Length=%d actual=%zu", static_cast<int>(expectedContentLength), buffer.size() );
 					http_code       =       416; // Range Not Satisfiable
 					ret             =       false; // redundant, but harmless
-					buffer = {};
+					{ decltype(buffer) tmp; tmp.swap(buffer); } // free capacity, not just size
 				}
 			}
 		}
@@ -5260,7 +5266,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
-			buffer = {};
+			{ decltype(buffer) tmp; tmp.swap(buffer); } // free capacity, not just size
 			if (rate != 1.0)
 			{
 				mediaType = eMEDIATYPE_IFRAME;
