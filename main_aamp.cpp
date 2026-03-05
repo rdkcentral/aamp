@@ -128,9 +128,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			}			
 			
 		}
-
+		SETCONFIGVALUE(AAMP_CUSTOM_DEV_CFG_SETTING, eAAMPConfig_useRialtoSink, false);
 		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
-
+		SETCONFIGVALUE(AAMP_CUSTOM_DEV_CFG_SETTING, eAAMPConfig_useRialtoSink, false);
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
