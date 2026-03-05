@@ -114,8 +114,16 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
  */
 std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
-	assert( !buffer.empty() );
+	if( buffer.empty() )
+	{
+		AAMPLOG_WARN("ExtractVector called on empty buffer");
 
+		// Ensure buffer is in a known empty state (release any reserved capacity)
+		buffer.clear();
+		buffer.shrink_to_fit();
+
+		return std::vector<uint8_t>();
+	}
 	// Move our data into a temporary vector for return
 	std::vector<uint8_t> extracted(std::move(buffer));
 
