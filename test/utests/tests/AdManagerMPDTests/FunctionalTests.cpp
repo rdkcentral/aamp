@@ -119,11 +119,11 @@ protected:
   }
 
 public:
-  bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+  bool GetManifest(std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int *httpError)
   {
-    /* Setup fake AampGrowableBuffer contents. */
-    buffer->clear();
-    buffer->assign(mManifest, mManifest + strlen(mManifest));
+    /* Setup fake buffer contents. */
+    buffer.clear();
+    buffer.assign(mManifest, mManifest + strlen(mManifest));
     effectiveUrl = remoteUrl;
     *httpError = 200;
 
@@ -973,10 +973,10 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
       .WillOnce(Return(true));
     // Set up the mock for GetFile before any SetAlternateContents calls
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
-      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int *httpError)
         {
-            buffer->clear();
-            buffer->assign(manifest, manifest + strlen(manifest));
+            buffer.clear();
+            buffer.assign(manifest, manifest + strlen(manifest));
             *httpError = 200;
             effectiveUrl = remoteUrl;
             if (!this->mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->empty())
