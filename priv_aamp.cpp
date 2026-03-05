@@ -10774,6 +10774,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 							  getAampCacheHandler()->InsertToPlaylistCache(newelem.url, playlistStore.GetVector(), playlistEffectiveUrl, false, newelem.type);
 							  playlistStore.Free();
 						  }
+						}
 					}
 					idx++;
 				}
