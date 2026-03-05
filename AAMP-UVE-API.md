@@ -128,6 +128,7 @@ Click [here](#setup-reference-player) for Reference player setup for RDK
 - [Client DAI](#client-dai-feature-support)
 - [ATSC Support](#atsc---unified-video-engine-features)
 - [TSB (Time Shift Buffer)](#tsb-feature)
+- [Low Latency DASH (LLD)](#low-latency-dash-lld-feature)
 - [Thumbnails & Watermarking](#thumbnails)
 - [Captions](#captions-support)
 
@@ -149,11 +150,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for CDVR. AAMP starts live playback this much time before the live point for in-progress CDVR. |
 | customHeader | String | - | Custom header data to append to HTTP requests. |
 | contentProtectionDataUpdateTimeout | Number | 5000 | Timeout for Content Protection Data Update on Dynamic Key Rotation (milliseconds). Player waits for [setContentProtectionDataConfig](#setcontentprotectiondataconfig_json-string) API update within the timeout interval. On timeout, uses last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout). |
-| disableLowLatencyABR | Boolean | true | Enable Low Latency ABR handling. |
 | disablePlaylistIndexEvent | Boolean | true | Enable/disable generation of playlist indexed event by AAMP on tune/trickplay/seek. |
-| downloadBufferChunks | Number | 20 | Low Latency fragment chunk cache length. |
-| enableLowLatencyCorrection | Boolean | true | Enable latency correction. If disabled, latency may gradually drift from the live edge, especially under poor network conditions. |
-| enableLowLatencyDash | Boolean | true | Enable Low Latency DASH playback mode. Allows media chunks to be injected earlier (even before full fragment download completes), allowing player to start and stay closer to live edge. |
 | enableSubscribedTags | Boolean | true | Enable/disable subscribed tags. |
 | enableVideoEndEvent | Boolean | true | Enable/disable Video End event generation. |
 | enableVideoRectangle | Boolean | true | Enable/disable setting of rectangle property for sink element. |
@@ -2996,6 +2993,93 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 | ---- | ---- | ---- | ---- |
 | preferredAudioLanguage | String | en | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority: ‘<HIGHEST>,<...>,<LOWEST>’ |
 | nativeCCRendering | Boolean | False | Use native Closed Caption support in AAMP |
+
+<div style="page-break-after: always;"></div>
+
+## Low Latency DASH (LLD) Feature
+
+LL-DASH is a playback mode in AAMP that downloads and processes media incrementally in chunks. By using MPD low-latency signaling together with chunk-boundary detection, it allows playback to remain closer to the live edge than standard DASH. In the current implementation, the default LL-DASH latency target is about 6 seconds, with configurable thresholds ranging from 3 to 9 seconds.
+
+AAMP enables LL-DASH when enableLowLatencyDash is enabled and the DASH manifest includes low-latency signaling through availabilityTimeOffset. If available, the manifest’s ServiceDescription element is then used to refine latency and playback-rate settings.
+
+### How LLD Works
+
+1. The DASH server publishes segments as a series of smaller chunks (using chunked transfer encoding or partial segment availability).
+2. AAMP detects the LLD service description in the manifest and enters LLD mode.
+3. The player starts downloading and injecting chunks into the pipeline as soon as they arrive, before the full segment is complete.
+4. A latency correction loop monitors the live edge distance and adjusts playback speed slightly (0.97x–1.03x) to keep latency within the target window.
+5. ABR decisions are made per-chunk rather than per-segment, enabling faster bitrate adaptation.
+
+### Configuration
+
+All LLD configuration properties are grouped below by function.
+
+#### Core Enable / Disable
+
+| Property | Type | Default | Description |
+| -------- | ---- | ------- | ----------- |
+| enableLowLatencyDash | Boolean | true | Enable Low Latency DASH playback mode. Allows media chunks to be injected earlier (even before full fragment download completes), allowing player to start and stay closer to live edge. |
+
+#### Latency Thresholds
+
+These values define the three-zone latency window. AAMP monitors live edge distance and adjusts playback speed based on which zone it is in.
+
+```
+|--- Too fast (slow down) ---|-------- Normal zone ---------|--- Too slow (speed up) --->
+0       lowLatencyMinValue       lowLatencyTargetValue       lowLatencyMaxValue
+                                 (hysteresis/return point)
+```
+
+| Property | Type | Default | Description |
+| -------- | ---- | ------- | ----------- |
+| lowLatencyMinValue | Number | 3 | If latency drops below this (seconds), playback slows to 0.97x until latency recovers to lowLatencyTargetValue. |
+| lowLatencyTargetValue | Number | 6 | The latency value (seconds) at which an active rate correction stops and playback returns to 1x. |
+| lowLatencyMaxValue | Number | 9 | If latency exceeds this (seconds) and buffer is at or above lowLatencyTargetBuffer, playback speeds up to 1.03x until latency drops to lowLatencyTargetValue. |
+
+#### Example Configuration
+
+```js
+// Enable LLD with lower latency target (4 sec)
+player.initConfig({
+    enableLowLatencyDash: true,
+    lowLatencyMinValue: 3,
+    lowLatencyTargetValue: 6,
+    lowLatencyMaxValue: 9
+});
+player.load("https://cdn.example.com/lld-stream/manifest.mpd");
+```
+
+### API Methods
+
+The standard UVE playback APIs work with LLD streams. The following are particularly relevant:
+
+##### load
+- Start playback of an LLD DASH stream. AAMP auto-detects LL-DASH from low-latency MPD signaling such as availabilityTimeOffset.
+- Example: `player.load("https://cdn.example.com/lld/manifest.mpd");`
+
+##### seek( offset )
+- Seek to a time position within the LLD stream.
+- Seeking to `-1` returns playback to the live edge.
+- See [seek()](#seek-offset) for full details.
+
+##### getCurrentPosition()
+- Returns the current playback position in seconds.
+- For LL-DASH streams, current latency is better read from the liveLatency field in playbackProgressUpdate.
+- See [getCurrentPosition()](#getcurrentposition) for full details.
+
+### Events
+
+The following events are particularly relevant for LLD playback:
+
+##### playbackProgressUpdate
+- Fired at the configured `progressReportingInterval`.
+- The `liveLatency` field reports current live latency in milliseconds.
+- The `currentPlayRate` field reflects the currently applied playback rate, including any active latency correction.
+- See [playbackProgressUpdate](#playbackprogressupdate) for full event payload details.
+
+##### enteringLive
+- Fired when the player reaches the live point of a live stream during or after a seek/trickplay operation.
+- See [enteringLive](#enteringlive) for full event details.
 
 <div style="page-break-after: always;"></div>
 
