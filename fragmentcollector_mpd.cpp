@@ -11367,7 +11367,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				AampGrowableBuffer buffer("init-buffer");
 				std::string effectiveUrl;
 				int http_error{};
-				if (aamp->GetFile(header->url, (AampMediaType) iTrack, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
+				if (aamp->GetFile(header->url, (AampMediaType) iTrack, buffer.GetVector(), effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
 				{
 					aamp->SendStreamTransfer((AampMediaType) iTrack, &buffer, 0, 0, 0, 0, true, false);
 				}
