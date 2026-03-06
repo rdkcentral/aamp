@@ -13708,7 +13708,7 @@ void PrivateInstanceAAMP::ID3MetadataHandler(AampMediaType mediaType, const uint
 /**
  * @brief Process the ID3 metadata from segment
  */
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 

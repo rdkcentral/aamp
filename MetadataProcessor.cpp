@@ -111,7 +111,7 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return ret;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, std::vector<uint8_t>& data)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 

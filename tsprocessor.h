@@ -118,7 +118,7 @@ class TSProcessor : public MediaProcessor
       ~TSProcessor();
 
 
-	double getFirstPts( std::vector<uint8_t>& buffer ) override;
+	double getFirstPts( const std::vector<uint8_t>& buffer ) override;
 	void setPtsOffset( double ptsOffset ) override;
 
 	  /**

@@ -81,7 +81,7 @@ public:
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
-	virtual double getFirstPts( std::vector<uint8_t>& buffer ) = 0;
+	virtual double getFirstPts( const std::vector<uint8_t>& buffer ) = 0;
 
 	/**
 	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments

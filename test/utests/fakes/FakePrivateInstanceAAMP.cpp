@@ -1362,7 +1362,7 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
