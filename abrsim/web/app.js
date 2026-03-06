@@ -109,7 +109,23 @@ function initViewControls() {
 
 	// Pan slider
 	const slider = document.getElementById('panSlider');
+	let panFramePending = false;
+	let pendingWindowStart = viewState.windowStart;
+
 	slider.addEventListener('input', () => {
+		pendingWindowStart = parseFloat(slider.value);
+
+		if (!panFramePending) {
+			panFramePending = true;
+			window.requestAnimationFrame(() => {
+				viewState.windowStart = pendingWindowStart;
+				applyView();
+				panFramePending = false;
+			});
+		}
+	});
+
+	slider.addEventListener('change', () => {
 		viewState.windowStart = parseFloat(slider.value);
 		applyView();
 	});

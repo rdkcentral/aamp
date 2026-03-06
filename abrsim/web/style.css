@@ -81,7 +81,8 @@
 	cursor: pointer;
 	font-size: 0.9em;
 	transition: border-color 0.15s;
-	flex-shrink: 0;}
+	flex-shrink: 0;
+}
 
 .pan-btn:hover {
 	border-color: var(--primary-color);
