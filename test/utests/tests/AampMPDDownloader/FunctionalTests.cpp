@@ -27,7 +27,6 @@
 #include "AampLogManager.h"
 #include "priv_aamp.h"
 #include <thread>
-#include <unistd.h>
 #include <atomic>
 
 using ::testing::_;
@@ -296,7 +295,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
 //    EXPECT_NO_THROW(mAampMPDDownloader->Start());
 	
 	EXPECT_NO_THROW(mAampMPDDownloader->RegisterCallback( [](void *arg){ ASSERT_TRUE(0); }, NULL));
-	usleep(100000); // allow thread to start
+	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // allow thread to start
 
 	EXPECT_NO_THROW(mAampMPDDownloader->UnRegisterCallback());
 	EXPECT_NO_THROW(mAampMPDDownloader->Release());
@@ -357,7 +356,7 @@ TEST_F(FunctionalTests,
             secondManifest = current;
             break;
         }
-        usleep(100 * 1000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     ASSERT_TRUE(secondManifest.get() != firstManifest.get());
 
@@ -373,7 +372,7 @@ TEST_F(FunctionalTests,
             thirdManifest = current;
             break;
         }
-        usleep(100 * 1000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
