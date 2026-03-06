@@ -744,8 +744,7 @@ function createBandwidthChart(bandwidthData, maxTime) {
 			maintainAspectRatio: true,
 			plugins: {
 				legend: {
-					display: true,
-					position: 'top'
+					display: false
 				},
 				tooltip: {
 					mode: 'index',
@@ -867,9 +866,7 @@ function createTimelineChart(timelineData, profilesInfo, maxTime) {
 			maintainAspectRatio: false,
 			plugins: {
 				title: {
-					display: true,
-					text: 'Segment Download Timeline (AAMP Autotriage Style)',
-					font: { size: 14 }
+					display: false
 				},
 				legend: {
 					display: false
