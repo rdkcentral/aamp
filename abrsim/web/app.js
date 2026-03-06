@@ -35,15 +35,6 @@ let bandwidthChart = null;
 // ── Shared X-axis zoom / pan ──────────────────────────────────────────────────
 let viewState = { totalDuration: 0, windowSize: 0, windowStart: 0 };
 
-function panBySeconds(deltaS) {
-	if (viewState.windowSize === 0) return;
-	const maxStart = Math.max(0, viewState.totalDuration - viewState.windowSize);
-	viewState.windowStart = Math.max(0, Math.min(maxStart, viewState.windowStart + deltaS));
-	const slider = document.getElementById('panSlider');
-	if (slider) slider.value = viewState.windowStart;
-	applyView();
-}
-
 function applyView() {
 	const { totalDuration, windowSize, windowStart } = viewState;
 	const xMin = windowSize === 0 ? 0 : windowStart;
@@ -139,7 +130,31 @@ function initViewControls() {
 		applyView();
 	});
 
-	// Two-finger horizontal drag to pan
+	// Pan buttons: step by half the window width
+	document.getElementById('panLeft').addEventListener('click', () => {
+		const step = Math.max(1, viewState.windowSize * 0.5);
+		viewState.windowStart = Math.max(0, viewState.windowStart - step);
+		slider.value = viewState.windowStart;
+		applyView();
+	});
+	document.getElementById('panRight').addEventListener('click', () => {
+		const step = Math.max(1, viewState.windowSize * 0.5);
+		viewState.windowStart = Math.min(viewState.totalDuration - viewState.windowSize, viewState.windowStart + step);
+		slider.value = viewState.windowStart;
+		applyView();
+	});
+
+	// Two-finger horizontal drag (trackpad) or horizontal scroll wheel to pan.
+	// Only active when a zoom preset is selected (windowSize > 0).
+	function panBySeconds(deltaS) {
+		if (viewState.windowSize === 0) return;
+		const maxStart = Math.max(0, viewState.totalDuration - viewState.windowSize);
+		viewState.windowStart = Math.max(0, Math.min(maxStart, viewState.windowStart + deltaS));
+		const s = document.getElementById('panSlider');
+		if (s) s.value = viewState.windowStart;
+		applyView();
+	}
+
 	let wheelFramePending = false;
 	let pendingWheelDelta = 0;
 	['bitrateChart', 'bufferChart', 'bandwidthChart', 'timelineChart'].forEach(id => {
@@ -159,20 +174,6 @@ function initViewControls() {
 				});
 			}
 		}, { passive: false });
-	});
-
-	// Pan buttons: step by half the window width
-	document.getElementById('panLeft').addEventListener('click', () => {
-		const step = Math.max(1, viewState.windowSize * 0.5);
-		viewState.windowStart = Math.max(0, viewState.windowStart - step);
-		slider.value = viewState.windowStart;
-		applyView();
-	});
-	document.getElementById('panRight').addEventListener('click', () => {
-		const step = Math.max(1, viewState.windowSize * 0.5);
-		viewState.windowStart = Math.min(viewState.totalDuration - viewState.windowSize, viewState.windowStart + step);
-		slider.value = viewState.windowStart;
-		applyView();
 	});
 }
 
@@ -539,10 +540,31 @@ function displayCharts(events) {
 	// Data uses {x,y} format so the chart X-axis can be type:'linear', which plots
 	// two events at the same time_s at the SAME x coordinate, producing a true
 	// vertical jump at injection rather than a spread-out step.
-	const bufferData = events
+	const rawBufferPts = events
 		.filter(e => e.event_type === 'download' &&
 		             (e.download_ms > 0 || e.description === 'segment_injected'))
 		.map(e => ({ x: e.time_s, y: e.buffer_s }));
+
+	// Insert zero-crossing points so the buffer chart shows a correct -1 slope
+	// until the buffer actually hits zero, then a flat line at zero until the
+	// next recovery injection.  Without this, Chart.js draws a shallow diagonal
+	// from the inject level all the way to the next nadir, giving a wrong slope.
+	// A zero-crossing is needed when: an inject point has positive buffer AND the
+	// following nadir shows zero (rebuffer happened before that download finished).
+	const bufferData = [];
+	for (let i = 0; i < rawBufferPts.length; i++) {
+		bufferData.push(rawBufferPts[i]);
+		const prev = rawBufferPts[i - 1];
+		const curr = rawBufferPts[i];
+		const next = rawBufferPts[i + 1];
+		// "curr is an inject point" = same timestamp as its predecessor
+		if (prev && curr.x === prev.x && curr.y > 0 && next && next.x > curr.x && next.y === 0) {
+			const tZero = curr.x + curr.y;   // moment buffer physically hits 0
+			if (tZero < next.x) {
+				bufferData.push({ x: tZero, y: 0 });
+			}
+		}
+	}
 
 	// Prepare bandwidth data - each download shows throughput during its period
 	const bandwidthData = downloads.map(d => {
@@ -590,13 +612,8 @@ function displayCharts(events) {
 		used: usedProfileIndices.has(idx)
 	}));
 	
-	// Rebuffer start timestamps for vertical marker lines on the buffer chart
-	const rebufferTimes = events
-		.filter(e => e.event_type === 'rebuffer_start')
-		.map(e => e.time_s);
-
 	// Create/update charts with consistent time range
-	createBufferChart(bufferData, maxTime, rebufferTimes);
+	createBufferChart(bufferData, maxTime);
 	createBandwidthChart(bandwidthData, maxTime);
 	createTimelineChart(timelineData, profilesForTimeline, maxTime);
 	setupViewControls(maxTime);
@@ -671,39 +688,15 @@ function createBitrateChart(times, bitrates, profileChanges) {
 	});
 }
 
-function createBufferChart(bufferData, maxTime, rebufferTimes) {
+function createBufferChart(bufferData, maxTime) {
 	const ctx = document.getElementById('bufferChart');
 	
 	if (bufferChart) {
 		bufferChart.destroy();
 	}
-
-	const rebufferLinePlugin = {
-		id: 'rebufferLines',
-		afterDraw(chart) {
-			if (!rebufferTimes || rebufferTimes.length === 0) return;
-			const c = chart.ctx;
-			const xScale = chart.scales.x;
-			const yScale = chart.scales.y;
-			c.save();
-			c.strokeStyle = 'rgba(220, 53, 69, 0.9)';
-			c.lineWidth = 1.5;
-			c.setLineDash([4, 4]);
-			rebufferTimes.forEach(t => {
-				const x = xScale.getPixelForValue(t);
-				if (x < xScale.left || x > xScale.right) return;
-				c.beginPath();
-				c.moveTo(x, yScale.top);
-				c.lineTo(x, yScale.bottom);
-				c.stroke();
-			});
-			c.restore();
-		}
-	};
 	
 	bufferChart = new Chart(ctx, {
 		type: 'line',
-		plugins: [rebufferLinePlugin],
 		data: {
 			datasets: [{
 				label: 'Buffer Level',
@@ -841,7 +834,8 @@ function createBandwidthChart(bandwidthData, maxTime) {
 						display: true,
 						text: 'Bandwidth (Mbps)'
 					},
-					min: 0
+					min: 0,
+					max: Math.max(...points.map(p => p.y), 0.1) * 1.15
 				}
 			},
 			interaction: {
@@ -926,7 +920,9 @@ function createTimelineChart(timelineData, profilesInfo, maxTime) {
 			maintainAspectRatio: false,
 			plugins: {
 				title: {
-					display: false
+					display: true,
+					text: 'Segment Download Timeline (AAMP Autotriage Style)',
+					font: { size: 14 }
 				},
 				legend: {
 					display: false
