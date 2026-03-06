@@ -32,6 +32,103 @@ let bitrateChart = null;
 let bufferChart = null;
 let bandwidthChart = null;
 
+// ── Shared X-axis zoom / pan ──────────────────────────────────────────────────
+let viewState = { totalDuration: 0, windowSize: 0, windowStart: 0 };
+
+function applyView() {
+	const { totalDuration, windowSize, windowStart } = viewState;
+	const xMin = windowSize === 0 ? 0 : windowStart;
+	const xMax = windowSize === 0 ? totalDuration : Math.min(windowStart + windowSize, totalDuration);
+
+	for (const chart of [bufferChart, bandwidthChart, timelineChart]) {
+		if (!chart) continue;
+		chart.options.scales.x.min = xMin;
+		chart.options.scales.x.max = xMax;
+		chart.update('none');
+	}
+
+	const label = document.getElementById('viewRange');
+	if (label) {
+		const fmt = s => s < 60 ? `${Math.round(s)}s` : `${(s / 60).toFixed(1)}m`;
+		label.textContent = `${fmt(xMin)} \u2013 ${fmt(xMax)}`;
+	}
+}
+
+function setupViewControls(totalDuration) {
+	viewState.totalDuration = totalDuration;
+	viewState.windowSize = 0;   // Full by default
+	viewState.windowStart = 0;
+
+	document.getElementById('viewControls').style.display = 'flex';
+
+	// Reset buttons: activate Full, hide presets wider than the simulation
+	document.querySelectorAll('.zoom-btn').forEach(btn => {
+		btn.classList.remove('active');
+		const w = parseFloat(btn.dataset.window);
+		btn.style.display = (w === 0 || w < totalDuration) ? '' : 'none';
+		if (w === 0) btn.classList.add('active');
+	});
+
+	// Reset pan slider bounds and hide pan row (Full selected)
+	const slider = document.getElementById('panSlider');
+	slider.min = 0;
+	slider.max = totalDuration;
+	slider.value = 0;
+	slider.step = 1;
+	document.getElementById('panRow').style.display = 'none';
+}
+
+function initViewControls() {
+	// Zoom preset buttons — listeners added once at startup
+	document.querySelectorAll('.zoom-btn').forEach(btn => {
+		btn.addEventListener('click', () => {
+			document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
+			btn.classList.add('active');
+
+			const w = parseFloat(btn.dataset.window);
+			viewState.windowSize = w;
+
+			const panRow = document.getElementById('panRow');
+			const slider = document.getElementById('panSlider');
+
+			if (w === 0) {
+				viewState.windowStart = 0;
+				panRow.style.display = 'none';
+			} else {
+				// Clamp current start so window fits within total duration
+				const maxStart = Math.max(0, viewState.totalDuration - w);
+				viewState.windowStart = Math.min(viewState.windowStart, maxStart);
+				slider.max = maxStart;
+				slider.step = 1;
+				slider.value = viewState.windowStart;
+				panRow.style.display = 'flex';
+			}
+			applyView();
+		});
+	});
+
+	// Pan slider
+	const slider = document.getElementById('panSlider');
+	slider.addEventListener('input', () => {
+		viewState.windowStart = parseFloat(slider.value);
+		applyView();
+	});
+
+	// Pan buttons: step by half the window width
+	document.getElementById('panLeft').addEventListener('click', () => {
+		const step = Math.max(1, viewState.windowSize * 0.5);
+		viewState.windowStart = Math.max(0, viewState.windowStart - step);
+		slider.value = viewState.windowStart;
+		applyView();
+	});
+	document.getElementById('panRight').addEventListener('click', () => {
+		const step = Math.max(1, viewState.windowSize * 0.5);
+		viewState.windowStart = Math.min(viewState.totalDuration - viewState.windowSize, viewState.windowStart + step);
+		slider.value = viewState.windowStart;
+		applyView();
+	});
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
 	if (typeof Chart === 'undefined') {
@@ -48,6 +145,7 @@ function initializeUI() {
 	// Initialize Chart.js with common options
 	Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif';
 	Chart.defaults.color = '#6c757d';
+	initViewControls();
 }
 
 async function loadPersonas() {
@@ -449,6 +547,7 @@ function displayCharts(events) {
 	createBufferChart(bufferData, maxTime);
 	createBandwidthChart(bandwidthData, maxTime);
 	createTimelineChart(timelineData, profilesForTimeline, maxTime);
+	setupViewControls(maxTime);
 }
 
 function createBitrateChart(times, bitrates, profileChanges) {
