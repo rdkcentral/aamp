@@ -189,7 +189,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			aamp->Stop( true );
+			aamp->Stop(false); // Don't send state change events during destruction
 		}
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
@@ -355,7 +355,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			StopInternal(false);
+			StopInternal(true);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -3104,8 +3104,9 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 	}
 	AAMPLOG_MIL("aamp_stop PlayerState=%d",state);
 	
-	// Negate sendStateChangeEvent since no need to send state change event on destructor call
-	aamp->Stop(!sendStateChangeEvent);
+	// State change events won't be sent if sendStateChangeEvent is false.
+	aamp->Stop(sendStateChangeEvent);
+
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);

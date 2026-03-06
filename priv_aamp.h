@@ -1803,9 +1803,10 @@ public:
 	/**
 	 * @fn Stop
 	 *
+	 * @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 * @return void
 	 */
-	void Stop( bool isDestructing = false );
+	void Stop( bool sendStateChangeEvent = true );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -2308,9 +2309,10 @@ public:
 	 *   @fn SetState
 	 *
 	 *   @param[in] state - New state
+	 *   @param[in] sendStateChangeEvent - Whether to send state change event (default: true)
 	 *   @return void
 	 */
-	void SetState(AAMPPlayerState state);
+	void SetState(AAMPPlayerState state, bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn GetState
