@@ -4265,12 +4265,6 @@ void MediaTrack::AbortWaitForPlaylistDownload()
 	{
 		plDownloadWait.notify_one();
 	}
-	else
-	{
-		// This is expected in some cases like playing DASH content, where the
-		// playlist downloader thread is not used.
-		AAMPLOG_TRACE("[%s] Playlist downloader thread not started", name);
-	}
 }
 
 /**
