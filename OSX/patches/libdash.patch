@@ -1,6 +1,6 @@
-From: AAMP Development Team
-Date: Fri, 14 Feb 2026 15:30:00 -0500
-Subject: [PATCH] Fix critical undefined behavior in AdaptationSet::GetRepresentation()
+Source: RDK AAMP project
+Upstream-Status: Pending
+Notice: Fix undefined behavior in AdaptationSet::GetRepresentation()
 
 This patch fixes a critical undefined behavior bug in libdash that causes
 AddressSanitizer container-overflow crashes.
