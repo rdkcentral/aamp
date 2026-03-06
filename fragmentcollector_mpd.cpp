@@ -9997,10 +9997,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						break;
 					}
 					AAMPLOG_INFO("EOS from both tracks - Wait for next fragment");
-					// Snapshot counter before waiting. If AbortWaitForManifestUpdate()
-					// fired between EOS detection and here, the predicate fires
-					// immediately and we re-enter the loop to check for new segments.
-					WaitForManifestUpdate(GetManifestUpdateCounter());
+					aamp->interruptibleMsSleep(500);
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
