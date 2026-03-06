@@ -80,7 +80,6 @@
  */
 void doFakeTune();
 
-
 /**
  * @class PlayerInstanceAAMP
  * @brief Player interface class for the JS plugin.
