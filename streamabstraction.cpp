@@ -4270,10 +4270,6 @@ void MediaTrack::AbortWaitForPlaylistDownload()
 	{
 		plDownloadWait.notify_one();
 	}
-	else
-	{
-		AAMPLOG_ERR("[%s] Playlist downloader thread not started", name);
-	}
 }
 
 /**
