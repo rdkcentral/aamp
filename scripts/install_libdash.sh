@@ -65,7 +65,24 @@ function install_build_libdash_fn()
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch || { echo "ERROR: Failed to apply patch 0010"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch || { echo "ERROR: Failed to apply patch 0011"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch || { echo "ERROR: Failed to apply patch 0012"; return 1; }
-        
+
+        # Fix: remove UB C-style cast in GetRepresentation; align member type
+        # with the declared return type so no cast is needed.
+
+        # Better to have this patch in the meta-rdk-ext/recipes-multimedia/libdash repo, but for now we can just fix it here. The cast is technically UB and causes issues with some compilers (e.g. clang 16+). The fix is to change the return type of GetRepresentation to match the member variable type, which eliminates the need for the cast.
+        sed -i.bak \
+            's|return (std::vector<IRepresentation \*> \&) this->representation;|return this->representation;|' \
+            libdash/source/mpd/AdaptationSet.cpp
+        [ $? -eq 0 ] || { echo "ERROR: Failed to fix AdaptationSet.cpp"; return 1; }
+        rm -f libdash/source/mpd/AdaptationSet.cpp.bak
+
+        sed -i.bak \
+            's|std::vector<Representation \*>[[:space:]]*representation;|std::vector<IRepresentation *>  representation;|' \
+            libdash/source/mpd/AdaptationSet.h
+        [ $? -eq 0 ] || { echo "ERROR: Failed to fix AdaptationSet.h"; return 1; }
+        rm -f libdash/source/mpd/AdaptationSet.h.bak
+
+        # CMake build
         mkdir -p build
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         
