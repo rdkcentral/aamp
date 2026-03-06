@@ -370,7 +370,7 @@ function displayCharts(events) {
 		return;
 	}
 	
-	// Extract actual segment downloads with valid data (same filter for all charts)
+	// Actual completed segment downloads — used for bandwidth and timeline charts.
 	const downloads = events.filter(e => 
 		e.event_type === 'download' && 
 		e.download_ms > 0 && 
@@ -387,10 +387,18 @@ function displayCharts(events) {
 	// Find maximum timestamp across all events for consistent X-axis
 	const maxTime = Math.max(...events.map(e => e.time_s));
 	
-	// Prepare time series data for buffer chart
-	const times = downloads.map(e => e.time_s);
-	const bufferLevels = downloads.map(e => e.buffer_s);
-	
+	// Buffer chart: nadir (download_ms>0) + injection (segment_injected) pairs only.
+	// segment_start is excluded — the line from the previous injection point to the
+	// next nadir already has slope -1 without it, and including it causes duplicate-
+	// timestamp artifacts on the category axis.
+	// Data uses {x,y} format so the chart X-axis can be type:'linear', which plots
+	// two events at the same time_s at the SAME x coordinate, producing a true
+	// vertical jump at injection rather than a spread-out step.
+	const bufferData = events
+		.filter(e => e.event_type === 'download' &&
+		             (e.download_ms > 0 || e.description === 'segment_injected'))
+		.map(e => ({ x: e.time_s, y: e.buffer_s }));
+
 	// Prepare bandwidth data - each download shows throughput during its period
 	const bandwidthData = downloads.map(d => {
 		const downloadDuration = d.download_ms / 1000;
@@ -438,7 +446,7 @@ function displayCharts(events) {
 	}));
 	
 	// Create/update charts with consistent time range
-	createBufferChart(times, bufferLevels, maxTime);
+	createBufferChart(bufferData, maxTime);
 	createBandwidthChart(bandwidthData, maxTime);
 	createTimelineChart(timelineData, profilesForTimeline, maxTime);
 }
@@ -512,7 +520,7 @@ function createBitrateChart(times, bitrates, profileChanges) {
 	});
 }
 
-function createBufferChart(times, bufferLevels, maxTime) {
+function createBufferChart(bufferData, maxTime) {
 	const ctx = document.getElementById('bufferChart');
 	
 	if (bufferChart) {
@@ -522,16 +530,15 @@ function createBufferChart(times, bufferLevels, maxTime) {
 	bufferChart = new Chart(ctx, {
 		type: 'line',
 		data: {
-			labels: times,
 			datasets: [{
 				label: 'Buffer Level',
-				data: bufferLevels,
+				data: bufferData,  // [{x, y}] — linear scale, no labels array
 				borderColor: '#28a745',
 				backgroundColor: 'rgba(40, 167, 69, 0.1)',
 				borderWidth: 2,
 				fill: true,
 				pointRadius: 0,
-				tension: 0.2
+				tension: 0
 			}]
 		},
 		options: {
@@ -553,6 +560,7 @@ function createBufferChart(times, bufferLevels, maxTime) {
 			},
 			scales: {
 				x: {
+					type: 'linear',  // proportional time axis; same time_s → same x pixel
 					title: {
 						display: true,
 						text: 'Time (seconds)'

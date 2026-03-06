@@ -174,28 +174,76 @@ Simulate 2 hours of live playback with a slow network:
 
 ## Network Persona Format
 
-The tool uses the same JSON format as `simnet`:
+The tool uses the same JSON format as `simnet`. Each file describes a statistical
+model of a real-world network link.
 
 ```json
 {
-  "base_rtt_ms": 175.0,
-  "rtt_jitter_ms": 20.0,
-  "ttfb_spike_p": 0.01,
-  "ttfb_spike_ms": 120.0,
-  "mean_thr_mbps": 200.0,
-  "thr_sigma_ln": 0.80,
-  "thr_rho": 0.15,
+  "description": "Moderate Cable/DSL - reliable mid-tier connection",
+  "base_rtt_ms": 45.0,
+  "rtt_jitter_ms": 15.0,
+  "ttfb_spike_p": 0.05,
+  "ttfb_spike_ms": 150.0,
+  "mean_thr_mbps": 3.5,
+  "thr_sigma_ln": 0.20,
+  "thr_rho": 0.40,
   "bursts_per_segment": 8,
   "burst_bytes_cv": 0.40,
-  "cadence_ms": 175.0,
-  "cadence_jitter_ms": 45.0,
-  "flush_jitter_ms": 6.0,
-  "late_chunk_p": 0.01,
-  "late_chunk_extra_ms": 120.0,
-  "p_conn_reuse": 0.95,
-  "new_conn_penalty_ms": 170.0
+  "cadence_ms": 150.0,
+  "cadence_jitter_ms": 40.0,
+  "flush_jitter_ms": 10.0,
+  "late_chunk_p": 0.03,
+  "late_chunk_extra_ms": 180.0,
+  "p_conn_reuse": 0.90,
+  "new_conn_penalty_ms": 140.0
 }
 ```
+
+### Field Reference
+
+#### Latency / TTFB
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `base_rtt_ms` | ms | Base round-trip time. Sets the Time-To-First-Byte floor and governs connection responsiveness. Typical values: LAN 1–5 ms, Cable/DSL 20–80 ms, Mobile 100–300 ms. |
+| `rtt_jitter_ms` | ms | Standard deviation of RTT around `base_rtt_ms` (Gaussian). Models per-segment routing variation. |
+| `ttfb_spike_p` | probability 0–1 | Probability that a given segment download has a TTFB spike (e.g. TCP retransmit or server stall). |
+| `ttfb_spike_ms` | ms | Extra latency added on top of normal TTFB when a spike occurs. |
+
+#### Throughput
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `mean_thr_mbps` | Mbps | **Mean effective goodput** of the link. This is the primary bandwidth knob — it governs how long each segment takes to download. |
+| `thr_sigma_ln` | dimensionless | Innovation noise of the AR(1) throughput process in log-space. Controls how much throughput varies *between consecutive samples*. The stationary standard deviation in log-space is `thr_sigma_ln / sqrt(1 - thr_rho²)`. Keep this small (0.15–0.45) for realistic links. |
+| `thr_rho` | 0–1 | Autocorrelation of the AR(1) throughput process. Higher values → longer-duration congestion episodes (throughput stays high or low for many segments). Typical: 0.3–0.7. |
+
+> **Calibration note**: stationary throughput variation = `thr_sigma_ln / sqrt(1 - thr_rho²)`.
+> A value of 0.25 means throughput fluctuates ≈ ±28% (1σ) around `mean_thr_mbps`.
+
+#### Burst / TCP pacing structure
+
+These parameters model how bytes are delivered within a single segment download
+(TCP burst structure, pacing, and ACK clocking). They affect *timing variation*
+within a download but do **not** reduce the effective goodput below `mean_thr_mbps`.
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `bursts_per_segment` | count | Number of TCP burst groups per segment. Affects how flush-jitter is applied. Typical: 6–10. |
+| `burst_bytes_cv` | coefficient of variation | Unused by the simulator after the network model was corrected to use effective-goodput directly. Reserved for future burst-shaping modes. |
+| `cadence_ms` | ms | Unused by the simulator after the network model was corrected. Reserved for future pacing modes. |
+| `cadence_jitter_ms` | ms | Unused. Reserved. |
+| `flush_jitter_ms` | ms | Standard deviation of per-burst TCP flush timing (Gaussian, absolute value taken). Adds small random delivery jitter within each download without changing total transfer time significantly. |
+| `late_chunk_p` | probability 0–1 | Probability that a segment suffers a late-chunk stall (e.g. tail-loss retransmit). |
+| `late_chunk_extra_ms` | ms | Extra delay added when a late-chunk stall occurs. |
+
+#### Connection reuse
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `p_conn_reuse` | probability 0–1 | Probability that the existing TCP/TLS connection is reused for the next segment (HTTP keep-alive or HTTP/2 multiplexing). When `false`, a new-connection penalty is incurred. |
+| `new_conn_penalty_ms` | ms | Extra delay for TCP + TLS handshake when a new connection must be established. Typical: 100–400 ms. |
+
 
 ## Output Format
 
