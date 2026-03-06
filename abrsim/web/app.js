@@ -32,6 +32,151 @@ let bitrateChart = null;
 let bufferChart = null;
 let bandwidthChart = null;
 
+// ── Shared X-axis zoom / pan ──────────────────────────────────────────────────
+let viewState = { totalDuration: 0, windowSize: 0, windowStart: 0 };
+
+function applyView() {
+	const { totalDuration, windowSize, windowStart } = viewState;
+	const xMin = windowSize === 0 ? 0 : windowStart;
+	const xMax = windowSize === 0 ? totalDuration : Math.min(windowStart + windowSize, totalDuration);
+
+	for (const chart of [bufferChart, bandwidthChart, timelineChart]) {
+		if (!chart) continue;
+		chart.options.scales.x.min = xMin;
+		chart.options.scales.x.max = xMax;
+		chart.update('none');
+	}
+
+	const label = document.getElementById('viewRange');
+	if (label) {
+		const fmt = s => s < 60 ? `${Math.round(s)}s` : `${(s / 60).toFixed(1)}m`;
+		label.textContent = `${fmt(xMin)} \u2013 ${fmt(xMax)}`;
+	}
+}
+
+function setupViewControls(totalDuration) {
+	viewState.totalDuration = totalDuration;
+	viewState.windowSize = 0;   // Full by default
+	viewState.windowStart = 0;
+
+	document.getElementById('viewControls').style.display = 'flex';
+
+	// Reset buttons: activate Full, hide presets wider than the simulation
+	document.querySelectorAll('.zoom-btn').forEach(btn => {
+		btn.classList.remove('active');
+		const w = parseFloat(btn.dataset.window);
+		btn.style.display = (w === 0 || w < totalDuration) ? '' : 'none';
+		if (w === 0) btn.classList.add('active');
+	});
+
+	// Reset pan slider bounds and hide pan row (Full selected)
+	const slider = document.getElementById('panSlider');
+	slider.min = 0;
+	slider.max = totalDuration;
+	slider.value = 0;
+	slider.step = 1;
+	document.getElementById('panRow').style.display = 'none';
+}
+
+function initViewControls() {
+	// Zoom preset buttons — listeners added once at startup
+	document.querySelectorAll('.zoom-btn').forEach(btn => {
+		btn.addEventListener('click', () => {
+			document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
+			btn.classList.add('active');
+
+			const w = parseFloat(btn.dataset.window);
+			viewState.windowSize = w;
+
+			const panRow = document.getElementById('panRow');
+			const slider = document.getElementById('panSlider');
+
+			if (w === 0) {
+				viewState.windowStart = 0;
+				panRow.style.display = 'none';
+			} else {
+				// Clamp current start so window fits within total duration
+				const maxStart = Math.max(0, viewState.totalDuration - w);
+				viewState.windowStart = Math.min(viewState.windowStart, maxStart);
+				slider.max = maxStart;
+				slider.step = 1;
+				slider.value = viewState.windowStart;
+				panRow.style.display = 'flex';
+			}
+			applyView();
+		});
+	});
+
+	// Pan slider
+	const slider = document.getElementById('panSlider');
+	let panFramePending = false;
+	let pendingWindowStart = viewState.windowStart;
+
+	slider.addEventListener('input', () => {
+		pendingWindowStart = parseFloat(slider.value);
+
+		if (!panFramePending) {
+			panFramePending = true;
+			window.requestAnimationFrame(() => {
+				viewState.windowStart = pendingWindowStart;
+				applyView();
+				panFramePending = false;
+			});
+		}
+	});
+
+	slider.addEventListener('change', () => {
+		viewState.windowStart = parseFloat(slider.value);
+		applyView();
+	});
+
+	// Pan buttons: step by half the window width
+	document.getElementById('panLeft').addEventListener('click', () => {
+		const step = Math.max(1, viewState.windowSize * 0.5);
+		viewState.windowStart = Math.max(0, viewState.windowStart - step);
+		slider.value = viewState.windowStart;
+		applyView();
+	});
+	document.getElementById('panRight').addEventListener('click', () => {
+		const step = Math.max(1, viewState.windowSize * 0.5);
+		viewState.windowStart = Math.min(viewState.totalDuration - viewState.windowSize, viewState.windowStart + step);
+		slider.value = viewState.windowStart;
+		applyView();
+	});
+
+	// Two-finger horizontal drag (trackpad) or horizontal scroll wheel to pan.
+	// Only active when a zoom preset is selected (windowSize > 0).
+	function panBySeconds(deltaS) {
+		if (viewState.windowSize === 0) return;
+		const maxStart = Math.max(0, viewState.totalDuration - viewState.windowSize);
+		viewState.windowStart = Math.max(0, Math.min(maxStart, viewState.windowStart + deltaS));
+		const s = document.getElementById('panSlider');
+		if (s) s.value = viewState.windowStart;
+		applyView();
+	}
+
+	let wheelFramePending = false;
+	let pendingWheelDelta = 0;
+	['bitrateChart', 'bufferChart', 'bandwidthChart', 'timelineChart'].forEach(id => {
+		const canvas = document.getElementById(id);
+		if (!canvas) return;
+		canvas.addEventListener('wheel', (e) => {
+			if (viewState.windowSize === 0 || Math.abs(e.deltaX) < Math.abs(e.deltaY)) return;
+			e.preventDefault();
+			const fraction = e.deltaX / canvas.clientWidth;
+			pendingWheelDelta += fraction * viewState.windowSize;
+			if (!wheelFramePending) {
+				wheelFramePending = true;
+				window.requestAnimationFrame(() => {
+					panBySeconds(pendingWheelDelta);
+					pendingWheelDelta = 0;
+					wheelFramePending = false;
+				});
+			}
+		}, { passive: false });
+	});
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
 	if (typeof Chart === 'undefined') {
@@ -48,6 +193,7 @@ function initializeUI() {
 	// Initialize Chart.js with common options
 	Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif';
 	Chart.defaults.color = '#6c757d';
+	initViewControls();
 }
 
 async function loadPersonas() {
@@ -394,10 +540,31 @@ function displayCharts(events) {
 	// Data uses {x,y} format so the chart X-axis can be type:'linear', which plots
 	// two events at the same time_s at the SAME x coordinate, producing a true
 	// vertical jump at injection rather than a spread-out step.
-	const bufferData = events
+	const rawBufferPts = events
 		.filter(e => e.event_type === 'download' &&
 		             (e.download_ms > 0 || e.description === 'segment_injected'))
 		.map(e => ({ x: e.time_s, y: e.buffer_s }));
+
+	// Insert zero-crossing points so the buffer chart shows a correct -1 slope
+	// until the buffer actually hits zero, then a flat line at zero until the
+	// next recovery injection.  Without this, Chart.js draws a shallow diagonal
+	// from the inject level all the way to the next nadir, giving a wrong slope.
+	// A zero-crossing is needed when: an inject point has positive buffer AND the
+	// following nadir shows zero (rebuffer happened before that download finished).
+	const bufferData = [];
+	for (let i = 0; i < rawBufferPts.length; i++) {
+		bufferData.push(rawBufferPts[i]);
+		const prev = rawBufferPts[i - 1];
+		const curr = rawBufferPts[i];
+		const next = rawBufferPts[i + 1];
+		// "curr is an inject point" = same timestamp as its predecessor
+		if (prev && curr.x === prev.x && curr.y > 0 && next && next.x > curr.x && next.y === 0) {
+			const tZero = curr.x + curr.y;   // moment buffer physically hits 0
+			if (tZero < next.x) {
+				bufferData.push({ x: tZero, y: 0 });
+			}
+		}
+	}
 
 	// Prepare bandwidth data - each download shows throughput during its period
 	const bandwidthData = downloads.map(d => {
@@ -449,6 +616,7 @@ function displayCharts(events) {
 	createBufferChart(bufferData, maxTime);
 	createBandwidthChart(bandwidthData, maxTime);
 	createTimelineChart(timelineData, profilesForTimeline, maxTime);
+	setupViewControls(maxTime);
 }
 
 function createBitrateChart(times, bitrates, profileChanges) {
@@ -629,8 +797,7 @@ function createBandwidthChart(bandwidthData, maxTime) {
 			maintainAspectRatio: true,
 			plugins: {
 				legend: {
-					display: true,
-					position: 'top'
+					display: false
 				},
 				tooltip: {
 					mode: 'index',
@@ -667,7 +834,8 @@ function createBandwidthChart(bandwidthData, maxTime) {
 						display: true,
 						text: 'Bandwidth (Mbps)'
 					},
-					min: 0
+					min: 0,
+					max: Math.max(...points.map(p => p.y), 0.1) * 1.15
 				}
 			},
 			interaction: {

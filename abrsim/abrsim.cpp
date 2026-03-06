@@ -837,23 +837,28 @@ public:
 		auto result = mNetSim.simulateDownload(static_cast<size_t>(segmentBytes));
 		double downloadTimeS = result.durationMs / 1000.0;
 		
-		// During download, playback continues (buffer consumed)
-		// Only consume if not rebuffering
-		if (!mBuffer.isRebuffering()) {
+		// During download, playback continues (buffer consumed).
+		// Segment 0 is initial fill — playback hasn't started yet.
+		// Calling consumeBuffer on an empty buffer would push it negative and
+		// incorrectly trigger rebuffering state before tune-in is complete.
+		if (!mBuffer.isRebuffering() && mCurrentSegmentNum > 0) {
 			mBuffer.consumeBuffer(downloadTimeS);
 			mPlaybackTimeS += downloadTimeS;
-		} else {
+		} else if (mBuffer.isRebuffering()) {
 			// Rebuffering - playback stalled, track rebuffer time
 			mBuffer.addRebufferTime(downloadTimeS);
 		}
 
-		// Capture the pre-injection buffer level (nadir — reflects rebuffering risk).
+		// Capture pre-injection buffer level (nadir — lowest point, shows drain risk).
 		double preInjectionBuffer = mBuffer.getCurrentBuffer();
 
 		// Download completes - add segment to buffer
 		mBuffer.addSegment(mLadder.segmentDurationS);
 
-		if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() > mBuffer.getMinBuffer()) {
+		// Resume playback as soon as one full segment is available.
+		// Using segmentDurationS (rather than minBuffer=2.0) avoids the case where
+		// minBuffer > segmentDuration causes extra flat segments during recovery.
+		if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() >= mLadder.segmentDurationS) {
 			SimulationEvent resumeEvent{};
 			resumeEvent.timeS = mPlaybackTimeS;
 			resumeEvent.type = SimulationEvent::REBUFFER_END;
@@ -868,8 +873,7 @@ public:
 		mSimTimeS += downloadTimeS;
 		mCurrentSegmentNum++;
 		
-		// Log download event with the pre-injection buffer level (nadir).
-		// This is the lowest point for this segment, showing actual drain risk.
+		// Log download event (nadir: pre-injection level).
 		SimulationEvent downloadEvent{};
 		downloadEvent.timeS = mSimTimeS;
 		downloadEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
