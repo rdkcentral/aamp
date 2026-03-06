@@ -39,12 +39,12 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 	processPTSComplete(false)
 { }
 
-void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		AampMediaType type,
-		bool discontinuity_pending,
-		const double proc_position,
-		bool & ptsError,
-		const std::string & uri)
+void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(CachedFragment * cachedFragment,
+	AampMediaType type,
+	bool discontinuity_pending,
+	const double proc_position,
+	bool & ptsError,
+	const std::string & uri)
 {
 	AAMPLOG_INFO(" [metadata][%p] Processing metadata.", this);
 	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
@@ -205,7 +205,7 @@ TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>();
 }
 
-void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
+void TSMetadataProcessor::ProcessFragmentMetadata(CachedFragment * cachedFragment,
 		AampMediaType type,
 		bool discontinuity_pending,
 		double proc_position,
