@@ -65,7 +65,9 @@ function install_build_libdash_fn()
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch || { echo "ERROR: Failed to apply patch 0010"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch || { echo "ERROR: Failed to apply patch 0011"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch || { echo "ERROR: Failed to apply patch 0012"; return 1; }
-        
+        patch -p1 < ${AAMP_DIR}/OSX/patches/libdash.patch || { echo "ERROR: Failed to apply libdash.patch"; return 1; }
+
+        # CMake build
         mkdir -p build
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         

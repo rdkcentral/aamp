@@ -1,0 +1,56 @@
+From: AAMP Development Team
+Date: Fri, 14 Feb 2026 15:30:00 -0500
+Subject: [PATCH] Fix critical undefined behavior in AdaptationSet::GetRepresentation()
+
+This patch fixes a critical undefined behavior bug in libdash that causes
+AddressSanitizer container-overflow crashes.
+
+The issue: AdaptationSet::GetRepresentation() performs an unsafe C-style cast
+between unrelated vector types (std::vector<Representation*> to 
+std::vector<IRepresentation*>&). While Representation inherits from 
+IRepresentation, the vector types themselves are unrelated, making this cast
+undefined behavior.
+
+The cast causes vector's internal size/capacity/data pointers to be 
+misinterpreted, leading to memory corruption detected by AddressSanitizer as:
+  "container-overflow on address 0x6030000bc5a8"
+
+Fix: Change the member variable type from std::vector<Representation*> to
+std::vector<IRepresentation*> to match the interface contract, eliminating
+the need for any cast.
+
+Impact: Resolves L2 test crash in AAMP after 27+ debugging attempts.
+
+---
+ libdash/source/mpd/AdaptationSet.cpp | 2 +-
+ libdash/source/mpd/AdaptationSet.h   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/libdash/source/mpd/AdaptationSet.cpp b/libdash/source/mpd/AdaptationSet.cpp
+index a1b2c3d..e4f5g6h 100644
+--- a/libdash/source/mpd/AdaptationSet.cpp
++++ b/libdash/source/mpd/AdaptationSet.cpp
+@@ -141,7 +141,7 @@ void                                    AdaptationSet::SetSegmentTemplate
+ }
+ const std::vector<IRepresentation *>&   AdaptationSet::GetRepresentation                ()  const
+ {
+-    return (std::vector<IRepresentation *> &) this->representation;
++    return this->representation;
+ }
+ void                                    AdaptationSet::AddRepresentation                (Representation *representation)
+ {
+diff --git a/libdash/source/mpd/AdaptationSet.h b/libdash/source/mpd/AdaptationSet.h
+index 1a2b3c4..d5e6f7g 100644
+--- a/libdash/source/mpd/AdaptationSet.h
++++ b/libdash/source/mpd/AdaptationSet.h
+@@ -115,7 +115,7 @@ namespace dash
+                 SegmentBase                     *segmentBase;
+                 SegmentList                     *segmentList;
+                 SegmentTemplate                 *segmentTemplate;
+-                std::vector<Representation *>   representation;
++                std::vector<IRepresentation *>  representation;
+                 std::vector<Resync *>            resyncs;
+                 std::vector<ProducerReferenceTime *>   producerReferenceTimes;
+                 std::string                     xlinkHref;
+-- 
+2.39.0
