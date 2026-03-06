@@ -41,26 +41,32 @@ void AampGrowableBuffer::Free( void )
 	buffer.shrink_to_fit();  // Release the allocated memory
 }
 
-void AampGrowableBuffer::ReserveBytes( size_t numBytes )
+bool AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
-	assert( buffer.empty() && buffer.capacity() == 0 );
+	if( !buffer.empty() || buffer.capacity() != 0 )
+	{
+		AAMPLOG_ERR("ReserveBytes called on non-empty buffer (size=%zu capacity=%zu); ignoring", buffer.size(), buffer.capacity());
+		return false;
+	}
 	if( numBytes > 0 )
 	{
 		try {
 			buffer.reserve(numBytes);
 		}
-		catch (const std::bad_alloc&)
+		catch (const std::exception &e)
 		{
-			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu", numBytes);
+			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu (%s)", numBytes, e.what());
+			return false;
 		}
 	}
+	return true;
 }
 
-void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
+bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if( srcLen == 0 )
 	{
-		return;
+		return true;
 	}
 
 	size_t required = buffer.size() + srcLen;
@@ -77,16 +83,17 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		{
 			buffer.reserve(newCapacity);
 		}
-		catch (const std::bad_alloc&)
+		catch (const std::exception &e)
 		{
-			AAMPLOG_ERR("Memory re-allocation failed!! Requested capacity: %zu", newCapacity);
-			return;
+			AAMPLOG_ERR("Memory re-allocation failed!! Requested capacity: %zu (%s)", newCapacity, e.what());
+			return false;
 		}
 	}
 
 	// Append the data (reserve guarantees this won't throw or reallocate)
 	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
 	buffer.insert(buffer.end(), bytes, bytes + srcLen);
+	return true;
 }
 
 /**
@@ -107,8 +114,16 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
  */
 std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
-	assert( !buffer.empty() );
+	if( buffer.empty() )
+	{
+		AAMPLOG_ERR("ExtractVector called on empty buffer");
 
+		// Ensure buffer is in a known empty state (release any reserved capacity)
+		buffer.clear();
+		buffer.shrink_to_fit();
+
+		return std::vector<uint8_t>();
+	}
 	// Move our data into a temporary vector for return
 	std::vector<uint8_t> extracted(std::move(buffer));
 

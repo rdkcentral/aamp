@@ -359,20 +359,12 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
-{
-}
-
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
 	}
-}
-
-void PrivateInstanceAAMP::ReleaseStreamLock()
-{
 }
 
 bool PrivateInstanceAAMP::IsFragmentCachingRequired()
@@ -390,11 +382,6 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
-}
-
-bool PrivateInstanceAAMP::TryStreamLock()
-{
-	return false;
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)

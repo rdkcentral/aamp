@@ -58,21 +58,22 @@ void AampGrowableBuffer::Free( void )
 	buffer.shrink_to_fit();
 }
 
-void AampGrowableBuffer::ReserveBytes( size_t numBytes )
+bool AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
 	if( numBytes == 0 )
 	{
-		return;
+		return true;
 	}
 
 	buffer.reserve(numBytes);
+	return true;
 }
 
-void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
+bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if( srcLen == 0 )
 	{
-		return;
+		return true;
 	}
 
 	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
@@ -101,6 +102,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		buffer.clear();
 		buffer.insert(buffer.end(), bytes, bytes + srcLen);
 	}
+	return true;
 }
 
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
