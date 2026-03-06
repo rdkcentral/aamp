@@ -67,7 +67,7 @@ void IsoBmffProcessor::initProcessorForRestamp()
 {
 }
 
-void IsoBmffProcessor::resetPTSOnAudioSwitch(const std::vector<uint8_t>& fragment, double position, double ptsOffset)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset)
 {
 }
 
@@ -83,7 +83,7 @@ void IsoBmffProcessor::waitForVideoPTS()
 void IsoBmffProcessor::abortWaitForVideoPTS()
 {
 }
-void IsoBmffProcessor::resetPTSOnSubtitleSwitch(const std::vector<uint8_t>& fragment, double position)
+void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
 {
 }
 bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer)

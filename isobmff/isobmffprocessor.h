@@ -147,7 +147,7 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnSubtitleSwitch(const std::vector<uint8_t>& buffer, double position) override;
+	void resetPTSOnSubtitleSwitch(std::vector<uint8_t>& buffer, double position) override;
 
 	/**
 	 * @brief Reset PTS on audioSwitch
@@ -155,7 +155,7 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnAudioSwitch(const std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) override;
+	void resetPTSOnAudioSwitch(std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) override;
 
 	double getFirstPts( std::vector<uint8_t>& buffer ) override
 	{

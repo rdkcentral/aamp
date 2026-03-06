@@ -180,7 +180,7 @@ private:
 	 * @param type AampMediaType
 	 * @param data Reference to vector containing the segment's binary data
 	 */
-	void ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data);
+	void ProcessID3Metadata(AampMediaType type, std::vector<uint8_t>& data);
 
     /// Flag for tracking whether the current PTS is valid (Initialized) or not
     bool processPTSComplete;

@@ -63,20 +63,6 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 }
 
 /**
- *  @brief Set buffer from a read-only pointer and size.
- *         The const_cast here is intentional and contained: the internal
- *         member must remain uint8_t* to support mutating operations on
- *         non-const buffers. Callers using this overload must ensure that
- *         no mutating IsoBmffBuffer operations (e.g. restampPTS) are
- *         subsequently invoked.
- */
-void IsoBmffBuffer::setBuffer(const uint8_t* buffer, size_t bufferLen)
-{
-	this->buffer = const_cast<uint8_t*>(buffer);
-	this->bufSize = bufferLen;
-}
-
-/**
 *  	@fn ParseChunkData
 *  	@param[in] name - name of the track
 *  	@param[in,out] unParsedBuffer - Total unparsed buffer

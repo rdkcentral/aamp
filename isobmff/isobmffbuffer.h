@@ -207,21 +207,6 @@ public:
 	void setBuffer(uint8_t* buffer, size_t bufferLen);
 
 	/**
-	 * @fn setBuffer
-	 *
-	 * @brief Read-only overload for callers that hold a const pointer (e.g. a
-	 *        const std::vector<uint8_t>). The buffer will only be read by
-	 *        parsing operations; mutating operations (e.g. restampPTS) must
-	 *        not be called after using this overload.
-	 * @param[in] buffer    - read-only buffer pointer
-	 * @param[in] bufferLen - buffer length in bytes
-	 * @return void
-	 */
-	void setBuffer(const uint8_t* buffer, size_t bufferLen);
-
-
-
-	/**
 	 * @fn parseBuffer
 	 *
 	 * @brief Parse the ISO BMFF buffer and create a vector of boxes with the parsed information.

@@ -111,14 +111,14 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return ret;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, std::vector<uint8_t>& data)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 
 	if (!data.empty())
 	{
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(data.data(), data.size());
+		buffer.setBuffer(data);
 		buffer.parseBuffer();
 		if (!buffer.isInitSegment())
 		{

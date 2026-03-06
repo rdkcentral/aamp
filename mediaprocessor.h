@@ -136,7 +136,7 @@ public:
 	 * @param[in] position - position of fragment
 	 * @return void
 	 */
-	virtual void resetPTSOnSubtitleSwitch(const std::vector<uint8_t>& buffer, double position) {};
+	virtual void resetPTSOnSubtitleSwitch(std::vector<uint8_t>& buffer, double position) {};
 
 	/**
 	 * @brief Reset PTS on audioSwitch
@@ -146,7 +146,7 @@ public:
 	 * @param[in] ptsOffset - offset to be applied for restamping
 	 * @return void
 	 */
-	virtual void resetPTSOnAudioSwitch(const std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) {};
+	virtual void resetPTSOnAudioSwitch(std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) {};
 
 	/**
 	 * @brief Abort all operations
