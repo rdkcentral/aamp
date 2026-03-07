@@ -22,6 +22,7 @@
 
 #include "open_cdm.h"
 #include <gmock/gmock.h>
+#include <memory>
 
 struct _GstBuffer;
 typedef struct _GstBuffer GstBuffer;
@@ -51,6 +52,6 @@ public:
 
 };
 
-extern MockOpenCdm* g_mockopencdm;
+extern std::unique_ptr<MockOpenCdm> g_mockopencdm;
 
 #endif /* PLAYER_MOCK_OPEN_CDM_H */

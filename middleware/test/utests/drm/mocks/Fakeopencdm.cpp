@@ -27,7 +27,7 @@
 #include "MockOpenCdm.h"
 #include "PlayerLogManager.h"
 
-MockOpenCdm* g_mockopencdm = nullptr;
+std::unique_ptr<MockOpenCdm> g_mockopencdm = nullptr;
 
 typedef struct _MockOpenCdmInstanceData
 {

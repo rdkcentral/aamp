@@ -22,6 +22,7 @@
 
 #include "open_cdm.h"
 #include <gmock/gmock.h>
+#include <memory>
 
 class MockOpenCdm
 {
@@ -49,6 +50,6 @@ public:
 		const uint8_t length));
 };
 
-extern MockOpenCdm* g_mockopencdm;
+extern std::unique_ptr<MockOpenCdm> g_mockopencdm;
 
 #endif /* PLAYER_MOCK_OPEN_CDM_H */
