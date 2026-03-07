@@ -46,6 +46,8 @@ source scripts/install_dependencies.sh
 source scripts/install_gtest.sh
 # libdash install and build
 source scripts/install_libdash.sh
+# middleware interfaces install and build
+source scripts/install_middleware_interfaces.sh
 # subtec install and build
 source scripts/install_subtec.sh
 # rialto install and build
@@ -140,6 +142,10 @@ INSTALL_STATUS_ARR+=("install_build_googletest check passed.")
 # Build libdash
 install_build_libdash_fn "${OPTION_CLEAN}" 
 INSTALL_STATUS_ARR+=("install_build_libdash check passed.")
+
+# Build middleware interface
+install_build_middleware_interface_fn "${OPTION_CLEAN}"
+INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
 
 # Build subtec
 #

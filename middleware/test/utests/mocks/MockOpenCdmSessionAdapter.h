@@ -28,9 +28,10 @@ class MockOpenCdmSessionAdapter
     public:
 
         MOCK_METHOD(bool, verifyOutputProtection, ());
-
+        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
+        MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
 };
 
-extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;
+extern std::unique_ptr<MockOpenCdmSessionAdapter> g_mockOpenCdmSessionAdapter;
 
 #endif /* PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H */
