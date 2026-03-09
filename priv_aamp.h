@@ -79,6 +79,8 @@
 
 // forward declaration to avoid circular dependency
 class AampMPDDownloader;
+class AampLatencyMonitor;
+struct LatencyConfig;
 
 // forward declaration
 struct CurlCallbackContext;
@@ -4059,6 +4061,13 @@ public:
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
+	/**
+	 * @fn GetBufferedDurationSecs
+	 * @brief Get the buffered duration in seconds
+	 * @return Buffered duration in seconds
+	 */
+	double GetBufferedDurationSecs();
+
 protected:
 
 	/**
@@ -4197,6 +4206,11 @@ protected:
 	 *   @return void
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
+
+	void BuildLatencyConfig(LatencyConfig &config);
+	void StartLatencyMonitor();
+	void StopLatencyMonitor();
+
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4300,6 +4314,7 @@ protected:
 	bool mIsChunkMode;		/** LLD ChunkMode */
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
+	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
 
 private:
 	/**

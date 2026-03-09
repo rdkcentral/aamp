@@ -10421,12 +10421,12 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		StartFromOtherThanAampLocalTsb();
 	}
 
-	AAMPLOG_INFO("lowLatencyMode %d enableLowLatencyCorrection %d lldAdjustSpeed %d",
-		mLowLatencyMode, ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection), aamp->GetLLDashAdjustSpeed());
-	if (mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection) && aamp->GetLLDashAdjustSpeed())
-	{
-		StartLatencyMonitorThread();
-	}
+	// AAMPLOG_INFO("lowLatencyMode %d enableLowLatencyCorrection %d lldAdjustSpeed %d",
+	// 	mLowLatencyMode, ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection), aamp->GetLLDashAdjustSpeed());
+	// if (mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection) && aamp->GetLLDashAdjustSpeed())
+	// {
+	// 	StartLatencyMonitorThread();
+	// }
 }
 
 /**
@@ -10473,18 +10473,18 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 	}
 
-	if(latencyMonitorThreadID.joinable())
-	{
-		aamp->SetLLDashAdjustSpeed(false);
-		aamp->SetLLDashCurrentPlayBackRate(GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate));
-		if (aamp->IsLocalAAMPTsb())
-		{
-			aamp->WakeupLatencyCheck();
-		}
-		AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
-		latencyMonitorThreadID.join();
-		AAMPLOG_INFO("Joined StartLatencyMonitorThread");
-	}
+	// if(latencyMonitorThreadID.joinable())
+	// {
+	// 	aamp->SetLLDashAdjustSpeed(false);
+	// 	aamp->SetLLDashCurrentPlayBackRate(GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate));
+	// 	if (aamp->IsLocalAAMPTsb())
+	// 	{
+	// 		aamp->WakeupLatencyCheck();
+	// 	}
+	// 	AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
+	// 	latencyMonitorThreadID.join();
+	// 	AAMPLOG_INFO("Joined StartLatencyMonitorThread");
+	// }
 	if (!aamp->DownloadsAreEnabled())
 	{
 		aamp->GetAampTrackWorkerManager()->StopWorkers();
