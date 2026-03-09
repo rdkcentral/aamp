@@ -95,6 +95,7 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
+	MW_LOG_WARN("VRN CONFIG framesToQueue - %d !\n", m_gstConfigParam->framesToQueue);
 	pthread_mutex_init(&mProtectionLock, NULL);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	pthread_mutex_init(&interfacePlayerPriv->gstPrivateContext->stream[i].sourceLock, NULL);
@@ -2855,6 +2856,7 @@ void InterfacePlayerRDK::SetVideoRectangle(int x, int y, int w, int h)
 bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
 {
 	bool sendEndEvent = false;
+	MW_LOG_WARN("VRN STOP BUFF IN FS[%d] ! \n", forceStop);
 	if (interfacePlayerPriv->gstPrivateContext->video_dec)
 	{
 		int frames = -1;
@@ -2864,9 +2866,11 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
 		{
 			if (frames == -1 || frames >= m_gstConfigParam->framesToQueue)
 			{
+				MW_LOG_WARN("VRN CONFIG framesToQueue - %d Frames[%d] ! \n", m_gstConfigParam->framesToQueue,frames);
 				stopBuffering = true;
 			}
 		}
+		MW_LOG_WARN("VRN CONFIG framesToQueue - %d Frames[%d] SB[%d]! \n", m_gstConfigParam->framesToQueue,frames, stopBuffering);
 
 		if (!stopBuffering)
 		{
@@ -4564,7 +4568,7 @@ static gboolean buffering_timeout (gpointer data)
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
-				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
+				MW_LOG_MIL("VRN Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
 				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
