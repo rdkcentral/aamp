@@ -12417,10 +12417,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					AAMPLOG_INFO("Preferred accessibility: %s", inputAudioAccessibilityNode.print().c_str() );
 				}
 			}
-			if(preferredAudioAccessibilityNode != inputAudioAccessibilityNode )
-			{
-				accessibilityPresent = true;
-			}
+			// Note: do NOT compare preferredAudioAccessibilityNode here; that
+			// preferred* read must happen under streamLock (see below).
 		}
 		
 		std::string inputNameString;
@@ -12435,8 +12433,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
-		// Acquire before any read or write of preferred* member fields.
+		// Acquire before the first read or write of any preferred* member field.
+		// All JSON parsing above uses only local input* variables.
 		streamLock.lock();
+		if (preferredAudioAccessibilityNode != inputAudioAccessibilityNode)
+		{
+			accessibilityPresent = true;
+		}
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 			(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ) || (preferredNameString != inputNameString))
 		{
