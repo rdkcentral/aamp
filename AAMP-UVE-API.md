@@ -1495,17 +1495,14 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 | instreamId	| String	| Optional preferred instreamId for closed captions (i.e. CC1, CC2) |
 | type	| String	| Optional preferred accessibility type for descriptive text |
 
-- ###### Example:
-```js
-var trackDescriptorObject =
-{
-    "language": "en",
-    "rendition": "subtitle",
-    "label": "native",
-    "type" : "subtitles"
-}
-playerInstance.setTextTrack( trackDescriptorObject );
-```
+- **Note:** As of the current UVE implementation, the
+  `setTextTrack()` JS binding does **not** support an object
+  descriptor argument. When a non-numeric value is passed to
+  `setTextTrack`, it is interpreted as raw WebVTT data for an
+  in-band text track, not as an object with `language`,
+  `rendition`, `label`, etc. To select a text track by language or
+  related attributes, use the existing `setPreferredTextLanguage`
+  API instead of passing a descriptor object to `setTextTrack`.
 
 ---
 
