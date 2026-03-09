@@ -350,7 +350,6 @@ public:
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;
-	void MonitorLatency();
 	void StartSubtitleParser() override;
 	void PauseSubtitleParser(bool pause) override;
 	/**
@@ -964,12 +963,7 @@ protected:
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 
 	double GetEncoderDisplayLatency();
-	/**
-	 * @fn StartLatencyMonitorThread
-	 * @return void
-	 */
-	void StartLatencyMonitorThread();
-	LatencyStatus GetLatencyStatus() { return latencyStatus; }
+
 	/**
 	 * @fn GetPreferredCodecIndex
 	 * @param adaptationSet Adaptation set object
@@ -1314,9 +1308,6 @@ protected:
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/
 
-	LatencyStatus latencyStatus; 		 /**< Latency status of the playback*/
-	LatencyStatus prevLatencyStatus;	 /**< Previous latency status of the playback*/
-	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;

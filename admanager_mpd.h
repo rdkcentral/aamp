@@ -105,6 +105,12 @@ public:
 	 * @param[in] cancelAtReservationId The reservation identifier at which cancellation should occur; applied to the AdBreak (not individual ads)
 	 */
 	virtual void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) override;
+
+	/** 
+	 * @brief Check if an ad is currently playing
+	 * @return true if an ad is playing, false otherwise
+	 */
+	virtual bool IsAdPlaying() override;
 };
 
 
@@ -648,6 +654,12 @@ public:
 	 * @param[in] periodId Period ID for ad placement
 	 */
 	void InsertToPlacementQueue(const std::string& periodId);
+
+	/**
+	 * @brief Check if an ad is currently playing
+	 * @return true if an ad is playing, false otherwise
+	 */
+	bool IsAdPlaying();
 };
 
 #endif /* ADMANAGER_MPD_H_ */
