@@ -135,7 +135,7 @@ public:
      * @param dnldStartTime of the download
      * @param durationInTicks duration of the chunk in ticks
      */
-    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
+    bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
 
     /**
      * @fn CacheFragmentData

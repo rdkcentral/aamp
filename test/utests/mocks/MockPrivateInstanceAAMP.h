@@ -38,7 +38,7 @@ public:
 
 	MOCK_METHOD(void, SetState, (AAMPPlayerState state, bool sendStateChangeEvent));
 
-	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
+	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
 				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS));
@@ -97,6 +97,7 @@ public:
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
+	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
