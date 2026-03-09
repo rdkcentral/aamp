@@ -113,8 +113,8 @@ protected:
 TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AssignsData)
 {
 	CachedFragment cached;
-	const char payload[] = "chunk-data";
-	size_t payloadSize = sizeof(payload) - 1;
+	const uint8_t payload[] = {'c','h','u','n','k','-','d','a','t','a'};
+	size_t payloadSize = sizeof(payload);
 
 	MediaStreamContext::TransferFragmentBuffer(
 		&cached, payload, nullptr, payloadSize, true);
@@ -170,9 +170,10 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_NullBuffer_NoOp)
 TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_ZeroSize)
 {
 	CachedFragment cached;
+	const uint8_t data[] = {'d','a','t','a'};
 
 	MediaStreamContext::TransferFragmentBuffer(
-		&cached, "data", nullptr, 0, true);
+		&cached, data, nullptr, 0, true);
 
 	EXPECT_EQ(cached.fragment.size(), 0u);
 }

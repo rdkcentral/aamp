@@ -166,7 +166,7 @@ public:
      *                           fragment (Replace from download buffer).
      */
     static void TransferFragmentBuffer(CachedFragment* cached,
-                                       const char* chunkPayload,
+                                       const uint8_t* chunkPayload,
                                        AampGrowableBuffer* downloadBuffer,
                                        size_t payloadSize,
                                        bool isChunkMode);

@@ -271,7 +271,7 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
  *  @param[in]  isChunkMode    true = assign from raw pointer, false = Replace from download buffer.
  */
 void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
-                                                const char* chunkPayload,
+                                                const uint8_t* chunkPayload,
                                                 AampGrowableBuffer* downloadBuffer,
                                                 size_t payloadSize,
                                                 bool isChunkMode)
