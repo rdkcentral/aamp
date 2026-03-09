@@ -10501,6 +10501,13 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		AAMPLOG_INFO("Abort TsbReader");
 		abortTsbReader = true;
+		// Unblock TsbReader if it is waiting for new video TSB content (e.g. during FF
+		// on local AAMP TSB where DisableDownloads is not called and therefore
+		// NotifyVideoTsbWaiters is not triggered via the downloads-disabled path).
+		if (AampTSBSessionManager *tsbMgr = aamp->GetTSBSessionManager())
+		{
+			tsbMgr->NotifyVideoTsbWaiters();
+		}
 		// Signal TsbReader thread to exit wait for manifest update if waiting
 		AbortWaitForManifestUpdate();
 		tsbReaderThreadID.join();
