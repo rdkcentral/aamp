@@ -49,7 +49,7 @@ if [ "$1" == "--real" ]; then
         exit 1
     fi
     
-    $CXX $CXXFLAGS -DUSE_REAL_ABR -I../abr -I.. -o abrsim \
+    $CXX $CXXFLAGS -DUSE_REAL_ABR -I../abr -I.. -I../downloader -o abrsim \
         abrsim.cpp \
         AbrSimAdapter.cpp \
         aamp_stubs.cpp \

@@ -1038,36 +1038,17 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	//Print box details
 	//isobuf.printBoxes();
-	uint32_t timeScale = 0;
-	if(type == eTRACK_VIDEO)
-	{
-		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(type == eTRACK_AUDIO)
-	{
-		timeScale = aamp->GetAudTimeScale();
-	}
-	else if (type == eTRACK_SUBTITLE)
-	{
-		timeScale = aamp->GetSubTimeScale();
-	}
+
+	// Use the timescale stored in the cached fragment, which represents the timescale
+	// of the segment being injected. This is critical when using TSB, as the segment
+	// being downloaded at the live edge may have a different timescale (e.g., an ad)
+	// than the segment being injected from TSB (e.g., base content).
+	uint32_t timeScale = cachedFragment->timeScale;
 	if(!timeScale)
 	{
-		//FIX-ME-Read from MPD INSTEAD
-		if(pContext)
-		{
-			timeScale = pContext->GetCurrPeriodTimeScale();
-			if(!timeScale)
-			{
-				timeScale = 10000000.0;
-				AAMPLOG_WARN("[%s] Empty timeScale!!! Using default timeScale=%d", name, timeScale);
-			}
-		}
-		else
-		{
-			timeScale = 1000.0;
-			AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
-		}
+		AAMPLOG_ERR("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
+		// Return true so the chunk will be removed from the cached fragment chunk buffer
+		return true;
 	}
 	double fpts = 0.0, fduration = 0.0;
 	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
@@ -4284,10 +4265,6 @@ void MediaTrack::AbortWaitForPlaylistDownload()
 	{
 		plDownloadWait.notify_one();
 	}
-	else
-	{
-		AAMPLOG_ERR("[%s] Playlist downloader thread not started", name);
-	}
 }
 
 /**
@@ -4523,7 +4500,7 @@ void MediaTrack::PlaylistDownloader()
 					AAMPLOG_INFO("[%s] Re-enabling media download", trackName.c_str());
 					aamp->EnableMediaDownloads(mediaType);
 				}
-				gotManifest = aamp->GetFile(manifestUrl, mediaType, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
+				gotManifest = aamp->GetFile(manifestUrl, mediaType, manifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
 				if(seamlessAudioSwitchInProgress && (manifestUrl != GetPlaylistUrl()))
 				{
 					//new Playlist updated in mid.
