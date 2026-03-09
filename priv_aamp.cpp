@@ -12308,7 +12308,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	{
 		/**<Nothing to do exclude it*/
 	}
-	
+
+	// Declared here with defer_lock so we can lock before the first read/write of
+	// any preferred* member field in either branch below, and remain held for the
+	// retune logic further down.  Inner lock_guards elsewhere in the function are
+	// benign recursive re-locks (mStreamLock is a std::recursive_mutex).
+	std::unique_lock<std::recursive_mutex> streamLock(mStreamLock, std::defer_lock);
+
 	if (isJson)
 	{
 		std::vector<std::string> inputLanguagesList;
@@ -12429,10 +12435,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
-		// TODO(Issue #2): The preferred* member fields below are written without holding
-		// mStreamLock. If streaming threads read these fields under that lock, this is an
-		// unsynchronised data race. Audit all reading sites and, if confirmed, move the
-		// lock acquisition to before these writes.
+		// Acquire before any read or write of preferred* member fields.
+		streamLock.lock();
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 			(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ) || (preferredNameString != inputNameString))
 		{
@@ -12468,8 +12472,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	}
 	else
 	{
-		// TODO(Issue #2): Same as above — the preferred* writes in this branch are also
-		// unprotected by mStreamLock. See the JSON path comment above.
+		// Acquire before any read or write of preferred* member fields.
+		streamLock.lock();
 		if((languageList && preferredLanguagesString != languageList) ||
 		   (preferredRendition && preferredRenditionString != preferredRendition) ||
 		   (preferredType && preferredTypeString != preferredType) ||
@@ -12598,12 +12602,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 	}
 	
-	// Hold mStreamLock for the remainder of the function:
-	// - GetState() and mpStreamAbstractionAAMP must be read consistently
-	// - discardEnteringLiveEvt / mLanguageChangeInProgress are written before the
-	//   inner critical section; the outer lock prevents races with streaming threads.
-	// The inner lock_guard below is a benign recursive re-lock.
-	std::lock_guard<std::recursive_mutex> streamLock(mStreamLock);
+	// streamLock (mStreamLock) was acquired in each branch above before any read
+	// or write of preferred* fields.  It remains held here to protect GetState(),
+	// mpStreamAbstractionAAMP, discardEnteringLiveEvt, and mLanguageChangeInProgress.
 	AAMPPlayerState state = GetState();
 	AAMPLOG_INFO("state %d, isRetuneNeeded %d", state, isRetuneNeeded);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded)
