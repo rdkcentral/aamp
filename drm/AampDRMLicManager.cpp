@@ -228,6 +228,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
 	KeyState code = KEY_ERROR;
+#ifdef USE_PREINIT_DECODING
+	if(aampInstance->mManifestUrl == FAKE_TUNE_URL)
+	{
+		return code;
+	}
+#endif
 	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
