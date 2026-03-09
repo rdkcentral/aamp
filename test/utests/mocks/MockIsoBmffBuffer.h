@@ -34,6 +34,7 @@ public:
     MOCK_METHOD(void, getSampleDuration, (Box *, uint64_t &));
     MOCK_METHOD(void, setBuffer, (std::vector<uint8_t>&));
     MOCK_METHOD(void, setBuffer, (uint8_t *, size_t));
+    MOCK_METHOD(void, setBuffer, (const uint8_t *, size_t));
     MOCK_METHOD(bool, parseBuffer, (bool, int));
     MOCK_METHOD(void, restampPts, (int64_t));
     MOCK_METHOD(void, setPtsAndDuration, (uint64_t, uint64_t));

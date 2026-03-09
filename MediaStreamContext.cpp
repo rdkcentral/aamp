@@ -69,7 +69,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
 
-	PopulateCommonMetadata(cachedFragment, std::move(fragmentUrl), actualType, 0, initSegment, discontinuity);
+	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, discontinuity);
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 	cachedFragment->absPosition = 0;
 	if (mActiveDownloadInfo)
@@ -260,7 +260,8 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
 /**
  *  @brief Transfer buffer data into a CachedFragment.
  *
- *  In chunk mode the data is assigned directly from the CURL callback pointer.
+ *  In chunk mode the data is assigned (copied) from the ephemeral CURL
+ *  callback pointer into the CachedFragment.
  *  In fragment mode the download buffer is moved (zero-copy) into the cached
  *  fragment via Replace(), leaving the source empty.
  *
@@ -341,7 +342,7 @@ void MediaStreamContext::PopulateCommonMetadata(CachedFragment* cached,
  *  @param[in] isInitSegment true if this fragment is an init segment.
  *  @return Extracted timescale, or 0 if not applicable or extraction failed.
  */
-uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
+uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(const CachedFragment* cached,
                                                         bool isInitSegment)
 {
 	if (!isInitSegment)
@@ -359,7 +360,7 @@ uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(CachedFragment* cached,
 	}
 
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(cached->fragment.GetVector());
+	buffer.setBuffer(cached->fragment.data(), cached->fragment.size());
 	if (!buffer.parseBuffer())
 	{
 		return 0;

@@ -316,7 +316,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_VideoInit_SetsTimescale)
 
 	constexpr uint32_t expectedTimeScale = 90000;
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -344,7 +344,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_AudioInit_SetsTimescale)
 
 	constexpr uint32_t expectedTimeScale = 48000;
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -372,7 +372,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_SubtitleInit_SetsTimescale
 
 	constexpr uint32_t expectedTimeScale = 1000;
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -399,7 +399,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_BufferNotInit_NoTimescale)
 	const char data[] = "not-really-init";
 	cached.fragment.assign(data, data + sizeof(data) - 1);
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -424,7 +424,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_GetTimeScaleFails_NoTimesc
 	const char data[] = "corrupt-init";
 	cached.fragment.assign(data, data + sizeof(data) - 1);
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -452,7 +452,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_ParseBufferFails_GracefulN
 	const char data[] = "bad-init";
 	cached.fragment.assign(data, data + sizeof(data) - 1);
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_)).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);

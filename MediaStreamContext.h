@@ -208,7 +208,7 @@ public:
      * @param[in] isInitSegment true if the fragment is an init segment.
      * @return Extracted timescale, or 0 if not applicable or extraction failed.
      */
-    static uint32_t ProcessInitSegmentIfNeeded(CachedFragment* cached,
+    static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
                                                bool isInitSegment);
 
     /**
