@@ -3150,6 +3150,11 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2); // Should still return true using cached offset
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
 	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+30, 0.001);
 	// Cleanup
 	delete rootNode;
