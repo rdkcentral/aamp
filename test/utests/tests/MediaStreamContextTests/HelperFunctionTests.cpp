@@ -274,9 +274,12 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NotInitSegment_NoOp)
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_VIDEO;
 
-	// When isInitSegment is false, we expect an early return and no ISO BMFF
-	// parsing. Note: g_mockIsoBmffBuffer is a NiceMock, so this test verifies
-	// the return value but does not use strict expectations to catch calls.
+	// Early return before any ISO BMFF interaction — assert none occurs
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).Times(0);
+
 	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
 		&cached, false);
 
@@ -293,6 +296,12 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NonInitType_NoOp)
 {
 	CachedFragment cached;
 	cached.type = eMEDIATYPE_VIDEO;  // Not an INIT type
+
+	// Early return before any ISO BMFF interaction — assert none occurs
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).Times(0);
 
 	uint32_t result = MediaStreamContext::ProcessInitSegmentIfNeeded(
 		&cached, true);
