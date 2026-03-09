@@ -23,6 +23,7 @@
  */
 
 #include "CachedFragment.h"
+#include "AampUtils.h"
 
 
 /**
@@ -51,26 +52,26 @@ CachedFragment::CachedFragment()
 /**
  * @brief Copy content from another CachedFragment
  */
-void CachedFragment::Copy(CachedFragment* other)
+void CachedFragment::Copy(const CachedFragment& other)
 {
 	// Copy all member variables
-	this->position = other->position;
-	this->duration = other->duration;
-	this->initFragment = other->initFragment;
-	this->discontinuity = other->discontinuity;
-	this->profileIndex = other->profileIndex;
-	this->cacheFragStreamInfo = other->cacheFragStreamInfo;
-	this->type = other->type;
-	this->downloadStartTime = other->downloadStartTime;
-	this->uri = other->uri;
-	this->timeScale = other->timeScale;
-	this->PTSOffsetSec = other->PTSOffsetSec;
-	this->absPosition = other->absPosition;
-	this->isDummy = other->isDummy;
-	this->discontinuityIndex = other->discontinuityIndex;
+	this->position = other.position;
+	this->duration = other.duration;
+	this->initFragment = other.initFragment;
+	this->discontinuity = other.discontinuity;
+	this->profileIndex = other.profileIndex;
+	this->cacheFragStreamInfo = other.cacheFragStreamInfo;
+	this->type = other.type;
+	this->downloadStartTime = other.downloadStartTime;
+	this->uri = other.uri;
+	this->timeScale = other.timeScale;
+	this->PTSOffsetSec = other.PTSOffsetSec;
+	this->absPosition = other.absPosition;
+	this->isDummy = other.isDummy;
+	this->discontinuityIndex = other.discontinuityIndex;
 	
 	// Copy fragment data
-	this->fragment = other->fragment;
+	this->fragment = other.fragment;
 }
 
 
@@ -79,7 +80,7 @@ void CachedFragment::Copy(CachedFragment* other)
  */
 void CachedFragment::Clear()
 {
-	std::vector<uint8_t>().swap(fragment);
+	aamp_utils::ClearAndRelease(fragment);
 	position = 0.0;
 	duration = 0.0;
 	initFragment = false;

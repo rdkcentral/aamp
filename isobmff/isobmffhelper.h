@@ -26,6 +26,8 @@
 #include <vector>
 #include "AampLogManager.h"
 
+class IsoBmffBuffer;
+
 class IsoBmffHelper
 {
 	public:
@@ -97,6 +99,16 @@ class IsoBmffHelper
 		 * @retval false - Failed to parse the buffer or clear the sample duration
 		 */
 		bool ClearMediaHeaderDuration(std::vector<uint8_t> &buffer);
+
+	private:
+		/**
+		 * @brief Create an IsoBmffBuffer from a data buffer and parse it
+		 *
+		 * @param[out] isoBmffBuffer - The IsoBmffBuffer to initialise and parse
+		 * @param[in]  buffer - The raw data buffer
+		 * @return true if parsing succeeded, false otherwise
+		 */
+		bool InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8_t> &buffer);
 };
 
 #endif /* __ISOBMFFHELPER_H__ */

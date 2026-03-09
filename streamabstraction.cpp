@@ -371,7 +371,7 @@ void MediaTrack::UpdateTSAfterInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	std::vector<uint8_t>().swap(mCachedFragment[fragmentIdxToInject].fragment);
+	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -389,7 +389,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	std::vector<uint8_t>().swap(mCachedFragmentChunks[fragmentChunkIdxToInject].fragment);
+	aamp_utils::ClearAndRelease(mCachedFragmentChunks[fragmentChunkIdxToInject].fragment);
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
@@ -429,14 +429,10 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vecto
 		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
 			type, fpts, fDuration, fragmentPTSOffset, init, buffer.size());
 		bool ptsError = false;
-		// sendSegment still takes AampGrowableBuffer*; move buffer in and back out
-		AampGrowableBuffer chunkView;
-		chunkView.GetVector() = std::move(buffer);
-		if (!playContext->sendSegment(&chunkView, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
+		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
 		{
 			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
 		}
-		buffer = std::move(chunkView.GetVector());
 	}
 	else
 	{

@@ -39,7 +39,7 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 	processPTSComplete(false)
 { }
 
-void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(CachedFragment * cachedFragment,
+void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 	AampMediaType type,
 	bool discontinuity_pending,
 	const double proc_position,
@@ -205,7 +205,7 @@ TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	mProcessor = aamp_utils::make_unique<aamp_ts::TSFragmentProcessor>();
 }
 
-void TSMetadataProcessor::ProcessFragmentMetadata(CachedFragment * cachedFragment,
+void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		AampMediaType type,
 		bool discontinuity_pending,
 		double proc_position,

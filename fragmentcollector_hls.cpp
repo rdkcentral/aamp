@@ -1388,7 +1388,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					abortWaitForVideoPTS();
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
-				std::vector<uint8_t>().swap(cachedFragment->fragment);
+				aamp_utils::ClearAndRelease(cachedFragment->fragment);
 				lastDownloadedIFrameTarget = -1;
 				return false;
 			}
@@ -1472,7 +1472,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								}
 							}
 						}
-						std::vector<uint8_t>().swap(cachedFragment->fragment);
+						aamp_utils::ClearAndRelease(cachedFragment->fragment);
 						lastDownloadedIFrameTarget = -1;
 						return false;
 					}
@@ -1779,11 +1779,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
 
-		// Wrap the vector in a temporary AampGrowableBuffer for sendSegment
-		AampGrowableBuffer tempBuf;
-		tempBuf.GetVector() = std::move(cachedFragment->fragment);
-
-		fragmentDiscarded = !playContext->sendSegment( &tempBuf,
+		fragmentDiscarded = !playContext->sendSegment(cachedFragment->fragment,
 			position.inSeconds(),
 			cachedFragment->duration,
 			cachedFragment->PTSOffsetSec,
@@ -1791,9 +1787,6 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			cachedFragment->initFragment,
 			std::move(processor),
 			ptsError );
-
-		// Move data back in case the API modified the buffer
-		cachedFragment->fragment = std::move(tempBuf.GetVector());
 	}
 	else
 	{
@@ -4861,7 +4854,7 @@ TrackState::~TrackState()
 	int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	for (int j=0; j< maxCachedFragmentsPerTrack; j++)
 	{
-		std::vector<uint8_t>().swap(mCachedFragment[j].fragment);
+		aamp_utils::ClearAndRelease(mCachedFragment[j].fragment);
 	}
 	FlushIndex();
 	memset( mDrmInfo.iv, 0, sizeof(mDrmInfo.iv) );
@@ -6270,31 +6263,37 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 #ifdef CHECK_PERFORMANCE
 			ts_end = aamp_GetCurrentTimeMS();
 			if(fetched)
-			AAMPLOG_TRACE("---------------CacheRead Time diff:%llu---------------" , ts_end-ts_start);
+			{
+				AAMPLOG_TRACE("---------------CacheRead Time:%llu---------------" , ts_end-ts_start);
+			}
 #endif /* CHECK_PERFORMANCE */
 
 			if ( !fetched )
 			{
 				double tempDownloadTime{0.0};
 				fetched = aamp->GetFile(fragmentUrl, actualType, cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
-						type, false );
+										type, false);
 				AampTime downloadTime{tempDownloadTime};
 
 #ifdef CHECK_PERFORMANCE
-				if(fetched)
-				AAMPLOG_TRACE("---------------CurlReq Time diff:%llu---------------" , downloadTime.seconds());
+				if (fetched)
+				{
+					AAMPLOG_TRACE("---------------CurlReq Time diff:%llu---------------", downloadTime.seconds());
+				}
 #endif /* CHECK_PERFORMANCE */
 
 				int main_error = context->getOriginalCurlError(http_code);
 				aamp->UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, mEffectiveUrl, downloadTime.inSeconds());
 
-				if ( fetched )
-					aamp->getAampCacheHandler()->InsertToInitFragCache ( fragmentUrl, cachedFragment->fragment, tempEffectiveUrl, actualType);
+				if (fetched)
+				{
+					aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, cachedFragment->fragment, tempEffectiveUrl, actualType);
+				}
 			}
 			if (!fetched)
 			{
 				AAMPLOG_ERR("TrackState::aamp_GetFile failed");
-				std::vector<uint8_t>().swap(cachedFragment->fragment);
+				aamp_utils::ClearAndRelease(cachedFragment->fragment);
 			}
 			else
 			{

@@ -21,6 +21,7 @@
 #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
+#include "AampUtils.h"
 #include "priv_aamp.h"
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampConfig.h"
@@ -187,7 +188,7 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 		EXPECT_EQ(cachedFragment->position, dlInfo->pts);
 	}
 
-	std::vector<uint8_t>().swap(cachedFragment->fragment);
+	aamp_utils::ClearAndRelease(cachedFragment->fragment);
 }
 
 /**

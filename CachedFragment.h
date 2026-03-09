@@ -126,7 +126,7 @@ public:
 	 * @brief Copy content from another CachedFragment
 	 * @param other Source CachedFragment to copy from
 	 */
-	void Copy(CachedFragment* other);
+	void Copy(const CachedFragment& other);
 
 	/**
 	 * @brief Clear all fragment data and reset to default values

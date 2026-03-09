@@ -21,6 +21,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
 #include "AampStreamSinkManager.h"
+#include "AampUtils.h"
 
 #include "BandwidthEstimatorBase.h"
 
@@ -1140,7 +1141,7 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	{
 		g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
-	std::vector<uint8_t>().swap(buffer);
+	aamp_utils::ClearAndRelease(buffer);
 }
 
 void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)

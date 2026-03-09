@@ -84,7 +84,7 @@ public:
 	 * @param ptsError Flag to report is there has been an error extracting PTS
 	 * @param uri The current fragment's URI - for debug only.
 	 */
-	virtual void ProcessFragmentMetadata(CachedFragment * cachedFragment,
+	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,
@@ -161,7 +161,7 @@ public:
 	/// Deleted Assignment constructor
 	IsoBMFFMetadataProcessor& operator=(const IsoBMFFMetadataProcessor &) = delete;
 
-	virtual void ProcessFragmentMetadata(CachedFragment * cachedFragment,
+	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,
@@ -220,7 +220,7 @@ public:
 	/// Deleted Assignment constructor
 	TSMetadataProcessor& operator=(const TSMetadataProcessor &) = delete;
 
-	virtual void ProcessFragmentMetadata(CachedFragment * cachedFragment,
+	virtual void ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 		AampMediaType type,
 		bool discontinuity_pending, 
 		const double proc_position,

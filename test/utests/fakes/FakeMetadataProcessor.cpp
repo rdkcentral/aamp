@@ -27,7 +27,7 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 	processPTSComplete(false)
 {}
 
-void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(CachedFragment * cachedFragment,
+void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 	AampMediaType type,
 	bool discontinuity, 
 	const double proc_position,
@@ -49,7 +49,7 @@ TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	: MetadataProcessorIntf(id3_hdl, ptsoffset_callback), MetadataProcessorImpl(std::move(video_processor))
 {}
 
-void TSMetadataProcessor::ProcessFragmentMetadata(CachedFragment * cachedFragment,
+void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
 	AampMediaType type,
 	bool discontinuity, 
 	const double proc_position,

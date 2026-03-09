@@ -177,7 +177,7 @@ protected:
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
 			mediaTrack.numberOfFragmentsCached = 1;
 		}
-		bufferedFragment->Copy(&testFragment);
+		bufferedFragment->Copy(testFragment);
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
 			// Make the buffer parser return the correct position and duration
@@ -235,7 +235,7 @@ protected:
 		initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 		CachedFragment* buf = videoTrack->GetFetchChunkBuffer(true);
 		videoTrack->numberOfFragmentChunksCached = 1;
-		buf->Copy(&initFragment);
+		buf->Copy(initFragment);
 		EXPECT_TRUE(videoTrack->InjectFragment());
 
 		// Queue a media fragment with the requested timescale
@@ -249,7 +249,7 @@ protected:
 
 		buf = videoTrack->GetFetchChunkBuffer(true);
 		videoTrack->numberOfFragmentChunksCached = 1;
-		buf->Copy(&mediaFragment);
+		buf->Copy(mediaFragment);
 
 		return {std::move(videoTrack), buf};
 	}

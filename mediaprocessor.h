@@ -105,6 +105,36 @@ public:
 								bool isInit, process_fcn_t processor, bool &ptsError) = 0;
 
 	/**
+	 * @brief sendSegment overload accepting a std::vector buffer.
+	 *
+	 * Bridges from std::vector<uint8_t> to the AampGrowableBuffer-based
+	 * pure-virtual sendSegment.  The vector contents are moved into a
+	 * temporary AampGrowableBuffer, the virtual method is called, and
+	 * the (possibly modified) data is moved back into the vector.
+	 *
+	 * @param[in,out] buffer - fragment data; may be modified (e.g. PTS restamping)
+	 * @param[in] position - position of fragment
+	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - offset PTS of fragment
+	 * @param[in] discontinuous - true if discontinuous fragment
+	 * @param[in] isInit - flag for buffer type (init, data)
+	 * @param[in] processor - Function to use for processing the fragments
+	 * @param[out] ptsError - flag indicates if any PTS error occurred
+	 * @return true if fragment was sent, false otherwise
+	 */
+	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration,
+					 double fragmentPTSoffset, bool discontinuous, bool isInit,
+					 process_fcn_t processor, bool &ptsError)
+	{
+		AampGrowableBuffer tempBuf;
+		tempBuf.GetVector() = std::move(buffer);
+		bool result = sendSegment(&tempBuf, position, duration, fragmentPTSoffset,
+								  discontinuous, isInit, std::move(processor), ptsError);
+		buffer = std::move(tempBuf.GetVector());
+		return result;
+	}
+
+	/**
 	 * @brief Set playback rate
 	 *
 	 * @param[in] rate - playback rate

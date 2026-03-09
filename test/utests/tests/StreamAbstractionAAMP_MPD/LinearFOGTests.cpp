@@ -22,6 +22,7 @@
 #include <chrono>
 #include "priv_aamp.h"
 #include "AampConfig.h"
+#include "AampUtils.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
 #include "fragmentcollector_mpd.h"
@@ -403,7 +404,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())
 			.Times(1)
 			.WillOnce([pMediaStreamContext]()
-					  { std::vector<uint8_t>().swap(pMediaStreamContext->mDownloadedFragment); });
+					  { aamp_utils::ClearAndRelease(pMediaStreamContext->mDownloadedFragment); });
 
 		ret = PushNextFragment(eTRACK_VIDEO);
         EXPECT_EQ(ret, true);

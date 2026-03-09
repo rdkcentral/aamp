@@ -335,6 +335,21 @@ namespace aamp_utils
     {
         return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
     }
+
+    /**
+     * @brief Clear a vector and release its heap memory
+     *
+     * Swaps the target vector with a default-constructed temporary,
+     * guaranteeing that both size and capacity become zero.
+     *
+     * @tparam T Element type of the vector
+     * @param[in,out] v Vector to clear and release
+     */
+    template<typename T>
+    inline void ClearAndRelease(std::vector<T>& v)
+    {
+        std::vector<T>().swap(v);
+    }
 }
 
 /**
