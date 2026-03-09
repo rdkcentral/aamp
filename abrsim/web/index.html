@@ -124,19 +124,37 @@ limitations under the License.
 			</div>
 
 			<div class="right-panel">
+				<!-- Shared zoom/pan toolbar — applies to all three charts simultaneously -->
+				<div id="viewControls" class="view-controls" style="display:none;">
+					<div class="view-zoom">
+						<span class="view-label">View:</span>
+						<button class="zoom-btn" data-window="30">30s</button>
+						<button class="zoom-btn" data-window="120">2m</button>
+						<button class="zoom-btn" data-window="300">5m</button>
+						<button class="zoom-btn" data-window="900">15m</button>
+						<button class="zoom-btn active" data-window="0">Full</button>
+					</div>
+					<div class="view-pan" id="panRow" style="display:none;">
+						<button class="pan-btn" id="panLeft" title="Pan left" aria-label="Pan view left">&#9664;</button>
+						<input type="range" id="panSlider" min="0" max="100" value="0" step="1" aria-labelledby="viewRange">
+						<button class="pan-btn" id="panRight" title="Pan right" aria-label="Pan view right">&#9654;</button>
+						<span id="viewRange" class="view-range-label"></span>
+					</div>
+				</div>
+
 				<section class="card">
 					<h2>Buffer Level Over Time</h2>
 					<canvas id="bufferChart"></canvas>
 				</section>
 
 				<section class="card">
-					<h2>Bandwidth Over Time</h2>
-					<canvas id="bandwidthChart"></canvas>
+					<h2>Segment Download Timeline</h2>
+					<canvas id="timelineChart" height="400"></canvas>
 				</section>
 
 				<section class="card">
-					<h2>Segment Download Timeline</h2>
-					<canvas id="timelineChart" height="400"></canvas>
+					<h2>Bandwidth Over Time</h2>
+					<canvas id="bandwidthChart"></canvas>
 				</section>
 			</div>
 		</div>
