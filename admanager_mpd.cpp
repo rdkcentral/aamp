@@ -81,6 +81,19 @@ void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, c
 }
 
 /**
+ * @brief Check if an ad is currently playing
+ * @return true if an ad is playing, false otherwise
+ */
+bool CDAIObjectMPD::IsAdPlaying()
+{
+	if (mPrivObj)
+	{
+		return mPrivObj->IsAdPlaying();
+	}
+	return false;
+}
+
+/**
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
@@ -1962,4 +1975,14 @@ void PrivateCDAIObjectMPD::CancelReservation(const std::string& playingReservati
 		AAMPLOG_WARN("[CDAI] CancelReservation: adBreakId %s not found; no state updated",
 			mPlacementObj.pendingAdbrkId.c_str());
 	}
+}
+
+/**
+ * @brief Check if an ad is currently playing
+ * @return true if an ad is playing, false otherwise
+ */
+bool PrivateCDAIObjectMPD::IsAdPlaying()
+{
+	std::lock_guard<std::mutex> guard(mDaiMtx);
+	return (mAdState == AdState::IN_ADBREAK_AD_PLAYING || mAdState == AdState::IN_ADBREAK_WAIT2CATCHUP);
 }

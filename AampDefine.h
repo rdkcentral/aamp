@@ -289,19 +289,6 @@ typedef enum
 }ConfigPriority;
 
 /**
- * @brief Latency status
- */
-enum LatencyStatus
-{
-	LATENCY_STATUS_UNKNOWN=-1,     /**< The latency is Unknown */
-	LATENCY_STATUS_MIN,            /**< The latency is within range but less than minimum latency */
-	LATENCY_STATUS_THRESHOLD_MIN,  /**< The latency is within range but less than target latency but greater than minimum latency */
-	LATENCY_STATUS_THRESHOLD,      /**< The latency is equal to given latency from mpd */
-	LATENCY_STATUS_THRESHOLD_MAX,  /**< The latency is more that target latency but less than maximum latency */
-	LATENCY_STATUS_MAX             /**< The latency is more than maximum latency */
-};
-
-/**
  * @brief AAMP Function return values
  */
 enum AAMPStatusType

@@ -400,16 +400,6 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(params.endPos));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
-		.WillOnce(Return(true))
-		.WillOnce(Return(true))
-		.WillOnce(Return(true))
-		.WillOnce(Return(false));
-
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashCurrentPlayBackRate())
-		.WillOnce(Return(params.currPlaybackRate))
-		.WillOnce(Return(params.currPlaybackRate));
-
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
 		.WillRepeatedly(Return(g_mockAampGstPlayer));
 

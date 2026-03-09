@@ -619,11 +619,6 @@ protected:
 			return GetProducerReferenceTimeForAdaptationSet(adaptationSet);
 		}
 
-		LatencyStatus CallGetLatencyStatus()
-		{
-			return GetLatencyStatus();
-		}
-
 		void CallQueueContentProtection(IPeriod *period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false)
 		{
 			QueueContentProtection(period, adaptationSetIdx, mediaType, qGstProtectEvent, isVssPeriod);
@@ -2501,11 +2496,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidCurrMPDPeriodTest)
 	PeriodInfo result = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(currMPDPeriodDetails); (void)result;
 }
 
-TEST_F(StreamAbstractionAAMP_MPDTest, GetLatencyStatusTest)
-{
-	LatencyStatus result = mStreamAbstractionAAMP_MPD->CallGetLatencyStatus(); (void)result;
-}
-
 TEST_F(StreamAbstractionAAMP_MPDTest, QueueContentProtectionTest)
 {
 	IPeriod *period = NULL;
@@ -2782,9 +2772,6 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	double seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
-		.WillRepeatedly(Return(true));
-
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	//For this test case we need EnableLowLatencyDash as true
@@ -2849,9 +2836,6 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 )";
 	double seekPosition = 1552; ///Total duration : 1560
 	int rate = 1 ; //Normal playrate test
-
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
-		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));

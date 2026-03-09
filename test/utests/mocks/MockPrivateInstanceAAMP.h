@@ -73,8 +73,6 @@ public:
 	MOCK_METHOD(long long, DurationFromStartOfPlaybackMs, ());
 	MOCK_METHOD(bool, IsLocalAAMPTsbInjection, ());
 	MOCK_METHOD(void, UpdateLocalAAMPTsbInjection, ());
-	MOCK_METHOD(bool,  GetLLDashAdjustSpeed, ());
-	MOCK_METHOD(double, GetLLDashCurrentPlayBackRate, ());
 	MOCK_METHOD(void, StopDownloads, ());
 	MOCK_METHOD(void, ResumeDownloads, ());
 	MOCK_METHOD(void, DisableDownloads, ());

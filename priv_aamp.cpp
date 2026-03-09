@@ -35,6 +35,7 @@
 #include "fragmentcollector_hls.h"
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
+#include "AampLatencyMonitor.h"
 #ifdef AAMP_NET_TRACE
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
 
@@ -1834,6 +1835,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mAampTrackWorkerManager()
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
+	, mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -2308,12 +2310,6 @@ void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 		}
-		if(GetLLDashServiceData()->lowLatencyMode)
-		{
-			AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-			SetLLDashAdjustSpeed(false);
-		}
-
 		AAMPLOG_INFO("Live latency correction is disabled after Pause");
 		mDisableRateCorrection = true;
 
@@ -2585,9 +2581,10 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
  */
 bool PrivateInstanceAAMP::IsAtLivePoint()
 {
-	if (mpStreamAbstractionAAMP)
+	if (IsLiveStream())
 	{
-		if (IsLiveStream())
+		std::lock_guard<std::recursive_mutex> guard(GetStreamLock());
+		if (mpStreamAbstractionAAMP)
 		{
 			return mpStreamAbstractionAAMP->mIsAtLivePoint;
 		}
@@ -2761,7 +2758,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		else if(mAampLLDashServiceData.lowLatencyMode)
 		{
-			currentRate = mLLDashCurrentPlayRate;
+			currentRate = mLatencyMonitor->GetCurrentRate();
 		}
 		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection) )
 		{
@@ -5550,6 +5547,8 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	ResetDiscontinuityInTracks();
 	UnblockWaitForDiscontinuityProcessToComplete();
 	ResetTrackDiscontinuityIgnoredStatus();
+	// Disable latency monitor when teardown is in progress to avoid any rate correction until new tune starts.
+	EnableLatencyMonitor(false);
 	lock.unlock();
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
@@ -6243,7 +6242,15 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
-		StartRateCorrectionWorkerThread();
+		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
+		{
+			StartRateCorrectionWorkerThread();
+		}
+		if (mMediaFormat == eMEDIAFORMAT_DASH && mAampLLDashServiceData.lowLatencyMode)
+		{
+			// Start latency monitor for DASH content to monitor the latency
+			StartLatencyMonitor();
+		}
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -8472,6 +8479,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		T1.Initialize(std::move(inpData));
 		T1.Download(remoteUrl, std::move(respData) );
 	}
+	// Stop latency monitor and release resources.
+	StopLatencyMonitor();
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
@@ -14715,17 +14724,6 @@ bool PrivateInstanceAAMP::GetLLDashChunkMode()
 	return mIsChunkMode;
 }
 
-bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
-{
-	return bLLDashAdjustPlayerSpeed;
-}
-
-double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
-{
-	return mLLDashCurrentPlayRate;
-}
-
-
 /**
  * @fn getStringForPlaybackError
  * @brief Retrieves a human-readable error string for a given playback error type.
@@ -14902,4 +14900,107 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
 	}
+}
+
+double PrivateInstanceAAMP::GetBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedDuration();
+	}
+	return 0.0;
+}
+
+/**
+ * @brief Build the latency configuration for the latency monitor
+ * The configuration will be built based on the current stream and player state.
+ */
+void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
+{
+	config.monitorDelayMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorDelay) * 1000;
+	config.monitorIntervalMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorInterval) * 1000;
+	config.minBufferSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LowLatencyMinBuffer);
+	config.targetBufferSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LowLatencyTargetBuffer);
+	config.normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
+	config.minPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
+	config.maxPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
+
+	if (mMediaFormat == eMEDIAFORMAT_DASH && mAampLLDashServiceData.lowLatencyMode)
+	{
+		// For Low Latency DASH playback
+		// Let's not go paranoid here. All the values in mAampLLDashServiceData should be valid
+		// as they are calculated from MPD and validated at the same time.
+		config.minPlaybackRate = mAampLLDashServiceData.minPlaybackRate;
+		config.maxPlaybackRate = mAampLLDashServiceData.maxPlaybackRate;
+		config.minLatencyMs = mAampLLDashServiceData.minLatency;
+		config.targetLatencyMs = mAampLLDashServiceData.targetLatency;
+		config.maxLatencyMs = mAampLLDashServiceData.maxLatency;
+		AAMPLOG_MIL("LL DASH Latency Config - minPlaybackRate: %f, maxPlaybackRate: %f, minLatencyMs: %f, targetLatencyMs: %f, maxLatencyMs: %f",
+			config.minPlaybackRate, config.maxPlaybackRate, config.minLatencyMs, config.targetLatencyMs, config.maxLatencyMs);
+		return;
+	}
+	// This is for liveLatencyCorrection based on live offset and drift values.
+	config.targetLatencyMs = mLiveOffset * 1000;
+	config.minLatencyMs = config.targetLatencyMs - (mLiveOffsetDrift * 1000);
+	config.maxLatencyMs = config.targetLatencyMs + (mLiveOffsetDrift * 1000);
+}
+
+/**
+ * @brief Start the latency monitor if conditions are met
+ * Conditions:
+ * 1. The stream is live
+ * 2. Stream is Low Latency DASH and Low latency correction is enabled in the configuration
+ * 3. Player is playing at live point and playback rate is normal
+ * 4. If player is not supposed to pause at start of playback
+ * 5. If player is not supposed to pause at first video frame display
+ * If the latency monitor is already running, it will just enable the rate correction.
+ * If the conditions are not met, the latency monitor will not be started.
+ */
+void PrivateInstanceAAMP::StartLatencyMonitor()
+{
+	bool lowLatencyCorrection = mAampLLDashServiceData.lowLatencyMode &&
+								ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyCorrection);
+	bool mStreamAtLivePoint = IsAtLivePoint();
+
+	if (IsLive() && lowLatencyCorrection &&
+		mStreamAtLivePoint && !mbPauseOnStartPlayback && !mPauseOnFirstVideoFrameDisp)
+	{
+		if (!mLatencyMonitor->IsRunning())
+		{
+			LatencyConfig config;
+			BuildLatencyConfig(config);
+			mLatencyMonitor->Start(config);
+		}
+		else
+		{
+			EnableLatencyMonitor(true);
+		}
+	}
+}
+
+/**
+ * @brief Stop the latency monitor
+ */
+void PrivateInstanceAAMP::StopLatencyMonitor()
+{
+	mLatencyMonitor->Stop();
+}
+
+/**
+ * @brief Enable or disable rate correction in latency monitor
+ * @param enabled - true to enable rate correction, false to disable
+ */
+void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
+{
+	mLatencyMonitor->EnableRateCorrection(enabled);
+}
+
+bool PrivateInstanceAAMP::IsAdPlaying()
+{
+	if (mCdaiObject)
+	{
+		return mCdaiObject->IsAdPlaying();
+	}
+	return false;
 }

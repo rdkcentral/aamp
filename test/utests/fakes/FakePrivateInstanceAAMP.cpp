@@ -1578,24 +1578,6 @@ void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
 	}
 }
 
-bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetLLDashAdjustSpeed();
-	}
-	return false;
-}
-
-double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetLLDashCurrentPlayBackRate();
-	}
-	return 1.0;
-}
-
 void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
 {
 }
