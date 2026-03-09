@@ -1,0 +1,20 @@
+{
+  "description": "Test network degradation and recovery",
+  "stages": [
+    {
+      "persona": "personas/wifi_good.json",
+      "duration": 60,
+      "description": "Start with good WiFi"
+    },
+    {
+      "persona": "personas/wifi_congested.json",
+      "duration": 20,
+      "description": "Network degrades"
+    },
+    {
+      "persona": "personas/wifi_good.json",
+      "duration": 60,
+      "description": "Network recovers"
+    }
+  ]
+}

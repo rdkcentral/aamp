@@ -25,14 +25,9 @@
 
 MockAampGrowableBuffer *g_mockAampGrowableBuffer;
 
-// Static members
-bool AampGrowableBuffer::gbEnableLogging = false;
-int AampGrowableBuffer::gNetMemoryCount = 0;
-int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
-
-// Flag to enable realistic copying behavior matching real implementation
-// When false: simple mode (fast, relaxed memory tracking)
-// When true: realistic mode (matches real implementation exactly)
+// Flag to enable realistic appending behavior matching real implementation.
+// When false: simple mode — AppendBytes clears then sets (fast, for test compatibility).
+// When true: realistic mode — AppendBytes accumulates data (matches real implementation).
 static bool g_enableMemoryCopying = false;
 
 void AampGrowableBuffer_EnableMemoryCopying(bool enable)
@@ -43,11 +38,6 @@ void AampGrowableBuffer_EnableMemoryCopying(bool enable)
 void AampGrowableBuffer_ClearGlobalStorage()
 {
 	// No global storage needed with std::vector implementation
-}
-
-void AampGrowableBuffer::EnableLogging( bool enable )
-{
-	gbEnableLogging = enable;
 }
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
@@ -64,69 +54,35 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	if (g_enableMemoryCopying)
-	{
-		// Realistic mode: track memory
-		if( !buffer.empty() )
-		{
-			NETMEMORY_MINUS();
-			if( gbEnableLogging )
-			{
-				printf("AampGrowableBuffer::%s(%s:%d)\n", "Free", name, gNetMemoryCount);
-			}
-		}
-	}
-	
-	// Always clear buffer
 	buffer.clear();
 	buffer.shrink_to_fit();
 }
 
-void AampGrowableBuffer::ReserveBytes( size_t numBytes )
+bool AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
 	if( numBytes == 0 )
 	{
-		return;
+		return true;
 	}
 
-	if (g_enableMemoryCopying)
-	{
-		// Realistic mode: track first allocation like real implementation
-		bool isFirstAllocation = buffer.empty() && buffer.capacity() == 0;
-		
-		buffer.reserve(numBytes);
-		
-		if( isFirstAllocation && buffer.capacity() > 0 )
-		{
-			NETMEMORY_PLUS();
-			if( gbEnableLogging )
-			{
-				printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes", name, gNetMemoryCount);
-			}
-		}
-	}
-	else
-	{
-		// Simple mode: just reserve, no memory tracking
-		buffer.reserve(numBytes);
-	}
+	buffer.reserve(numBytes);
+	return true;
 }
 
-void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
+bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if( srcLen == 0 )
 	{
-		return;
+		return true;
 	}
 
 	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
 
 	if (g_enableMemoryCopying)
 	{
-		// Realistic mode: match real implementation exactly
-		bool isFirstAllocation = buffer.empty() && buffer.capacity() == 0;
+		// Realistic mode: match real implementation growth strategy
 		size_t required = buffer.size() + srcLen;
-		
+
 		if( buffer.capacity() < required )
 		{
 			size_t newCapacity = buffer.capacity() * 2;
@@ -134,19 +90,10 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 			{
 				newCapacity = required * 2;
 			}
-			
+
 			buffer.reserve(newCapacity);
-			
-			if( isFirstAllocation )
-			{
-				NETMEMORY_PLUS();
-				if( gbEnableLogging )
-				{
-					printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes", name, gNetMemoryCount);
-				}
-			}
 		}
-		
+
 		buffer.insert(buffer.end(), bytes, bytes + srcLen);
 	}
 	else
@@ -155,6 +102,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		buffer.clear();
 		buffer.insert(buffer.end(), bytes, bytes + srcLen);
 	}
+	return true;
 }
 
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
@@ -166,22 +114,9 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 
 std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
 {
-	if (g_enableMemoryCopying)
-	{
-		// Realistic mode: track memory
-		if( !buffer.empty() )
-		{
-			NETMEMORY_MINUS();
-			if( gbEnableLogging )
-			{
-				printf("AampGrowableBuffer::%s(%s:%d)\n", "ExtractVector", name, gNetMemoryCount);
-			}
-		}
-	}
-	
 	std::vector<uint8_t> extracted(std::move(buffer));
 	buffer.clear();
 	buffer.shrink_to_fit();
-	
-	return extracted; // RVO/NRVO will optimize this
+
+	return extracted;
 }

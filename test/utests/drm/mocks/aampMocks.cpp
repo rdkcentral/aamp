@@ -308,15 +308,7 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
-{
-}
-
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
-{
-}
-
-void PrivateInstanceAAMP::ReleaseStreamLock()
 {
 }
 
@@ -335,11 +327,6 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
-}
-
-bool PrivateInstanceAAMP::TryStreamLock()
-{
-	return false;
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)

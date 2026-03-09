@@ -30,7 +30,7 @@
 *   @fn AampMPDParseHelper
 *   @brief Default Constructor
 */
-AampMPDParseHelper::AampMPDParseHelper() 	: mMPDInstance(NULL),mIsLiveManifest(false),mMinUpdateDurationMs(0),
+AampMPDParseHelper::AampMPDParseHelper() : mMPDInstance(NULL),mIsLiveManifest(false),mMinUpdateDurationMs(0),
 				mIsFogMPD(false),
 				mAvailabilityStartTime(0.0),mPublishTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
 				mPresentationOffsetDelay(0.0),mMediaPresentationDuration(0),
@@ -232,7 +232,7 @@ void AampMPDParseHelper::UpdateBoundaryPeriod(bool checkOnlyIframeAdaptation)
 			continue;
 		}
 		break;
-	}	
+	}
 }
 /**
 * @brief Get content protection from representation/adaptation field
@@ -263,8 +263,8 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 		AAMPLOG_WARN("Invalid PeriodIndex given %d",iPeriodIndex);
 		return false;
 	}
-	
-	// check in the queue if already stored for data 
+
+	// check in the queue if already stored for data
 	if(mPeriodEncryptionMap.find(iPeriodIndex) != mPeriodEncryptionMap.end())
 	{
 		retVal =  mPeriodEncryptionMap[iPeriodIndex];
@@ -273,7 +273,7 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 	{
 		vector<IPeriod *> periods = mMPDInstance->GetPeriods();
 		IPeriod *period	=	periods.at(iPeriodIndex);
-		
+
 		if(period != NULL)
 		{
 			size_t numAdaptationSets = period->GetAdaptationSets().size();
@@ -281,13 +281,13 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
 			{
 				const IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
 				if(adaptationSet != NULL)
-				{				
+				{
 					if(0 != GetContentProtection(adaptationSet).size())
 					{
 						mPeriodEncryptionMap[iPeriodIndex] = true;
 						retVal = true;
 						break;
-					}				
+					}
 				}
 			}
 		}
@@ -300,16 +300,16 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
  * @brief Check if Period is empty or not
  * @retval Return true on empty Period
  */
-bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe) 
+bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 {
-	bool isEmptyPeriod = true;		
+	bool isEmptyPeriod = true;
 	if(iPeriodIndex >= mNumberOfPeriods || iPeriodIndex < 0)
 	{
 		AAMPLOG_WARN("Invalid PeriodIndex given %d",iPeriodIndex);
 		return isEmptyPeriod;
 	}
 
-	// check in the queue if already stored for data 
+	// check in the queue if already stored for data
 	std::pair<int,bool> key = std::make_pair(iPeriodIndex, checkIframe);
 	if(mPeriodEmptyMap.find(key) != mPeriodEmptyMap.end())
 	{
@@ -319,7 +319,7 @@ bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 	else
 	{
 		vector<IPeriod *> periods = mMPDInstance->GetPeriods();
-		IPeriod *period	=	periods.at(iPeriodIndex);		
+		IPeriod *period	=	periods.at(iPeriodIndex);
 		if(period != NULL)
 		{
 			const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
@@ -334,7 +334,7 @@ bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 				{
 					if (IsIframeTrack(adaptationSet))
 					{
-						isEmptyPeriod = false;						
+						isEmptyPeriod = false;
 						break;
 					}
 				}
@@ -553,7 +553,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 							{
 								mLiveTimeFragmentSync = true;
 							}
-							
+
 							double duration = (aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs) / 1000);
 							double liveTime = (double)mLastPlaylistDownloadTimeMs / 1000.0;
 							if(mHasServerUtcTime)
@@ -573,7 +573,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 				else if (periodIndex > 0 && !mMPDInstance->GetPeriods().at(periodIndex-1)->GetDuration().empty())
 				{
 					string durationStr = mMPDInstance->GetPeriods().at(periodIndex -1)->GetDuration();
-					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1,mLastPlaylistDownloadTimeMs); 
+					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1,mLastPlaylistDownloadTimeMs);
 					double durationTotal = ParseISO8601Duration(durationStr.c_str());
 					periodStart = previousPeriodStart + (durationTotal / 1000);
 				}
@@ -652,9 +652,9 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 					return periodEndTime;
 				}
 			}
-			
+
 			string startTimeStr = period->GetStart();
-                        periodDurationMs = GetPeriodDuration(periodIndex,mLastPlaylistDownloadTimeMs,checkIFrame,IsUninterruptedTSB);
+			periodDurationMs = GetPeriodDuration(periodIndex,mLastPlaylistDownloadTimeMs,checkIFrame,IsUninterruptedTSB);
 			if((mMPDInstance->GetAvailabilityStarttime().empty()) && !(mMPDInstance->GetType() == "static"))
 			{
 				AAMPLOG_WARN("availabilityStartTime required to calculate period duration not present in MPD");
@@ -669,18 +669,18 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 				{
 					AAMPLOG_INFO("Period startTime is not present in MPD, so calculating start time with previous period durations");
 					if(mIsLiveManifest)
-                                        {
+					{
 						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000 - (mAvailabilityStartTime * 1000);
 					}
 					else
 					{
-						 periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
+						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
 					}
 				}
 				else
 				{
 					periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period)* 1000);
-                                }
+				}
 				periodEndTime = ((double)(periodStartMs + periodDurationMs) /1000);
 				if(mIsLiveManifest)
 				{
@@ -780,6 +780,26 @@ bool AampMPDParseHelper::aamp_HasSegmentTime(IPeriod * period)
 }
 
 /**
+ * @brief  A helper function to check if period has segment timeline and segments for video track
+ * @param period period of segment
+ * @return True if period has segment timeline for video otherwise false
+ */
+bool AampMPDParseHelper::aamp_HasSegmentTimeAndSegments(IPeriod *period)
+{
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	if (segmentTemplates && segmentTemplates->HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates->GetSegmentTimeline();
+		if (segmentTimeline != nullptr)
+		{
+			std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+			return timelines.size() > 0;
+		}
+	}
+	return false;
+}
+
+/**
  * @brief  A helper function to check if period has segment template for video track
  * @param period period of segment
  * @return True if period has segment template for video otherwise false
@@ -835,14 +855,14 @@ std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo
 double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
 	auto it = std::find_if(mMPDPeriodDetails.begin(), mMPDPeriodDetails.end(),
-                        [periodIndex](const PeriodInfo& period) {
-                        return period.periodIndex == periodIndex;
-                        });
+			[periodIndex](const PeriodInfo& period) {
+			return period.periodIndex == periodIndex;
+			});
 
-        if (it != mMPDPeriodDetails.end()) {
-                // Found a matching PeriodInfo object, return its Duration
-                return it->duration;
-        }
+	if (it != mMPDPeriodDetails.end()) {
+		// Found a matching PeriodInfo object, return its Duration
+		return it->duration;
+	}
 	else
 	{
 		double periodDuration = 0;
@@ -973,7 +993,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 	double durationMs = 0;
 	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
 	IPeriod *period	=	periods.at(periodIndex);
-	
+
 	std::string tempString = period->GetDuration();
 	if(!tempString.empty())
 	{
@@ -1107,7 +1127,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 										{
 											durationMs = ParseISO8601Duration(tsbDepth.c_str());
 										}
-										//If MPD@timeShiftBufferDepth is not present, the period duration is should be based on the MPD@availabilityStartTime; and should not result in a value of 0. 
+										//If MPD@timeShiftBufferDepth is not present, the period duration is should be based on the MPD@availabilityStartTime; and should not result in a value of 0.
 										else
 										{
 											durationMs = mpdDownloadTime - (mAvailabilityStartTime * 1000);
@@ -1188,6 +1208,57 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 				AAMPLOG_WARN("firstAdaptation is null");  //CID:84261 - Null Returns
 			}
 		}
+	}
+	return durationMs;
+}
+
+/**
+ *   @brief  Get Period Duration from start time of this period and next
+ *   @param  periodIndex Index of the period (modified to point to the next non-empty period if found)
+ *   @retval period duration in milliseconds, 0 if not obtainable
+ */
+double AampMPDParseHelper::GetPeriodDurationFromStart(int &periodIndex)
+{
+	// Get duration of current period based on "start" attribute of
+	// the current period and the next period.
+	// Empty following periods can occur so also check for segments in the
+	// following periods until we find a valid start time to calculate duration
+	// or we reach the end of periods.
+
+	double durationMs = 0;
+	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
+	std::string periodStartStr = periods.at(periodIndex)->GetStart();
+	if (!periodStartStr.empty())
+	{
+		double periodStart = ParseISO8601Duration(periodStartStr.c_str());
+		for (int p = periodIndex + 1; p < periods.size(); p++)
+		{
+			std::string nextPeriodStartStr = periods.at(p)->GetStart();
+			bool hasSegments = aamp_HasSegmentTimeAndSegments(periods.at(p));
+
+			if (hasSegments && !nextPeriodStartStr.empty())
+			{
+				// We can calculate period duration by subtracting start time from next period start time.
+				double nextPeriodStart = ParseISO8601Duration(nextPeriodStartStr.c_str());
+				durationMs = nextPeriodStart - periodStart;
+				if (durationMs <= 0)
+				{
+					AAMPLOG_WARN("Invalid period duration periodStartTime %lf nextPeriodStart %lf durationMs %lf", periodStart, nextPeriodStart, durationMs);
+					durationMs = 0;
+					break;
+				}
+				periodIndex = p;
+				break;
+			}
+			else
+			{
+				AAMPLOG_TRACE("Start time or segments missing from period %s hasSegments %d", periods.at(p)->GetId().c_str(), hasSegments);
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_TRACE("Start time missing in period %s", periods.at(periodIndex)->GetId().c_str());
 	}
 	return durationMs;
 }
@@ -1363,7 +1434,7 @@ uint64_t AampMPDParseHelper::GetDurationFromRepresentation()
 		{
 			AAMPLOG_WARN("mpd is null");  //CID:82158 - Null Returns
 		}
-		
+
 		if(period != NULL)
 		{
 			const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
@@ -1640,7 +1711,7 @@ uint64_t AampMPDParseHelper::GetFirstSegmentStartTime(IPeriod * period)
 		}
 	}
 	SegmentTemplates segmentTemplates(representation,adaptationSet);
-	
+
 	if( segmentTemplates.HasSegmentTemplate() )
 	{
 		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();

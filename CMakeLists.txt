@@ -414,6 +414,7 @@ set(LIBAAMP_SOURCES
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
 	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	AampBoxReader.h
 	CachedFragment.cpp CachedFragment.h
 	AampScheduler.cpp AampScheduler.h
 	AampUtils.cpp AampUtils.h
@@ -442,6 +443,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
 	isobmff/isobmffbox.cpp isobmff/isobmffbox.h

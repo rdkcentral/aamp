@@ -18,6 +18,7 @@
 */
 
 #include "AampMPDUtils.h"
+#include "AampBoxReader.h"
 #include <inttypes.h>
 
 /**
@@ -221,123 +222,86 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
  * @param[out] referenced_duration referenced duration
  * @retval true on success
  */
-bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
+bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
 {
-	if (!start)
+	if ((!start) || (size < 4))
 	{
-		// If the fragment pointer is NULL then return from here, no need to process it further.
+		AAMPLOG_WARN("Invalid parameters in ParseSegmentIndexBox: start=%p, size=%zu", start, size);
 		return false;
 	}
 
-	const char **f = &start;
+	constexpr int SIDX_ENTRY_SIZE = 12;
+	constexpr uint32_t SIDX_BOX_TYPE =
+		('s' << 24) | ('i' << 16) | ('d' << 8) | 'x';
 
-	unsigned int len = Read32(f);
+	BoxReader reader{start};
+
+	auto len = reader.Read<uint32_t>();
 	if (len != size)
 	{
-		AAMPLOG_WARN("Wrong size in ParseSegmentIndexBox %d found, %zu expected", len, size);
+		AAMPLOG_WARN("Wrong size in ParseSegmentIndexBox %u found, %zu expected", len, size);
 		if (firstOffset) *firstOffset = 0;
 		return false;
 	}
 
-	unsigned int type = Read32(f);
-	if (type != 'sidx')
+	auto type = reader.Read<uint32_t>();
+	if (type != SIDX_BOX_TYPE)
 	{
-		AAMPLOG_WARN("Wrong type in ParseSegmentIndexBox %c%c%c%c found, %zu expected",
-					 (type >> 24) % 0xff, (type >> 16) & 0xff, (type >> 8) & 0xff, type & 0xff, size);
+		AAMPLOG_WARN("Wrong type in ParseSegmentIndexBox %c%c%c%c found, sidx expected",
+					 (type >> 24) & 0xff, (type >> 16) & 0xff,
+					 (type >> 8) & 0xff, type & 0xff);
 		if (firstOffset) *firstOffset = 0;
 		return false;
 	}
 
-	unsigned int version = Read32(f); (void) version;
-	unsigned int reference_ID = Read32(f); (void)reference_ID;
-	unsigned int timescale = Read32(f);
-	uint64_t earliest_presentation_time;
-	uint64_t first_offset;
-	if( version==0 )
+	// version is the top 8 bits; lower 24 bits are flags (ignored)
+	const auto version = static_cast<uint8_t>(reader.Read<uint32_t>() >> 24);
+	reader.Skip<uint32_t>();                     // reference_ID
+	auto timescale = reader.Read<uint32_t>();    // timescale
+
+	uint64_t first_offset{0};
+	if (version == 0)
 	{
-		earliest_presentation_time = Read32(f);
-		(void)earliest_presentation_time; // unused
-		first_offset = Read32(f);
+		reader.Skip<uint32_t>();                 // earliest_presentation_time
+		first_offset = reader.Read<uint32_t>();  // first_offset
+	}
+	else if (version == 1)
+	{
+		reader.Skip<uint64_t>();                 // earliest_presentation_time
+		first_offset = reader.Read<uint64_t>();  // first_offset
 	}
 	else
 	{
-		earliest_presentation_time = Read64(f);
-		(void)earliest_presentation_time; // unused
-		first_offset = Read64(f);
+		AAMPLOG_WARN("Unsupported version in ParseSegmentIndexBox %u found, 0 or 1 expected", version);
+		if (firstOffset) 
+		{
+			*firstOffset = 0;
+		}
+		return false;
 	}
-	unsigned int reserved = Read16(f); (void)reserved;
-	unsigned int reference_count = Read16(f);
+
+	reader.Skip<uint16_t>();                     // reserved
+	auto reference_count = reader.Read<uint16_t>();
+
 	if (firstOffset)
 	{
-		*firstOffset = (unsigned int)first_offset;
+		*firstOffset = static_cast<unsigned int>(first_offset);
 		return true;
 	}
-	if( segmentIndex<reference_count )
+
+	if (segmentIndex >= 0 && segmentIndex < static_cast<int>(reference_count))
 	{
-		start += 12*segmentIndex;
-		*referenced_size = Read32(f)&0x7fffffff;
+		reader.Skip(SIDX_ENTRY_SIZE * segmentIndex);
+
+		*referenced_size = reader.Read<uint32_t>() & 0x7fffffff;
 		// top bit is "reference_type"
 
-		*referenced_duration = Read32(f)/(float)timescale;
-
-		unsigned int flags = Read32(f);
-		(void)flags;
-		// starts_with_SAP (1 bit)
-		// SAP_type (3 bits)
-		// SAP_delta_time (28 bits)
+		*referenced_duration = reader.Read<uint32_t>() /
+							   static_cast<float>(timescale);
 
 		return true;
 	}
 	return false;
-}
-
-/**
- * @brief read unsigned multi-byte value and update buffer pointer
- * @param[in] pptr buffer
- * @param[in] n word size in bytes
- * @retval 32 bit value
- */
-uint64_t ReadWordHelper( const char **pptr, int n )
-{
-	const char *ptr = *pptr;
-	uint64_t rc = 0;
-	while( n-- )
-	{
-		rc <<= 8;
-		rc |= (unsigned char)*ptr++;
-	}
-	*pptr = ptr;
-	return rc;
-}
-
-/**
- * @brief Read 16 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-unsigned int Read16( const char **pptr)
-{
-	return (unsigned int)ReadWordHelper(pptr,2);
-}
-
-/**
- * @brief Read 32 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-unsigned int Read32( const char **pptr)
-{
-	return (unsigned int)ReadWordHelper(pptr,4);
-}
-
-/**
- * @brief Read 64 word helper function
- * @param pptr pointer to read from
- * @retval word value
- */
-uint64_t Read64( const char **pptr)
-{
-	return ReadWordHelper(pptr,8);
 }
 
 /**

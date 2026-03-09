@@ -40,6 +40,7 @@ public:
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 	MOCK_METHOD(Accessibility, getAccessibilityNode, (AampJsonObject &accessNode));
 	MOCK_METHOD(std::vector<AudioTrackInfo>&, GetAvailableAudioTracks, (bool allTrack), (override));
+	MOCK_METHOD(double, GetFirstPTS, (), (override));
 
   };
 

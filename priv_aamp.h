@@ -1137,6 +1137,7 @@ public:
 	bool mIsTrackIdMismatch;				/**< Indicate track_id mismatch in the trak box between periods */
 
 	bool mIsDefaultOffset; 					/**< Playback offset is not specified and we are using the default value/behavior */
+	bool mIsOffsetNegativeOne;                     /**< Set to true when offset=-1 is passed from application to play IVOD/CDVR content from live edge */
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
@@ -1386,7 +1387,7 @@ public:
 	 * @return true iff successful
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
-				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int *http_error = NULL, double *downloadTime = NULL,
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
@@ -1608,6 +1609,14 @@ public:
 	 * @param[in] reservationId The reservation identifier
 	 */
 	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
+	 * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+	 * @return void
+	 */
+	void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId);
 
 	/**
 	 * @fn getLastInjectedPosition
@@ -2665,7 +2674,10 @@ public:
 	/**
 	 *   @fn IsLiveAdjustRequired
 	 *
-	 *   @return False if the content is either vod/ivod/cdvr/ip-dvr/eas
+	 *   @return True if live adjustment is required for the content.
+	 *           Returns true for live content (LINEAR_TV, SLE) and for IVOD/CDVR content 
+	 *           when playing from live edge (offset=-1 with dynamic manifest).
+	 *           Returns false for VOD, IP-DVR, EAS, and completed IVOD/CDVR recordings.
 	 */
 	bool IsLiveAdjustRequired();
 
@@ -3459,25 +3471,12 @@ public:
 	bool RemoveAsyncTask(int taskId);
 
 	/**
-	 *   @fn AcquireStreamLock
-	 *
-	 *   @return void
+	 *   @fn GetStreamLock
+	 *   @brief Get reference to stream lock for RAII usage
+	 *   @note Prefer: std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock())
+	 *   @return Reference to mStreamLock
 	 */
-	void AcquireStreamLock();
-
-	/**
-	 *   @fn TryStreamLock
-	 *
-	 *   @return True if it could I acquire it successfully else false
-	 */
-	bool TryStreamLock();
-
-	/**
-	 *   @fn ReleaseStreamLock
-	 *
-	 *   @return void
-	 */
-	void ReleaseStreamLock();
+	std::recursive_mutex& GetStreamLock() { return mStreamLock; }
 
 	/**
 	 *  @fn UpdateLiveOffset

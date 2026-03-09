@@ -122,7 +122,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment->GetVector(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment->GetVector(), effectiveUrl, actualType);
@@ -205,10 +205,15 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
+	if (ptr == NULL && size > 0)
+	{
+		AAMPLOG_WARN("[%s] Null fragment pointer with non-zero size %zu", name, size);
+		return false;
+	}
 	bool ret = true;
 	if (WaitForCachedFragmentChunkInjected())
 	{
@@ -222,7 +227,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		cachedFragment->absPosition = 0;
 		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;
-		cachedFragment->fragment.AppendBytes(ptr, size);
+		cachedFragment->fragment.assign(ptr, ptr + size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->uri = std::move(remoteUrl);
 		if (mActiveDownloadInfo)
@@ -245,7 +250,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char
 		 */
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
-		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
+		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.data());
 		UpdateTSAfterChunkFetch();
 	}
 	else
@@ -317,7 +322,7 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
 void MediaStreamContext::ABRProfileChanged(void)
 {
 	// TODO: Use this lock across all the functions which uses shared variables
-	AcquireMediaStreamContextLock();
+	std::lock_guard<std::recursive_mutex> lock(mMediaStreamContextMutex);
 	struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
 	// Get AdaptationSet Index and Representation Index from the corresponding profile
 	int adaptIdxFromProfile = profileMap.adaptationSetIndex;
@@ -365,7 +370,6 @@ void MediaStreamContext::ABRProfileChanged(void)
 		AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
 				representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth());
 	}
-	ReleaseMediaStreamContextLock();
 }
 
 /**
@@ -509,8 +513,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
 		}
-		cachedFragment->fragment.clear();
-		cachedFragment->Copy(fragment.get(), fragment->fragment.size());
+		cachedFragment->Copy(fragment.get());
 		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
@@ -583,7 +586,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	if(tsbSessionManager && cachedFragment->fragment.size())
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
+		fragmentToTsbSessionMgr->Copy(cachedFragment);
 		if(fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -624,7 +627,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	else if (aamp->GetLLDashChunkMode() && dlInfo->isInitSegment)
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
-		fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.size());
+		fragmentToTsbSessionMgr->Copy(cachedFragment);
 		if (fragmentToTsbSessionMgr->initFragment)
 		{
 			fragmentToTsbSessionMgr->profileIndex = GetContext()->profileIdxForBandwidthNotification;
@@ -640,7 +643,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
-			name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
+			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		cachedFragment->fragment.Free();
 		auto timeBasedBufferManager = GetTimeBasedBufferManager();
 		if(timeBasedBufferManager)
@@ -658,7 +661,7 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
 		{
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
-			fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.size());
+			fragmentToCache->Copy(cachedFragment);
 			CacheTsbFragment(std::move(fragmentToCache));
 		}
 
@@ -872,7 +875,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			{
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
-										IDX.GetPtr(),
+										IDX.data(),
 										IDX.size(),
 										0,
 										NULL,
@@ -889,7 +892,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				for (int i = 0; i < dlInfo->fragmentIndex; i++)
 				{
 					if (ParseSegmentIndexBox(
-												IDX.GetPtr(),
+												IDX.data(),
 												IDX.size(),
 												i,
 												&referenced_size,
@@ -903,7 +906,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			unsigned int referenced_size;
 			float fragmentDuration;
 			if (ParseSegmentIndexBox(
-										IDX.GetPtr(),
+										IDX.data(),
 										IDX.size(),
 										dlInfo->fragmentIndex,
 										&referenced_size,

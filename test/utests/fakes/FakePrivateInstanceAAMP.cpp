@@ -283,6 +283,11 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 	}
 }
 
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
@@ -346,20 +351,12 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
-{
-}
-
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
 	}
-}
-
-void PrivateInstanceAAMP::ReleaseStreamLock()
-{
 }
 
 bool PrivateInstanceAAMP::IsFragmentCachingRequired()
@@ -377,11 +374,6 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
-}
-
-bool PrivateInstanceAAMP::TryStreamLock()
-{
-	return false;
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
@@ -732,7 +724,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 {
 }
 
-bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
+bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
@@ -1283,7 +1275,10 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
-        return;
+	if (g_mockPrivateInstanceAAMP != nullptr){
+		g_mockPrivateInstanceAAMP->LoadIDX(bucketType, fragmentUrl, effectiveUrl, fragment, curlInstance, range, http_code, downloadTime, mediaType, fogError);
+	}
+	return;
 }
 
 bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
