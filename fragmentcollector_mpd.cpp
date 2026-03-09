@@ -10500,11 +10500,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		AAMPLOG_INFO("Abort TsbReader");
 		abortTsbReader = true;
-// identify if TsbReader is waiting for content or waiting for manifest update and signal accordingly
-		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
-		if(tsbSessionManager)
-			tsbSessionManager->NotifyVideoTsbWaiters();
-
 		// Signal TsbReader thread to exit wait for manifest update if waiting
 		AbortWaitForManifestUpdate();
 		tsbReaderThreadID.join();
