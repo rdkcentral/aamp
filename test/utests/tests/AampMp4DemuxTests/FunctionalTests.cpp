@@ -318,15 +318,15 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 	const char* videoData = "video_data";
 	buffer.assign(videoData, videoData + strlen(videoData));
 
-	constexpr uint32_t kTimeScale{90000};
 	constexpr double kBasePts{10.0};
 	constexpr double kBaseDts{9.5};
 	constexpr double kFragmentPtsOffset{2.5};
-
+	
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetTimeScale())
-		.WillOnce(Return(kTimeScale));
+	// GetTimeScale only called (while logging) when eAAMPConfig_EnablePTSReStampLogging set
+	//	EXPECT_CALL(*g_mockMp4Demux, GetTimeScale())
+	//		.WillOnce(Return(90000));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([=]() {
 			std::vector<AampMediaSample> mockSamples;

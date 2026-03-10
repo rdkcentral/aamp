@@ -39,7 +39,7 @@ public:
 	 * @param[in] type - Media type (audio/video/subtitle)
 	 * @param[in] enablePtsRestamp - Flag to enable PTS restamping
 	 */
-	AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp);
+	AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp = false);
 	~AampMp4Demuxer();
 
 

@@ -83,7 +83,6 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
 			auto samples = mMp4Demux->GetSamples();
 			if (samples.size() > 0)
 			{
-				uint32_t timeScale = mMp4Demux->GetTimeScale();
 				for (auto& sample : samples)
 				{
 					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
@@ -95,6 +94,7 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
 						// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 						if (mEnablePtsRestampLogging)
 						{
+							uint32_t timeScale = mMp4Demux->GetTimeScale();
 							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
 							GetMediaTypeName(mMediaType),
 							timeScale,
