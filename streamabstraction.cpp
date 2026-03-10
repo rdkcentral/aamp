@@ -4265,10 +4265,6 @@ void MediaTrack::AbortWaitForPlaylistDownload()
 	{
 		plDownloadWait.notify_one();
 	}
-	else
-	{
-		AAMPLOG_ERR("[%s] Playlist downloader thread not started", name);
-	}
 }
 
 /**
@@ -4504,7 +4500,7 @@ void MediaTrack::PlaylistDownloader()
 					AAMPLOG_INFO("[%s] Re-enabling media download", trackName.c_str());
 					aamp->EnableMediaDownloads(mediaType);
 				}
-				gotManifest = aamp->GetFile(manifestUrl, mediaType, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
+				gotManifest = aamp->GetFile(manifestUrl, mediaType, manifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
 				if(seamlessAudioSwitchInProgress && (manifestUrl != GetPlaylistUrl()))
 				{
 					//new Playlist updated in mid.

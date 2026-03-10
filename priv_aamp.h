@@ -1387,7 +1387,7 @@ public:
 	 * @return true iff successful
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
-				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int *http_error = NULL, double *downloadTime = NULL,
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
@@ -3483,25 +3483,12 @@ public:
 	bool RemoveAsyncTask(int taskId);
 
 	/**
-	 *   @fn AcquireStreamLock
-	 *
-	 *   @return void
+	 *   @fn GetStreamLock
+	 *   @brief Get reference to stream lock for RAII usage
+	 *   @note Prefer: std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock())
+	 *   @return Reference to mStreamLock
 	 */
-	void AcquireStreamLock();
-
-	/**
-	 *   @fn TryStreamLock
-	 *
-	 *   @return True if it could I acquire it successfully else false
-	 */
-	bool TryStreamLock();
-
-	/**
-	 *   @fn ReleaseStreamLock
-	 *
-	 *   @return void
-	 */
-	void ReleaseStreamLock();
+	std::recursive_mutex& GetStreamLock() { return mStreamLock; }
 
 	/**
 	 *  @fn UpdateLiveOffset
