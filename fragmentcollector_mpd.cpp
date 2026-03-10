@@ -109,6 +109,22 @@ public:
 
 static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 
+/**
+ * @brief Get the reason for ad reservation end.
+ */
+constexpr const char* GetAdReservationEndReason(bool adFailed, bool adCancelled)
+{
+    constexpr const char* reasonMap[] =
+    {
+        "completed",
+        "early_return",
+        "error"
+    };
+
+    const size_t reasonIdx = adFailed ? 2 : (adCancelled ? 1 : 0);
+    return reasonMap[reasonIdx];
+}
+
 
 /**
  * @brief StreamAbstractionAAMP_MPD Constructor
@@ -1153,6 +1169,25 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
+						if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
+						{
+							// For live stream, ad break scheduling fragment should be within source period.
+							// Otherwise, it may be beyond control if ad break cancellation is requested by server.
+							const bool baselineSourcePeriodCheck = (pMediaStreamContext->fragmentTime < (mPeriodStartTime + (mPeriodDuration / 1000)));
+
+							bool isCurrentAdCancelled = false;
+							if (mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < static_cast<int>(mCdaiObject->mCurAds->size()))
+							{
+								isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
+							}
+							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period. 
+							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
+							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
+							{
+								AAMPLOG_INFO("Ad break playing fragment is not within source period. fragmentTime: %f, mPeriodEndTime: %f", pMediaStreamContext->fragmentTime, (mPeriodStartTime + (mPeriodDuration / 1000)));
+								return false;
+							}
+						}
 
 						if (firstStartTime < presentationTimeOffset)
 						{
@@ -2714,6 +2749,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
 		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
+		// For debugging purpose, print the manifest content in logs
+		// printf("\n[MPD] : %s \n", mpdDnldResp->mMPDDownloadResponse->getString().c_str());
 
 		//Node *root			=	mpdDnldResp->mRootNode;
 		// this flag for current state of manifest ( Linear to VOD can happen)
@@ -8970,6 +9007,29 @@ void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)
 	mNextPts -= duration;
 }
 
+/*
+ * @brief Adjust PTS offset calculation when an ad break is skipped due to program immediate resumption signal
+ * This is to ensure that the content fragments are played with correct PTS values
+ *
+ */
+void StreamAbstractionAAMP_MPD::AdjustPtsOffsetAfterAdCancellation(void)
+{
+	// Reset the mNextPts first to current ad start
+	RestorePtsOffsetCalculation();
+	AampTime periodStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime + (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0);
+
+	// Calculate the difference between the current fragment time and the ad break start time for both audio and video tracks.
+	// Take the maximum of the two differences to ensure that we are correctly aligned with the ad break start time.
+	AampTime audioDifference = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime - periodStartTime;
+	AampTime videoDifference = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime - periodStartTime;
+
+	AampTime duration = std::max(audioDifference, videoDifference);
+
+	AAMPLOG_INFO("Idx %d Id %s Adjusting mNextPts from %f to %f",
+				 mCurrentPeriodIdx, mCurrentPeriod->GetId().c_str(), mNextPts.inSeconds(), (mNextPts.inSeconds() + duration.inSeconds()));
+	mNextPts += duration;
+}
+
 /**
  * @fn CheckEndOfStream
  *
@@ -9838,6 +9898,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			if (AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState ||
 				(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && adStateChanged))
 			{
+				if (mCdaiObject && mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 &&
+					mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size() &&
+					AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState &&
+					mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled)
+				{
+					// If last played ad got cancelled, re-align the pts offset
+					AdjustPtsOffsetAfterAdCancellation();
+				}
 				continue; // Need to finish all the ads in current before period change
 			}
 			if (mPlayRate > AAMP_RATE_PAUSE)
@@ -11488,7 +11556,7 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 							{
 								isScteEvent = true;
 
-								bool processEvent = (!mIsLiveManifest || ( mIsLiveManifest && (0 != event->GetDuration())));
+								bool processEvent = true;
 
 								bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 								if (modifySCTEProcessing)
@@ -11525,11 +11593,20 @@ bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startM
 											if(0 != scte35.length())
 											{
 												bool isValidDAIEvent = parseAndValidateSCTE35(scte35);
-												EventBreakInfo scte35Event(std::move(scte35), "SCTE35", presentationTime, duration, isValidDAIEvent);
-												eventBreakVec.push_back(std::move(scte35Event));
-
-												ret = true;
-												continue;
+												bool isProgramImmediateResumption = parseAndValidateSCTE35ProgramResumption(scte35);
+												processEvent = (!mIsLiveManifest || (mIsLiveManifest && ((0 != event->GetDuration()) || isProgramImmediateResumption)));
+												if (processEvent)
+												{
+													EventBreakInfo scte35Event(std::move(scte35), "SCTE35", presentationTime, duration, isValidDAIEvent);
+													eventBreakVec.push_back(std::move(scte35Event));
+													AAMPLOG_INFO("[CDAI]: Added SCTE35 event with presentationTime: %" PRIu64 " ms, duration: %u ms, isValidDAIEvent: %d", presentationTime, duration, isValidDAIEvent);
+													ret = true;
+													continue;
+												}
+												else
+												{
+													break;
+												}
 											}
 											else
 											{
@@ -11676,6 +11753,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	std::string adId2Send("");
 	uint32_t adPos2Send = 0;
 	bool sendImmediate = false;
+	std::string reservationEndReason("");
 	switch(mCdaiObject->mAdState)
 	{
 		case AdState::OUTSIDE_ADBREAK:
@@ -11914,6 +11992,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			if(AdEvent::DEFAULT == evt)
 			{
 				bool curAdFailed = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid;	//TODO: Vinod, may need to check boundary.
+				bool curAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
 
 				GetNextAdInBreak((mPlayRate >= AAMP_NORMAL_PLAY_RATE) ? 1 : -1);
 
@@ -11984,6 +12063,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					AAMPLOG_WARN("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Playing the basePeriod[%s] at Offset[%lf].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str(), mCdaiObject->mContentSeekOffset);
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
+					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
 					sendImmediate = curAdFailed;	//Current Ad failed. Hence may not get discontinuity from gstreamer.
 					mCdaiObject->mCurPlayingBreakId = "";
 					mCdaiObject->mCurAds = nullptr;
@@ -12116,7 +12196,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 			if(AAMP_EVENT_AD_RESERVATION_END == reservationEvt2Send)
 			{
-				SendAdReservationEvent(reservationEvt2Send, adbreakId2Send, resPosMS, absReservationEventPosition, sendImmediate);
+				SendAdReservationEvent(reservationEvt2Send, adbreakId2Send, resPosMS,
+					absReservationEventPosition, sendImmediate, reservationEndReason);
 				aamp->SendAnomalyEvent(ANOMALY_TRACE, "%s", "[CDAI] Adbreak ends.");
 			}
 
@@ -12128,7 +12209,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 /**
  * @brief Send Ad reservation event
  */
-void StreamAbstractionAAMP_MPD::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, AampTime absolutePosition, bool sendImmediate)
+void StreamAbstractionAAMP_MPD::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, AampTime absolutePosition, bool sendImmediate, const std::string &reason)
 {
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 	bool isLocalAAMPTsbInjection = false;
@@ -12145,7 +12226,7 @@ void StreamAbstractionAAMP_MPD::SendAdReservationEvent(AAMPEventType type, const
 		if(AAMP_EVENT_AD_RESERVATION_END == type)
 		{
 			AAMPLOG_INFO("[CDAI]: Add to TSB, Ad Reservation End Id %s AbsPos %" PRIu64 " Pos %" PRIu64 " SendImmediate %d", adBreakId.c_str(), absolutePosition.milliseconds(), position, sendImmediate);
-			tsbSessionManager->EndAdReservation(adBreakId, position, absolutePosition);
+			tsbSessionManager->EndAdReservation(adBreakId, position, absolutePosition, reason);
 		}
 		if (sendImmediate)
 		{
@@ -12165,7 +12246,7 @@ void StreamAbstractionAAMP_MPD::SendAdReservationEvent(AAMPEventType type, const
 		{
 			AAMPLOG_INFO("[CDAI]: AdBreak[%s] ended. resPosMS[%" PRIu64 "] absReservationEventPosition[%" PRIu64 "]", adBreakId.c_str(), position, absolutePosition.milliseconds());
 		}
-		aamp->SendAdReservationEvent(type, adBreakId, position, absolutePosition.milliseconds(), sendImmediate);
+		aamp->SendAdReservationEvent(type, adBreakId, position, absolutePosition.milliseconds(), sendImmediate, reason);
 	}
 }
 
