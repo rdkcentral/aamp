@@ -27,7 +27,6 @@ Impact: Resolves L2 test crash in AAMP after 27+ debugging attempts.
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/libdash/source/mpd/AdaptationSet.cpp b/libdash/source/mpd/AdaptationSet.cpp
-index a1b2c3d..e4f5g6h 100644
 --- a/libdash/source/mpd/AdaptationSet.cpp
 +++ b/libdash/source/mpd/AdaptationSet.cpp
 @@ -141,7 +141,7 @@ void                                    AdaptationSet::SetSegmentTemplate
@@ -40,7 +39,6 @@ index a1b2c3d..e4f5g6h 100644
  void                                    AdaptationSet::AddRepresentation                (Representation *representation)
  {
 diff --git a/libdash/source/mpd/AdaptationSet.h b/libdash/source/mpd/AdaptationSet.h
-index 1a2b3c4..d5e6f7g 100644
 --- a/libdash/source/mpd/AdaptationSet.h
 +++ b/libdash/source/mpd/AdaptationSet.h
 @@ -115,7 +115,7 @@ namespace dash
