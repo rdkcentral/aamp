@@ -1300,6 +1300,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushOperationInProgress(false)
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
+	, mIsPrevInBandCCEnabled(false)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -5148,7 +5149,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
-	bool previousCCEnabled = false;
+	//bool previousCCEnabled = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5608,8 +5609,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 
 		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
-		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
+		mIsPrevInBandCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", mIsPrevInBandCCEnabled, mIsInbandCC);
 
 		if (!mbUsingExternalPlayer)
 		{
@@ -5729,7 +5730,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
-			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
+			PlayerCCManager::GetInstance()->RestoreCC(mIsPrevInBandCCEnabled);
 		}
 	}
 
@@ -11132,12 +11133,13 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+		AAMPLOG_WARN("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d mIsPrevInBandCCEnabled:%d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load(),mIsPrevInBandCCEnabled);
 
 		if (mIsInbandCC || !isGstSubtecEnabled)
 		{
-			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+			bool enableInBandCC = mIsPrevInBandCCEnabled? mIsPrevInBandCCEnabled : !mute_subtitles_applied;
+			PlayerCCManager::GetInstance()->SetStatus(enableInBandCC);
 		}
 		else
 		{
