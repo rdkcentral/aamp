@@ -14452,6 +14452,7 @@ void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
 		// Video should be always present. In case of audio-only playback, it's currently masked as a video track.
 		AAMPLOG_WARN("BUG! Video track is not available to wait for manifest update");
 	}
+	mMPDParseHelper->DumpManifest();
 }
 
 /**
@@ -14472,6 +14473,7 @@ void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t snapshotCounter)
 	{
 		AAMPLOG_WARN("BUG! Video track is not available to wait for manifest update");
 	}
+	mMPDParseHelper->DumpManifest();
 }
 
 /**

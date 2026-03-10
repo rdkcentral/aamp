@@ -522,6 +522,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 
 	if (it != mMPDPeriodDetails.end()) {
 		// Found a matching PeriodInfo object, return its startTime.
+		AAMPLOG_INFO("patrick periodStartTime %f",it->periodStartTime);
 		return it->periodStartTime;
 	}
 	else
@@ -1059,7 +1060,9 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 								uint32_t repeatCount = timeline->GetRepeatCount();
 								double timelineDurationMs = ComputeFragmentDuration(timeline->GetDuration(),timeScale) * 1000;
 								durationMs += ((repeatCount + 1) * timelineDurationMs);
-								AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%lf]", timeLineIndex, timelines.size(), durationMs);
+								uint64_t endsAt = timelineStartTime + (repeatCount + 1)*timeline->GetDuration();
+								AAMPLOG_TRACE("timeLineIndex[%d] r %u t %" PRIu64 " endsAt %" PRIu64 " size [%zu] updated durationMs[%lf]",
+									timeLineIndex, repeatCount, timelineStartTime,endsAt, timelines.size(), durationMs);
 								timeLineIndex++;
 							}
 							if (presentationTimeOffset > timelineStartTime)
@@ -1810,4 +1813,67 @@ void AampMPDParseHelper::GetStartAndDurationFromTimeline(IPeriod * period, int r
 		}
 	}
 
+}
+
+void AampMPDParseHelper::DumpManifest()
+{
+	vector<IPeriod *> periods = mMPDInstance->GetPeriods();
+	int periodIndex = periods.size() - 1;
+	AAMPLOG_TRACE("size %ld",periods.size());
+	IPeriod *period = periods.at(periodIndex);
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+	const ISegmentTemplate *representation = NULL;
+	const ISegmentTemplate *adaptationSet = NULL;
+	if (adaptationSets.size() > 0)
+	{
+		IAdaptationSet *firstAdaptation = NULL;
+		for (auto &adaptationSet : period->GetAdaptationSets())
+		{
+			// Check for video adaptation
+			if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+			{
+				continue;
+			}
+			firstAdaptation = adaptationSet;
+		}
+		if (firstAdaptation != NULL)
+		{
+			adaptationSet = firstAdaptation->GetSegmentTemplate();
+			const std::vector<IRepresentation *> &representations = firstAdaptation->GetRepresentation();
+			if (representations.size() > 0)
+			{
+				representation = representations.at(0)->GetSegmentTemplate();
+			}
+
+			SegmentTemplates segmentTemplates(representation, adaptationSet);
+
+			if (segmentTemplates.HasSegmentTemplate())
+			{
+				const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+				uint32_t timeScale = segmentTemplates.GetTimescale();
+				uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+				// Calculate period duration by adding up the segment durations in timeline
+				if (segmentTimeline)
+				{
+					std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
+					if (!timelines.empty())
+					{
+						int timeLineIndex = 0;
+						uint64_t timelineStartTime = timelines.at(timeLineIndex)->GetStartTime();
+						while (timeLineIndex < timelines.size())
+						{
+							ITimeline *timeline = timelines.at(timeLineIndex);
+							uint32_t repeatCount = timeline->GetRepeatCount();
+
+							uint64_t endsAt = timelineStartTime + (repeatCount + 1) * timeline->GetDuration();
+							AAMPLOG_TRACE("timeLineIndex[%d] r %u t %" PRIu64 " endsAt %" PRIu64 " size [%zu]",
+										  timeLineIndex, repeatCount, timelineStartTime, endsAt, timelines.size());
+							timeLineIndex++;
+						}
+
+					}
+				}
+			}
+		}
+	}
 }

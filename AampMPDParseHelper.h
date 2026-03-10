@@ -510,7 +510,7 @@ public :
 	 *   @retval period duration in milliseconds, 0 if not obtainable
 	 */
 	double GetPeriodDurationFromStart(int &periodIndex);
-
+	void DumpManifest();
 	/**
 	 * @brief Get the MPD instance.
 	 *
