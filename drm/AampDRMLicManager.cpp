@@ -26,6 +26,7 @@
 #include "priv_aamp.h"   
 #include "DrmHelper.h"
 #include <pthread.h>
+#include <chrono>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
 #include "ContentSecurityManager.h"
@@ -34,8 +35,6 @@
 #include "AampConfig.h"
 #include "PlayerUtils.h"
 #include "PlayerSecInterface.h"
-
-#include <chrono>
 
 #include "AAMPAnomalyMessageType.h"
 #include "AuthTokenErrors.h"
