@@ -1079,7 +1079,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			else
 			{
-				if( !ISCONFIGSET(eAAMPConfig_UseMp4Demux) )
+				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 				{
 					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
@@ -1373,7 +1373,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				 * Ignore restamping for mp4demux here as the restamping will be done in the mp4demux
 				 * after parsing the segment before sending to gstreamer.
 				 */
-				if( !ISCONFIGSET(eAAMPConfig_UseMp4Demux) )
+				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 				{
 					if (!cachedFragment->initFragment)
 					{
