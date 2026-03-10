@@ -585,6 +585,8 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
+	// The time when buffering started, used to calculate buffering duration for telemetry
+	long long mBufferingStartTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
