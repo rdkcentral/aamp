@@ -70,7 +70,15 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
-double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
+double StreamAbstractionAAMP_MPD::GetFirstPTS()
+{
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetFirstPTS();
+	}
+
+	return 0;
+}
 
 double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() {
 
@@ -310,4 +318,21 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	return false;
+}
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
+{
+}
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
+{
+}
+
+uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
+{
+	return 0;
 }

@@ -71,7 +71,7 @@ bool VerimatrixHelper::parsePssh(const uint8_t* initData, uint32_t initDataLen)
 	std::string keyfile = pssh.substr(sp, ep - sp);
 	MW_LOG_WARN("keyfile %s", keyfile.c_str());
 
-	mKeyID.assign((uint8_t *)keyfile.c_str(), (uint8_t *)keyfile.c_str() + keyfile.length());
+	mKeyID.assign(keyfile.c_str(), keyfile.c_str() + keyfile.length());
 
 	return true;
 }
@@ -98,7 +98,7 @@ void VerimatrixHelper::createInitData(std::vector<uint8_t>& initData) const
 	else
 		MW_LOG_WARN("unknown mediaFormat %d", mDrmInfo.mediaFormat);
 
-	initData.assign((uint8_t *)init, (uint8_t *)init + strlen(init));
+	initData.assign(init, init + strlen(init));
 }
 
 void VerimatrixHelper::getKey(std::vector<uint8_t>& keyID) const

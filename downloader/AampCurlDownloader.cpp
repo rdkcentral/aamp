@@ -464,9 +464,9 @@ void AampCurlDownloader::updateCurlParams()
 	}
 	else
 	{
-		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYPEER, 1L);
 	}
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 
 	if (mDnldCfg->sCustomHeaders.size() > 0)
 	{
@@ -509,18 +509,25 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 {
 	size_t retSize = sz * nmemb;
-
 	if(retSize)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		std::vector<std::uint8_t> op1;
-		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
-		std::uint8_t *bufferE = bufferS + retSize;
-		std::copy(bufferS, bufferE, std::back_inserter(this->mDownloadResponse->mDownloadData));
-		mDownloadUpdatedTime = NOW_STEADY_TS_MS;
-		mWriteCallbackBufferSize += retSize;
+		const std::uint8_t* bufferS = static_cast<const std::uint8_t*>(buffer);
+		const std::uint8_t* bufferE = bufferS + retSize;
+		try
+		{
+			this->mDownloadResponse->mDownloadData.insert(
+				this->mDownloadResponse->mDownloadData.end(), bufferS, bufferE);
+			mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+			mWriteCallbackBufferSize += retSize;
+		}
+		catch( const std::exception &e )
+		{
+			AAMPLOG_ERR("write_callback: buffer insert(%zu bytes) failed (%s); aborting transfer", retSize, e.what());
+			mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
+			return 0; // signals libcurl to abort with CURLE_WRITE_ERROR
+		}
 	}
-
 	return retSize;
 }
 

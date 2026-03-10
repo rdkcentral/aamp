@@ -41,6 +41,8 @@ using ::testing::NiceMock;
 using ::testing::AnyNumber;
 using ::testing::Invoke;
 
+AampConfig *gpGlobalConfig{nullptr};
+
 /**
  * @class AampMp4DemuxerBaseTests
  * @brief Test fixture for AampMp4Demuxer functional tests
@@ -51,25 +53,35 @@ protected:
 	void SetUp() override
 	{
 		// Create mock instances
+		if(gpGlobalConfig == nullptr)
+		{
+			gpGlobalConfig =  new AampConfig();
+		}
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockMp4Demux = new NiceMock<MockMp4Demux>();
 
 		// Create the demuxer instance with mocked AAMP
-		mDemuxer = new AampMp4Demuxer(reinterpret_cast<PrivateInstanceAAMP*>(g_mockPrivateInstanceAAMP), eMEDIATYPE_VIDEO);
+		mDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_VIDEO, false);
 	}
 
 	void TearDown() override
 	{
 		delete mDemuxer;
+		mDemuxer = nullptr;
+		delete mPrivateInstanceAAMP;
+		mPrivateInstanceAAMP = nullptr;
 		delete g_mockPrivateInstanceAAMP;
-		delete g_mockMp4Demux;
 		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockMp4Demux;
 		g_mockMp4Demux = nullptr;
+		delete gpGlobalConfig;
+		gpGlobalConfig = nullptr;
 	}
 
 	AampMp4Demuxer* mDemuxer;
+	PrivateInstanceAAMP* mPrivateInstanceAAMP;
 };
-
 /**
  * @brief Test AampMp4Demuxer constructor and destructor
  */
@@ -79,7 +91,7 @@ TEST_F(AampMp4DemuxerTests, ConstructorDestructor)
 	EXPECT_NE(mDemuxer, nullptr);
 
 	// Test different media types
-	AampMp4Demuxer audioDemuxer(reinterpret_cast<PrivateInstanceAAMP*>(g_mockPrivateInstanceAAMP), eMEDIATYPE_AUDIO);
+	AampMp4Demuxer audioDemuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
 	EXPECT_TRUE(true); // Constructor should complete without throwing
 }
 
@@ -90,7 +102,8 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 {
 	// Create test buffer - use ReserveBytes then manual data copy to avoid AppendBytes issues
 	AampGrowableBuffer buffer("videoBuffer");
-	buffer.AppendBytes("video_data", 10);
+	const char* videoData = "video_data";
+	buffer.assign(videoData, videoData + strlen(videoData));
 
 	// Set expectations for Mp4Demux mock
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
@@ -166,17 +179,19 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithEmptyBuffer)
 TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 {
 	// Test with audio
-	AampMp4Demuxer *audDemuxer = new AampMp4Demuxer(reinterpret_cast<PrivateInstanceAAMP*>(g_mockPrivateInstanceAAMP), eMEDIATYPE_AUDIO);
+	AampMp4Demuxer *audDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
 
 	AampGrowableBuffer buffer("audioBuffer");
-	buffer.AppendBytes("audio_data", 10);
+	const char* audioData = "audio_data";
+	buffer.assign(audioData, audioData + strlen(audioData));
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> samples;
 			AampMediaSample sample;
-			sample.mData.AppendBytes("audio_sample", 12);
+			const char* audioSample = "audio_sample";
+			sample.mData.assign(audioSample, audioSample + strlen(audioSample));
 			samples.push_back(std::move(sample));
 			return samples;
 		}));
@@ -196,7 +211,8 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 {
 	// Send an init segment that results in no samples
 	AampGrowableBuffer initBuffer("initBuffer");
-	initBuffer.AppendBytes("init_data", 9);
+	const char* initData = "init_data";
+	initBuffer.assign(initData, initData + strlen(initData));
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
@@ -226,7 +242,8 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 {
 	// Send an init segment that results in no samples
 	AampGrowableBuffer initBuffer("initBuffer");
-	initBuffer.AppendBytes("init_data", 9);
+	const char* initData = "init_data";
+	initBuffer.assign(initData, initData + strlen(initData));
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
@@ -257,7 +274,8 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 {
 	// Create test buffer
 	AampGrowableBuffer buffer("videoBuffer");
-	buffer.AppendBytes("video_data", 10);
+	const char* videoData = "video_data";
+	buffer.assign(videoData, videoData + strlen(videoData));
 
 	// Set expectations for Mp4Demux mock to simulate parse failure
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
@@ -286,5 +304,49 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 
 	// Verify results
 	EXPECT_FALSE(result);
+	EXPECT_FALSE(ptsError);
+}
+
+/**
+ * @brief Test sendSegment with PTS restamping enabled
+ */
+TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
+{
+	AampMp4Demuxer restampDemuxer(mPrivateInstanceAAMP, eMEDIATYPE_VIDEO, true);
+
+	AampGrowableBuffer buffer("videoBuffer");
+	const char* videoData = "video_data";
+	buffer.assign(videoData, videoData + strlen(videoData));
+
+	constexpr double kBasePts{10.0};
+	constexpr double kBaseDts{9.5};
+	constexpr double kFragmentPtsOffset{2.5};
+	
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+		.WillOnce(Return(true));
+	// GetTimeScale only called (while logging) when eAAMPConfig_EnablePTSReStampLogging set
+	//	EXPECT_CALL(*g_mockMp4Demux, GetTimeScale())
+	//		.WillOnce(Return(90000));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce(Invoke([=]() {
+			std::vector<AampMediaSample> mockSamples;
+			AampMediaSample sample;
+			sample.mPts = kBasePts;
+			sample.mDts = kBaseDts;
+			mockSamples.push_back(std::move(sample));
+			return mockSamples;
+		}));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
+		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample& sample) {
+			EXPECT_DOUBLE_EQ(sample.mPts, kBasePts + kFragmentPtsOffset);
+			EXPECT_DOUBLE_EQ(sample.mDts, kBaseDts + kFragmentPtsOffset);
+		}));
+
+	bool ptsError = false;
+	bool result = restampDemuxer.sendSegment(&buffer, 10.0, 5.0, kFragmentPtsOffset,
+			false, false, nullptr, ptsError);
+
+	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
 }

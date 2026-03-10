@@ -28,8 +28,14 @@ pkg_check_modules(UUID REQUIRED uuid)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES    AbrTests.cpp
-	AAMPAbrTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/abr/abr.cpp ${AAMP_ROOT}/CachedFragment.cpp)
+AAMPAbrTests.cpp)
+set(AAMP_SOURCES
+	${AAMP_ROOT}/priv_aamp.cpp
+	${AAMP_ROOT}/abr/abr.cpp
+	${AAMP_ROOT}/abr/RollingMedianOutlierEstimator.cpp
+	${AAMP_ROOT}/abr/HarmonicEwmaEstimator.cpp
+	${AAMP_ROOT}/CachedFragment.cpp
+)
 add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
 	${AAMP_SOURCES})

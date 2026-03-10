@@ -139,8 +139,8 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 	MediaProcessor::process_fcn_t processor)
 {
 	constexpr int m_ttsSize {0};
-	const size_t frag_size = fragment.GetLen();
-	const uint8_t * base_frag_ptr = reinterpret_cast<const uint8_t *>(fragment.GetPtr());
+	const size_t frag_size = fragment.size();
+	const uint8_t * base_frag_ptr = fragment.data();
 	uint8_t * curr_packet_ptr = const_cast<uint8_t *>(base_frag_ptr) + m_ttsSize;
 	size_t curr_packet_len = frag_size;
 
@@ -187,7 +187,7 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 
 bool TSFragmentProcessor::ValidateFragment(const AampGrowableBuffer & fragment, uint8_t * & curr_packet_ptr, size_t & curr_len) const
 {
-	const auto base_frag_ptr = reinterpret_cast<const unsigned char *>(fragment.GetPtr());
+	const auto base_frag_ptr = fragment.data();
 
 	// It seems some ts have an invalid packet at the start, so try skipping it
 	while (((curr_packet_ptr[0] != 0x47) || ((curr_packet_ptr[1] & 0x80) != 0x00) || ((curr_packet_ptr[3] & 0xC0) != 0x00)) && (curr_len > ts_packet_size))
@@ -200,7 +200,7 @@ bool TSFragmentProcessor::ValidateFragment(const AampGrowableBuffer & fragment, 
 		{
 			AAMPLOG_ERR(" No valid ts packet found near the start of the segment");
 			curr_packet_ptr = const_cast<unsigned char *>(base_frag_ptr);
-			curr_len = fragment.GetLen();
+			curr_len = fragment.size();
 			break;
 		}
 	}
@@ -209,7 +209,7 @@ bool TSFragmentProcessor::ValidateFragment(const AampGrowableBuffer & fragment, 
 	if ((curr_packet_ptr[0] != 0x47) || ((curr_packet_ptr[1] & 0x80) != 0x00) || ((curr_packet_ptr[3] & 0xC0) != 0x00))
 	{
 		AAMPLOG_ERR(" Segment doesn't starts with valid TS packet, discarding. Dump first packet");
-		size_t n = fragment.GetLen();
+		size_t n = fragment.size();
 		if (n > ts_packet_size)
 		{
 			n = ts_packet_size;

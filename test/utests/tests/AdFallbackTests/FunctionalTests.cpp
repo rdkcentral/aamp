@@ -228,7 +228,7 @@ class AdFallbackTests : public ::testing::Test
 				response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 				response->mMPDDownloadResponse->iHttpRetValue = 200;
 				response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-				response->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)mManifest, (uint8_t *)&mManifest[strlen(mManifest)]);
+				response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
 				GetMPDFromManifest(response);
 				mResponse = response;
 			}
@@ -264,11 +264,11 @@ class AdFallbackTests : public ::testing::Test
 			return mStreamAbstractionAAMP_MPD->Init(tuneType);
 		}
 
-		bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+		bool GetManifest(std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int *httpError)
 		{
-			/* Setup fake AampGrowableBuffer contents. */
-			buffer->Clear();
-			buffer->AppendBytes((char *)mAdManifest, strlen(mAdManifest));
+			/* Setup fake buffer contents. */
+			buffer.clear();
+			buffer.assign(mAdManifest, mAdManifest + strlen(mAdManifest));
 			effectiveUrl = remoteUrl;
 			*httpError = 200;
 

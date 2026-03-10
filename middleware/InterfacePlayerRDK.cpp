@@ -92,6 +92,7 @@ mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
 	interfacePlayerPriv = new InterfacePlayerPriv();
+	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
@@ -138,7 +139,7 @@ total_bytes(0), n_audio(0), current_audio(0),
 periodicProgressCallbackIdleTaskId(GST_TASK_ID_INVALID),
 bufferingTimeoutTimerId(GST_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL), TaskControlMutex(), firstProgressCallbackIdleTask("FirstProgressCallback"),
 video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL), task_pool(NULL),
-rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(false),
+rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(true),
 audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
@@ -790,7 +791,7 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::idleCb);
 		pInterfacePlayerRDK->IdleTaskClearFlags(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask);
 
-		if ( !(pInterfacePlayerRDK->TimerIsRunning( privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId)) )
+		if ( !(pInterfacePlayerRDK->TimerIsRunning( privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId)) && (pInterfacePlayerRDK->callbackMap[InterfaceCB::progressCb] != nullptr) )
 		{
 			double  reportProgressInterval = pInterfacePlayerRDK->m_gstConfigParam->progressTimer;
 			reportProgressInterval *= 1000; //convert s to ms

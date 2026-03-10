@@ -170,7 +170,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
 	cachedFragment->absPosition = 1234.0;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
 
 	// Add video init fragment to TSB successfullly
 	const std::string INIT_URL = std::string(TEST_BASE_URL) + std::string("vinit.mp4");
@@ -178,15 +178,15 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
-	// After std::vector refactoring, use fragment.GetPtr() which returns the internal buffer pointer
-	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.GetPtr(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
+	// After std::vector refactoring, use fragment.data() to access the internal buffer pointer
+	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).WillRepeatedly(Return(0));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
 	// Add video init fragment to TSB which already exists
-	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.GetPtr(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
+	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, cachedFragment->fragment.data(), strlen(TEST_DATA))).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
@@ -261,7 +261,7 @@ TEST_F(FunctionalTests, Cullsegments)
 	double MANIFEST_DURATION = 30.0;
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
@@ -341,7 +341,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->initFragment = true;
 	cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, TEST_DATA_LEN);
+	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + TEST_DATA_LEN);
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));

@@ -84,8 +84,8 @@ bool Demuxer::CheckForSteadyState()
 			|| (current_dts && base_pts > current_dts))
 		{
 			AAMPLOG_WARN("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
-				type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.GetLen() );
-			es.Clear();
+				type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.size() );
+			es.clear();
 			return false;
 		}
 
@@ -93,7 +93,7 @@ bool Demuxer::CheckForSteadyState()
 		{
 			AAMPLOG_WARN("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 				type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
-			es.Clear();
+			es.clear();
 			return false;
 		}
 		reached_steady_state = true;
@@ -141,9 +141,9 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_s, info.dts_s, duration);
+			aamp->SendStreamCopy(type, es.GetVector(), info.pts_s, info.dts_s, duration);
 		}
-		es.Clear();
+		es.clear();
 	}
 }
 
@@ -160,13 +160,14 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 		if (CheckForSteadyState())
 		{
 			// Copy the segment data into a vector and pass it to the processing function
-			uint8_t * data_ptr = reinterpret_cast<uint8_t *>(es.GetPtr());
-			const auto len = es.GetLen();
+			uint8_t * data_ptr = es.data();
+
+			const auto len = es.size();
 			std::vector<uint8_t> buf(len);
 			const auto info {UpdateSegmentInfo()};
 			buf.assign(data_ptr, data_ptr + len);
 			processor(type, std::move(info), std::move(buf));
-			es.Clear();
+			es.clear();
 		}
 	}
 	else
@@ -203,10 +204,10 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 void Demuxer::flush()
 {
 	std::lock_guard<std::mutex> lock{mMutex};
-	auto len = es.GetLen();
+	auto len = es.size();
 	if (len > 0)
 	{
-		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.GetLen());
+		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.size());
 		send();
 	}
 	resetInternal();
@@ -257,7 +258,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 		/*Store the pts/dts*/
 		if (PAYLOAD_UNIT_START(packetStart))
 		{
-			if (es.GetLen() > 0)
+			if (es.size() > 0)
 			{
 				if (processor)
 				{
@@ -433,7 +434,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 			if (PAYLOAD_UNIT_START(packetStart))
 			{
 				pes_state = PES_STATE_GETTING_HEADER;
-				pes_header.Clear();
+				pes_header.clear();
 				AAMPLOG_DEBUG("Payload Unit Start");
 			}
 
@@ -446,7 +447,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					size = 0;
 					break;
 				case PES_STATE_GETTING_HEADER:
-					bytes_to_read = (int)(aamp_ts::pes_min_data - pes_header.GetLen());
+					bytes_to_read = (int)(aamp_ts::pes_min_data - pes_header.size());
 					if( bytes_to_read<=0 )
 					{
 						AAMPLOG_WARN( "bad pes_header length" );
@@ -457,22 +458,24 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						bytes_to_read = size;
 					}
 					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
-					pes_header.AppendBytes( data, bytes_to_read);
+					pes_header.insert(pes_header.GetVector().end(),
+									  data,
+									  data + bytes_to_read);
 					data += bytes_to_read;
 					size -= bytes_to_read;
-					if (pes_header.GetLen() == aamp_ts::pes_min_data)
+					if (pes_header.size() == aamp_ts::pes_min_data)
 					{
-						if (!IS_PES_PACKET_START(pes_header.GetPtr()))
+						if (!IS_PES_PACKET_START(pes_header.data()))
 						{
-							AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.GetPtr()[0],
-								pes_header.GetPtr()[1], pes_header.GetPtr()[2]);
+							AAMPLOG_WARN("Packet start prefix check failed 0x%x 0x%x 0x%x", pes_header.data()[0],
+								pes_header.data()[1], pes_header.data()[2]);
 							pes_state = PES_STATE_WAITING_FOR_HEADER;
 							break;
 						}
-						if (PES_OPTIONAL_HEADER_PRESENT(pes_header.GetPtr()))
+						if (PES_OPTIONAL_HEADER_PRESENT(pes_header.data()))
 						{
 							pes_state = PES_STATE_GETTING_HEADER_EXTENSION;
-							pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.GetPtr());
+							pes_header_ext_len = PES_OPTIONAL_HEADER_LENGTH(pes_header.data());
 							pes_header_ext_read = 0;
 							AAMPLOG_DEBUG(
 								"Optional header preset len = %d. Switching to PES_STATE_GETTING_HEADER_EXTENSION",
@@ -482,7 +485,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						{
 							AAMPLOG_WARN(
 								"Optional header not preset pesStart[6] 0x%x bytes_to_read %d- switching to PES_STATE_WAITING_FOR_HEADER",
-								pes_header.GetPtr()[6], bytes_to_read);
+								pes_header.data()[6], bytes_to_read);
 							pes_state = PES_STATE_WAITING_FOR_HEADER;
 						}
 					}
@@ -505,7 +508,9 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
 					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
-					es.AppendBytes(data, size);
+ 					es.insert(es.GetVector().end(),
+							data,
+							data + size);
 					size = 0;
 					break;
 				default:
