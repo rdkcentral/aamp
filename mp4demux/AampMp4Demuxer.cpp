@@ -37,7 +37,7 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bo
 	MediaProcessor(), mMp4Demux(aamp_utils::make_unique<Mp4Demux>()), mAamp(aamp),
 	mMediaType(type), mEnablePtsRestamp(enablePtsRestamp)
 {
-	AAMPLOG_WARN("Created AampMp4Demuxer(%p) for type %d, PTS restamp: %s", this, type, enablePtsRestamp ? "enabled" : "disabled");
+	AAMPLOG_MIL("Created AampMp4Demuxer(%p) for type %d, PTS restamp: %s", this, type, enablePtsRestamp ? "enabled" : "disabled");
 	// TODO: Should we limit the media types here to only video/audio?
 	// Make restamp logging configurable as it might cause log flooding, since logs will come for each demuxed frames per fragment
 	mEnablePtsRestampLogging = mAamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStampLogging);
