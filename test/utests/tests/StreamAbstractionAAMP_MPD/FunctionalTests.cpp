@@ -3583,6 +3583,41 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	EXPECT_FLOAT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), livePlayPosition);
 }
 
+/*
+ * @brief Test to verify Stop() calls NotifyVideoTsbWaiters() when TSB reader thread is active
+*/
+TEST_F(StreamAbstractionAAMP_MPDTest, Stop_NotifiesVideoTsbWaiters)
+{
+	double livePlayPosition = 123.456;
+	AampTSBSessionManager *tsbSessionManager = new AampTSBSessionManager(mPrivateInstanceAAMP);
+	std::shared_ptr<AampTsbDataManager> dataMgr;
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
+
+	// Setup InitTsbReader to start the TSB reader thread
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition()).WillOnce(Return(livePlayPosition));
+	// For InitTsbReader, Stop and other calls
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(tsbSessionManager)); 
+	EXPECT_CALL(*g_mockTSBSessionManager, InvokeTsbReaders(livePlayPosition, AAMP_NORMAL_PLAY_RATE, eTUNETYPE_SEEKTOLIVE))
+		.WillOnce(Return(eAAMPSTATUS_OK));
+	// Handle GetTsbReader for all media types - return nullptr by default, then override for VIDEO
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
+
+	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillOnce(Return(true));
+	// Start the TSB reader thread	
+	mStreamAbstractionAAMP_MPD->Start();
+	EXPECT_CALL(*g_mockTSBSessionManager, NotifyVideoTsbWaiters()).Times(1);
+
+	// Execute Stop() - this should trigger NotifyVideoTsbWaiters for the TSB reader thread
+	mStreamAbstractionAAMP_MPD->Stop(false);
+
+	delete tsbSessionManager;
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 {
 	// Set up test parameters for start event
