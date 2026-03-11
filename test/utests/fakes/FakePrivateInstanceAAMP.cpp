@@ -20,10 +20,6 @@
 #include "priv_aamp.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
-#include "AampStreamSinkManager.h"
-#include "AampUtils.h"
-
-#include "BandwidthEstimatorBase.h"
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
