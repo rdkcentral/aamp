@@ -366,6 +366,13 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								)
 {
 	ManageAsyncTuneConfig(mainManifestUrl);
+	
+	// Set tuned flag before scheduling the tune task
+	if (aamp)
+	{
+		AampStreamSinkManager::GetInstance().SetTuned(aamp);
+	}
+
 	if(mAsyncTuneEnabled)
 	{
 		const std::string manifest {mainManifestUrl};

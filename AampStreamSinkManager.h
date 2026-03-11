@@ -150,6 +150,12 @@ public:
 	 */
 	virtual StreamSink* GetStoppingStreamSink(PrivateInstanceAAMP *aamp);
 	/**
+	 *  @fn SetTuned
+	 *  @brief Sets a flag indicating that there has been a tune on the PrivateInstanceAAMP passed
+	 *  @param[in] aamp - the PrivateInstanceAAMP that has been tuned
+	 */
+	virtual void SetTuned(PrivateInstanceAAMP *aamp);
+	/**
 	 *  @fn UpdateTuningPlayer
 	 *  @brief Updates the player associated with the single pipeline stream sink, if there are
 	 * 		   currently no active players already using the single pipeline.
