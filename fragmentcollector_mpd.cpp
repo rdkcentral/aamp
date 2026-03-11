@@ -9801,8 +9801,16 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;
-					// mFirstPTS should not be updated if we are coming out of partial ad playback mSeekedInPeriod = true
-					if (segmentTemplates.GetTimescale() != 0 && !mSeekedInPeriod)
+					if (usingPTO && segmentTimeline != NULL)
+					{
+						// For SegmentTimeline with PTO: Don't set mFirstPTS to PTO/timescale.
+						// The PushNextFragment timeline walker already handles skipping
+						// past PTO. Setting mFirstPTS to PTO causes Flush() to seek
+						// GStreamer past the first injected fragments (PTS < PTO),
+						// leading to pipeline stall and app failure.
+						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: SegmentTimeline with PTO - not setting mFirstPTS to PTO, timeline walker handles fragment skip");
+					}
+					else if (segmentTemplates.GetTimescale() != 0 && !mSeekedInPeriod)
 					{
 						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
 						mIsFinalFirstPTS = true;
