@@ -90,7 +90,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		setDiscontinuityState(true);
 	}
 
-	if (!initSegment && mDownloadedFragment.capacity() != 0)
+	if (!initSegment && !mDownloadedFragment.empty())
 	{
 		ret = true;
 		cachedFragment->fragment = std::move(mDownloadedFragment);
