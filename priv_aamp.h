@@ -1215,6 +1215,7 @@ public:
 	double mLLActualOffset;				/**< Actual Offset After Seeking in LL Mode*/
 	bool mIsStream4K;                  /**< Identify whether live playing stream is 4K or not; reset on every retune*/
 	bool mIsInbandCC;                   /** Indicate inband cc or out of band cc is selected*/
+	bool mIsPrevInBandCCEnabled;	/**< indicate previously inband CC is enabled or not */
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
 	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
