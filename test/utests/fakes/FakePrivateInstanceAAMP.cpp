@@ -1141,7 +1141,7 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	{
 		g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
-	aamp_utils::ClearAndRelease(buffer);
+	std::vector<uint8_t>().swap(buffer);
 }
 
 void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)
