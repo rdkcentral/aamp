@@ -26,14 +26,21 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"
 
+
 /**
- * @brief MP4 Demuxer constructor
+ * @brief MP4 Demuxer Constructor
+ * @param[in] aamp - Pointer to the PrivateInstanceAAMP
+ * @param[in] type - Media type (audio/video/subtitle)
+ * @param[in] enablePtsRestamp - Flag to enable PTS restamping
  */
-AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
-	MediaProcessor(), mMp4Demux(aamp_utils::make_unique<Mp4Demux>()), mAamp(aamp), mMediaType(type)
+AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp) :
+	MediaProcessor(), mMp4Demux(aamp_utils::make_unique<Mp4Demux>()), mAamp(aamp),
+	mMediaType(type), mEnablePtsRestamp(enablePtsRestamp)
 {
-	AAMPLOG_WARN("Created AampMp4Demuxer(%p) for type %d", this, type);
+	AAMPLOG_MIL("Created AampMp4Demuxer(%p) for type %d, PTS restamp: %s", this, type, enablePtsRestamp ? "enabled" : "disabled");
 	// TODO: Should we limit the media types here to only video/audio?
+	// Make restamp logging configurable as it might cause log flooding, since logs will come for each demuxed frames per fragment
+	mEnablePtsRestampLogging = mAamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStampLogging);
 }
 
 /**
@@ -44,7 +51,6 @@ AampMp4Demuxer::~AampMp4Demuxer()
 	AAMPLOG_DEBUG("AampMp4Demuxer destructor");
 	// std::unique_ptr automatically handles cleanup
 }
-
 
 /**
  * @fn sendSegment
@@ -79,6 +85,24 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
 			{
 				for (auto& sample : samples)
 				{
+					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
+					if (mEnablePtsRestamp)
+					{
+						double beforeDTS = sample.mDts;
+						sample.mPts += fragmentPTSoffset;
+						sample.mDts += fragmentPTSoffset;
+						// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
+						if (mEnablePtsRestampLogging)
+						{
+							uint32_t timeScale = mMp4Demux->GetTimeScale();
+							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
+							GetMediaTypeName(mMediaType),
+							timeScale,
+							beforeDTS * timeScale,
+							sample.mDts * timeScale,
+							sample.mDuration * timeScale);
+						}
+					}
 					mAamp->SendStreamTransfer(mMediaType, sample);
 				}
 			}
