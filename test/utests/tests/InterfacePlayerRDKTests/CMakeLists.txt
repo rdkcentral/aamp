@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 RDK Management
+# Copyright 2024 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,21 +15,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include(GoogleTest)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampStreamSinkManagerTests)
+set(EXEC_NAME InterfacePlayerRDKTests)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
+include_directories(${AAMP_ROOT}/test/gstTestHarness)
 
-set(TEST_SOURCES AampStreamSinkManagerTests.cpp
-                 FunctionalTests.cpp)
+message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampStreamSinkManager.cpp ${AAMP_ROOT}/CachedFragment.cpp)
+set(TEST_SOURCES InterfacePlayerRDKTestCases.cpp
+				 InterfacePlayerRDKTests.cpp‎
+	)
+
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
   # XCode schema target
@@ -41,8 +49,6 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
-
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})

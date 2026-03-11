@@ -24,6 +24,7 @@
 
 #include "AampStreamSinkManager.h"
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 
 AampStreamSinkManager::AampStreamSinkManager() :
 	mGstPlayer(nullptr),
@@ -397,6 +398,29 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	// This is because PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() calls
 	// GetStreamSink, which also locks mStreamSinkMutex.
 	double position = aamp->GetPositionMs() / 1000.00;
+	// Initialize flushPosition with current playback position,
+	// as a fallback mechanism when streamAbstraction is null
+	double flushPosition = position;
+
+	// Access mpStreamAbstractionAAMP under the PrivateInstanceAAMP stream lock
+	{
+		std::lock_guard<std::recursive_mutex> streamLock(aamp->GetStreamLock());
+		StreamAbstractionAAMP *streamAbstraction = aamp->mpStreamAbstractionAAMP;
+		if (streamAbstraction != nullptr)
+		{
+			//Update flushPosition from aamp->mpStreamAbstractionAAMP
+			if (aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
+			{
+				flushPosition = streamAbstraction->GetStreamPosition();
+			}
+			else
+			{
+				flushPosition = streamAbstraction->GetFirstPTS();
+			}
+		}
+	}
+
+	AAMPLOG_INFO("flushPosition:%lf, position:%lf", flushPosition, position);
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	
@@ -428,7 +452,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, setting active PLAYER[%d]", this, aamp->mPlayerId);
 
 					mActiveGstPlayersMap.insert({aamp, mGstPlayer});
-					SetActive(aamp, position);
+					SetActive(aamp, flushPosition);
 				}
 				else
 				{
