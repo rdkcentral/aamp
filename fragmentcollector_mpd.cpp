@@ -2060,18 +2060,26 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				startTime = timeline->GetStartTime();
 			}
 			// TODO: For cases where PTO is less than startTime, unclear what needs to be done.
+			double offset = 0;
 			if (pto > startTime)
 			{
-				double offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
+				offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
 				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
 				skipTime += offset;
 
 				// fragmentTime is reduced from period offset to land on the right epoch value. Later fragmentTime is added with fragmentDuration, so the PTO gap is addressed here.
 				pMediaStreamContext->fragmentTime -= offset;
 			}
+			else
+			{
+				offset = (startTime - pto) / segmentTemplates.GetTimescale();
+				skipTime -= offset;
+			}
+			AAMPLOG_INFO("offset %f pto %" PRIu64 " startTime %" PRIu64,offset,pto,startTime);
 		}
 		do
 		{
+			AAMPLOG_INFO("loop skipToEnd %d skipTime %f",skipToEnd, skipTime);
 			if (segmentTimeline)
 			{
 				uint32_t timeScale = segmentTemplates.GetTimescale();
@@ -2093,7 +2101,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						{
 							uint64_t startTime = timeline->GetStartTime();
 							pMediaStreamContext->fragmentDescriptor.Time = startTime;
+							AAMPLOG_INFO("startTime %" PRIu64 ,startTime);
 						}
+
 					}
 
 					/*
