@@ -91,7 +91,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in,out] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
