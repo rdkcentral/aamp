@@ -577,6 +577,8 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -597,7 +599,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 
 	ASSERT_TRUE(videoTrack.InjectFragment());
 
-	// Media segment
+	// Media segment (normal case: UseMp4Demux disabled)
 	testFragment.initFragment = false;
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
@@ -607,16 +609,44 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 	if (lowLatencyMode)
 	{
-		// Check that the PTS that is (eventually) passed on to GStreamer is as expected
+		// In chunk mode, PTS offset is applied to fpts/fdts
+		// (FIRST_PTS + PTS_OFFSET_SEC) and also passed separately to
+		// GStreamer via the fragmentPTSoffset argument
 		double expectedPts = FIRST_PTS.inSeconds() + PTS_OFFSET_SEC;
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
-									   AampGrowableBufferPtrEq(&(testFragment.fragment)),
-									   expectedPts, expectedPts, _, _, _, _));
+									AampGrowableBufferPtrEq(&(testFragment.fragment)),
+									expectedPts, expectedPts, _, _, _, _));
 	}
-
 	ASSERT_TRUE(videoTrack.InjectFragment());
 	ASSERT_DOUBLE_EQ(videoTrack.GetTotalInjectedDuration(), FRAGMENT_DURATION.inSeconds());
+
+	// Media segment (UseMp4Demux enabled: RestampPts should NOT be called)	
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillRepeatedly(Return(true));
+	testFragment = CachedFragment{};
+	testFragment.initFragment = false;
+	testFragment.duration = FRAGMENT_DURATION.inSeconds();
+	testFragment.position = FIRST_PTS.inSeconds();
+	testFragment.PTSOffsetSec = PTS_OFFSET_SEC;
+	testFragment.timeScale = PLAYBACK_TIMESCALE;
+	testFragment.uri = expectedUri;
+	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA_SIZE);
+	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
+	videoTrack.numberOfFragmentsCached = 1;
+	ASSERT_NE(bufferedFragment, nullptr);
+	ASSERT_GT(bufferedFragment->fragment.size(), 0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
+	if (lowLatencyMode)
+	{
+		// In chunk mode, PTS offset is passed separately to GStreamer
+		double expectedPts = FIRST_PTS.inSeconds();
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+					SendStreamTransfer(eMEDIATYPE_VIDEO,
+									AampGrowableBufferPtrEq(&(testFragment.fragment)),
+									expectedPts, expectedPts, _, _, _, _));
+	}
+	ASSERT_TRUE(videoTrack.InjectFragment());
 }
 
 AampTsbTestData aampTsbTestData[] =
