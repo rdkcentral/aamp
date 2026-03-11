@@ -356,6 +356,7 @@ uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(const CachedFragment* ca
 		actualType != eMEDIATYPE_INIT_AUDIO &&
 		actualType != eMEDIATYPE_INIT_SUBTITLE)
 	{
+		AAMPLOG_TRACE("Skipping init segment processing for type %d", actualType);
 		return 0;
 	}
 
@@ -363,6 +364,8 @@ uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(const CachedFragment* ca
 	buffer.setBuffer(cached->fragment.data(), cached->fragment.size());
 	if (!buffer.parseBuffer())
 	{
+		AAMPLOG_WARN("Failed to parse init segment buffer (type %d, size %zu)",
+			actualType, cached->fragment.size());
 		return 0;
 	}
 
