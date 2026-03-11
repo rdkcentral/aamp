@@ -5137,7 +5137,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					{
 						// introduce  extra marker for connection status curl 7/18/28,
 						// example 18(0) if connection failure with PARTIAL_FILE code
-						timeoutClass = "(" + to_string(reqSize > 0) + ")";
+						timeoutClass = "(" + std::to_string(reqSize > 0) + ")";
 					}
 
 					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
