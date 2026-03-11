@@ -2051,6 +2051,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		// Only for updateFirstPTS, we need to align to PTO, for trickplay its not required
 		if (segmentTimeline && (pto > 0) && updateFirstPTS)
 		{
+			double offset = 0;
 			uint64_t startTime = 0;
 			const auto& timelines = segmentTimeline->GetTimelines();
 			ITimeline *timeline = timelines.at(0);
@@ -2059,16 +2060,28 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			{
 				startTime = timeline->GetStartTime();
 			}
-			// TODO: For cases where PTO is less than startTime, unclear what needs to be done.
+
 			if (pto > startTime)
 			{
-				double offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
-				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
+				offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
 				skipTime += offset;
-
 				// fragmentTime is reduced from period offset to land on the right epoch value. Later fragmentTime is added with fragmentDuration, so the PTO gap is addressed here.
 				pMediaStreamContext->fragmentTime -= offset;
 			}
+			else
+			{
+				/* Example of why we get here:
+				* The manifest TSB is 30Sec, the current period is 120Sec and we have played 100Sec
+				* of CDAI ADs in that period. The Ads are shorter than the period so now we need to
+				* resume to play the last 20Sec of the base period.
+				* Func is called with SkipTime = 100 We need to find the position: original_start_of_period +100
+                * but ~70Sec of the period will have been removed from the manifest timeline due to TSB
+				* so we actually need to look for the position = skipTime -70
+				*/
+				offset = (startTime - pto) / segmentTemplates.GetTimescale();
+				skipTime -= offset;
+			}
+			AAMPLOG_INFO("offset %f pto %" PRIu64 " startTime %" PRIu64,offset,pto,startTime);
 		}
 		do
 		{
@@ -2078,7 +2091,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
-					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+					AAMPLOG_WARN("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
 					break;
 				}
