@@ -1834,7 +1834,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mAampTrackWorkerManager()
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
-	, mIsPrevInBandCCEnabled(false)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -6282,8 +6281,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 
 		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
-		mIsPrevInBandCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", mIsPrevInBandCCEnabled, mIsInbandCC);
+		subtitles_muted = !PlayerCCManager::GetInstance()->GetStatus();
+		AAMPLOG_WARN("SubtitlesMuted:%d isCCinBand:%d", subtitles_muted.load(), mIsInbandCC);
 
 		if (!mbUsingExternalPlayer)
 		{
@@ -6413,7 +6412,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
-			PlayerCCManager::GetInstance()->RestoreCC(mIsPrevInBandCCEnabled);
+			PlayerCCManager::GetInstance()->RestoreCC(!subtitles_muted.load());
 		}
 	}
 
@@ -11907,13 +11906,12 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d mIsPrevInBandCCEnabled:%d",
-					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load(),mIsPrevInBandCCEnabled);
+		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
 
 		if (mIsInbandCC || !isGstSubtecEnabled)
 		{
-			bool enableInBandCC = mIsPrevInBandCCEnabled? mIsPrevInBandCCEnabled : !mute_subtitles_applied;
-			PlayerCCManager::GetInstance()->SetStatus(enableInBandCC);
+			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
 		}
 		else
 		{
