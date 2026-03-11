@@ -5225,15 +5225,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	if (!newTune)
-	{
-		// Capture the current CC enabled state only for non-new tunes (e.g. retune/seek).
-		// For brand new tunes we intentionally do NOT restore any previous CC state;
-		// previousCCEnabled remains at its default (false) so RestoreCC() starts CC
-		// from a clean, disabled state for new content.
-		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
-	}
+	
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
