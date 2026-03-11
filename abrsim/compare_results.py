@@ -20,9 +20,6 @@
 """
 Compare ABR simulation results from two runs.
 Useful for validating ABR algorithm changes.
-
-Copyright 2026 RDK Management
-Licensed under Apache License 2.0
 """
 
 import sys
