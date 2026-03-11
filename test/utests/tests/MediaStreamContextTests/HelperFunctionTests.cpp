@@ -119,7 +119,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AssignsData)
 	MediaStreamContext::TransferFragmentBuffer(
 		&cached, payload, nullptr, payloadSize, true);
 
-	// Fake assign does pointer copy — verify size was recorded
+	// assign() copies payload into the cached fragment; verify size was recorded
 	EXPECT_EQ(cached.fragment.size(), payloadSize);
 }
 
