@@ -28,7 +28,7 @@
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
 
-#define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
+#define REQUIRED_QUEUED_FRAMES_DEFAULT (3+1)
 
 typedef gboolean (*AcceptCapsFunc)(GstBaseTransform *, GstPadDirection, GstCaps *);
 
