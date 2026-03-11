@@ -2072,6 +2072,14 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			}
 			else
 			{
+				/* Example of why we get here:
+				* The manifest TSB is 30Sec, the current period is 120Sec and we have played 100Sec
+				* of CDAI ADs in that period. The Ads are shorter than the period so now we need to
+				* resume to play the last 20Sec of the base period.
+				* Func is called with SkipTime = 100 We need to find the position: original_start_of_period +100
+                * but ~70Sec of the period will have been removed from the manifest timeline due to TSB
+				* so we actually need to look for the position = skipTime -70
+				*/
 				offset = (startTime - pto) / segmentTemplates.GetTimescale();
 				skipTime -= offset;
 			}
