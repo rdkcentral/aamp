@@ -743,12 +743,17 @@ TEST(Mp4Demux_NoInitSegment, SaioSaizFragment_WithoutInitSegment_NoCrash)
     write4cc(buf, "mdat");
     // aux info sample 0: 8-byte IV + 1 subsample entry
     buf.insert(buf.end(), {0xA1,0xB2,0xC3,0xD4,0xE5,0xF6,0x07,0x08}); // IV[0]
-    write16be(buf,1); write16be(buf,16); write32be(buf,48);
+    write16be(buf,1);
+    write16be(buf,16);
+    write32be(buf,48);
     // aux info sample 1: 8-byte IV + 1 subsample entry
     buf.insert(buf.end(), {0xA1,0xB2,0xC3,0xD4,0xE5,0xF6,0x07,0x09}); // IV[1]
-    write16be(buf,1); write16be(buf,16); write32be(buf,48);
+    write16be(buf,1);
+    write16be(buf,16);
+    write32be(buf,48);
     // sample data
-    for (int i = 0; i < 64; ++i) buf.push_back(uint8_t(i & 0xFF));
+    for (int i = 0; i < 64; ++i)
+        buf.push_back(uint8_t(i & 0xFF));
  
     // Parse WITHOUT an init segment → ivSize stays 0
     Mp4Demux d;
@@ -809,27 +814,27 @@ TEST(Mp4Demux_Gaps, SencHugeSubsampleCount)
 		}
 		moof.close();
 	}
- 
-    size_t moofSize = buf.size();
- 
-    // Patch trun data_offset to point past the mdat header
-    int32_t dataOffset = static_cast<int32_t>(moofSize + 8);
-    buf[dataOffsetFieldPos+0] = uint8_t((dataOffset >> 24) & 0xFF);
-    buf[dataOffsetFieldPos+1] = uint8_t((dataOffset >> 16) & 0xFF);
-    buf[dataOffsetFieldPos+2] = uint8_t((dataOffset >>  8) & 0xFF);
-    buf[dataOffsetFieldPos+3] = uint8_t((dataOffset >>  0) & 0xFF);
- 
-    // Append mdat: 64 bytes of sample payload
-    write32be(buf, 8 + 64);
-    write4cc(buf, "mdat");
-    for (int i = 0; i < 64; ++i) buf.push_back(uint8_t(i & 0xFF));
- 
-    Mp4Demux d;
-    bool ok = d.Parse(buf.data(), buf.size()); // must NOT crash
- 
-    // subsample_count=0xFFFF → 393,210 bytes needed, far beyond buffer end;
-    // the parser must reject this with DATA_BOUNDARY_MISMATCH, not crash.
-    EXPECT_FALSE(ok);
-    EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+	
+	size_t moofSize = buf.size();
+	
+	// Patch trun data_offset to point past the mdat header
+	int32_t dataOffset = static_cast<int32_t>(moofSize + 8);
+	buf[dataOffsetFieldPos+0] = uint8_t((dataOffset >> 24) & 0xFF);
+	buf[dataOffsetFieldPos+1] = uint8_t((dataOffset >> 16) & 0xFF);
+	buf[dataOffsetFieldPos+2] = uint8_t((dataOffset >>  8) & 0xFF);
+	buf[dataOffsetFieldPos+3] = uint8_t((dataOffset >>  0) & 0xFF);
+	
+	// Append mdat: 64 bytes of sample payload
+	write32be(buf, 8 + 64);
+	write4cc(buf, "mdat");
+	for (int i = 0; i < 64; ++i) buf.push_back(uint8_t(i & 0xFF));
+	
+	Mp4Demux d;
+	bool ok = d.Parse(buf.data(), buf.size()); // must NOT crash
+	
+	// subsample_count=0xFFFF → 393,210 bytes needed, far beyond buffer end;
+	// the parser must reject this with DATA_BOUNDARY_MISMATCH, not crash.
+	EXPECT_FALSE(ok);
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
 }
- 
+	
