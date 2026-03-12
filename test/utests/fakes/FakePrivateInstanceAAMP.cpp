@@ -22,6 +22,8 @@
 #include "AampMPDDownloader.h"
 #include "AampStreamSinkManager.h"
 
+#include "BandwidthEstimatorBase.h"
+
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
@@ -49,7 +51,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsAudioContextSkipped(false),
 	mMediaFormat(eMEDIAFORMAT_HLS),
 	mPersistedProfileIndex(0),
-	mAvailableBandwidth(0),
 	mContentType(ContentType_UNKNOWN),
 	mManifestUrl(""),
 	mServiceZone(),
@@ -144,6 +145,10 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 }
 
+void PrivateInstanceAAMP::UpdatePersistBandwidth(BitsPerSecond bandwidth)
+{
+}
+
 double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
 {
     double pts = 0.0;
@@ -167,6 +172,11 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
 	return 0;
+}
+
+void PrivateInstanceAAMP::SetBufferingState(bool buffering)
+{
+	(void)buffering;
 }
 
 void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
@@ -271,6 +281,19 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		g_mockPrivateInstanceAAMP->NotifySpeedChanged(rate, changeState);
 	}
+}
+
+void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifyReservationComplete(reservationId);
+	}
+}
+
+void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+{
+
 }
 
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
@@ -892,9 +915,6 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
-{
-}
 
 void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
@@ -906,6 +926,18 @@ void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const ch
 
 void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
 {
+}
+
+bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration)
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->SendStreamCopy(mediaType, buffer, fpts, fdts, fDuration);
+	}
+	else
+	{
+		return true;
+	}
 }
 
 bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
@@ -1037,11 +1069,6 @@ uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
 uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
-}
-
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
-{
-    return 0;
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
@@ -1269,7 +1296,10 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
-        return;
+	if (g_mockPrivateInstanceAAMP != nullptr){
+		g_mockPrivateInstanceAAMP->LoadIDX(bucketType, fragmentUrl, effectiveUrl, fragment, curlInstance, range, http_code, downloadTime, mediaType, fogError);
+	}
+	return;
 }
 
 bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
@@ -1344,11 +1374,11 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, size, type, timeStampOffset);
+		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, type, timeStampOffset);
 	}
 }
 

@@ -23,6 +23,7 @@
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
 #include "vendor/default/DefaultSocInterface.h"
+#include "vendor/mtk/MtkSocInterface.h"
 
 /**
  * @brief Checks if the input string starts with the given prefix.
@@ -60,6 +61,7 @@ SocPlatformType InferPlatformFromPluginScan()
 		{"amlhalasink", SOC_PLATFORM_AMLOGIC},
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
 		{"brcmaudiodecoder", SOC_PLATFORM_BROADCOM},
+		{"mtkaudiosink", SOC_PLATFORM_MEDIATEK},
 	};
 	
 	GstRegistry* registry = gst_registry_get();
@@ -126,6 +128,11 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 						platform = SOC_PLATFORM_BROADCOM;
 						break;
 					}
+					else if (strcmp(socName, "MEDIATEK") == 0)
+					{
+						platform = SOC_PLATFORM_MEDIATEK;
+						break;
+					}
 				}
 				else
 				{
@@ -161,15 +168,23 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 		switch (platformType)
 		{
 			case SOC_PLATFORM_AMLOGIC:
+				MW_LOG_MIL("Setting up SoC Interface for AMLOGIC");
 				socInterface = std::make_shared<AmlogicSocInterface>();
 				break;
 			case SOC_PLATFORM_BROADCOM:
+				MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
 				socInterface = std::make_shared<BrcmSocInterface>();
 				break;
 			case SOC_PLATFORM_REALTEK:
+				MW_LOG_MIL("Setting up SoC Interface for REALTEK");
 				socInterface = std::make_shared<RealtekSocInterface>();
 				break;
+			case SOC_PLATFORM_MEDIATEK:
+				MW_LOG_MIL("Setting up SoC Interface for MEDIATEK");
+				socInterface = std::make_shared<MtkSocInterface>();
+				break;
 			default:
+				MW_LOG_MIL("Setting up SoC Interface for Default");
 				socInterface = std::make_shared<DefaultSocInterface>();
 				break;
 		}
@@ -247,4 +262,22 @@ void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_cla
     if (accept_caps_func) {
         base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(accept_caps_func);
     }
+}
+
+/**
+ * @brief Set AC4 tracks.
+ * @param src Source element.
+ * @param trackId Track ID.
+ */
+void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
+	if(src)
+	{
+		g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
+	}
+	else
+	{
+		MW_LOG_ERR("No valid src to set ac4-presentation-group-index");
+	}
 }

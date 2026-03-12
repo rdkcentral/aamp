@@ -18,6 +18,7 @@
 */
 
 #include "StreamAbstractionAAMP.h"
+#include "AampUnderflowMonitor.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockMediaTrack.h"
 #include <memory>
@@ -31,6 +32,19 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 
 StreamAbstractionAAMP::~StreamAbstractionAAMP()
 {
+}
+
+void StreamAbstractionAAMP::StartUnderflowMonitor()
+{
+}
+
+void StreamAbstractionAAMP::StopUnderflowMonitor()
+{
+}
+
+bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
+{
+	return false;
 }
 
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
@@ -277,6 +291,19 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 
 void MediaTrack::WaitForManifestUpdate()
 {
+}
+
+void MediaTrack::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void MediaTrack::AbortWaitForManifestUpdate()
+{
+}
+
+uint32_t MediaTrack::GetManifestUpdateCounter()
+{
+	return 0;
 }
 
 bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)

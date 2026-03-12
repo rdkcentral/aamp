@@ -242,7 +242,7 @@ public:
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 
-		if (es.GetLen())
+		if (es.size())
 		{
 			sendInternal(std::move(processor));
 			return true;
@@ -259,7 +259,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return !!es.GetLen();
+		return !!es.size();
 	}
 
 	/**
@@ -270,7 +270,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return es.GetLen();
+		return es.size();
 	}
 
 };

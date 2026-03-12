@@ -166,18 +166,18 @@ void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
 void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance, bool &keyAcquisitionStatus, int &failureReason,  char** ptr)
 {
 	bool fetched = mpAamp->GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
-	*ptr =mAesKeyBuf.GetPtr();
+	*ptr = reinterpret_cast<char*>(mAesKeyBuf.data());
 	
 	if (fetched)
 	{
-		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )
+		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.size() )
 		{
-			AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen());
+			AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.size());
 			keyAcquisitionStatus = true;
 		}
 		else
 		{
-			AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
+			AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.size() );
 			failureReason = AAMP_TUNE_INVALID_DRM_KEY;
 		}
 	}

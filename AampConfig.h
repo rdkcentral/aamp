@@ -152,11 +152,23 @@ typedef enum
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
 	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
-	eAAMPConfig_NativeCCRendering,						/**< If native CC rendering to be supported */
+	eAAMPConfig_NativeCCRendering,					/**< Controls whether AAMP manages CC visibility/styles
+														directly via PlayerCCManager (true), or defers to an
+														external CC controller such as XREReceiver (false).
+														Default: false.
+														On X1 platforms XREReceiver owns CC; set to false so
+														AAMP does not interfere with trickplay muting, parental
+														control gating, or CC track selection.
+														On platforms without XREReceiver, set to true so AAMP
+														takes over the full CC lifecycle.
+														Note: Regardless of this flag, AAMP's CC APIs still
+														route through PlayerCCManager and apps must refrain from
+														using them when the flag is set to false.*/
 	eAAMPConfig_Subtec_subtitle,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_WebVTTNative,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_AsyncTune,						 	/**< To enable Asynchronous tune */
 	eAAMPConfig_DisableUnderflow,                                           /**< Enable/Disable Underflow processing*/
+	eAAMPConfig_EnableAampUnderflowMonitor,                                 /**< Enable AampUnderflowMonitor explicitly (preferred over DisableUnderflow gating) */
 	eAAMPConfig_LimitResolution,                                            /**< Flag to indicate if display resolution based profile selection to be done */
 	eAAMPConfig_UseAbsoluteTimeline,					/**< Enable Report Progress report position based on Availability Start Time **/
 	eAAMPConfig_EnableAccessAttributes,					/**< Usage of Access Attributes in VSS */
@@ -314,7 +326,11 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
+	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator */
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
+	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
+	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
+	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -338,6 +354,10 @@ typedef enum
 	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
 	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
+	eAAMPConfig_UnderflowDetectThresholdSec,		/**< Underflow detection threshold in seconds */
+	eAAMPConfig_UnderflowResumeThresholdSec,		/**< Underflow resume threshold in seconds */
+	eAAMPConfig_UnderflowLowBufferSec,				/**< Low buffer threshold in seconds */
+	eAAMPConfig_UnderflowHighBufferSec,				/**< High buffer threshold in seconds */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

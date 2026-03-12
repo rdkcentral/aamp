@@ -464,9 +464,9 @@ void AampCurlDownloader::updateCurlParams()
 	}
 	else
 	{
-		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYPEER, 1L);
 	}
+	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 
 	if (mDnldCfg->sCustomHeaders.size() > 0)
 	{

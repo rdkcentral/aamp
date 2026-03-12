@@ -104,6 +104,19 @@ public:
 		AAMPLOG_WARN("Stream doesn't support CDAI. Rejecting the promise.");
 		mAamp->SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_ADS_MISCONFIGURED);
 	}
+
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	virtual void NotifyReservationComplete(const std::string& reservationId) {}
+
+	/**
+	 * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+	 */
+	virtual void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) {}
 };
 
 

@@ -28,6 +28,7 @@
 #include "MockMediaTrack.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "MockAampTimeBasedBufferManager.h"
 #include "fragmentcollector_mpd.h"
 #include "StreamAbstractionAAMP.h"
 
@@ -59,6 +60,7 @@ protected:
 		g_mockMediaTrack = new StrictMock<MockMediaTrack>();
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockAampTimeBasedBufferManager = new StrictMock<aamp::MockAampTimeBasedBufferManager>();
 	}
 
 	void TearDown() override
@@ -83,6 +85,9 @@ protected:
 
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
+
+		delete g_mockAampTimeBasedBufferManager;
+		g_mockAampTimeBasedBufferManager = nullptr;
 	}
 
 public:
@@ -153,12 +158,14 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 
 	// Mock buffer creation for the test
 	auto cachedFragment = std::make_shared<CachedFragment>();
-	cachedFragment->fragment.AppendBytes("test", 4);
+	const char* testData = "test";
+	cachedFragment->fragment.assign(testData, testData + strlen(testData));
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false)).WillOnce(Return(cachedFragment.get()));
 
 	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunkMode));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunkMode));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(ptsRestampEnabled));
+	EXPECT_CALL(*g_mockAampTimeBasedBufferManager, ConsumeBuffer(dlInfo->fragmentDurationSec)).Times(chunkMode ? 1 : 0);
 
 	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(_));
 	if (chunkMode)
@@ -264,6 +271,53 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_ValidDownloadInfoLowestPr
 		EXPECT_FALSE(mMediaStreamContext->mCheckForRampdown);
 		EXPECT_TRUE(mMediaStreamContext->mSkipSegmentOnError);
 	});
+}
+
+/**
+ * @brief Verify that when rampdown is not possible (lowest profile) and a
+ *        segment is skipped, the time-based buffer is consumed.
+ */
+TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_LowestProfile_ConsumesTimeBasedBuffer)
+{
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->url = "http://example.com/fragment";
+	dlInfo->isInitSegment = false;
+	dlInfo->isPlayingAd = false;
+	dlInfo->pts = 123.45;
+	dlInfo->fragmentDurationSec = 5.0;
+
+	// Ensure we take the lowest-profile skip path.
+	mMediaStreamContext->segDLFailCount = 0;
+	mMediaStreamContext->mSkipSegmentOnError = true;
+	mMediaStreamContext->httpErrorCode = 404;
+
+	// Mock necessary method calls and return values
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold))
+		.WillRepeatedly(Return(10));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
+		.WillRepeatedly(Return(false));
+
+	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
+	auto cachedFragment = std::make_shared<CachedFragment>();
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
+		.WillOnce(Return(cachedFragment.get()));
+
+	// Return false for CheckForRampDownLimitReached to indicate that the limit is reached
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownProfile(_))
+		.WillOnce(Return(false));
+
+	// Expect the time-based buffer to be consumed for the fragment duration
+	EXPECT_CALL(*g_mockAampTimeBasedBufferManager,
+		ConsumeBuffer(dlInfo->fragmentDurationSec))
+		.Times(1);
+
+	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadFailed(dlInfo));
 }
 
 /**

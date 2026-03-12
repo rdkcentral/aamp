@@ -97,9 +97,10 @@ struct DownloadInfo
 	uint64_t fragmentNumber;	   /**< Fragment number, incremented with each new segment in track, corresponds to $Number& in segment template */
 	uint32_t timeScale;			   /**< Fragment Time scale, divide fragment time or duration by timeScale to convert to seconds */
 	std::string url;			   /**< URL of the fragment */
-	BitsPerSecond bandwidth;			   /**< Bandwidth of the fragment at the time of job submission */
+	BitsPerSecond bandwidth;	   /**< Bandwidth of the fragment at the time of job submission */
 	AampTime ptsOffset;			   /**< Period specific PTS offset used for restamping */
 	URLBitrateMap uriList;		   /**< List of all possible URLs with their respective bitrates */
+	double chunkDurationSec;	   /**< Duration of the chunks processed from the fragment in seconds, used for chunked transfer */
 
 	/**
 	 * @brief Default constructor
@@ -122,7 +123,8 @@ struct DownloadInfo
 		  timeScale(1),
 		  bandwidth(0),
 		  ptsOffset(0),
-		  uriList()
+		  uriList(),
+		  chunkDurationSec(0)
 	{
 	}
 
@@ -164,7 +166,8 @@ struct DownloadInfo
 		  bandwidth(bandwidth),
 		  ptsOffset(ptsOffset),
 		  uriList(std::move(uriList)),
-		  url("")
+		  url(""),
+		  chunkDurationSec(0)
 	{
 	}
 };

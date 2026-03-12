@@ -244,7 +244,7 @@ TEST_F(IsoBmffProcessorTests, abortTests5)
 
 	//Called twice for init and fragment
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(1);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).WillOnce(Return(true));
 
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
@@ -741,7 +741,8 @@ TEST_F(IsoBmffProcessorTests, PTMOnRestampOnTest)
 TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 {
 	AampGrowableBuffer buffer("IsoBmffProcessorPTMTests-passThroughTests1");
-	buffer.AppendBytes("SampleData", 10); // Dummy data to simulate a buffer
+	const char* sampleData = "SampleData";
+	buffer.assign(sampleData, sampleData + strlen(sampleData)); // Dummy data to simulate a buffer
 
 	double position = 0, duration = 0;
 	bool discontinuous = false, ptsError = false;
@@ -749,13 +750,13 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	uint32_t vCurrTS = 24000;
 
 	// 3 sendSegment calls and configured with HLS_MP4 content type
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(3);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3);
 
 	// Expecting the timescale to be read first
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP,ProcessID3Metadata(_,_,_,_))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,ProcessID3Metadata(_,_,_))
 			.Times(3);
 	bool ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);

@@ -47,10 +47,33 @@ IsoBmffBuffer::~IsoBmffBuffer()
 /**
  *  @brief Set buffer
  */
-void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
+void IsoBmffBuffer::setBuffer(std::vector<uint8_t>& buffer)
 {
-	buffer = buf;
-	bufSize = sz;
+	this->buffer = buffer.data();
+	this->bufSize = buffer.size();
+}
+
+/**
+ *  @brief Set buffer from pointer and size
+ */
+void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
+{
+	this->buffer = buffer;
+	this->bufSize = bufferLen;
+}
+
+/**
+ *  @brief Set buffer from a read-only pointer and size.
+ *         The const_cast here is intentional and contained: the internal
+ *         member must remain uint8_t* to support mutating operations on
+ *         non-const buffers. Callers using this overload must ensure that
+ *         no mutating IsoBmffBuffer operations (e.g. restampPTS) are
+ *         subsequently invoked.
+ */
+void IsoBmffBuffer::setBuffer(const uint8_t* buffer, size_t bufferLen)
+{
+	this->buffer = const_cast<uint8_t*>(buffer);
+	this->bufSize = bufferLen;
 }
 
 /**
@@ -91,7 +114,7 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint
 		int lastMDatIndex = UpdateBufferData(parsedBoxCount, unParsedBuffer, unParsedBufferSize, parsedBufferSize);
 
 		uint64_t fPts = 0;
-		double totalChunkDuration = getTotalChunkDuration( lastMDatIndex);
+		uint64_t totalChunkDuration = getTotalChunkDurationInTicks(lastMDatIndex);
 
 		//get PTS of buffer
 		bool bParse = getFirstPTS(fPts);
@@ -100,7 +123,7 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint
 			AAMPLOG_TRACE("[%s] fPts %" PRIu64,name, fPts);
 		}
 		fpts = (double) fPts/(timeScale*1.0);
-		fduration = totalChunkDuration/(timeScale*1.0);
+		fduration = (double) totalChunkDuration/(timeScale*1.0);
 	}
 	return true;
 }
@@ -597,7 +620,6 @@ bool IsoBmffBuffer::getBoxesInternal(const std::vector<Box*> *boxes, const char 
 	for (size_t i = 0; i < size; i++)
 	{
 		Box *box = boxes->at(i);
-
 		if (IS_TYPE(box->getType(), name))
 		{
 			pBoxes->push_back(box);
@@ -716,9 +738,9 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer
 /**
  *  @brief Get list of box handles in a parsed buffer
  */
-double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
+uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 {
-	double totalChunkDuration = 0.0;
+	uint64_t totalChunkDuration = 0;
 	uint64_t fDuration = 0;
 	std::vector<Box*> *pBoxes = getParsedBoxes();
 	for(int i=0;i<lastMDatIndex;i++)
@@ -729,7 +751,7 @@ double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
 		{
 			getSampleDuration(box, fDuration);
 			totalChunkDuration += fDuration;
-			AAMPLOG_TRACE("fDuration = %" PRIu64 ", totalChunkDuration = %f", fDuration, totalChunkDuration);
+			AAMPLOG_TRACE("fDuration = %" PRIu64 ", totalChunkDuration = %" PRIu64, fDuration, totalChunkDuration);
 		}
 	}
 	return totalChunkDuration;
@@ -1246,24 +1268,22 @@ bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &s
 {
 	bool ret = false;
 	size_t matchCount = 0;
-	for (const auto& box : boxes)
+	size_t numBoxes = boxes.size();
+	//Adjust size when chunked box is available
+	if(chunkedBox)
 	{
+		numBoxes -= 1;
+	}
+	for (size_t i = 0; i < numBoxes; i++)
+	{
+		Box *box = boxes.at(i);
 		if (IS_TYPE(box->getType(), name))
 		{
 			if (matchCount == index)
 			{
-				if (box->getBase() >= buffer)
-				{
-					// Calculate the start offset of the box data within the buffer
-					start = static_cast<size_t>(box->getBase() - buffer);
-					// Get the size of the box
-					size = box->getSize();
-					ret = true;
-				}
-				else
-				{
-					AAMPLOG_ERR("Box of type %s has invalid base address:%p and buffer address:%p", name, box->getBase(), buffer);
-				}
+				start = box->getOffset();
+				size = box->getSize();
+				ret = true;
 				break;
 			}
 			matchCount++;
@@ -1274,4 +1294,43 @@ bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &s
 		AAMPLOG_WARN("Box of type %s with index %zu not found, only %zu available", name, index, matchCount);
 	}
 	return ret;
+}
+
+/**
+ * @fn getChunkedMdatBoxInfo - Get chunked mdat box info
+ *
+ * @param[out] start - start offset of chunked mdat box
+ * @param[out] size - size of chunked mdat box
+ * @return bool - true if chunked mdat box found, false otherwise
+ */
+bool IsoBmffBuffer::getChunkedMdatBoxInfo(size_t &start, size_t &size) const
+{
+	bool ret = false;
+	if ((chunkedBox != nullptr) && IS_TYPE(chunkedBox->getType(), Box::MDAT))
+	{
+		start = chunkedBox->getOffset();
+		size = chunkedBox->getSize();
+		ret = true;
+	}
+	return ret;
+}
+
+/**
+ * @fn getLastMdatBoxIndex
+ * @brief Get the index of the last mdat box in the parsed buffer, including the chunked box if it is an mdat box
+ *
+ * @return index of mdat box w.r.t to the full mp4 box, -1 if index is out of bound
+ */
+int IsoBmffBuffer::getLastMdatBoxIndex() const
+{
+	int index = -1;
+	// Chunked box is also handled here
+	for (size_t i = 0; i < boxes.size(); i++)
+	{
+		if (IS_TYPE(boxes.at(i)->getType(), Box::MDAT))
+		{
+			index = i;
+		}
+	}
+	return index;
 }

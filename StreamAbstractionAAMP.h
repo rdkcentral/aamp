@@ -47,6 +47,9 @@
 #include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
 
+// Forward declaration to avoid including Underflow monitor header here
+class AampUnderflowMonitor;
+
 /**
  * @brief Media Track Types
  */
@@ -159,11 +162,23 @@ public:
 	void AbortWaitForPlaylistDownload();
 
 	/**
-	 * @fn AbortFragmentDownloaderWait
+	 * @fn AbortWaitForManifestUpdate
 	 *
 	 * @return void
 	 */
-	void AbortFragmentDownloaderWait();
+	void AbortWaitForManifestUpdate();
+
+	/**
+	 * @fn GetManifestUpdateCounter
+	 * @brief Returns the current manifest update counter.
+	 *        Callers should snapshot this value BEFORE performing any
+	 *        check or download work that leads to the decision to wait,
+	 *        then pass it to WaitForManifestUpdate(snapshotCounter).
+	 *        This closes the race window where AbortWaitForManifestUpdate()
+	 *        fires between the caller's work and the wait call.
+	 * @return Current counter value.
+	 */
+	uint32_t GetManifestUpdateCounter();
 
 	/**
 	 * @fn AbortWaitForCachedFragmentChunk
@@ -178,6 +193,19 @@ public:
 	 * @return void
 	 */
 	void WaitForManifestUpdate();
+
+	/**
+	 * @fn WaitForManifestUpdate
+	 * @brief Overload that accepts a caller-supplied counter snapshot.
+	 *        Blocks until the live counter differs from snapshotCounter.
+	 *        If AbortWaitForManifestUpdate() already fired after the snapshot
+	 *        was taken, the predicate is immediately true and no blocking
+	 *        occurs — no lost-wakeup.
+	 * @param[in] snapshotCounter Snapshot obtained from GetManifestUpdateCounter()
+	 *            before the caller began its check or download work.
+	 * @return void
+	 */
+	void WaitForManifestUpdate(uint32_t snapshotCounter);
 
 	/**
 	 * @fn PlaylistDownloader
@@ -263,13 +291,6 @@ public:
 	AampMediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
 
 	/**
-	 * @fn NotifyFragmentCollectorWait
-	 *
-	 * @return void
-	 */
-	void NotifyFragmentCollectorWait() {fragmentCollectorWaitingForPlaylistUpdate = true;}
-
-	/**
 	 * @fn EnterTimedWaitForPlaylistRefresh
 	 *
 	 * @param[in] timeInMs timeout in milliseconds
@@ -292,6 +313,8 @@ public:
 
 	/**
 	 * @fn ProcessFragmentChunk
+	 * @brief Process next cached fragment chunk
+	 * @retval true if chunk should be removed from the cached fragment chunk buffer, false otherwise
 	 */
 	bool ProcessFragmentChunk();
 
@@ -874,14 +897,14 @@ private:
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
 	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
-	long long prevDownloadStartTime;		/**< Previous file download Start time*/
+	uint64_t prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
-	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collector is waiting for ongoing playlist download, used for profile changes*/
-	std::condition_variable frDownloadWait;	/**< Conditional variable for signaling timed wait*/
+	uint32_t mManifestUpdateCounter;        /**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
+	std::condition_variable mManifestUpdateWait;	/**< Conditional variable for signaling manifest update */
 	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
 	double lastInjectedDuration;             /**< Last injected fragment end position */
@@ -1698,6 +1721,27 @@ public:
 	 *   @return duration of currently buffered video in seconds
 	 */
 	double GetBufferedVideoDurationSec();
+	
+	/**
+	 * @fn StartUnderflowMonitor
+	 * @brief Start UnderflowMonitor Thread.
+	 * @return void
+	 */
+	void StartUnderflowMonitor();
+
+	/**
+	 * @fn StopUnderflowMonitor
+	 * @brief Stop UnderflowMonitor Thread.
+	 * @return void
+	 */
+	void StopUnderflowMonitor();
+
+	/**
+	 * @fn IsUnderflowMonitorRunning
+	 * @brief Check if UnderflowMonitor thread is currently running.
+	 * @return true if running, false otherwise
+	 */
+	bool IsUnderflowMonitorRunning() const;
 
 	/**
 	 *   @fn GetBufferedAudioDurationSec
@@ -1989,6 +2033,18 @@ public:
 	void ReinitializeInjection(double rate);
 
 protected:
+	/**
+	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.
+	 * Declared mutable to allow locking within const functions such as
+	 * IsUnderflowMonitorRunning().
+	 */
+	mutable std::mutex mUnderflowMonitorMutex;
+
+	/**
+	 * Underflow monitor instance owned by Stream; manages detection and
+	 * handling of underflow conditions.
+	 */
+	std::unique_ptr<class AampUnderflowMonitor> mUnderflowMonitor;
 	/**
 	 *   @brief Get stream information of a profile from subclass.
 	 *

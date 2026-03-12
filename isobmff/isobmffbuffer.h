@@ -183,19 +183,41 @@ public:
 	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
 
 	/**
-	 * @fn UpdateBufferData
-	 * @return true if parsed or false
+	 * @fn getTotalChunkDurationInTicks
+	 * @param[in] lastMDatIndex - index of mdat box w.r.t to the full mp4 box
+	 * @return total chunk duration in ticks, 0 if no chunk duration found
 	 */
-	double getTotalChunkDuration(int lastMDatIndex);
+	uint64_t getTotalChunkDurationInTicks(int lastMDatIndex);
 
 	/**
 	 * @fn setBuffer
 	 *
-	 * @param[in] buf - buffer pointer
-	 * @param[in] sz - buffer size
+	 * @param[in] buffer - buffer vector reference (non-const, may be modified)
 	 * @return void
 	 */
-	void setBuffer(uint8_t *buf, size_t sz);
+	void setBuffer(std::vector<uint8_t>& buffer);
+
+	/**
+	 * @fn setBuffer
+	 *
+	 * @param[in] buffer - buffer pointer
+	 * @param[in] bufferLen - buffer length
+	 * @return void
+	 */
+	void setBuffer(uint8_t* buffer, size_t bufferLen);
+
+	/**
+	 * @fn setBuffer
+	 *
+	 * @brief Read-only overload for callers that hold a const pointer (e.g. a
+	 *        const std::vector<uint8_t>). The buffer will only be read by
+	 *        parsing operations; mutating operations (e.g. restampPTS) must
+	 *        not be called after using this overload.
+	 * @param[in] buffer    - read-only buffer pointer
+	 * @param[in] bufferLen - buffer length in bytes
+	 * @return void
+	 */
+	void setBuffer(const uint8_t* buffer, size_t bufferLen);
 
 	/**
 	 * @fn parseBuffer
@@ -511,5 +533,21 @@ public:
 	 * @return bool if box found. false otherwise
 	 */
 	bool getMdatBoxInfo(size_t index, size_t &start, size_t &size);
+
+	/**
+	 * @fn getChunkedMdatBoxInfo
+	 *
+	 * @param[out] start - start offset of chunked mdat box
+	 * @param[out] size - size of chunked mdat box
+	 * @return true if chunked mdat box is present. false otherwise
+	 */
+	bool getChunkedMdatBoxInfo(size_t &start, size_t &size) const;
+
+	/**
+	 * @fn getLastMdatBoxIndex
+	 *
+	 * @return index of mdat box w.r.t to the full mp4 box, -1 if index is out of bound
+	 */
+	int getLastMdatBoxIndex() const;
 };
 #endif /* __ISOBMFFBUFFER_H__ */

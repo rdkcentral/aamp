@@ -51,6 +51,17 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
+# CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
+# option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
+# components should be sourced from external repositories or built from the local aamp repository.
+if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+	pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
+	pkg_check_modules(SUBTEC REQUIRED libsubtec)
+endif()	
+
 if(CMAKE_PREINIT_DECODER)
        message("CMAKE_PREINIT_DECODER Set")
        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
@@ -89,6 +100,12 @@ else()
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
+option(ENABLE_AAMP_NET_TRACE "Enable network activity tracing instrumentation" OFF)
+if(ENABLE_AAMP_NET_TRACE)
+	message("AAMP_NET_TRACE set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
+endif()
+
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
 if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -100,17 +117,37 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		execute_process (
 			COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
 		)
+		# Dynamically detect Homebrew installation prefix
+		execute_process (
+			COMMAND bash -c "brew --prefix" OUTPUT_VARIABLE HOMEBREW_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET
+		)
+		if(HOMEBREW_PREFIX)
+			message("Detected Homebrew prefix: ${HOMEBREW_PREFIX}")
+		endif()
 		set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
-		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
-		string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
+		# Add required system/local library paths; additional directories come from pkg-config
+		set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib")
+		# Add Homebrew lib directory if Homebrew is installed and valid
+		if(HOMEBREW_PREFIX AND EXISTS "${HOMEBREW_PREFIX}/lib")
+			set(OS_LD_FLAGS "${OS_LD_FLAGS} -L${HOMEBREW_PREFIX}/lib")
+		endif()
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk")
+		if(HOMEBREW_PREFIX AND EXISTS "${HOMEBREW_PREFIX}/include")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${HOMEBREW_PREFIX}/include")
+		endif()
+		string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
 		pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
-		set(AAMP_CLI_LD_FLAGS ${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES})
+		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
+		# Use pkg-config library directories for dependencies
 		link_directories(${OPENSSL_LIBRARY_DIRS})
-		pkg_check_modules(GLIB REQUIRED GLib-2.0)
+		link_directories(${GSTREAMER_LIBRARY_DIRS})
+		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
+		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
+		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
+		link_directories(${GLIB_LIBRARY_DIRS})
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
@@ -134,32 +171,37 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${CURL_INCLUDE_DIRS})
-include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
-include_directories(${LIBDASH_INCLUDE_DIRS})
-include_directories(${LIBXML2_INCLUDE_DIRS})
-include_directories(${OPENSSL_INCLUDE_DIRS})
-include_directories(${UUID_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
+# External library include directories
+include_directories(
+	${GSTREAMER_INCLUDE_DIRS}
+	${CURL_INCLUDE_DIRS}
+	${GSTREAMERBASE_INCLUDE_DIRS}
+	${LIBDASH_INCLUDE_DIRS}
+	${LIBXML2_INCLUDE_DIRS}
+	${OPENSSL_INCLUDE_DIRS}
+	${UUID_INCLUDE_DIRS}
+	${LIBCJSON_INCLUDE_DIRS}
+)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dash/xml)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dash/mpd)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dash/utils)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/downloader)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/isobmff)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings/PersistentWatermark)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtitle)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/mp4demux)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/abr)
-
-# Locally built/installed dependencies are here
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.libs/include)
+# Internal source directory includes
+include_directories(
+	${CMAKE_CURRENT_SOURCE_DIR}
+	${CMAKE_CURRENT_SOURCE_DIR}/dash/xml
+	${CMAKE_CURRENT_SOURCE_DIR}/dash/mpd
+	${CMAKE_CURRENT_SOURCE_DIR}/dash/utils
+	${CMAKE_CURRENT_SOURCE_DIR}/downloader
+	${CMAKE_CURRENT_SOURCE_DIR}/drm
+	${CMAKE_CURRENT_SOURCE_DIR}/isobmff
+	${CMAKE_CURRENT_SOURCE_DIR}/jsbindings
+	${CMAKE_CURRENT_SOURCE_DIR}/jsbindings/PersistentWatermark
+	${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser
+	${CMAKE_CURRENT_SOURCE_DIR}/subtitle
+	${CMAKE_CURRENT_SOURCE_DIR}/tsb/api
+	${CMAKE_CURRENT_SOURCE_DIR}/abr
+	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
+	# Locally built/installed dependencies
+	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include
+)
 
 set(LIBAAMP_DEPENDS
 	${OS_LD_FLAGS}
@@ -177,20 +219,42 @@ set(LIBAAMP_DEPENDS
 	-ldl
 )
 
-# TDB needs to bring back for UT.
-#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
+if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 
-# Adding subdirectories for internal libraries
+	list(APPEND LIBAAMP_DEPENDS 
+	${PLAYERFBINTERFACE_LINK_LIBRARIES} 
+	${BASECONVERSION_LINK_LIBRARIES} 
+	${PLAYERLOGMANAGER_LINK_LIBRARIES} 
+	${PLAYERGSTINTERFACE_LINK_LIBRARIES} 
+	${SUBTEC_LINK_LIBRARIES} )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
+	# TDB needs to bring back for UT. 
+	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-add_subdirectory(middleware)
+	# External player interface include directories
+	include_directories(
+		${PLAYERFBINTERFACE_INCLUDE_DIRS}
+		${BASECONVERSION_INCLUDE_DIRS}
+		${PLAYERLOGMANAGER_INCLUDE_DIRS}
+		${PLAYERGSTINTERFACE_INCLUDE_DIRS}
+		${SUBTEC_INCLUDE_DIRS}
+	)
+else()
+	# TDB needs to bring back for UT. 
+	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
+	# Adding subdirectories for internal libraries
+	include_directories(
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager
+		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes
+	)
+	add_subdirectory(middleware)
+endif()
+
 add_subdirectory(test/rialtoPOC)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
@@ -366,6 +430,7 @@ set(LIBAAMP_SOURCES
 	fragmentcollector_hls.cpp fragmentcollector_hls.h
 	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
 	admanager_mpd.cpp admanager_mpd.h
+	AampUnderflowMonitor.cpp AampUnderflowMonitor.h
 	streamabstraction.cpp
 	priv_aamp.cpp priv_aamp.h
 	main_aamp.cpp main_aamp.h
@@ -377,6 +442,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
 	isobmff/isobmffbox.cpp isobmff/isobmffbox.h
@@ -389,7 +455,9 @@ set(LIBAAMP_SOURCES
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
-	abr/abr.cpp abr/abr.h abr/NetworkBandwidthEstimator.cpp abr/NetworkBandwidthEstimator.h
+	abr/abr.cpp abr/abr.h
+	abr/RollingMedianOutlierEstimator.cpp abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.cpp abr/HarmonicEwmaEstimator.h
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
@@ -427,6 +495,7 @@ set(LIBAAMP_SOURCES
 	mp4demux/AampMp4Demuxer.cpp mp4demux/AampMp4Demuxer.h
 	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
+	net_trace.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -473,10 +542,17 @@ if(CMAKE_ENABLE_PTS_RESTAMP)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_PTS_RESTAMP")
 endif()
 
+# Common compile flags for all targets
+set(COMMON_COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
+
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
-target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
-set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
+if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+else()
+	target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+endif()
+set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 install(TARGETS aamp
@@ -497,10 +573,15 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
+if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	# Note: Most libraries are already included via the aamp library dependency
+	target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
+else()
+	target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
+endif()
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 
-set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
+set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 install(TARGETS aamp-cli
 		DESTINATION bin
 )
@@ -517,7 +598,7 @@ if ((CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin) AND CMAKE_BUILD
 			DESTINATION lib
 	)
 	target_link_libraries(aampKotlin aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
-	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
+	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 	xcode_define_schema(aampKotlin)
 endif()
 
@@ -526,7 +607,7 @@ set(GSTTESTHARNESS_DEPENDS
 	${CMAKE_THREAD_LIBS_INIT}
 	${GSTREAMER_LINK_LIBRARIES}
 	${GSTREAMERBASE_LINK_LIBRARIES}
-	${LIBDASH_LIBRARIES}
+	${LIBDASH_LINK_LIBRARIES}
 	${CURL_LINK_LIBRARIES}
 )
 set(GSTTESTHARNESS_SOURCES
@@ -586,6 +667,9 @@ install(FILES
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	AampDemuxDataTypes.h
 	abr/abr.h
+	abr/RollingMedianOutlierEstimator.h
+	abr/HarmonicEwmaEstimator.h
+	abr/BandwidthEstimatorBase.h
 	DESTINATION include
 )
 

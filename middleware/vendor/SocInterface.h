@@ -62,6 +62,7 @@ enum SocPlatformType
 	SOC_PLATFORM_AMLOGIC,     /**< Amlogic */
 	SOC_PLATFORM_REALTEK,     /**< Realtek */
 	SOC_PLATFORM_BROADCOM,    /**< Broadcom */
+	SOC_PLATFORM_MEDIATEK,	 /**< MediaTek */
 };
 
 /**
@@ -277,7 +278,7 @@ public:
 	 * @param src Source element.
 	 * @param trackId Track ID.
 	 */
-	virtual void SetAC4Tracks(GstElement *src, int trackId) = 0;
+	virtual void SetAC4Tracks(GstElement *src, int trackId);
 	
 	/**
 	 * @brief Set platform playback rate.

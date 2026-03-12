@@ -83,7 +83,7 @@ public:
 	}
 
 	/**
-	 * @fn SetAlternateContents 
+	 * @fn SetAlternateContents
 	 *
 	 * @param[in] periodId - Adbreak's unique identifier; the first period id
 	 * @param[in] adId - Individual Ad's id
@@ -92,6 +92,19 @@ public:
 	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
 	virtual void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url, uint64_t startMS=0, uint32_t breakdur=0) override;
+
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	virtual void NotifyReservationComplete(const std::string& reservationId) override;
+
+	/**
+	 * @brief Request cancellation for the adbreak currently in progress
+	 * @param[in] playingReservationId The reservation identifier of the adbreak currently being placed/played
+	 * @param[in] cancelAtReservationId The reservation identifier at which cancellation should occur; applied to the AdBreak (not individual ads)
+	 */
+	virtual void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) override;
 };
 
 
@@ -192,12 +205,13 @@ struct AdBreakObject{
 	bool                                 invalid;         /**< flag marks if the adbreak is invalid or not */
 	bool                                 resolved;       /**< flag marks if the adbreak is resolved or not */
 	AampTime                             mAbsoluteAdBreakStartTime; /**< Period start time */
+	std::string                          cancelAtPeriodId; /**< Period at which this adbreak should be cancelled (applies to the whole break) */
 	/**
 	* @brief AdBreakObject default constructor
 	*/
 	AdBreakObject()
 		: brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false),
-		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0)
+		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
 	{
 	}
 
@@ -213,7 +227,7 @@ struct AdBreakObject{
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 		uint64_t _endPeriodOffset, uint32_t _adsDuration)
 		: brkDuration(_duration), ads(std::move(_ads)), endPeriodId(std::move(_endPeriodId)), endPeriodOffset(_endPeriodOffset),
-		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0)
+		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
 	{
 	}
 };
@@ -367,7 +381,7 @@ public:
 	bool                                           mExitFulfillAdLoop;    /**< Flag to exit the Ad fulfillment loop */
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
-
+	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -401,6 +415,18 @@ public:
 	 */
 	void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur=0);
 
+	/**
+	 * @brief Mark reservation as complete for a given reservationId
+	 * @param[in] reservationId The reservation identifier
+	 */
+	void NotifyReservationComplete(const std::string& reservationId);
+
+	/**
+	 * @brief Cancel ad reservation
+	 * @param[in] playingReservationId The reservation identifier which is currently playing
+	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+	 */
+	void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId);
 	/**
 	 * @fn FulFillAdObject
 	 *

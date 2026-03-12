@@ -508,7 +508,7 @@ void AampMPDDownloader::downloadMPDThread1()
 		}
 
 		//Timeout case during live refresh
-		if(!firstDownload && (CURLE_OPERATION_TIMEDOUT == mMPDData->mMPDDownloadResponse->iHttpRetValue  || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
 			AAMPLOG_WARN("Refresh every 500ms to handle a manifest timeout error.");
 			//Forcefully go with 500 ms refresh
@@ -863,7 +863,7 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 				IPeriod *period = mpd->GetPeriods().at(iPeriod);
 				if(NULL != period )
 				{
-					const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+					const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
 					if (adaptationSets.size() > 0)
 					{
 						const IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
@@ -872,7 +872,7 @@ bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest
 							const ISegmentTemplate *pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
 							if(pSegmentTemplate == NULL)
 							{
-								const std::vector<IRepresentation *> representations = pFirstAdaptation->GetRepresentation();
+								const std::vector<IRepresentation *>& representations = pFirstAdaptation->GetRepresentation();
 								if( representations.size()>0 )
 								{
 									const IRepresentation *representation = representations.at(0);
