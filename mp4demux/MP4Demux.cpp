@@ -524,11 +524,12 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			{
 				// Sub-sample encryption info present
 				uint16_t numSubSamples = ReadU16();
-				size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
-				if (ptr + subSamplesSize > endPtr)
+				size_t remaining = static_cast<size_t>(endPtr - ptr);
+				if (numSubSamples > remaining / MP4_SUBSAMPLE_ENTRY_SIZE)
 				{
 					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: subsample data OOB");
 				}
+				size_t subSamplesSize = static_cast<size_t>(numSubSamples) * MP4_SUBSAMPLE_ENTRY_SIZE;
 				samples[i].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subSamplesSize);
 				samples[i].mDrmMetadata.mNumSubSamples = numSubSamples;
 				ptr += subSamplesSize;
