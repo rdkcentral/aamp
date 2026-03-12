@@ -668,7 +668,7 @@ void Mp4Demux::ParseSampleEncryption()
 		{ // sub sample encryption
 			uint16_t numSubSamples = ReadU16();
 			size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
-			if (ptr + subSamplesSize > endPtr)
+			if (subSamplesSize > static_cast<size_t>(endPtr - ptr))
 			{
 				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: subsample data OOB");
 			}
