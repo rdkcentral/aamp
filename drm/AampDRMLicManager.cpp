@@ -188,6 +188,20 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
+	
+#if defined(USE_SECCLIENT)
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECCLIENT enabled");
+#else
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECCLIENT disabled");
+#endif
+
+#if defined(USE_SECMANAGER)
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECMANAGER enabled");
+#else
+	MW_LOG_WARN("ContentSecurityManager::GetInstance USE_SECMANAGER disabled");
+#endif
+	
+	
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
 	DrmMetaDataEventPtr& eventHandle = *eventHandlePtr;
 
@@ -594,9 +608,12 @@ const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_cod
 	if(accessToken == NULL)
 	{
 		std::string token;
+		
 		if (ContentSecurityManager::GetInstance()->getSessionToken(token))
 		{
+			AAMPLOG_WARN("ContentSecurityManager::GetInstance() is good");
 			size_t len = token.length();
+			AAMPLOG_WARN("ontentSecurityManager::GetItoken.length() is %zu",len);
 			if(len > 0)
 			{
 				accessToken = (char*)malloc(len+1);

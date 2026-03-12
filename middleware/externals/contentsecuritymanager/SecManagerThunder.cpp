@@ -39,6 +39,7 @@
 SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
 	mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex()
 {
+	MW_LOG_WARN("construct  SecManagerThunder::SecManagerThunder()");
 	std::lock_guard<std::mutex> lock(mSecMutex);
 	mSecManagerObj.ActivatePlugin();	
 	{
@@ -52,6 +53,7 @@ SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), m
 	/*Start Scheduler for handling RDKShell API invocation*/    
 	if(false == mSchedulerStarted)
 	{
+		MW_LOG_WARN("starting scheduler");
 		StartScheduler(); // pass dummy required playerId parameter; note that we don't yet have a valid player instance to derive it from
 		mSchedulerStarted = true;
 	}
@@ -63,6 +65,7 @@ SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), m
 	 * InstanceMutex use in GetInstance() makes this thread safe
 	 * (currently mSecMutex is also locked but ideally the scope of this would be reduced)*/
 	static bool firstInstance = true;
+	MW_LOG_WARN("SecManagerThunder::SecManagerThunder() %d",firstInstance);
 	if(firstInstance)
 	{
 		firstInstance=false;
@@ -102,6 +105,7 @@ SecManagerThunder::~SecManagerThunder()
 		mSchedulerStarted = false;
 	}
 	UnRegisterAllEvents();
+	MW_LOG_WARN("destroyed SecManagerThunder::~SecManagerThunder");
 }
 
 /**
@@ -115,9 +119,11 @@ bool SecManagerThunder::getSessionToken(std::string &token)
 
 	if (authService.InvokeJSONRPC("getSessionToken", param, response, 10000))
 	{
+		MW_LOG_WARN("invoked InvokeJSONRPC");
 		token = response["token"].String();
 		return true;
 	}
+	MW_LOG_WARN("not invoked InvokeJSONRPC");
 	return false;
 }
 

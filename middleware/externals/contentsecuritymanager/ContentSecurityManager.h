@@ -216,7 +216,7 @@ protected:
 	/**
 	 * @fn ~ContentSecurityManager
 	 */
-	~ContentSecurityManager(){};
+	virtual ~ContentSecurityManager();
 	/**     
      	 * @brief Copy constructor disabled
     	 *
@@ -239,12 +239,12 @@ public:
 	/**
 	 * @fn FakeSecManager
 	 */
-	FakeSecManager() = default;
+	FakeSecManager();
 
 	/**
 	 * @brief Destructor
 	 */
-	~FakeSecManager() = default;
+	~FakeSecManager();
 
 	FakeSecManager(const FakeSecManager&) = delete;
 	FakeSecManager& operator=(const FakeSecManager&) = delete;
