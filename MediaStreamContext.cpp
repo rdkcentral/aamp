@@ -90,7 +90,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	auto CheckEos = [this, &tsbSessionManager, &actualType]() {
 		return IsLocalTSBInjection() &&
 			AAMP_NORMAL_PLAY_RATE == aamp->rate &&
-			!aamp->pipeline_paused &&
+			// No EOS detection if the user paused the playback, but it can be if the playback was paused due to underflow
+			!(aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus()) &&
 			eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
 			tsbSessionManager &&
 			tsbSessionManager->GetTsbReader((AampMediaType)type) &&
