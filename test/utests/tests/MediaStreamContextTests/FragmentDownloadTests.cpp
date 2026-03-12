@@ -29,6 +29,9 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampTimeBasedBufferManager.h"
+#include "MockTSBSessionManager.h"
+#include "MockTSBReader.h"
+#include "MockStreamAbstractionAAMP_MPD.h"
 #include "fragmentcollector_mpd.h"
 #include "StreamAbstractionAAMP.h"
 
@@ -61,10 +64,25 @@ protected:
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 		g_mockAampTimeBasedBufferManager = new StrictMock<aamp::MockAampTimeBasedBufferManager>();
+		mTsbSessionMgr = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
+		mMockTSBSessionMgr = std::make_unique<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
+		g_mockTSBSessionManager = mMockTSBSessionMgr.get();
+		mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
+		g_mockTSBReader = std::make_shared<MockTSBReader>();
+		mMockStreamAbstractionAAMP_MPD = std::make_unique<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
+		g_mockStreamAbstractionAAMP_MPD = mMockStreamAbstractionAAMP_MPD.get();
 	}
 
 	void TearDown() override
 	{
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		mMockStreamAbstractionAAMP_MPD.reset();
+		g_mockTSBReader.reset();
+		mTsbReader.reset();
+		g_mockTSBSessionManager = nullptr;
+		mMockTSBSessionMgr.reset();
+		mTsbSessionMgr.reset();
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
@@ -94,6 +112,10 @@ public:
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	MediaStreamContext *mMediaStreamContext;
+	std::unique_ptr<AampTSBSessionManager> mTsbSessionMgr;
+	std::unique_ptr<NiceMock<MockTSBSessionManager>> mMockTSBSessionMgr;
+	std::shared_ptr<AampTsbReader> mTsbReader;
+	std::unique_ptr<NiceMock<MockStreamAbstractionAAMP_MPD>> mMockStreamAbstractionAAMP_MPD;
 };
 
 
@@ -602,4 +624,132 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 	{
 		EXPECT_TRUE(mMediaStreamContext->DownloadFragment(dlInfo));
 	}
+}
+
+/**
+ * @brief Minimal IPeriod stub for tests that call EnqueueWrite
+ *        (which dereferences context->GetPeriod()->GetId()).
+ */
+namespace
+{
+class DummyPeriod : public IPeriod
+{
+public:
+	DummyPeriod() = default;
+	virtual ~DummyPeriod() = default;
+
+	const std::string& GetId() const override { return mId; }
+	const std::vector<IAdaptationSet*>& GetAdaptationSets() const override { static std::vector<IAdaptationSet*> v; return v; }
+	const std::string& GetStart() const override { return mStart; }
+	const std::string& GetDuration() const override { return mDuration; }
+	bool GetBitstreamSwitching() const override { return false; }
+	const std::vector<IBaseUrl*>& GetBaseURLs() const override { static std::vector<IBaseUrl*> v; return v; }
+	ISegmentBase* GetSegmentBase() const override { return nullptr; }
+	ISegmentList* GetSegmentList() const override { return nullptr; }
+	ISegmentTemplate* GetSegmentTemplate() const override { return nullptr; }
+	const std::vector<ISubset*>& GetSubsets() const override { static std::vector<ISubset*> v; return v; }
+	const std::vector<IEventStream*>& GetEventStreams() const override { static std::vector<IEventStream*> v; return v; }
+	const std::string& GetXlinkHref() const override { static std::string s; return s; }
+	const std::vector<dash::xml::INode*> GetAdditionalSubNodes() const override { return {}; }
+	const std::string& GetXlinkActuate() const override { static std::string s; return s; }
+	const std::map<std::string, std::string, std::less<std::string>,
+		std::allocator<std::pair<const std::string, std::string>>>
+		GetRawAttributes() const override
+	{
+		return {};
+	}
+
+private:
+	std::string mId{"dummyPeriodId"};
+	std::string mStart{"0.0"};
+	std::string mDuration{"0.0"};
+};
+} // anonymous namespace
+
+/**
+ * @brief Verify that when CheckEos() returns true with the pipeline paused
+ *        due to underflow (mSinkPaused=true, GetBufUnderFlowStatus()=true),
+ *        SetLocalTSBInjection(false) and UpdateLocalAAMPTsbInjection() are
+ *        called.
+ */
+TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnderflow)
+{
+	DummyPeriod dummyPeriod;
+
+	// --- Prepare scenario conditions ---
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->mSinkPaused.store(true);
+	mPrivateInstanceAAMP->SetBufUnderFlowStatus(true);
+	mStreamAbstractionAAMP_MPD->mTuneType = eTUNETYPE_SEEKTOLIVE;
+
+	// Populate fragment data so the tsbSessionManager block is entered.
+	auto cachedFragment = std::make_shared<CachedFragment>();
+	const char *testData = "test_fragment_data";
+	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(testData),
+		reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
+
+	// A second CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
+	auto chunkBuffer = std::make_shared<CachedFragment>();
+
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->pts = 100.0;
+	dlInfo->fragmentDurationSec = 2.0;
+	dlInfo->isDiscontinuity = false;
+	dlInfo->isInitSegment = false;
+	dlInfo->absolutePosition = 500.0;
+	dlInfo->mediaType = eMEDIATYPE_VIDEO;
+
+	// --- Mock expectations ---
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+
+	// GetFetchBuffer returns our cachedFragment with data.
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
+		.WillOnce(Return(cachedFragment.get()));
+
+	// TSB session manager is non-null to trigger the CheckEos path.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillOnce(Return(mTsbSessionMgr.get()));
+
+	// IsLocalTSBInjection: true in CheckEos, false after SetLocalTSBInjection(false).
+	{
+		InSequence seq;
+		EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection())
+			.WillOnce(Return(true));   // CheckEos
+		EXPECT_CALL(*g_mockMediaTrack, SetLocalTSBInjection(false))
+			.Times(1);
+		EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection())
+			.WillRepeatedly(Return(false));   // Subsequent checks
+	}
+
+	// TSB reader returns EOS so CheckEos returns true.
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO))
+		.WillRepeatedly(Return(mTsbReader));
+	EXPECT_CALL(*g_mockTSBReader, IsEos())
+		.WillRepeatedly(Return(true));
+
+	// EnqueueWrite calls context->GetPeriod()->GetId().
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetPeriod())
+		.WillOnce(Return(&dummyPeriod));
+
+	// LLDash chunk mode off: CacheTsbFragment skipped inside CheckEos,
+	// but called in the SLD re-cache path after the TSB injection check.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
+		.WillRepeatedly(Return(false));
+
+	// ** KEY EXPECTATION ** — the behaviour under test.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection())
+		.Times(1);
+
+	// Else block: UpdateTSAfterFetch, SLD re-cache via CacheTsbFragment.
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(false));
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+		.WillOnce(Return(chunkBuffer.get()));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
+	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks())
+		.WillOnce(Return(false));
+
+	// --- Execute ---
+	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
 }
