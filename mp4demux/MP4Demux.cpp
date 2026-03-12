@@ -505,7 +505,7 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			// Skip IV data if present (comes before subsample data in auxiliary info)
 			if (ivSize)
 			{
-				if (ptr + ivSize > endPtr)
+				if (ivSize > static_cast<size_t>(endPtr - ptr))
 				{
 					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: IV data exceeds buffer");
 				}
@@ -653,7 +653,7 @@ void Mp4Demux::ParseSampleEncryption()
 		}
 		if (ivSize)
 		{
-			if (ptr + ivSize > endPtr)
+			if (ivSize > static_cast<size_t>(endPtr - ptr))
 			{
 				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: IV data exceeds buffer");
 			}
