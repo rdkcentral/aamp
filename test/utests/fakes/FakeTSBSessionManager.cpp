@@ -253,4 +253,8 @@ void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 
 void AampTSBSessionManager::NotifyVideoTsbWaiters()
 {
+	if (g_mockTSBSessionManager)
+	{
+		g_mockTSBSessionManager->NotifyVideoTsbWaiters();
+	}
 }
