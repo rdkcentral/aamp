@@ -246,11 +246,3 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 {
 	return nullptr;
 }
-
-void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
-{
-}
-
-void AampTSBSessionManager::NotifyVideoTsbWaiters()
-{
-}

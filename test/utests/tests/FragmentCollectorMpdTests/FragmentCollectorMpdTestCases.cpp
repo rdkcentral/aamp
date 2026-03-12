@@ -41,9 +41,9 @@ public:
 		: StreamAbstractionAAMP_MPD(aamp, seekTime, rate) {}
 	
 	// Expose protected method for testing
-	bool TestAdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
+	void TestAdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
 	{
-		return AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
+		AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 	}
 	
 	// Helper method to set mMediaStreamContext for testing
@@ -127,9 +127,7 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest)
 	EXPECT_CALL(*g_mockTSBSessionManager, PushNextTsbFragment(mediaStreamContext, _)).WillOnce(Return(true));
 
 	// Call the protected method through testable wrapper
-	bool result = mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
-
-	EXPECT_TRUE(result);
+	mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 }
 
 /**
@@ -163,7 +161,5 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest_DisabledTrack_NoPushF
 	EXPECT_CALL(*g_mockTSBSessionManager, PushNextTsbFragment(mediaStreamContext, _)).Times(0);
 
 	// Call the protected method through testable wrapper
-	bool result = mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
-
-	EXPECT_FALSE(result);
+	mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 }
