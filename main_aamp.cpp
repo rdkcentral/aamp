@@ -892,7 +892,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
-						retValue = false;
+						retValue = false; // Skip common notification to prevent premature state change
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
@@ -901,6 +901,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
+						// Notify speed change without state transition (keeps eSTATE_SEEKING)
+						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
+						aamp->NotifySpeedChanged(aamp->rate, false);
 					}
 					else
 					{
