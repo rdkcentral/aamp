@@ -30,7 +30,7 @@ class AampStreamSinkInactive : public StreamSink
 {
 
 public:
-	AampStreamSinkInactive(id3_callback_t id3HandlerCallback) : mId3HandlerCallback(std::move(id3HandlerCallback))
+	AampStreamSinkInactive(id3_callback_t id3HandlerCallback) : mId3HandlerCallback(std::move(id3HandlerCallback)), mTuned(false)
 	{
 	}
 
@@ -376,6 +376,6 @@ public:
 
 private:
 	id3_callback_t mId3HandlerCallback;		/**< Returns the id3 callback handle associated with this instance */
-	bool mTuned = false;					/**< Indicates if this instance has been tuned */
+	bool mTuned;							/**< Indicates if this instance has been tuned */
 };
 #endif /* AAMPSTREAMSINKINACTIVE_H */
