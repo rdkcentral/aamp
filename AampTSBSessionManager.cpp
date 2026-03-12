@@ -63,7 +63,6 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mCurrentWritePosition(0)
 		, mLastAdReservationMetaDataProcessed()
 		, mLastAdPlacementMetaDataProcessed()
-		, mStopWaitingForVideoTsb(false)
 {
 }
 
@@ -107,8 +106,6 @@ void AampTSBSessionManager::Init()
 			// Initialize TSB readers
 			InitializeTsbReaders();
 			mStopThread_.store(false);
-			// Clear flag, mReadMutex does not need to be locked because the threads that access this variable are not running yet.
-			mStopWaitingForVideoTsb = false;
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);
 			mInitialized_ = true;
@@ -377,20 +374,6 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::NotifyVideoTsbWaiters()
-{
-	std::unique_lock<std::mutex> lock(mReadMutex);
-	mStopWaitingForVideoTsb = true;
-	mNewVideoTsbContentCV.notify_one();
-}
-
-void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
-{
-	std::unique_lock<std::mutex> lock(mReadMutex);
-	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
-	mStopWaitingForVideoTsb = false;
-}
-
 /**
  * @brief Monitors the write queue and writes any pending data to AAMP TSB
  */
@@ -467,14 +450,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 							}
 						}
 					}
-
 					UnlockReadMutex();
-
-					if (mediatype == eMEDIATYPE_VIDEO)
-					{
-						NotifyVideoTsbWaiters();
-					}
-
 				}
 				else if (status == TSB::Status::ALREADY_EXISTS)
 				{
