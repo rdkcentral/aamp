@@ -157,7 +157,8 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	{
 		AAMPLOG_MIL("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
 					 name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
-		if (bufferedTime <= 0)
+		auto underflowThresholdInSec = GETCONFIGVALUE(eAAMPConfig_UnderflowDetectThresholdSec);
+		if (bufferedTime <= underflowThresholdInSec)
 		{
 			bStatus = BUFFER_STATUS_RED;
 		}

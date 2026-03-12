@@ -152,7 +152,7 @@
 #define DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS 1000	/**< Polling interval when buffer is medium in milliseconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS 2000		/**< Polling interval when buffer is high in milliseconds */
 
-#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.0		/**< Threshold to detect underflow in seconds */
+#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.25		/**< Threshold to detect underflow in seconds */
 #define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
 #define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
