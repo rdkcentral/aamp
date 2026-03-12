@@ -685,41 +685,41 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 // H) No-init-segment: SAIO/SAIZ auxiliary info, no init segment fed.
 TEST(Mp4Demux_NoInitSegment, SaioSaizFragment_WithoutInitSegment_NoCrash)
 {
-    std::vector<uint8_t> buf;
-    size_t dataOffsetFieldPos = 0;
-    size_t saioOffsetFieldPos = 0;
- 
-    {
-        Box moof(buf, "moof");
-        { Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); mfhd.close(); }
-        {
-            Box traf(buf, "traf");
-            { Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf,0,0x000018);
-              write32be(buf,1); write32be(buf,3000); write32be(buf,32); tfhd.close(); }
-            { Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf,0,0); write32be(buf,0); tfdt.close(); }
-            { Box trun(buf, "trun"); writeFullBoxHeader(buf,0,0x0001);
-              write32be(buf,2);
-              dataOffsetFieldPos = buf.size();
-              write32be(buf,0); // data_offset placeholder
-              trun.close(); }
-            // saiz: flags=0 (no aux_info_type), default_info_size=16, sample_count=2
-            // Each aux entry = 8-byte IV + u16 count + 6-byte subsample = 16 bytes total
-            { Box saiz(buf, "saiz"); writeFullBoxHeader(buf,0,0);
-              buf.push_back(16);    // default_info_size = 16
-              write32be(buf,2);     // sample_count = 2
-              saiz.close(); }
-            // saio: flags=0, version=0, entry_count=1, offset placeholder
-            { Box saio(buf, "saio"); writeFullBoxHeader(buf,0,0);
-              write32be(buf,1);                      // entry_count = 1
-              saioOffsetFieldPos = buf.size();
-              write32be(buf,0);                      // offset placeholder
-              saio.close(); }
-            traf.close();
-        }
-        moof.close();
-    }
- 
-    size_t moofSize = buf.size();
+	std::vector<uint8_t> buf;
+	size_t dataOffsetFieldPos = 0;
+	size_t saioOffsetFieldPos = 0;
+
+	{
+		Box moof(buf, "moof");
+		{ Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); mfhd.close(); }
+		{
+			Box traf(buf, "traf");
+			{ Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf,0,0x000018);
+			  write32be(buf,1); write32be(buf,3000); write32be(buf,32); tfhd.close(); }
+			{ Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf,0,0); write32be(buf,0); tfdt.close(); }
+			{ Box trun(buf, "trun"); writeFullBoxHeader(buf,0,0x0001);
+			  write32be(buf,2);
+			  dataOffsetFieldPos = buf.size();
+			  write32be(buf,0); // data_offset placeholder
+			  trun.close(); }
+			// saiz: flags=0 (no aux_info_type), default_info_size=16, sample_count=2
+			// Each aux entry = 8-byte IV + u16 count + 6-byte subsample = 16 bytes total
+			{ Box saiz(buf, "saiz"); writeFullBoxHeader(buf,0,0);
+			  buf.push_back(16);    // default_info_size = 16
+			  write32be(buf,2);     // sample_count = 2
+			  saiz.close(); }
+			// saio: flags=0, version=0, entry_count=1, offset placeholder
+			{ Box saio(buf, "saio"); writeFullBoxHeader(buf,0,0);
+			  write32be(buf,1);                      // entry_count = 1
+			  saioOffsetFieldPos = buf.size();
+			  write32be(buf,0);                      // offset placeholder
+			  saio.close(); }
+			traf.close();
+		}
+		moof.close();
+	}
+
+	size_t moofSize = buf.size();
  
     // Aux info size: 2 samples × (8-byte IV + u16 numSubs + 6-byte entry) = 32 bytes
     const size_t auxInfoSize = 32;
@@ -763,52 +763,52 @@ TEST(Mp4Demux_NoInitSegment, SaioSaizFragment_WithoutInitSegment_NoCrash)
 // I) SENC box with corrupted (huge) subsample_count
 TEST(Mp4Demux_Gaps, SencHugeSubsampleCount)
 {
-    std::vector<uint8_t> buf;
-    size_t dataOffsetFieldPos = 0;
- 
-    {
-        Box moof(buf, "moof");
-        { Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf, 0, 0); write32be(buf, 1); mfhd.close(); }
-        {
-            Box traf(buf, "traf");
-            {
-                // tfhd: default-sample-duration-present (0x8) | default-sample-size-present (0x10)
-                Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf, 0, 0x000018);
-                write32be(buf, 1);     // track_ID
-                write32be(buf, 3000); // default_sample_duration
-                write32be(buf, 64);   // default_sample_size
-                tfhd.close();
-            }
-            {
-                Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf, 0, 0);
-                write32be(buf, 0);    // baseMediaDecodeTime = 0
-                tfdt.close();
-            }
-            {
-                // trun: data-offset-present only
-                Box trun(buf, "trun"); writeFullBoxHeader(buf, 0, 0x0001);
-                write32be(buf, 1);              // sample_count = 1
-                dataOffsetFieldPos = buf.size();
-                write32be(buf, 0);              // data_offset placeholder
-                trun.close();
-            }
-            {
-                // SENC: version=0, flags=0x000002 (use_subsamples), sample_count=1
-                // Sample 0: 8-byte IV followed by subsample_count=0xFFFF (corrupted).
-                // Attempting to read 0xFFFF*6 = 393,210 bytes must be caught by
-                // the bounds guard before any out-of-range memory access occurs.
-                Box senc(buf, "senc"); writeFullBoxHeader(buf, 0, 0x000002);
-                write32be(buf, 1); // sample_count = 1
-                // 8-byte IV
-                buf.insert(buf.end(), {0xDE,0xAD,0xBE,0xEF,0xCA,0xFE,0xBA,0xBE});
-                // subsample_count = 0xFFFF → requires 393,210 bytes → will overrun
-                write16be(buf, 0xFFFF);
-                senc.close();
-            }
-            traf.close();
-        }
-        moof.close();
-    }
+	std::vector<uint8_t> buf;
+	size_t dataOffsetFieldPos = 0;
+
+	{
+		Box moof(buf, "moof");
+		{ Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf, 0, 0); write32be(buf, 1); mfhd.close(); }
+		{
+			Box traf(buf, "traf");
+			{
+				// tfhd: default-sample-duration-present (0x8) | default-sample-size-present (0x10)
+				Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf, 0, 0x000018);
+				write32be(buf, 1);     // track_ID
+				write32be(buf, 3000); // default_sample_duration
+				write32be(buf, 64);   // default_sample_size
+				tfhd.close();
+			}
+			{
+				Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf, 0, 0);
+				write32be(buf, 0);    // baseMediaDecodeTime = 0
+				tfdt.close();
+			}
+			{
+				// trun: data-offset-present only
+				Box trun(buf, "trun"); writeFullBoxHeader(buf, 0, 0x0001);
+				write32be(buf, 1);              // sample_count = 1
+				dataOffsetFieldPos = buf.size();
+				write32be(buf, 0);              // data_offset placeholder
+				trun.close();
+			}
+			{
+				// SENC: version=0, flags=0x000002 (use_subsamples), sample_count=1
+				// Sample 0: 8-byte IV followed by subsample_count=0xFFFF (corrupted).
+				// Attempting to read 0xFFFF*6 = 393,210 bytes must be caught by
+				// the bounds guard before any out-of-range memory access occurs.
+				Box senc(buf, "senc"); writeFullBoxHeader(buf, 0, 0x000002);
+				write32be(buf, 1); // sample_count = 1
+				// 8-byte IV
+				buf.insert(buf.end(), {0xDE,0xAD,0xBE,0xEF,0xCA,0xFE,0xBA,0xBE});
+				// subsample_count = 0xFFFF → requires 393,210 bytes → will overrun
+				write16be(buf, 0xFFFF);
+				senc.close();
+			}
+			traf.close();
+		}
+		moof.close();
+	}
  
     size_t moofSize = buf.size();
  
