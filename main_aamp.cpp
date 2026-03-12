@@ -46,14 +46,20 @@ AampConfig *gpGlobalConfig=NULL;
 #include "ContentSecurityManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+std::mutex fakeTuneMutex;
 
 #ifdef USE_PREINIT_DECODING
+std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = nullptr;
+static void PlayingStateCallb();
 void doFakeTune()
 {
+	AAMPLOG_WARN("doFakeTune : Entered and fakeTuneMutex locked");
+	std::lock_guard<std::mutex> lock(fakeTuneMutex); // Lock here, inside the function
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
 	{
 			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
-			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			RegisterHandlePlayingStateCb(PlayingStateCallb);
 			std::string jsonStr = R"({
 		    		"preferredDrm": 1,
 		    		"licenseServerUrl": "https://dummy.com"
@@ -75,13 +81,18 @@ void doFakeTune()
 			std::thread([fakeTuneInstance]() {
 					AAMPLOG_WARN("Sleeping before calling stop");
 					std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
-					fakeTuneInstance->Stop();
+					//fakeTuneInstance->Stop();
 					AAMPLOG_WARN("Fake tune instance stopped..");
 					}).detach();
 	}
 }
+static void PlayingStateCallb()
+{
+	std::cout<<"Stop callback received and mutex locked";
+	if(fakeTuneInstance)
+		fakeTuneInstance->Stop();
+}
 #endif
-
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */

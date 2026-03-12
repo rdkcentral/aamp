@@ -424,7 +424,6 @@ public:
 	using HandleRedButtonCallback = std::function<void(const char *data)>;
 	using HandleNeedDataCb = std::function<void(int mediaType)>;
 	using HandleEnoughDataCb = std::function<void(int mediaType)>;
-
 	/*
 	 *@brief Registers need data callback from application
 	 */
@@ -1108,5 +1107,11 @@ struct data
 	double ElapsedSeconds;
 	bool GstWaitingForData;
 };
+
+#ifdef USE_PREINIT_DECODING
+using HandlePlayingStateCb = std::function<void()>;
+extern HandlePlayingStateCb PlayingStateCb;
+void RegisterHandlePlayingStateCb(const HandlePlayingStateCb &callback);
+#endif
 
 #endif // INTERFACE_PLAYER_H

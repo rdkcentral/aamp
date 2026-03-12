@@ -54,6 +54,9 @@
 #define GST_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */
 #define BUFFERING_TIMEOUT_PRIORITY -70                           /**< 0 is DEFAULT priority whereas -100 is the HIGH_PRIORITY */
 
+#ifdef USE_PREINIT_DECODING
+HandlePlayingStateCb PlayingStateCb = nullptr;
+#endif
 
 // for now name is being kept as aamp should be changed when gst-plugins are migrated
 static const char* GstPluginNamePR = "aampplayreadydecryptor";
@@ -64,6 +67,13 @@ static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
 
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
+
+#ifdef USE_PREINIT_DECODING
+void RegisterHandlePlayingStateCb(const HandlePlayingStateCb &callback)
+{
+        PlayingStateCb = callback;
+}
+#endif
 
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() : mPlayerName(),
@@ -4540,7 +4550,16 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 		case GST_MESSAGE_STATE_CHANGED:
 			GstState old_state, new_state;
 			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
-
+			
+			if(old_state != GST_STATE_PLAYING && new_state == GST_STATE_PLAYING)
+			{
+#ifdef USE_PREINIT_DECODING
+				if (PlayingStateCb){
+					MW_LOG_MIL("Pipeline Moved to playing state...Invoking callback to client");
+					PlayingStateCb();
+				}
+#endif
+			}
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pInterfacePlayerRDK->gstPrivateContext->pipeline))
 			{
 				pInterfacePlayerRDK->gstPrivateContext->pipelineState = new_state;

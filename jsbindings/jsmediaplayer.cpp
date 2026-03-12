@@ -440,6 +440,13 @@ void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSVal
 }
 
 
+void ResetFakeTune() {
+    std::lock_guard<std::mutex> lock(fakeTuneMutex);
+    if (fakeTuneInstance) {
+        fakeTuneInstance.reset();
+    }
+}
+
 /**
  * @brief API invoked from JS when executing AAMPMediaPlayer.load()
  * @param[in] ctx JS execution context
@@ -560,6 +567,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			{
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
+				ResetFakeTune();
 				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
 
 			}
