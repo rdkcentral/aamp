@@ -2773,3 +2773,50 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
 
 }
+
+/*
+    @brief: - Tests that PlayerInstanceAAMP::Tune calls AampStreamSinkManager::SetTuned
+    Test Procedure: -
+    Call Tune on PlayerInstanceAAMP and verify SetTuned is called on the stream sink manager.
+*/
+TEST_F(PlayerInstanceAAMPTests, Tune_CallsSetTuned)
+{
+	const char *testUrl = "http://example.com/test.mpd";
+	const char *contentType = "video/mpd";
+
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+
+	// Mock the necessary calls for Tune
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateUseSinglePipeline()).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring(_)).Times(1);
+
+	// Expect SetTuned to be called with the PrivateInstanceAAMP
+	EXPECT_CALL(*g_mockAampStreamSinkManager, SetTuned(mPrivateInstanceAAMP)).Times(1);
+
+	// Call Tune - this should trigger SetTuned
+	mPlayerInstance->Tune(testUrl, contentType, true, false, nullptr, true);
+}
+
+/*
+    @brief: - Tests that PlayerInstanceAAMP::Tune calls SetTuned even in async mode
+    Test Procedure: -
+    Enable async tune and verify SetTuned is still called before scheduling the task.
+*/
+TEST_F(PlayerInstanceAAMPTests, Tune_CallsSetTuned_AsyncMode)
+{
+	const char *testUrl = "http://example.com/test.mpd";
+	const char *contentType = "video/mpd";
+
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPlayerInstance->mAsyncTuneEnabled = true;
+
+	// Mock the necessary calls
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+
+	// Expect SetTuned to be called before the async task is scheduled
+	EXPECT_CALL(*g_mockAampStreamSinkManager, SetTuned(mPrivateInstanceAAMP)).Times(1);
+
+	// Call Tune in async mode
+	mPlayerInstance->Tune(testUrl, true, contentType, true, false, nullptr, true);
+}
