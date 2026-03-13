@@ -342,8 +342,7 @@ bool MediaTrack::IsLocalTSBInjection()
 {
 	bool localTsbInjection = false;
 
-	MockMediaTrack *mockObj = dynamic_cast<MockMediaTrack*>(this);
-	if (mockObj != nullptr)
+	if (auto* mockObj = dynamic_cast<MockMediaTrack*>(this))
 	{
 		localTsbInjection = mockObj->IsLocalTSBInjection();
 	}
