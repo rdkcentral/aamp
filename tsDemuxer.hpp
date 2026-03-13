@@ -26,9 +26,11 @@
 #define __TSDEMUXER_HPP__
 
 
-#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include "uint33_t.h"
+
+#include <cstdint>
+#include <vector>
 
 #include "AampSegmentInfo.hpp"
 #include "mediaprocessor.h"
@@ -68,7 +70,7 @@ private:
 	int pes_state;
 	int pes_header_ext_len;
 	int pes_header_ext_read;
-	AampGrowableBuffer pes_header;
+	std::vector<uint8_t> pes_header;
 	
 	/* All public methods should be locked using this mutex as
 	 * member data is highly coupled (especially in processdata()).
@@ -77,7 +79,7 @@ private:
 	 * setBasePTS(), getBasePTS() & HasCachedData() methods imply
 	 * that there are pre-existing interface races that this change does not address*/
 	std::mutex mMutex;
-	AampGrowableBuffer es;
+	std::vector<uint8_t> es;
 	double position;
 	double duration;
 	uint33_t base_pts;
@@ -133,8 +135,8 @@ public:
 	 */
 	Demuxer(class PrivateInstanceAAMP *aamp, AampMediaType type, bool optimizeMuxed )
 	 : aamp(aamp), pes_state(0),
-		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
-		es("es"), position(0), duration(0), base_pts{0}, rollover_pts(false), current_pts{0},
+		pes_header_ext_len(0), pes_header_ext_read(0), pes_header(), mMutex(),
+		es(), position(0), duration(0), base_pts{0}, rollover_pts(false), current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
 		allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false), ptsOffset(0.0)
 	{
@@ -167,9 +169,6 @@ public:
 	 */
 	~Demuxer()
 	{
-		std::lock_guard<std::mutex> lock{mMutex};
-		es.Free();
-		pes_header.Free();
 	}
 
 	/**
@@ -242,7 +241,7 @@ public:
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 
-		if (es.size())
+		if (!es.empty())
 		{
 			sendInternal(std::move(processor));
 			return true;
@@ -259,7 +258,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return !!es.size();
+		return !es.empty();
 	}
 
 	/**

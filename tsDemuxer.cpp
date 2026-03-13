@@ -21,6 +21,7 @@
 
 #include "priv_aamp.h"
 #include "AampLogManager.h"
+#include "AampUtils.h"        // for aamp_utils::ClearAndRelease
 #include "DemuxDataTypes.h"  // for exchange utility
 
 // TS Demuxing defines
@@ -141,7 +142,7 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			aamp->SendStreamCopy(type, es.GetVector(), info.pts_s, info.dts_s, duration);
+			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, duration);
 		}
 		es.clear();
 	}
@@ -149,8 +150,8 @@ void Demuxer::send()
 
 void Demuxer::resetInternal()
 {
-	es.Free();
-	pes_header.Free();
+	aamp_utils::ClearAndRelease(es);
+	aamp_utils::ClearAndRelease(pes_header);
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
@@ -159,15 +160,9 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	{
 		if (CheckForSteadyState())
 		{
-			// Copy the segment data into a vector and pass it to the processing function
-			uint8_t * data_ptr = es.data();
-
-			const auto len = es.size();
-			std::vector<uint8_t> buf(len);
 			const auto info {UpdateSegmentInfo()};
-			buf.assign(data_ptr, data_ptr + len);
-			processor(type, std::move(info), std::move(buf));
-			es.clear();
+			processor(type, std::move(info), std::move(es));
+			es.clear(); // move leaves es in valid-but-unspecified state; clear for determinism
 		}
 	}
 	else
@@ -204,8 +199,7 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 void Demuxer::flush()
 {
 	std::lock_guard<std::mutex> lock{mMutex};
-	auto len = es.size();
-	if (len > 0)
+	if (!es.empty())
 	{
 		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.size());
 		send();
@@ -258,7 +252,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 		/*Store the pts/dts*/
 		if (PAYLOAD_UNIT_START(packetStart))
 		{
-			if (es.size() > 0)
+			if (!es.empty())
 			{
 				if (processor)
 				{
@@ -458,7 +452,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						bytes_to_read = size;
 					}
 					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
-					pes_header.insert(pes_header.GetVector().end(),
+					pes_header.insert(pes_header.end(),
 									  data,
 									  data + bytes_to_read);
 					data += bytes_to_read;
@@ -508,7 +502,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
 					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
- 					es.insert(es.GetVector().end(),
+ 					es.insert(es.end(),
 							data,
 							data + size);
 					size = 0;
