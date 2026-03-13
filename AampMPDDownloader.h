@@ -195,7 +195,10 @@ typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;
 
 typedef std::shared_ptr<ManifestDownloadConfig> ManifestDownloadConfigPtr;
 
-
+/**
+ * @class AampMPDDownloader
+ * @brief Class responsible for downloading and managing MPD files for Aamp.
+ */
 class AampMPDDownloader
 {
 public:
@@ -310,7 +313,7 @@ public:
 	 * @brief function to get the manifest publish time
 	 * @return publish time in milliseconds
 	 */
-	uint64_t GetPublishTime() { return mPublishTime;}
+	uint64_t GetPublishTime() { return mPublishTime; }
 
 private:
 
@@ -354,7 +357,7 @@ private:
 	bool readMPDData(ManifestDownloadResponsePtr mMPD);
 	/**
 	*	@fn waitForRefreshInterval
-	*	@brief Function to wait for refresh interval before next download
+	*	@brief Function to wait for refresh interval before next download.
 	*/
 	bool waitForRefreshInterval();
 	/**
@@ -382,6 +385,7 @@ private:
 	*	@brief Function to calculate the download refresh interval
 	*/
 	uint32_t getMeNextManifestDownloadWaitTime(ManifestDownloadResponsePtr mMPD);
+
 	/**
 	*	@fn GetCMCDHeader
 	*	@brief Function to get CMCD Headers to pack during download
@@ -392,6 +396,22 @@ private:
 	*	@brief Function to harvest the downloaded manifest
 	*/
 	void harvestManifest();
+
+protected:
+
+	/**
+	 *	@fn getNextLLDManifestRefreshInterval
+	 *	@brief Calculate the next manifest refresh interval for Low-Latency DASH
+	 *	streams based on the manifest's publishTime and minimumUpdatePeriod,
+	 *	with a random jitter to spread CDN load across devices in the field.
+	 *
+	 *	@param dnldManifest  The most recently downloaded manifest response.
+	 *	@return Refresh interval in milliseconds.
+	 */
+	uint32_t getNextLLDManifestRefreshInterval(ManifestDownloadResponsePtr dnldManifest);
+
+	uint64_t mPublishTime;			/**< Publish time of updated manifest */
+
 private:
 
 	std::queue<ManifestDownloadResponsePtr> mMPDBufferQ;
@@ -404,8 +424,8 @@ private:
 	// Download data
 	ManifestDownloadResponsePtr mMPDData;
 	ManifestDownloadResponsePtr mCachedMPDData;
+	uint32_t mRefreshInterval;		/**< Refresh interval in milliseconds */
 
-	uint32_t mRefreshInterval ; 		// refresh interval in mSec
 	int mLatencyValue;			// buffer value to be considered for manifest refresh
 
 	std::thread mDownloaderThread_t1;
@@ -435,7 +455,6 @@ private:
 	bool mIsLowLatency;  /**< Flag indicating whether it is a low latency stream or not.*/
 	AampLLDashServiceData mLLDashData; /**< Parsed LLDash Data*/
 	int mCurrentposDeltaToManifestEnd; /* Delta between current pos and ManifestEnd */
-	uint64_t mPublishTime; 		   /* Publish time of updated manifest*/
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::string()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */

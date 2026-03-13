@@ -25,6 +25,7 @@
 #include "AampDefine.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
+#include "AampUtils.h"
 #include "priv_aamp.h"
 #include <thread>
 #include <unistd.h>
@@ -45,6 +46,33 @@ std::string url1 = "https://example.com/VideoTestStream/xyz.mpd";
 std::string url2 = "http://example.com/Content/CMAF_S2-CTR-4s-v2/Live/channel(exampleChannel)/60_master_2hr.m3u8?c3.ri=example-ri&audio=all&subtitle=all&forcedNarrative=true";
 std::string url3 = "https://example-livesim.org/livesim/Manifest.mpd";
 std::string url4 = "https://example.com/GOLFD_HD_NAT_16403_0_example.mpd";
+
+/**
+ * @class TestableAampMPDDownloader
+ * @brief Test subclass exposing protected members of AampMPDDownloader
+ *        for white-box unit testing.
+ */
+class TestableAampMPDDownloader : public AampMPDDownloader
+{
+public:
+	/**
+	 * @brief Public wrapper for the protected
+	 *        getNextLLDManifestRefreshInterval() method.
+	 */
+	uint32_t CallGetNextLLDManifestRefreshInterval(
+		ManifestDownloadResponsePtr manifest)
+	{
+		return getNextLLDManifestRefreshInterval(manifest);
+	}
+
+	/**
+	 * @brief Directly set mPublishTime for test control.
+	 */
+	void SetPublishTime(uint64_t publishTimeMs)
+	{
+		mPublishTime = publishTimeMs;
+	}
+};
 
 class FunctionalTests : public ::testing::Test
 {
@@ -102,7 +130,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_3)
     EXPECT_NO_THROW(mAampMPDDownloader->Start());
     EXPECT_NO_THROW(mAampMPDDownloader->Release());
 }
-// Commented below tests to avoid more wait duaration
+// Commented below tests to avoid more wait duration
 #if 0
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_4)
 {
@@ -396,4 +424,121 @@ TEST_F(FunctionalTests,
 		thirdManifest->mMPDDownloadResponse->iHttpRetValue));
 
 	mAampMPDDownloader->Release();
+}
+
+// Confirms that the next manifest refresh interval will be approximately equal
+// to (minimumUpdatePeriod - elapsedSincePublish) plus a jitter in
+// [0, MAX_LLD_MANIFEST_REFRESH_JITTER_MS].
+//
+// Setup:
+//   minimumUpdatePeriod = PT2.00S  (2 000 ms)
+//   mPublishTime        = nowMs - 1 000 ms
+//
+// Expected base interval:
+//   nextPublishTimeMs - nowMs = (nowMs - 1000 + 2000) - nowMs = ~1 000 ms
+//
+// After jitter [0, 500 ms] the result must be in [~1 000, ~1 500] ms.
+// A lower bound of 500 ms is used to absorb any CI timing variance.
+TEST_F(FunctionalTests, AampMPDDownloader_LLDManifestRefreshIntervalTest1)
+{
+	static const char *kMpdWithMinUpdatePeriod =
+	R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     type="dynamic"
+     minimumUpdatePeriod="PT2.00S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     availabilityStartTime="1977-05-25T18:00:00Z">
+  <Period id="1" start="PT0S">
+    <AdaptationSet id="1" mimeType="video/mp4">
+      <Representation id="r1" bandwidth="500000" codecs="avc1.640028"/>
+    </AdaptationSet>
+  </Period>
+</MPD>)xml";
+
+	// Build a ManifestDownloadResponse with the MPD above and parse it so
+	// mMPDInstance is populated (required by getNextLLDManifestRefreshInterval).
+	ManifestDownloadResponsePtr respData =
+		std::make_shared<_manifestDownloadResponse>();
+	std::string mpdStr(kMpdWithMinUpdatePeriod);
+	respData->mMPDDownloadResponse->mDownloadData.assign(
+		mpdStr.begin(), mpdStr.end());
+	respData->parseMPD();
+	ASSERT_NE(respData->mMPDInstance, nullptr)
+		<< "MPD failed to parse – check the test XML";
+
+	// Set mPublishTime to 1 second in the past so the expected base interval
+	// is approximately 1 000 ms (2 000 ms period minus 1 000 ms elapsed).
+	TestableAampMPDDownloader testableDownloader;
+	uint64_t publishTimeMs =
+		static_cast<uint64_t>(aamp_GetCurrentTimeMS()) - 1000ULL;
+	testableDownloader.SetPublishTime(publishTimeMs);
+
+	uint32_t refreshIntervalMs =
+		testableDownloader.CallGetNextLLDManifestRefreshInterval(respData);
+
+	// Base ≈ 1 000 ms; jitter adds up to 500 ms → expected range [1 000, 1 500].
+	// Lower bound is relaxed to 500 ms to tolerate CI scheduling latency.
+	EXPECT_GE(refreshIntervalMs, 500u)
+		<< "Refresh interval too short: " << refreshIntervalMs << " ms";
+	EXPECT_LE(refreshIntervalMs, 1500u)
+		<< "Refresh interval too long: " << refreshIntervalMs << " ms";
+}
+
+// Confirms that when (mPublishTime + minimumUpdatePeriod) has already elapsed
+// the refresh interval is clamped to MIN_DELAY_BETWEEN_MPD_UPDATE_MS (500 ms).
+//
+// Setup:
+//   minimumUpdatePeriod = PT2.00S  (2 000 ms)
+//   mPublishTime        = nowMs - 5 000 ms  (deadline was 3 000 ms ago)
+//
+// Expected base interval:
+//   nextPublishTimeMs - nowMs < 0  → base = 0
+//
+// After jitter [0, 500 ms] the value is in [0, 500]; the clamp to
+// MIN_DELAY_BETWEEN_MPD_UPDATE_MS (500 ms) brings it to exactly [500, 1000].
+TEST_F(FunctionalTests, AampMPDDownloader_LLDManifestRefreshIntervalTest2_ElapsedDeadline)
+{
+	static const char *kMpdWithMinUpdatePeriod =
+	R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     type="dynamic"
+     minimumUpdatePeriod="PT2.00S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     availabilityStartTime="1977-05-25T18:00:00Z">
+  <Period id="1" start="PT0S">
+    <AdaptationSet id="1" mimeType="video/mp4">
+      <Representation id="r1" bandwidth="500000" codecs="avc1.640028"/>
+    </AdaptationSet>
+  </Period>
+</MPD>)xml";
+
+	// Build and parse the response so mMPDInstance is populated.
+	ManifestDownloadResponsePtr respData =
+		std::make_shared<_manifestDownloadResponse>();
+	std::string mpdStr(kMpdWithMinUpdatePeriod);
+	respData->mMPDDownloadResponse->mDownloadData.assign(
+		mpdStr.begin(), mpdStr.end());
+	respData->parseMPD();
+	ASSERT_NE(respData->mMPDInstance, nullptr)
+		<< "MPD failed to parse – check the test XML";
+
+	// Set mPublishTime 5 000 ms in the past.
+	// nextPublishTimeMs = (now - 5000) + 2000 = now - 3000, which is already
+	// overdue, so the implementation sets base = 0 before applying jitter.
+	TestableAampMPDDownloader testableDownloader;
+	uint64_t publishTimeMs =
+		static_cast<uint64_t>(aamp_GetCurrentTimeMS()) - 5000ULL;
+	testableDownloader.SetPublishTime(publishTimeMs);
+
+	uint32_t refreshIntervalMs =
+		testableDownloader.CallGetNextLLDManifestRefreshInterval(respData);
+
+	// base=0, jitter∈[0,500] → pre-clamp value∈[0,500].
+	// MIN_DELAY_BETWEEN_MPD_UPDATE_MS clamp raises any value below 500 to 500.
+	// Upper bound is 500 (base) + 500 (max jitter) = 1000 ms.
+	EXPECT_GE(refreshIntervalMs, static_cast<uint32_t>(MIN_DELAY_BETWEEN_MPD_UPDATE_MS))
+		<< "Refresh interval below minimum: " << refreshIntervalMs << " ms";
+	EXPECT_LE(refreshIntervalMs, 1000u)
+		<< "Refresh interval too long for overdue deadline: "
+		<< refreshIntervalMs << " ms";
 }
