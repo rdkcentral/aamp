@@ -103,10 +103,6 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 {
 }
 
-void AampStreamSinkManager::SetTuned(PrivateInstanceAAMP *aamp)
-{
-}
-
 void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
 {
     if (g_mockAampStreamSinkManager)
@@ -130,5 +126,9 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 	return g_mockAampStreamSinkManager->GetMediaHeader(track);
     }
 	return {};
+}
+
+void AampStreamSinkManager::SetTuned(PrivateInstanceAAMP *aamp)
+{
 }
 
