@@ -340,8 +340,9 @@ namespace aamp_utils
 	/**
 	 * @brief Clear a vector and release its heap memory
 	 *
-	 * Swaps the target vector with a default-constructed temporary,
-	 * guaranteeing that both size and capacity become zero.
+	 * Swaps the target vector with a default-constructed temporary so that
+	 * the size becomes zero and the capacity is reduced to that of a
+	 * default-constructed vector (typically releasing its heap storage).
 	 *
 	 * @tparam T Element type of the vector
 	 * @param[in,out] v Vector to clear and release
