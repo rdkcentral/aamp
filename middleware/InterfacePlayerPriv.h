@@ -212,7 +212,6 @@ struct GstPlayerPriv
 	int numberOfVideoBuffersSent;                                                    /**< Number of video buffers sent to pipeline */
 	gint64 segmentStart;                                                                     /**< segment start value; required when qtdemux is enabled or restamping is disabled; -1 to send a segment.start query to gstreamer */
 	GstQuery *positionQuery;                                                                 /**< pointer that holds a position query object */
-	GstQuery *durationQuery;                                                                 /**< pointer that holds a duration query object */
 	bool paused;                                                                                     /**< if pipeline is deliberately put in PAUSED state due to user interaction */
 	GstState pipelineState;                                                                  /**< current state of pipeline */
 	GstTaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
