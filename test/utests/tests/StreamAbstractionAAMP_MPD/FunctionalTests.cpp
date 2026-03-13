@@ -464,11 +464,7 @@ protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
-		// Add this getter for testing
-		double GetServerUtcTime() const
-		{
-			return mServerUtcTime;
-		}
+
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 											double seekpos, float rate)
@@ -529,7 +525,7 @@ protected:
 
 		bool CallFindServerUTCTime(Node *root)
 		{
-			return FindServerUTCTime(root);
+			return mTimeSyncClient.FindServerUTCTime(aamp, root);
 		}
 		AAMPStatusType CallFetchDashManifest()
 		{
@@ -3093,7 +3089,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 	// rootNode/reader leak is benign since the test process exits shortly after.
 	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
 	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3148,18 +3144,18 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
-	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
-	// cascading mock expectation mismatches from subsequent calls. The resulting
-	// rootNode/reader leak is benign since the test process exits shortly after.
-	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
-	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call before interval - should use cached value, not sync
 	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2); // Should still return true using cached offset
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime+30, 0.001);
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+30, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3222,12 +3218,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	// rootNode/reader leak is benign since the test process exits shortly after.
 	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
 	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime1, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime1, 0.001);
 
 	// Second call after interval - should get server time from network again
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime2, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime2, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3288,13 +3284,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	// rootNode/reader leak is benign since the test process exits shortly after.
 	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
 	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call - uses cached offset, still returns true
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
 	//2nd call happens 10Sec later
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->GetServerUtcTime(),serverTime+10, 0.001);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+10, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3585,6 +3581,39 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
 	EXPECT_FLOAT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), livePlayPosition);
+}
+
+/*
+ * @brief Test to verify Stop() calls NotifyVideoTsbWaiters() when TSB reader thread is active
+*/
+TEST_F(StreamAbstractionAAMP_MPDTest, Stop_NotifiesVideoTsbWaiters)
+{
+	double livePlayPosition = 123.456;
+	std::unique_ptr<AampTSBSessionManager> tsbSessionManager = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
+	std::shared_ptr<AampTsbDataManager> dataMgr;
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
+
+	// Setup InitTsbReader to start the TSB reader thread
+	mPrivateInstanceAAMP->rate = 2;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition()).WillOnce(Return(livePlayPosition));
+	// For InitTsbReader, Stop and other calls
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(tsbSessionManager.get()));
+	EXPECT_CALL(*g_mockTSBSessionManager, InvokeTsbReaders(livePlayPosition, 2, eTUNETYPE_SEEKTOLIVE))
+		.WillOnce(Return(eAAMPSTATUS_OK));
+	// Handle GetTsbReader for all media types - return nullptr by default, then override for VIDEO
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
+
+	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillOnce(Return(true));
+	// Start the TSB reader thread	
+	mStreamAbstractionAAMP_MPD->Start();
+	EXPECT_CALL(*g_mockTSBSessionManager, NotifyVideoTsbWaiters()).Times(1);
+
+	// Execute Stop() - this should trigger NotifyVideoTsbWaiters for the TSB reader thread
+	mStreamAbstractionAAMP_MPD->Stop(false);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
