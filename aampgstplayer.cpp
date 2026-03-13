@@ -457,15 +457,12 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 			aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
 		}
 		else if(isPlayerReady)
-		{
-			if(isRateCorrectionDefaultOnPlaying)
+		{		
+			// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
+			if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
 			{
-				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
-				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
-				{
-					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
-					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
-				}
+				AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
+				_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 			}
 			if(!aamp->IsGstreamerSubsEnabled())
 			{
