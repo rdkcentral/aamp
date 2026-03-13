@@ -2717,6 +2717,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(seek_pos_seconds));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_SEEKING, true)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, false)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(1.0, false)).Times(1);
 
 	mPlayerInstance->SetRate(1.0);
 
