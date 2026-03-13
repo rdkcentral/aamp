@@ -160,8 +160,7 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	{
 		if (CheckForSteadyState())
 		{
-			const auto info {UpdateSegmentInfo()};
-			processor(type, std::move(info), std::move(es));
+			processor(type, UpdateSegmentInfo(), std::move(es));
 			es.clear(); // move leaves es in valid-but-unspecified state; clear for determinism
 		}
 	}
@@ -201,7 +200,7 @@ void Demuxer::flush()
 	std::lock_guard<std::mutex> lock{mMutex};
 	if (!es.empty())
 	{
-		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.size());
+		AAMPLOG_INFO("demux : sending remaining bytes. es.len %zu", es.size());
 		send();
 	}
 	resetInternal();
