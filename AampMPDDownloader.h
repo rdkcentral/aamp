@@ -354,9 +354,13 @@ private:
 	bool readMPDData(ManifestDownloadResponsePtr mMPD);
 	/**
 	*	@fn waitForRefreshInterval
-	*	@brief Function to wait for refresh interval before next download
+	*	@brief Function to wait for refresh interval before next download.
+	*	@param waitMs Actual duration to sleep in milliseconds.  The caller
+	*	             should subtract already-elapsed time from mRefreshInterval
+	*	             so the total download + wait cycle matches the intended
+	*	             update period.
 	*/
-	bool waitForRefreshInterval();
+	bool waitForRefreshInterval(uint32_t waitMs);
 	/**
 	*	@fn pushDownloadDataToQueue
 	*	@brief Function to push the download MPD to Queue for collector to read it
@@ -382,6 +386,15 @@ private:
 	*	@brief Function to calculate the download refresh interval
 	*/
 	uint32_t getMeNextManifestDownloadWaitTime(ManifestDownloadResponsePtr mMPD);
+	/**
+	 *	@fn getNextLLDManifestRefreshInterval
+	 *	@brief Calculate the next manifest refresh interval for Low-Latency DASH
+	 *	       streams based on the manifest's publishTime and minimumUpdatePeriod,
+	 *	       with a random jitter to spread CDN load across devices in the field.
+	 *	@param dnldManifest  The most recently downloaded manifest response.
+	 *	@return Refresh interval in milliseconds.
+	 */
+	uint32_t getNextLLDManifestRefreshInterval(ManifestDownloadResponsePtr dnldManifest);
 	/**
 	*	@fn GetCMCDHeader
 	*	@brief Function to get CMCD Headers to pack during download

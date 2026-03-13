@@ -33,6 +33,10 @@
 
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
 
+/// Maximum random jitter added to LLD manifest refresh intervals.
+/// Spreads CDN request load across all devices watching the same stream.
+static constexpr uint32_t MAX_LLD_MANIFEST_REFRESH_JITTER_MS = 500;
+
 void _manifestDownloadResponse::show()
 {
 	mMPDDownloadResponse->show();
@@ -504,16 +508,25 @@ void AampMPDDownloader::downloadMPDThread1()
 		//Wait for duration before refresh
 		if(mMPDData->mIsLiveManifest && !mReleaseCalled)
 		{
-			refreshNeeded = waitForRefreshInterval();
+			// Subtract the time already spent downloading, parsing, and
+			// post-processing from the target refresh interval so the total
+			// cycle time matches the manifest's minimumUpdatePeriod.
+			long long elapsed = NOW_STEADY_TS_MS - tStartTime;
+			uint32_t waitMs = (elapsed < (long long)mRefreshInterval)
+							  ? (uint32_t)((long long)mRefreshInterval - elapsed)
+							  : 0;
+			AAMPLOG_INFO("Manifest refresh: interval=%u elapsed=%lldms waitMs=%u",
+						 mRefreshInterval, elapsed, waitMs);
+			refreshNeeded = waitForRefreshInterval(waitMs);
 		}
 
 		//Timeout case during live refresh
 		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
 			AAMPLOG_WARN("Refresh every 500ms to handle a manifest timeout error.");
-			//Forcefully go with 500 ms refresh
+			//Forcefully go with 500 ms refresh after a download failure
 			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
-			refreshNeeded = waitForRefreshInterval();
+			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
 		}
 
 	}while(refreshNeeded && !mReleaseCalled);
@@ -765,14 +778,22 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 
 /**
 *   @fn waitForRefreshInterval
-*   @brief Wait function for the duration of Refresh interval before next download
+*   @brief Wait function for the duration of Refresh interval before next download.
+*          The caller passes the already elapsed-adjusted wait duration so that
+*          the full download + wait cycle equals the target update period.
 */
-bool AampMPDDownloader::waitForRefreshInterval()
+bool AampMPDDownloader::waitForRefreshInterval(uint32_t waitMs)
 {
 	bool refreshNeeded = false;
 
+	if (waitMs == 0)
+	{
+		// Elapsed time already consumed the entire interval; refresh immediately.
+		return true;
+	}
+
 	std::unique_lock<std::mutex> lck(mRefreshMtx);
-	if(mRefreshCondVar.wait_for(lck,std::chrono::milliseconds(mRefreshInterval))==std::cv_status::timeout) {
+	if(mRefreshCondVar.wait_for(lck, std::chrono::milliseconds(waitMs)) == std::cv_status::timeout) {
 		refreshNeeded = true;
 	}
 	else
@@ -783,6 +804,62 @@ bool AampMPDDownloader::waitForRefreshInterval()
 	return refreshNeeded;
 }
 
+
+/**
+*   @fn getNextLLDManifestRefreshInterval
+*   @brief Calculates the next manifest refresh interval for Low-Latency DASH streams.
+*
+*   Anchors the next fetch to the wall-clock time at which the server is
+*   expected to publish a new manifest (publishTime + minimumUpdatePeriod),
+*   then adds a small random jitter to spread CDN load across the device field.
+*
+*   @param dnldManifest   The most recently downloaded manifest response.
+*   @return Refresh interval in milliseconds.
+*/
+uint32_t AampMPDDownloader::getNextLLDManifestRefreshInterval(ManifestDownloadResponsePtr dnldManifest)
+{
+	// Read minimumUpdatePeriod from the manifest.
+	uint32_t minUpdateDurationMs = DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
+	std::string tempStr = dnldManifest->mMPDInstance->GetMinimumUpdatePeriod();
+	if (!tempStr.empty())
+	{
+		minUpdateDurationMs = ParseISO8601Duration(tempStr.c_str());
+	}
+
+	// Schedule the next fetch at: publishTime + minimumUpdatePeriod - now.
+	// This aligns each device with when the CDN will have a new manifest ready,
+	// instead of counting from the moment the download completed.
+	uint32_t refreshIntervalMs = minUpdateDurationMs;
+	if (mPublishTime > 0 && minUpdateDurationMs > 0)
+	{
+		uint64_t nextPublishTimeMs = mPublishTime + (uint64_t)minUpdateDurationMs;
+		uint64_t nowMs = (uint64_t)Time::GetCurrentUTCTimeInSec() * 1000ULL;
+		if (nextPublishTimeMs > nowMs)
+		{
+			refreshIntervalMs = (uint32_t)(nextPublishTimeMs - nowMs);
+		}
+		else
+		{
+			// Next manifest is already overdue; refresh as soon as the jitter expires.
+			refreshIntervalMs = 0;
+		}
+	}
+
+	// Add a uniformly distributed random jitter in [0, MAX_LLD_MANIFEST_REFRESH_JITTER_MS]
+	// so that devices watching the same stream do not all request the CDN simultaneously.
+	refreshIntervalMs += (uint32_t)(rand() % (MAX_LLD_MANIFEST_REFRESH_JITTER_MS + 1));
+
+	// Clamp to the platform minimum to avoid excessive thrashing if publishTime
+	// or the wall-clock source is unavailable / unreliable.
+	if (refreshIntervalMs < (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS)
+	{
+		refreshIntervalMs = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
+	}
+
+	AAMPLOG_INFO("[LLD] Manifest refresh: publishTime=%" PRIu64 "ms minUpdateMs=%u nextFetchMs=%u",
+				 mPublishTime, minUpdateDurationMs, refreshIntervalMs);
+	return refreshIntervalMs;
+}
 
 /**
 *   @fn readMPDData
@@ -805,23 +882,44 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 	}
 	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64, publishTimeMSec, mPublishTime);
 
-	/* If there is no update in the manifest and publish time is not zero, Set the refresh interval to a minimal value (500ms). This is done for a maximum of two times to avoid frequent manifest refresh.*/
-	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0) 
+	if (mIsLowLatency)
 	{
-		if (mMinimalRefreshRetryCount < 2) 
+		// For LLD streams the publish-time-anchored API schedules each fetch
+		// precisely at publishTime + minimumUpdatePeriod, so the stale-manifest
+		// retry counter is not needed.  Suppress the queue push when the
+		// manifest has not been updated (same guarantee as the non-LLD path).
+		if (publishTimeMSec != 0 && publishTimeMSec == mPublishTime)
+		{
+			AAMPLOG_INFO("[LLD] No update detected in manifest (publishTime==%" PRIu64 ").", mPublishTime);
+			retVal = false;
+		}
+		else
+		{
+			mPublishTime = publishTimeMSec;
+		}
+		mRefreshInterval = getNextLLDManifestRefreshInterval(dnldManifest);
+		mMinimalRefreshRetryCount = 0;
+	}
+	else if (publishTimeMSec == mPublishTime && publishTimeMSec != 0)
+	{
+		/* If there is no update in the manifest and publish time is not zero,
+		 * set the refresh interval to a minimal value (500ms) for up to two
+		 * consecutive checks to avoid excessive refresh. */
+		if (mMinimalRefreshRetryCount < 2)
 		{
 			mRefreshInterval = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
 			AAMPLOG_INFO("No update detected in manifest. Setting refresh interval to minimal refresh interval %u", mRefreshInterval);
 			mMinimalRefreshRetryCount++;
-			/* To avoid race condition when GetNetworkTime is executed ,meanwhile manifest refresh is done for next attempt */
+			/* To avoid race condition when GetNetworkTime is executed,
+			 * meanwhile manifest refresh is done for next attempt */
 			retVal = false;
-		} 
+		}
 		else
 		{
 			mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		}
-	} 
-	else 
+	}
+	else
 	{
 		mPublishTime = publishTimeMSec;
 		mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
@@ -958,14 +1056,15 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 				break;
 			}
 		}
-		AAMPLOG_INFO("Min Update Period from Manifest %u Latency Value %d lowLatencyMode %d",minUpdateDuration,mLatencyValue,mIsLowLatency);
+		AAMPLOG_INFO("Min Update Period from Manifest %u Latency Value %d lowLatencyMode %d",
+					 minUpdateDuration, mLatencyValue, mIsLowLatency);
 
 		// playTarget value will vary if TSB is full and trickplay is attempted. Cant use for buffer calculation
 		// So using the endposition in playlist - Current playing position to get the buffer availability
 		int bufferAvailable = mLatencyValue;
 
 		// when target duration is high value(>Max delay)  but buffer is available just above the max update interval,then go with max delay between playlist refresh.
-		if(bufferAvailable != -1 && !mIsLowLatency)
+		if(bufferAvailable != -1)
 		{
 			if(bufferAvailable < (2* MAX_DELAY_BETWEEN_MPD_UPDATE_MS))
 			{
@@ -973,15 +1072,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 				{
 					//1.If buffer Available is > 2*minUpdateDuration , may be 1.0 times also can be set ???
 					//2.If buffer is between 2*target & mMinUpdateDurationMs
-					float mFactor=0.0f;
-					if (mIsLowLatency)
-					{
-						mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? 1.0 : 0.5;
-					}
-					else
-					{
-						mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? 1.5 : 0.5;
-					}
+					float mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? 1.5 : 0.5;
 					minDelayBetweenPlaylistUpdates = (int)(mFactor * minUpdateDuration);
 				}
 				// if buffer < targetDuration && buffer < MaxDelayInterval
@@ -1009,7 +1100,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 
 		// If any CDAI entries present in playlist, then refresh with update duration specified in playlist
 		// For lld ,honour min  update duration specified in manifest
-		if ((eventStreamFound || mIsLowLatency) && minUpdateDuration >0 && minUpdateDuration < minDelayBetweenPlaylistUpdates)
+		if ((eventStreamFound) && minUpdateDuration >0 && minUpdateDuration < minDelayBetweenPlaylistUpdates)
 		{
 			minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;
 		}
@@ -1022,50 +1113,8 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 
 		if(minDelayBetweenPlaylistUpdates < MIN_DELAY_BETWEEN_MPD_UPDATE_MS)
 		{
-			if (mIsLowLatency)
-			{
-				long availTimeOffMs = (long)((mLLDashData.availabilityTimeOffset)*1000);
-				long maxSegDuration = (long)((mLLDashData.fragmentDuration)*1000);
-				if(minUpdateDuration > 0 && minUpdateDuration < maxSegDuration)
-				{
-					minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
-				}
-				else if(minUpdateDuration > 0 && minUpdateDuration > availTimeOffMs)
-				{
-					minDelayBetweenPlaylistUpdates = (uint32_t)(minUpdateDuration-availTimeOffMs);
-				}
-				else if (maxSegDuration > 0 && maxSegDuration > availTimeOffMs)
-				{
-					minDelayBetweenPlaylistUpdates = (uint32_t)(maxSegDuration-availTimeOffMs);
-				}
-				else
-				{
-					// minimum of 500 mSec needed to avoid too frequent download.
-					minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
-				}
-				if(minDelayBetweenPlaylistUpdates < MIN_DELAY_BETWEEN_MPD_UPDATE_MS)
-				{
-						// minimum of 500 mSec needed to avoid too frequent download.
-					minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
-				}
-			}
-			else
-			{
-				// minimum of 500 mSec needed to avoid too frequent download.
-				minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
-			}
-		}
-
-		//When you have content to download in manifest ,no need to do frequent 500msec refresh
-		if (mIsLowLatency && minDelayBetweenPlaylistUpdates <= (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS && mCurrentposDeltaToManifestEnd > (long)((mLLDashData.fragmentDuration)*1000)*2)
-		{
-			minDelayBetweenPlaylistUpdates = (uint32_t)minUpdateDuration;
-		}
-		// When the buffer hits zero, it is worth refreshing frequently in order to rebuild the buffer
-		if (bufferAvailable <= 0.5 && mIsLowLatency) 
-		{
-			// Set the minimum delay between playlist updates 
-			minDelayBetweenPlaylistUpdates = (uint32_t)(MIN_DELAY_BETWEEN_MPD_UPDATE_MS);
+			// minimum of 500 mSec needed to avoid too frequent download.
+			minDelayBetweenPlaylistUpdates = (uint32_t)MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 		}
 
 		AAMPLOG_INFO("aamp playlist end refresh bufferMs(%d) delay(%u)", bufferAvailable,minDelayBetweenPlaylistUpdates);

@@ -194,3 +194,8 @@ void AampMPDDownloader::UnRegisterCallback()
 void AampMPDDownloader::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
+
+uint32_t AampMPDDownloader::getNextLLDManifestRefreshInterval(ManifestDownloadResponsePtr dnldManifest)
+{
+	return 0;
+}
