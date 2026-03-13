@@ -132,15 +132,12 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mDrmPrefs({{CLEARKEY_UUID, 1}, {WIDEVINE_UUID, 2}, {PLAYREADY_UUID, 3}})// Default values, may get changed due to config file
 	,mCommonKeyDuration(0), mEarlyAvailablePeriodIds(), thumbnailtrack(), indexedTileInfo()
 	,mMaxTracks(0)
-	,mDeltaTime(0)
-	,mHasServerUtcTime(false)
 	,prevLatencyStatus(LATENCY_STATUS_UNKNOWN),latencyStatus(LATENCY_STATUS_UNKNOWN),latencyMonitorThreadID()
 	,mStreamLock()
 	,mProfileCount(0)
 	,mIterPeriodIndex(0), mNumberOfPeriods(0)
 	,mSubtitleParser()
 	,mMultiVideoAdaptationPresent(false)
-	,mLocalUtcTime(0)
 	,prevTimeScale(0)
 	,mMPDParseHelper(NULL)
 	,mLowLatencyMode(false)
@@ -648,6 +645,17 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			this->OnFragmentDownloadComplete(status, downloadInfo);
 		});
 
+
+	// Populate the time based buffer manager with the fragment duration before
+	// submitting the download job. The download job may complete and segment gets injected
+	// before execution resumes on this thread. The buffer manager needs to have the
+	// fragment duration populated before injection.
+	auto timeBasedBufferManager = pMediaStreamContext->GetTimeBasedBufferManager();
+	if (timeBasedBufferManager)
+	{
+		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
+	}
+
 	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
@@ -666,11 +674,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		downloadJob->Execute();
 		AAMPLOG_DEBUG("Executed download job for fragment: %s", downloadInfo->uriList.begin()->second.url.c_str());
 		retval = true;
-	}
-	auto timeBasedBufferManager = pMediaStreamContext->GetTimeBasedBufferManager();
-	if (timeBasedBufferManager)
-	{
-		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
 	}
 
 	if (mPlayRate > AAMP_RATE_PAUSE)
@@ -1396,9 +1399,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			{
 				if (mIsLiveStream)
 				{
-					if(mHasServerUtcTime)
+					if(mTimeSyncClient.HasServerUtcTime())
 					{
-						currentTimeSeconds+=mDeltaTime;
+						currentTimeSeconds+=mTimeSyncClient.GetDelta();
 					}
 					double liveTime = currentTimeSeconds - aamp->mLiveOffset;
 					if(liveTime < mPeriodStartTime)
@@ -1458,7 +1461,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time + fragmentDuration;
 
 			AAMPLOG_TRACE("fDesc.Time= %lf utcTime=%lf delta=%lf CTSeconds=%lf,FreqTime=%lf  nextfragTime : %lf",pMediaStreamContext->fragmentDescriptor.Time,
-					mLocalUtcTime,mDeltaTime,currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
+					mTimeSyncClient.GetServerUtcTime(),mTimeSyncClient.GetDelta(),currentTimeSeconds,fragmentRequestTime,pMediaStreamContext->fragmentDescriptor.nextfragmentTime);
 
 			bool bProcessFragment = true;
 			if(!mIsLiveStream)
@@ -1487,21 +1490,20 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				AAMPLOG_INFO("Type[%d] EOS. pMediaStreamContext->lastSegmentNumber %" PRIu64 " fragmentDescriptor.Time=%f mPeriodEndTime=%f mPeriodStartTime %f  currentTimeSeconds %f FTime=%f", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPeriodStartTime, currentTimeSeconds, pMediaStreamContext->fragmentTime);
 				pMediaStreamContext->eos = true;
 			}
-			else if( mIsLiveStream &&  mHasServerUtcTime &&
-					( mLowLatencyMode? fragmentRequestTime >= mLocalUtcTime+mDeltaTime : fragmentRequestTime >= mLocalUtcTime))
+			else if( mIsLiveStream &&  mTimeSyncClient.HasServerUtcTime() && (fragmentRequestTime >= mTimeSyncClient.GetServerUtcTime()))
 			{
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
-				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
+				AAMPLOG_TRACE("With ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f mServerUtcTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mTimeSyncClient.GetServerUtcTime(), sleepTime);
 				aamp->interruptibleMsSleep(sleepTime);
 				retval = false;
 			}
-			else if(mIsLiveStream && !mHasServerUtcTime &&
+			else if(mIsLiveStream && !mTimeSyncClient.HasServerUtcTime() &&
 					(mLowLatencyMode?(fragmentRequestTime>=currentTimeSeconds):(fragmentRequestTime >= (currentTimeSeconds-mPresentationOffsetDelay))))
 			{
 				int sleepTime = MIN_DELAY_BETWEEN_MPD_UPDATE_MS;
 
-				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f Local UTCTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mLocalUtcTime, sleepTime);
+				AAMPLOG_TRACE("Without ServerUTCTime. Next fragment Not Available yet: fragmentDescriptor.Time %f fragmentDuration:%f currentTimeSeconds %f mServerUtcTime %f sleepTime %d ", pMediaStreamContext->fragmentDescriptor.Time, fragmentDuration, currentTimeSeconds, mTimeSyncClient.GetServerUtcTime(), sleepTime);
 				aamp->interruptibleMsSleep(sleepTime);
 				retval = false;
 			}
@@ -2674,8 +2676,8 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 			aamp->ReportTimedMetadata(bMetadata);
 		}
 		// get Network time
-		mHasServerUtcTime = FindServerUTCTime(root);
-		mMPDParseHelper->SetHasServerUtcTime(mHasServerUtcTime);
+		mMPDParseHelper->SetHasServerUtcTime(mTimeSyncClient.FindServerUTCTime(aamp,root));
+		mMPDParseHelper->SetLocalTimeDelta(mTimeSyncClient.GetDelta());
 		// Find the gaps in the Period
 		if(mIsFogTSB && ISCONFIGSET(eAAMPConfig_InterruptHandling))
 		{
@@ -4470,18 +4472,24 @@ void StreamAbstractionAAMP_MPD::FindPeriodGapsAndReport()
 	}
 }
 
-TimeSyncClient::TimeSyncClient(): lastSync(aamp_GetCurrentTimeMS()), lastOffset(0), hasSynced(false) {}
+TimeSyncClient::TimeSyncClient() :
+	mLastSync(aamp_GetCurrentTimeMS()),
+	mHasSynced(false),
+	mDeltaTime(0.0),
+	mHasServerUtcTime(false),
+	mServerUtcTime(0.0) {}
 
 /**
  * @brief Read UTCTiming _element_
- * @retval Return true if UTCTiming _element_ is available in the manifest
+ * @retval Return true if UTC time was obtained from manifest specified time server or from
+ * the manifest itself, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
+bool TimeSyncClient::FindServerUTCTime(PrivateInstanceAAMP* aamp, Node* root)
 {
-	bool hasServerUtcTime = false;
+	mHasServerUtcTime = false;
 	if( root )
 	{
-		mLocalUtcTime = 0;
+		mServerUtcTime = 0;
 		for ( auto node :  root->GetSubNodes() )
 		{
 			if(node)
@@ -4489,13 +4497,13 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 				if( "UTCTiming" == node->GetName() && node->HasAttribute("schemeIdUri"))
 				{
 					std::string schemeIdUri = node->GetAttributeValue("schemeIdUri");
+					long long currentTimeMS = aamp_GetCurrentTimeMS();
 					if ( SERVER_UTCTIME_DIRECT == schemeIdUri && node->HasAttribute("value"))
 					{
 						const std::string &value = node->GetAttributeValue("value");
-						mLocalUtcTime = ISO8601DateTimeToUTCSeconds(value.c_str() );
-						double currentTime = (double)aamp_GetCurrentTimeMS() / 1000;
-						mDeltaTime =  mLocalUtcTime - currentTime;
-						hasServerUtcTime = true;
+						mServerUtcTime = ISO8601DateTimeToUTCSeconds(value.c_str() );
+						mDeltaTime =  mServerUtcTime - static_cast<double>(currentTimeMS) / 1000;
+						mHasServerUtcTime = true;
 						break;
 					}
 					else if((SERVER_UTCTIME_HTTP == schemeIdUri || (URN_UTC_HTTP_ISO == schemeIdUri) || (URN_UTC_HTTP_HEAD == schemeIdUri)) && node->HasAttribute("value"))
@@ -4509,27 +4517,27 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 							aamp_ResolveURL(ServerUrl, aamp->GetManifestUrl(), valueCopy.c_str(), false);
 						}
 
-						bool shouldSyncOnStartup = !mTimeSyncClient.hasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
+						bool shouldSyncOnStartup = !mHasSynced && ISCONFIGSET(eAAMPConfig_UTCSyncOnStartup);
 						bool intervalElapsed = false;
 						if( !shouldSyncOnStartup )
 						{
-							const double elapsed = (double)(aamp_GetCurrentTimeMS() - mTimeSyncClient.lastSync) / 1000;
+							const double elapsed = static_cast<double>(currentTimeMS - mLastSync) / 1000;
 							intervalElapsed = elapsed >= GETCONFIGVALUE(eAAMPConfig_UTCSyncMinIntervalSec);
 						}
 						if (shouldSyncOnStartup || intervalElapsed)
 						{
-							mLocalUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
-							if(mLocalUtcTime > 0)
+							mServerUtcTime = GetNetworkTime(ServerUrl, &http_error, aamp->GetNetworkProxy());
+							if(mServerUtcTime > 0)
 							{
-								mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
-								mDeltaTime =  mLocalUtcTime - (double)mTimeSyncClient.lastSync / 1000;
-								mTimeSyncClient.lastOffset = mDeltaTime;
-								mTimeSyncClient.hasSynced = true;
-								hasServerUtcTime = true;
+								//GetNetworkTime() may take some Ms so call aamp_GetCurrentTimeMS() again
+								mLastSync = aamp_GetCurrentTimeMS();
+								mDeltaTime =  mServerUtcTime - static_cast<double>(mLastSync) / 1000;
+								mHasSynced = true;
+								mHasServerUtcTime = true;
 							}
 							else
 							{
-								if (!mTimeSyncClient.hasSynced)
+								if (!mHasSynced)
 								{
 									AAMPLOG_ERR("Failed timeServer sync on startup [%s] RetCode[%d]", ServerUrl.c_str(), http_error);
 								}
@@ -4539,10 +4547,12 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 								}
 							}
 						}
-						else if (mTimeSyncClient.hasSynced)
+						else if (mHasSynced)
 						{
-							mDeltaTime = mTimeSyncClient.lastOffset;
-							hasServerUtcTime = true;
+							//We have a valid time sync and the interval has not elapsed,
+							//so use the previous mDeltaTime to update mServerUtcTime
+							mServerUtcTime = static_cast<double>(currentTimeMS) / 1000 + mDeltaTime;
+							mHasServerUtcTime = true;
 						}
 						break;
 					}
@@ -4550,8 +4560,7 @@ bool StreamAbstractionAAMP_MPD::FindServerUTCTime(Node* root)
 			}
 		}
 	}
-	mMPDParseHelper->SetLocalTimeDelta(mDeltaTime);
-	return hasServerUtcTime;
+	return mHasServerUtcTime;
 }
 
 /**
@@ -7156,6 +7165,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			{
 				AAMPLOG_WARN("empty period");
 				pMediaStreamContext->adaptationSet = NULL;
+				pMediaStreamContext->representation = NULL;
 				continue;
 			}
 			if (pMediaStreamContext->adaptationSetIdx >= numAdaptationSets )
@@ -7688,7 +7698,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
 				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
-				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 
+				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0
 					&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
 				{
 					// Make sure basePeriodOffset is updated
@@ -8161,9 +8171,9 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			mCulledSeconds = firstPeriodStart;
 		}
-		
+
 		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB()) / 1000.00);
-		
+
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
 			// Handling edge case just before dynamic => static transition.
@@ -9860,9 +9870,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
  * @param[out] waitForFreeFrag - waitForFreeFragmentAvailable flag
  * @param[out] bCacheFullState - cache status for track
  *
- * @return void
+ * @return bool - true if a segment was found and cached, false otherwise
  */
-void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
+bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
 {
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	AampMediaType mediaType = (AampMediaType) trackIdx;
@@ -9873,6 +9883,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		tsbReader = tsbSessionManager->GetTsbReader(mediaType);
 	}
 	bool isAllowNextFrag = true;
+	bool fragmentCached {false};
 	int  maxCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentChunksSize();
 
 	if (waitForFreeFrag && !trickPlay)
@@ -9903,7 +9914,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 			// profile not changed and not at EOS
 			if(!pMediaStreamContext->profileChanged && tsbReader->TrackEnabled() && !tsbReader->IsEos())
 			{
-				bool fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
+				fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
 				AAMPLOG_TRACE("[%s] Fragment %s", GetMediaTypeName((AampMediaType)trackIdx), fragmentCached ? "cached" : "not cached");
 			}
 			if(pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack && bCacheFullState)
@@ -9911,6 +9922,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 				bCacheFullState = false;
 			}
 	}
+	return fragmentCached;
 }
 
 /**
@@ -9941,14 +9953,17 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 		{
 			while (!exitLoop)
 			{
+				bool segmentFound {false};
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					cacheFullStatus[trackIdx] = true;
 					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
-						AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
+						bool trackSegmentFound = AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
+						segmentFound = segmentFound || trackSegmentFound;
 					}
 				}
+
 				if(abortTsbReader)
 				{
 					AAMPLOG_INFO("Exit TsbReader due to abort");
@@ -9981,11 +9996,8 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 						exitLoop = true;
 						break;
 					}
-					AAMPLOG_TRACE("EOS from both tracks - Wait for next fragment");
-					// Snapshot counter before waiting. If AbortWaitForManifestUpdate()
-					// fired between EOS detection and here, the predicate fires
-					// immediately and we re-enter the loop to check for new segments.
-					WaitForManifestUpdate(GetManifestUpdateCounter());
+					AAMPLOG_INFO("EOS detected (video=%d, audio=%d) - Wait for next fragment", vEOS, aEOS);
+					aamp->interruptibleMsSleep(500);
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
@@ -10000,9 +10012,21 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 				}
 				else
-				{	// This sleep will hit when there is no content to download and cache is not full
-					// and refresh interval timeout not reached . To Avoid tight loop adding a min delay
-					aamp->interruptibleMsSleep(50);
+				{
+					if (segmentFound)
+					{
+						aamp->interruptibleMsSleep(50);				//To Avoid tight loop adding a small delay
+					}
+					// AAMP could reach the end of the TSB only when doing FF (rate > AAMP_NORMAL_PLAY_RATE)
+					else if (aamp->rate > AAMP_NORMAL_PLAY_RATE)
+					{
+						// All the segments in TSB have been sent to gstreamer, wait for new fragments to be available in TSB
+						tsbSessionManager->WaitForVideoTsbContentOrAbort();
+					}
+					else
+					{
+						AAMPLOG_WARN("No segment found for rate <= AAMP_NORMAL_PLAY_RATE");
+					}
 				}
 			} // Loop 2 : TSB FetchLoop
 		}
@@ -10474,6 +10498,11 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		AAMPLOG_INFO("Abort TsbReader");
 		abortTsbReader = true;
+		// Unblock TsbReader if it is waiting for new video TSB content
+		if (AampTSBSessionManager *tsbMgr = aamp->GetTSBSessionManager())
+		{
+			tsbMgr->NotifyVideoTsbWaiters();
+		}
 		// Signal TsbReader thread to exit wait for manifest update if waiting
 		AbortWaitForManifestUpdate();
 		tsbReaderThreadID.join();
@@ -11341,7 +11370,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				AampGrowableBuffer buffer("init-buffer");
 				std::string effectiveUrl;
 				int http_error{};
-				if (aamp->GetFile(header->url, (AampMediaType) iTrack, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
+				if (aamp->GetFile(header->url, (AampMediaType) iTrack, buffer.GetVector(), effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
 				{
 					aamp->SendStreamTransfer((AampMediaType) iTrack, &buffer, 0, 0, 0, 0, true, false);
 				}
@@ -12706,7 +12735,7 @@ double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
 							strptime(wallClockTime.c_str(), format, &tmTime);
 							wTime = mktime(&tmTime);
 
-							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%f]",wTime, mLocalUtcTime);
+							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%f]",wTime, mTimeSyncClient.GetServerUtcTime());
 
 							/* Convert the time back to a string. */
 							strftime( out_buffer, 80, "That's %D (a %A), at %T",localtime (&wTime) );

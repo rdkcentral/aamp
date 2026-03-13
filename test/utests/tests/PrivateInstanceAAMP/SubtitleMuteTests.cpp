@@ -108,9 +108,7 @@ public:
 		EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitles(finalState)).Times(1);
 		EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(finalState)).Times(1);
 
-		mPrivateInstanceAAMP->AcquireStreamLock();
 		mPrivateInstanceAAMP->SetVideoMute(inputState);
-		mPrivateInstanceAAMP->ReleaseStreamLock();
 
 		// Confirm original state is preserved
 		EXPECT_EQ(mPrivateInstanceAAMP->subtitles_muted, currState);

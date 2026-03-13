@@ -265,7 +265,7 @@ struct CurlCallbackContext
 	PrivateInstanceAAMP *aamp = nullptr;
 	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	std::vector<std::string> allResponseHeaders = {};
-	AampGrowableBuffer *buffer = nullptr;
+	std::vector<uint8_t> &buffer; /**< Reference to the download destination buffer */
 	httpRespHeaderData *responseHeaderData = nullptr;
 	BitsPerSecond bitrate = 0;
 	bool downloadIsEncoded = false;
@@ -283,19 +283,18 @@ struct CurlCallbackContext
 	BitsPerSecond profileBps = 0; /**< Current video profile bits per second used for early abort calculation*/
 	uint64_t chunkDurationInTicks = 0; /**< Duration of the current chunk in ticks, used while caching chunks */
 
-	// Default constructor
-	CurlCallbackContext() {}
-
 	/**
 	 * @brief Constructor to initialize CurlCallbackContext
 	 * @param[in] _aamp - PrivateInstanceAAMP pointer
-	 * @param[in] _buffer - AampGrowableBuffer pointer
+	 * @param[in] _buffer - Reference to the download destination vector
 	 */
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer) {}
+	CurlCallbackContext(PrivateInstanceAAMP *_aamp, std::vector<uint8_t> &_buffer)
+		: aamp(_aamp), buffer(_buffer) {}
 
 	~CurlCallbackContext() {}
 
-	// Disabled copy constructor and copy assignment
+	// Disable copy constructor and copy assignment to avoid multiple contexts
+	// aliasing the same buffer and to keep ownership semantics explicit.
 	CurlCallbackContext(const CurlCallbackContext &other) = delete;
 	CurlCallbackContext& operator=(const CurlCallbackContext& other) = delete;
 
