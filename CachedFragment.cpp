@@ -23,6 +23,7 @@
  */
 
 #include "CachedFragment.h"
+#include "AampUtils.h"
 
 
 /**
@@ -30,7 +31,7 @@
  *        Initializes all members to default values.
  */
 CachedFragment::CachedFragment() 
-	: fragment(AampGrowableBuffer("cached-fragment"))
+	: fragment()
 	, position(0.0)
 	, duration(0.0)
 	, initFragment(false)
@@ -51,33 +52,26 @@ CachedFragment::CachedFragment()
 /**
  * @brief Copy content from another CachedFragment
  */
-void CachedFragment::Copy(CachedFragment* other)
+void CachedFragment::Copy(const CachedFragment& other)
 {
-	// Clear existing data first
-	this->fragment.Free();
-	
 	// Copy all member variables
-	this->position = other->position;
-	this->duration = other->duration;
-	this->initFragment = other->initFragment;
-	this->discontinuity = other->discontinuity;
-	this->profileIndex = other->profileIndex;
-	this->cacheFragStreamInfo = other->cacheFragStreamInfo;
-	this->type = other->type;
-	this->downloadStartTime = other->downloadStartTime;
-	this->uri = other->uri;
-	this->timeScale = other->timeScale;
-	this->PTSOffsetSec = other->PTSOffsetSec;
-	this->absPosition = other->absPosition;
-	this->isDummy = other->isDummy;
-	this->discontinuityIndex = other->discontinuityIndex;
+	this->position = other.position;
+	this->duration = other.duration;
+	this->initFragment = other.initFragment;
+	this->discontinuity = other.discontinuity;
+	this->profileIndex = other.profileIndex;
+	this->cacheFragStreamInfo = other.cacheFragStreamInfo;
+	this->type = other.type;
+	this->downloadStartTime = other.downloadStartTime;
+	this->uri = other.uri;
+	this->timeScale = other.timeScale;
+	this->PTSOffsetSec = other.PTSOffsetSec;
+	this->absPosition = other.absPosition;
+	this->isDummy = other.isDummy;
+	this->discontinuityIndex = other.discontinuityIndex;
 	
-	// Copy fragment data vector from other to this using assign method
-	if (!other->fragment.GetVector().empty()) 
-  {
-		const auto& otherVec = other->fragment.GetVector();
-		this->fragment.assign(otherVec.data(), otherVec.data() + otherVec.size());
-	}
+	// Copy fragment data
+	this->fragment = other.fragment;
 }
 
 
@@ -86,7 +80,7 @@ void CachedFragment::Copy(CachedFragment* other)
  */
 void CachedFragment::Clear()
 {
-	fragment.Free();
+	aamp_utils::ClearAndRelease(fragment);
 	position = 0.0;
 	duration = 0.0;
 	initFragment = false;
@@ -231,11 +225,7 @@ void CachedFragment::swap(CachedFragment& other) noexcept
 {
 	using std::swap;
 	
-	// For AampGrowableBuffer, we need to use assignment since it doesn't have swap
-	AampGrowableBuffer tempFragment = std::move(fragment);
-	fragment = std::move(other.fragment);
-	other.fragment = std::move(tempFragment);
-	
+	swap(fragment, other.fragment);
 	swap(position, other.position);
 	swap(duration, other.duration);
 	swap(initFragment, other.initFragment);
