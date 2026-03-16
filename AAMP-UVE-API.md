@@ -1267,6 +1267,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | language  | String | iso language code. e.g: eng |
 | codec  | String | codec associated with text track. e.g: stpp |
 | rendition  | String | Role for DASH. e.g: caption,subtitle,main. |
+| instreamId | String | In-band CC track identifier derived from the MPD Accessibility element. Present for CLOSED-CAPTIONS / in-band CC tracks. e.g: CC1, CC2, SERVICE1. |
 | accessibilityType |	String | Accessibility value for descriptive, visually impaired signaling e.g: description, captions |
 | type |	String | the supported values are
 ||| captions — A text track (608/708/TTML) meant for the hearing impaired.
@@ -1291,6 +1292,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
     "rendition":	"urn:scte:dash:cc:cea-608:2015",
     "type": "captions",
     "codec":	"CC1",
+    "instreamId":	"CC1",
     "availability":	true,
     "accessibility":	{
         "scheme":	"urn:scte:dash:cc:cea-608:2015",
