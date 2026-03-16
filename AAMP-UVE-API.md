@@ -1429,7 +1429,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### getTextTrackInfo
 - Supported UVE version 4.4 and above.
 - Returns playing Text track information in JSON format.
-- Currently support is limited to only out-of-band captions.
+- Supports both out-of-band captions and in-band closed captions (when available).
 
 - ###### Example :
 ```js
@@ -1439,7 +1439,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
         "label": "native",
         "language": "eng",
         "codec": "stpp",
-        "type": "captions",
+"type": "captions",
         "rendition": "alternate",
         "instreamID": "1",
         "accessibility":
