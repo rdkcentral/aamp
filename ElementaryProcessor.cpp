@@ -65,7 +65,7 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		p_aamp->SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetVector(), position, position, duration, fragmentPTSoffset, isInit, discontinuous);
 	}
 	else
 	{

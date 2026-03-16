@@ -200,24 +200,25 @@ public:
 	/**
 	 * @fn setBuffer
 	 *
+	 * @brief Set buffer from a const vector.
+	 *        Use this overload when the caller only intends to parse and query
+	 *        the buffer (e.g. getFirstPTS, isInitSegment, getTimeScale).
+	 *        The caller must not call mutating methods (restampPts, truncate,
+	 *        setPtsAndDuration, etc.) after using this overload.
+	 *
+	 * @param[in] buffer - const buffer vector reference
+	 * @return void
+	 */
+	void setBuffer(const std::vector<uint8_t>& buffer);
+
+	/**
+	 * @fn setBuffer
+	 *
 	 * @param[in] buffer - buffer pointer
 	 * @param[in] bufferLen - buffer length
 	 * @return void
 	 */
 	void setBuffer(uint8_t* buffer, size_t bufferLen);
-
-	/**
-	 * @fn setBuffer
-	 *
-	 * @brief Read-only overload for callers that hold a const pointer (e.g. a
-	 *        const std::vector<uint8_t>). The buffer will only be read by
-	 *        parsing operations; mutating operations (e.g. restampPTS) must
-	 *        not be called after using this overload.
-	 * @param[in] buffer    - read-only buffer pointer
-	 * @param[in] bufferLen - buffer length in bytes
-	 * @return void
-	 */
-	void setBuffer(const uint8_t* buffer, size_t bufferLen);
 
 	/**
 	 * @fn parseBuffer

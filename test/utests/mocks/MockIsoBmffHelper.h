@@ -21,15 +21,18 @@
 #define AAMP_MOCK_ISOBMFF_HELPER_H
 
 #include <gmock/gmock.h>
+#include <cstdint>
+#include <string>
+#include <vector>
 #include "isobmff/isobmffhelper.h"
 
 class MockIsoBmffHelper
 {
 public:
-	MOCK_METHOD(bool, SetTimescale, (AampGrowableBuffer &, uint32_t));
-	MOCK_METHOD(bool, SetPtsAndDuration, (AampGrowableBuffer &, uint64_t, uint64_t));
-	MOCK_METHOD(bool, RestampPts, (AampGrowableBuffer &, int64_t, const std::string&, const char*, uint32_t));
-	MOCK_METHOD(bool, ClearMediaHeaderDuration, (AampGrowableBuffer &));
+	MOCK_METHOD(bool, SetTimescale, (std::vector<uint8_t> &, uint32_t));
+	MOCK_METHOD(bool, SetPtsAndDuration, (std::vector<uint8_t> &, uint64_t, uint64_t));
+	MOCK_METHOD(bool, RestampPts, (std::vector<uint8_t> &, int64_t, const std::string&, const char*, uint32_t));
+	MOCK_METHOD(bool, ClearMediaHeaderDuration, (std::vector<uint8_t> &));
 };
 
 extern MockIsoBmffHelper *g_mockIsoBmffHelper;
