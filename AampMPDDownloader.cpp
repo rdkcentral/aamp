@@ -833,7 +833,7 @@ uint32_t AampMPDDownloader::getNextLLDManifestRefreshInterval(ManifestDownloadRe
 	// so that devices watching the same stream do not all request the CDN simultaneously.
 	// A function-local mt19937 seeded once from std::random_device gives each
 	// device/process a unique sequence without relying on a global srand() call.
-	static std::mt19937 sJitterRng(std::random_device{}());
+	static thread_local std::mt19937 sJitterRng(std::random_device{}());
 	std::uniform_int_distribution<uint32_t> jitterDist(0, MAX_LLD_MANIFEST_REFRESH_JITTER_MS);
 	refreshIntervalMs += jitterDist(sJitterRng);
 
