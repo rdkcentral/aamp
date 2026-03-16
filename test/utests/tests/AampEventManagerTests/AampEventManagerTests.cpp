@@ -263,3 +263,46 @@ TEST_F(AampEventManagerTest, IsSpecificEventListenerAvailableTest_1)
     EXPECT_FALSE(val);
     }
 }
+
+/**
+ * @brief Validate that an async event queued before FlushPendingEvents() is
+ *        never delivered to an event listener after the flush.
+ *
+ *        This covers the crash fix for detach(): an async event enqueued
+ *        before detach() (which calls FlushPendingEvents()) must not reach
+ *        any registered listener once the flush has completed, even after
+ *        the GLib main context has been drained of idle callbacks.
+ */
+TEST_F(AampEventManagerTest, AsyncEventQueuedBeforeFlush_NeverDeliveredToListenerAfterFlush)
+{
+    class CountingListener : public EventListener
+    {
+    public:
+        int mDeliveredCount{0};
+        void SendEvent(const AAMPEventPtr & /*event*/) override
+        {
+            mDeliveredCount++;
+        }
+    };
+
+    CountingListener listener;
+    handler->AddListenerForAllEvents(&listener);
+
+    // Queue an async event before the flush (simulating what happens before detach)
+    AAMPEventPtr eventData = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, session_id);
+    handler->SendEvent(eventData, AAMP_EVENT_ASYNC_MODE);
+
+    // Flush all pending events (as detach() does)
+    handler->FlushPendingEvents();
+
+    // Drain any remaining GLib idle callbacks that may have been scheduled
+    while (g_main_context_pending(nullptr))
+    {
+        g_main_context_iteration(nullptr, FALSE);
+    }
+
+    // The listener must not have received the async event after the flush
+    EXPECT_EQ(listener.mDeliveredCount, 0);
+
+    handler->RemoveListenerForAllEvents(&listener);
+}

@@ -5629,21 +5629,21 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrSt
 }
 
 /**
- * @brief Validate the fix in detach().
+ * @brief Validate detach() forwards async events to the event manager and calls
+ *        FlushPendingEvents(). The real async-event-blocking behaviour (i.e. that
+ *        no listener receives the event after the flush) is covered by
+ *        AampEventManagerTest::AsyncEventQueuedBeforeFlush_NeverDeliveredToListenerAfterFlush
+ *        which links the real AampEventManager.cpp.
  */
-
-TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
+TEST_F(PrivAampTests, Detach_CallsFlushPendingEvents)
 {
-	// Simulate async event sent before detach (crash scenario)
+	// Verify async events are forwarded to the event manager
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_ASYNC_MODE)).Times(1);
 	p_aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, "test-session"), AAMP_EVENT_ASYNC_MODE);
 
+	// Verify detach() flushes pending events
 	EXPECT_CALL(*g_mockAampEventManager, FlushPendingEvents()).Times(1);
 	p_aamp->detach();
-
-	// After detach, sync events should not be called
-	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_SYNC_MODE)).Times(0);
-	sleep(1);
 }
 
 /**
