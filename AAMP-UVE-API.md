@@ -1396,10 +1396,10 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Optional preferred label for automatic text selection |
-| accessibilityType | String |	Optional preferred accessibility Node for descriptive text.|
-| accessibility | Object | Optional preferred accessibility object for text |
-| accessibility.scheme | String | Preferred Accessibility scheme Id  |
-| accessibility.int_value | Number | Preferred Accessibility scheme Id value |
+| accessibilityType | String | Optional preferred DASH role/type string for text track selection. This is used as the `preferred-text-type` value and is matched against `<Accessibility ... value=...>` entries with scheme `urn:mpeg:dash:role:2011`. |
+| accessibility | Object | Optional preferred Accessibility node criteria for text (for example, to select descriptive / VI tracks). This corresponds to the full `<Accessibility ...>` element and is independent of `accessibilityType`. |
+| accessibility.scheme | String | Preferred Accessibility scheme Id for the Accessibility node. |
+| accessibility.int_value | Number | Preferred Accessibility scheme Id value for the Accessibility node. |
 
 - ###### Example :
 ```js
