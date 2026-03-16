@@ -1982,7 +1982,7 @@ void PrivateCDAIObjectMPD::CancelReservation(const std::string& cancelAtReservat
 		return;
 	}
 
-	AAMPLOG_INFO("[CDAI] cancelAtReservationId=%s, placementBreakId=%s",
+	AAMPLOG_WARN("[CDAI] cancelAtReservationId=%s, placementBreakId=%s",
 		cancelAtReservationId.c_str(), mPlacementObj.pendingAdbrkId.c_str());
 
 	if (isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
