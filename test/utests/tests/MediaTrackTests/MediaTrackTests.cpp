@@ -58,18 +58,15 @@ static constexpr bool AAMP_TSB_DISABLED{false};
 
 AampConfig* gpGlobalConfig{nullptr};
 
-// The matcher is passed a std::cref() to avoid copy-constructing the fake AampGrowableBuffer, which
-// crashes and is not really desirable anyway. (Copy-construction of the argument is default matcher
-// behavior, done in case it's modified or destructed later.)
-MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
+// The matcher compares the data content of a std::vector<uint8_t> argument against a
+// std::vector<uint8_t> reference (wrapped in std::cref).  The buffer may be larger
+// than the expected data (e.g. due to LLD chunk accumulation), so only the leading
+// bytes are compared.
+MATCHER_P(VectorRefEq, vecStdConstRef, "")
 {
-	const AampGrowableBuffer& buffer = bufferStdConstRef.get();
-	return std::memcmp(arg.GetPtr(), buffer.data(), buffer.size()) == 0;
-}
-
-MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
-{
-	return std::memcmp(arg->GetPtr(), bufferPtr->GetPtr(), bufferPtr->size()) == 0;
+	const std::vector<uint8_t>& vec = vecStdConstRef.get();
+	return arg.size() >= vec.size() &&
+		   std::memcmp(arg.data(), vec.data(), vec.size()) == 0;
 }
 
 // MediaTrack is an abstract base class, so must be tested via a derived class
@@ -174,7 +171,7 @@ protected:
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
 			mediaTrack.numberOfFragmentsCached = 1;
 		}
-		bufferedFragment->Copy(&testFragment);
+		bufferedFragment->Copy(testFragment);
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
 			// Make the buffer parser return the correct position and duration
@@ -232,7 +229,7 @@ protected:
 		initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 		CachedFragment* buf = videoTrack->GetFetchChunkBuffer(true);
 		videoTrack->numberOfFragmentChunksCached = 1;
-		buf->Copy(&initFragment);
+		buf->Copy(initFragment);
 		EXPECT_TRUE(videoTrack->InjectFragment());
 
 		// Queue a media fragment with the requested timescale
@@ -246,7 +243,7 @@ protected:
 
 		buf = videoTrack->GetFetchChunkBuffer(true);
 		videoTrack->numberOfFragmentChunksCached = 1;
-		buf->Copy(&mediaFragment);
+		buf->Copy(mediaFragment);
 
 		return {std::move(videoTrack), buf};
 	}
@@ -424,7 +421,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 
 	EXPECT_CALL(*g_mockIsoBmffHelper,
-				SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+				SetTimescale(VectorRefEq(std::cref(testFragment.fragment)),
 									TRICKMODE_TIMESCALE))
 		.WillOnce(Return(true));
 
@@ -451,7 +448,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	int64_t expectedPts{restampedPts * TRICKMODE_TIMESCALE};
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
-		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+		SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 								 expectedPts, expectedDuration))
 		.WillOnce(Return(true));
 
@@ -460,7 +457,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		// Check that the PTS that is (eventually) passed on to GStreamer is as expected
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
-									   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+									   VectorRefEq(std::cref(testFragment.fragment)),
 									   restampedPts.inSeconds(), restampedPts.inSeconds(),
 									   restampedDuration.inSeconds(), _, _, _));
 	}
@@ -481,14 +478,14 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 		bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 		EXPECT_CALL(*g_mockIsoBmffHelper,
-					SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+					SetTimescale(VectorRefEq(std::cref(testFragment.fragment)),
 								 TRICKMODE_TIMESCALE)
 					).WillOnce(Return(true));
 		if (testParam.lowLatencyMode)
 		{	// PTS / DTS is not relevant for init segment, so ignore the values
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 						SendStreamTransfer(eMEDIATYPE_VIDEO,
-										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+										   VectorRefEq(std::cref(testFragment.fragment)),
 										   _,  _, _,
 										   _, _, _));
 		}
@@ -512,7 +509,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		expectedPts = static_cast<int64_t>(restampedPts * TRICKMODE_TIMESCALE);
 		EXPECT_CALL(
 			*g_mockIsoBmffHelper,
-			SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+			SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 									 expectedPts, expectedDuration))
 			.WillOnce(Return(true));
 
@@ -521,7 +518,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 			// Check that the PTS that is (eventually) passed on to GStreamer is as expected
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 						SendStreamTransfer(eMEDIATYPE_VIDEO,
-										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+										   VectorRefEq(std::cref(testFragment.fragment)),
 										   restampedPts.inSeconds(), restampedPts.inSeconds(),
 										   restampedDuration.inSeconds(), _, _, _));
 		}
@@ -601,7 +598,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
 	EXPECT_CALL(*g_mockIsoBmffHelper,
-				RestampPts(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+				RestampPts(VectorRefEq(std::cref(testFragment.fragment)),
 								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri, "video", PLAYBACK_TIMESCALE));
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 	if (lowLatencyMode)
@@ -612,7 +609,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		double expectedPts = FIRST_PTS.inSeconds() + PTS_OFFSET_SEC;
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
-									AampGrowableBufferPtrEq(&(testFragment.fragment)),
+									VectorRefEq(std::cref(testFragment.fragment)),
 									expectedPts, expectedPts, _, _, _, _));
 	}
 	ASSERT_TRUE(videoTrack.InjectFragment());
@@ -627,7 +624,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	testFragment.PTSOffsetSec = PTS_OFFSET_SEC;
 	testFragment.timeScale = PLAYBACK_TIMESCALE;
 	testFragment.uri = expectedUri;
-	testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA_SIZE);
+	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
 	videoTrack.numberOfFragmentsCached = 1;
 	ASSERT_NE(bufferedFragment, nullptr);
@@ -640,7 +637,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		double expectedPts = FIRST_PTS.inSeconds();
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
-									AampGrowableBufferPtrEq(&(testFragment.fragment)),
+									VectorRefEq(std::cref(testFragment.fragment)),
 									expectedPts, expectedPts, _, _, _, _));
 	}
 	ASSERT_TRUE(videoTrack.InjectFragment());
@@ -780,7 +777,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	// Assume no change in restamped duration on discontinuity
 	restampedPts += restampedDuration;
 	EXPECT_CALL(*g_mockIsoBmffHelper,
-				SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+				SetTimescale(VectorRefEq(std::cref(testFragment.fragment)),
 									TRICKMODE_TIMESCALE))
 		.WillOnce(Return(true));
 	ASSERT_TRUE(iframeTrack.InjectFragment());
@@ -800,7 +797,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
-		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+		SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 								 expectedPts, expectedDuration))
 		.WillOnce(Return(true));
 
@@ -824,7 +821,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	expectedPts = static_cast<int64_t>(restampedPts.inSeconds() * TRICKMODE_TIMESCALE);
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
-		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+		SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 								 expectedPts, expectedDuration))
 		.WillOnce(Return(true));
 

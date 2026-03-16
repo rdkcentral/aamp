@@ -71,7 +71,7 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	double getFirstPts( const std::vector<uint8_t>& buffer ) override
 	{
 		return 0;
 	}
