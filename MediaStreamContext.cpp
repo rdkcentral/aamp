@@ -866,14 +866,14 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
-	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && IDX.capacity() != 0 && uriInfo.range.empty())
+	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
 	{
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{
 			dlInfo->fragmentOffset = 0;
 			dlInfo->fragmentOffset++; // first byte following packed index
-			if (IDX.capacity() != 0)
+			if (!IDX.empty())
 			{
 				unsigned int firstOffset;
 				ParseSegmentIndexBox(
@@ -885,7 +885,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 										&firstOffset);
 				dlInfo->fragmentOffset += firstOffset;
 			}
-			if (dlInfo->fragmentOffset != 0 && IDX.capacity() != 0)
+			if (dlInfo->fragmentOffset != 0 && !IDX.empty())
 			{
 				unsigned int referenced_size;
 				float fragmentDuration;

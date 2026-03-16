@@ -25,10 +25,10 @@
 #ifndef FRAGMENT_CACHE_DESCRIPTOR_H
 #define FRAGMENT_CACHE_DESCRIPTOR_H
 
-#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include <cstdint>
 #include <string>
+#include <vector>
 
 /**
  * @struct FragmentCacheDescriptor
@@ -51,7 +51,7 @@ struct FragmentCacheDescriptor
 	 * @brief Fragment mode buffer (for ZERO-COPY move)
 	 *        Ownership transferred via std::move() to CachedFragment
 	 */
-	AampGrowableBuffer* downloadBuffer;
+	std::vector<uint8_t>* downloadBuffer;
 	
 	/**
 	 * @brief Size of payload in bytes

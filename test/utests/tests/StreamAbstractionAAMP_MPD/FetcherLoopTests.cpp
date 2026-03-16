@@ -2488,9 +2488,11 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 	if (mockIDXDownload)
 	{
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
-			.WillRepeatedly(WithArg<3>(Invoke([](AampGrowableBuffer *idxBuffer)
+			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> *idxBuffer)
 			{
-				idxBuffer->AppendBytes((const uint8_t *)sidxBox, sizeof(sidxBox));
+				idxBuffer->insert(idxBuffer->end(),
+					reinterpret_cast<const uint8_t*>(sidxBox),
+					reinterpret_cast<const uint8_t*>(sidxBox) + sizeof(sidxBox));
 			})));
 	}
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));

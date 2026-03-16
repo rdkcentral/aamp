@@ -7554,10 +7554,10 @@ BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 /**
  * @brief Fetch a file from CDN and update profiler
  */
-void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
+void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t> *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(std::move(fragmentUrl), mediaType, fragment->GetVector(), effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
+	if (!GetFile(std::move(fragmentUrl), mediaType, *fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
 	{
 		profiler.ProfileError(bucketType, *http_code);
 		profiler.ProfileEnd(bucketType);

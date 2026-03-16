@@ -24,9 +24,9 @@
  * @brief HLS Drm Interface */
 /* Constructor for dmrInterfce()
  * */
-DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
+DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp)
+	: mpAamp(aamp), mAesKeyBuf()
 {
-
 }
 /*Destructor for DrmInterfcae()
  */
