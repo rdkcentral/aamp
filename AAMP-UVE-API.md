@@ -1461,8 +1461,8 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 {
     "preferred-text-languages" : "eng,ger,mul",
     "preferred-text-labels": "native",
-    "preferred-text-rendition": "",
-    "preferred-text-type": "",
+    "preferred-text-rendition": "alternate",
+    "preferred-text-type": "captions",
     "preferred-text-accessibility":
     {
         "schemeId": "urn:tva:metadata:cs:AudioPurposeCS:2007",
