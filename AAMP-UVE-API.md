@@ -1436,7 +1436,10 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
   (capital `ID`), whereas `getAvailableTextTracks` uses `instreamId`.
   Use the exact casing expected by each API when consuming these fields.
 
-- ###### Example :
+- ###### Examples :
+
+  - Out-of-band text track (e.g., WebVTT or TTML sidecar):
+
 ```js
 [
     {
@@ -1446,12 +1449,25 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
         "codec": "stpp",
         "type": "captions",
         "rendition": "alternate",
-        "instreamID": "1",
         "accessibility":
         {
             "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
             "int_value": 2
         }
+    }
+]
+```
+
+  - In-band closed captions (instream CC):
+
+```js
+[
+    {
+        "name": "CC1",
+        "label": "Service 1",
+        "language": "eng",
+        "type": "captions",
+        "instreamID": "1"
     }
 ]
 ```
