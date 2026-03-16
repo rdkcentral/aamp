@@ -128,7 +128,7 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 /**
  *  @brief Update PTS and send pts for flush subtitle
  */
-void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
+void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -159,7 +159,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 	}
 	else
 	{
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragment);
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 		if(buffer.getFirstPTS(currentPTS))
@@ -174,7 +174,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 /**
  *  @brief Update PTS and send pts for flush audio
  */
-void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -205,7 +205,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 	}
 	else
 	{
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragment);
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 
@@ -415,7 +415,7 @@ void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer, double position, 
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)type, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		p_aamp->SendStreamTransfer((AampMediaType)type, pBuffer->GetVector(), position, position, duration, fragmentPTSoffset, isInit, discontinuous);
 	}
 	else
 	{
@@ -1241,7 +1241,7 @@ void IsoBmffProcessor::pushInitSegment(double position)
 		for (auto it = initSegment.begin(); it != initSegment.end();)
 		{
 			AampGrowableBuffer *buf = *it;
-			p_aamp->SendStreamTransfer((AampMediaType)type, buf, position, position, 0, 0.0, true);
+			p_aamp->SendStreamTransfer((AampMediaType)type, buf->GetVector(), position, position, 0, 0.0, true);
 			SAFE_DELETE(buf);
 			it = initSegment.erase(it);
 		}

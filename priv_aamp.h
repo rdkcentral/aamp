@@ -1235,11 +1235,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
+	 * @param[in] segment - fragment buffer (read-only; parsed but not modified)
 	 * @param[in] type - AampMediaType
 	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1836,7 +1836,7 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  buffer - Pointer to the AampGrowableBuffer.
+	 *   @param[in,out]  buffer - Buffer containing the stream data (moved out and cleared).
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
@@ -1845,7 +1845,7 @@ public:
 	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 	/**
 	 *   @fn SendStreamTransfer

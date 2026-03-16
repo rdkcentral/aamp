@@ -11367,12 +11367,12 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 			if(header)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
-				AampGrowableBuffer buffer("init-buffer");
+				std::vector<uint8_t> initSegment;
 				std::string effectiveUrl;
 				int http_error{};
-				if (aamp->GetFile(header->url, (AampMediaType) iTrack, buffer.GetVector(), effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
+				if (aamp->GetFile(header->url, (AampMediaType) iTrack, initSegment, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
 				{
-					aamp->SendStreamTransfer((AampMediaType) iTrack, &buffer, 0, 0, 0, 0, true, false);
+					aamp->SendStreamTransfer((AampMediaType) iTrack, initSegment, 0, 0, 0, 0, true, false);
 				}
 				else
 				{

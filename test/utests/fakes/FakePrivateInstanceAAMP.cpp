@@ -20,9 +20,6 @@
 #include "priv_aamp.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
-#include "AampStreamSinkManager.h"
-
-#include "BandwidthEstimatorBase.h"
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
@@ -1126,12 +1123,13 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 {
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
+		g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
+	std::vector<uint8_t>().swap(buffer);
 }
 
 void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)
@@ -1353,7 +1351,7 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
