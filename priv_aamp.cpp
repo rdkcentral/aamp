@@ -9390,14 +9390,14 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 
 /**
  * @brief Cancel ad reservation
-	 * @param[in] playingReservationId The reservation identifier which is currently playing
-	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
  */
-void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
-    if (mCdaiObject) {
-        mCdaiObject->CancelReservation(playingReservationId, cancelAtReservationId);
-    }
+	if (mCdaiObject)
+	{
+		mCdaiObject->CancelReservation(cancelAtReservationId);
+	}
 	else
 	{
 		AAMPLOG_ERR("[AAMP] CDAIObject not set. Cannot cancel reservation for reservationId: %s ", cancelAtReservationId.c_str());
@@ -10306,13 +10306,13 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 /**
  * @brief Send Ad reservation event
  */
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 	if(AAMP_EVENT_AD_RESERVATION_START == type || AAMP_EVENT_AD_RESERVATION_END == type)
 	{
 		AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] Pushed [%s] of adBreakId[%s] to Queue.", ADEVENT2STRING(type), adBreakId.c_str());
 
-		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, absolutePositionMs, GetSessionId());
+		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, absolutePositionMs, GetSessionId(), reason);
 
 		{
 			{

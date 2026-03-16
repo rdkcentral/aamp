@@ -288,7 +288,7 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 	}
 }
 
-void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
 
 }
@@ -1204,11 +1204,11 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
 }
 
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, immediate);
+		g_mockPrivateInstanceAAMP->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, immediate, reason);
 	}
 }
 

@@ -1933,6 +1933,7 @@ class AdReservationEvent: public AAMPEventObject
 	std::string mAdBreakId;	/**<Adbreak's id */
 	uint64_t mPosition;	/**<Adbreak's start position */
 	uint64_t mAbsolutePositionMs; /**<Adbreak's absolute position in UTC milliseconds */
+	std::string mReason;	/**<Reason for reservation end, if applicable */
 
 public:
 	AdReservationEvent() = delete;
@@ -1947,8 +1948,9 @@ public:
 	 * @param[in] position - Postion of reservation in content's PTS
 	 * @param[in] absolutePositionMs - Absolute position of reservation
 	 * @param[in] sid      - Session Identifier
+	 * @param[in] reason   - Reason for reservation end (optional, applicable to END events)
 	 */
-	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid);
+	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid, const std::string &reason = "");
 
 	/**
 	 * @brief AdReservationEvent Destructor
@@ -1966,9 +1968,14 @@ public:
 	uint64_t getPosition() const;
 
 	/**
-	 * @fn getabsolutePositionMs
+	 * @fn getAbsolutePositionMs
 	 */
 	uint64_t getAbsolutePositionMs() const;
+
+	/**
+	 * @fn getReason
+	 */
+	const std::string &getReason() const;
 };
 
 /**

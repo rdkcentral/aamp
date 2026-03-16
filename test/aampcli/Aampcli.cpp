@@ -655,6 +655,10 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
 							}
 							break;
+						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROGRAM_IMMEDIATE_RESUMPTION:
+							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Program immediate resumption signalled for breakId='%s'\n", ev->getId().c_str() );
+							mAampcli.mSingleton->CancelReservation(ev->getId());
+							break;
 						default:
 							break;
 					} // splice.type
@@ -697,7 +701,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_RESERVATION_END:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\treason=%s\n", ev->getAdBreakId().c_str(), ev->getPosition(), ev->getReason().c_str());
 			break;
 		}
 
