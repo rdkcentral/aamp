@@ -201,6 +201,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
 	# Locally built/installed dependencies
 	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include
+	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include/rialto
 )
 
 set(LIBAAMP_DEPENDS
@@ -217,6 +218,7 @@ set(LIBAAMP_DEPENDS
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
 	-ldl
+	-L${CMAKE_CURRENT_SOURCE_DIR}/.libs/lib -lRialtoClient
 )
 
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
@@ -439,6 +441,7 @@ set(LIBAAMP_SOURCES
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
+	AampRialtoMediaPipelineClient.cpp AampRialtoPlayer.cpp AampRialtoPlayer.h
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h

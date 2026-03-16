@@ -43,8 +43,8 @@ function rialto_install_fn() {
     else
        do_clone_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
        pushd rialto-gstreamer
-       echo "Checkout rialto-gstreamer '${OPTION_RIALTO_REFERENCE}'"
-       git checkout ${OPTION_RIALTO_REFERENCE}
+       echo "Checkout rialto-gstreamer '${OPTION_RIALTO_GSTREAMER_REFERENCE}'"
+       git checkout ${OPTION_RIALTO_GSTREAMER_REFERENCE}
        popd
     fi
 }
@@ -56,7 +56,7 @@ function rialto_build_repo_fn()
     shift
     mkdir -p build
     cd build
-    env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" "$@"
+    env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_CXX_FLAGS="-I${LOCAL_DEPS_BUILD_DIR}/include -Wno-sign-compare" "$@"
     make
     make install
     popd

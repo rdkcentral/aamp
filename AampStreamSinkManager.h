@@ -28,6 +28,7 @@
 #include <vector>
 #include <stddef.h>
 #include "aampgstplayer.h"
+#include "AampRialtoPlayer.h"
 #include "AampStreamSinkInactive.h"
 
 class PrivateInstanceAAMP;
@@ -206,10 +207,10 @@ private:
 	 */
 	StreamSink* GetStreamSinkNoLock(PrivateInstanceAAMP *aamp);
 
-	AAMPGstPlayer *mGstPlayer;
+	StreamSink *mGstPlayer;
 
 	std::map<PrivateInstanceAAMP*, StreamSink*> mClientStreamSinkMap;						/**< To maintain information on client supplied StreamSink for PrivateInstanceAAMP */
-	std::map<PrivateInstanceAAMP*, AAMPGstPlayer*> mActiveGstPlayersMap;					/**< To maintain information on currently active PrivateInstanceAAMP */
+	std::map<PrivateInstanceAAMP*, StreamSink*> mActiveGstPlayersMap;					/**< To maintain information on currently active PrivateInstanceAAMP */
 	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactiveGstPlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
 

@@ -28,8 +28,8 @@ function rialto_install_fn() {
     else
        do_clone_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
        pushd rialto-gstreamer
-       echo "Checkout rialto-gstreamer '${OPTION_RIALTO_REFERENCE}'"
-       git checkout ${OPTION_RIALTO_REFERENCE}
+       echo "Checkout rialto-gstreamer '${OPTION_RIALTO_GSTREAMER_REFERENCE}'"
+       git checkout ${OPTION_RIALTO_GSTREAMER_REFERENCE}
        popd
     fi
 }

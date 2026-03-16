@@ -26,6 +26,11 @@
 #include "AampMediaType.h"
 #include "AampDemuxDataTypes.h" // for AampMediaSample
 #include "DemuxDataTypes.h" // for MediaCodecInfo
+#include "ID3Metadata.hpp"
+#include "VideoZoomMode.h"
+#include "AampDefine.h"
+
+class PrivateInstanceAAMP;
 
 /**
  * @struct PlaybackQualityData
@@ -410,6 +415,34 @@ public:
      * @param[in] codecInfo - Codec information
      */
     virtual void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) {};
+
+    /**
+     *   @brief Check if the specified player instance is associated with this sink
+     *
+     *   @param[in]  aampInstance - Pointer to the PrivateInstanceAAMP to check
+     *   @return true if associated
+     */
+    virtual bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance) { return false; }
+
+    /**
+     *   @brief Change the AAMP instance associated with this sink
+     *
+     *   @param[in]  newAamp              - Pointer to the new PrivateInstanceAAMP
+     *   @param[in]  id3HandlerCallback   - ID3 metadata callback for the new instance
+     */
+    virtual void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback) {}
+
+    /**
+     *   @brief Set the AAMP instance that owns encrypted content
+     *
+     *   @param[in]  aamp - Pointer to the PrivateInstanceAAMP with encrypted content
+     */
+    virtual void SetEncryptedAamp(PrivateInstanceAAMP *aamp) {}
+
+    /**
+     *   @brief Reset the first-frame tracking state
+     */
+    virtual void ResetFirstFrame() {}
 
 };
 

@@ -541,7 +541,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 {
 	if (nullptr == mActiveDownloadInfo || nullptr == dlInfo || !aamp->DownloadsAreEnabled() || abort)
 	{
-		AAMPLOG_WARN("mActiveDownloadInfo or dlInfo is NULL or downloads are disabled");
+		AAMPLOG_WARN("mActiveDownloadInfo=%p dlInfo=%p DownloadsAreEnabled=%d abort=%d",
+			(void*)mActiveDownloadInfo.get(), (void*)dlInfo.get(), aamp->DownloadsAreEnabled(), abort);
 		return;
 	}
 
