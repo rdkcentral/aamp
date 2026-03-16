@@ -365,13 +365,11 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
+	UsingPlayerId(aamp->mPlayerId);
 	ManageAsyncTuneConfig(mainManifestUrl);
 	
 	// Set tuned flag before scheduling the tune task
-	if (aamp)
-	{
-		AampStreamSinkManager::GetInstance().SetTuned(aamp);
-	}
+	AampStreamSinkManager::GetInstance().SetTuned(aamp);
 
 	if(mAsyncTuneEnabled)
 	{
