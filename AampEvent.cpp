@@ -1243,8 +1243,8 @@ const std::string &AdResolvedEvent::getErrorDescription() const
 /**
  * @brief AdReservationEvent Constructor
  */
-AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid):
-		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position), mAbsolutePositionMs(absolutePositionMs)
+AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid, const std::string &reason):
+		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position), mAbsolutePositionMs(absolutePositionMs), mReason(reason)
 {
 
 }
@@ -1277,6 +1277,16 @@ uint64_t AdReservationEvent::getPosition() const
 uint64_t AdReservationEvent::getAbsolutePositionMs() const
 {
 	return mAbsolutePositionMs;
+}
+
+/**
+ * @brief Get reason for reservation end
+ *
+ * @return Reason string
+ */
+const std::string &AdReservationEvent::getReason() const
+{
+	return mReason;
 }
 
 /**
