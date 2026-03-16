@@ -2749,10 +2749,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
 		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
-		// For debugging purpose, print the manifest content in logs
-		// printf("\n[MPD] : %s \n", mpdDnldResp->mMPDDownloadResponse->getString().c_str());
-
-		//Node *root			=	mpdDnldResp->mRootNode;
+		
 		// this flag for current state of manifest ( Linear to VOD can happen)
 		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
 		{
