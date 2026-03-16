@@ -1441,7 +1441,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
         "codec": "stpp",
         "type": "CLOSED-CAPTIONS",
         "rendition": "alternate",
-        "instreamID": 1,
+        "instreamID": "1",
         "accessibility":
         {
             "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
