@@ -190,11 +190,10 @@ public:
 
 	/**
 	 * @brief Cancel ad reservation
-	 *   @param[in]  playingReservationId - Reservation Id which is currently playing.
 	 *   @param[in]  cancelAtReservationId - Reservation Id at which the cancellation has to be done.
 	 *   @return void
 	 */
-	void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId);
+	void CancelReservation(const std::string& cancelAtReservationId);
 
 	/**
 	 *   @fn SetUserAgent
