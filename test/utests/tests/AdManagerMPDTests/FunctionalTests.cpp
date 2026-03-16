@@ -4342,12 +4342,12 @@ TEST_F(AdManagerMPDTests, CancelReservation_EmptyCancelId_NoChange)
 TEST_F(AdManagerMPDTests, CancelReservation_PlacementBreakMissing_NoChange)
 {
   const std::string existingBreakId = "existingBrk";
-  const std::string missingPlacementId = "missingPlacementBrk";
   const std::string cancelAtReservationId = "nextBrk";
 
   mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId] =
     AdBreakObject(30000, nullptr, "", 0, 0);
-  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = missingPlacementId;
+  mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].mAdBreakPlaced = true;
+  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.clear();
 
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].
     cancelAtPeriodId.empty());
