@@ -1268,6 +1268,7 @@ std::string aamp_GetConfigPath( const std::string &filename )
 
 /**
  * Parses and confirms the SCTE35 data is a valid DAI event.
+ * @todo deprecate, as player should not have to parse segmentation_type_id
  *
  * @param scte35Data The SCTE35 data to be checked.
  * @return True if the SCTE35 data is valid DAI event, false otherwise.
