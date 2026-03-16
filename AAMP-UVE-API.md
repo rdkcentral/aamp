@@ -89,7 +89,7 @@ This document is targeted to application developers who are interested in evalua
 	<body>
 		<div id="videoContainer">
 			<video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
-			    <source src="dummy.mp4" type="video/mp4"> <!-- hole punching -->
+			    <source src="dummy.mp4" type="video/ave"> <!-- "video/ave" required as WPE browser hint to signal hole punching -->
 			</video>
 		</div>
 	</body>
