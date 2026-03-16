@@ -1264,6 +1264,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | ---- | ---- | ---- |
 | name  | String | Human readable language name e.g: sub_eng. |
 | label  | String | Represents the label of the text track. |
+| instreamId | String | Identifier for in-band closed captions (for example, "CC1", "SERVICE1"). Typically present for CLOSED-CAPTIONS / in-band CEA-608/708 tracks when signaled via DASH MPD `<Accessibility ... value=...>`. |
 | language  | String | iso language code. e.g: eng |
 | codec  | String | codec associated with text track. e.g: stpp |
 | rendition  | String | Role for DASH. e.g: caption,subtitle,main. |
