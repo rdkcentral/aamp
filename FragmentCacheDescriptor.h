@@ -51,7 +51,7 @@ struct FragmentCacheDescriptor
 	 * @brief Fragment mode buffer (for ZERO-COPY move)
 	 *        Ownership transferred via std::move() to CachedFragment
 	 */
-	std::vector<uint8_t>* downloadBuffer;
+	std::vector<uint8_t> downloadBuffer;
 	
 	/**
 	 * @brief Size of payload in bytes
@@ -162,7 +162,6 @@ struct FragmentCacheDescriptor
 	 */
 	FragmentCacheDescriptor()
 		: chunkPayload(nullptr)
-		, downloadBuffer(nullptr)
 		, payloadSize(0)
 		, url()
 		, position(0.0)

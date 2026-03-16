@@ -86,7 +86,7 @@ void registerCallbackForHls(DrmInterface* _this, PlayerHlsDrmSessionInterface* i
  * @brief DrmInterface constructor 
  * */
 DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp)
-	: mpAamp(aamp), mAesKeyBuf()
+	: mpAamp(aamp)
 {
 }
 

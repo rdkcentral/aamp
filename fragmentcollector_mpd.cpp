@@ -8283,23 +8283,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							char temp[MAX_RANGE_STRING_CHARS];
 							snprintf( temp, sizeof(temp), "0-%" PRIu64 , s1-1 );
 							range = temp;
-							if (!pMediaStreamContext->IDX.empty())
-							{
-								unsigned int referenced_size;
-								float fragmentDuration;
-								if (ParseSegmentIndexBox(
-										pMediaStreamContext->IDX.data(),
-										pMediaStreamContext->IDX.size(),
-										pMediaStreamContext->fragmentIndex,
-										&referenced_size,
-										&fragmentDuration,
-										NULL))
-								{
-									char temprange[MAX_RANGE_STRING_CHARS];
-									snprintf(temprange, sizeof(temprange), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
-									nextrange = temprange;
-								}
-							}
 						}
 						std::string fragmentUrl;
 						ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);

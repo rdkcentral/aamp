@@ -29,32 +29,18 @@
  * @struct AampMediaSample
  * @brief Media sample structure.
  *
- * Owns its data buffer via std::vector (RAII).
- * Move-only: large media buffers must not be accidentally copied.
- *
  * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
  */
 struct AampMediaSample
 {
-	std::vector<uint8_t> mData;    /**< Sample data buffer */
-	double mPts;
-	double mDts;
-	double mDuration;
-	MediaDrmMetadata mDrmMetadata; /**< DRM metadata for encrypted samples */
-
-	/**
-	 * @brief Default constructor
-	 */
-	AampMediaSample()
-		: mData()
-		, mPts(0)
-		, mDts(0)
-		, mDuration(0)
-		, mDrmMetadata()
-	{
-	}
+	std::vector<uint8_t> mData{};  /**< Sample data buffer */
+	double mPts{0.0};
+	double mDts{0.0};
+	double mDuration{0.0};
+	MediaDrmMetadata mDrmMetadata{}; /**< DRM metadata for encrypted samples */
 
 	// Move constructor and move assignment (allow efficient transfers)
+	AampMediaSample() = default;
 	AampMediaSample(AampMediaSample&&) = default;
 	AampMediaSample& operator=(AampMediaSample&&) = default;
 

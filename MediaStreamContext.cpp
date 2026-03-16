@@ -506,11 +506,11 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(fragment->fragment.capacity() != 0 && WaitForCachedFragmentChunkInjected())
+	if(!fragment->fragment.empty() && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-		if(cachedFragment->fragment.capacity() != 0)
+		if(!cachedFragment->fragment.empty())
 		{
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
@@ -873,40 +873,32 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		{
 			dlInfo->fragmentOffset = 0;
 			dlInfo->fragmentOffset++; // first byte following packed index
-			if (!IDX.empty())
+			unsigned int firstOffset;
+			ParseSegmentIndexBox(
+									IDX.data(),
+									IDX.size(),
+									0,
+									NULL,
+									NULL,
+									&firstOffset);
+			dlInfo->fragmentOffset += firstOffset;
+			unsigned int referenced_size = 0;
+			float fragmentDuration = 0.0f;
+			AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
+			//Find the offset of previous fragment in new representation
+			for (int i = 0; i < dlInfo->fragmentIndex; i++)
 			{
-				unsigned int firstOffset;
-				ParseSegmentIndexBox(
-										IDX.data(),
-										IDX.size(),
-										0,
-										NULL,
-										NULL,
-										&firstOffset);
-				dlInfo->fragmentOffset += firstOffset;
-			}
-			if (dlInfo->fragmentOffset != 0 && !IDX.empty())
-			{
-				unsigned int referenced_size;
-				float fragmentDuration;
-				AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
-				//Find the offset of previous fragment in new representation
-				for (int i = 0; i < dlInfo->fragmentIndex; i++)
+				if (ParseSegmentIndexBox(
+											IDX.data(),
+											IDX.size(),
+											i,
+											&referenced_size,
+											&fragmentDuration,
+											NULL))
 				{
-					if (ParseSegmentIndexBox(
-												IDX.data(),
-												IDX.size(),
-												i,
-												&referenced_size,
-												&fragmentDuration,
-												NULL))
-					{
-						dlInfo->fragmentOffset += referenced_size;
-					}
+					dlInfo->fragmentOffset += referenced_size;
 				}
 			}
-			unsigned int referenced_size;
-			float fragmentDuration;
 			if (ParseSegmentIndexBox(
 										IDX.data(),
 										IDX.size(),
