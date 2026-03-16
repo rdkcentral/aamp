@@ -48,7 +48,7 @@ public:
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, double, bool, bool));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
@@ -67,7 +67,7 @@ public:
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
 	MOCK_METHOD(void, SetVidTimeScale, (uint32_t));
-	MOCK_METHOD(void, ProcessID3Metadata, (std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
+	MOCK_METHOD(void, ProcessID3Metadata, (const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
 	MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 	MOCK_METHOD(long long, DurationFromStartOfPlaybackMs, ());
