@@ -1433,19 +1433,22 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 - ###### Example :
 ```js
-{
-    "name": "English",
-    "label": "native",
-    "language": "eng",
-    "codec": "stpp",
-    "type": "CLOSED-CAPTIONS",
-    "rendition": "alternate",
-    "accessibility":
+[
     {
-        "schemeId": "urn:tva:metadata:cs:AudioPurposeCS:2007",
-        "int_value": 2
+        "name": "English",
+        "label": "native",
+        "language": "eng",
+        "codec": "stpp",
+        "type": "CLOSED-CAPTIONS",
+        "rendition": "alternate",
+        "instreamID": 1,
+        "accessibility":
+        {
+            "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
+            "int_value": 2
+        }
     }
-}
+]
 ```
 ---
 
