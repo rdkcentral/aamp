@@ -112,17 +112,17 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 /**
  * @brief Get the reason for ad reservation end.
  */
-constexpr const char* GetAdReservationEndReason(bool adFailed, bool adCancelled)
+static constexpr const char* GetAdReservationEndReason(bool adFailed, bool adCancelled)
 {
-    constexpr const char* reasonMap[] =
-    {
-        "completed",
-        "early_return",
-        "error"
-    };
+	constexpr const char* reasonMap[] =
+	{
+		"completed",
+		"early_return",
+		"error"
+	};
 
-    const size_t reasonIdx = adFailed ? 2 : (adCancelled ? 1 : 0);
-    return reasonMap[reasonIdx];
+	const size_t reasonIdx = adFailed ? 2 : (adCancelled ? 1 : 0);
+	return reasonMap[reasonIdx];
 }
 
 
