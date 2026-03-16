@@ -258,7 +258,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preferredAudioType | String | - | Preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also. |
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs. Available in version 2.6. Values: 0 - NO_LANGCODE_PREFERENCE, 1 - 3_CHAR_BIBLIOGRAPHIC_LANGCODE, 2 - 3_CHAR_TERMINOLOGY_LANGCODE, 3 - 2_CHAR_LANGCODE |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions. |
-| preferredTextLabel | String | - | Label of desired text track in the available text tracks list. Same can be done with setTextTrack API also. |
+| preferredTextLabel | String | - | Label of desired text track in the available text tracks list.|
 | nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
 | enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
 | liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
@@ -1477,32 +1477,6 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 |Name|Type|Description|
 |----|----|-----------|
 | trackIndex | Number | Index of desired text track in the available text tracks list |
-
----
-
-### setTextTrack( trackDescriptorObj )
-- Supported UVE version 3.2 and above.
-- Set the text track by language, rendition, label, instreamId, and type from the available text tracklist.
-- "language" match always takes precedence over "rendition" match.
-- While playing passively to new periods with different track order/availability, or when tuning to new locator, heuristic for track selection is automatically re-applied.
-- Behavior is similar to setPreferredTextLanguage
-
-| Name  | Type | Description |
-| ---- | ---- | ---- |
-| language | String | Language of desired text track in the available text tracklist |
-| rendition | String | Rendition of desired text track in the available text tracklist |
-| label	| String	| Optional label of the text track |
-| instreamId	| String	| Optional preferred instreamId for closed captions (i.e. CC1, CC2) |
-| type	| String	| Optional preferred accessibility type for descriptive text |
-
-- **Note:** As of the current UVE implementation, the
-  `setTextTrack()` JS binding does **not** support an object
-  descriptor argument. When a non-numeric value is passed to
-  `setTextTrack`, it is interpreted as raw WebVTT data for an
-  in-band text track, not as an object with `language`,
-  `rendition`, `label`, etc. To select a text track by language or
-  related attributes, use the existing `setPreferredTextLanguage`
-  API instead of passing a descriptor object to `setTextTrack`.
 
 ---
 
@@ -2760,14 +2734,14 @@ player.setClosedCaptionStatus(false); // mute captions
 Get/Set CC track at runtime:
 
 ```javascript
-player.getTextTrack(); // returns json object listing track attributes
+player.getTextTrack(); // returns the numeric index of the currently selected text track
 player.setTextTrack(trackIdentifier);
 ```
 
 Get/Set CC style options at runtime:
 
 ```javascript
-player.getTextStyleOptions(); // returns JSON object reflecting current styling options
+player.getTextStyleOptions(); // returns a JSON-formatted string reflecting current styling options
 player.setTextStyleOptions(options);
 ```
 
