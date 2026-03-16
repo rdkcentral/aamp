@@ -1442,7 +1442,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
     "rendition": "alternate",
     "accessibility":
     {
-        "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
+        "schemeId": "urn:tva:metadata:cs:AudioPurposeCS:2007",
         "int_value": 2
     }
 }
@@ -1456,13 +1456,13 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 - ###### Example :
 ```js
 {
-    "preferred-text-languages" : ["eng", "ger", "mul"],
+    "preferred-text-languages" : "eng,ger,mul",
     "preferred-text-labels": "native",
     "preferred-text-rendition": "",
     "preferred-text-type": "",
     "preferred-text-accessibility":
     {
-        "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
+        "schemeId": "urn:tva:metadata:cs:AudioPurposeCS:2007",
         "int_value": 2
     }
 }
