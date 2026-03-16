@@ -2064,6 +2064,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			if (pto > startTime)
 			{
 				offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
+				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
 				skipTime += offset;
 				// fragmentTime is reduced from period offset to land on the right epoch value. Later fragmentTime is added with fragmentDuration, so the PTO gap is addressed here.
 				pMediaStreamContext->fragmentTime -= offset;
@@ -2078,10 +2079,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
                 * but ~70Sec of the period will have been removed from the manifest timeline due to TSB
 				* so we actually need to look for the position = skipTime -70
 				*/
-				offset = (startTime - pto) / segmentTemplates.GetTimescale();
+				offset = (double)(startTime - pto) / (double)segmentTemplates.GetTimescale();
 				skipTime -= offset;
+				AAMPLOG_INFO("offset %f pto %" PRIu64 " startTime %" PRIu64,offset,pto,startTime);
 			}
-			AAMPLOG_INFO("offset %f pto %" PRIu64 " startTime %" PRIu64,offset,pto,startTime);
 		}
 		do
 		{
