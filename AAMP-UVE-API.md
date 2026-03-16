@@ -1436,7 +1436,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 {
     "name": "English",
     "label": "native",
-    "languages": "eng",
+    "language": "eng",
     "codec": "stpp",
     "type": "CLOSED-CAPTIONS",
     "rendition": "alternate",
