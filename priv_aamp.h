@@ -1137,6 +1137,7 @@ public:
 	bool mIsTrackIdMismatch;				/**< Indicate track_id mismatch in the trak box between periods */
 
 	bool mIsDefaultOffset; 					/**< Playback offset is not specified and we are using the default value/behavior */
+	bool mIsOffsetNegativeOne;                     /**< Set to true when offset=-1 is passed from application to play IVOD/CDVR content from live edge */
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
@@ -1234,11 +1235,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
+	 * @param[in] segment - fragment buffer (read-only; parsed but not modified)
 	 * @param[in] type - AampMediaType
 	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1386,7 +1387,7 @@ public:
 	 * @return true iff successful
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
-				AampGrowableBuffer *buffer, std::string& effectiveUrl,
+				std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int *http_error = NULL, double *downloadTime = NULL,
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
@@ -1835,7 +1836,7 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  buffer - Pointer to the AampGrowableBuffer.
+	 *   @param[in,out]  buffer - Buffer containing the stream data (moved out and cleared).
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
@@ -1844,7 +1845,7 @@ public:
 	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 	/**
 	 *   @fn SendStreamTransfer
@@ -2673,7 +2674,10 @@ public:
 	/**
 	 *   @fn IsLiveAdjustRequired
 	 *
-	 *   @return False if the content is either vod/ivod/cdvr/ip-dvr/eas
+	 *   @return True if live adjustment is required for the content.
+	 *           Returns true for live content (LINEAR_TV, SLE) and for IVOD/CDVR content 
+	 *           when playing from live edge (offset=-1 with dynamic manifest).
+	 *           Returns false for VOD, IP-DVR, EAS, and completed IVOD/CDVR recordings.
 	 */
 	bool IsLiveAdjustRequired();
 
@@ -3479,25 +3483,12 @@ public:
 	bool RemoveAsyncTask(int taskId);
 
 	/**
-	 *   @fn AcquireStreamLock
-	 *
-	 *   @return void
+	 *   @fn GetStreamLock
+	 *   @brief Get reference to stream lock for RAII usage
+	 *   @note Prefer: std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock())
+	 *   @return Reference to mStreamLock
 	 */
-	void AcquireStreamLock();
-
-	/**
-	 *   @fn TryStreamLock
-	 *
-	 *   @return True if it could I acquire it successfully else false
-	 */
-	bool TryStreamLock();
-
-	/**
-	 *   @fn ReleaseStreamLock
-	 *
-	 *   @return void
-	 */
-	void ReleaseStreamLock();
+	std::recursive_mutex& GetStreamLock() { return mStreamLock; }
 
 	/**
 	 *  @fn UpdateLiveOffset

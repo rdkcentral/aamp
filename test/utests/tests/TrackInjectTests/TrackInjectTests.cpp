@@ -37,6 +37,8 @@
 
 using namespace testing;
 
+static constexpr uint32_t PLAYBACK_TIMESCALE{90000};
+
 AampConfig *gpGlobalConfig{nullptr};
 
 class MediaTrackTest : public MediaTrack
@@ -105,7 +107,7 @@ public:
 	{
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
-		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position,
+		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment, cachedFragment->position,
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
@@ -125,6 +127,7 @@ public:
 			this->mCachedFragment = new CachedFragment[3];
 			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
 		}
+		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
@@ -357,9 +360,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 							  SetArgReferee<6>(duration),
 							  Return(true)));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
-		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(An<std::vector<uint8_t>&>()));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();

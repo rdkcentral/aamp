@@ -147,7 +147,7 @@ using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(fa
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
 lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
-numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
+numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
 firstTuneWithWesterosSinkOff(false),
@@ -188,7 +188,6 @@ GstPlayerPriv::~GstPlayerPriv()
 		g_clear_object(&protectionEvent[i]);
 	}
 	g_clear_object(&positionQuery);
-	g_clear_object(&durationQuery);
 }
 
 /**
@@ -791,7 +790,7 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::idleCb);
 		pInterfacePlayerRDK->IdleTaskClearFlags(privatePlayer->gstPrivateContext->firstProgressCallbackIdleTask);
 
-		if ( !(pInterfacePlayerRDK->TimerIsRunning( privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId)) )
+		if ( !(pInterfacePlayerRDK->TimerIsRunning( privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId)) && (pInterfacePlayerRDK->callbackMap[InterfaceCB::progressCb] != nullptr) )
 		{
 			double  reportProgressInterval = pInterfacePlayerRDK->m_gstConfigParam->progressTimer;
 			reportProgressInterval *= 1000; //convert s to ms
@@ -2746,27 +2745,28 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 long InterfacePlayerRDK::GetDurationMilliseconds(void)
 {
 	long rc = 0;
+	GstQuery *durationQuery = NULL;
 	if( interfacePlayerPriv->gstPrivateContext->pipeline )
 	{
 		if( interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PLAYING || // playing
 		   (interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) ) // paused by user
 		{
-			interfacePlayerPriv->gstPrivateContext->durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
-			if( interfacePlayerPriv->gstPrivateContext->durationQuery )
+			durationQuery = gst_query_new_duration(GST_FORMAT_TIME);	/*Constructs a new stream duration query object to query in the given format */
+			if( durationQuery )
 			{
-				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,interfacePlayerPriv->gstPrivateContext->durationQuery);
+				gboolean res = gst_element_query(interfacePlayerPriv->gstPrivateContext->pipeline,durationQuery);
 				if( res )
 				{
 					gint64 duration;
-					gst_query_parse_duration(interfacePlayerPriv->gstPrivateContext->durationQuery, NULL, &duration); /* parses the value into duration */
+					gst_query_parse_duration(durationQuery, NULL, &duration); /* parses the value into duration */
 					rc = GST_TIME_AS_MSECONDS(duration);
 				}
 				else
 				{
 					MW_LOG_ERR("Duration query failed");
 				}
-				gst_query_unref(interfacePlayerPriv->gstPrivateContext->durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
-				interfacePlayerPriv->gstPrivateContext->durationQuery = NULL;
+				gst_query_unref(durationQuery);		/* Decreases the refcount of the durationQuery. In this case the count will be zero, so it will be freed*/
+				durationQuery = NULL;
 			}
 			else
 			{

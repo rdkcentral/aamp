@@ -71,7 +71,7 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	double getFirstPts( const std::vector<uint8_t>& buffer ) override
 	{
 		return 0;
 	}
@@ -159,7 +159,7 @@ private:
     /**
 	 * @fn setTuneTimePTS
 	 *
-	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] segment - fragment buffer pointer (binary data)
 	 * @param[in] size - fragment buffer size
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
@@ -167,7 +167,7 @@ private:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return false if base was set, true otherwise
 	 */
-	bool setTuneTimePTS(char *segment, const size_t& size, double position, double duration, bool discontinuous, bool &ptsError);
+	bool setTuneTimePTS(const uint8_t *segment, size_t size, double position, double duration, bool discontinuous, bool &ptsError);
 
 	/**
 	 * @fn setBasePTS

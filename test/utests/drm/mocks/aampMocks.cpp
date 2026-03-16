@@ -316,15 +316,7 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
-{
-}
-
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
-{
-}
-
-void PrivateInstanceAAMP::ReleaseStreamLock()
 {
 }
 
@@ -343,11 +335,6 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
-}
-
-bool PrivateInstanceAAMP::TryStreamLock()
-{
-	return false;
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
@@ -1177,7 +1164,7 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type,
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type,
 		uint64_t timeStampOffset)
 {
 }

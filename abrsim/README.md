@@ -7,33 +7,101 @@
 ## Features
 
 - **Faster-than-real-time simulation**: Simulate hours of playback in seconds
+- **Real AAMP ABR integration**: Use actual production ABR algorithms (optional build)
 - **Live streaming support**: Model live streams with target latency and buffer capping
 - **Realistic network modeling**: Uses NetTrace persona format for authentic network behavior
 - **DASH manifest abstraction**: Models typical video profile ladders with configurable bitrates
 - **Video-focused**: Concentrates on video segment downloads (ignores manifest refreshes and audio)
 - **Detailed reporting**: Generates CSV logs of all bitrate changes and rebuffering events
-- **Extensible**: Designed to integrate with AAMP's actual ABRManager from `abr/` folder
+- **Web UI**: User-friendly browser interface with real-time visualization
 
-## Building
+## Quick Start
 
-### Simple Build (Standalone)
+### Option 1: Web UI (Recommended for most users)
 
 ```bash
 cd abrsim
-g++ -std=c++17 -O2 -o abrsim abrsim.cpp
+./build.sh              # Or ./build.sh --real for AAMP ABR
+./abrsim_server.py      # Start web server
+# Open http://localhost:8080 in browser
 ```
 
-### Full Build (with ABR integration - future)
+See [WEB_UI_README.md](WEB_UI_README.md) for detailed web interface documentation.
+
+### Option 2: Command Line
 
 ```bash
-g++ -std=c++17 -O2 -I../abr -I.. -o abrsim abrsim.cpp \
-    ../abr/abr.cpp ../abr/HarmonicEwmaEstimator.cpp \
-    ../abr/RollingMedianOutlierEstimator.cpp
+cd abrsim
+./build.sh
+./abrsim --persona sample_network.json --duration 3600 --out report.csv
 ```
 
-Note: Full ABR integration requires resolving dependencies on AAMP's config and logging infrastructure.
+## Building
 
-## Usage
+### Simple Build (Standalone with placeholder ABR)
+
+```bash
+cd abrsim
+./build.sh
+```
+
+This builds with a simple placeholder ABR algorithm suitable for basic testing.
+
+### Full Build (with Real AAMP ABR)
+
+```bash
+cd abrsim
+./build.sh --real
+```
+
+This integrates AAMP's actual ABRManager with sophisticated bandwidth estimation algorithms:
+- Harmonic EWMA
+- Rolling Median with Outlier Detection
+- Buffer-aware ramping strategies
+- Network consistency tracking
+
+**Requirements for real ABR build:**
+- AAMP ABR sources in `../abr/`
+- C++17 compiler
+- All ABR dependencies resolved
+
+## Web Interface
+
+### Starting the Web UI
+
+The easiest way to use abrsim is through the web interface:
+
+```bash
+./start_web_ui.sh
+```
+
+Then open http://localhost:8080 in your browser.
+
+### Web UI Features
+
+- **Interactive parameter configuration**: Adjust all simulation settings via forms
+- **Real-time visualization**: See bitrate, buffer, and bandwidth charts
+- **Network persona selection**: Choose from pre-configured network profiles
+- **Results summary**: Instant feedback on rebuffering, latency, and performance
+- **Export capabilities**: Download CSV reports for further analysis
+
+For complete web UI documentation, see [WEB_UI_README.md](WEB_UI_README.md).
+
+### API Access
+
+The web server also provides a REST API for programmatic access:
+
+```bash
+# List available personas
+curl http://localhost:8080/api/personas
+
+# Run a simulation
+curl -X POST http://localhost:8080/api/simulate \
+  -H "Content-Type: application/json" \
+  -d '{"persona":"mobile_3g.json","duration":600,"is_live":false}'
+```
+
+## Command Line Usage
 
 ### Basic Usage
 
@@ -106,28 +174,76 @@ Simulate 2 hours of live playback with a slow network:
 
 ## Network Persona Format
 
-The tool uses the same JSON format as `simnet`:
+The tool uses the same JSON format as `simnet`. Each file describes a statistical
+model of a real-world network link.
 
 ```json
 {
-  "base_rtt_ms": 175.0,
-  "rtt_jitter_ms": 20.0,
-  "ttfb_spike_p": 0.01,
-  "ttfb_spike_ms": 120.0,
-  "mean_thr_mbps": 200.0,
-  "thr_sigma_ln": 0.80,
-  "thr_rho": 0.15,
+  "description": "Moderate Cable/DSL - reliable mid-tier connection",
+  "base_rtt_ms": 45.0,
+  "rtt_jitter_ms": 15.0,
+  "ttfb_spike_p": 0.05,
+  "ttfb_spike_ms": 150.0,
+  "mean_thr_mbps": 3.5,
+  "thr_sigma_ln": 0.20,
+  "thr_rho": 0.40,
   "bursts_per_segment": 8,
   "burst_bytes_cv": 0.40,
-  "cadence_ms": 175.0,
-  "cadence_jitter_ms": 45.0,
-  "flush_jitter_ms": 6.0,
-  "late_chunk_p": 0.01,
-  "late_chunk_extra_ms": 120.0,
-  "p_conn_reuse": 0.95,
-  "new_conn_penalty_ms": 170.0
+  "cadence_ms": 150.0,
+  "cadence_jitter_ms": 40.0,
+  "flush_jitter_ms": 10.0,
+  "late_chunk_p": 0.03,
+  "late_chunk_extra_ms": 180.0,
+  "p_conn_reuse": 0.90,
+  "new_conn_penalty_ms": 140.0
 }
 ```
+
+### Field Reference
+
+#### Latency / TTFB
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `base_rtt_ms` | ms | Base round-trip time. Sets the Time-To-First-Byte floor and governs connection responsiveness. Typical values: LAN 1–5 ms, Cable/DSL 20–80 ms, Mobile 100–300 ms. |
+| `rtt_jitter_ms` | ms | Standard deviation of RTT around `base_rtt_ms` (Gaussian). Models per-segment routing variation. |
+| `ttfb_spike_p` | probability 0–1 | Probability that a given segment download has a TTFB spike (e.g. TCP retransmit or server stall). |
+| `ttfb_spike_ms` | ms | Extra latency added on top of normal TTFB when a spike occurs. |
+
+#### Throughput
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `mean_thr_mbps` | Mbps | **Mean effective goodput** of the link. This is the primary bandwidth knob — it governs how long each segment takes to download. |
+| `thr_sigma_ln` | dimensionless | Innovation noise of the AR(1) throughput process in log-space. Controls how much throughput varies *between consecutive samples*. The stationary standard deviation in log-space is `thr_sigma_ln / sqrt(1 - thr_rho²)`. Keep this small (0.15–0.45) for realistic links. |
+| `thr_rho` | 0–1 | Autocorrelation of the AR(1) throughput process. Higher values → longer-duration congestion episodes (throughput stays high or low for many segments). Typical: 0.3–0.7. |
+
+> **Calibration note**: stationary throughput variation = `thr_sigma_ln / sqrt(1 - thr_rho²)`.
+> A value of 0.25 means throughput fluctuates ≈ ±28% (1σ) around `mean_thr_mbps`.
+
+#### Burst / TCP pacing structure
+
+These parameters model how bytes are delivered within a single segment download
+(TCP burst structure, pacing, and ACK clocking). They affect *timing variation*
+within a download but do **not** reduce the effective goodput below `mean_thr_mbps`.
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `bursts_per_segment` | count | Number of TCP burst groups per segment. Affects how flush-jitter is applied. Typical: 6–10. |
+| `burst_bytes_cv` | coefficient of variation | Unused by the simulator after the network model was corrected to use effective-goodput directly. Reserved for future burst-shaping modes. |
+| `cadence_ms` | ms | Unused by the simulator after the network model was corrected. Reserved for future pacing modes. |
+| `cadence_jitter_ms` | ms | Unused. Reserved. |
+| `flush_jitter_ms` | ms | Standard deviation of per-burst TCP flush timing (Gaussian, absolute value taken). Adds small random delivery jitter within each download without changing total transfer time significantly. |
+| `late_chunk_p` | probability 0–1 | Probability that a segment suffers a late-chunk stall (e.g. tail-loss retransmit). |
+| `late_chunk_extra_ms` | ms | Extra delay added when a late-chunk stall occurs. |
+
+#### Connection reuse
+
+| Field | Unit | Description |
+|-------|------|-------------|
+| `p_conn_reuse` | probability 0–1 | Probability that the existing TCP/TLS connection is reused for the next segment (HTTP keep-alive or HTTP/2 multiplexing). When `false`, a new-connection penalty is incurred. |
+| `new_conn_penalty_ms` | ms | Extra delay for TCP + TLS handshake when a new connection must be established. Typical: 100–400 ms. |
+
 
 ## Output Format
 

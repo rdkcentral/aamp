@@ -30,7 +30,7 @@
 *   @fn AampMPDParseHelper
 *   @brief Default Constructor
 */
-AampMPDParseHelper::AampMPDParseHelper() 	: mMPDInstance(NULL),mIsLiveManifest(false),mMinUpdateDurationMs(0),
+AampMPDParseHelper::AampMPDParseHelper() : mMPDInstance(NULL),mIsLiveManifest(false),mMinUpdateDurationMs(0),
 				mIsFogMPD(false),
 				mAvailabilityStartTime(0.0),mPublishTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
 				mPresentationOffsetDelay(0.0),mMediaPresentationDuration(0),
@@ -654,7 +654,7 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 			}
 
 			string startTimeStr = period->GetStart();
-                        periodDurationMs = GetPeriodDuration(periodIndex,mLastPlaylistDownloadTimeMs,checkIFrame,IsUninterruptedTSB);
+			periodDurationMs = GetPeriodDuration(periodIndex,mLastPlaylistDownloadTimeMs,checkIFrame,IsUninterruptedTSB);
 			if((mMPDInstance->GetAvailabilityStarttime().empty()) && !(mMPDInstance->GetType() == "static"))
 			{
 				AAMPLOG_WARN("availabilityStartTime required to calculate period duration not present in MPD");
@@ -669,18 +669,18 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 				{
 					AAMPLOG_INFO("Period startTime is not present in MPD, so calculating start time with previous period durations");
 					if(mIsLiveManifest)
-                                        {
+					{
 						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000 - (mAvailabilityStartTime * 1000);
 					}
 					else
 					{
-						 periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
+						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
 					}
 				}
 				else
 				{
 					periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period)* 1000);
-                                }
+				}
 				periodEndTime = ((double)(periodStartMs + periodDurationMs) /1000);
 				if(mIsLiveManifest)
 				{
@@ -855,14 +855,14 @@ std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo
 double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB)
 {
 	auto it = std::find_if(mMPDPeriodDetails.begin(), mMPDPeriodDetails.end(),
-                        [periodIndex](const PeriodInfo& period) {
-                        return period.periodIndex == periodIndex;
-                        });
+			[periodIndex](const PeriodInfo& period) {
+			return period.periodIndex == periodIndex;
+			});
 
-        if (it != mMPDPeriodDetails.end()) {
-                // Found a matching PeriodInfo object, return its Duration
-                return it->duration;
-        }
+	if (it != mMPDPeriodDetails.end()) {
+		// Found a matching PeriodInfo object, return its Duration
+		return it->duration;
+	}
 	else
 	{
 		double periodDuration = 0;

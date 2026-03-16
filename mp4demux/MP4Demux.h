@@ -174,6 +174,20 @@ private:
 	uint64_t sampleOffset; /**< Current sample offset */
 	bool sencPresent; /**< SENC box present flag */
 	bool handledEncryptedSamples; /**< Flag indicating encrypted samples have been handled */
+
+	/**
+	 * @brief Pending sample payload data.
+	 */
+	struct PendingSamplePayload
+	{
+		const uint8_t* dataPtr; /**< Pointer into the parse buffer where sample data starts */
+		uint32_t sampleLen;     /**< Byte length of this sample's payload */
+		size_t sampleIdx;       /**< Index into samples[] where data must be placed */
+		double mDts;            /**< Decode timestamp in seconds */
+		double mPts;            /**< Presentation timestamp in seconds */
+		double mDuration;       /**< Sample duration in seconds */
+	};
+	std::vector<PendingSamplePayload> mSampleInfo; /**< sample payloads awaiting mdat bounds */
 	MediaCodecInfo codecInfo; /**< Codec information */
 	Mp4ParseError parseError; /**< Current parse error state */
 
@@ -251,6 +265,10 @@ private:
 	void ParseSampleEncryption();
 	/** @brief Parse track run box (TRUN) */
 	void ParseTrackRun();
+	/**
+	 * @brief Assign deferred sample payload data after mdat is parsed
+	 */
+	void ProcessSamples();
 	/** @brief Parse track fragment header box (TFHD) */
 	void ParseTrackFragmentHeader();
 	/** @brief Parse track fragment decode time box (TFDT) */

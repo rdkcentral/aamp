@@ -30,6 +30,7 @@
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
 #include <thread>
+#include <vector>
 #include "iso639map.h"
 #include <string>
 #include <sstream>
@@ -222,7 +223,7 @@ void UrlEncode(std::string inStr, std::string &outStr);
 void trim(std::string& src);
 
 /**
- * @fn Getiso639map_NormalizeLanguageCode 
+ * @fn Getiso639map_NormalizeLanguageCode
  * @param[in] lang - Language in string format
  * @param[in] preferFormat - Preferred language format
  */
@@ -230,7 +231,7 @@ std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCode
 
 /**
  * @fn aamp_GetTimespec
- * @param[in] timeInMs 
+ * @param[in] timeInMs
  */
 struct timespec aamp_GetTimespec(int timeInMs);
 
@@ -330,11 +331,26 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial 
 
 namespace aamp_utils
 {
-    template<typename T, typename ...Args>
-    std::unique_ptr<T> make_unique(Args&& ...args)
-    {
-        return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-    }
+	template<typename T, typename ...Args>
+	std::unique_ptr<T> make_unique(Args&& ...args)
+	{
+		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+	}
+
+	/**
+	 * @brief Clear a vector and release its heap memory
+	 *
+	 * Swaps the target vector with a default-constructed temporary,
+	 * guaranteeing that both size and capacity become zero.
+	 *
+	 * @tparam T Element type of the vector
+	 * @param[in,out] v Vector to clear and release
+	 */
+	template<typename T>
+	inline void ClearAndRelease(std::vector<T>& v)
+	{
+		std::vector<T>().swap(v);
+	}
 }
 
 /**

@@ -246,3 +246,15 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 {
 	return nullptr;
 }
+
+void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
+{
+}
+
+void AampTSBSessionManager::NotifyVideoTsbWaiters()
+{
+	if (g_mockTSBSessionManager)
+	{
+		g_mockTSBSessionManager->NotifyVideoTsbWaiters();
+	}
+}

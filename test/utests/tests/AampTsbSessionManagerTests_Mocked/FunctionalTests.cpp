@@ -31,6 +31,9 @@
 #include "MockTSBDataManager.h"
 #include "MockMediaStreamContext.h"
 #include <memory>
+#include <string_view>
+
+using namespace std::literals;
 
 using ::testing::_;
 using ::testing::Return;
@@ -44,7 +47,7 @@ class AampTsbSessionManagerTests : public ::testing::Test
 {
 protected:
 	static constexpr const char *TEST_BASE_URL = "http://server/";
-	static constexpr const char *TEST_DATA = "This is a dummy data";
+	static constexpr auto TEST_DATA = "This is a dummy data"sv;
 	std::string TEST_PERIOD_ID = "1";
 
 	void SetUp() override
@@ -370,7 +373,7 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
 	cachedFragment->initFragment = true;
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA.begin(), TEST_DATA.end());
 	// Valid media types are only VIDEO, AUDIO, SUBTITLE and INIT fragments
 	cachedFragment->type = eMEDIATYPE_DEFAULT;
 
@@ -387,7 +390,7 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_InitFragmentSuccess)
 	cachedFragment->initFragment = true;
 	cachedFragment->duration = 0;
 	cachedFragment->position = 0;
-	cachedFragment->fragment.assign(TEST_DATA, TEST_DATA + strlen(TEST_DATA));
+	cachedFragment->fragment.assign(TEST_DATA.begin(), TEST_DATA.end());
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _)).Times(1).WillOnce(Return(0.0));
@@ -580,4 +583,34 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_BoS)
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).WillOnce(Return(true));
 
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
+}
+
+// Test NotifyVideoTsbWaiters functionality
+TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters)
+{
+	// Spawn a thread that waits for and consume the notification
+	std::thread consumerThread([this]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+	});
+
+	// Brief sleep to allow thread to enter waiting state
+	// Note: This is a timing assumption, but std::thread provides no "is waiting" status check
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+	mAampTSBSessionManager->NotifyVideoTsbWaiters();
+
+	consumerThread.join();
+}
+
+// Test that WaitForVideoTsbContentOrAbort returns immediately when notification is already raised
+TEST_F(AampTsbSessionManagerTests, NotifyVideoTsbWaiters_BeforeWait)
+{
+	mAampTSBSessionManager->NotifyVideoTsbWaiters();
+
+	// Spawn a thread that waits for the notification
+	std::thread consumerThread([this]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+	});
+
+	consumerThread.join();
 }

@@ -102,7 +102,7 @@ void MediaTrack::StopPlaylistDownloaderThread()
 	{
 		abortPlaylistDownloader = true;
 		AbortWaitForPlaylistDownload();
-		AbortFragmentDownloaderWait();
+		AbortWaitForManifestUpdate();
 		playlistDownloaderThread->join();
 		SAFE_DELETE(playlistDownloaderThread);
 		AAMPLOG_WARN("[%s] Aborted", name);
@@ -371,7 +371,7 @@ void MediaTrack::UpdateTSAfterInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	mCachedFragment[fragmentIdxToInject].fragment.Free();
+	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -389,7 +389,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
+	aamp_utils::ClearAndRelease(mCachedFragmentChunks[fragmentChunkIdxToInject].fragment);
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
@@ -418,7 +418,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @param[in] discontinuity - true if there is a discontinuity, false otherwise
  * @return void
  */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
 	if (playContext)
 	{
@@ -427,7 +427,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 			// No-op processor for chunk injection
 		};
 		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
-			type, fpts, fDuration, fragmentPTSOffset, init, buffer->size());
+			type, fpts, fDuration, fragmentPTSOffset, init, buffer.size());
 		bool ptsError = false;
 		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
 		{
@@ -436,7 +436,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(buffer->GetVector(), mediaType);
+		aamp->ProcessID3Metadata(buffer, mediaType);
 		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
 		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
 	}
@@ -448,7 +448,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowab
 void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(cachedFragment->fragment.GetVector());
+	buffer.setBuffer(cachedFragment->fragment);
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
@@ -465,7 +465,7 @@ void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cached
 void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(cachedFragment->fragment.GetVector());
+	buffer.setBuffer(cachedFragment->fragment);
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
 	if(buffer.getFirstPTS(currentPTS))
@@ -527,7 +527,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		{
 			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
 						 cachedFragment->position, cachedFragment->PTSOffsetSec);
-			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
+			playContext->resetPTSOnAudioSwitch(cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
 		}
 		else
 		{
@@ -543,7 +543,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 	{
 		if(playContext)
 		{
-			playContext->resetPTSOnSubtitleSwitch(&cachedFragment->fragment, cachedFragment->position);
+			playContext->resetPTSOnSubtitleSwitch(cachedFragment->fragment, cachedFragment->position);
 		}
 		else
 		{
@@ -978,12 +978,13 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
+			mSubtitleParser->processData(reinterpret_cast<const char*>(cachedFragment->fragment.data()), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
-			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+
+			InjectFragmentChunkInternal((AampMediaType)type, cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -1009,7 +1010,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
 	char *unParsedBuffer = NULL;
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
-	unParsedBuffer = unparsedBufferChunk.GetPtr();
+	unParsedBuffer = reinterpret_cast<char*>(unparsedBufferChunk.data());
 	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.size();
 	isobuf.setBuffer(unparsedBufferChunk.GetVector());
 	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.size() );
@@ -1038,36 +1039,17 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	//Print box details
 	//isobuf.printBoxes();
-	uint32_t timeScale = 0;
-	if(type == eTRACK_VIDEO)
-	{
-		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(type == eTRACK_AUDIO)
-	{
-		timeScale = aamp->GetAudTimeScale();
-	}
-	else if (type == eTRACK_SUBTITLE)
-	{
-		timeScale = aamp->GetSubTimeScale();
-	}
+
+	// Use the timescale stored in the cached fragment, which represents the timescale
+	// of the segment being injected. This is critical when using TSB, as the segment
+	// being downloaded at the live edge may have a different timescale (e.g., an ad)
+	// than the segment being injected from TSB (e.g., base content).
+	uint32_t timeScale = cachedFragment->timeScale;
 	if(!timeScale)
 	{
-		//FIX-ME-Read from MPD INSTEAD
-		if(pContext)
-		{
-			timeScale = pContext->GetCurrPeriodTimeScale();
-			if(!timeScale)
-			{
-				timeScale = 10000000.0;
-				AAMPLOG_WARN("[%s] Empty timeScale!!! Using default timeScale=%d", name, timeScale);
-			}
-		}
-		else
-		{
-			timeScale = 1000.0;
-			AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
-		}
+		AAMPLOG_ERR("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
+		// Return true so the chunk will be removed from the cached fragment chunk buffer
+		return true;
 	}
 	double fpts = 0.0, fduration = 0.0;
 	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
@@ -1094,20 +1076,23 @@ bool MediaTrack::ProcessFragmentChunk()
 			{
 				AAMPLOG_INFO("%s LLD chunk fpts = %f, absPosition = %f", name, fpts, cachedFragment->absPosition);
 				fpts = cachedFragment->absPosition;
-				TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
+				TrickModePtsRestamp(parsedBufferChunk.GetVector(),fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
 			}
 			else
 			{
-				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				{
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk.GetVector(), ptsOffset, cachedFragment->uri,
 												 name, cachedFragment->timeScale);
-				fpts += cachedFragment->PTSOffsetSec;
+					fpts += cachedFragment->PTSOffsetSec;
+				}
 			}
 		}
 
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.size(), fpts, fduration);
+			mSubtitleParser->processData(reinterpret_cast<const char*>(parsedBufferChunk.data()), parsedBufferChunk.size(), fpts, fduration);
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
@@ -1116,7 +1101,7 @@ bool MediaTrack::ProcessFragmentChunk()
 				AAMPLOG_MIL( "curl-inject type=%d", type );
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%" BITSPERSECOND_FORMAT ",chunksize=%zu fpts=%f fduration=%f", name, bandwidthBitsPerSecond, parsedBufferChunk.size(), fpts, fduration);
-			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
+			InjectFragmentChunkInternal((AampMediaType)type, parsedBufferChunk.GetVector(), fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -1161,7 +1146,7 @@ void MediaTrack::ResetTrickModePtsRestamping(void)
 	mRestampedPts = 0.0;
 }
 
-void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
 									 bool initFragment, bool  discontinuity)
 {
 	// Trick mode PTS restamping is supported for fast-forward and rewind
@@ -1385,18 +1370,26 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 			else
 			{
-				if (!cachedFragment->initFragment)
+				/*
+				 * Ignore restamping for mp4demux here as the restamping will be done in the mp4demux
+				 * after parsing the segment before sending to gstreamer.
+				 */
+				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 				{
-					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
-					// would then be missing and it is important for l2 tests
-					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-													 cachedFragment->uri, name,
-													 cachedFragment->timeScale);
-				}
-				else
-				{
-					ClearMediaHeaderDuration(cachedFragment);
+					if (!cachedFragment->initFragment)
+					{
+						// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+						// would then be missing and it is important for l2 tests
+						int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+
+						(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+														cachedFragment->uri, name,
+														cachedFragment->timeScale);
+					}
+					else
+					{
+						ClearMediaHeaderDuration(cachedFragment);
+					}
 				}
 			}
 		}
@@ -1408,7 +1401,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
-			auto ptr = cachedFragment->fragment.GetPtr();
+			auto ptr = reinterpret_cast<const char*>(cachedFragment->fragment.data());
 			auto len = cachedFragment->fragment.size();
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{
@@ -1428,7 +1421,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.assign(str.data(), str.data() + str.size());
+						cachedFragment->fragment.assign(str.begin(), str.end());
 						if(mSubtitleParser)
 						{
 							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
@@ -1532,8 +1525,7 @@ bool MediaTrack::InjectFragment()
 		}
 
 		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
-					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
-
+					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());
 		if (cachedFragment->fragment.capacity() != 0)
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
@@ -1876,7 +1868,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 	{
 		if (cachedFragment->fragment.capacity() != 0)
 		{
-			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.GetPtr(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
+			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.data(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
 		}
 		cachedFragment->fragment.clear();
 	}
@@ -2048,8 +2040,8 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
-		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
-		,frDownloadWait(),prevDownloadStartTime(-1)
+		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
+		,mManifestUpdateWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
@@ -3517,7 +3509,7 @@ void MediaTrack::OnSinkBufferFull()
 			sinkBufferIsFull = true;
 			cachingCompletedFlag = cachingCompleted;
 		}
-		
+
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
 			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
@@ -4217,7 +4209,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
-					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i);
+					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
 				}
 				else
 				{
@@ -4269,7 +4261,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 		if (track && track->enabled)
 		{
 			track->AbortWaitForPlaylistDownload();
-			track->AbortFragmentDownloaderWait();
+			track->AbortWaitForManifestUpdate();
 		}
 	}
 }
@@ -4280,13 +4272,10 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
 	std::unique_lock<std::mutex> lock(dwnldMutex);
+	// This API is called to trigger an immediate playlist download after updating the playlist URL.
 	if((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
 	{
 		plDownloadWait.notify_one();
-	}
-	else
-	{
-		AAMPLOG_ERR("[%s] Playlist downloader thread not started", name);
 	}
 }
 
@@ -4310,30 +4299,73 @@ void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
 }
 
 /**
- * @brief Abort fragment downloader wait
+ * @brief Abort wait for manifest update
+ * This function is called to signal the fragment collector thread to wake up from WaitForManifestUpdate.
  */
-void MediaTrack::AbortFragmentDownloaderWait()
+void MediaTrack::AbortWaitForManifestUpdate()
 {
-	std::unique_lock<std::mutex> lock(dwnldMutex);
-	if(fragmentCollectorWaitingForPlaylistUpdate)
+	std::lock_guard<std::mutex> lock(dwnldMutex);
+	// Increment the update counter while holding the mutex, then wake all
+	// waiters. Each waiter holds its own snapshot of the previous value, so
+	// every thread that was blocked will find (live != snapshot) == true and
+	// proceed. No thread can "steal" the signal from another by resetting a
+	// shared flag.
+	++mManifestUpdateCounter;
+	mManifestUpdateWait.notify_all();
+}
+
+/**
+ * @brief Return the current manifest update counter.
+ * The caller must snapshot this value BEFORE any check or download work
+ * that might cause it to decide to wait, then pass it to
+ * WaitForManifestUpdate(snapshotCounter).
+ */
+uint32_t MediaTrack::GetManifestUpdateCounter()
+{
+	std::lock_guard<std::mutex> lock(dwnldMutex);
+	return mManifestUpdateCounter;
+}
+
+/**
+ * @brief Wait for manifest update — caller-snapshot overload.
+ * Blocks until the counter advances past snapshotCounter.
+ * If AbortWaitForManifestUpdate() already ran after the snapshot was
+ * taken, the predicate is immediately true and wait() skips blocking.
+ * @param[in] snapshotCounter - the value that was snapshot before deciding to wait
+ */
+void MediaTrack::WaitForManifestUpdate(uint32_t snapshotCounter)
+{
+	if(aamp->DownloadsAreEnabled())
 	{
-		frDownloadWait.notify_one();
+		std::unique_lock<std::mutex> lock(dwnldMutex);
+		AAMPLOG_DEBUG("[%d] Waiting for manifest update (snapshotCounter=%u, currentCounter=%u)...",
+		              type, snapshotCounter, mManifestUpdateCounter);
+		mManifestUpdateWait.wait(lock, [this, snapshotCounter]
+		{
+			return mManifestUpdateCounter != snapshotCounter;
+		});
+		AAMPLOG_DEBUG("[%d] Manifest update received (counter=%u).", type, mManifestUpdateCounter);
 	}
 }
 
 /**
- * @brief Wait for playlist download and update
+ * @brief Wait for manifest update
+ * This function is called by the fragment collector thread to wait until a manifest update is received.
  */
 void MediaTrack::WaitForManifestUpdate()
 {
-	if(aamp->DownloadsAreEnabled() && fragmentCollectorWaitingForPlaylistUpdate)
+	if(aamp->DownloadsAreEnabled())
 	{
 		std::unique_lock<std::mutex> lock(dwnldMutex);
-		AAMPLOG_INFO("[%s] Waiting for manifest update", name);
-		frDownloadWait.wait(lock);
+		// Snapshot the manifest update counter under the mutex before blocking.
+		const uint32_t snapshotCounter = mManifestUpdateCounter;
+		AAMPLOG_DEBUG("[%d] Waiting for manifest update (snapshotCounter=%u)...", type, snapshotCounter);
+		mManifestUpdateWait.wait(lock, [this, snapshotCounter]
+		{
+			return mManifestUpdateCounter != snapshotCounter;
+		});
+		AAMPLOG_DEBUG("[%d] Manifest update received (counter=%u).", type, mManifestUpdateCounter);
 	}
-	fragmentCollectorWaitingForPlaylistUpdate = false;
-	AAMPLOG_INFO("Exit");
 }
 
 /**
@@ -4480,7 +4512,7 @@ void MediaTrack::PlaylistDownloader()
 					AAMPLOG_INFO("[%s] Re-enabling media download", trackName.c_str());
 					aamp->EnableMediaDownloads(mediaType);
 				}
-				gotManifest = aamp->GetFile(manifestUrl, mediaType, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
+				gotManifest = aamp->GetFile(manifestUrl, mediaType, manifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
 				if(seamlessAudioSwitchInProgress && (manifestUrl != GetPlaylistUrl()))
 				{
 					//new Playlist updated in mid.
@@ -4520,12 +4552,11 @@ void MediaTrack::PlaylistDownloader()
 				aamp->SendHTTPHeaderResponse();
 			}
 
-			if(fragmentCollectorWaitingForPlaylistUpdate && gotManifest)
+			if(gotManifest)
 			{
 				// (gotManifest => false) If manifest download failed due to ABR request from HLS, don't abort wait.
-				// DASH waits for manifest update only at EOS from all tracks, proceed only with fresh manifest.
 				// Signal fragment collector to abort it's wait for playlist process
-				AbortFragmentDownloaderWait();
+				AbortWaitForManifestUpdate();
 			}
 
 			// Check whether downloads are still enabled after processing playlist
@@ -4759,8 +4790,8 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 /**
  *   @brief Re-initializes the injection
  *   @param[in] rate - play rate
- */	
-void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
+ */
+void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 {
 	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
 	SetTrickplayMode(rate);
