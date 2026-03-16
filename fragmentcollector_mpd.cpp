@@ -7069,17 +7069,8 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	/* Caching the oldPlaylistPosition and oldMediaSequenceNumber */
 	oldPlaylistPosition = pMediaStreamContext->fragmentTime;
 	oldMediaSequenceNumber = pMediaStreamContext->fragmentDescriptor.Number;
-
-	if(!aamp->IsLocalAAMPTsb())
-	{
-		AAMPLOG_INFO("IsLocalAAMPTsb is false, calculating the offsetFromStart with GetPositionSeconds : %lf and culledSeconds : %lf", aamp->GetPositionSeconds(), aamp->culledSeconds);
-		offsetFromStart = aamp->GetPositionSeconds() - aamp->culledSeconds;
-	}
-	else
-	{
-		AAMPLOG_INFO("IsLocalAAMPTsb is true, calculating the offsetFromStart with GetPositionSeconds : %lf and mCulledSeconds : %lf", aamp->GetPositionSeconds(), mCulledSeconds);
+		AAMPLOG_INFO("IsLocalAAMPTsb is true, calculating the offsetFromStart with GetPositionSeconds : %lf and mCulledSeconds : %lf   culledSeconds : %lf", aamp->GetPositionSeconds(), mCulledSeconds, aamp->culledSeconds);
 		offsetFromStart = aamp->GetPositionSeconds() - mCulledSeconds;
-	}
 
 	/* Getting Gstreamer Play position */
 	AAMPLOG_INFO( "Playlist pos offsetFromStart[%lf] culledSeconds[%lf]",offsetFromStart,aamp->culledSeconds );
