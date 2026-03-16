@@ -152,6 +152,6 @@ void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 }
 
 
-void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {
 }

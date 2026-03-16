@@ -24,10 +24,12 @@ MockAampTsbAdReservationMetaData* g_mockAampTsbAdReservationMetaData = nullptr;;
 // Constructor for AampTsbAdReservationMetaData
 AampTsbAdReservationMetaData::AampTsbAdReservationMetaData(
 	EventType eventType, const AampTime& adPosition,
-	std::string adBreakId, uint64_t periodPosition)
+	std::string adBreakId, uint64_t periodPosition,
+	std::string reason)
 	: AampTsbAdMetaData(AdType::RESERVATION, eventType, adPosition),
 	  mAdBreakId(std::move(adBreakId)),
-	  mPeriodPosition(periodPosition)
+	  mPeriodPosition(periodPosition),
+	  mReason(std::move(reason))
 {
 }
 

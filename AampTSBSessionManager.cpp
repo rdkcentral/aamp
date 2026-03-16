@@ -1150,13 +1150,14 @@ bool AampTSBSessionManager::StartAdReservation(const std::string &adBreakId, uin
  * @param[in] absPosition - absolute position
  * @return bool - true if success
  */
-bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
+bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition, const std::string &reason)
 {
 	auto metaData = std::make_shared<AampTsbAdReservationMetaData>(
 		AampTsbAdMetaData::EventType::END,
 		absPosition,
 		adBreakId,
-		periodPosition);
+		periodPosition,
+		reason);
 	return mMetaDataManager.AddMetaData(metaData);
 }
 

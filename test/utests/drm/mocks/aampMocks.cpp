@@ -1065,7 +1065,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
-												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
+												 uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 }
 

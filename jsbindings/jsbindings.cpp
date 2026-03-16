@@ -1589,6 +1589,10 @@ public:
 		prop = JSStringCreateWithUTF8CString("time");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("reason");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 

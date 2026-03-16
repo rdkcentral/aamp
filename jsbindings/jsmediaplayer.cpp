@@ -3629,24 +3629,21 @@ static JSValueRef AAMPMediaPlayer_JS_cancelReservation(JSContextRef ctx, JSObjec
 		return JSValueMakeUndefined(ctx);
 	}
 
-	if (argumentCount != 2)
+	if (argumentCount != 1)
 	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 2",argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute cancelReservation() - 2 arguments required");
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1",argumentCount);
+		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute cancelReservation() - 1 argument required");
 		return JSValueMakeUndefined(ctx);
 	}
 
-	char* playingReservationId_c = aamp_JSValueToCString(ctx, arguments[0], exception);
-	char* cancelAtReservationId_c = aamp_JSValueToCString(ctx, arguments[1], exception);
+	char* cancelAtReservationId_c = aamp_JSValueToCString(ctx, arguments[0], exception);
 
-	std::string playingReservationId = playingReservationId_c ? playingReservationId_c : "";
 	std::string cancelAtReservationId = cancelAtReservationId_c ? cancelAtReservationId_c : "";
 
-	SAFE_DELETE_ARRAY(playingReservationId_c);
 	SAFE_DELETE_ARRAY(cancelAtReservationId_c);
 
-	LOG_WARN(privObj, "cancelReservation called with playingReservationId=%s, cancelAtReservationId=%s",playingReservationId.c_str(), cancelAtReservationId.c_str());
-	privObj->_aamp->CancelReservation(playingReservationId, cancelAtReservationId);
+	LOG_WARN(privObj, "cancelReservation called with cancelAtReservationId=%s", cancelAtReservationId.c_str());
+	privObj->_aamp->CancelReservation(cancelAtReservationId);
 
 	LOG_TRACE("Exit");
 	return JSValueMakeUndefined(ctx);
