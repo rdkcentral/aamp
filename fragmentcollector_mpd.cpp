@@ -1625,24 +1625,24 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										 NULL,
 										 &firstOffset);
 					pMediaStreamContext->fragmentOffset += firstOffset;
-				}
-				if (pMediaStreamContext->fragmentIndex != 0 && !pMediaStreamContext->IDX.empty())
-				{
-					unsigned int referenced_size;
-					float fragmentDuration;
-					AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
-					//Find the offset of previous fragment in new representation
-					for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
+					if (pMediaStreamContext->fragmentIndex != 0)
 					{
-						if (ParseSegmentIndexBox(
-												 pMediaStreamContext->IDX.data(),
-												 pMediaStreamContext->IDX.size(),
-												 i,
-												 &referenced_size,
-												 &fragmentDuration,
-												 NULL))
+						unsigned int referenced_size;
+						float fragmentDuration;
+						AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
+						//Find the offset of previous fragment in new representation
+						for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 						{
-							pMediaStreamContext->fragmentOffset += referenced_size;
+							if (ParseSegmentIndexBox(
+													 pMediaStreamContext->IDX.data(),
+													 pMediaStreamContext->IDX.size(),
+													 i,
+													 &referenced_size,
+													 &fragmentDuration,
+													 NULL))
+							{
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
 						}
 					}
 				}
