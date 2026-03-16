@@ -604,13 +604,14 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 				if (inactivePlayer.second->IsTuned())
 				{
 					hasTunedInactivePlayer = true;
+					break;
 				}
 			}
 		}
 
 		if (!hasTunedInactivePlayer)
 		{
-			AAMPLOG_WARN("AampStreamSinkManager(%p) No active player and no tuned inactive players, returning single-pipeline sink for PLAYER[%d]",
+			AAMPLOG_INFO("AampStreamSinkManager(%p) No active player and no tuned inactive players, returning single-pipeline sink for PLAYER[%d]",
 					this, aamp->mPlayerId);
 			sink_ptr = mGstPlayer;
 		}

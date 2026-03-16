@@ -142,11 +142,17 @@ public:
 	virtual StreamSink* GetStreamSink(PrivateInstanceAAMP *aamp);
 	/**
 	 *  @fn GetStoppingStreamSink
-	 *  @brief Gets the stream sink to stop for the given PrivateInstanceAAMP. In single-pipeline mode,
-	 * 		   if there are no active stream sinks, then the single pipeline stream sink will be returned.
-	 *  @param[in] aamp - the PrivateInstanceAAMP that represents the player being stopped
-	 *  @param[out] - return the stream sink to stop - either the single pipeline stream sink,
-	 * 				  or the stream sink associated with the given player (may be nullptr if couldn't be found)
+ 	 *  @brief Gets the stream sink to stop for the given PrivateInstanceAAMP.
+ 	 *         In single-pipeline mode, if there are no active stream sinks, the
+ 	 *         stream sink to stop is selected conditionally: when another tuned
+ 	 *         inactive player exists the stream sink associated with the calling
+ 	 *         player is returned, otherwise the single pipeline stream sink is
+ 	 *         returned.
+ 	 *  @param[in] aamp - the PrivateInstanceAAMP that represents the player
+ 	 *                    being stopped
+ 	 *  @param[out] - return the stream sink to stop - either the single
+ 	 *                pipeline stream sink or the stream sink associated with
+ 	 *                the given player (may be nullptr if it could not be found)
 	 */
 	virtual StreamSink* GetStoppingStreamSink(PrivateInstanceAAMP *aamp);
 	/**
