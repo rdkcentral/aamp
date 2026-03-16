@@ -1392,7 +1392,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 |Name|Type|Description|
 |----|----|-----------|
 | language | String | ISO-639 text language preference. 2-character and 3-character codes are supported. |
-| languages | String | comma-delimited ISO-639 text language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ or it can be an array like ["eng","spa"]|
+| languages | String or String[] | For JSON input, either a single ISO-639 text language code string or an array of ISO-639 language codes in priority order (for example, ["eng","spa"]). When setPreferredTextLanguage is called with a non-JSON string parameter, a comma-delimited list of ISO-639 codes from highest to lowest priority (‘<HIGHEST>,<...>,<LOWEST>’) is also accepted. |
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Optional preferred label for automatic text selection |
