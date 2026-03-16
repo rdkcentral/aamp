@@ -290,13 +290,13 @@ public:
 	bool profileChanged;
 	bool discontinuity;
 	std::vector<uint8_t> mDownloadedFragment{};	/**< Fragment stored across ABR profile changes */
-	std::vector<uint8_t> mTempFragment{};			/**< Scratch buffer for init/download fragments */
+	std::vector<uint8_t> mTempFragment{};		/**< Scratch buffer for init/download fragments */
 
 	double fragmentTime; // Absolute Fragment time from Availability start
 	std::atomic<double> lastDownloadedPosition;
 	double periodStartOffset;
 	uint64_t timeStampOffset;
-	std::vector<uint8_t> IDX{};           /**< Index data buffer for DASH byte-range segments */
+	std::vector<uint8_t> IDX{};		/**< Index data buffer for DASH byte-range segments */
 	uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
 	uint64_t lastSegmentNumber;
 	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
