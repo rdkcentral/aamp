@@ -258,7 +258,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preferredAudioType | String | - | Preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also. |
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs. Available in version 2.6. Values: 0 - NO_LANGCODE_PREFERENCE, 1 - 3_CHAR_BIBLIOGRAPHIC_LANGCODE, 2 - 3_CHAR_TERMINOLOGY_LANGCODE, 3 - 2_CHAR_LANGCODE |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions. |
-| preferredTextLabel | String | - | Label of desired text track in the available text tracks list.|
+| preferredTextLabel | String | - | Label of desired text track in the available text tracks list. |
 | nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
 | enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
 | liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
@@ -1430,6 +1430,9 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 - Supported UVE version 4.4 and above.
 - Returns playing Text track information in JSON format.
 - Supports both out-of-band captions and in-band closed captions (when available).
+- Note: The in-band CC identifier field for this API is named `instreamID`
+  (capital `ID`), whereas `getAvailableTextTracks` uses `instreamId`.
+  Use the exact casing expected by each API when consuming these fields.
 
 - ###### Example :
 ```js
@@ -1439,7 +1442,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
         "label": "native",
         "language": "eng",
         "codec": "stpp",
-"type": "captions",
+        "type": "captions",
         "rendition": "alternate",
         "instreamID": "1",
         "accessibility":
