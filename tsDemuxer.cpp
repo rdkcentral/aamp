@@ -23,8 +23,8 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"        // for aamp_utils::ClearAndRelease
 #include "DemuxDataTypes.h"  // for exchange utility
-#include <limits>
 // TS Demuxing defines
+
 
 #define PES_STATE_WAITING_FOR_HEADER  0
 #define PES_STATE_GETTING_HEADER  1
@@ -462,19 +462,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 
 					const size_t packetBytesRemaining = static_cast<size_t>(size);
 					const size_t headerBytesRemaining = aamp_ts::pes_min_data - headerSize;
-					size_t bytesFromPacket = (packetBytesRemaining < headerBytesRemaining) ? packetBytesRemaining : headerBytesRemaining;
-
-					if (bytesFromPacket == 0)
-					{
-						AAMPLOG_WARN("No bytes available to complete PES header, discarding remaining data");
-						size = 0;
-						break;
-					}
-
-					if (bytesFromPacket > static_cast<size_t>(std::numeric_limits<int>::max()))
-					{
-						bytesFromPacket = static_cast<size_t>(std::numeric_limits<int>::max());
-					}
+					const size_t bytesFromPacket = (packetBytesRemaining < headerBytesRemaining) ? packetBytesRemaining : headerBytesRemaining;
 
 					bytes_to_read = static_cast<int>(bytesFromPacket);
 

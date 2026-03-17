@@ -169,9 +169,6 @@ public:
 	 */
 	~Demuxer()
 	{
-		// Take the mutex during final teardown to synchronize with any
-		// concurrent accesses that also lock mMutex.
-		std::lock_guard<std::mutex> lock(mMutex);
 	}
 
 	/**
