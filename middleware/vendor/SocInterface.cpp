@@ -181,15 +181,15 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
 		if(platformType == SOC_PLATFORM_DEFAULT)
 		{
-		        if(!mIsRialtoMode)
-			{
-		        	MW_LOG_WARN("rialto disabled");
-				platformType = InferPlatformFromPluginScan();
-			}
-			else
-			{
-				MW_LOG_ERR("enabled rialto");
-			}
+                    if(!mIsRialtoMode)
+                    {
+                    	MW_LOG_WARN("rialto disabled");
+                    	platformType = InferPlatformFromPluginScan();
+                    }
+                    else
+                    {
+                    	MW_LOG_ERR("enabled rialto");
+                    }
 		}
 		switch (platformType)
 		{
