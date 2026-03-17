@@ -23,7 +23,7 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"        // for aamp_utils::ClearAndRelease
 #include "DemuxDataTypes.h"  // for exchange utility
-
+#include <limits>
 // TS Demuxing defines
 
 #define PES_STATE_WAITING_FOR_HEADER  0
@@ -440,16 +440,36 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					size = 0;
 					break;
 				case PES_STATE_GETTING_HEADER:
-					bytes_to_read = (int)(aamp_ts::pes_min_data - pes_header.size());
-					if( bytes_to_read<=0 )
+				{
+					const size_t headerSize = pes_header.size();
+					if (headerSize >= aamp_ts::pes_min_data)
 					{
-						AAMPLOG_WARN( "bad pes_header length" );
+						AAMPLOG_WARN("bad pes_header length %zu (>= pes_min_data %zu)",
+							headerSize, aamp_ts::pes_min_data);
+						// Reset state and discard remaining bytes in this packet to avoid infinite loop
+						pes_header.clear();
+						pes_state = PES_STATE_WAITING_FOR_HEADER;
+						size = 0;
 						break;
 					}
-					if (size < bytes_to_read)
+
+					const size_t headerBytesRemaining = aamp_ts::pes_min_data - headerSize;
+					size_t bytesFromPacket = (size < headerBytesRemaining) ? size : headerBytesRemaining;
+
+					if (bytesFromPacket == 0)
 					{
-						bytes_to_read = size;
+						AAMPLOG_WARN("No bytes available to complete PES header, discarding remaining data");
+						size = 0;
+						break;
 					}
+
+					if (bytesFromPacket > static_cast<size_t>(std::numeric_limits<int>::max()))
+					{
+						bytesFromPacket = static_cast<size_t>(std::numeric_limits<int>::max());
+					}
+
+					bytes_to_read = static_cast<int>(bytesFromPacket);
+
 					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
 					pes_header.insert(pes_header.end(),
 									  data,
@@ -483,6 +503,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						}
 					}
 					break;
+				}
 				case PES_STATE_GETTING_HEADER_EXTENSION:
 					bytes_to_read = pes_header_ext_len - pes_header_ext_read;
 					if (bytes_to_read > size)
