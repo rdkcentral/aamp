@@ -441,6 +441,13 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					break;
 				case PES_STATE_GETTING_HEADER:
 				{
+					if (size < 0)
+					{
+						AAMPLOG_WARN("Negative size %d encountered in PES_STATE_GETTING_HEADER, discarding remaining data", size);
+						size = 0;
+						break;
+					}
+
 					const size_t headerSize = pes_header.size();
 					if (headerSize >= aamp_ts::pes_min_data)
 					{
@@ -453,8 +460,9 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						break;
 					}
 
+					const size_t packetBytesRemaining = static_cast<size_t>(size);
 					const size_t headerBytesRemaining = aamp_ts::pes_min_data - headerSize;
-					size_t bytesFromPacket = (size < headerBytesRemaining) ? size : headerBytesRemaining;
+					size_t bytesFromPacket = (packetBytesRemaining < headerBytesRemaining) ? packetBytesRemaining : headerBytesRemaining;
 
 					if (bytesFromPacket == 0)
 					{
