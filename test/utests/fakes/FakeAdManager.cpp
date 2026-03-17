@@ -163,6 +163,6 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 	}
 }
 
-void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {
 }

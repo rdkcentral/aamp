@@ -3583,6 +3583,39 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	EXPECT_FLOAT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), livePlayPosition);
 }
 
+/*
+ * @brief Test to verify Stop() calls NotifyVideoTsbWaiters() when TSB reader thread is active
+*/
+TEST_F(StreamAbstractionAAMP_MPDTest, Stop_NotifiesVideoTsbWaiters)
+{
+	double livePlayPosition = 123.456;
+	std::unique_ptr<AampTSBSessionManager> tsbSessionManager = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
+	std::shared_ptr<AampTsbDataManager> dataMgr;
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
+
+	// Setup InitTsbReader to start the TSB reader thread
+	mPrivateInstanceAAMP->rate = 2;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition()).WillOnce(Return(livePlayPosition));
+	// For InitTsbReader, Stop and other calls
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(tsbSessionManager.get()));
+	EXPECT_CALL(*g_mockTSBSessionManager, InvokeTsbReaders(livePlayPosition, 2, eTUNETYPE_SEEKTOLIVE))
+		.WillOnce(Return(eAAMPSTATUS_OK));
+	// Handle GetTsbReader for all media types - return nullptr by default, then override for VIDEO
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
+
+	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillOnce(Return(true));
+	// Start the TSB reader thread	
+	mStreamAbstractionAAMP_MPD->Start();
+	EXPECT_CALL(*g_mockTSBSessionManager, NotifyVideoTsbWaiters()).Times(1);
+
+	// Execute Stop() - this should trigger NotifyVideoTsbWaiters for the TSB reader thread
+	mStreamAbstractionAAMP_MPD->Stop(false);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 {
 	// Set up test parameters for start event
@@ -3606,14 +3639,14 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 
 	// Test START event
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate))
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate, _))
 		.Times(1);
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
 		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate);
 
 	// Test END event
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate))
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate, _))
 		.Times(1);
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
 		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate);
@@ -3647,7 +3680,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 			.Times(1);
 	}
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate))
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate, _))
 		.Times(1);
 
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
@@ -3656,13 +3689,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 	// Test END event
 	{
 		testing::InSequence seq;
-		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition))
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition, _))
 			.WillOnce(Return(true));
 		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
 			.Times(0);
 	}
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate))
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate, _))
 		.Times(1);
 
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
@@ -3689,7 +3722,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 		.WillRepeatedly(Return(true));
 
 	// No SendAdReservationEvent calls expected due to local injection
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_,_))
 		.Times(0);
 
 	// Test START event
@@ -3706,7 +3739,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 	// Test END event
 	{
 		testing::InSequence seq;
-		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition))
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition, _))
 			.WillOnce(Return(true));
 		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
 			.Times(0);

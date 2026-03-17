@@ -5260,7 +5260,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					AAMPLOG_WARN("AAMP Content-Length=%d actual=%zu", static_cast<int>(expectedContentLength), buffer.size() );
 					http_code       =       416; // Range Not Satisfiable
 					ret             =       false; // redundant, but harmless
-					std::vector<uint8_t>().swap(buffer); // free capacity, not just size
+					aamp_utils::ClearAndRelease(buffer);
 				}
 			}
 		}
@@ -5270,7 +5270,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
-			std::vector<uint8_t>().swap(buffer); // free capacity, not just size
+			aamp_utils::ClearAndRelease(buffer);
 			if (rate != 1.0)
 			{
 				mediaType = eMEDIATYPE_IFRAME;
@@ -8323,18 +8323,14 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
 /**
  * @brief  API to send audio/video stream into the sink.
  */
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer *buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		// The temporary vector returned by ExtractVector is automatically moved into SendTransfer.
-		sink->SendTransfer(mediaType, buffer->ExtractVector(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
+		sink->SendTransfer(mediaType, std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
-	else
-	{
-		buffer->Free();
-	}
+	aamp_utils::ClearAndRelease(buffer);
 }
 
 void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
@@ -9393,14 +9389,14 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 
 /**
  * @brief Cancel ad reservation
-	 * @param[in] playingReservationId The reservation identifier which is currently playing
-	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
  */
-void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
-    if (mCdaiObject) {
-        mCdaiObject->CancelReservation(playingReservationId, cancelAtReservationId);
-    }
+	if (mCdaiObject)
+	{
+		mCdaiObject->CancelReservation(cancelAtReservationId);
+	}
 	else
 	{
 		AAMPLOG_ERR("[AAMP] CDAIObject not set. Cannot cancel reservation for reservationId: %s ", cancelAtReservationId.c_str());
@@ -10309,13 +10305,13 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 /**
  * @brief Send Ad reservation event
  */
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 	if(AAMP_EVENT_AD_RESERVATION_START == type || AAMP_EVENT_AD_RESERVATION_END == type)
 	{
 		AAMPLOG_INFO("PrivateInstanceAAMP: [CDAI] Pushed [%s] of adBreakId[%s] to Queue.", ADEVENT2STRING(type), adBreakId.c_str());
 
-		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, absolutePositionMs, GetSessionId());
+		AdReservationEventPtr e = std::make_shared<AdReservationEvent>(type, adBreakId, position, absolutePositionMs, GetSessionId(), reason);
 
 		{
 			{
@@ -12303,7 +12299,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	{
 		/**<Nothing to do exclude it*/
 	}
-	
+
+	// Declared here with defer_lock so we can lock before the first read/write of
+	// any preferred* member field in either branch below, and remain held for the
+	// retune logic further down.  Inner lock_guards elsewhere in the function are
+	// benign recursive re-locks (mStreamLock is a std::recursive_mutex).
+	std::unique_lock<std::recursive_mutex> streamLock(mStreamLock, std::defer_lock);
+
 	if (isJson)
 	{
 		std::vector<std::string> inputLanguagesList;
@@ -12406,10 +12408,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					AAMPLOG_INFO("Preferred accessibility: %s", inputAudioAccessibilityNode.print().c_str() );
 				}
 			}
-			if(preferredAudioAccessibilityNode != inputAudioAccessibilityNode )
-			{
-				accessibilityPresent = true;
-			}
+			// Note: do NOT compare preferredAudioAccessibilityNode here; that
+			// preferred* read must happen under streamLock (see below).
 		}
 		
 		std::string inputNameString;
@@ -12424,10 +12424,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
-		// TODO(Issue #2): The preferred* member fields below are written without holding
-		// mStreamLock. If streaming threads read these fields under that lock, this is an
-		// unsynchronised data race. Audit all reading sites and, if confirmed, move the
-		// lock acquisition to before these writes.
+		// Acquire before the first read or write of any preferred* member field.
+		// All JSON parsing above uses only local input* variables.
+		streamLock.lock();
+		if (preferredAudioAccessibilityNode != inputAudioAccessibilityNode)
+		{
+			accessibilityPresent = true;
+		}
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 			(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ) || (preferredNameString != inputNameString))
 		{
@@ -12463,8 +12466,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	}
 	else
 	{
-		// TODO(Issue #2): Same as above — the preferred* writes in this branch are also
-		// unprotected by mStreamLock. See the JSON path comment above.
+		// Acquire before any read or write of preferred* member fields.
+		streamLock.lock();
 		if((languageList && preferredLanguagesString != languageList) ||
 		   (preferredRendition && preferredRenditionString != preferredRendition) ||
 		   (preferredType && preferredTypeString != preferredType) ||
@@ -12593,12 +12596,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 	}
 	
-	// Hold mStreamLock for the remainder of the function:
-	// - GetState() and mpStreamAbstractionAAMP must be read consistently
-	// - discardEnteringLiveEvt / mLanguageChangeInProgress are written before the
-	//   inner critical section; the outer lock prevents races with streaming threads.
-	// The inner lock_guard below is a benign recursive re-lock.
-	std::lock_guard<std::recursive_mutex> streamLock(mStreamLock);
+	// streamLock (mStreamLock) was acquired in each branch above before any read
+	// or write of preferred* fields.  It remains held here to protect GetState(),
+	// mpStreamAbstractionAAMP, discardEnteringLiveEvt, and mLanguageChangeInProgress.
 	AAMPPlayerState state = GetState();
 	AAMPLOG_INFO("state %d, isRetuneNeeded %d", state, isRetuneNeeded);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded)
@@ -13707,7 +13707,7 @@ void PrivateInstanceAAMP::ID3MetadataHandler(AampMediaType mediaType, const uint
 /**
  * @brief Process the ID3 metadata from segment
  */
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 
