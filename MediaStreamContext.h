@@ -43,35 +43,43 @@ public:
 	 * @param aamp Pointer to associated aamp instance
 	 * @param name Name of the track
 	 */
-	MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
+	MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx,
+			PrivateInstanceAAMP* aamp, const char* name) :
 			MediaTrack(type, aamp, name),
-			mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
-			fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
-			eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
-			lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
-			adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
+			mediaType((AampMediaType)type), adaptationSet(NULL),
+			representation(NULL), fragmentIndex(0), timeLineIndex(0),
+			fragmentRepeatCount(0), fragmentOffset(0), eos(false),
+			fragmentTime(0), periodStartOffset(0), timeStampOffset(0),
+			IDX("fragment-IDX"), lastSegmentTime(0), lastSegmentNumber(0),
+			lastSegmentDuration(0), adaptationSetIdx(0),
+			representationIndex(0), profileChanged(true), adaptationSetId(0),
+			fragmentDescriptor(), context(ctx), initialization(""),
 			discontinuity(false), mSkipSegmentOnError(true),
-			lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
-		   , scaledPTO(0)
-		   , failAdjacentSegment(false),httpErrorCode(0)
-    , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
-    , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex(), mActiveDownloadInfo(nullptr)
-    , mMediaStreamContextMutex()
-{
-    AAMPLOG_INFO("[%s] Create new MediaStreamContext",
-        GetMediaTypeName(mediaType));
-    mPlaylistUrl = aamp->GetManifestUrl();
-    fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-    mTimeBasedBufferManager = std::make_shared<aamp::AampTimeBasedBufferManager>(GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer), std::abs(aamp->rate), mediaType);
-}
+			lastDownloadedPosition(0), // ,mCMCDNetworkMetrics{-1,-1,-1}
+			scaledPTO(0), failAdjacentSegment(false), httpErrorCode(0),
+			mPlaylistUrl(""), mEffectiveUrl(""), freshManifest(false),
+			nextfragmentIndex(-1), mReachedFirstFragOnRewind(false),
+			fetchChunkBufferMutex(), mActiveDownloadInfo(nullptr),
+			mMediaStreamContextMutex()
+	{
+		AAMPLOG_INFO("[%s] Create new MediaStreamContext",
+				GetMediaTypeName(mediaType));
+		mPlaylistUrl = aamp->GetManifestUrl();
+		fragmentDescriptor.bUseMatchingBaseUrl =
+				ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+		mTimeBasedBufferManager =
+				std::make_shared<aamp::AampTimeBasedBufferManager>(
+						GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer),
+						std::abs(aamp->rate), mediaType);
+	}
 
 /**
  * @brief MediaStreamContext Destructor
  */
-~MediaStreamContext()
-{
-    mTimeBasedBufferManager.reset();
-}
+	~MediaStreamContext()
+	{
+		mTimeBasedBufferManager.reset();
+	}
 
 /**
  * @brief MediaStreamContext Copy Constructor
@@ -87,10 +95,10 @@ MediaStreamContext& operator=(const MediaStreamContext&) = delete;
  * @brief Get the context of media track. To be implemented by subclasses
  * @retval Context of track.
  */
-StreamAbstractionAAMP* GetContext() override
-{
-    return context;
-}
+	StreamAbstractionAAMP* GetContext() override
+	{
+		return context;
+	}
 
 /**
  * @fn InjectFragmentInternal
