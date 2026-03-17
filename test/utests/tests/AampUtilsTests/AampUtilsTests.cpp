@@ -887,7 +887,7 @@ TEST(_AampUtils, ClearAndRelease_EmptiesAndReleasesMemory)
 /**
  * @brief Verify ClearAndRelease is a no-op on an already-empty vector.
  *
- * Calling ClearAndRelease on a default-constructed (empty, zero-capacity)
+ * Calling ClearAndRelease on a default-constructed (empty)
  * vector must leave it empty and must not throw or crash.
  */
 TEST(_AampUtils, ClearAndRelease_OnEmptyVector_IsNoOp)

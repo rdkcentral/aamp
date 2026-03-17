@@ -166,11 +166,12 @@ public:
 
 	/**
 	 * @brief Demuxer Destructor
+	 *
+	 * Acquires mMutex to serialize destruction with any concurrent
+	 * accesses from public methods that also lock mMutex.
 	 */
 	~Demuxer()
 	{
-		// Take the mutex during final teardown to synchronize with any
-		// concurrent accesses that also lock mMutex.
 		std::lock_guard<std::mutex> lock(mMutex);
 	}
 
