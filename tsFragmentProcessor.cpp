@@ -20,11 +20,10 @@
 #include "tsFragmentProcessor.hpp"
 #include "tsDemuxer.hpp"
 
-#include "AampGrowableBuffer.h"
 #include "StreamAbstractionAAMP.h"
 
-
 #include <unordered_set>
+#include <vector>
 
 
 #define DESCRIPTOR_TAG_SUBTITLE 0x59
@@ -134,7 +133,7 @@ void TSFragmentProcessor::Reset()
 	m_ActiveAudioTrackIndex = 0;
 }
 
-bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
+bool TSFragmentProcessor::ProcessFragment(const std::vector<uint8_t>& fragment,
 	double position, double duration, bool discontinuity_pending,
 	MediaProcessor::process_fcn_t processor)
 {
@@ -185,7 +184,7 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 	return true;
 }
 
-bool TSFragmentProcessor::ValidateFragment(const AampGrowableBuffer & fragment, uint8_t * & curr_packet_ptr, size_t & curr_len) const
+bool TSFragmentProcessor::ValidateFragment(const std::vector<uint8_t>& fragment, uint8_t * & curr_packet_ptr, size_t & curr_len) const
 {
 	const auto base_frag_ptr = fragment.data();
 

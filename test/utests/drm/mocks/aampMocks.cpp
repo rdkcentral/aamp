@@ -1049,7 +1049,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
-												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
+												 uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 }
 
@@ -1164,7 +1164,7 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type,
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type,
 		uint64_t timeStampOffset)
 {
 }

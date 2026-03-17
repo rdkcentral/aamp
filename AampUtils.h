@@ -393,6 +393,15 @@ std::string aamp_GetConfigPath( const std::string &filename );
  */
 bool parseAndValidateSCTE35(const std::string &scte35Data);
 
+/**
+ * @brief Checks if the SCTE35 data contains a program immediate resumption event.
+ *
+ * @param scte35Data The SCTE35 data to be checked.
+ * @return True if the SCTE35 data contains a program immediate resumption event,
+ *         false otherwise.
+ */
+bool parseAndValidateSCTE35ProgramResumption(const std::string &scte35Data);
+
 
 /**
  * @brief convert time in HH:SS:MM.ms format to milliseconds
