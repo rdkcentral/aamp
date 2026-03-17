@@ -12,7 +12,7 @@ applyTo:
 
 ## C++ Guidelines
 
-- Target modern C++ (C++17) for new code. Highlight where newer C++ features (C++14, C++17) are welcome and encouraged if they improve code quality.
+- Target C++17 for new code. Use C++20+ features only when they are supported by the toolchain, clearly documented, and they provide a meaningful improvement in code quality.
 - Always follow the guidelines at [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
 - Highlight when existing code being studied does not follow the core guidelines and suggest improvements
 - Discourage the use of C-style code within C++ (e.g. avoid memcpy(), memcmp() and char* for strings). Emphasise memory safety
