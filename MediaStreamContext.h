@@ -73,28 +73,28 @@ public:
 						std::abs(aamp->rate), mediaType);
 	}
 
-/**
- * @brief MediaStreamContext Destructor
- */
+	/**
+	 * @brief MediaStreamContext Destructor
+	 */
 	~MediaStreamContext()
 	{
 		mTimeBasedBufferManager.reset();
 	}
 
-/**
- * @brief MediaStreamContext Copy Constructor
- */
-MediaStreamContext(const MediaStreamContext&) = delete;
+	/**
+	 * @brief MediaStreamContext Copy Constructor
+	 */
+	MediaStreamContext(const MediaStreamContext&) = delete;
 
-/**
- * @brief MediaStreamContext Assignment operator overloading
- */
-MediaStreamContext& operator=(const MediaStreamContext&) = delete;
+	/**
+	 * @brief MediaStreamContext Assignment operator overloading
+	 */
+	MediaStreamContext& operator=(const MediaStreamContext&) = delete;
 
-/**
- * @brief Get the context of media track. To be implemented by subclasses
- * @retval Context of track.
- */
+	/**
+	 * @brief Get the context of media track. To be implemented by subclasses
+	 * @retval Context of track.
+	 */
 	StreamAbstractionAAMP* GetContext() override
 	{
 		return context;
@@ -152,39 +152,39 @@ bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t siz
  */
 bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 
-/**
- * @fn TransferFragmentBuffer
- * @brief Transfer buffer data into a CachedFragment using the appropriate
- *        semantics for the caching mode.
- */
-static void TransferFragmentBuffer(CachedFragment* cached,
-    const uint8_t* chunkPayload,
-    std::vector<uint8_t>* downloadBuffer,
-    size_t payloadSize,
-    bool isChunkMode);
+	/**
+	 * @fn TransferFragmentBuffer
+	 * @brief Transfer buffer data into a CachedFragment using the appropriate
+	 *        semantics for the caching mode.
+	 */
+	static void TransferFragmentBuffer(CachedFragment* cached,
+			const uint8_t* chunkPayload,
+			std::vector<uint8_t>* downloadBuffer,
+			size_t payloadSize,
+			bool isChunkMode);
 
-/**
- * @fn PopulateCommonMetadata
- * @brief Populate common metadata shared by fragment and chunk caching paths.
- */
-static void PopulateCommonMetadata(CachedFragment* cached,
-    std::string url,
-    AampMediaType mediaType,
-    int profileIndex,
-    bool isInitSegment,
-    bool isDiscontinuity);
+	/**
+	 * @fn PopulateCommonMetadata
+	 * @brief Populate common metadata shared by fragment and chunk caching paths.
+	 */
+	static void PopulateCommonMetadata(CachedFragment* cached,
+			std::string url,
+			AampMediaType mediaType,
+			int profileIndex,
+			bool isInitSegment,
+			bool isDiscontinuity);
 
-/**
- * @fn ProcessInitSegmentIfNeeded
- * @brief Parse an init segment and extract the timescale.
- */
-static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
-    bool isInitSegment);
+	/**
+	 * @fn ProcessInitSegmentIfNeeded
+	 * @brief Parse an init segment and extract the timescale.
+	 */
+	static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
+			bool isInitSegment);
 
-/**
- * @fn ABRProfileChanged
- */
-void ABRProfileChanged(void) override;
+	/**
+	 * @fn ABRProfileChanged
+	 */
+	void ABRProfileChanged(void) override;
 
 	/**
 	 * @fn updateSkipPoint
