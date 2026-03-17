@@ -50,6 +50,7 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+pkg_check_modules(RIALTOCLIENT REQUIRED RialtoClient)
 
 # CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
@@ -181,6 +182,7 @@ include_directories(
 	${OPENSSL_INCLUDE_DIRS}
 	${UUID_INCLUDE_DIRS}
 	${LIBCJSON_INCLUDE_DIRS}
+	${RIALTOCLIENT_INCLUDE_DIRS}
 )
 
 # Internal source directory includes
@@ -201,7 +203,6 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
 	# Locally built/installed dependencies
 	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include
-	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include/rialto
 )
 
 set(LIBAAMP_DEPENDS
@@ -215,10 +216,10 @@ set(LIBAAMP_DEPENDS
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
 	${OPENSSL_LIBRARIES}
+	${RIALTOCLIENT_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
 	-ldl
-	-L${CMAKE_CURRENT_SOURCE_DIR}/.libs/lib -lRialtoClient
 )
 
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
