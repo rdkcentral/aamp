@@ -242,9 +242,10 @@ public:
 	 * @param[in] adBreakId - ID of the ad break
 	 * @param[in] periodPosition - event position in terms of channel's timeline
 	 * @param[in] absPosition - event absolute position of the ad reservation end
+	 * @param[in] reason - reason for the reservation end (optional)
 	 * @return bool - true if success
 	 */
-	bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
+	bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition, const std::string &reason = "");
 
 	/**
 	 * @brief Start an ad placement

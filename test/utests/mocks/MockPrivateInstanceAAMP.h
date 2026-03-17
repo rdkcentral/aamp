@@ -82,7 +82,7 @@ public:
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());
 	MOCK_METHOD(void, SendAdPlacementEvent, (AAMPEventType, const std::string &, uint32_t, uint64_t, uint32_t, uint32_t, bool, long));
-	MOCK_METHOD(void, SendAdReservationEvent, (AAMPEventType, const std::string &, uint64_t, uint64_t, bool));
+	MOCK_METHOD(void, SendAdReservationEvent, (AAMPEventType, const std::string &, uint64_t, uint64_t, bool, const std::string &));
 	MOCK_METHOD(void, CalculateTrickModePositionEOS, ());
 	MOCK_METHOD(void, BlockUntilGstreamerWantsData, (void(*cb)(void), int , int ));
 	MOCK_METHOD(void, WaitForDiscontinuityProcessToComplete, ());

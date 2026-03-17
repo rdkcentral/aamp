@@ -84,7 +84,7 @@ TEST_F(AampTsbAdReservationMetaDataTest, ReservationEventTest)
 			position, adBreakId, periodPosition);
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-			AAMP_EVENT_AD_RESERVATION_START, adBreakId, periodPosition, position.milliseconds(), immediate)).Times(1);
+			AAMP_EVENT_AD_RESERVATION_START, adBreakId, periodPosition, position.milliseconds(), immediate, "")).Times(1);
 
 		startMetadata.SendEvent(mPrivateInstanceAAMP);
 	}
@@ -96,7 +96,7 @@ TEST_F(AampTsbAdReservationMetaDataTest, ReservationEventTest)
 			position, adBreakId, periodPosition);
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-			AAMP_EVENT_AD_RESERVATION_END, adBreakId, periodPosition, position.milliseconds(), immediate)).Times(1);
+			AAMP_EVENT_AD_RESERVATION_END, adBreakId, periodPosition, position.milliseconds(), immediate, "")).Times(1);
 
 		endMetadata.SendEvent(mPrivateInstanceAAMP);
 	}
