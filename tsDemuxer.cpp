@@ -522,7 +522,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
 					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
- 					es.insert(es.end(),
+					es.insert(es.end(),
 							data,
 							data + size);
 					size = 0;
