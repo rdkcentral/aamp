@@ -274,10 +274,10 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
  *  @param[in]  isChunkMode    true = assign from raw pointer, false = move from download buffer.
  */
 void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
-                                                const uint8_t* chunkPayload,
-                                                std::vector<uint8_t>* downloadBuffer,
-                                                size_t payloadSize,
-                                                bool isChunkMode)
+		const uint8_t* chunkPayload,
+		std::vector<uint8_t>* downloadBuffer,
+		size_t payloadSize,
+		bool isChunkMode)
 {
 	if (isChunkMode)
 	{
