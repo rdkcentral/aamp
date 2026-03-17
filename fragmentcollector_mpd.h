@@ -878,7 +878,7 @@ protected:
 
 	/**
 	 * @fn SeekInPeriod
-	 * @param seekPositionSeconds seek position in seconds
+	 * @param seekPositionSeconds seek position in seconds relative to the first segment in the period
 	 */
 	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);
 	/**

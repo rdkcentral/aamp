@@ -639,7 +639,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 					{
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START:
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START:
-							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n)", ev->getId().c_str() );
+							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n", ev->getId().c_str() );
 							for( const AdvertInfo &advertInfo : mAdvertList )
 							{
 								if( advertInfo.adBreakId == ev->getId() )
