@@ -133,7 +133,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_ChunkMode_AssignsData)
 TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_ReplacesBuffer)
 {
 	CachedFragment cached;
-	AampGrowableBuffer downloadBuffer("test-download");
+	std::vector<uint8_t> downloadBuffer;
 
 	const char data[] = "fragment-data";
 	downloadBuffer.assign(data, data + sizeof(data) - 1);
@@ -141,7 +141,7 @@ TEST_F(HelperFunctionTest, TransferFragmentBuffer_FragmentMode_ReplacesBuffer)
 	MediaStreamContext::TransferFragmentBuffer(
 		&cached, nullptr, &downloadBuffer, 0, false);
 
-	EXPECT_EQ(downloadBuffer.size(), 0u);
+	EXPECT_TRUE(downloadBuffer.empty());
 	// Destination should have the data
 	EXPECT_GT(cached.fragment.size(), 0u);
 }
