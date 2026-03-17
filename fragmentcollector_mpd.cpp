@@ -1180,7 +1180,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							{
 								isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
 							}
-							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period. 
+							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period.
 							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
 							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
 							{
@@ -2748,7 +2748,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
 		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
-		
+
 		// this flag for current state of manifest ( Linear to VOD can happen)
 		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
 		{
@@ -9356,20 +9356,17 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 
 		if (seekPositionSeconds)
 		{
-			/* seekPositionSeconds is relative to the start of the period but SeekInPeriod() is relative to
-			* the first segment that is currently present in the manifest.
+			/* seekPositionSeconds is relative to the start of the period but SeekInPeriod() takes a
+			* value that is relative to the first segment currently present in the manifest.
 			* adjust seekPositionSeconds to be relative to the first segment
 			*/
-			double start_delta = mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mCurrentPeriod);
-			if (seekPositionSeconds > start_delta )
+			double startDelta = mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mCurrentPeriod);
+			if (seekPositionSeconds > startDelta )
 			{
-				seekPositionSeconds -= start_delta;
+				seekPositionSeconds -= startDelta;
 			}
-			else
-			{
-				AAMPLOG_ERR("Unexpected value seekPositionSeconds %f start_delta %f",seekPositionSeconds,start_delta);
-			}
-			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf] start_delta %f", currentPeriodId.c_str(), seekPositionSeconds, start_delta);
+
+			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf] startDelta [%f]", currentPeriodId.c_str(), seekPositionSeconds, startDelta);
 			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
 				SeekInPeriod(seekPositionSeconds);
