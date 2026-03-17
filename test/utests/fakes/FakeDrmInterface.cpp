@@ -25,7 +25,7 @@
 /* Constructor for dmrInterfce()
  * */
 DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp)
-	: mpAamp(aamp), mAesKeyBuf()
+	: mpAamp(aamp)
 {
 }
 /*Destructor for DrmInterfcae()
