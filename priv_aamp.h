@@ -1432,14 +1432,23 @@ public:
 	/**
 	 * @fn LoadIDX
 	 *
-	 * @param[in] bucketType - Bucket type of the profiler
-	 * @param[in] fragmentUrl - Fragment URL
-	 * @param[out] buffer - Pointer to the output buffer
-	 * @param[out] len - Content length
-	 * @param[in] curlInstance - Curl instance to be used
-	 * @param[in] range - Byte range
-	 * @param[in] mediaType - File type
-	 * @param[out] fogError - Error from FOG
+ 	 * @brief Download an IDX resource and store it in memory.
+ 	 *
+ 	 * @param[in]  bucketType   Bucket type used for profiling the download.
+ 	 * @param[in]  fragmentUrl  URL of the IDX resource to download.
+ 	 * @param[out] effectiveUrl Final URL after redirects, if any.
+ 	 * @param[out] idx          Pointer to buffer that receives the downloaded
+ 	 *                          IDX bytes. Must not be NULL.
+ 	 * @param[in]  curlInstance Curl instance index to use for the download.
+ 	 * @param[in]  range        Optional HTTP byte range to request; pass NULL
+ 	 *                          to request the full object.
+ 	 * @param[out] http_code    Pointer that receives the HTTP response code;
+ 	 * @param[out] downloadTime Optional pointer that receives the total
+ 	 *                          download time in seconds; may be NULL.
+ 	 * @param[in]  mediaType    Media type associated with the IDX resource.
+ 	 * @param[out] fogError     Optional pointer that receives any FOG error
+ 	 *                          code; may be NULL when FOG is not used.
+ 	 *
 	 * @return void
 	 */
 	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t> *idx, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
