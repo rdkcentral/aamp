@@ -727,7 +727,10 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 }
 
 /**
- *  @brief To restore cc state after new tune
+ * @brief Restores the closed captions state after a new tune operation.
+ *
+ * @param shouldRestoreCC Indicates whether the closed captions state
+ * should be restored.
  */
 void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
