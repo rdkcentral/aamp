@@ -283,12 +283,12 @@ void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservatio
 /**
  *  @brief Cancel an ad reservation.
  */
-void PlayerInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
-    if (aamp)
-    {
-        aamp->CancelReservation(playingReservationId, cancelAtReservationId);
-    }
+	if (aamp)
+	{
+		aamp->CancelReservation(cancelAtReservationId);
+	}
 }
 
 /**

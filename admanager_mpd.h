@@ -101,10 +101,9 @@ public:
 
 	/**
 	 * @brief Request cancellation for the adbreak currently in progress
-	 * @param[in] playingReservationId The reservation identifier of the adbreak currently being placed/played
 	 * @param[in] cancelAtReservationId The reservation identifier at which cancellation should occur; applied to the AdBreak (not individual ads)
 	 */
-	virtual void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) override;
+	virtual void CancelReservation(const std::string& cancelAtReservationId) override;
 };
 
 
@@ -131,6 +130,7 @@ struct AdNode {
 	bool         invalid;          /**< Failed to playback failed once, no need to attempt later */
 	bool         placed;           /**< Ad completely placed on the period */
 	bool         resolved;         /**< Ad resolved status */
+	bool         cancelled;        /**< Current Ad playback cancelled due to immediate resumption */
 	std::string  adId;             /**< Ad's identifier */
 	std::string  url;              /**< Ad's manifest URL */
 	uint64_t     duration;         /**< Duration of the Ad in milliseconds*/
@@ -141,7 +141,7 @@ struct AdNode {
 	/**
 	* @brief AdNode default constructor
 	*/
-	AdNode() : invalid(false), placed(false), resolved(false), adId(), url(), duration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
+	AdNode() : invalid(false), placed(false), resolved(false), cancelled(false), adId(), url(), duration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
 	{
 
 	}
@@ -158,10 +158,11 @@ struct AdNode {
 	* @param[in] basePeriodId - Base period id of the Ad
 	* @param[in] basePeriodOffset - Base period offset of the Ad
 	* @param[in] mpd - Pointer to the MPD object
+	* @param[in] cancelled - Is Ad playback cancelled
 	*/
 	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
-		std::string basePeriodId, int basePeriodOffset, MPD* mpd)
-		: invalid(invalid), placed(placed), resolved(resolved), adId(std::move(adId)), url(std::move(url)), duration(duration), basePeriodId(std::move(basePeriodId)),
+		std::string basePeriodId, int basePeriodOffset, MPD* mpd, bool cancelled = false)
+		: invalid(invalid), placed(placed), resolved(resolved), cancelled(cancelled), adId(std::move(adId)), url(std::move(url)), duration(duration), basePeriodId(std::move(basePeriodId)),
 		basePeriodOffset(basePeriodOffset), mpd(mpd)
 	{
 
@@ -173,7 +174,7 @@ struct AdNode {
 	* @param[in] adNode - Reference to the source AdNode
 	*/
 	AdNode(const AdNode& adNode)
-		: invalid(adNode.invalid), placed(adNode.placed), resolved(adNode.resolved), adId(adNode.adId),
+		: invalid(adNode.invalid), placed(adNode.placed), resolved(adNode.resolved), cancelled(adNode.cancelled), adId(adNode.adId),
 		url(adNode.url), duration(adNode.duration), basePeriodId(adNode.basePeriodId),
 		basePeriodOffset(adNode.basePeriodOffset), mpd(adNode.mpd)
 	{
@@ -323,11 +324,12 @@ struct PlacementObj {
 	uint32_t    adNextOffset;           /**< Current Ad's offset to be placed in the next iteration of PlaceAds in milliseconds*/
 	uint32_t    adStartOffset;          /**< Current Ad's start offset in milliseconds, this is the position from where ad is getting placed in current period*/
 	bool        waitForNextPeriod;      /**< Flag denotes if we are waiting for the next period to be available in the current placement*/
+	bool        pendingAdCancel;        /**< Flag denotes if ad cancellation is pending until next period with fragments*/
 
 	/**
 	* @brief PlacementObj constructor
 	*/
-	PlacementObj() : pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false)
+	PlacementObj() : pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false), pendingAdCancel(false)
 	{
 
 	}
@@ -340,11 +342,12 @@ struct PlacementObj {
 	* @param curAdIdx The index of the currently placing ad during MPD progression
 	* @param adNextOffset The current ad's offset to be placed in the next iteration of PlaceAds in milliseconds
 	* @param adStartOffset The current ad's start offset in milliseconds
+	* @param waitForNextPeriod Flag denoting if waiting for next period
 	*/
 	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber,
 		int curAdIdx, uint32_t adNextOffset, uint32_t adStartOffset, bool waitForNextPeriod)
 			: pendingAdbrkId(pendingAdbrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber),
-			curAdIdx(curAdIdx), adNextOffset(adNextOffset), adStartOffset(adStartOffset), waitForNextPeriod(waitForNextPeriod)
+			curAdIdx(curAdIdx), adNextOffset(adNextOffset), adStartOffset(adStartOffset), waitForNextPeriod(waitForNextPeriod), pendingAdCancel(false)
 	{
 
 	}
@@ -423,10 +426,9 @@ public:
 
 	/**
 	 * @brief Cancel ad reservation
-	 * @param[in] playingReservationId The reservation identifier which is currently playing
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 */
-	void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId);
+	void CancelReservation(const std::string& cancelAtReservationId);
 	/**
 	 * @fn FulFillAdObject
 	 *
