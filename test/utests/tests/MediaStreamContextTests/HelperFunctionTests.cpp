@@ -275,7 +275,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NotInitSegment_NoOp)
 	cached.type = eMEDIATYPE_VIDEO;
 
 	// Early return before any ISO BMFF interaction — assert none occurs
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).Times(0);
@@ -298,7 +298,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_NonInitType_NoOp)
 	cached.type = eMEDIATYPE_VIDEO;  // Not an INIT type
 
 	// Early return before any ISO BMFF interaction — assert none occurs
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).Times(0);
@@ -325,7 +325,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_VideoInit_SetsTimescale)
 
 	constexpr uint32_t expectedTimeScale = 90000;
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -353,7 +353,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_AudioInit_SetsTimescale)
 
 	constexpr uint32_t expectedTimeScale = 48000;
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -381,7 +381,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_SubtitleInit_SetsTimescale
 
 	constexpr uint32_t expectedTimeScale = 1000;
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -408,7 +408,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_BufferNotInit_NoTimescale)
 	const char data[] = "not-really-init";
 	cached.fragment.assign(data, data + sizeof(data) - 1);
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -433,7 +433,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_GetTimeScaleFails_NoTimesc
 	const char data[] = "corrupt-init";
 	cached.fragment.assign(data, data + sizeof(data) - 1);
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment())
@@ -461,7 +461,7 @@ TEST_F(HelperFunctionTest, ProcessInitSegmentIfNeeded_ParseBufferFails_GracefulN
 	const char data[] = "bad-init";
 	cached.fragment.assign(data, data + sizeof(data) - 1);
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const uint8_t*>(), A<size_t>())).Times(1);
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(A<const std::vector<uint8_t>&>())).Times(1);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);

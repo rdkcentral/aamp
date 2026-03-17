@@ -360,7 +360,7 @@ uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(const CachedFragment* ca
 	}
 
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(cached->fragment.data(), cached->fragment.size());
+	buffer.setBuffer(cached->fragment);
 	if (!buffer.parseBuffer())
 	{
 		AAMPLOG_WARN("Failed to parse init segment buffer (type %d, size %zu)",

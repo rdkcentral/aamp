@@ -62,14 +62,6 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
     }
 }
 
-void IsoBmffBuffer::setBuffer(const uint8_t *buf, size_t sz)
-{
-    if (g_mockIsoBmffBuffer)
-    {
-        g_mockIsoBmffBuffer->setBuffer(buf, sz);
-    }
-}
-
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
     if (g_mockIsoBmffBuffer)
