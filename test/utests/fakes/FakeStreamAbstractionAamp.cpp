@@ -260,7 +260,7 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 	return true;
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : unparsedBufferChunk{}, parsedBufferChunk{}, name(name), aamp(aamp), type(type)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : name(name), aamp(aamp), type(type)
 {
 }
 

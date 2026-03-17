@@ -2378,10 +2378,7 @@ void TrackState::ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_err
 	else
 	{
 		// Clear data if any
-		if (!newPlaylist.empty())
-		{
-			aamp_utils::ClearAndRelease(newPlaylist);
-		}
+		aamp_utils::ClearAndRelease(newPlaylist);
 
 		if (aamp->DownloadsAreEnabled())
 		{
