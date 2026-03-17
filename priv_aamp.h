@@ -1442,7 +1442,7 @@ public:
 	 * @param[out] fogError - Error from FOG
 	 * @return void
 	 */
-	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t> *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t> *idx, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
 
 	/**
 	 * @fn EndOfStreamReached

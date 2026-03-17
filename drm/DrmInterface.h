@@ -27,6 +27,7 @@
 
 #include <stddef.h>
 #include <memory>
+#include <vector>
 #include <condition_variable>
 #include <priv_aamp.h>
 #include <AampCurlDefine.h>

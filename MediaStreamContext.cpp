@@ -875,41 +875,43 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			dlInfo->fragmentOffset++; // first byte following packed index
 			unsigned int firstOffset;
 			ParseSegmentIndexBox(
-									IDX.data(),
-									IDX.size(),
-									0,
-									NULL,
-									NULL,
-									&firstOffset);
-			dlInfo->fragmentOffset += firstOffset;
+				IDX.data(),
+				IDX.size(),
+				0,
+				NULL,
+				NULL,
+				&firstOffset);
+			{
+				dlInfo->fragmentOffset += firstOffset;
+			}
 			unsigned int referenced_size = 0;
 			float fragmentDuration = 0.0f;
 			AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
-			//Find the offset of previous fragment in new representation
+			// Find the offset of previous fragment in new representation
 			for (int i = 0; i < dlInfo->fragmentIndex; i++)
 			{
 				if (ParseSegmentIndexBox(
-											IDX.data(),
-											IDX.size(),
-											i,
-											&referenced_size,
-											&fragmentDuration,
-											NULL))
+						IDX.data(),
+						IDX.size(),
+						i,
+						&referenced_size,
+						&fragmentDuration,
+						NULL))
 				{
 					dlInfo->fragmentOffset += referenced_size;
 				}
 			}
 			if (ParseSegmentIndexBox(
-										IDX.data(),
-										IDX.size(),
-										dlInfo->fragmentIndex,
-										&referenced_size,
-										&fragmentDuration,
-										NULL) )
+					IDX.data(),
+					IDX.size(),
+					dlInfo->fragmentIndex,
+					&referenced_size,
+					&fragmentDuration,
+					NULL))
 			{
 				char range[MAX_RANGE_STRING_CHARS];
 				snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", dlInfo->fragmentOffset, dlInfo->fragmentOffset + referenced_size - 1);
-				AAMPLOG_INFO("%s [%s]",GetMediaTypeName(dlInfo->mediaType), range);
+				AAMPLOG_INFO("%s [%s]", GetMediaTypeName(dlInfo->mediaType), range);
 				uriInfo.range = range;
 				dlInfo->fragmentDurationSec = fragmentDuration;
 			}

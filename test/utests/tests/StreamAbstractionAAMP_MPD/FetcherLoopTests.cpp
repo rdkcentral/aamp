@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <iterator>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
