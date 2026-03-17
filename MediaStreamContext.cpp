@@ -91,6 +91,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	if (!initSegment && !mDownloadedFragment.empty())
 	{
 		ret = true;
+		TransferFragmentBuffer(cachedFragment, nullptr, &mDownloadedFragment, 0, false);
 
 	}
 	else
@@ -264,29 +265,25 @@ bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
  *  In chunk mode the data is assigned (copied) from the ephemeral CURL
  *  callback pointer into the CachedFragment.
  *  In fragment mode the download buffer is moved (zero-copy) into the cached
- *  fragment via Replace(), leaving the source empty.
+ *  fragment, leaving the source empty.
  *
  *  @param[out] cached         Destination CachedFragment.
  *  @param[in]  chunkPayload   Chunk data pointer (chunk mode only).
- *  @param[in]  downloadBuffer Source growable buffer (fragment mode only).
+ *  @param[in]  downloadBuffer Source vector buffer (fragment mode only).
  *  @param[in]  payloadSize    Chunk payload size in bytes.
- *  @param[in]  isChunkMode    true = assign from raw pointer, false = Replace from download buffer.
+ *  @param[in]  isChunkMode    true = assign from raw pointer, false = move from download buffer.
  */
 void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
                                                 const uint8_t* chunkPayload,
-                                                AampGrowableBuffer* downloadBuffer,
+                                                std::vector<uint8_t>* downloadBuffer,
                                                 size_t payloadSize,
                                                 bool isChunkMode)
 {
 	if (isChunkMode)
 	{
-		if (payloadSize == 0)
+		if (payloadSize == 0 || chunkPayload == nullptr)
 		{
-			return;
-		}
-
-		if (chunkPayload == nullptr)
-		{
+			cached->fragment.clear();
 			return;
 		}
 
@@ -296,7 +293,8 @@ void MediaStreamContext::TransferFragmentBuffer(CachedFragment* cached,
 	{
 		if (downloadBuffer)
 		{
-			cached->fragment.Replace(downloadBuffer);
+			cached->fragment = std::move(*downloadBuffer);
+			aamp_utils::ClearAndRelease(*downloadBuffer);
 		}
 	}
 }

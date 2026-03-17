@@ -65,8 +65,8 @@ TEST_F(IsoBmffHelperTests, restampPtsTest)
 	const char* trackName = "video";
 	uint32_t timeScale = 48000;
 	// Check that setBuffer receives the actual buffer pointer
-	uint8_t* expectedPtr = buffer.data();
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(testing::Matcher<uint8_t*>(expectedPtr), testing::Matcher<size_t>(sizeof(bufferContent))));
+	auto expectedPtr = buffer.data();
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, buffer.size()));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(ptsOffset));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration());
@@ -87,8 +87,8 @@ TEST_F(IsoBmffHelperTests, restampPtsNegativeTest)
     std::string url("Dummy");
 	const char* trackName = "video";
 	uint32_t timeScale = 48000;
-	uint8_t* expectedPtr = buffer.data();
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(testing::Matcher<uint8_t*>(expectedPtr), testing::Matcher<size_t>(sizeof(bufferContent))));
+	auto expectedPtr = buffer.data();
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, buffer.size()));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, restampPts(_)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSegmentDuration()).Times(0);
@@ -106,8 +106,8 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationTest)
 	std::vector<uint8_t> buffer(BUFFER.begin(), BUFFER.end());
 	uint64_t pts{123};
 	uint64_t duration{1};
-	uint8_t* expectedPtr = buffer.data();
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(testing::Matcher<uint8_t*>(expectedPtr), testing::Matcher<size_t>(sizeof(bufferContent))));
+	auto expectedPtr = buffer.data();
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, buffer.size()));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(pts, duration));
 	EXPECT_TRUE(helper->SetPtsAndDuration(buffer, pts, duration));
@@ -125,8 +125,8 @@ TEST_F(IsoBmffHelperTests, setPtsAndDurationNegativeTest)
 	std::vector<uint8_t> buffer(BUFFER.begin(), BUFFER.end());
 	uint64_t pts{123};
 	uint64_t duration{1};
-	uint8_t* expectedPtr = buffer.data();
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(testing::Matcher<uint8_t*>(expectedPtr), testing::Matcher<size_t>(sizeof(bufferContent))));
+	auto expectedPtr = buffer.data();
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(expectedPtr, buffer.size()));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setPtsAndDuration(_, _)).Times(0);
 	EXPECT_FALSE(helper->SetPtsAndDuration(buffer, pts, duration));

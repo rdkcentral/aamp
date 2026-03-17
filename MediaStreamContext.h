@@ -177,6 +177,8 @@ static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
  * @fn ABRProfileChanged
  */
 void ABRProfileChanged(void) override;
+
+	/**
 	 * @fn updateSkipPoint
 	 * @param skipPoint - indicates at what position fragments to be skipped
 	 * @param skipDuration - duration of fragments to be skipped
