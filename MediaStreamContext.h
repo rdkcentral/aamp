@@ -152,7 +152,6 @@ bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t siz
  */
 bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 
-private:
 	/**
 	 * @fn TransferFragmentBuffer
 	 * @brief Transfer buffer data into a CachedFragment using the appropriate
@@ -182,7 +181,6 @@ private:
 	static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
 			bool isInitSegment);
 
-public:
 	/**
 	 * @fn ABRProfileChanged
 	 */
