@@ -295,8 +295,11 @@ TEST_F(AampEventManagerTest, AsyncEventQueuedBeforeFlush_NeverDeliveredToListene
     // Flush all pending events (as detach() does)
     handler->FlushPendingEvents();
 
-    // Drain any remaining GLib idle callbacks that may have been scheduled
-    while (g_main_context_pending(nullptr))
+    // Drain any remaining GLib idle callbacks that may have been scheduled.
+    // The loop is bounded to avoid hanging if an unrelated source keeps the
+    // context perpetually ready; one pass is sufficient for a single idle task.
+    constexpr int kMaxDrainIterations = 100;
+    for (int i = 0; i < kMaxDrainIterations && g_main_context_pending(nullptr); ++i)
     {
         g_main_context_iteration(nullptr, FALSE);
     }
