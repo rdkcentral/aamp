@@ -4908,11 +4908,15 @@ TEST_F(PrivAampTests,BlockUntilGstreamerWantsDataTest11)
 	p_aamp->BlockUntilGstreamerWantsData(NULL,10,20);
 }
 
-TEST_F(PrivAampTests,stopTest_11)
+TEST_F(PrivAampTests, Stop_ActualImplementation_SetsPlayerStateToIdle)
 {
-	p_aamp->mFogTSBEnabled = true;
-	p_aamp->IsFogTSBSupported();
-	p_aamp->Stop();
+	p_aamp->SetState(eSTATE_PLAYING, false);
+
+	ASSERT_EQ(p_aamp->GetState(), eSTATE_PLAYING);
+
+	p_aamp->Stop(false);
+
+	EXPECT_EQ(p_aamp->GetState(), eSTATE_IDLE);
 }
 
 TEST_F(PrivAampTests, Stop_StateTransition_WithStateChangeEvent)

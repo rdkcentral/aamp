@@ -140,6 +140,10 @@ bool StreamAbstractionAAMP::isInBandCcAvailable()
 
 bool StreamAbstractionAAMP::IsInitialCachingSupported()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->IsInitialCachingSupported();
+	}
 	return false;
 }
 
