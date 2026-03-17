@@ -36,187 +36,147 @@
 class MediaStreamContext : public MediaTrack
 {
 public:
-    /**
-     * @brief MediaStreamContext Constructor
-     * @param type Type of track
-     * @param ctx context  MPD collector context
-     * @param aamp Pointer to associated aamp instance
-     * @param name Name of the track
-     */
-    MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
-            MediaTrack(type, aamp, name),
-            mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
-            fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
-            eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
-	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
-            adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
-            mDownloadedFragment("downloaded-fragment"), discontinuity(false), mSkipSegmentOnError(true),
-            lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
+	/**
+	 * @brief MediaStreamContext Constructor
+	 * @param type Type of track
+	 * @param ctx context  MPD collector context
+	 * @param aamp Pointer to associated aamp instance
+	 * @param name Name of the track
+	 */
+	MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
+			MediaTrack(type, aamp, name),
+			mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
+			fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
+			eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
+			lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
+			adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
+			discontinuity(false), mSkipSegmentOnError(true),
+			lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
-	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
-	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex(), mActiveDownloadInfo(nullptr)
-           , mMediaStreamContextMutex()
-    {
-        AAMPLOG_INFO("[%s] Create new MediaStreamContext",
-            GetMediaTypeName(mediaType));
-        mPlaylistUrl = aamp->GetManifestUrl();
-        fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-        mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
-        mTimeBasedBufferManager = std::make_shared<aamp::AampTimeBasedBufferManager>(GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer), std::abs(aamp->rate), mediaType);
-    }
+    , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
+    , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex(), mActiveDownloadInfo(nullptr)
+    , mMediaStreamContextMutex()
+{
+    AAMPLOG_INFO("[%s] Create new MediaStreamContext",
+        GetMediaTypeName(mediaType));
+    mPlaylistUrl = aamp->GetManifestUrl();
+    fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+    mTimeBasedBufferManager = std::make_shared<aamp::AampTimeBasedBufferManager>(GETCONFIGVALUE(eAAMPConfig_MaxDownloadBuffer), std::abs(aamp->rate), mediaType);
+}
 
-    /**
-     * @brief MediaStreamContext Destructor
-     */
-    ~MediaStreamContext()
-    {
-        mDownloadedFragment.Free();
-        mTempFragment.reset();
-        mTimeBasedBufferManager.reset();
-    }
+/**
+ * @brief MediaStreamContext Destructor
+ */
+~MediaStreamContext()
+{
+    mTimeBasedBufferManager.reset();
+}
 
-    /**
-     * @brief MediaStreamContext Copy Constructor
-     */
-     MediaStreamContext(const MediaStreamContext&) = delete;
+/**
+ * @brief MediaStreamContext Copy Constructor
+ */
+MediaStreamContext(const MediaStreamContext&) = delete;
 
-    /**
-     * @brief MediaStreamContext Assignment operator overloading
-     */
-     MediaStreamContext& operator=(const MediaStreamContext&) = delete;
+/**
+ * @brief MediaStreamContext Assignment operator overloading
+ */
+MediaStreamContext& operator=(const MediaStreamContext&) = delete;
 
-    /**
-     * @brief Get the context of media track. To be implemented by subclasses
-     * @retval Context of track.
-     */
-    StreamAbstractionAAMP* GetContext() override
-    {
-        return context;
-    }
+/**
+ * @brief Get the context of media track. To be implemented by subclasses
+ * @retval Context of track.
+ */
+StreamAbstractionAAMP* GetContext() override
+{
+    return context;
+}
 
-    /**
-     * @fn InjectFragmentInternal
-     *
-     * @param[in] cachedFragment - contains fragment to be processed and injected
-     * @param[out] fragmentDiscarded - true if fragment is discarded.
-     */
-    void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false) override;
+/**
+ * @fn InjectFragmentInternal
+ *
+ * @param[in] cachedFragment - contains fragment to be processed and injected
+ * @param[out] fragmentDiscarded - true if fragment is discarded.
+ */
+void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override;
 
-    /**
-     * @fn CacheFragment
-     * @param fragmentUrl url of fragment
-     * @param curlInstance curl instance to be used to fetch
-     * @param position position of fragment in seconds
-     * @param duration duration of fragment in seconds
-     * @param range byte range
-     * @param initSegment true if fragment is init fragment
-     * @param discontinuity true if fragment is discontinuous
-     * @param playingAd flag if playing Ad
-     * @param pto unscaled pto value from mpd
-     * @param scale timeScale value from mpd
-     * @retval true on success
-     */
-    bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, uint32_t scale = 0);
+/**
+ * @fn CacheFragment
+ * @param fragmentUrl url of fragment
+ * @param curlInstance curl instance to be used to fetch
+ * @param position position of fragment in seconds
+ * @param duration duration of fragment in seconds
+ * @param range byte range
+ * @param initSegment true if fragment is init fragment
+ * @param discontinuity true if fragment is discontinuous
+ * @param playingAd flag if playing Ad
+ * @param pto unscaled pto value from mpd
+ * @param scale timeScale value from mpd
+ * @retval true on success
+ */
+bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range = NULL, bool initSegment = false, bool discontinuity = false, bool playingAd = false, uint32_t scale = 0);
 
-    /**
-     * @fn CacheTsbFragment
-     * @param[in] fragment TSB fragment pointer
-     * @retval true on success
-     */
-    bool CacheTsbFragment(std::shared_ptr<CachedFragment> fragment);
+/**
+ * @fn CacheTsbFragment
+ * @param[in] fragment TSB fragment pointer
+ * @retval true on success
+ */
+bool CacheTsbFragment(std::shared_ptr<CachedFragment> fragment);
 
-    /**
-     * @fn CacheFragmentChunk
-     * @param actualType AampMediaType type of cached media
-     * @param ptr CURL provided chunk data
-     * @param size CURL provided chunk data size
-     * @param remoteUrl url of fragment
-     * @param dnldStartTime of the download
-     * @param durationInTicks duration of the chunk in ticks
-     */
-    bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
+/**
+ * @fn CacheFragmentChunk
+ * @param actualType AampMediaType type of cached media
+ * @param ptr CURL provided chunk data
+ * @param size CURL provided chunk data size
+ * @param remoteUrl url of fragment
+ * @param dnldStartTime of the download
+ * @param durationInTicks duration of the chunk in ticks
+ */
+bool CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks);
 
-    /**
-     * @fn CacheFragmentData
-     * @brief Unified fragment caching API - handles both full fragments and chunks
-     * @param desc Fragment cache descriptor with all metadata and payload
-     * @retval true on success
-     * @note This is the unified internal implementation. External code should continue
-     *       using CacheFragment() or CacheFragmentChunk() wrapper methods.
-     */
-    bool CacheFragmentData(const FragmentCacheDescriptor& desc);
+/**
+ * @fn CacheFragmentData
+ * @brief Unified fragment caching API - handles both full fragments and chunks
+ * @param desc Fragment cache descriptor with all metadata and payload
+ * @retval true on success
+ * @note This is the unified internal implementation. External code should continue
+ *       using CacheFragment() or CacheFragmentChunk() wrapper methods.
+ */
+bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 
-    /**
-     * @fn TransferFragmentBuffer
-     * @brief Transfer buffer data into a CachedFragment using the appropriate
-     *        semantics for the caching mode.
-     *
-     * Fragment mode: zero-copy move via Replace() from the download buffer
-     *                into the CachedFragment, leaving the source empty.
-     * Chunk mode: assign payload from an ephemeral CURL-provided chunk buffer
-     *             into the CachedFragment.
-     *
-     * @param[out] cached        Destination CachedFragment whose fragment buffer
-     *                           will be populated.
-     * @param[in]  chunkPayload  Pointer to chunk data (chunk mode only, may be nullptr).
-     * @param[in]  downloadBuffer Source growable buffer (fragment mode only, may be nullptr).
-     * @param[in]  payloadSize   Size of chunk payload in bytes (chunk mode only).
-     * @param[in]  isChunkMode   true for chunk (assign from pointer), false for
-     *                           fragment (Replace from download buffer).
-     */
-    static void TransferFragmentBuffer(CachedFragment* cached,
-                                       const uint8_t* chunkPayload,
-                                       AampGrowableBuffer* downloadBuffer,
-                                       size_t payloadSize,
-                                       bool isChunkMode);
+/**
+ * @fn TransferFragmentBuffer
+ * @brief Transfer buffer data into a CachedFragment using the appropriate
+ *        semantics for the caching mode.
+ */
+static void TransferFragmentBuffer(CachedFragment* cached,
+    const uint8_t* chunkPayload,
+    std::vector<uint8_t>* downloadBuffer,
+    size_t payloadSize,
+    bool isChunkMode);
 
-    /**
-     * @fn PopulateCommonMetadata
-     * @brief Populate the common metadata fields of a CachedFragment that are
-     *        shared between fragment and chunk caching paths.
-     *
-     * @note This helper intentionally does NOT set timing fields (position,
-     *       duration, absPosition). Those are lifecycle-dependent:
-     *       - Fragment mode: set by OnFragmentDownloadSuccess callback
-     *       - Chunk mode: set by the caller immediately
-     *
-     * @param[out] cached        Destination CachedFragment to populate.
-     * @param[in]  url           Fragment URL (moved into cached->uri).
-     * @param[in]  mediaType     The AampMediaType of this fragment.
-     * @param[in]  profileIndex  ABR profile index.
-     * @param[in]  isInitSegment true if this is an initialisation segment.
-     * @param[in]  isDiscontinuity true if a PTS discontinuity precedes this fragment.
-     */
-    static void PopulateCommonMetadata(CachedFragment* cached,
-                                       std::string url,
-                                       AampMediaType mediaType,
-                                       int profileIndex,
-                                       bool isInitSegment,
-                                       bool isDiscontinuity);
+/**
+ * @fn PopulateCommonMetadata
+ * @brief Populate common metadata shared by fragment and chunk caching paths.
+ */
+static void PopulateCommonMetadata(CachedFragment* cached,
+    std::string url,
+    AampMediaType mediaType,
+    int profileIndex,
+    bool isInitSegment,
+    bool isDiscontinuity);
 
-    /**
-     * @fn ProcessInitSegmentIfNeeded
-     * @brief Parse an init segment and extract the timescale.
-     *
-     * This is a no-op when isInitSegment is false (returns 0). When true,
-     * the fragment buffer is parsed as ISO BMFF to extract the timescale.
-     * The caller is responsible for logging and applying the returned value
-     * to the appropriate AAMP track.
-     *
-     * @param[in] cached        CachedFragment containing the init segment data.
-     * @param[in] isInitSegment true if the fragment is an init segment.
-     * @return Extracted timescale, or 0 if not applicable or extraction failed.
-     */
-    static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
-                                               bool isInitSegment);
+/**
+ * @fn ProcessInitSegmentIfNeeded
+ * @brief Parse an init segment and extract the timescale.
+ */
+static uint32_t ProcessInitSegmentIfNeeded(const CachedFragment* cached,
+    bool isInitSegment);
 
-    /**
-     * @fn ABRProfileChanged
-     */
-    void ABRProfileChanged(void) override;
-
-    /**
+/**
+ * @fn ABRProfileChanged
+ */
+void ABRProfileChanged(void) override;
 	 * @fn updateSkipPoint
 	 * @param skipPoint - indicates at what position fragments to be skipped
 	 * @param skipDuration - duration of fragments to be skipped
@@ -224,166 +184,166 @@ public:
 	 */
 	void updateSkipPoint(double position, double duration ) override;
 
-    /**
+	/**
 	 * @fn setDiscontinuityState
 	 * @param isDiscontinuity - true if discontinuity false otherwise
 	 * @return void
 	 */
-    void setDiscontinuityState(bool isDiscontinuity) override;
+	void setDiscontinuityState(bool isDiscontinuity) override;
 
-    /**
+	/**
 	 * @fn abortWaitForVideoPTS
 	 * @return void
 	 */
-    void abortWaitForVideoPTS() override;
+	void abortWaitForVideoPTS() override;
 
-    /**
-     * @fn GetBufferedDuration
-     */
-    double GetBufferedDuration() override;
+	/**
+	 * @fn GetBufferedDuration
+	 */
+	double GetBufferedDuration() override;
 
-    /**
-     * @fn SignalTrickModeDiscontinuity
-     * @return void
-     */
-    void SignalTrickModeDiscontinuity() override;
+	/**
+	 * @fn SignalTrickModeDiscontinuity
+	 * @return void
+	 */
+	void SignalTrickModeDiscontinuity() override;
 
-    /**
-     * @fn IsAtEndOfTrack
-     * @return true - If yes
-     */
-    bool IsAtEndOfTrack() override;
+	/**
+	 * @fn IsAtEndOfTrack
+	 * @return true - If yes
+	 */
+	bool IsAtEndOfTrack() override;
 
-    /**
-     * @fn GetPlaylistUrl
-     * @return string - playlist URL
-     */
-    std::string& GetPlaylistUrl() override;
+	/**
+	 * @fn GetPlaylistUrl
+	 * @return string - playlist URL
+	 */
+	std::string& GetPlaylistUrl() override;
 
-    /**
-     * @fn GetEffectivePlaylistUrl
-     * @return string - original playlist URL(redirected)
-     */
-    std::string& GetEffectivePlaylistUrl() override;
+	/**
+	 * @fn GetEffectivePlaylistUrl
+	 * @return string - original playlist URL(redirected)
+	 */
+	std::string& GetEffectivePlaylistUrl() override;
 
-    /**
-     * @fn SetEffectivePlaylistUrl
-     * @param string - original playlist URL
-     */
-    void SetEffectivePlaylistUrl(std::string url) override;
+	/**
+	 * @fn SetEffectivePlaylistUrl
+	 * @param string - original playlist URL
+	 */
+	void SetEffectivePlaylistUrl(std::string url) override;
 
-    /**
-     * @fn GetLastPlaylistDownloadTime
-     * @return lastPlaylistDownloadTime
-     */
-    long long GetLastPlaylistDownloadTime() override;
+	/**
+	 * @fn GetLastPlaylistDownloadTime
+	 * @return lastPlaylistDownloadTime
+	 */
+	long long GetLastPlaylistDownloadTime() override;
 
-    /**
-     * @fn SetLastPlaylistDownloadTime
-     * @param[in] time last playlist download time
-     * @return void
-     */
-    void SetLastPlaylistDownloadTime(long long time) override;
+	/**
+	 * @fn SetLastPlaylistDownloadTime
+	 * @param[in] time last playlist download time
+	 * @return void
+	 */
+	void SetLastPlaylistDownloadTime(long long time) override;
 
-    /**
-     * @fn GetMinUpdateDuration
-     * @return minimumUpdateDuration
-     */
-    long GetMinUpdateDuration() override;
+	/**
+	 * @fn GetMinUpdateDuration
+	 * @return minimumUpdateDuration
+	 */
+	long GetMinUpdateDuration() override;
 
-    /**
-     * @fn GetDefaultDurationBetweenPlaylistUpdates
-     * @return maxIntervalBtwPlaylistUpdateMs
-     */
-    int GetDefaultDurationBetweenPlaylistUpdates() override;
+	/**
+	 * @fn GetDefaultDurationBetweenPlaylistUpdates
+	 * @return maxIntervalBtwPlaylistUpdateMs
+	 */
+	int GetDefaultDurationBetweenPlaylistUpdates() override;
 
-    /**
-     * @fn ProcessPlaylist
-     * @param[in] newPlaylist buffer
-     * @param[in] http error code
-     * @return void
-     */
+	/**
+	 * @fn ProcessPlaylist
+	 * @param[in] newPlaylist buffer
+	 * @param[in] http error code
+	 * @return void
+	 */
 	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override {};
-    /**
-     * @fn resetAbort
-     * @param[in] bool value
-     */
+	/**
+	 * @fn resetAbort
+	 * @param[in] bool value
+	 */
 
-    void resetAbort(bool value)
-    {
-        abort = value;
-    }
-    /**
-     * @fn GetLastInjectedPosition
-     * @return LastInjectedposition of type double
-     */
-    double GetLastInjectedPosition()
-    {
-        return GetLastInjectedFragmentPosition( );
-    }
+	void resetAbort(bool value)
+	{
+		abort = value;
+	}
+	/**
+	 * @fn GetLastInjectedPosition
+	 * @return LastInjectedposition of type double
+	 */
+	double GetLastInjectedPosition()
+	{
+		return GetLastInjectedFragmentPosition( );
+	}
 
-    /**
-     * @fn OnFragmentDownloadSuccess
-     * @brief Function called on fragment download success
-     * @param[in] downloadInfo - download information
-     */
-    void OnFragmentDownloadSuccess(DownloadInfoPtr downloadInfo);
+	/**
+	 * @fn OnFragmentDownloadSuccess
+	 * @brief Function called on fragment download success
+	 * @param[in] downloadInfo - download information
+	 */
+	void OnFragmentDownloadSuccess(DownloadInfoPtr downloadInfo);
 
-    /**
-     * @fn OnFragmentDownloadFailed
-     * @brief Callback on fragment download failure
-     * @param[in] downloadInfo - download information
-     */
-    void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
+	/**
+	 * @fn OnFragmentDownloadFailed
+	 * @brief Callback on fragment download failure
+	 * @param[in] downloadInfo - download information
+	 */
+	void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
 
-    /**
-     * @fn DownloadFragment
-     * @brief Download submitted fragment
-     * @param[in] downloadInfo - download information
-     *
-     * @return true on success
-     */
-    bool DownloadFragment(DownloadInfoPtr downloadInfo);
+	/**
+	 * @fn DownloadFragment
+	 * @brief Download submitted fragment
+	 * @param[in] downloadInfo - download information
+	 *
+	 * @return true on success
+	 */
+	bool DownloadFragment(DownloadInfoPtr downloadInfo);
 
-    AampMediaType mediaType;
-    struct FragmentDescriptor fragmentDescriptor;
-    const IAdaptationSet *adaptationSet;
-    const IRepresentation *representation;
-    int fragmentIndex;
-    int timeLineIndex;
-    int fragmentRepeatCount;
-    uint64_t fragmentOffset;
-    bool eos;
-    bool profileChanged;
-    bool discontinuity;
-    AampGrowableBuffer mDownloadedFragment;
-    std::shared_ptr<AampGrowableBuffer> mTempFragment;
+	AampMediaType mediaType;
+	struct FragmentDescriptor fragmentDescriptor;
+	const IAdaptationSet *adaptationSet;
+	const IRepresentation *representation;
+	int fragmentIndex;
+	int timeLineIndex;
+	int fragmentRepeatCount;
+	uint64_t fragmentOffset;
+	bool eos;
+	bool profileChanged;
+	bool discontinuity;
+	std::vector<uint8_t> mDownloadedFragment;	/**< Fragment stored across ABR profile changes */
+	std::vector<uint8_t> mTempFragment;			/**< Scratch buffer for init/download fragments */
 
-    double fragmentTime; // Absolute Fragment time from Availability start
-    std::atomic<double> lastDownloadedPosition;
-    double periodStartOffset;
-    uint64_t timeStampOffset;
+	double fragmentTime; // Absolute Fragment time from Availability start
+	std::atomic<double> lastDownloadedPosition;
+	double periodStartOffset;
+	uint64_t timeStampOffset;
 	AampGrowableBuffer IDX;
-    uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
-    uint64_t lastSegmentNumber;
-    uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
-    int adaptationSetIdx;
-    int representationIndex;
-    StreamAbstractionAAMP_MPD* context;
-    std::string initialization;
-    uint32_t adaptationSetId;
-    bool mSkipSegmentOnError;
-    double scaledPTO;
-    bool failAdjacentSegment;
-    int httpErrorCode;
-    std::string mPlaylistUrl;
-    std::string mEffectiveUrl; 		/**< uri associated with downloaded playlist (takes into account 302 redirect) */
-    bool freshManifest;
-    int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
-    bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
-    std::mutex fetchChunkBufferMutex;
-    DownloadInfoPtr mActiveDownloadInfo;
-    std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
+	uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
+	uint64_t lastSegmentNumber;
+	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
+	int adaptationSetIdx;
+	int representationIndex;
+	StreamAbstractionAAMP_MPD* context;
+	std::string initialization;
+	uint32_t adaptationSetId;
+	bool mSkipSegmentOnError;
+	double scaledPTO;
+	bool failAdjacentSegment;
+	int httpErrorCode;
+	std::string mPlaylistUrl;
+	std::string mEffectiveUrl; 		/**< uri associated with downloaded playlist (takes into account 302 redirect) */
+	bool freshManifest;
+	int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
+	bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
+	std::mutex fetchChunkBufferMutex;
+	DownloadInfoPtr mActiveDownloadInfo;
+	std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
