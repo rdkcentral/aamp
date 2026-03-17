@@ -74,7 +74,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
     }
 }
 
-bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
 {
 	if (g_mockIsoBmffBuffer)
@@ -166,7 +166,7 @@ bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, 
 	}
 }
 
-int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char *&unParsedBuffer, size_t &unParsedBufferSize, size_t &parsedBufferSize)
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t &parsedBufferSize)
 {
 	if (g_mockIsoBmffBuffer)
 	{

@@ -38,7 +38,7 @@ public:
 	MOCK_METHOD(bool, IsInjectionFromCachedFragmentChunks, ());
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 	MOCK_METHOD(bool, Enabled, ());
-	MOCK_METHOD(void, ProcessPlaylist, (AampGrowableBuffer& newPlaylist, int http_error), (override));
+	MOCK_METHOD(void, ProcessPlaylist, (std::vector<uint8_t>& newPlaylist, int http_error), (override));
 	MOCK_METHOD(std::string&, GetPlaylistUrl, (), (override));
 	MOCK_METHOD(std::string&, GetEffectivePlaylistUrl, (), (override));
 	MOCK_METHOD(void, SetEffectivePlaylistUrl, (std::string url), (override));

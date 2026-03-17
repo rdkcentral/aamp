@@ -236,7 +236,7 @@ public:
 	 * @param[in] http error code
 	 * @return void
 	 */
-	void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override {};
+	void ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_error) override {};
 	/**
 	 * @fn resetAbort
 	 * @param[in] bool value
