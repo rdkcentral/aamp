@@ -2064,10 +2064,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				double offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
 				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
 				skipTime += offset;
+
 				// fragmentTime is reduced from period offset to land on the right epoch value. Later fragmentTime is added with fragmentDuration, so the PTO gap is addressed here.
 				pMediaStreamContext->fragmentTime -= offset;
 			}
-
 		}
 		do
 		{
@@ -2077,7 +2077,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
-					AAMPLOG_WARN("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
 					break;
 				}
@@ -9315,7 +9315,6 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf] start_delta %f", currentPeriodId.c_str(), seekPositionSeconds, start_delta);
 			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
-
 				SeekInPeriod(seekPositionSeconds);
 				// Ad shorter than base period, set flag to adjust calculation on next call to UpdatePtsOffset()
 				mShortAdOffsetCalc = true;
