@@ -106,7 +106,7 @@ void ABRManager::ReportDownloadComplete(
 	bool lowLatencyMode,
 	const DownloadMetrics &metrics)
 {
-	AAMPLOG_INFO(" downloadbps = %" BITSPERSECOND_FORMAT ", lowLatencyMode = %d mBandwidthEstimator = %p", downloadbps, lowLatencyMode, mBandwidthEstimator.get());
+	AAMPLOG_INFO("patrick downloadbps = %" BITSPERSECOND_FORMAT ", lowLatencyMode = %d mBandwidthEstimator = %p", downloadbps, lowLatencyMode, mBandwidthEstimator.get());
 
 	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
 	if (!mBandwidthEstimator)
