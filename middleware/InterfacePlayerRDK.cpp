@@ -87,11 +87,11 @@ const char * CipherTypeToString(CipherType type)
 }
 
 /*InterfacePlayerRDK constructor*/
-InterfacePlayerRDK::InterfacePlayerRDK() :
+InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
-	interfacePlayerPriv = new InterfacePlayerPriv();
+	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
 	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
@@ -122,10 +122,11 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	delete interfacePlayerPriv;
 }
 
-InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
+InterfacePlayerPriv::InterfacePlayerPriv(bool isRialto):mPlayerName()
 {
 	gstPrivateContext = new GstPlayerPriv();
-	socInterface = SocInterface::CreateSocInterface();
+	socInterface = SocInterface::CreateSocInterface(isRialto);
+
 }
 
 InterfacePlayerPriv::~InterfacePlayerPriv()
@@ -1822,7 +1823,6 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
-		
 		if( privatePlayer->gstPrivateContext->usingRialtoSink &&
 		   !privatePlayer->socInterface->IsVideoMaster(privatePlayer->gstPrivateContext->video_sink) )
 		{
