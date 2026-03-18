@@ -33,7 +33,6 @@
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
-#include "fragmentcollector_mpd.h"
 #include "StreamAbstractionAAMP.h"
 #include <string_view>
 
@@ -687,9 +686,10 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 
 	// Populate fragment data so the tsbSessionManager block is entered.
 	auto cachedFragment = std::make_shared<CachedFragment>();
-	const char *testData = "test_fragment_data";
-	cachedFragment->fragment.assign(reinterpret_cast<const uint8_t*>(testData),
-		reinterpret_cast<const uint8_t*>(testData) + strlen(testData));
+	constexpr std::string_view testData{"test_fragment_data"};
+	cachedFragment->fragment.assign(
+		reinterpret_cast<const uint8_t*>(testData.data()),
+		reinterpret_cast<const uint8_t*>(testData.data()) + testData.size());
 
 	// A second CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();

@@ -556,8 +556,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		return IsLocalTSBInjection() &&
 			   AAMP_NORMAL_PLAY_RATE == aamp->rate &&
-			   // No EOS detection if the user paused the playback, but it can be if the playback was paused due to underflow
-			   !(aamp->mSinkPaused.load() && !aamp->GetBufUnderFlowStatus()) &&
+			   // Allow EOS detection when playback is not paused, or when pause is due to buffer underflow
+			   (!aamp->mSinkPaused.load() || aamp->GetBufUnderFlowStatus()) &&
 			   eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
 			   tsbSessionManager &&
 			   tsbSessionManager->GetTsbReader((AampMediaType)type) &&
