@@ -14963,10 +14963,10 @@ void PrivateInstanceAAMP::StartLatencyMonitor()
 {
 	bool lowLatencyCorrection = mAampLLDashServiceData.lowLatencyMode &&
 								ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyCorrection);
-	bool mStreamAtLivePoint = IsAtLivePoint();
+	bool isAtLivePoint = IsAtLivePoint();
 
 	if (IsLive() && lowLatencyCorrection &&
-		mStreamAtLivePoint && !mbPauseOnStartPlayback && !mPauseOnFirstVideoFrameDisp)
+		isAtLivePoint && !mbPauseOnStartPlayback && !mPauseOnFirstVideoFrameDisp)
 	{
 		if (!mLatencyMonitor->IsRunning())
 		{

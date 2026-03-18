@@ -34,7 +34,7 @@
 #include <cassert>
 
 /**
- * @brief AampLatencyMonitor constuctor
+ * @brief AampLatencyMonitor constructor
  * @param[in] aamp - Pointer to the AAMP instance.
  */
 AampLatencyMonitor::AampLatencyMonitor(PrivateInstanceAAMP* aamp)
@@ -208,7 +208,16 @@ double AampLatencyMonitor::GetCurrentRate() const
  */
 void AampLatencyMonitor::Run()
 {
-	mState = State::kRunning;
+	// Transition kStarting → kRunning.  If Stop() was called between Start()
+	// spawning the thread and here, state is already kStopping — exit
+	// immediately so Stop()'s join() returns and it can finalise cleanup.
+	State expected = State::kStarting;
+	if (!mState.compare_exchange_strong(expected, State::kRunning))
+	{
+		AAMPLOG_WARN("[LatencyMonitor] worker aborted early (state=%d)",
+			static_cast<int>(expected));
+		return;
+	}
 	AAMPLOG_INFO("[LatencyMonitor] worker running — initial delay %d ms", mConfig.monitorDelayMs);
 
 	// Initial delay to avoid disturbing startup.
@@ -321,7 +330,8 @@ void AampLatencyMonitor::Run()
 	// not stay at a correction speed after the monitor terminates.
 	ResetToNormalRate();
 
-	mState = State::kIdle;
+	// Do NOT write mState here.  Stop() owns the kStopping → kIdle
+	// transition after join() returns, ensuring a clean hand-off.
 	AAMPLOG_INFO("[LatencyMonitor] worker exited");
 }
 

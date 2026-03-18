@@ -32,7 +32,7 @@
 #include <mutex>
 #include <thread>
 #include <tuple>
-#include <AampDefine.h>
+#include "AampDefine.h"
 
 class PrivateInstanceAAMP;
 
