@@ -188,7 +188,7 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
             }
 			else
 			{
-				MW_LOG_ERR("enabled rialto");
+				MW_LOG_MIL("enabled rialto");
 			}
 		}
 		switch (platformType)
