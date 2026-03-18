@@ -161,7 +161,7 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
 	if(isRialto == true)
 	{
-	    MW_LOG_WARN("Rialto is enabled and creating default soc");
+	    MW_LOG_MIL("Rialto is enabled and creating default soc");
 	}
 	mIsRialtoMode = isRialto;
 	return CreateSocInterface();
@@ -174,7 +174,6 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-	MW_LOG_MIL("SocInterface created"); 
 	static std::shared_ptr<SocInterface> socInterface;
 	if( !socInterface)
 	{
@@ -183,13 +182,9 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 		{
 			if(!mIsRialtoMode)
 			{
-				MW_LOG_MIL("rialto disabled");
+				MW_LOG_MIL("Performing InterfacePluginScan| Rialto-Enabled");
 				platformType = InferPlatformFromPluginScan();
             }
-			else
-			{
-				MW_LOG_MIL("enabled rialto");
-			}
 		}
 		switch (platformType)
 		{
