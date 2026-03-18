@@ -863,3 +863,39 @@ TEST(_AampUtils, hex_char_to_int )
 	EXPECT_EQ( hexCharToInt((char)0x00),-1);
 	EXPECT_EQ( hexCharToInt((char)0xff),-1);
 }
+
+/**
+ * @brief Verify ClearAndRelease empties the vector and releases its heap storage.
+ *
+ * A non-empty vector with reserved capacity is passed to ClearAndRelease.
+ * Afterwards the size must be zero and the capacity must equal that of a
+ * freshly default-constructed vector of the same element type, confirming
+ * that the swap-with-temporary idiom actually frees the backing allocation.
+ */
+TEST(_AampUtils, ClearAndRelease_EmptiesAndReleasesMemory)
+{
+	std::vector<uint8_t> v;
+	v.reserve(1024);
+	v.assign(512, 0xAB);
+
+	aamp_utils::ClearAndRelease(v);
+
+	EXPECT_TRUE(v.empty());
+	EXPECT_EQ(v.capacity(), std::vector<uint8_t>().capacity());
+}
+
+/**
+ * @brief Verify ClearAndRelease is a no-op on an already-empty vector.
+ *
+ * Calling ClearAndRelease on a default-constructed (empty)
+ * vector must leave it empty and must not throw or crash.
+ */
+TEST(_AampUtils, ClearAndRelease_OnEmptyVector_IsNoOp)
+{
+	std::vector<int> v;
+
+	aamp_utils::ClearAndRelease(v);
+
+	EXPECT_TRUE(v.empty());
+	EXPECT_EQ(v.capacity(), std::vector<int>().capacity());
+}
