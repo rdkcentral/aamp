@@ -463,13 +463,6 @@ public:
 	virtual void SetHevcCaps(GstCaps *caps){}
 	
 	/**
-	 * @brief Resets segment event flags during trickplay transitions.
-	 *
-	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
-	 */
-	virtual bool ResetNewSegmentEvent(){return false;}
-
-	/**
 	 * @brief Checks if the platform is video master.
 	 *
 	 * @param videoSink The video sink element.

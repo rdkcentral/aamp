@@ -259,6 +259,12 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 	}
 }
 
+static gboolean has_property(GstElement *element, const gchar *propertyName)
+{
+	GObjectClass *klass = G_OBJECT_GET_CLASS(element);
+	return g_object_class_find_property(klass, propertyName) != NULL;
+}
+
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
 
@@ -468,6 +474,35 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		else
 		{
 			MW_LOG_WARN("Couldn't get video-sink");
+		}
+	}
+	if (interfacePlayerPriv->gstPrivateContext->using_westerossink &&
+		!interfacePlayerPriv->socInterface->IsVideoMaster(interfacePlayerPriv->gstPrivateContext->video_sink))
+	{
+		GstElement *vidsink = NULL;
+		g_object_get(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin,
+			"video-sink", &vidsink, NULL);
+		if (vidsink != NULL && has_property(vidsink, "avsync-mode"))
+		{
+			if (interfacePlayerPriv->gstPrivateContext->rate < 0 ||
+				interfacePlayerPriv->gstPrivateContext->rate > 1)
+			{
+				g_object_set(vidsink, "avsync-mode", 0, NULL);
+				MW_LOG_INFO("Setting avsync-mode to Vmaster");
+			}
+			else
+			{
+				g_object_set(vidsink, "avsync-mode", 1, NULL);
+				MW_LOG_INFO("Setting avsync-mode to Amaster");
+			}
+		}
+		else
+		{
+			MW_LOG_ERR("Couldn't get video-sink(%p) or avsync-mode property not available", vidsink);
+		}
+		if (vidsink != NULL)
+		{
+			gst_object_unref(vidsink);
 		}
 	}
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
@@ -2985,7 +3020,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 /**
  *  @brief Inject stream buffer to gstreamer pipeline with transfer ownership (zero-copy)
  */
-bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
@@ -3005,7 +3040,6 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		//gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_NONE, pts);
 	}
 
-	bool segmentEventSent = false;
 	bool isFirstBuffer = stream->resetPosition;
 	// Make sure source element is present before data is injected
 	// If format is FORMAT_INVALID, we don't know what we are doing here
@@ -3026,19 +3060,8 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		//Send Gst Event when first buffer received after new tune, seek or period change
 		int enableGstQuery = m_gstConfigParam->enableGstPosQuery;
 		interfacePlayerPriv->SendGstEvents((int)mediaType, pts, enableGstQuery, m_gstConfigParam->enablePTSReStamp, m_gstConfigParam->vodTrickModeFPS);
-
-		// included to fix av sync / trickmode speed issues
-		// Also add check for trick-play on 1st frame.
-		if( interfacePlayerPriv->gstPrivateContext->video_sink &&
-			sendNewSegmentEvent == true)
-		{
-			interfacePlayerPriv->SendNewSegmentEvent(mediaType, pts, 0);
-			segmentEventSent = true;
-		}
 		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 	}
-
-	sendNewSegmentEvent = segmentEventSent;
 	bool bPushBuffer = !mPauseInjector;
 	if(bPushBuffer)
 	{
@@ -3163,69 +3186,6 @@ void InterfacePlayerRDK::ResumeInjector()
 	mPauseInjector = false;
 	mSourceSetupCV.notify_all();
 }
-
-/**
- *  @brief Send new segment event to pipeline
- */
-void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,GstClockTime stopPts)
-{
-	GstMediaType mediaType = static_cast<GstMediaType>(type);
-	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	// isMp4DemuxPlayback is originally ISO BMFF format, but demuxed
-	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->isMp4DemuxPlayback)
-	{
-		GstSegment segment;
-		gst_segment_init(&segment, GST_FORMAT_TIME);
-
-		segment.start = startPts;
-		segment.position = 0;
-		segment.rate = GST_NORMAL_PLAY_RATE;
-		segment.applied_rate = GST_NORMAL_PLAY_RATE;
-
-		if(stopPts)
-		{
-			segment.stop = stopPts;
-		} 
-
-		if( (GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO )
-		{
-			bool isVideoMaster = socInterface->IsVideoMaster(gstPrivateContext->video_sink);
-			if( !isVideoMaster )
-			{
-				// set applied_rate to trickplay rate if video sink doesn't use vmaster
-				// so that it can correctly handle there being no audio
-				segment.applied_rate = gstPrivateContext->rate;
-			}
-		}
-
-		if (gstPrivateContext->usingRialtoSink)
-		{
-			GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
-			GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
-
-			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
-			{
-				MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
-			}
-			gst_sample_unref(sample);
-			gst_caps_unref(currentCaps);
-		}
-		else
-		{
-			MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-			GstEvent* event = gst_event_new_segment (&segment);
-			if (!gst_pad_push_event(sourceEleSrcPad, event))
-			{
-				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
-			}
-			gst_object_unref(sourceEleSrcPad);			
-
-		}
-	}
-}
-
 /**
  *  @brief Generate a protection event
  */

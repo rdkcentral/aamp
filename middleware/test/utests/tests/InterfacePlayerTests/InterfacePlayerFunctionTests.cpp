@@ -1888,33 +1888,6 @@ TEST_F(InterfacePlayerTests, ResumeInjector_SetsPauseInjectorToFalseAndNotifiesA
 	EXPECT_FALSE(mInterfaceGstPlayer->mPauseInjector);
 }
 
-TEST_F(InterfacePlayerTests, SendNewSegmentEvent_VideoMediaType)
-{
-	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
-	GstClockTime startPts = 1000;
-	GstClockTime stopPts = 2000;
-	mPlayerContext->stream[mediaType].format = GST_FORMAT_ISO_BMFF;
-
-	GstPad gst_pad = {};
-	GstEvent gst_event = {};
-
-	// Mock the necessary GStreamer functions and objects
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(_, StrEq("src")))
-		.WillRepeatedly(Return(&gst_pad));
-	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
-		.WillRepeatedly(DoAll(SetArgPointee<0>(GstSegment{}), Return()));
-	EXPECT_CALL(*g_mockGStreamer, gst_event_new_segment(_))
-		.WillRepeatedly(Return(&gst_event));
-	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(_, _))
-		.WillOnce(Return(TRUE)).WillOnce(Return(FALSE));	// success and failure case
-	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(_))
-		.Times(2);
-
-
-	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);	//success
-	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);	//failure
-}
-
 TEST_F(InterfacePlayerTests, Queue_and_ClearProtectionEvent)
 {
 	std::string formatType = "cenc";

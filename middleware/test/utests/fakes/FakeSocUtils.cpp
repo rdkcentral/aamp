@@ -62,9 +62,4 @@ namespace SocUtils
 	{
 		return false;
 	}
-
-	bool ResetNewSegmentEvent()
-	{
-		return false;
-	}
 }

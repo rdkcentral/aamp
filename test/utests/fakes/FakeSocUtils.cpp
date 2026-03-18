@@ -50,11 +50,6 @@ namespace SocUtils
 		return false;
 	}
 
-	bool ResetNewSegmentEvent()
-	{
-		return false;
-	}
-
 	bool isGstSubtecEnabled()
 	{
 		return false;

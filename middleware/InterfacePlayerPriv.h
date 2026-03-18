@@ -285,14 +285,6 @@ class InterfacePlayerPriv
 		void SendGstEvents(int mediaType, GstClockTime pts, int enableGstPosQuery, bool enablePTSReStamp, int vodTrickModeFPS);
 
 		/**
-		 * @brief Sends a new segment event.
-		 * @param[in] mediaType The type of media stream.
-		 * @param[in] startPts The start PTS value.
-		 * @param[in] stopPts The stop PTS value.
-		 */
-		void SendNewSegmentEvent(int mediaType, GstClockTime startPts, GstClockTime stopPts);
-
-		/**
 		 * @fn SendQtDemuxOverrideEvent
 		 * @param[in] mediaType stream type
 		 * @param[in] pts position value of buffer

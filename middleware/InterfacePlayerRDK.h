@@ -442,12 +442,11 @@ class InterfacePlayerRDK
         	 * @param[in] initFragment True if this is an initialization fragment.
         	 * @param[in,out] discontinuity Indicates whether there is a discontinuity.
         	 * @param[out] notifyFirstBufferProcessed Indicates whether the first buffer was processed.
-        	 * @param[out] sendNewSegmentEvent Indicates whether to send a new segment event.
         	 * @param[out] resetTrickUTC Indicates whether to reset the trick UTC.
         	 * @param[out] firstBufferPushed Indicates whether the first buffer was pushed.
         	 * @return True if the event was sent successfully, false otherwise.
         	 */
-			bool SendHelper(int type, MediaSample&& sample, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
+			bool SendHelper(int type, MediaSample&& sample, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &resetTrickUTC, bool &firstBufferPushed);
         	
         	/**
         	 * @brief Pauses the injector.

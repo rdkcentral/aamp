@@ -708,7 +708,6 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 		return false;
 	}
 
-	bool sendNewSegmentEvent = false;
 	bool notifyFirstBufferProcessed = false;
 	bool resetTrickUTC = false;
 	bool firstBufferPushed = false;
@@ -735,15 +734,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bo
 	{
 		return false;
 	}
-	if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
-	{
-		sendNewSegmentEvent = true;
-	}
-	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), initFragment, discontinuity, notifyFirstBufferProcessed, sendNewSegmentEvent, resetTrickUTC, firstBufferPushed);
-	if(sendNewSegmentEvent)
-	{
-		aamp->mbNewSegmentEvtSent[mediaType] = true;
-	}
+	bool bPushBuffer = playerInstance->SendHelper(mediaType, std::move(sample), initFragment, discontinuity, notifyFirstBufferProcessed, resetTrickUTC, firstBufferPushed);
 	if(firstBufferPushed)
 	{
 		this->aamp->profiler.ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);

@@ -1059,7 +1059,6 @@ public:
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
 	std::atomic<bool> mSinkPaused; 			/**< true if pipeline is paused - atomic for thread safety */
-	bool mbNewSegmentEvtSent[AAMP_TRACK_COUNT];
 
 	char mLanguageList[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH]; /**< list of languages in stream */
 	int mCurrentLanguageIndex; 				/**< Index of current selected lang in mLanguageList, this is used for VideoStat event data collection */
