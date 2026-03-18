@@ -1370,25 +1370,37 @@ public:
 	/**
 	 * @fn GetFile
 	 *
-	 * @param [in] bucketType profiling bucket
-	 * @param[in] remoteUrl media file to download
-	 * @param[in] mediaType
-	 * @param[out] buffer receives downloaded bytes on success
-	 * @param[out] effectiveUrl - Final URL after HTTP redirection
-	 * @param[out] http_error - HTTP error code
-	 * @param[out] downloadTime
-	 * @param[in] range - Byte range
-	 * @param[in] curlInstance - Curl instance to be used
-	 * @param[in] resetBuffer - Flag to reset the out buffer
-	 * @param[in] bitrate
-	 * @param[out] fogError
-	 * @param[in] fragmentDurationS
-	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
-	 * @return true iff successful
+	 * @brief Download a file from the CDN and store it in memory.
+	 *
+	 * @param[in]  remoteUrl           URL of the media resource to download.
+	 * @param[in]  mediaType           Media type being downloaded.
+	 * @param[out] buffer              Buffer that receives the downloaded bytes
+	 *                                 on success.
+	 * @param[out] effectiveUrl        Final URL after any HTTP redirects.
+	 * @param[out] http_error          Reference that receives the HTTP response
+	 *                                 code on return.
+	 * @param[out] downloadTime        Optional pointer that receives the total
+	 *                                 download time in seconds; may be NULL.
+	 * @param[in]  range               Optional HTTP byte-range string; pass
+	 *                                 NULL to request the full object.
+	 * @param[in]  curlInstance        Curl instance index to use.
+	 * @param[in]  resetBuffer         When true the output buffer is cleared
+	 *                                 before the download begins.
+	 * @param[in]  bitrate             Optional pointer that receives the
+	 *                                 measured download bitrate; may be NULL.
+	 * @param[out] fogError            Optional pointer that receives any FOG
+	 *                                 error code; may be NULL.
+	 * @param[in]  fragmentDurationS   Duration of the fragment in seconds
+	 *                                 (0 if not applicable).
+	 * @param[in]  bucketType          Profiling bucket type.
+	 * @param[in]  maxInitDownloadTimeMS Max time (ms) to retry init-segment
+	 *                                 downloads when AAMP TSB is enabled;
+	 *                                 pass 0 otherwise.
+	 * @return true on success, false on failure.
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
 				std::vector<uint8_t> &buffer, std::string& effectiveUrl,
-				int *http_error = NULL, double *downloadTime = NULL,
+				int& http_error, double *downloadTime = NULL,
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
@@ -1437,12 +1449,12 @@ public:
  	 * @param[in]  bucketType   Bucket type used for profiling the download.
  	 * @param[in]  fragmentUrl  URL of the IDX resource to download.
  	 * @param[out] effectiveUrl Final URL after redirects, if any.
- 	 * @param[out] idx          Pointer to buffer that receives the downloaded
- 	 *                          IDX bytes. Must not be NULL.
+ 	 * @param[out] idx          Reference to the buffer that receives the
+ 	 *                          downloaded IDX bytes.
  	 * @param[in]  curlInstance Curl instance index to use for the download.
  	 * @param[in]  range        Optional HTTP byte range to request; pass NULL
  	 *                          to request the full object.
- 	 * @param[out] http_code    Pointer that receives the HTTP response code;
+ 	 * @param[out] http_code    Reference that receives the HTTP response code.
  	 * @param[out] downloadTime Optional pointer that receives the total
  	 *                          download time in seconds; may be NULL.
  	 * @param[in]  mediaType    Media type associated with the IDX resource.
@@ -1451,7 +1463,7 @@ public:
  	 *
 	 * @return void
 	 */
-	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t> *idx, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& idx, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST, int *fogError = NULL);
 
 	/**
 	 * @fn EndOfStreamReached

@@ -4464,7 +4464,7 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
@@ -5372,13 +5372,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		AAMPLOG_WARN("downloads disabled");
 	}
 
-	if (http_error)
+	http_error = http_code;
+	if (downloadTimeS)
 	{
-		*http_error = http_code;
-		if(downloadTimeS)
-		{
-			*downloadTimeS = total;
-		}
+		*downloadTimeS = total;
 	}
 	if (httpHeaders != NULL)
 	{
@@ -5426,7 +5423,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	{
 		if( !ret )
 		{
-			profiler.ProfileError(bucketType, *http_error);
+			profiler.ProfileError(bucketType, http_error);
 		}
 		profiler.ProfileEnd(bucketType);
 	}
@@ -7089,20 +7086,20 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		CurlInit(eCURLINSTANCE_MANIFEST_MAIN, 1, GetNetworkProxy());
 		EnableMediaDownloads(eMEDIATYPE_MANIFEST);
 		bool gotManifest = GetFile(url,
-							eMEDIATYPE_MANIFEST,
-							sniffedBytes.GetVector(),
-							effectiveUrl,
-							&http_error,
-							&downloadTime,
-							"0-150", // download first few bytes only
-							// TODO: ideally could use "0-6" for range but write_callback sometimes not called before curl returns http 206
-							eCURLINSTANCE_MANIFEST_MAIN,
-							false,
-							&bitrate,
-							&fogError,
-							0.0 );
+								   eMEDIATYPE_MANIFEST,
+								   sniffedBytes.GetVector(),
+								   effectiveUrl,
+								   http_error,
+								   &downloadTime,
+								   "0-150", // download first few bytes only
+								   // TODO: ideally could use "0-6" for range but write_callback sometimes not called before curl returns http 206
+								   eCURLINSTANCE_MANIFEST_MAIN,
+								   false,
+								   &bitrate,
+								   &fogError,
+								   0.0);
 
-		if(gotManifest)
+		if (gotManifest)
 		{
 			if(sniffedBytes.size() >= 7 && memcmp(sniffedBytes.data(), "#EXTM3U8", 7) == 0)
 			{
@@ -7553,12 +7550,12 @@ BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 /**
  * @brief Fetch a file from CDN and update profiler
  */
-void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t> *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
+void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError)
 {
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(std::move(fragmentUrl), mediaType, *fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
+	if (!GetFile(std::move(fragmentUrl), mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL, fogError))
 	{
-		profiler.ProfileError(bucketType, *http_code);
+		profiler.ProfileError(bucketType, http_code);
 		profiler.ProfileEnd(bucketType);
 	}
 	else
@@ -10762,7 +10759,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
 						{
 							std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-						  ret = GetFile(newelem.url, newelem.type, playlistStore.GetVector(), playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
+						  ret = GetFile(newelem.url, newelem.type, playlistStore.GetVector(), playlistEffectiveUrl, http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
 						  if(ret != false)
 						  {
 							  // If successful download , then insert into Cache

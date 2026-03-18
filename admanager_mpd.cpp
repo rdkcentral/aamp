@@ -951,7 +951,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	AampGrowableBuffer manifest("adMPD_CDN");
 	bool gotManifest = false;
 	std::string effectiveUrl;
-	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, manifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, manifest.GetVector(), effectiveUrl, http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
@@ -997,7 +997,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 			AampGrowableBuffer fogManifest("adMPD_FOG");
 			http_error = 0;
-			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, fogManifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, fogManifest.GetVector(), effectiveUrl, http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
 				manifestUrl = std::move(effectiveUrl);
@@ -1884,7 +1884,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit->GetVector(), fragmentUrl);
 						if(!gotInit)
 						{
-							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit->GetVector(), fragmentUrl, &segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
+							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit->GetVector(), fragmentUrl, segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
 							mAamp->UpdateVideoEndMetrics(actualMediaType, fragmentDescriptor->Bandwidth, segment_http_error, fragmentUrl, 0, segment_downloadTime);
 						}
 						if (gotInit)
