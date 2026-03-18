@@ -89,6 +89,10 @@ protected:
 public:
 	SocInterface() {}
 
+	/** 
+	 * @brief Flag indicating whether Rialto mode is enabled.
+	 */
+	static bool mIsRialtoMode;
 	/**
 	 * @brief Sets the state of Westeros Sink usage.
 	 *
@@ -125,7 +129,13 @@ public:
 	 * @return A pointer to the created SocInterface object.
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
-	
+	/**
+	 * @brief Creates an instance of the SoC-specific interface with optional Rialto mode.
+	 * @param isRialto Flag indicating whether Rialto mode should be enabled.
+	 * @return A pointer to the created SocInterface object.
+	 */
+	static std::shared_ptr<SocInterface> CreateSocInterface(bool isRialto);
+
 	/**
 	 * @brief Check if AppSrc should be used.
 	 *
@@ -265,7 +275,7 @@ public:
 	 * @return True on success, false otherwise.
 	 */
 	virtual bool SetRateCorrection() = 0;
-	
+
 	/**
 	 * @brief Check if the given name is a video sink.
 	 * @param name Element name.

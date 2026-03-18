@@ -372,7 +372,7 @@ public:
 	std::map<InterfaceCB, std::function<void()>> callbackMap;
 	std::map<InterfaceCB, std::function<void(int)>> setupStreamCallbackMap;
 
-	InterfacePlayerRDK();
+	InterfacePlayerRDK(bool isRialto = false);
 	~InterfacePlayerRDK();
 
 	/**
