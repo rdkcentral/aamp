@@ -106,6 +106,8 @@ void ABRManager::ReportDownloadComplete(
 	bool lowLatencyMode,
 	const DownloadMetrics &metrics)
 {
+	AAMPLOG_INFO(" downloadbps = %" BITSPERSECOND_FORMAT ", lowLatencyMode = %d mBandwidthEstimator = %p", downloadbps, lowLatencyMode, mBandwidthEstimator.get());
+
 	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
 	if (!mBandwidthEstimator)
 	{
@@ -124,6 +126,8 @@ void ABRManager::ReportDownloadProgress(
 	bool lowLatencyMode,
 	const DownloadProgressInfo &progressInfo)
 {
+	AAMPLOG_INFO("patrick downloadbps = %" BITSPERSECOND_FORMAT ", lowLatencyMode = %d mBandwidthEstimator = %p", downloadbps, lowLatencyMode, mBandwidthEstimator.get());
+
 	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
 	if (!mBandwidthEstimator)
 	{
@@ -162,6 +166,7 @@ void ABRManager::SetInitialBandwidthForProfile(BitsPerSecond bitsPerSecond, bool
 	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
 	mBandwidthState.availableBandwidth = bitsPerSecond;
 	mBandwidthState.networkBandwidth = bitsPerSecond;
+	AAMPLOG_INFO("patrick downloadbps = %" BITSPERSECOND_FORMAT ", lowLatencyMode = %d mBandwidthEstimator = %p", bitsPerSecond, false, mBandwidthEstimator.get());
 
 	if (mBandwidthEstimator)
 	{
