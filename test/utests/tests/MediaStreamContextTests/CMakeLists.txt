@@ -28,6 +28,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES    MediaStreamContextTests.cpp
                     FragmentDownloadTests.cpp
+                    HelperFunctionTests.cpp
                     MediaStreamContextAampTests.cpp)
 set(AAMP_SOURCES ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(${EXEC_NAME}
