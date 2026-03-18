@@ -147,9 +147,9 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	for (auto tmpDataIter = tmpData.begin();
 		 tmpDataIter != tmpData.end();)
 	{
-		diffOutlier = (*tmpDataIter) > medianbps
-						  ? (*tmpDataIter) - medianbps
-						  : medianbps - (*tmpDataIter);
+		//Only reject outliers if they a greater that the median
+		diffOutlier = (*tmpDataIter) - medianbps;
+
 		if (diffOutlier > abrOutlierDiffBytes)
 		{
 			AAMPLOG_INFO("patrick outlier removed=%" BITSPERSECOND_FORMAT ", medianbps=%" BITSPERSECOND_FORMAT ", diffOutlier=%" BITSPERSECOND_FORMAT, *tmpDataIter, medianbps, diffOutlier);
