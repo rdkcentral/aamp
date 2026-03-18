@@ -301,6 +301,7 @@ public:
 	 * @return True on success, false otherwise.
 	 */
 	virtual bool SetRateCorrection() = 0;
+
 	/**
 	 * @brief Check if the given name is a video sink.
 	 * @param name Element name.
