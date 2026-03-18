@@ -27,7 +27,6 @@
 
 namespace SocUtils
 {
-
 	static std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	/**
 	 * @brief Checks if AppSrc should be used for progressive playback.
