@@ -110,4 +110,7 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 	return {};
 }
 
+void AampStreamSinkManager::SetTuned(PrivateInstanceAAMP *aamp)
+{
+}
 
