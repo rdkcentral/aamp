@@ -184,7 +184,7 @@ TEST_F(AbrTests, RMORejectsOutlierSamplesBeyondConfiguredThreshold)
 }
 
 /**
- * @brief Test RMO estimator rejects outlier samples beyond configured threshold.
+ * @brief Test RMO estimator rejects high outlier but not low from 2 samples
  */
 TEST_F(AbrTests, RMORejectsOutlierSamplesBeyondConfiguredThreshold2)
 {

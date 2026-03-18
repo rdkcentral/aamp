@@ -146,7 +146,7 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	for (auto tmpDataIter = tmpData.begin();
 		 tmpDataIter != tmpData.end();)
 	{
-		// Reject only samples that are greater than the outlier threshold
+		// Reject samples that exceed the median by more than the outlier threshold (high-side only)
 		diffOutlier = (*tmpDataIter) - medianbps;
 		if (diffOutlier > abrOutlierDiffBytes)
 		{
