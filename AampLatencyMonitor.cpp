@@ -121,6 +121,9 @@ void AampLatencyMonitor::Start(const LatencyConfig& config)
  */
 void AampLatencyMonitor::Stop()
 {
+	// Non-atomic read is intentional: Stop() must be called from a single
+	// controlling thread (the same thread that called Start()), so there is
+	// no concurrent writer racing against this guard check.
 	if (mState == State::kIdle)
 	{
 		return;
@@ -210,7 +213,7 @@ void AampLatencyMonitor::Run()
 {
 	// Transition kStarting → kRunning.  If Stop() was called between Start()
 	// spawning the thread and here, state is already kStopping — exit
-	// immediately so Stop()'s join() returns and it can finalise cleanup.
+	// immediately so Stop()'s join() returns and it can finalize cleanup.
 	State expected = State::kStarting;
 	if (!mState.compare_exchange_strong(expected, State::kRunning))
 	{
