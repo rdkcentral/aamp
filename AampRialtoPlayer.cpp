@@ -119,6 +119,13 @@ void AampRialtoPlayer::Configure(
 	if (!m_client)
 		m_client = std::make_shared<AampRialtoMediaPipelineClient>();
 
+	// Reset per-session state so a re-tune starts clean.
+	m_videoSourceId = -1;
+	m_audioSourceId = -1;
+	m_pendingFlushPositionNs.store(-1, std::memory_order_relaxed);
+	m_playRequested.store(false, std::memory_order_relaxed);
+	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
+
 	// Register Rialto → AAMP log bridge once (idempotent: handler is kept alive
 	// for the lifetime of this player instance).
 	if (!m_rialtoLogHandler)
@@ -398,6 +405,29 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 	m_videoWidth  = static_cast<int32_t>(codecInfo.mInfo.video.mWidth);
 	m_videoHeight = static_cast<int32_t>(codecInfo.mInfo.video.mHeight);
 
+	// Set the initial segment position on the server so that
+	// pushSampleIfRequired() creates a GStreamer segment before the first
+	// buffer is pushed.  Without this, frames at large live-stream PTS
+	// values are never rendered.
+	const int64_t posNs =
+		m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+	if (posNs >= 0)
+	{
+		if (!m_pipeline->setSourcePosition(
+				m_videoSourceId, posNs, /*resetTime=*/true))
+		{
+			AAMPLOG_WARN("AampRialtoPlayer::%s"
+				" setSourcePosition(video, %" PRId64 ") failed",
+				__FUNCTION__, posNs);
+		}
+		else
+		{
+			AAMPLOG_INFO("AampRialtoPlayer::%s"
+				" setSourcePosition(video, %" PRId64 ") ok",
+				__FUNCTION__, posNs);
+		}
+	}
+
 	CheckAllSourcesAttached();
 }
 
@@ -485,6 +515,26 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 	m_audioSampleRate = static_cast<int32_t>(audioConfig.sampleRate);
 	m_audioChannels   = static_cast<int32_t>(audioConfig.numberOfChannels);
 
+	// Set the initial segment position on the server (mirrors the video path).
+	const int64_t posNs =
+		m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+	if (posNs >= 0)
+	{
+		if (!m_pipeline->setSourcePosition(
+				m_audioSourceId, posNs, /*resetTime=*/true))
+		{
+			AAMPLOG_WARN("AampRialtoPlayer::%s"
+				" setSourcePosition(audio, %" PRId64 ") failed",
+				__FUNCTION__, posNs);
+		}
+		else
+		{
+			AAMPLOG_INFO("AampRialtoPlayer::%s"
+				" setSourcePosition(audio, %" PRId64 ") ok",
+				__FUNCTION__, posNs);
+		}
+	}
+
 	CheckAllSourcesAttached();
 }
 
@@ -506,6 +556,22 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 	if (!m_pipeline->allSourcesAttached())
 	{
 		AAMPLOG_ERR("AampRialtoPlayer::%s allSourcesAttached() failed", __FUNCTION__);
+		return;
+	}
+
+	// Mark that allSourcesAttached() completed so Stream() can act on it
+	// even if it is called after this point.
+	m_allSourcesAttachedFlag.store(true, std::memory_order_seq_cst);
+
+	// If Stream() has already been called, issue play() now — this keeps
+	// the Rialto protocol order: allSourcesAttached() → play().
+	if (m_playRequested.load(std::memory_order_seq_cst))
+	{
+		AAMPLOG_INFO("AampRialtoPlayer::%s play() deferred by Stream() —"
+			" issuing now", __FUNCTION__);
+		bool async = false;
+		if (!m_pipeline->play(async))
+			AAMPLOG_ERR("AampRialtoPlayer::%s play() failed", __FUNCTION__);
 	}
 }
 
@@ -545,10 +611,27 @@ void AampRialtoPlayer::Stream()
 	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
 	if (m_pipeline)
 	{
-		bool async = false;
-		if (!m_pipeline->play(async))
-			AAMPLOG_ERR("AampRialtoPlayer::%s play() failed",
-				__FUNCTION__);
+		// Signal that play() should be issued.  We use seq_cst ordering so
+		// that CheckAllSourcesAttached() on the injection thread sees this
+		// store before it reads m_playRequested (and vice-versa).
+		m_playRequested.store(true, std::memory_order_seq_cst);
+
+		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
+		{
+			// allSourcesAttached() already completed before this call —
+			// promote to PLAYING immediately.
+			bool async = false;
+			if (!m_pipeline->play(async))
+				AAMPLOG_ERR("AampRialtoPlayer::%s play() failed",
+					__FUNCTION__);
+		}
+		else
+		{
+			// Sources are not yet attached; play() will be issued by
+			// CheckAllSourcesAttached() once all sources are registered.
+			AAMPLOG_INFO("AampRialtoPlayer::%s deferring play() until"
+				" allSourcesAttached()", __FUNCTION__);
+		}
 	}
 	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
 }
@@ -577,6 +660,43 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		m_videoEos = false;
 		m_audioEos = false;
 	}
+
+	// Store the segment start position so it can be forwarded to the Rialto
+	// server via setSourcePosition() for every attached source.  This is
+	// required to make the Rialto server emit a GStreamer segment event
+	// before the first buffer; without it pushSampleIfRequired() is a no-op
+	// and frames at large live-stream PTS values (e.g. 12542 s) are never
+	// rendered by the downstream decoder.
+	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
+
+	// If sources were already attached (e.g. mid-stream seek) apply the
+	// position immediately; otherwise AttachVideoSource/AttachAudioSource
+	// will apply it once each source is registered.
+	if (m_pipeline)
+	{
+		if (m_videoSourceId >= 0)
+		{
+			if (!m_pipeline->setSourcePosition(
+					m_videoSourceId, posNs, /*resetTime=*/true))
+			{
+				AAMPLOG_WARN("AampRialtoPlayer::%s"
+					" setSourcePosition(video) failed",
+					__FUNCTION__);
+			}
+		}
+		if (m_audioSourceId >= 0)
+		{
+			if (!m_pipeline->setSourcePosition(
+					m_audioSourceId, posNs, /*resetTime=*/true))
+			{
+				AAMPLOG_WARN("AampRialtoPlayer::%s"
+					" setSourcePosition(audio) failed",
+					__FUNCTION__);
+			}
+		}
+	}
+
 	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
 }
 

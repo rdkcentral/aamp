@@ -304,6 +304,20 @@ private:
 	bool m_videoEos{false}; ///< All video data has been queued
 	bool m_audioEos{false}; ///< All audio data has been queued
 
+	/// Position (ns) stored by Flush(); used to set the initial GStreamer
+	/// segment via setSourcePosition() once each source is attached.
+	/// -1 means no flush position has been set yet.
+	std::atomic<int64_t> m_pendingFlushPositionNs{-1};
+
+	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
+	/// play() call until after allSourcesAttached() so the Rialto server
+	/// transitions PAUSED→PLAYING only after all sources are registered.
+	std::atomic<bool> m_playRequested{false};
+
+	/// Set by CheckAllSourcesAttached() after allSourcesAttached() succeeds.
+	/// Stream() reads this to decide whether it can call play() immediately.
+	std::atomic<bool> m_allSourcesAttachedFlag{false};
+
 	/// @brief Start the segment injection thread (idempotent).
 	void StartInjectionThread();
 
