@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <sys/time.h>
+#include "AampLogManager.h"
 
 /**
  * @brief Get current time in milliseconds.
@@ -151,6 +152,7 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 						  : medianbps - (*tmpDataIter);
 		if (diffOutlier > abrOutlierDiffBytes)
 		{
+			AAMPLOG_INFO("patrick outlier removed=%" BITSPERSECOND_FORMAT ", medianbps=%" BITSPERSECOND_FORMAT ", diffOutlier=%" BITSPERSECOND_FORMAT, *tmpDataIter, medianbps, diffOutlier);
 			tmpDataIter = tmpData.erase(tmpDataIter);
 		}
 		else
@@ -168,7 +170,7 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	{
 		ret = -1;
 	}
-
+	AAMPLOG_INFO("patrick ret=%" BITSPERSECOND_FORMAT ", medianbps=%" BITSPERSECOND_FORMAT ", tmpData.size=%zu", ret, medianbps, tmpData.size());
 	return ret;
 }
 
