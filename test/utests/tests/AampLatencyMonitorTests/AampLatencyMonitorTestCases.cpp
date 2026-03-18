@@ -68,7 +68,7 @@ static LatencyConfig MakeFastConfig(
 	double minLatMs    = DEFAULT_MIN_LATENCY_MS, //3000 ms
 	double targetLatMs = DEFAULT_TARGET_LATENCY_MS, //6000 ms
 	double maxLatMs    = DEFAULT_MAX_LATENCY_MS, //9000 ms
-    double bufToEnable = DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC * 1000, // 0.0s
+	double bufToEnable = DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC * 1000, // 0.0s
 	double rebufStepMs    = 0.0,   // latency increment per rebuffering event
 	double rebufMaxIncrMs = 0.0)   // max total accumulated increment (0 = uncapped)
 {
