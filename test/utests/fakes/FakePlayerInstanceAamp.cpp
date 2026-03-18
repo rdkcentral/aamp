@@ -29,7 +29,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 }
 
 
-	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames, bool powerEvt) {  }
+	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
 	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
@@ -127,7 +127,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
 	void PlayerInstanceAAMP::SetPreferredCodec(const char *codecList) {  }
-	void PlayerInstanceAAMP::SetPreferredLabels(const char *labelList) {  }
+	void PlayerInstanceAAMP::SetPreferredLabels(const char *lableList) {  }
 	void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList) {  }
 	void PlayerInstanceAAMP::SetTuneEventConfig(int tuneEventType) {  }
 	void PlayerInstanceAAMP::EnableVideoRectangle(bool rectProperty) {  }
@@ -164,12 +164,11 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
+	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }
 	void PlayerInstanceAAMP::SetLicenseCustomData(const char *customData) {  }
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }
 	void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported) {  }
-	void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId) {  }
-	void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId) { }
 	bool PlayerInstanceAAMP::IsLive() { return false; }
 	bool PlayerInstanceAAMP::GetVideoMute(void) { return false; }
 	bool PlayerInstanceAAMP::GetCCStatus(void) { return false; }

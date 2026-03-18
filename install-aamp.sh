@@ -30,18 +30,6 @@ export CMAKE_POLICY_VERSION_MINIMUM=3.5
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
 
-# Detect and cache platform to avoid repeated checks
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    readonly PLATFORM="darwin"
-elif [[ "$OSTYPE" == "linux"* ]]; then
-    readonly PLATFORM="linux"
-else
-    echo "ERROR: Unsupported platform: $OSTYPE"
-    echo "Supported platforms: macOS (darwin), Linux"
-    exit 1
-fi
-export PLATFORM
-
 # All include files should be done here
 #
 # tools and OS specifics
@@ -58,8 +46,6 @@ source scripts/install_dependencies.sh
 source scripts/install_gtest.sh
 # libdash install and build
 source scripts/install_libdash.sh
-# middleware interfaces install and build
-source scripts/install_middleware_interfaces.sh
 # subtec install and build
 source scripts/install_subtec.sh
 # rialto install and build
@@ -68,12 +54,11 @@ source scripts/install_rialto.sh
 source scripts/install_aampcli.sh
 # aampcli on Kotlin install and build
 source scripts/install_aampcliKotlin.sh
-# jsbindings install and build
-source scripts/install_jsbindings.sh
 
 # Elapsed time
 SECONDS=0
 
+declare ARCH=""
 # Collect summary to be printed at the end of execution
 declare -a INSTALL_STATUS_ARR
 #
@@ -88,7 +73,7 @@ declare LOCAL_DEPS_BUILD_DIR
 # Get and process install options
 install_options_fn "$@" 
 
-if [ "${OPTION_CLEAN_BUILD}" = true ] ; then
+if [ ${OPTION_CLEAN_BUILD} = true ] ; then
     echo "Clean build selected - removing build and libs directories"
     sudo rm -rf .libs
     sudo rm -rf build
@@ -126,9 +111,10 @@ aampcli_install_prebuild_fn ${OPTION_CLEAN}
 LOCAL_DEPS_BUILD_DIR="${AAMP_DIR}/.libs"
 echo ""
 echo "Building dependencies in ${LOCAL_DEPS_BUILD_DIR}"
-if [ ! -d "${LOCAL_DEPS_BUILD_DIR}" ]; then
-    mkdir -p "${LOCAL_DEPS_BUILD_DIR}"
+if [ ! -d ${LOCAL_DEPS_BUILD_DIR} ]; then
+    mkdir ${LOCAL_DEPS_BUILD_DIR}
 fi
+
 
 # Install prebuilt dependencies
 #
@@ -154,15 +140,6 @@ INSTALL_STATUS_ARR+=("install_build_googletest check passed.")
 # Build libdash
 install_build_libdash_fn "${OPTION_CLEAN}" 
 INSTALL_STATUS_ARR+=("install_build_libdash check passed.")
-
-# Build middleware interface (only if external is selected)
-if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ] ; then
-    export MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
-    install_build_middleware_interface_fn "${OPTION_CLEAN}"
-    INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
-else
-    INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check SKIPPED (using internal).")
-fi
 
 # Build subtec
 #
@@ -195,11 +172,7 @@ INSTALL_STATUS_ARR+=("subtec_install_run_script check passed.")
 aampcli_install_build_fn "${CLEAN}"
 INSTALL_STATUS_ARR+=("aampcli_install_build check passed.")
 
-# Build jsbindings
-jsbindings_install_build_fn
-INSTALL_STATUS_ARR+=("jsbindings_install_build check passed.")
-
-if [ "${OPTION_AAMPCLIKOTLIN_SKIP}" = false ] ; then
+if [ ${OPTION_AAMPCLIKOTLIN_SKIP} = false ] ; then
     cd ${AAMP_DIR}
     build_kotlin_libraries_fn
     build_aampcli_kotlin_bindings_fn

@@ -44,11 +44,7 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
-#include "AampTimeBasedBufferManager.hpp"
 #include "CachedFragment.h"
-
-// Forward declaration to avoid including Underflow monitor header here
-class AampUnderflowMonitor;
 
 /**
  * @brief Media Track Types
@@ -58,6 +54,7 @@ typedef enum
 	eTRACK_VIDEO,     /**< Video track */
 	eTRACK_AUDIO,     /**< Audio track */
 	eTRACK_SUBTITLE,  /**< Subtitle track */
+	eTRACK_AUX_AUDIO  /**< Auxiliary audio track */
 } TrackType;
 
 AampMediaType TrackTypeToMediaType( TrackType trackType );
@@ -162,23 +159,11 @@ public:
 	void AbortWaitForPlaylistDownload();
 
 	/**
-	 * @fn AbortWaitForManifestUpdate
+	 * @fn AbortFragmentDownloaderWait
 	 *
 	 * @return void
 	 */
-	void AbortWaitForManifestUpdate();
-
-	/**
-	 * @fn GetManifestUpdateCounter
-	 * @brief Returns the current manifest update counter.
-	 *        Callers should snapshot this value BEFORE performing any
-	 *        check or download work that leads to the decision to wait,
-	 *        then pass it to WaitForManifestUpdate(snapshotCounter).
-	 *        This closes the race window where AbortWaitForManifestUpdate()
-	 *        fires between the caller's work and the wait call.
-	 * @return Current counter value.
-	 */
-	uint32_t GetManifestUpdateCounter();
+	void AbortFragmentDownloaderWait();
 
 	/**
 	 * @fn AbortWaitForCachedFragmentChunk
@@ -193,19 +178,6 @@ public:
 	 * @return void
 	 */
 	void WaitForManifestUpdate();
-
-	/**
-	 * @fn WaitForManifestUpdate
-	 * @brief Overload that accepts a caller-supplied counter snapshot.
-	 *        Blocks until the live counter differs from snapshotCounter.
-	 *        If AbortWaitForManifestUpdate() already fired after the snapshot
-	 *        was taken, the predicate is immediately true and no blocking
-	 *        occurs — no lost-wakeup.
-	 * @param[in] snapshotCounter Snapshot obtained from GetManifestUpdateCounter()
-	 *            before the caller began its check or download work.
-	 * @return void
-	 */
-	void WaitForManifestUpdate(uint32_t snapshotCounter);
 
 	/**
 	 * @fn PlaylistDownloader
@@ -291,6 +263,13 @@ public:
 	AampMediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
 
 	/**
+	 * @fn NotifyFragmentCollectorWait
+	 *
+	 * @return void
+	 */
+	void NotifyFragmentCollectorWait() {fragmentCollectorWaitingForPlaylistUpdate = true;}
+
+	/**
 	 * @fn EnterTimedWaitForPlaylistRefresh
 	 *
 	 * @param[in] timeInMs timeout in milliseconds
@@ -313,8 +292,6 @@ public:
 
 	/**
 	 * @fn ProcessFragmentChunk
-	 * @brief Process next cached fragment chunk
-	 * @retval true if chunk should be removed from the cached fragment chunk buffer, false otherwise
 	 */
 	bool ProcessFragmentChunk();
 
@@ -471,7 +448,7 @@ public:
 	 * @param[in] bandwidthBps - Bandwidth in bps
 	 * @return void
 	 */
-	void SetCurrentBandWidth(BitsPerSecond bandwidthBps);
+	void SetCurrentBandWidth(int bandwidthBps);
 
 	/**
 	 * @fn GetProfileIndexForBW
@@ -485,7 +462,7 @@ public:
 	 *
 	 * @return Bandwidth in bps
 	 */
-	BitsPerSecond GetCurrentBandWidth();
+	int GetCurrentBandWidth();
 
 	/**
 	 * @brief Get total duration of fetched fragments
@@ -682,15 +659,6 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
-	/**
-	 * @fn GetTimeBasedBufferManager 
-	 *
-	 * @brief Get the time based buffer manager for this track
-	 *
-	 * @return AampTimeBasedBufferManager object
-	 */
-	std::shared_ptr<aamp::AampTimeBasedBufferManager> GetTimeBasedBufferManager() { return mTimeBasedBufferManager; }
-
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -749,7 +717,7 @@ protected:
 	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -798,7 +766,7 @@ private:
 	 * @param[in] initFragment - true for init fragments, false for media fragments
 	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 */
-	void TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
+	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
 							bool initFragment, bool  discontinuity);
 
 	/**
@@ -859,13 +827,8 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
-	int fragmentIdxToInject;            	/**< Write position */
-	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
-	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
-	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
 
 private:
 	enum class TrickmodeState
@@ -892,19 +855,23 @@ private:
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	BitsPerSecond bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
+	int fragmentIdxToInject;            	/**< Write position */
+	int fragmentChunkIdxToInject;       	/**< Write position */
+	int fragmentIdxToFetch;             	/**< Read position */
+	int fragmentChunkIdxToFetch;        	/**< Read position */
+	int bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
 	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
 	bool discontinuityProcessed;
 	BufferHealthStatus bufferStatus;     /**< Buffer status of the track*/
 	BufferHealthStatus prevBufferStatus; /**< Previous buffer status of the track*/
-	uint64_t prevDownloadStartTime;		/**< Previous file download Start time*/
+	long long prevDownloadStartTime;		/**< Previous file download Start time*/
 
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
-	uint32_t mManifestUpdateCounter;        /**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
-	std::condition_variable mManifestUpdateWait;	/**< Conditional variable for signaling manifest update */
+	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collector is waiting for ongoing playlist download, used for profile changes*/
+	std::condition_variable frDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
 	double lastInjectedDuration;             /**< Last injected fragment end position */
@@ -995,10 +962,10 @@ public:
 	 *
 	 *   @param[out]  primaryOutputFormat - format of primary track
 	 *   @param[out]  audioOutputFormat - format of audio track
-	 *   @param[out]  subtitleOutputFormat - format of subtitle track
+	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
 	 *   @return void
 	 */
-	virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) = 0;
+	virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) = 0;
 
 	/**
 	 *   @brief Get current stream position.
@@ -1214,11 +1181,12 @@ public:
 	}
 
 	/**
-	 *   @fn IsCurrentProfileLowest
+	 *   @fn IsLowestProfile
 	 *
-	 *   @return true if the current selected profile is the lowest.
+	 *   @param currentProfileIndex - current profile index to be checked.
+	 *   @return true if the given profile index is lowest.
 	 */
-	bool IsCurrentProfileLowest();
+	bool IsLowestProfile(int currentProfileIndex);
 
 	/**
 	 *   @fn getOriginalCurlError
@@ -1721,27 +1689,6 @@ public:
 	 *   @return duration of currently buffered video in seconds
 	 */
 	double GetBufferedVideoDurationSec();
-	
-	/**
-	 * @fn StartUnderflowMonitor
-	 * @brief Start UnderflowMonitor Thread.
-	 * @return void
-	 */
-	void StartUnderflowMonitor();
-
-	/**
-	 * @fn StopUnderflowMonitor
-	 * @brief Stop UnderflowMonitor Thread.
-	 * @return void
-	 */
-	void StopUnderflowMonitor();
-
-	/**
-	 * @fn IsUnderflowMonitorRunning
-	 * @brief Check if UnderflowMonitor thread is currently running.
-	 * @return true if running, false otherwise
-	 */
-	bool IsUnderflowMonitorRunning() const;
 
 	/**
 	 *   @fn GetBufferedAudioDurationSec
@@ -1891,6 +1838,13 @@ public:
 	void MuteSubtitles(bool mute);
 
 	/**
+	 * @fn WaitForVideoTrackCatchupForAux
+	 *
+	 * @return void
+	 */
+	void WaitForVideoTrackCatchupForAux();
+
+	/**
 	 *   @brief Set Content Restrictions
 	 *   @param[in] restrictions - restrictions to be applied
 	 *
@@ -1912,6 +1866,21 @@ public:
 	 *   @return void
 	 */
 	virtual void EnableContentRestrictions(){};
+
+	/**
+	 *   @brief Get audio forward to aux pipeline status
+	 *
+	 *   @return bool true if audio buffers are to be forwarded
+	 */
+	bool GetAudioFwdToAuxStatus() { return mFwdAudioToAux; }
+
+	/**
+	 *   @brief Set audio forward to aux pipeline status
+	 *
+	 *   @param[in] status - enabled/disabled
+	 *   @return void
+	 */
+	void SetAudioFwdToAuxStatus(bool status) { mFwdAudioToAux = status; }
 
 	/**
 	 * @brief Notify playlist downloader threads of tracks
@@ -2034,18 +2003,6 @@ public:
 
 protected:
 	/**
-	 * Mutex used to serialize UnderflowMonitor lifecycle in const methods.
-	 * Declared mutable to allow locking within const functions such as
-	 * IsUnderflowMonitorRunning().
-	 */
-	mutable std::mutex mUnderflowMonitorMutex;
-
-	/**
-	 * Underflow monitor instance owned by Stream; manages detection and
-	 * handling of underflow conditions.
-	 */
-	std::unique_ptr<class AampUnderflowMonitor> mUnderflowMonitor;
-	/**
 	 *   @brief Get stream information of a profile from subclass.
 	 *
 	 *   @param[in]  idx - profile index.
@@ -2099,6 +2056,7 @@ protected:
 	std::mutex mLock;              /**< lock for A/V track catchup logic*/
 	std::condition_variable mCond;               /**< condition for A/V track catchup logic*/
 	std::condition_variable mSubCond;            /**< condition for Audio/Subtitle track catchup logic*/
+	std::condition_variable mAuxCond;            /**< condition for Aux and video track catchup logic*/
 
 	// abr variables
 	long mCurrentBandwidth;             /**< stores current bandwidth*/
@@ -2134,6 +2092,7 @@ protected:
 	MediaTrackDiscontinuityState mTrackState;     /**< stores the discontinuity status of tracks*/
 	std::string mAudioTrackIndex;                 /**< Current audio track index in track list */
 	std::string mTextTrackIndex;                  /**< Current text track index in track list */
+	bool mFwdAudioToAux;                          /**< If audio buffers are to be forwarded to auxiliary pipeline, happens if both are playing same language */
 
 	id3_callback_t mID3Handler;				/**< Function to be used to emit the ID3 event */
 

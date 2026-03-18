@@ -36,7 +36,7 @@ public:
 	MOCK_METHOD(double, GetMidSeekPosOffset, (), (override));
 	MOCK_METHOD(IPeriod *, GetPeriod, ());
 	MOCK_METHOD(double, GetStreamPosition, (), (override));
-	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
+	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 	MOCK_METHOD(Accessibility, getAccessibilityNode, (AampJsonObject &accessNode));
 	MOCK_METHOD(std::vector<AudioTrackInfo>&, GetAvailableAudioTracks, (bool allTrack), (override));

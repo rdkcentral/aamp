@@ -29,104 +29,110 @@
 #include <cstring>
 #include <utility>
 #include <assert.h>
-#include <vector>
-#include <cstdint>
+#include <stdio.h>
+#include <mutex>
 
 class AampGrowableBuffer
 {
 public:
-	AampGrowableBuffer(const char *name = "?") : buffer(), name(name) {}
+	AampGrowableBuffer( const char *name="?" ):ptr(NULL),len(0),avail(0),name(name){}
 	~AampGrowableBuffer();
 
 	// Copy constructor
-	AampGrowableBuffer(const AampGrowableBuffer &other)
-		: buffer(other.buffer),
-		  name{other.name}
-	{
+	AampGrowableBuffer(const AampGrowableBuffer & other)
+	 : ptr(nullptr),
+	len{other.len},
+	avail(0),name{other.name}
+	{ // never reached/used?
+		ReserveBytes(len); // allocate the pointer and set avail
+		std::memcpy(ptr, other.ptr, len); // populate
 	}
-
 	// Copy assignment
-	AampGrowableBuffer &operator=(AampGrowableBuffer other)
-	{
-		swap(*this, other);
+	AampGrowableBuffer& operator=(const AampGrowableBuffer & other)
+	{ // never reached/used?
+		Free();
+		len = other.len;
+		ReserveBytes(len);
+		std::memcpy(ptr, other.ptr, len);
 		return *this;
 	}
 
 	// Move constructor
-	AampGrowableBuffer(AampGrowableBuffer &&other) noexcept
-		: buffer(std::move(other.buffer)),
-		  name{other.name}
-	{
+	AampGrowableBuffer(AampGrowableBuffer && other) noexcept
+		: ptr {other.ptr},
+		len {other.len},
+		avail{other.avail},
+		name{other.name}
+	{ // never reached/used
+		other.ptr = nullptr;
+		other.len = 0;
+		other.avail = 0;
+	}
+	// Move assignment
+	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
+	{ // never reached/used
+		Free();
+		std::swap(ptr, other.ptr);
+		std::swap(len, other.len);
+		std::swap(avail, other.avail);
+		return *this;
 	}
 
-	friend void swap(AampGrowableBuffer &first, AampGrowableBuffer &second) noexcept
-	{
-		using std::swap;
-		swap(first.buffer, second.buffer);
-		swap(first.name, second.name);
-	}
-
-	void Free(void);
-	bool ReserveBytes(size_t len); /**< Reserve buffer capacity; returns false if allocation fails */
-	bool AppendBytes( const void *ptr, size_t len ); /**< Append binary data; returns false if allocation fails */
-	void clear( void ) { buffer.clear(); } // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
+	void Free( void );
+	void ReserveBytes( size_t len );
+	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
+	void MoveBytes( const void *ptr, size_t len );
+	void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
 	void Replace( AampGrowableBuffer *src );
+	void Transfer( void );
+	
+	char *GetPtr( void ) { return (char *)ptr; } // accessor function for current growable buffer binary payload
+	const char *GetPtr( void ) const { return static_cast<const char *>(ptr); } // accessor function for current growable buffer binary payload
+	size_t GetLen( void ) const { return len; } // accessor function for current logical growable buffer size
+	size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
+	void SetLen( size_t l ) { assert(l<=avail); len = l; }
 
-	/**
-	 * @brief Extract the internal vector for ownership transfer
-	 * @return vector object (moved, not copied) containing the buffer data
-	 * @note The internal buffer is cleared after extraction. Uses move semantics for zero-copy transfer.
-	 */
-	std::vector<uint8_t> ExtractVector( void );
-
-	/**
-	 * @brief Access the internal storage vector by reference.
-	 *	This returns a reference to the internal std::vector<uint8_t> so callers
-	 * can pass it directly to APIs that accept a vector reference without
-	 * performing an extra copy. Prefer using the const overload if mutation is
-	 * not required.
-	 */
-	std::vector<uint8_t> &GetVector() { return buffer; }
-	const std::vector<uint8_t> &GetVector() const { return buffer; }
-
-	char *GetPtr(void) { return buffer.capacity() ? reinterpret_cast<char *>(buffer.data()) : nullptr; }
-	const char *GetPtr(void) const { return buffer.capacity() ? reinterpret_cast<const char *>(buffer.data()) : nullptr; }
-	size_t size() const { return buffer.size(); }
-	size_t capacity(void) const { return buffer.capacity(); } // should be opaque, but used in logging
-	void SetLen(size_t l)
-	{
-		assert(l <= buffer.capacity());
-		buffer.resize(l);
-	}
-
-	// Vector-like convenience wrappers (lower-case names to match std::vector)
-	bool empty() const { return buffer.empty(); }
-	void shrink_to_fit() { buffer.shrink_to_fit(); }
-	void reserve(size_t n) { buffer.reserve(n); }
-	void resize(size_t n)
-	{
-		buffer.resize(n);
-	}
-	void insert(typename std::vector<uint8_t>::const_iterator pos, const void *first, const void *last)
-	{
-		const uint8_t* start = static_cast<const uint8_t*>(first);
-		const uint8_t* end = static_cast<const uint8_t*>(last);
-
-		buffer.insert(pos, start, end);
-	}
-	void assign(const void *first, const void *last)
-	{
-		const uint8_t* start = static_cast<const uint8_t*>(first);
-		const uint8_t* end = static_cast<const uint8_t*>(last);
-
-		buffer.assign(start, end);
-	}
-	uint8_t *data() { return buffer.data(); }
-	const uint8_t *data() const { return buffer.data(); }
-
+    static void EnableLogging( bool enable );
+    
 private:
-	const char *name;
-	std::vector<uint8_t> buffer;  /**< Vector holding buffer data */
+    const char *name;
+	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
+	size_t len;     /**< Subset of allocated buffer that is populated and in use */
+	size_t avail;   /**< Available buffer size */
+	
+    static bool gbEnableLogging;
+	static int gNetMemoryCount;
+	static int gNetMemoryHighWatermark;
+    
+	static void NETMEMORY_PLUS( void )
+	{
+		gNetMemoryCount++;
+		if( gNetMemoryCount>gNetMemoryHighWatermark )
+		{
+			gNetMemoryHighWatermark = gNetMemoryCount;
+			printf( "***gNetMemoryHighWatermark=%d\n", gNetMemoryHighWatermark );
+		}
+	}
+
+	/**
+	 * @brief subtracts from memory count
+	 */
+	static void NETMEMORY_MINUS( void )
+	{
+		if( gNetMemoryCount > 0 )
+		{
+			gNetMemoryCount--;
+			if( gNetMemoryCount == 0)
+			{
+				printf("***gNetMemoryCount=0\n");
+			}
+		}
+		else
+		{
+			printf("gNetMemoryCount is already 0");
+		}
+		assert( gNetMemoryCount >= 0 );
+	}
 };
 
 #endif /* __AAMP_GROWABLE_BUFFER_H__ */

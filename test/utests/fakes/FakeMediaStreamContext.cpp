@@ -22,22 +22,22 @@
 
 MockMediaStreamContext *g_mockMediaStreamContext = nullptr;
 
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
 {
 	if (g_mockMediaStreamContext != nullptr)
 	{
-		return g_mockMediaStreamContext->CacheFragmentChunk(actualType, ptr, size, remoteUrl, dnldStartTime, durationInTicks);
+		return g_mockMediaStreamContext->CacheFragmentChunk(actualType, ptr, size, remoteUrl, dnldStartTime);
 	}
 	return false;
 }
 
-bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range, bool initSegment, bool discontinuity, bool playingAd, uint32_t scale)
+bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double duration, const char *range, bool initSegment, bool discontinuity, bool playingAd, double pto, uint32_t scale, bool overWriteTrackId)
 {
 	bool rv = true;
 
 	if (g_mockMediaStreamContext != nullptr)
 	{
-		rv = g_mockMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, duration, range, initSegment, discontinuity, playingAd, scale);
+		rv = g_mockMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, duration, range, initSegment, discontinuity, playingAd, pto, scale, overWriteTrackId);
 	}
 
     return rv;
@@ -118,26 +118,4 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	{
 		return false;
 	}
-}
-
-void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo)
-{
-}
-
-void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr downloadInfo)
-{
-}
-
-bool MediaStreamContext::DownloadFragment(DownloadInfoPtr downloadInfo)
-{
-	if(downloadInfo->uriList.size() > 0)
-	{
-		downloadInfo->url = downloadInfo->uriList.begin()->second.url;
-	}
-
-	if (g_mockMediaStreamContext != nullptr)
-	{
-		return g_mockMediaStreamContext->CacheFragment(downloadInfo->url, downloadInfo->curlInstance, downloadInfo->pts, downloadInfo->fragmentDurationSec, downloadInfo->range.c_str(), downloadInfo->isInitSegment, downloadInfo->isDiscontinuity, downloadInfo->isPlayingAd, downloadInfo->timeScale);
-	}
-	return false;
 }

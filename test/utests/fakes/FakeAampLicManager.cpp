@@ -19,7 +19,6 @@
 */
 
 #include "MockAampLicManager.h"
-#include "MockAampDRMSessionManager.h"
 #include "priv_aamp.h"
 MockAampLicenseManager *g_mockAampLicenseManager = nullptr;
 
@@ -30,7 +29,6 @@ AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
         case MW_DRM_INIT_FAILED:            return AAMP_TUNE_DRM_INIT_FAILED;
         case MW_DRM_DATA_BIND_FAILED:       return AAMP_TUNE_DRM_DATA_BIND_FAILED;
         case MW_DRM_SESSIONID_EMPTY:        return AAMP_TUNE_DRM_SESSIONID_EMPTY;
-        case MW_DRM_SESSION_CREATE_FAILED: return AAMP_TUNE_DRM_SESSION_CREATE_FAILED;
         case MW_DRM_CHALLENGE_FAILED:       return AAMP_TUNE_DRM_CHALLENGE_FAILED;
         case MW_INVALID_DRM_KEY:            return AAMP_TUNE_INVALID_DRM_KEY;
         case MW_CORRUPT_DRM_DATA:           return AAMP_TUNE_CORRUPT_DRM_DATA;
@@ -95,6 +93,12 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool)
 {
 }
 
+		
+
+void AampDRMLicenseManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+}
+
 bool AampDRMLicenseManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	return false;
@@ -135,7 +139,6 @@ DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, un
 {
 	return NULL;
 }
-
 DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
 {
     if(g_mockAampLicenseManager)
@@ -144,12 +147,7 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
     }
     return nullptr;
 }
-
 SessionMgrState AampDRMLicenseManager::getSessionMgrState()
 {
  return SessionMgrState::eSESSIONMGR_INACTIVE;
-}
-void AampDRMLicenseManager::SetLicenseFetcher( AampLicenseFetcher* )
-{
-
 }

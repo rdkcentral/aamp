@@ -113,11 +113,8 @@ GstBuffer *gst_buffer_new(void)
 
 GstBuffer *gst_buffer_new_allocate(GstAllocator *allocator, gsize size, GstAllocationParams *params)
 {
+
 	TRACE_FUNC();
-	if (g_mockGStreamer != nullptr)
-	{
-		return g_mockGStreamer->gst_buffer_new_allocate(allocator, size, params);
-	}
 	return NULL;
 }
 
@@ -240,10 +237,6 @@ GstStructure *gst_context_writable_structure(GstContext *context)
 
 void gst_structure_set(GstStructure *structure, const gchar *fieldname, ...)
 {
-	if (g_mockGStreamer != nullptr)
-	{
-		g_mockGStreamer->gst_structure_set(structure, fieldname);
-	}
 	TRACE_FUNC();
 }
 
@@ -759,10 +752,6 @@ guint64 g_value_get_uint64(const GValue *value)
 void gst_structure_free(GstStructure *structure)
 {
 	TRACE_FUNC();
-	if(g_mockGStreamer != nullptr)
-	{
-		return g_mockGStreamer->gst_structure_free(structure);
-	}
 }
 
 gboolean gst_init_check(int *argc, char **argv[], GError **error)
@@ -926,10 +915,6 @@ GstEvent* gst_event_new_seek(gdouble rate, GstFormat format, GstSeekFlags flags,
 void gst_caps_set_simple (GstCaps * caps, const char *field, ...)
 {
 	TRACE_FUNC();
-	if (g_mockGStreamer != nullptr)
-	{
-		g_mockGStreamer->gst_caps_set_simple(caps, field);
-	}
 }
 
 GType gst_base_sink_get_type (void)
@@ -1025,16 +1010,8 @@ GstFlowReturn gst_app_src_push_sample (GstAppSrc * appsrc, GstSample * sample)
 	return GST_FLOW_OK;
 }
 
-GstStructure * gst_caps_get_structure ( const GstCaps *caps , guint index )
-{
-	if (g_mockGStreamer != nullptr)
-	{
-		return g_mockGStreamer->gst_caps_get_structure(caps, index);
-	}
-	return NULL;
-}
-
 GstMeta * gst_buffer_get_meta (GstBuffer * buffer, GType api){ return NULL; }
+GstStructure * gst_caps_get_structure ( const GstCaps *caps , guint index ){ return NULL; }
 void gst_structure_set_name (GstStructure * structure, const gchar * name){}
 const gchar * gst_structure_nth_field_name (const GstStructure * structure, guint index){ return NULL; }
 gboolean gst_structure_has_field (const GstStructure * structure, const gchar * fieldname){ return FALSE; }

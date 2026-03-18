@@ -119,6 +119,13 @@ public:
 
 };
 
+TEST_F(InterfacePlayerTests, ConfigurePipeline_WithAudioForwardToAux)
+{
+	g_mockGStreamer = nullptr;
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, true, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	EXPECT_EQ(mPlayerContext->forwardAudioBuffers, true);
+}
+
 TEST_F(InterfacePlayerTests, ConfigurePipeline_WithWesterosAndRealtoSink)
 {
 	g_mockGStreamer = nullptr;
@@ -128,7 +135,7 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_WithWesterosAndRealtoSink)
 	mPlayerConfigParams->useRialtoSink = true;
 	EXPECT_EQ(mPlayerContext->usingRialtoSink, false);
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 	EXPECT_EQ(mPlayerContext->using_westerossink, true);
 	EXPECT_EQ(mPlayerContext->usingRialtoSink, true);
 
@@ -137,7 +144,7 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_WithWesterosAndRealtoSink)
 TEST_F(InterfacePlayerTests, ConfigurePipeline_WithSubtitlesEnabled)
 {
 	g_mockGStreamer = nullptr;
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, true, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, true, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
 	EXPECT_EQ(mPlayerContext->stream[eGST_MEDIATYPE_SUBTITLE].format, GST_FORMAT_INVALID);
 }
@@ -148,7 +155,7 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_WithBufferingEnabled)
 	mPlayerContext->buffering_enabled = true;
 	mPlayerContext->rate = GST_NORMAL_PLAY_RATE;
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_MPEGTS, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_MPEGTS, GST_FORMAT_INVALID, GST_FORMAT_INVALID, GST_FORMAT_INVALID, false, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
 	EXPECT_EQ(mPlayerContext->buffering_in_progress, true);
 	EXPECT_EQ(mPlayerContext->buffering_target_state, GST_STATE_PLAYING);
@@ -163,9 +170,9 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_StreamConfiguration)
 
 	EXPECT_EQ(mPlayerContext->NumberOfTracks, 0);
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, false, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
-	EXPECT_EQ(mPlayerContext->NumberOfTracks, 2);
+	EXPECT_EQ(mPlayerContext->NumberOfTracks, 3);
 	EXPECT_EQ(cbResponse, 5); //callback was called
 }
 
@@ -178,9 +185,9 @@ TEST_F(InterfacePlayerTests, ConfigurePipeline_ESChange)
 
 	EXPECT_EQ(mPlayerContext->NumberOfTracks, 0);
 
-	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, true, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+	mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_ISO_BMFF, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_AUDIO_ES_AC3, GST_FORMAT_SUBTITLE_MP4, true, false, false, false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
-	EXPECT_EQ(mPlayerContext->NumberOfTracks, 1);
+	EXPECT_EQ(mPlayerContext->NumberOfTracks, 2);
 	EXPECT_EQ(cbResponse, 5);
 }
 
@@ -779,6 +786,7 @@ TEST_F(InterfacePlayerTests, InitializeSourceForPlayer_Video)
 	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
 	stream->format = GST_FORMAT_ISO_BMFF;
 	mPlayerConfigParams->videoBufBytes = 500;
+	mPlayerConfigParams->useMp4Demux = false;
 
 	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("need-data"), _, playerInstance)).WillOnce(Return(1));
 	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("enough-data"), _, playerInstance)).WillOnce(Return(1));
@@ -966,6 +974,24 @@ TEST_F(InterfacePlayerTests, SendQtDemuxOverrideEvent_EnablePTSReStampTrue)
 	EXPECT_FALSE(result);
 }
 
+TEST_F(InterfacePlayerTests, ForwardAudioBuffersToAux_True)
+{
+	mPlayerContext->forwardAudioBuffers = true;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_ISO_BMFF;
+
+	EXPECT_TRUE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
+
+	mPlayerContext->forwardAudioBuffers = false;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_ISO_BMFF;
+
+	EXPECT_FALSE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
+
+	mPlayerContext->forwardAudioBuffers = true;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_INVALID;
+
+	EXPECT_FALSE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
+}
+
 TEST_F(InterfacePlayerTests, GetVideoRectangle)
 {
 	std::string expectedRectangle = "0,0,1920,1080";
@@ -995,526 +1021,13 @@ TEST_F(InterfacePlayerTests, GstResetFirstFrame)
 	EXPECT_FALSE(mPlayerContext->firstFrameReceived);
 }
 
-/**
- * @test GstGetVideoPlaybackQuality_StatsNull
- * @brief Verify no stats available case when pipeline is in PLAYING state
- *
- * When pipeline is in PLAYING state with no stats available,
- * should successfully return null quality metrics.
- */
 TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_StatsNull)
 {
-	GstElement video_sink{};
+	GstElement video_sink = {};
+	GstStructure stats = {1};
 	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec{};
-	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PLAYING};
-	GstStructure valid_stats{0x1234};
-	GstStructure *stats = &valid_stats;
-	GValue rendered_value{};
-	GValue dropped_value{};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PLAYING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.WillOnce(DoAll(
-			SetArgPointee<2>(nullptr),
-			Return()
-		));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("rendered")))
-		.Times(0);
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("dropped")))
-		.Times(0);
-
 	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_NoStatsCallDuringStateTransition
- * @brief Verify that stats property is not accessed during state transitions
- *
- * When pipeline state is transitioning asynchronously (GST_STATE_CHANGE_ASYNC),
- * the function should return NULL without attempting to access the "stats" property.
- * This prevents hangs and race condition crashes during state changes.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallDuringStateTransition)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PAUSED};
-	GstState pending_state{GST_STATE_PLAYING};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(pending_state),
-			Return(GST_STATE_CHANGE_ASYNC)
-		));
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_NoStatsCallAtReadyState
- * @brief Verify that stats query is skipped when pipeline is in READY state
- *
- * Pipeline in READY state is not suitable for playback quality metrics.
- * The function should return NULL without calling g_object_get for stats.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtReadyState)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_READY};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_READY),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_NoStatsCallAtNullState
- * @brief Verify that stats query is skipped when pipeline is in NULL state
- *
- * Pipeline in NULL state means the pipeline is stopped.
- * The function should return NULL without calling g_object_get for stats.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtNullState)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_NULL};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_NULL),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_NoStatsCallAtVoidPendingState
- * @brief Verify that stats query is skipped when pipeline is in VOID_PENDING state
- *
- * Pipeline in VOID_PENDING state is in an invalid or uninitialized state.
- * The function should return NULL without calling g_object_get for stats.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallAtVoidPendingState)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_VOID_PENDING};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_VOID_PENDING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_NoStatsCallWhenElementIsNull
- * @brief Verify that stats query is skipped when element is NULL
- *
- * Pipeline in GST_STATE_PLAYING with GST_STATE_CHANGE_SUCCESS is a valid state.
- * Still the function should return NULL without calling g_object_get for stats,
- * since element is NULL.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_NoStatsCallWhenElementIsNull)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-	//Do not set video_dec, so that element will be NULL when GetVideoPlaybackQuality() reads it
-
-	GstState current_state{GST_STATE_PLAYING};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_VOID_PENDING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_PlayingState
- * @brief Verify successful stats retrieval when pipeline is in PLAYING state
- *
- * When pipeline is in PLAYING state with valid stats available,
- * should successfully retrieve and return quality metrics.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingState)
-{
-	GstElement video_sink{};
-	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec{};
-	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PLAYING};
-	GstStructure valid_stats{0x1234};
-	GstStructure *stats = &valid_stats;
-	GValue rendered_value{};
-	GValue dropped_value{};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PLAYING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.WillOnce(DoAll(
-			SetArgPointee<2>(stats),
-			Return()
-		));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-		.WillOnce(Return(&rendered_value));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-		.WillOnce(Return(&dropped_value));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&rendered_value))
-		.WillOnce(Return(1000ULL));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&dropped_value))
-		.WillOnce(Return(5ULL));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_NE(result, nullptr);
-	EXPECT_EQ(result->rendered, 1000ULL);
-	EXPECT_EQ(result->dropped, 5ULL);
-}
-
-/**
- * @test GetVideoPlaybackQuality_PlayingStateWithRenderedNull
- * @brief Verify successful retrieval of dropped stats when
- * pipeline is in PLAYING state and rendered stats returns NULL
- *
- * When pipeline is in PLAYING state but rendered stats returns NULL,
- * should successfully retrieve dropped stats and return quality metrics.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingStateWithRenderedNull)
-{
-	GstElement video_sink{};
-	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec{};
-	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PLAYING};
-	GstStructure valid_stats{0x1234};
-	GstStructure *stats = &valid_stats;
-	GValue rendered_value{};
-	GValue dropped_value{};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PLAYING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.WillOnce(DoAll(
-			SetArgPointee<2>(stats),
-			Return()
-		));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-		.WillOnce(Return(reinterpret_cast<GValue*>(NULL)));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-		.WillOnce(Return(&dropped_value));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&dropped_value))
-		.WillOnce(Return(5ULL));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_NE(result, nullptr);
-	EXPECT_EQ(result->dropped, 5ULL);
-	EXPECT_EQ(result->rendered, 0ULL);
-}
-
-/**
- * @test GetVideoPlaybackQuality_PlayingStateWithDroppedNull
- * @brief Verify successful retrieval of rendered stats when
- * pipeline is in PLAYING state and dropped stats returns NULL
- *
- * When pipeline is in PLAYING state but dropped stats returns NULL,
- * should successfully retrieve rendered stats and return quality metrics.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingStateWithDroppedNull)
-{
-	GstElement video_sink{};
-	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec{};
-	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PLAYING};
-	GstStructure valid_stats{0x1234};
-	GstStructure *stats = &valid_stats;
-	GValue rendered_value{};
-	GValue dropped_value{};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PLAYING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.WillOnce(DoAll(
-			SetArgPointee<2>(stats),
-			Return()
-		));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-		.WillOnce(Return(&rendered_value));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-		.WillOnce(Return(reinterpret_cast<GValue*>(NULL)));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&rendered_value))
-		.WillOnce(Return(1000ULL));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_NE(result, nullptr);
-	EXPECT_EQ(result->rendered, 1000ULL);
-	EXPECT_EQ(result->dropped, 0ULL);
-}
-
-/**
- * @test GetVideoPlaybackQuality_PlayingStateWithRenderedAndDroppedNull
- * @brief Verify rendered and stats are zero when
- * pipeline is in PLAYING state and dropped and rendered stats returns NULL
- *
- * When pipeline is in PLAYING state but dropped and rendered stats returns NULL,
- * should successfully retrieve stats quality metrics with rendered and dropped as zero.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PlayingStateWithRenderedAndDroppedNull)
-{
-	GstElement video_sink{};
-	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec{};
-	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PLAYING};
-	GstStructure valid_stats{0x1234};
-	GstStructure *stats = &valid_stats;
-	GValue rendered_value{};
-	GValue dropped_value{};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PLAYING),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.WillOnce(DoAll(
-			SetArgPointee<2>(stats),
-			Return()
-		));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-		.WillOnce(Return(reinterpret_cast<GValue*>(NULL)));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-		.WillOnce(Return(reinterpret_cast<GValue*>(NULL)));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(_))
-		.Times(0);
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_NE(result, nullptr);
-	EXPECT_EQ(result->rendered, 0ULL);
-	EXPECT_EQ(result->dropped, 0ULL);
-}
-
-/**
- * @test GetVideoPlaybackQuality_PausedState
- * @brief Verify successful stats retrieval when pipeline is in PAUSED state
- *
- * When pipeline is in PAUSED state with valid stats available,
- * should successfully retrieve and return quality metrics.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_PausedState)
-{
-	GstElement video_sink{};
-	mPlayerContext->video_sink = &video_sink;
-	GstElement video_dec{};
-	mPlayerContext->video_dec = &video_dec;
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PAUSED};
-	GstStructure valid_stats{0x5678};
-	GValue rendered_value{};
-	GValue dropped_value{};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PAUSED),
-			Return(GST_STATE_CHANGE_SUCCESS)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.WillOnce(DoAll(
-			SetArgPointee<2>(&valid_stats),
-			Return()
-		));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("rendered")))
-		.WillOnce(Return(&rendered_value));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(&valid_stats, StrEq("dropped")))
-		.WillOnce(Return(&dropped_value));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&rendered_value))
-		.WillOnce(Return(2000ULL));
-
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&dropped_value))
-		.WillOnce(Return(10ULL));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_free(&valid_stats));
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_NE(result, nullptr);
-	EXPECT_EQ(result->rendered, 2000ULL);
-	EXPECT_EQ(result->dropped, 10ULL);
-}
-
-/**
- * @test GetVideoPlaybackQuality_StateChangeFailure
- * @brief Verify that stats query is skipped when state change returns FAILURE
- *
- * When gst_element_get_state() returns GST_STATE_CHANGE_FAILURE,
- * indicating a failed state transition, the function should return NULL
- * without attempting to access stats property.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeFailure)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_NULL};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_NULL),
-			Return(GST_STATE_CHANGE_FAILURE)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
-}
-
-/**
- * @test GetVideoPlaybackQuality_StateChangeNoPreroll
- * @brief Verify that stats query is skipped when state change returns NO_PREROLL
- *
- * When gst_element_get_state() returns GST_STATE_CHANGE_NO_PREROLL,
- * indicating the pipeline cannot produce data in PAUSED state (typical for live sources),
- * the function should return NULL without attempting to access stats property.
- */
-TEST_F(InterfacePlayerTests, GetVideoPlaybackQuality_StateChangeNoPreroll)
-{
-	GstElement gst_element_pipeline{};
-	gst_element_pipeline.object.name = (gchar *)"testpipeline";
-	mPlayerContext->pipeline = &gst_element_pipeline;
-
-	GstState current_state{GST_STATE_PAUSED};
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-			SetArgPointee<1>(current_state),
-			SetArgPointee<2>(GST_STATE_PAUSED),
-			Return(GST_STATE_CHANGE_NO_PREROLL)
-		));
-
-	EXPECT_CALL(*g_mockGLib, g_object_get(_, StrEq("stats"), Matcher<GstStructure **>(_)))
-		.Times(0);
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-	EXPECT_EQ(result, nullptr);
+	EXPECT_EQ(result,nullptr);
 }
 
 TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds)
@@ -1646,7 +1159,7 @@ TEST_F(InterfacePlayerTests, GstGetVideoSize_EmptyRectangle)
 
 TEST_F(InterfacePlayerTests, GstSetSubtitleMute_WithSubtitleSink)
 {
-	GstElement subtitle_sink{};
+	GstElement subtitle_sink = {};
 	mPlayerContext->subtitle_sink = &subtitle_sink;
 
 	EXPECT_CALL(*g_mockGLib, g_object_set(&subtitle_sink, StrEq("mute"), Matcher<int>(true)));
@@ -1688,7 +1201,7 @@ TEST_F(InterfacePlayerTests, GstSetVideoRectangle_DifferentCoordinates)
 	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
 
 	mPlayerConfigParams->enableRectPropertyCfg = true;
-	GstElement video_sink{};
+	GstElement video_sink = {};
 	mPlayerContext->video_sink = &video_sink;
 
 	EXPECT_CALL(*g_mockGLib, g_object_set(&video_sink, StrEq("rectangle"),  Matcher<char *>(_)));
@@ -1856,6 +1369,41 @@ TEST_F(InterfacePlayerTests, WaitForSourceSetup_PauseInjector)
 
 	EXPECT_FALSE(result);
 	EXPECT_FALSE(stream->sourceConfigured);
+}
+
+TEST_F(InterfacePlayerTests, ForwardBuffersToAuxPipeline_WaitForSourceSetupFailed)
+{
+	GstBuffer buffer = {};
+    gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
+    stream->format = GST_FORMAT_ISO_BMFF;
+    stream->sourceConfigured = false;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_buffer_copy_into(_, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_buffer(_, _)).Times(0);
+
+    // Run the method
+    mInterfacePrivatePlayer->ForwardBuffersToAuxPipeline(&buffer, true, mInterfaceGstPlayer);
+}
+
+TEST_F(InterfacePlayerTests, ForwardBuffersToAuxPipeline_PushBufferFailed)
+{
+	GstBuffer buffer = {};
+	gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
+	stream->sourceConfigured = true;
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->source = &gst_element_pipeline;
+
+	GstBuffer fwdBuffer = {};
+	//assert(false) in source code causes premature exit which causes expect_call to fail
+	ON_CALL(*g_mockGStreamer, gst_buffer_new())
+		.WillByDefault(Return(&fwdBuffer));
+	ON_CALL(*g_mockGStreamer, gst_buffer_copy_into(_,_,_,_,_))
+		.WillByDefault(Return(TRUE));
+	ON_CALL(*g_mockGStreamer, gst_app_src_push_buffer(_,_))
+		.WillByDefault(Return(GST_FLOW_ERROR));
+
+	//catches the assert(false) in the function
+	EXPECT_DEATH(mInterfacePrivatePlayer->ForwardBuffersToAuxPipeline(&buffer,true,mInterfaceGstPlayer), "Assertion");
 }
 
 TEST_F(InterfacePlayerTests, HandleVideoBufferSent_SubsequentBuffer)
@@ -2984,72 +2532,4 @@ TEST_F(InterfacePlayerTests, SetVolumeOrMuteUnMute_UsingRialtoSink)
 	EXPECT_CALL(*g_mockGLib, g_object_set(&gst_element_audio_sink, StrEq("volume"), Matcher<double>(0.5)));
 
 	mInterfaceGstPlayer->SetVolumeOrMuteUnMute();
-}
-
-/**
- * SetStreamCaps Tests with GetCaps returning nullptr
- */
-TEST_F(InterfacePlayerTests, SetStreamCaps_NullCaps)
-{
-	g_mockGstUtils = new StrictMock<MockGstUtils>();
-	MediaCodecInfo codecInfo;
-	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
-	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(nullptr));
-	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, _)).Times(0);
-
-	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO, std::move(codecInfo));
-
-	delete g_mockGstUtils;
-}
-
-/**
- * SetStreamCaps Tests with valid video codec format
- */
-TEST_F(InterfacePlayerTests, SetStreamCaps_ValidVideoCodecFormat)
-{
-	g_mockGstUtils = new StrictMock<MockGstUtils>();
-	MediaCodecInfo codecInfo;
-	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
-	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
-	GstCaps caps;
-	GstStructure s;
-	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
-	GstBuffer buffer;
-	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
-		.WillOnce(Return(&buffer));
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillOnce(Return(&s));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("stream-format"))).Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
-
-	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO, std::move(codecInfo));
-
-	delete g_mockGstUtils;
-}
-
-/**
- * SetStreamCaps Tests with encrypted audio codec format
- */
-TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
-{
-	g_mockGstUtils = new StrictMock<MockGstUtils>();
-	MediaCodecInfo codecInfo;
-	codecInfo.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC_RAW;
-	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
-	codecInfo.mIsEncrypted = true;
-	GstCaps caps;
-	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
-	GstBuffer buffer;
-	EXPECT_CALL(*g_mockGstUtils, CreateGstBufferWithData(codecInfo.mCodecData.data(), codecInfo.mCodecData.size()))
-		.WillOnce(Return(&buffer));
-	GstStructure s;
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_get_structure(&caps, 0)).WillRepeatedly(Return(&s));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("codec_data"))).Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_set(&s, StrEq("original-media-type"))).Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_caps_set_simple(&caps, StrEq("channels"))).Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, &caps)).Times(1);
-
-	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_AUDIO, std::move(codecInfo));
-
-	delete g_mockGstUtils;
 }

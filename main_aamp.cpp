@@ -53,56 +53,12 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	return aamp->GetTimedMetadata();
 }
 
-#ifdef USE_PREINIT_DECODING
-
-constexpr auto FAKE_TUNE_WAIT_DURATION = std::chrono::seconds(7);
-
-void doFakeTune()
-{
-	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
-	{
-			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
-			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
-			std::string jsonStr = R"({
-		    		"preferredDrm": 1,
-		    		"licenseServerUrl": "https://dummy.com"
-			})";
-			fakeTuneInstance->InitAAMPConfig(jsonStr.c_str());
-			fakeTuneInstance->Tune(
-			FAKE_TUNE_URL,
-			true,						  // autoPlay
-			"VOD",						  // contentType
-			true,						  // bFirstAttempt
-			false,						  // bFinalAttempt
-			"trace-id-123",				  // traceUUID
-			false,						  // audioDecoderStreamSync
-			nullptr,					  // refreshManifestUrl
-			0,							  // mpdStichingMode
-			"session-id"				  // sid
-			);
-			AAMPLOG_WARN("After Fake tune call ...");
-			std::thread([fakeTuneInstance]() {
-					AAMPLOG_WARN("Sleeping before calling stop");
-					std::this_thread::sleep_for(FAKE_TUNE_WAIT_DURATION); // or your desired duration
-					fakeTuneInstance->Stop();
-					AAMPLOG_WARN("Fake tune instance stopped..");
-					}).detach();
-	}
-}
-
-#else
-void doFakeTune()
-{
-	// No-op when preinit decoding is not enabled
-}
-#endif
-
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -134,8 +90,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
-		pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
-		pExternalsInterface->SetPowerEvent(powerEvt);
 		pExternalsInterface->Initialize();	
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
@@ -145,8 +99,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
-	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
-	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
@@ -272,24 +224,6 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	}
 }
 
-/**
- *  @brief Notify AAMP that ad reservation is complete for a given reservationId
- */
-void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId)
-{
-	aamp->NotifyReservationComplete(reservationId);
-}
-
-/**
- *  @brief Cancel an ad reservation.
- */
-void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
-{
-	if (aamp)
-	{
-		aamp->CancelReservation(cancelAtReservationId);
-	}
-}
 
 /**
  *   @brief API to reset configuration across tunes for single player instance
@@ -709,7 +643,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			// Special case where playback has not started due to autoplay being false and
 			// first rate is paused, set to pause with first frame shown
-			if ((AAMP_RATE_PAUSE == rate) && aamp->mSinkPaused.load() && !aamp->mbPlayEnabled && !aamp->mbDetached)
+			if ((AAMP_RATE_PAUSE == rate) && aamp->pipeline_paused && !aamp->mbPlayEnabled && !aamp->mbDetached)
 			{
 				rate = AAMP_NORMAL_PLAY_RATE;
 				aamp->SetPauseOnStartPlayback(true);
@@ -719,7 +653,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->SetPauseOnStartPlayback(false);
 			}
 
-			if(!(aamp->mbPlayEnabled) && aamp->mSinkPaused.load() && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
+			if(!(aamp->mbPlayEnabled) && aamp->pipeline_paused && (AAMP_RATE_PAUSE != rate) && (aamp->mbSeeked || !aamp->mbDetached))
 			{
 				AAMPLOG_WARN("PLAYER[%d] Player %s=>%s.", aamp->mPlayerId, STRBGPLAYER, STRFGPLAYER );
 				aamp->mbPlayEnabled = true;
@@ -730,12 +664,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
-						sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
+						sink->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mAuxFormat, aamp->mSubtitleFormat, aamp->mpStreamAbstractionAAMP->GetESChangeStatus(), aamp->mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 						aamp->ResumeDownloads(); //To make sure that the playback resumes after a player switch if player was in paused state before being at background
 						aamp->mpStreamAbstractionAAMP->StartInjection();
 						sink->Stream();
 					}
-					aamp->mSinkPaused = false;
+					aamp->pipeline_paused = false;
 					aamp->mbSeeked = false;
 					return;
 				}
@@ -757,11 +691,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 
 			// If input rate is same as current playback rate, skip duplicate operation
-			// Additional check for mSinkPaused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
-			bool isPipelinePaused = aamp->mSinkPaused.load();
-			if ((!isPipelinePaused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && isPipelinePaused))
+			// Additional check for pipeline_paused is because of 0(PAUSED) -> 1(PLAYING), where aamp->rate == 1.0 in PAUSED state
+			if ((!aamp->pipeline_paused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && aamp->pipeline_paused))
 			{
-				AAMPLOG_WARN("Already running at playback rate(%f) mSinkPaused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
+				AAMPLOG_WARN("Already running at playback rate(%f) pipeline_paused(%d), hence skipping set rate for (%f)", aamp->rate, aamp->pipeline_paused, rate);
 				return;
 			}
 
@@ -790,12 +723,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			//Skip this logic for either going to paused to coming out of paused scenarios with HLS
 			//What we would like to avoid here is the update of seek_pos_seconds because gstreamer position will report proper position
 			//Check for 1.0 -> 0.0 and 0.0 -> 1.0 usecase and avoid below logic
-			if (!((aamp->rate == AAMP_NORMAL_PLAY_RATE && rate == 0) || (aamp->mSinkPaused.load() && rate == AAMP_NORMAL_PLAY_RATE)))
+			if (!((aamp->rate == AAMP_NORMAL_PLAY_RATE && rate == 0) || (aamp->pipeline_paused && rate == AAMP_NORMAL_PLAY_RATE)))
 			{
 				// when switching from trick to play mode only
 				// only do this when overshootcorrection is specified by the application
 				if ((overshootcorrection > 0) &&
-					(aamp->rate && ( AAMP_SLOWMOTION_RATE == rate || rate == AAMP_NORMAL_PLAY_RATE) && !aamp->mSinkPaused.load()))
+					(aamp->rate && ( AAMP_SLOWMOTION_RATE == rate || rate == AAMP_NORMAL_PLAY_RATE) && !aamp->pipeline_paused))
 				{
 					const auto seek_pos_seconds_copy = aamp->seek_pos_seconds;	//ensure the same value of seek_pos_seconds used in the check is logged
 					if(!SeekInfo.isPositionValid(seek_pos_seconds_copy))
@@ -879,12 +812,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
 			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
-					aamp->rate, rate,aamp->mSinkPaused.load() ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
+					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
 			
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
-				if (aamp->mSinkPaused.load() && rate != 0)
+				if (aamp->pipeline_paused && rate != 0)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					// Resuming payback from pause
@@ -892,18 +825,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
-						retValue = false; // Skip common notification to prevent premature state change
+						retValue = false;
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
-						aamp->mSinkPaused = false;
-						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-							aamp->TuneHelper(eTUNETYPE_SEEK, false);
-						}
-						// Notify speed change without state transition (keeps eSTATE_SEEKING)
-						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
-						aamp->NotifySpeedChanged(aamp->rate, false);
+						aamp->pipeline_paused = false;
+						aamp->AcquireStreamLock();
+						aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						aamp->ReleaseStreamLock();
 					}
 					else
 					{
@@ -920,13 +849,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
 					}
-					aamp->mSinkPaused = false;
+					aamp->pipeline_paused = false;
 					aamp->ResumeDownloads();
 				}
 			}
 			else if (rate == 0)
 			{
-				if (!aamp->mSinkPaused.load())
+				if (!aamp->pipeline_paused)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
@@ -946,7 +875,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					{
 						retValue = sink->Pause(true, false);
 					}
-					aamp->mSinkPaused = true;
+					aamp->pipeline_paused = true;
 
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
@@ -981,26 +910,24 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					aamp->mJumpToLiveFromPause = false;
 				}
 				aamp->rate = rate;
-				aamp->mSinkPaused = false;
+				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
-				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-					aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
-				}
+				aamp->AcquireStreamLock();
+				aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
+				aamp->ReleaseStreamLock();
 			}
 
 			if(retValue)
 			{
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
 				// target state will be updated once caching completed
-				bool isPipelinePaused = aamp->mSinkPaused.load();
-				aamp->NotifySpeedChanged(isPipelinePaused ? 0 : aamp->rate,
-										 (!aamp->IsFragmentCachingRequired() || isPipelinePaused));
+				aamp->NotifySpeedChanged(aamp->pipeline_paused ? 0 : aamp->rate,
+										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
 			}
 		}
 		else
@@ -1048,7 +975,7 @@ void PlayerInstanceAAMP::PauseAtInternal(double position)
 
 		if (position >= 0)
 		{
-			if (!aamp->mSinkPaused.load())
+			if (!aamp->pipeline_paused)
 			{
 				aamp->StartPausePositionMonitoring(static_cast<long long>(position * 1000));
 			}
@@ -1102,12 +1029,12 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		}
 	}
 
-	if ((aamp->mbPlayEnabled) && aamp->mSinkPaused.load())
+	if ((aamp->mbPlayEnabled) && aamp->pipeline_paused)
 	{
 		// resume downloads and clear paused flag for foreground instance. state change will be done
 		// on streamSink configuration.
 		AAMPLOG_WARN("paused state, so resume downloads");
-		aamp->mSinkPaused = false;
+		aamp->pipeline_paused = false;
 		aamp->ResumeDownloads();
 		sentSpeedChangedEv = true;
 	}
@@ -1130,14 +1057,13 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		aamp->SetState(eSTATE_SEEKING);
 		/* Clear setting playerrate flag */
 		aamp->mSetPlayerRateAfterFirstframe=false;
-		{
-			std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-			aamp->TuneHelper(tuneType);
-		}
+		aamp->AcquireStreamLock();
+		aamp->TuneHelper(tuneType);
 		if(PositionMillisecondLocked)
 		{
 			aamp->UnlockGetPositionMilliseconds();
 		}
+		aamp->ReleaseStreamLock();
 		if (sentSpeedChangedEv)
 		{
 			aamp->NotifySpeedChanged(aamp->rate, false);
@@ -1295,10 +1221,10 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 
 			bool seekWhilePause = false;
-			// For autoplay false, mSinkPaused will be true, which denotes a non-playing state
-			// as the GST pipeline is not yet created, avoid setting mSinkPaused to false here
+			// For autoplay false, pipeline_paused will be true, which denotes a non-playing state
+			// as the GST pipeline is not yet created, avoid setting pipeline_paused to false here
 			// which might mess up future SetRate call for BG->FG
-			if (aamp->mbPlayEnabled && aamp->mSinkPaused.load())
+			if (aamp->mbPlayEnabled && aamp->pipeline_paused)
 			{
 
 				if(keepPaused && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
@@ -1312,7 +1238,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				if (!seekWhilePause)
 				{
 					AAMPLOG_WARN("Clearing paused flag");
-					aamp->mSinkPaused = false;
+					aamp->pipeline_paused = false;
 					sentSpeedChangedEv = true;
 				}
 				// Resume downloads
@@ -1363,10 +1289,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				}
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
-				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-					aamp->TuneHelper(tuneType, seekWhilePause);
-				}
+				aamp->AcquireStreamLock();
+				aamp->TuneHelper(tuneType, seekWhilePause);
+				aamp->ReleaseStreamLock();
 				if (sentSpeedChangedEv && (!seekWhilePause) )
 				{
 					aamp->NotifySpeedChanged(aamp->rate, false);
@@ -1422,10 +1347,10 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 
 		if (aamp->mpStreamAbstractionAAMP)
 		{
-			if (aamp->mbPlayEnabled && aamp->mSinkPaused.load())
+			if (aamp->mbPlayEnabled && aamp->pipeline_paused)
 			{
 				//Clear pause state flag & resume download
-				aamp->mSinkPaused.store(false);
+				aamp->pipeline_paused = false;
 				aamp->ResumeDownloads();
 			}
 
@@ -1435,12 +1360,11 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 				aamp->playerrate=rate;
 			}
 			AAMPLOG_WARN("SetSlowMotionPlay(%f) %lf", rate, aamp->seek_pos_seconds );
-			{
-				std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-				aamp->TeardownStream(false);
-				aamp->rate = AAMP_NORMAL_PLAY_RATE;
-				aamp->TuneHelper(eTUNETYPE_SEEK);
-			}
+			aamp->AcquireStreamLock();
+			aamp->TeardownStream(false);
+			aamp->rate = AAMP_NORMAL_PLAY_RATE;
+			aamp->TuneHelper(eTUNETYPE_SEEK);
+			aamp->ReleaseStreamLock();
 		}
 		else
 		{
@@ -1490,16 +1414,15 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 			}
 			/* Clear setting playerrate flag */
 			aamp->mSetPlayerRateAfterFirstframe=false;
-			{
-				std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-				aamp->TeardownStream(false);
-				aamp->seek_pos_seconds = secondsRelativeToTuneTime;
-				aamp->rate = rate;
-				aamp->TuneHelper(tuneType);
-			}
+			aamp->AcquireStreamLock();
+			aamp->TeardownStream(false);
+			aamp->seek_pos_seconds = secondsRelativeToTuneTime;
+			aamp->rate = rate;
+			aamp->TuneHelper(tuneType);
+			aamp->ReleaseStreamLock();
 			if(rate == 0)
 			{
-				if (!aamp->mSinkPaused.load())
+				if (!aamp->pipeline_paused)
 				{
 					AAMPLOG_WARN("Pausing Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
@@ -1509,7 +1432,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 					{
 						(void)sink->Pause(true, false);
 					}
-					aamp->mSinkPaused = true;
+					aamp->pipeline_paused = true;
 				}
 			}
 		}
@@ -1541,17 +1464,16 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->zoom_mode = zoom;
+		aamp->AcquireStreamLock();
+		if (aamp->mpStreamAbstractionAAMP )
 		{
-			std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-			if (aamp->mpStreamAbstractionAAMP )
-			{
-				aamp->SetVideoZoom(zoom);
-			}
-			else
-			{
-				AAMPLOG_WARN("Player is in state (eSTATE_IDLE), value has been cached");
-			}
+			aamp->SetVideoZoom(zoom);
 		}
+		else
+		{
+			AAMPLOG_WARN("Player is in state (eSTATE_IDLE), value has been cached");
+		}
+		aamp->ReleaseStreamLock();
 	}
 }
 
@@ -2062,16 +1984,17 @@ AAMPPlayerState PlayerInstanceAAMP::GetState(void)
 /**
  *  @brief To get the bitrate of current video profile.
  */
-BitsPerSecond PlayerInstanceAAMP::GetVideoBitrate(void)
+long PlayerInstanceAAMP::GetVideoBitrate(void)
 {
 	BitsPerSecond bitrate = 0;
 	if(aamp)
 	{
-		std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+		aamp->AcquireStreamLock();
 		if (aamp->mpStreamAbstractionAAMP)
 		{
 			bitrate = aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
+		aamp->ReleaseStreamLock();
 	}
 	return bitrate;
 }
@@ -2106,11 +2029,12 @@ BitsPerSecond PlayerInstanceAAMP::GetAudioBitrate(void)
 	BitsPerSecond bitrate = 0;
 	if(aamp)
 	{
-		std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+		aamp->AcquireStreamLock();
 		if (aamp->mpStreamAbstractionAAMP)
 		{
 			bitrate = aamp->mpStreamAbstractionAAMP->GetAudioBitrate();
 		}
+		aamp->ReleaseStreamLock();
 	}
 	return bitrate;
 }
@@ -2175,7 +2099,7 @@ int PlayerInstanceAAMP::GetAudioVolume(void)
 int PlayerInstanceAAMP::GetPlaybackRate(void)
 {
 	int ret = 0;
-	if( aamp && !aamp->mSinkPaused.load() )
+	if( aamp && !aamp->pipeline_paused )
 	{
 		ret = aamp->rate;
 	}
@@ -2192,11 +2116,12 @@ std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void)
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+		aamp->AcquireStreamLock();
 		if (aamp->mpStreamAbstractionAAMP)
 		{
 			bitrates = aamp->mpStreamAbstractionAAMP->GetVideoBitrates();
 		}
+		aamp->ReleaseStreamLock();
 	}
 	return bitrates;
 }
@@ -2245,11 +2170,12 @@ std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void)
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+		aamp->AcquireStreamLock();
 		if (aamp->mpStreamAbstractionAAMP)
 		{
 			bitrates = aamp->mpStreamAbstractionAAMP->GetAudioBitrates();
 		}
+		aamp->ReleaseStreamLock();
 	}
 	return bitrates;
 }
@@ -2817,27 +2743,7 @@ std::string PlayerInstanceAAMP::GetAppName()
 }
 
 /**
- *  @brief Enable or disable AAMP-managed CC rendering.
- *
- *  When enable is true, AAMP takes ownership of the CC rendering lifecycle
- *  via PlayerCCManager: initialization on first frame, trickplay muting,
- *  parental control gating (SERVICE_PIN_LOCKED events), CEA-608/708 track
- *  selection, and session teardown on stop.
- *
- *  When enable is false (the default), AAMP does not drive CC rendering
- *  behaviour or policy decisions (e.g. trickplay muting, parental-control
- *  integration, or CC-specific teardown). Internal components such as
- *  PlayerCCManager may still be initialised but internally it will be
- *  using PlayerFakeCCManager.
- *
- *  This is the correct setting for X1 platforms where XREReceiver controls
- *  CC independently of AAMP. Enabling it on X1 would cause AAMP to overlap
- *  with XREReceiver's CC management responsibilities.
- *
- *  Must be called before Tune() to take effect for a given session.
- *
- *  @param[in] enable  true  — AAMP manages CC (platforms without XREReceiver)
- *                     false — external controller manages CC (X1 / XREReceiver)
+ *  @brief Enable/disable the native CC rendering feature
  */
 void PlayerInstanceAAMP::SetNativeCCRendering(bool enable)
 {
@@ -3067,13 +2973,12 @@ bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+		aamp->AcquireStreamLock();
+		if(thumbIndex >= 0 && aamp->mpStreamAbstractionAAMP)
 		{
-			std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-			if(thumbIndex >= 0 && aamp->mpStreamAbstractionAAMP)
-			{
-				ret = aamp->mpStreamAbstractionAAMP->SetThumbnailTrack(thumbIndex);
-			}
+			ret = aamp->mpStreamAbstractionAAMP->SetThumbnailTrack(thumbIndex);
 		}
+		aamp->ReleaseStreamLock();
 
 		AAMPLOG_INFO(" SetThumbnailTrack [%d] result: %s", thumbIndex, (ret ? "success" : "fail"));
 	}
@@ -3213,8 +3118,8 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent, bool forceClean
 	}
 	AAMPLOG_MIL("aamp_stop PlayerState=%d forceCleanup=%d", state, forceCleanup);
 	
-	// State change events won't be sent if sendStateChangeEvent is false.
-	aamp->Stop(sendStateChangeEvent);
+	// Negate sendStateChangeEvent since no need to send state change event on destructor call
+	aamp->Stop(!sendStateChangeEvent);
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
@@ -3320,6 +3225,67 @@ std::string PlayerInstanceAAMP::GetAAMPConfig()
 	std::string jsonStr;
 	mConfig.GetAampConfigJSONStr(jsonStr);
 	return jsonStr;
+}
+
+/**
+ *  @brief Set auxiliary language
+ */
+void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language)
+{
+	if(mAsyncTuneEnabled)
+	{
+
+		mScheduler.ScheduleTask(AsyncTaskObj([language](void *data)
+					{
+						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
+						instance->SetAuxiliaryLanguageInternal(language);
+					}, (void *)this , __FUNCTION__));
+	}
+	else
+	{
+		SetAuxiliaryLanguageInternal(language);
+	}
+
+}
+
+/**
+ *  @brief Set auxiliary track language.
+ */
+void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &language)
+{ // note: this feature available only on bluetooth enabled devices
+	if( aamp )
+	{
+		UsingPlayerId playerId(aamp->mPlayerId);
+		std::string currentLanguage = aamp->GetAuxiliaryAudioLanguage();
+		AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s)->(%s)", currentLanguage.c_str(), language.c_str());
+		if(language != currentLanguage)
+		{
+
+			AAMPPlayerState state = aamp->GetState();
+			// There is no active playback session, save the language for later
+			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
+			{
+				aamp->SetAuxiliaryLanguage(language);
+			}
+			// check if language is supported in manifest languagelist
+			else if((aamp->IsAudioLanguageSupported(language.c_str())) || (!aamp->mMaxLanguageCount))
+			{
+				aamp->SetAuxiliaryLanguage(language);
+				if (aamp->mpStreamAbstractionAAMP)
+				{
+					AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s) retuning", language.c_str());
+
+					aamp->discardEnteringLiveEvt = true;
+
+					aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+					aamp->TeardownStream(false);
+					aamp->TuneHelper(eTUNETYPE_SEEK);
+
+					aamp->discardEnteringLiveEvt = false;
+				}
+			}
+		}
+	}
 }
 
 /**

@@ -33,7 +33,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start() {  }
 
 void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition() { return 0; }
 

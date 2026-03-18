@@ -40,7 +40,7 @@ for mock IARM Bus and related support.
 CMAKE_USE_RFC_MOCKS
 
 Use with CMAKE_CDM_DRM or CMAKE_USE_OPENCDM_ADAPTER along with
-CMAKE_PLAYER_RFC_REQUIRED for mock TR-181 device data model support.
+CMAKE_AAMP_RFC_REQUIRED for mock TR-181 device data model support.
 
 CMAKE_USE_SECCLIENT_MOCKS
 

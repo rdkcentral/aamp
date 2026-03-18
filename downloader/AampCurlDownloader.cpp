@@ -74,7 +74,7 @@ void _downloadResponse::show()
 	AAMPLOG_INFO("dlSize : %f bytes", downloadCompleteMetrics.dlSize);
 	
 	AAMPLOG_INFO("reqSize : %ld bytes", downloadCompleteMetrics.reqSize);
-	AAMPLOG_INFO("downloadbps : %" BITSPERSECOND_FORMAT " bps", downloadCompleteMetrics.downloadbps);
+	AAMPLOG_INFO("downloadbps : %ld bps", downloadCompleteMetrics.downloadbps);
 	AAMPLOG_INFO("dataSize : %d bytes", (int)mDownloadData.size());
 	AAMPLOG_INFO("effective Url : %s", sEffectiveUrl.c_str());
 	
@@ -152,7 +152,6 @@ AampCurlDownloader::~AampCurlDownloader()
 
 bool AampCurlDownloader::IsDownloadActive()
 {
-	std::lock_guard<std::mutex> lock(mCurlMutex);
 	return mDownloadActive;
 }
 
@@ -341,34 +340,31 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 	// Release and reset and previously called values
 	Release();
 
-	CleanupCurlHeaderResources(); // internally, this temporarily acquires mCurlMutex
-	
+	std::lock_guard<std::mutex> lock(mCurlMutex);
+	mDnldCfg = std::move(dnldCfg);
+	//mDnldCfg->show();
+	if (!mDnldCfg->pCurl)
 	{
-		std::lock_guard<std::mutex> lock(mCurlMutex);
-		mDnldCfg = std::move(dnldCfg);
-		//mDnldCfg->show();
-		if (!mDnldCfg->pCurl)
+		if(mCurl == NULL)
 		{
-			if(mCurl == NULL)
-			{
-				mCurl = curl_easy_init();
-				mCreatedNewFd = true;
-			}
-			
+			mCurl = curl_easy_init();
+			mCreatedNewFd = true;
 		}
-		else
-		{
-			if(mCreatedNewFd && mCurl)
-			{
-				// Whatever created by this module should be freed by this module
-				// AampCurlDownloader is not responsible for the curl handles provided for download
-				curl_easy_cleanup(mCurl);
-				mCreatedNewFd = false;
-			}
-			mCurl =	mDnldCfg->pCurl;
-		}
-		updateCurlParams();
+
 	}
+	else
+	{
+		if(mCreatedNewFd && mCurl)
+		{
+			// Whatever created by this module should be freed by this module
+			// AampCurlDownloader is not responsible for the curl handles provided for download
+			curl_easy_cleanup(mCurl);
+			mCreatedNewFd = false;
+		}
+		mCurl =	mDnldCfg->pCurl;
+	}
+	updateCurlParams();
+
 }
 
 
@@ -376,11 +372,6 @@ void AampCurlDownloader::Release()
 {
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
-}
-
-void AampCurlDownloader::CleanupCurlHeaderResources()
-{
-	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;
 	mWriteCallbackBufferSize = 0;
@@ -464,9 +455,9 @@ void AampCurlDownloader::updateCurlParams()
 	}
 	else
 	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSL_VERIFYPEER, 1L);
 	}
-	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 
 	if (mDnldCfg->sCustomHeaders.size() > 0)
 	{
@@ -509,25 +500,18 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 {
 	size_t retSize = sz * nmemb;
+
 	if(retSize)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		const std::uint8_t* bufferS = static_cast<const std::uint8_t*>(buffer);
-		const std::uint8_t* bufferE = bufferS + retSize;
-		try
-		{
-			this->mDownloadResponse->mDownloadData.insert(
-				this->mDownloadResponse->mDownloadData.end(), bufferS, bufferE);
-			mDownloadUpdatedTime = NOW_STEADY_TS_MS;
-			mWriteCallbackBufferSize += retSize;
-		}
-		catch( const std::exception &e )
-		{
-			AAMPLOG_ERR("write_callback: buffer insert(%zu bytes) failed (%s); aborting transfer", retSize, e.what());
-			mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
-			return 0; // signals libcurl to abort with CURLE_WRITE_ERROR
-		}
+		std::vector<std::uint8_t> op1;
+		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
+		std::uint8_t *bufferE = bufferS + retSize;
+		std::copy(bufferS, bufferE, std::back_inserter(this->mDownloadResponse->mDownloadData));
+		mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+		mWriteCallbackBufferSize += retSize;
 	}
+
 	return retSize;
 }
 

@@ -33,8 +33,8 @@
  * @brief
  */
 
-#ifndef AAMP_DASHMODEL_H
-#define AAMP_DASHMODEL_H
+#ifndef FOG_CLI_DASHMODEL_H
+#define FOG_CLI_DASHMODEL_H
 
 #include <vector>
 #include <unordered_map>
@@ -359,8 +359,6 @@ public:
     }
 
     std::string getBaseUrlValue();
-
-    std::vector<std::string> getAllBaseUrls();
 
     shared_ptr<DashMPDBaseURL> setBaseURLValue(const string &value);
 
@@ -766,8 +764,6 @@ public:
 
     std::string getBaseUrl();
 
-    std::vector<std::string> getBaseUrls();
-
     std::shared_ptr<DashMPDSegmentTemplate> getSegmentTemplate();
 
     std::vector<std::shared_ptr<DashMPDAdaptationSet>> getAdaptationSets();
@@ -914,11 +910,7 @@ public:
 
     std::string getBaseUrl();
 
-    std::vector<std::string> getBaseUrls();
-
     string getMimeType();
-
-    string getMediaType();
 
     string getLanguage();
 
@@ -1042,8 +1034,6 @@ public:
 
     std::string getBaseUrl();
 
-    std::vector<std::string> getBaseUrls();
-
     /**
      * @brief   set BaseURL
      * @param   Base URL
@@ -1051,7 +1041,7 @@ public:
      */
     shared_ptr<DashMPDBaseURL> setBaseURLValue(std::string value);
 
-    BitsPerSecond getBandwidth();
+    long long int getBandwidth();
     
     int getWidth();
 
@@ -1227,10 +1217,6 @@ struct TimelineItem {
 
 std::string findBaseUrl(DomElement &element, const std::string &current, bool isFile = false);
 
-std::vector<std::string> findAllBaseUrls(DomElement &element, const std::vector<std::string> &current, bool isFile = false);
-
-std::vector<std::string> extractBaseUrlTexts(DomElement &element);
-
 void extractTimeline(DashMPDSegmentTimeline &timeline, std::vector<TimelineItem> &timelineItems);
 
-#endif //AAMP_DASHMODEL_H
+#endif //FOG_CLI_DASHMODEL_H

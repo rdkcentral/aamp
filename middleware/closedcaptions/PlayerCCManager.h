@@ -137,10 +137,9 @@ public:
 	/**
 	 * @fn RestoreCC 
 	 *
-	 * @param[in] shouldRestoreCC - previously captured CC enabled state to be restored after teardown
 	 * @return void
 	 */
-	void RestoreCC(bool shouldRestoreCC = false);
+	void RestoreCC();
 
 	virtual ~PlayerCCManagerBase(){ };
 

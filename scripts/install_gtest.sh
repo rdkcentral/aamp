@@ -22,10 +22,10 @@ declare GOOGLETEST_REFERENCE="tags/release-1.11.0"
 function install_build_googletest_fn()
 {
 
-    cd "$LOCAL_DEPS_BUILD_DIR" || { echo "Failed to change to LOCAL_DEPS_BUILD_DIR: ${LOCAL_DEPS_BUILD_DIR}"; return 1; }
+    cd $LOCAL_DEPS_BUILD_DIR
 
     # $OPTION_CLEAN == true
-    if [ "${1}" = true ] ; then
+    if [ $1 = true ] ; then
         echo "googletest clean"
         if [ -d googletest ] ; then
             rm -rf googletest
@@ -41,58 +41,22 @@ function install_build_googletest_fn()
         INSTALL_STATUS_ARR+=("googletest was already installed.")
     else
         echo "Installing googletest..."
-        git clone https://github.com/google/googletest || {
-            echo "ERROR: Failed to clone googletest repository"
-            return 1
-        }
-        
-        pushd googletest || {
-            echo "ERROR: Failed to change to googletest directory"
-            return 1
-        }
-        
+        do_clone_fn https://github.com/google/googletest
+        pushd googletest
         echo "Checkout googletest '$GOOGLETEST_REFERENCE'"
-        git checkout "$GOOGLETEST_REFERENCE" || {
-            echo "ERROR: Failed to checkout googletest reference: $GOOGLETEST_REFERENCE"
-            popd
-            return 1
-        }
+        git checkout $GOOGLETEST_REFERENCE
 
         ###Build gtest
         echo "Building googletest"
         mkdir -p build
-        cd build || {
-            echo "ERROR: Failed to change to build directory"
-            popd
-            return 1
-        }
-        
+        cd build
         if [[ "$OSTYPE" == "darwin"* ]]; then    
-            env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" || {
-                echo "ERROR: CMake configuration failed for googletest"
-                popd
-                return 1
-            }
+            env PKG_CONFIG_PATH=${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR}
         elif [[ "$OSTYPE" == "linux"* ]]; then
-            env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" || {
-                echo "ERROR: CMake configuration failed for googletest"
-                popd
-                return 1
-            }
+            env PKG_CONFIG_PATH=${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig cmake .. -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR}
         fi
-        
-        make || {
-            echo "ERROR: Make build failed for googletest"
-            popd
-            return 1
-        }
-        
-        make install || {
-            echo "ERROR: Make install failed for googletest"
-            popd
-            return 1
-        }
-        
+        make
+        make install
         INSTALL_STATUS_ARR+=("googletest was successfully installed.")
         popd
     fi

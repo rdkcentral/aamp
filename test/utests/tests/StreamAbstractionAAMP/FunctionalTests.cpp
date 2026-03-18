@@ -27,7 +27,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockPrivateInstanceAAMP.h"
-#include "MockMediaTrack.h"
+#include "MockStreamAbstractionAAMP.h"
 #include "MockMediaProcessor.h"
 
 using ::testing::_;
@@ -80,7 +80,7 @@ protected:
 		virtual AAMPStatusType Init(TuneType tuneType) override {return eAAMPSTATUS_OK;}
 		virtual void Start() override {}
 		virtual void Stop(bool clearChannelData) override {}
-		virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override {}
+		virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override {}
 
 		virtual MediaTrack* GetMediaTrack(TrackType type) override
 		{

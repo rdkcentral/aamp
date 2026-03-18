@@ -65,7 +65,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "linux"* ]]; then
     cp bin/libdash.so /usr/local/lib/
 else
-    echo "WARNING - unrecognized platform!"
+    echo "WARNING - unrecognised platform!"
     exit
 fi
 

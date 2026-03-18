@@ -81,7 +81,9 @@ public:
 	/* Table with different parameter sets to be passed into mAAMPGstPlayer->Configure(...) */
 	typedef struct
 	{
+		GstStreamOutputFormat auxFormat;
 		bool bESChangeStatus;
+		bool forwardAudioToAux;
 		bool setReadyAfterPipelineCreation;
 		bool enableRectangleProperty;
 		bool usingWesteros;
@@ -216,6 +218,11 @@ public:
 		}
 		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(_, NULL))
 			.WillRepeatedly(Return(&gst_element_bin));
+		if (setup->forwardAudioToAux)
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("audsrvsink"), NULL))
+				.WillOnce(Return(&gst_element_audsrvsink));
+		}
 
 		if (setup->usingRialto)
 		{
@@ -242,8 +249,10 @@ public:
 		
 		mInterfaceGstPlayer->ConfigurePipeline(GST_FORMAT_VIDEO_ES_H264,
 										GST_FORMAT_AUDIO_ES_AAC,
+										setup->auxFormat,
 										GST_FORMAT_SUBTITLE_WEBVTT,
 										setup->bESChangeStatus,
+										setup->forwardAudioToAux,
 										  setup->setReadyAfterPipelineCreation,
 										  false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
 
@@ -326,7 +335,9 @@ TEST_F(GstPlayerTests, Constructor)
 
 //	typedef struct
 //	{
+//		GstStreamOutputFormat auxFormat;
 //		bool bESChangeStatus;
+//		bool forwardAudioToAux;
 //		bool setReadyAfterPipelineCreation;
 //		bool enableRectangleProperty;
 //		bool usingWesteros;
@@ -335,12 +346,11 @@ TEST_F(GstPlayerTests, Constructor)
 
 static GstPlayerTests::Config_Params tbl[] = {
 	// focus on Rialto only
-	{false, false, false, false, true },
-	// Need to revisit them when uncommenting the below tests
-//	{false, false, false, true, false },
-//	{false, false, false, true, true  },
-//	{false, false, true,  true, false },
-//	{true,  true,  false, true, false }
+	{GST_FORMAT_INVALID, 	  false, false, false, false, false, true },
+//	{GST_FORMAT_INVALID, 	  false, false, false, false, true, false },
+//	{GST_FORMAT_INVALID, 	  false, false, false, false, true, true  },
+//	{GST_FORMAT_INVALID, 	  false, false, false, true,  true, false },
+//	{GST_FORMAT_AUDIO_ES_AC3, true,  true,  true,  false, true, false }
 };
 
 // Parameter test class, for running same tests with different settings
@@ -376,7 +386,7 @@ TEST_P(GstPlayerTestsP, SetAudioVolume)
 
 	// Code under test
 
-	// Muted, and volume not set (note this is not the case for non-rialto on specific SOC builds)
+	// Muted, and volume not set (note this is not the case for non-rialto AMLOGIC builds)
 	int volume = 0;
 	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("mute"), Matcher<int>(true))).Times(1);
 	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("volume"), Matcher<double>(_))).Times(0);

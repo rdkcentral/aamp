@@ -392,5 +392,3 @@ TEST_F(ClosedCaptionTests, GetAvailableTextTracks_WithLocalAAMPTsb_GetCurrentTex
 	// Basic sanity check since the mock Print returns minimal JSON
 	EXPECT_FALSE(result.empty()) << "Should return non-empty result even when GetCurrentTextTrack fails";
 }
-
-

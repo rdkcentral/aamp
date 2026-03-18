@@ -17,31 +17,16 @@
  * limitations under the License.
  */
 #include "string_utils.hpp"
-#include "gst-test.h"
 #include <ctime>
-#include <cstdlib>
-#include <iostream>
 
 uint64_t Number( const std::string &string )
 { // parseInt
-	try {
-		return std::stoull( string );
-	} catch (const std::invalid_argument& e) {
-		throw TestHarnessException("Number() - Invalid argument for string: '" + string + "' - " + e.what());
-	} catch (const std::out_of_range& e) {
-		throw TestHarnessException("Number() - Out of range for string: '" + string + "' - " + e.what());
-	}
+	return std::stoull( string );
 }
 
 double parseFloat( const std::string &string )
 {
-	try {
-		return std::stod( string );
-	} catch (const std::invalid_argument& e) {
-		throw TestHarnessException("parseFloat() - Invalid argument for string: '" + string + "' - " + e.what());
-	} catch (const std::out_of_range& e) {
-		throw TestHarnessException("parseFloat() - Out of range for string: '" + string + "' - " + e.what());
-	}
+	return atof( string.c_str() );
 }
 
 std::vector<std::string> splitString( const std::string &string, char c )
@@ -96,12 +81,8 @@ static double ISO8601DateTimeToUTCSeconds(const char *ptr)
 
 		if( msString && *msString )
 		{ // at least one character following decimal point
-			try {
-				double ms = std::stod(std::string(msString-1)); // back up and parse as float
-				timeSeconds += ms; // include ms granularity
-			} catch (const std::exception& e) {
-				throw TestHarnessException( "ERROR: ISO8601DateTimeToUTCSeconds() - Failed to parse milliseconds" );
-			}
+			double ms = atof(msString-1); // back up and parse as float
+			timeSeconds += ms; // include ms granularity
 		}
 	}
 	return timeSeconds;
@@ -167,7 +148,7 @@ std::string PadDecimalWithLeadingZeros( int num, int places )
 { // zero-prefixed numbers
 	auto name = std::to_string(num);
 	//var name = num.toString();
-	while( static_cast<int>(name.length())<places )
+	while( name.length()<places )
 	{
 		name = "0" + name;
 	}
@@ -178,7 +159,7 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 { // replace patterns like $Number%03d$"
 	auto pattern = splitString(pat,'$');
 	std::string rc;
-	size_t i = 0;
+	int i = 0;
 	while( i<pattern.size() )
 	{
 		rc += pattern[i++];
@@ -199,18 +180,13 @@ std::string ExpandURL( std::string pat, std::map<std::string,std::string> param 
 				if( starts_with(format,'0') && ends_with(format,'d') )
 				//if( format.startsWith("0") && format.endsWith("d") )
 				{ // leading zeros, decimal
-					if (format.size() < 2) {
-						throw TestHarnessException(
-							"ExpandURL() - Invalid format string length for format: '" + format + "'"
-						);
-					}
-					int num = static_cast<int>(Number(param[key]));
-					int numDigits = static_cast<int>(Number(format.substr(1,format.size()-2)));
+					int num = (int)Number(param[key]);
+					int numDigits = (int)Number(format.substr(1,format.size()-2));
 					value = PadDecimalWithLeadingZeros(num,numDigits);
 				}
 				else
 				{
-					throw TestHarnessException( "unsupported url format" );
+					//alert( "unsupported url format" );
 				}
 			}
 			rc += value;

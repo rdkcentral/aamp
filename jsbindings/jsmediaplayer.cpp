@@ -1195,7 +1195,7 @@ JSValueRef AAMPMediaPlayerJS_setThumbnailTrack (JSContextRef ctx, JSObjectRef fu
 		}
 	}
 	LOG_TRACE("Exit");
-	return JSValueMakeBoolean(ctx, false);
+	return JSValueMakeBoolean(ctx, false);;
 }
 
 /**
@@ -3041,8 +3041,7 @@ static JSValueRef AAMPMediaPlayerJS_notifyReservationCompletion(JSContextRef ctx
 		long time = (long) JSValueToNumber(ctx, arguments[1], exception);
 		//Need an API in AAMP to notify that placements for this reservation are over and AAMP might have to trim
 		//the ads to the period duration or not depending on time param
-		LOG_WARN(privObj,"Called reservation close for periodId:%s and time:%ld", reservationId, time);
-		privObj->_aamp->NotifyReservationComplete(reservationId);
+         	LOG_WARN(privObj,"Called reservation close for periodId:%s and time:%ld", reservationId, time);
 		SAFE_DELETE_ARRAY(reservationId);
 	}
 	else
@@ -3302,6 +3301,45 @@ JSValueRef AAMPMediaPlayerJS_enableContentRestrictions (JSContextRef ctx, JSObje
 	return JSValueMakeUndefined(ctx);
 }
 
+/**
+ * @brief API invoked from JS when executing AAMPMediaPlayer.setAuxiliaryLanguage()
+ * @param[in] ctx JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval JSValue that is the function's return value
+ */
+static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+{
+	LOG_TRACE("Enter");
+	bool bRet = false;
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if(!privObj || !privObj->_aamp)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call setAuxiliaryLanguage() on instances of AAMPPlayer");
+	}
+	else
+	{
+		if (argumentCount == 1)
+		{
+			const char *lang = aamp_JSValueToCString(ctx, arguments[0], NULL);
+			LOG_WARN(privObj,"_aamp->SetAuxiliaryLanguage(%s)",lang);
+			privObj->_aamp->SetAuxiliaryLanguage(std::string(lang));
+			bRet = true;
+			SAFE_DELETE_ARRAY(lang);
+		}
+		else
+		{
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setAuxiliaryLanguage() - 1 argument required");
+		}
+	}
+	LOG_TRACE("Exit");
+	return JSValueMakeBoolean(ctx, bRet);
+}
 /**
  * @brief API invoked from JS when executing AAMPMediaPlayer.getPlaybackStats()
  * @param[in] ctx JS execution context
@@ -3568,50 +3606,6 @@ JSValueRef AAMPMediaPlayerJS_isOOBCCRenderingSupported (JSContextRef ctx, JSObje
 }
 
 /**
- * @brief Callback invoked from JS to cancel ad reservation
- * @param[in] ctx JS execution context
- * @param[in] function JSObject that is the function being called
- * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
- * @param[in] argumentCount number of args
- * @param[in] arguments[] JSValue array of args
- * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- * @retval JSValue that is the function's return value
- */
-static JSValueRef AAMPMediaPlayer_JS_cancelReservation(JSContextRef ctx, JSObjectRef function,
-                                     JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[],
-                                     JSValueRef* exception)
-{
-	LOG_TRACE("Enter");
-
-	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
-	if(!privObj || !privObj->_aamp)
-	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call cancelReservation() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1",argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute cancelReservation() - 1 argument required");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	char* cancelAtReservationId_c = aamp_JSValueToCString(ctx, arguments[0], exception);
-
-	std::string cancelAtReservationId = cancelAtReservationId_c ? cancelAtReservationId_c : "";
-
-	SAFE_DELETE_ARRAY(cancelAtReservationId_c);
-
-	LOG_WARN(privObj, "cancelReservation called with cancelAtReservationId=%s", cancelAtReservationId.c_str());
-	privObj->_aamp->CancelReservation(cancelAtReservationId);
-
-	LOG_TRACE("Exit");
-	return JSValueMakeUndefined(ctx);
-}
-
-/**
  * @brief Array containing the AAMPMediaPlayer's statically declared functions
  */
 static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
@@ -3676,6 +3670,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "setPreferredAudioLanguage", AAMPMediaPlayerJS_setPreferredAudioLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setPreferredTextLanguage", AAMPMediaPlayerJS_setPreferredTextLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setPreferredAudioCodec", AAMPMediaPlayerJS_setPreferredAudioCodec, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
+	{ "setAuxiliaryLanguage", AAMPMediaPlayerJS_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMPMediaPlayerJS_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMPMediaPlayerJS_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -3687,7 +3682,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 
 	{ "getSessionID", AAMPMediaPlayerJS_getSessionID, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "updateManifest", AAMPMediaPlayerJS_updateManifest, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-	{ "cancelReservation", AAMPMediaPlayer_JS_cancelReservation, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+
 	{ NULL, NULL, 0 },
 };
 
@@ -4173,9 +4168,6 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
-#ifdef USE_PREINIT_DECODING
-	doFakeTune();
-#endif
 	LOG_TRACE("Exit");
 }
 

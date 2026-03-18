@@ -102,7 +102,9 @@ public:
 	/* Table with different parameter sets to be passed into mAAMPGstPlayer->Configure(...) */
 	typedef struct
 	{
+		StreamOutputFormat auxFormat;
 		bool bESChangeStatus;
+		bool forwardAudioToAux;
 		bool setReadyAfterPipelineCreation;
 		bool enableRectangleProperty;
 		bool usingWesteros; 
@@ -230,6 +232,11 @@ public:
 		}
 		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(_, NULL))
 			.WillRepeatedly(Return(&gst_element_bin));
+		if (setup->forwardAudioToAux)
+		{
+			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("audsrvsink"), NULL))
+				.WillOnce(Return(&gst_element_audsrvsink));
+		}
 
 		if (setup->usingRialto)
 		{
@@ -256,8 +263,10 @@ public:
 
 		mAAMPGstPlayer->Configure(FORMAT_VIDEO_ES_H264,
 								  FORMAT_AUDIO_ES_AAC,
+								  setup->auxFormat,
 								  FORMAT_SUBTITLE_WEBVTT,
 								  setup->bESChangeStatus,
+								  setup->forwardAudioToAux,
 							  	  setup->setReadyAfterPipelineCreation);
 
 		ASSERT_TRUE(bus_sync_func != nullptr);
@@ -339,7 +348,9 @@ TEST_F(AAMPGstPlayerTests, Constructor)
 
 //	typedef struct
 //	{
+//		StreamOutputFormat auxFormat;
 //		bool bESChangeStatus;
+//		bool forwardAudioToAux;
 //		bool setReadyAfterPipelineCreation;
 //		bool enableRectangleProperty;
 //		bool usingWesteros; 
@@ -347,10 +358,10 @@ TEST_F(AAMPGstPlayerTests, Constructor)
 //	} Config_Params;
 
 static AAMPGstPlayerTests::Config_Params tbl[] = {
-	{false, false, false, true, false },
-	{false, false, false, true, true  },
-	{false, false, true,  true, false },
-	{true,  true,  false, true, false } };
+	{FORMAT_INVALID, 	  false, false, false, false, true, false },
+	{FORMAT_INVALID, 	  false, false, false, false, true, true  },
+	{FORMAT_INVALID, 	  false, false, false, true,  true, false },
+	{FORMAT_AUDIO_ES_AC3, true,  true,  true,  false, true, false } };
 
 // Parameter test class, for running same tests with different settings
 

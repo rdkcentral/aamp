@@ -56,7 +56,7 @@ DrmData::DrmData(const char *dataPtr, size_t dataLength) : data("")
 }
 
 /**
- *  @brief   Destructor for DrmData.
+ *  @brief   Distructor for DrmData.
  *           Free memory (if any) allocated for data.
  */
 DrmData::~DrmData()

@@ -53,7 +53,7 @@ struct Mp4Sample
 
 class Mp4Demux
 {
-public: // temp workaround - used directly in rialtoTest
+private:
 	struct
 	{
 		uint16_t channel_count;
@@ -73,8 +73,8 @@ public: // temp workaround - used directly in rialtoTest
 		uint16_t height;
 		uint16_t frame_count;
 		uint16_t depth;
-		uint32_t horizontal_resolution;
-		uint32_t vertical_resolution;
+		uint32_t horizresolution;
+		uint32_t vertresolution;
 	} video;
 	
 	uint32_t stream_format;
@@ -249,30 +249,6 @@ public: // temp workaround - used directly in rialtoTest
 		//gst_event_unref(event);
 		gst_buffer_unref(pssh);
 	}
-	
-	void dump_auxiliary_information( void )
-	{
-		size_t sample_count = cenc_aux_info_sizes.size();
-		if( sample_count && got_auxiliary_information_offset )
-		{
-			PRINTF( "%sauxiliary_information\n", INDENT() );
-			const uint8_t *src = moof_ptr + auxiliary_information_offset;
-			for( int i=0; i<cenc_aux_info_sizes.size(); i++ )
-			{
-				int sz = cenc_aux_info_sizes[i];
-				if( verbose )
-				{
-					PRINTF( "%s", INDENT() );
-					for( int j=0; j<sz; j++ )
-					{
-						PRINTF( "%02x", src[j] );
-					}
-					PRINTF( "\n" );
-				}
-				src += sz;
-			}
-		}
-	}
 
 	void process_auxiliary_information( void )
 	{
@@ -367,7 +343,7 @@ public: // temp workaround - used directly in rialtoTest
 				PRINTF( "\n" );
 			}
 		}
-		dump_auxiliary_information();
+		process_auxiliary_information();
 	}
 	
 	void parseAuxInfo( void )
@@ -381,7 +357,7 @@ public: // temp workaround - used directly in rialtoTest
 	
 	// ISO/IEC 23001-7
 	void parseSampleAuxiliaryInformationOffsets( void )
-	{ // offsets to auxiliary information for samples or groups of samples
+	{ // offsets to auxilliary information for samples or groups of samples
 		// 00 00 00 01
 		// 63 65 6e 63 'cenc'
 		// 00 00 00 00
@@ -404,7 +380,7 @@ public: // temp workaround - used directly in rialtoTest
 		}
 		PRINTF( "%sauxiliary_information_offset = 0x%" PRIu64 "\n", INDENT(), auxiliary_information_offset );
 		got_auxiliary_information_offset = true;
-		dump_auxiliary_information();
+		process_auxiliary_information();
 	}
 	
 	void parseSampleEncryptionBox( void )
@@ -448,7 +424,6 @@ public: // temp workaround - used directly in rialtoTest
 				ptr += subsamples_size;
 			}
 		}
-		sencPresent = true;
 	}
 	
 	void parseMovieFragmentHeaderBox( void )
@@ -537,6 +512,8 @@ public: // temp workaround - used directly in rialtoTest
 			if (flags & 0x0100)
 			{
 				sample_duration = ReadU32();
+				PRINTF( " duration=%" PRIu32, sample_duration );
+				sample.duration = sample_duration / (double)timescale;
 			}
 			if (flags & 0x0200)
 			{
@@ -558,8 +535,7 @@ public: // temp workaround - used directly in rialtoTest
 			}
 			sample.dts = dts/(double)timescale;
 			sample.pts = (dts+sample_composition_time_offset)/(double)timescale;
-			sample.duration = sample_duration / (double)timescale;
-			PRINTF( " duration:%f dts=%f pts=%f", sample.duration, sample.dts, sample.pts );
+			PRINTF( " dts=%f pts=%f", sample.dts, sample.pts );
 			dts += sample_duration;
 			samples.push_back( std::move(sample) );
 			PRINTF( "\n" );
@@ -641,8 +617,8 @@ public: // temp workaround - used directly in rialtoTest
 		SkipBytes(16); // always zero?
 		video.width = ReadU16();
 		video.height = ReadU16();
-		video.horizontal_resolution = ReadU32();
-		video.vertical_resolution = ReadU32();
+		video.horizresolution = ReadU32();
+		video.vertresolution = ReadU32();
 		SkipBytes(4);
 		video.frame_count = ReadU16();
 		SkipBytes(32); // compressor_name
@@ -852,7 +828,7 @@ public: // temp workaround - used directly in rialtoTest
 					
 				case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
 				case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
-				case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
+				case MultiChar_Constant("vmhd"): // Video Media Header (graphicsmode, opcolor)
 				case MultiChar_Constant("smhd"): // Sound Media Header (balance)
 				case MultiChar_Constant("dref"): // Data Reference (url) (under dinf box)
 				case MultiChar_Constant("stts"): // Decoding Time To Sample (under stb boxl)
@@ -888,21 +864,7 @@ public: // temp workaround - used directly in rialtoTest
 					
 				case MultiChar_Constant("moof"):  // Movie Fragment
 					moof_ptr = ptr-8;
-					// For LLD streams, we may have multiple moof boxes
-					// so we need to track sampleOffset to map samples to mdat
-					sampleOffset = samples.size();
-					// Reset encryption state for each moof
-					got_auxiliary_information_offset = false;
-					cenc_aux_info_sizes.clear();
-					sencPresent = false;
-
 					DemuxHelper(next );
-
-					if (!sencPresent && got_auxiliary_information_offset)
-					{
-						// If no 'senc' box, we need to get IVs and subsample data from auxiliary info
-						process_auxiliary_information();
-					}
 					break;
 					
 				case MultiChar_Constant("schi"): // Scheme Information
@@ -943,24 +905,7 @@ public:
 		}
 	}
 	
-	Mp4Demux( bool verbose=false ):
-		audio{}, video{}, stream_format(),
-		data_reference_index(), codec_type(),
-		codec_data(), is_encrypted(), iv_size(),
-		crypt_byte_block(), skip_byte_block(),
-		constant_iv_size(), constant_iv(), timescale(),
-		samples(), default_kid(), got_auxiliary_information_offset(),
-		auxiliary_information_offset(), scheme_type(), scheme_version(),
-		original_media_type(), cenc_aux_info_sizes(), protectionEvents(),
-		moof_ptr(), ptr(), indent(),
-		version(), flags(), baseMediaDecodeTime(),
-		fragment_duration(), track_id(), base_data_offset(),
-		default_sample_description_index(), default_sample_duration(), default_sample_size(),
-		default_sample_flags(), creation_time(), modification_time(),
-		duration(), rate(), volume(),
-		matrix{}, layer(), alternate_group(),
-		width_fixed(), height_fixed(), language(),
-		verbose(verbose), sampleOffset(), sencPresent(false)
+	Mp4Demux( bool verbose=false ) : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), default_kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language(), verbose(verbose)
 	{
 	}
 	
@@ -1052,14 +997,9 @@ public:
 			case MultiChar_Constant("esds"):
 				caps = gst_caps_new_simple(
 										   "audio/mpeg",
-										   "mpegversion", G_TYPE_INT, 4,
+										   "mpegversion",G_TYPE_INT,4,
 										   "framed", G_TYPE_BOOLEAN, TRUE,
-										   "stream-format", G_TYPE_STRING, "raw",
-										   "profile", G_TYPE_STRING, "lc",
-										   "base-profile", G_TYPE_STRING, "lc",
-										   "level", G_TYPE_STRING, "2",
-										   "rate", G_TYPE_INT, audio.samplerate,
-										   "channels", G_TYPE_INT, audio.channel_count,
+										   "stream-format",G_TYPE_STRING,"raw", // FIXME
 										   "codec_data", GST_TYPE_BUFFER, buf,
 										   NULL );
 				break;
@@ -1076,15 +1016,6 @@ public:
 			default:
 				g_print( "unk codec_type: %" PRIu32 "\n", codec_type );
 				return;
-		}
-		if (caps && is_encrypted)
-		{
-			GstStructure *s = gst_caps_get_structure (caps, 0);
-			gst_structure_set (s,
-				"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
-				GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed",
-				NULL);
-			gst_structure_set_name (s, "application/x-cenc");
 		}
 		gst_app_src_set_caps(appsrc, caps);
 		gst_caps_unref(caps);
@@ -1155,19 +1086,13 @@ public:
 								  NULL);
 				gst_buffer_unref(subsamples_buf);
 			}
-			else
-			{
-				gst_structure_set(metadata,
-								  "subsample_count", G_TYPE_UINT, 0,
-								  NULL);
-			}
 			
 			if( scheme_type == MultiChar_Constant("cbcs") )
 			{
 				GstBuffer *constant_iv_buf = _gst_buffer_new_memdup( (gpointer)constant_iv.c_str(), (gsize)constant_iv_size);
 				gst_structure_set(metadata,
 								  "iv", GST_TYPE_BUFFER, constant_iv_buf,
-								  "iv_size", G_TYPE_UINT, constant_iv_size,
+								  "constant_iv_size", G_TYPE_UINT, constant_iv_size,
 								  "crypt_byte_block", G_TYPE_UINT, crypt_byte_block,
 								  "skip_byte_block", G_TYPE_UINT, skip_byte_block,
 								  NULL );
@@ -1178,8 +1103,11 @@ public:
 		if( metadata )
 		{ // serialize and print the metadata
 			gchar *structure_string = gst_structure_to_string( metadata );
-			PRINTF("metadata: %s\n", structure_string);
+			g_print("metadata: %s\n", structure_string);
 			g_free(structure_string);
+
+			// gst_structure_free( metadata );
+			// metadata = NULL;
 		}
 		
 		return metadata;

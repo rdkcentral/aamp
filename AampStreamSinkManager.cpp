@@ -403,22 +403,21 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	double flushPosition = position;
 
 	// Access mpStreamAbstractionAAMP under the PrivateInstanceAAMP stream lock
+	aamp->AcquireStreamLock();
+	StreamAbstractionAAMP *streamAbstraction = aamp->mpStreamAbstractionAAMP;
+	if (streamAbstraction != nullptr)
 	{
-		std::lock_guard<std::recursive_mutex> streamLock(aamp->GetStreamLock());
-		StreamAbstractionAAMP *streamAbstraction = aamp->mpStreamAbstractionAAMP;
-		if (streamAbstraction != nullptr)
+		//Update flushPosition from aamp->mpStreamAbstractionAAMP
+		if (aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
-			//Update flushPosition from aamp->mpStreamAbstractionAAMP
-			if (aamp->mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
-			{
-				flushPosition = streamAbstraction->GetStreamPosition();
-			}
-			else
-			{
-				flushPosition = streamAbstraction->GetFirstPTS();
-			}
+			flushPosition = streamAbstraction->GetStreamPosition();
+		}
+		else
+		{
+			flushPosition = streamAbstraction->GetFirstPTS();
 		}
 	}
+	aamp->ReleaseStreamLock();
 
 	AAMPLOG_INFO("flushPosition:%lf, position:%lf", flushPosition, position);
 

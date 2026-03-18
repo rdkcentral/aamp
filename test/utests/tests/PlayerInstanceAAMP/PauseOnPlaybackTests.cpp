@@ -104,7 +104,7 @@ TEST_F(PauseOnPlaybackTests, NormalPlayRate)
 
 	// FIXME: below violates aamp member being private
     mplayer->GetPrivAamp()->mbUsingExternalPlayer = false;
-    mplayer->GetPrivAamp()->mSinkPaused = true;
+    mplayer->GetPrivAamp()->pipeline_paused = true;
     mplayer->GetPrivAamp()->mbPlayEnabled = false;
     mplayer->GetPrivAamp()->mbDetached = false;
 
@@ -121,7 +121,7 @@ TEST_F(PauseOnPlaybackTests, PlaybackAlreadyInitiated)
 
 	// FIXME: below violates aamp member being private
     mplayer->GetPrivAamp()->mbUsingExternalPlayer = false;
-    mplayer->GetPrivAamp()->mSinkPaused = true;
+    mplayer->GetPrivAamp()->pipeline_paused = true;
     mplayer->GetPrivAamp()->mbPlayEnabled = true;
     mplayer->GetPrivAamp()->mbDetached = false;
 	
@@ -138,7 +138,7 @@ TEST_F(PauseOnPlaybackTests, Success)
 
 	// FIXME: below violates aamp member being private
     mplayer->GetPrivAamp()->mbUsingExternalPlayer = false;
-    mplayer->GetPrivAamp()->mSinkPaused = true;
+    mplayer->GetPrivAamp()->pipeline_paused = true;
     mplayer->GetPrivAamp()->mbPlayEnabled = false;
     mplayer->GetPrivAamp()->mbDetached = false;
 	

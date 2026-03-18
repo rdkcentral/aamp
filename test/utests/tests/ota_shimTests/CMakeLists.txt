@@ -21,8 +21,18 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME ota_shimTests)
 
-# Include common test directories
-include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
+
+include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(${GLIB_INCLUDE_DIRS})
+include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+include_directories(${LIBCJSON_INCLUDE_DIRS})
+include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 set(TEST_SOURCES ota_shimAamptest.cpp
 ota_shimtest.cpp)

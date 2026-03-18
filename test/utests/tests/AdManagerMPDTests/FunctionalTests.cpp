@@ -64,9 +64,7 @@ protected:
   IMPD *mMPD;
   AampMPDParseHelperPtr mAdMPDParseHelper;
   static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
-  static constexpr const char *TEST_AD_MANIFEST_HOST = "http://host/ad/";
   static constexpr const char *TEST_FOG_AD_MANIFEST_URL = "http://127.0.0.1:9080/adrec?clientId=FOG_AAMP&recordedUrl=http%3A%2F%2Fhost%2Fad%2Fmanifest.mpd";
-    static constexpr const char *TEST_FOG_AD_MANIFEST_HOST = "http://127.0.0.1:9080/";
   static constexpr const char *TEST_FOG_MAIN_MANIFEST_URL = "http://127.0.0.1:9080/recording/manifest.mpd";
 
   void SetUp()
@@ -119,11 +117,11 @@ protected:
   }
 
 public:
-  bool GetManifest(std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int *httpError)
+  bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
   {
-    /* Setup fake buffer contents. */
-    buffer.clear();
-    buffer.assign(mManifest, mManifest + strlen(mManifest));
+    /* Setup fake AampGrowableBuffer contents. */
+    buffer->Clear();
+    buffer->AppendBytes((char *)mManifest, strlen(mManifest));
     effectiveUrl = remoteUrl;
     *httpError = 200;
 
@@ -137,7 +135,6 @@ public:
     if (manifest)
     {
       mManifest = manifest;
-      mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
       // remoteUrl, manifest, effectiveUrl
       EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
               .Times(count)
@@ -150,7 +147,7 @@ public:
         if (fogDownloadSuccess)
         {
           EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
+              .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));;
         }
         else
         {
@@ -202,17 +199,6 @@ public:
     }
   }
 
-  /**
-   * @brief Constructs the ad initialization URI based on the host and path.
-   * @param host The host URL
-   * @param path The path to the ad manifest
-   *
-   * @return The complete ad initialization URL
-   */
-  std::string GetFullURI(const std::string &host, const std::string &path)
-  {
-    return host + path;
-  }
 };
 
 /**
@@ -435,12 +421,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(true));
-  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   t.join();
@@ -512,13 +492,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
-
-  std::string adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(true));
-  adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -641,12 +614,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, eCDAI_ERROR_NONE)).Times(1);
-  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(true));
-  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -718,12 +685,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // Here, ad resolved event is sent with true and CDN url is cached
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000, adErrorCode)).Times(1);
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode)).Times(1);
-  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillRepeatedly(Return(true));
-  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillRepeatedly(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -960,23 +921,16 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
     AAMPCDAIError expectedError = eCDAI_ERROR_DELIVERY_TIMEOUT;
     const char *manifest =
          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-         "<MPD><Period id=\"1\"><AdaptationSet contentType=\"video\"><Representation><SegmentTemplate media=\"video.mp4\" initialization=\"video_init.mp4\"/></Representation></AdaptationSet>"
-         "<AdaptationSet contentType=\"audio\"><Representation><SegmentTemplate media=\"audio.mp4\" initialization=\"audio_init.mp4\"/></Representation></AdaptationSet></Period></MPD>";
+         "<MPD><Period id=\"1\"><AdaptationSet contentType=\"video\"></AdaptationSet>"
+         "<AdaptationSet contentType=\"audio\"></AdaptationSet></Period></MPD>";
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
-
-    // Set up GetFile expectations for video and audio init segments
-    std::string videoInitUrl = TEST_AD_MANIFEST_HOST + std::string("video_init.mp4");
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(videoInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-      .WillOnce(Return(true));
-    std::string audioInitUrl = TEST_AD_MANIFEST_HOST + std::string("audio_init.mp4");
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(audioInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-      .WillOnce(Return(true));
+  
     // Set up the mock for GetFile before any SetAlternateContents calls
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
-      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int *httpError)
+      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
         {
-            buffer.clear();
-            buffer.assign(manifest, manifest + strlen(manifest));
+            buffer->Clear();
+            buffer->AppendBytes((char*)manifest, strlen(manifest));
             *httpError = 200;
             effectiveUrl = remoteUrl;
             if (!this->mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->empty())
@@ -1437,7 +1391,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
- * @brief Tests the functionality of the PlaceAds method when sourceAdDurationMismatch is true
+ * @brief Tests the functionality of the PlaceAds method when isSrcdurnotequalstoaddur is true
  * If the duration of ad outside source period is greater than 2sec, its treated as split period
  * This test validates the scenario when duration of ad outside source period is equal to 2sec
  */
@@ -1492,7 +1446,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 32000 to force mismatch for sourceAdDurationMismatch
+  // testPeriodId1 ad duration is set to 32000 to force mismatch for isSrcdurnotequalstoaddur
   // Also setting brkDuration to 32 sec as well
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(32000, std::make_shared<std::vector<AdNode>>(), "", 0, 32000)},
@@ -1616,7 +1570,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 14, 0, 28000, 0, false);
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 35000 to force mismatch for sourceAdDurationMismatch
+  // testPeriodId1 ad duration is set to 35000 to force mismatch for isSrcdurnotequalstoaddur
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(60000, std::make_shared<std::vector<AdNode>>(), "", 0, 60000)},
   };
@@ -3310,7 +3264,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.emplace_back(periodId2, periodId2, 0, 0, 0, 0, false); // second ad break in vector
 
   // Add ads to the adBreak
-  // testPeriodId1 ad duration is set to 29000 to force mismatch for sourceAdDurationMismatch
+  // testPeriodId1 ad duration is set to 29000 to force mismatch for isSrcdurnotequalstoaddur
   // testPeriodId2 ad duration is set to 30000
   mPrivateCDAIObjectMPD->mAdBreaks = {
     {periodId1, AdBreakObject(29000, std::make_shared<std::vector<AdNode>>(), "", 0, 29000)},
@@ -4270,90 +4224,4 @@ TEST_F(AdManagerMPDTests, WaitForNextAdResolved_DisableDownloadsBeforeWait)
   EXPECT_TRUE(result);
   // Fail if it actually waited for more than 500ms (indicating it did not abort immediately)
   EXPECT_LT(elapsedMs, 500) << "WaitForNextAdResolved did not abort immediately, waited for " << elapsedMs << " ms";
-}
-
-/**
-* @brief Test NotifyReservationComplete for empty ad break: should resolve and notify waiting threads.
-*/
-TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndResolves)
-{
-    std::string periodId = "testPeriodId";
-    mPrivateCDAIObjectMPD->mAdBreaks[periodId] = AdBreakObject(10000, nullptr, "", 0, 0);
-
-    // Start a thread that waits for ad resolution (should be notified by NotifyReservationComplete)
-    bool completed = false;
-    std::thread waiter([&] {
-      completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000, periodId);
-    });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
-
-    waiter.join();
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
-    // The waiting thread should have completed (not timed out)
-    EXPECT_TRUE(completed);
-}
-
-/**
- * @brief CancelReservation should set cancelAtReservationId for active placement.
- */
-TEST_F(AdManagerMPDTests, CancelReservation_MatchingPlacement_SetsCancelId)
-{
-  const std::string activeReservationId = "playingBrk";
-  const std::string cancelAtReservationId = "nextBrk";
-
-  mPrivateCDAIObjectMPD->mAdBreaks[activeReservationId] =
-    AdBreakObject(30000, nullptr, "", 0, 0);
-  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = activeReservationId;
-
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[activeReservationId].
-    cancelAtPeriodId.empty());
-
-  mPrivateCDAIObjectMPD->CancelReservation(cancelAtReservationId);
-
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[activeReservationId].
-    cancelAtPeriodId, cancelAtReservationId);
-}
-
-/**
- * @brief CancelReservation with empty cancel id should not change ad break state.
- */
-TEST_F(AdManagerMPDTests, CancelReservation_EmptyCancelId_NoChange)
-{
-  const std::string periodId = "playingBrk";
-
-  mPrivateCDAIObjectMPD->mAdBreaks[periodId] =
-    AdBreakObject(30000, nullptr, "", 0, 0);
-  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.clear();
-
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].
-    cancelAtPeriodId.empty());
-
-  mPrivateCDAIObjectMPD->CancelReservation("");
-
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].
-    cancelAtPeriodId.empty());
-}
-
-/**
- * @brief CancelReservation with missing placement break should not change state.
- */
-TEST_F(AdManagerMPDTests, CancelReservation_PlacementBreakMissing_NoChange)
-{
-  const std::string existingBreakId = "existingBrk";
-  const std::string cancelAtReservationId = "nextBrk";
-
-  mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId] =
-    AdBreakObject(30000, nullptr, "", 0, 0);
-  mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].mAdBreakPlaced = true;
-  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.clear();
-
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].
-    cancelAtPeriodId.empty());
-
-  mPrivateCDAIObjectMPD->CancelReservation(cancelAtReservationId);
-
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].
-    cancelAtPeriodId.empty());
 }

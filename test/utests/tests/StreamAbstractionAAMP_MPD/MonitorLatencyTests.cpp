@@ -215,8 +215,7 @@ protected:
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_EnableLowLatencyCorrection, true},
-			{eAAMPConfig_EnableLowLatencyDash, true},
-			{eAAMPConfig_UseMp4Demux, false} };
+			{eAAMPConfig_EnableLowLatencyDash, true} };
 
 	BoolConfigSettings mBoolConfigSettings;
 
@@ -285,7 +284,6 @@ protected:
 	{
 		if (mStreamAbstractionAAMP_MPD)
 		{
-			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -358,8 +356,6 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
-		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
-		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -381,6 +377,7 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 	// Initialize the test case variables with parameterized values
 	std::string fragmentUrl;
 	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = 1.0;
 	status = InitializeMPD();
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 

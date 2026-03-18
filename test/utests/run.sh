@@ -20,9 +20,6 @@
 # This script will build and run microtests.
 # Use option: -c to additionally build coverage tests
 # Use option: -h to halt coverage tests on error
-# Use option: -t <seconds> to override the per-test CTest timeout (default: 60)
-# The timeout can also be set via the CTEST_TIMEOUT environment variable;
-# the -t option takes precedence over the environment variable.
 
 if [[ -z "${MAKEFLAGS}" ]]; then
     export MAKEFLAGS=-j$(nproc)
@@ -59,10 +56,8 @@ find . -name "*.gcda" -print0 | xargs -0 --no-run-if-empty rm
 build_coverage=0
 halt_on_error=0
 rdke_build=0
-# Default timeout: honour CTEST_TIMEOUT env var if set, otherwise 60 seconds.
-CTEST_TIMEOUT=${CTEST_TIMEOUT:-60}
 
-while getopts "ceht:" opt; do
+while getopts "ceh" opt; do
   case ${opt} in
     c ) echo Do build coverage
         build_coverage=1
@@ -72,9 +67,6 @@ while getopts "ceht:" opt; do
       ;;
     h ) echo Halt on error
         halt_on_error=1
-      ;;
-    t ) CTEST_TIMEOUT=${OPTARG}
-        echo "CTest timeout set to ${CTEST_TIMEOUT}s"
       ;;
     * )
       ;;
@@ -133,7 +125,7 @@ if [ "$rdke_build" -eq "1" ]; then
 	echo "RDKE build"
 
 	export GTEST_OUTPUT="json"
-  ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR || true  # Don't exit script if a test fails
+  ctest -j 4 --output-on-failure --no-compress-output -T Test $CT_TESTDIR || true  # Don't exit script if a test fails
 
   cd tests
 
@@ -184,7 +176,7 @@ EOF
 	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > L1Report.json
 
 else
-    ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR --output-junit ctest-results.xml
+    ctest -j 4 --output-on-failure --no-compress-output -T Test $CT_TESTDIR --output-junit ctest-results.xml
 fi
 
 if [ "$build_coverage" -eq "1" ]; then

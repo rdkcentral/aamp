@@ -40,7 +40,7 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include <algorithm>
-#include "abr.h"
+#include "ABRManager.h"
 
 /**
  * @class AampCMCDCollector
@@ -79,7 +79,7 @@ public:
 	 * @param[in] mediaT - media type
 	 * @return None
 	 */
-	void CMCDSetNextObjectRequest(std::string url,BitsPerSecond CMCDBandwidth,AampMediaType mediaT=eMEDIATYPE_VIDEO);
+	void CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT=eMEDIATYPE_VIDEO);
     
     	/**
 	* @brief CMCDSetNextRangeRequest Store the next range relative to the current url
@@ -89,7 +89,7 @@ public:
 	* @param[in] mediaT - media type
 	* @return None
 	*/
-	void CMCDSetNextRangeRequest(std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType);
+	void CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType);
 
 	/**
 	 * @brief Initialize AampCMCD Collector instance

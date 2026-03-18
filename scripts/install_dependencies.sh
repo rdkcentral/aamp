@@ -29,29 +29,26 @@ function install_pkgs_darwin_fn()
 {
     # Check if brew package $1 is installed
     # http://stackoverflow.com/a/20802425/1573477
-    local INSTALLED_PKGCONFIG=""
     for PKG in "$@";
     do
-        # Cache the brew check result to avoid redundant calls
-        local PKG_VERSION
-        PKG_VERSION=$(brew ls --versions "$PKG" 2>/dev/null) || true
-        
-        if [ -n "$PKG_VERSION" ]; then
+        if brew ls --versions $PKG > /dev/null; then
             echo "${PKG} is already installed."
             INSTALL_STATUS_ARR+=("${PKG} is already installed.")
         else
             echo "Installing ${PKG}"
-            if brew install "$PKG"; then
-                # Package successfully installed
-                INSTALL_STATUS_ARR+=("The package ${PKG} was successfully installed.")
+            brew install $PKG
+            #update summery
+            if brew ls --versions $PKG > /dev/null; then
+                #The package is successfully installed
+                INSTALL_STATUS_ARR+=("The package was ${PKG} was successfully installed.")
+
             else
-                # Package failed to install
+                #The package is failed to be installed
                 INSTALL_STATUS_ARR+=("The package ${PKG} FAILED to be installed.")
             fi
         fi
-        
         #if pkg is openssl and its successfully installed every time ensure to symlink to the latest version
-        if [ "${PKG}" = "${DEFAULT_OPENSSL_VERSION}" ]; then
+        if [ $PKG = "${DEFAULT_OPENSSL_VERSION}" ]; then
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
             # link may not exist so don't fail
             OPENSSL_CUR_PATH=`readlink /usr/local/ssl` || true
@@ -64,7 +61,7 @@ function install_pkgs_darwin_fn()
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
 
 	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
-        if [ "${PKG}" = "openldap" ] || [ "${PKG}" = "krb5" ]; then
+        if [ $PKG = "openldap" ] || [ $PKG = "krb5" ]; then
             brew link $PKG --force
             if [ "$(uname -m)" = "arm64" ]; then
                 export PKG_CONFIG_PATH="/opt/homebrew/opt/krb5/lib/pkgconfig:/opt/homebrew/opt/openldap/lib/pkgconfig:$PKG_CONFIG_PATH"

@@ -82,7 +82,6 @@ DrmSessionManager::~DrmSessionManager()
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
 	MW_SAFE_DELETE_ARRAY(cachedKeyIDs);
 	MW_SAFE_DELETE(playerSecInstance);
-	MW_SAFE_DELETE(m_drmConfigParam);
 	ContentSecurityManager::setWatermarkSessionEvent_CB(nullptr);
 }
 void DrmSessionManager::UpdateDRMConfig(
@@ -494,7 +493,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
 	if (code != KEY_INIT)
 	{
-		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d, err code: %d", code, err);
+		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d ", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		if (cachedKeyIDs)
 		{
@@ -928,11 +927,6 @@ KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmH
 		{
 			MW_LOG_ERR("DRM session ID is empty: Key State %d ", code);
 			err = MW_DRM_SESSIONID_EMPTY;
-		}
-		else if (code == KEY_ERROR_SESSION_CREATE_FAILED)
-		{
-			MW_LOG_ERR("OCDM session construction failed: Key State %d ", code);
-			err = MW_DRM_SESSION_CREATE_FAILED;
 		}
 		else
 		{

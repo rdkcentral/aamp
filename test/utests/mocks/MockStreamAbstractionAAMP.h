@@ -23,6 +23,33 @@
 #include <gmock/gmock.h>
 #include "StreamAbstractionAAMP.h"
 
+class MockMediaTrack : public MediaTrack
+{
+public:
+	MockMediaTrack(TrackType type, PrivateInstanceAAMP *aamp, const char *name)
+		: MediaTrack(type, aamp, name) {}
+	MOCK_METHOD(bool, IsLocalTSBInjection, ());
+	MOCK_METHOD(bool, Enabled, ());
+	MOCK_METHOD(void, ProcessPlaylist, (AampGrowableBuffer& newPlaylist, int http_error),(override));
+	MOCK_METHOD(std::string&, GetPlaylistUrl, (), (override));
+	MOCK_METHOD(std::string&, GetEffectivePlaylistUrl, (), (override));
+	MOCK_METHOD(void, SetEffectivePlaylistUrl, (std::string url), (override));
+	MOCK_METHOD(long long, GetLastPlaylistDownloadTime, (), (override));
+	MOCK_METHOD(void, SetLastPlaylistDownloadTime, (long long time), (override));
+	MOCK_METHOD(long, GetMinUpdateDuration, (), (override));
+	MOCK_METHOD(int, GetDefaultDurationBetweenPlaylistUpdates, (), (override));
+	MOCK_METHOD(void, ABRProfileChanged, (), (override));
+	MOCK_METHOD(void, updateSkipPoint, (double position, double duration ), (override));
+	MOCK_METHOD(void, setDiscontinuityState, (bool isDiscontinuity), (override));
+	MOCK_METHOD(void, abortWaitForVideoPTS, (), (override));
+	MOCK_METHOD(double, GetBufferedDuration, (), (override));
+	MOCK_METHOD(class StreamAbstractionAAMP*, GetContext, (), (override));
+	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity), (override));
+
+	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));
+	MOCK_METHOD(void, ResetTrickModePtsRestamping, (), (override));
+};
+
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
 {
 public:
@@ -37,7 +64,7 @@ public:
 
 	MOCK_METHOD(void, Stop, (bool clearChannelData), (override));
 
-	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
+	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
 
 	MOCK_METHOD(double, GetStreamPosition, (), (override));
 
@@ -91,19 +118,12 @@ public:
 
 	MOCK_METHOD(bool, IsEOSReached, (), (override));
 
-	MOCK_METHOD(bool, CheckForRampDownLimitReached, ());
-
-	MOCK_METHOD(bool, CheckForRampDownProfile, (int http_error));
-
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
-
-	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
-
 	MOCK_METHOD(void, SetIsAtLivePoint, (bool isAtLivePoint));
 
-	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
+	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

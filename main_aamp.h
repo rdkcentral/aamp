@@ -71,17 +71,6 @@
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
 /**
- * @brief Performs a fake tune operation.
- * 
- * This function initiates a fake tune using a predefined manifest URL,
- * primarily used for testing and validation scenarios.
- * 
- * @return void
- */
-void doFakeTune();
-#define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
-
-/**
  * @class PlayerInstanceAAMP
  * @brief Player interface class for the JS plugin.
  */
@@ -102,9 +91,8 @@ public:
 	 *
 	 *   @param  streamSink - custom stream sink, NULL for default.
 	 *   @param  exportFrames - callback function to export video frames
-	 *   @param  powerEvt - enable power event handling, false by default
 	 */
-	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr, bool powerEvt = false);
+	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr );
 
 	/**
 	 *   @fn ~PlayerInstanceAAMP
@@ -181,19 +169,6 @@ public:
 	 *   @return void
 	 */
 	void SetRate(float rate, int overshootcorrection=0);
-
-	/**
-	 * @brief Notify AAMP that ad reservation is complete for a given reservationId
-	 * @param[in] reservationId The reservation identifier
-	 */
-	void NotifyReservationComplete(const std::string& reservationId);
-
-	/**
-	 * @brief Cancel ad reservation
-	 *   @param[in]  cancelAtReservationId - Reservation Id at which the cancellation has to be done.
-	 *   @return void
-	 */
-	void CancelReservation(const std::string& cancelAtReservationId);
 
 	/**
 	 *   @fn SetUserAgent
@@ -647,7 +622,7 @@ public:
 	 *
 	 *   @return bitrate of video profile
 	 */
-	BitsPerSecond GetVideoBitrate(void);
+	long GetVideoBitrate(void);
 
 	/**
 	 *   @fn SetVideoBitrate
@@ -1022,11 +997,11 @@ public:
 
 	/**
 	 *   @fn SetPreferredLabels
-	 *   @param[in] labelList - string with array with label list
+	 *   @param[in] lableList - string with array with label list
 	 *
 	 *   @return void
 	 */
-	void SetPreferredLabels(const char *labelList);
+	void SetPreferredLabels(const char *lableList);
 
 	/**
 	 *   @fn SetPreferredRenditions
@@ -1374,6 +1349,14 @@ public:
 	void SetRepairIframes(bool configState);
 
 	/**
+	 *   @fn SetAuxiliaryLanguage
+	 *
+	 *   @param[in] language - auxiliary language
+	 *   @return void
+	 */
+	void SetAuxiliaryLanguage(const std::string &language);
+
+	/**
 	 *   @fn SetLicenseCustomData
 	 *
 	 *   @param[in]  customData - custom data string to be passed to the license server.
@@ -1482,6 +1465,12 @@ protected:
 	 *   @return void
 	 */
 	void SetAudioTrackInternal(std::string language,  std::string rendition, std::string codec,  std::string type, unsigned int channel, std::string label);
+	/**
+	 *   @fn SetAuxiliaryLanguageInternal
+	 *   @param[in][optional] language
+	 *   @return void
+	 */
+	void SetAuxiliaryLanguageInternal(const std::string &language);
 	/**
 	 *   @fn SetTextTrackInternal
 	 *   @param[in] trackId

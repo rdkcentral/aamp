@@ -26,12 +26,13 @@
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
-#include "MockMediaTrack.h"
 
 #include "fragmentcollector_mpd.h"
 #include "StreamAbstractionAAMP.h"
 
 using namespace testing;
+
+AampConfig *gpGlobalConfig{nullptr};
 
 class MediaStreamContextTest : public testing::Test
 {
@@ -46,7 +47,6 @@ class MediaStreamContextTest : public testing::Test
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
         mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPrivateInstanceAAMP,"SAMPLETEXT");
         g_mockAampConfig = new MockAampConfig();
-        g_mockMediaTrack = new NiceMock<MockMediaTrack>();
     }
     
     void TearDown() override
@@ -62,9 +62,6 @@ class MediaStreamContextTest : public testing::Test
         
         delete g_mockAampConfig;
         g_mockAampConfig = nullptr;
-
-        delete g_mockMediaTrack;
-        g_mockMediaTrack = nullptr;
     }
     public:
     StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
@@ -80,8 +77,8 @@ TEST_F(MediaStreamContextTest, GetContextTest)
 
 TEST_F(MediaStreamContextTest, CacheFragmentChunkTest)
 {
-    //Act:call CacheFragmentChunk function
-    bool retResult = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO,NULL, 12345678,"remoteUrl",123456789, 1234);
+    //Act:call CacheFragmentChunk fucntion
+    bool retResult = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO,NULL, 12345678,"remoteUrl",123456789);
     EXPECT_FALSE(retResult);
 }
 
@@ -206,35 +203,4 @@ TEST_F(MediaStreamContextTest, DefaultDurationTest)
     int durationValue = mMediaStreamContext->GetDefaultDurationBetweenPlaylistUpdates();
     //Assert:check durationValue variable value
     EXPECT_EQ(durationValue,6000);
-}
-
-TEST_F(MediaStreamContextTest, CacheFragmentChunkTestWithDurationInTicks)
-{
-    uint8_t testData[] = "This is a test data buffer";
-    size_t testDataSize = sizeof(testData) - 1; // Exclude null terminator
-    std::string remoteUrl = "http://example.com";
-    uint64_t dnldStartTime = 123456789;
-    uint64_t durationInTicks = 90000; // 1 second duration at 90kHz timescale
-    uint32_t timeScale = 90000; // 90kHz timescale
-    double durationInSeconds = (double)durationInTicks / (double)timeScale;
-    double absTime = 10000;
-
-    DownloadInfoPtr downloadInfo = std::make_shared<DownloadInfo>();
-    downloadInfo->absolutePosition = absTime;
-    downloadInfo->timeScale = timeScale;
-    mMediaStreamContext->mActiveDownloadInfo = downloadInfo;
-
-    CachedFragment cachedFragment;
-    EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
-        .WillOnce(Return(&cachedFragment));
-
-    bool result = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO, testData, testDataSize, remoteUrl, dnldStartTime, durationInTicks);
-    EXPECT_TRUE(result);
-    EXPECT_EQ(cachedFragment.type, eMEDIATYPE_VIDEO);
-    EXPECT_EQ(cachedFragment.absPosition, absTime);
-    EXPECT_EQ(cachedFragment.timeScale, timeScale);
-    EXPECT_EQ(cachedFragment.duration, durationInSeconds);
-    // Confirm chunkDuration is updated in DownloadInfo
-    EXPECT_EQ(downloadInfo->chunkDurationSec, durationInSeconds);
-    EXPECT_EQ(mMediaStreamContext->lastDownloadedPosition.load(), absTime + durationInSeconds);
 }

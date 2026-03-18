@@ -21,7 +21,7 @@
 #include "tsprocessor.h"
 #include "ID3Metadata.hpp"
 
-TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor)
+TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 {
 }
 
@@ -29,7 +29,7 @@ TSProcessor::~TSProcessor()
 {
 }
 
-double TSProcessor::getFirstPts( const std::vector<uint8_t>& buffer )
+double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
 {
 	return 0.0;
 }

@@ -143,18 +143,16 @@ public:
 	void SetTotalDuration(long long duration) { mTotalVideoDuration =  duration; }
 
 	/**
-	 * @brief Increments the network-related bitrate drop counter.
-	 * 
-	 * This counter tracks how many times a bitrate drop occurred due to
-	 * insufficient network bandwidth.
+	 *   @brief Increment NetworkDropCount
+	 *   This is count which indicates if bitrate drop happned due to Network bandwidth issue
 	 *
-	 * @return None
+	 *   @return None
 	 */
 	void Increment_NetworkDropCount() { mNetworkDropCount++; }
 
 	/**
 	 *   @brief Increment ErrorDropCount
-	 *   This is count which indicates if bitrate drop happened due to errors in downloads
+	 *   This is count which indicates if bitrate drop happned due to erros in downloads
 	 *
 	 *   @return None
 	 */

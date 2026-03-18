@@ -32,8 +32,6 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"
 #include "AampMPDPeriodInfo.h"
-#include "AampFragmentDescriptor.hpp"
-#include "AampConfig.h"
 
 using namespace dash;
 using namespace std;
@@ -73,44 +71,5 @@ bool IsCompatibleMimeType(const std::string& mimeType, AampMediaType mediaType);
  * @return - computed fragment duration in double.
  */
 double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale );
-
-/**
- * @fn ConstructFragmentURL
- * @param[out] fragmentUrl fragment url
- * @param[in] fragmentDescriptor descriptor
- * @param[in] media media information string
- * @param[in] config AAMP configuration
- */
-void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media, AampConfig *config);
-
-/**
- * @brief Parse segment index box
- * @note The SegmentBase indexRange attribute points to Segment Index Box location with segments and random access points.
- * @param start start of box
- * @param size size of box
- * @param segmentIndex segment index
- * @param[out] referenced_size referenced size
- * @param[out] referenced_duration referenced duration
- * @retval true on success
- */
-bool ParseSegmentIndexBox( const uint8_t *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset);
-
-/**
- * @brief Replace matching token with given number
- * @param str String in which operation to be performed
- * @param from token
- * @param toNumber number to replace token
- * @retval position
- */
-int replace(std::string& str, const std::string& from, uint64_t toNumber );
-
-/**
- * @brief Replace matching token with given string
- * @param str String in which operation to be performed
- * @param from token
- * @param toString string to replace token
- * @retval position
- */
-int replace(std::string& str, const std::string& from, const std::string& toString );
 
 #endif /* __AAMP_MPD_UTILS_H__ */

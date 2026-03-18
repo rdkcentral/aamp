@@ -136,18 +136,6 @@ private:
 	 */
 	bool updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd);
 
-	/**
-	 * @fn getBoxInfoInternal
-	 *
-	 * @param[in] boxes - ISOBMFF boxes
-	 * @param[in] name - box name to get
-	 * @param[in] index - index of box in a parsed buffer
-	 * @param[out] start - start offset of box
-	 * @param[out] size - size of box
-	 * @return bool true if box found at index, false otherwise
-	 */
-	bool getBoxInfoInternal(const char *name, size_t index, size_t &start, size_t &size);
-
 public:
 	/**
 	 * @brief IsoBmffBuffer constructor
@@ -183,42 +171,19 @@ public:
 	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
 
 	/**
-	 * @fn getTotalChunkDurationInTicks
-	 * @param[in] lastMDatIndex - index of mdat box w.r.t to the full mp4 box
-	 * @return total chunk duration in ticks, 0 if no chunk duration found
+	 * @fn UpdateBufferData
+	 * @return true if parsed or false
 	 */
-	uint64_t getTotalChunkDurationInTicks(int lastMDatIndex);
+	double getTotalChunkDuration(int lastMDatIndex);
 
 	/**
 	 * @fn setBuffer
 	 *
-	 * @param[in] buffer - buffer vector reference (non-const, may be modified)
+	 * @param[in] buf - buffer pointer
+	 * @param[in] sz - buffer size
 	 * @return void
 	 */
-	void setBuffer(std::vector<uint8_t>& buffer);
-
-	/**
-	 * @fn setBuffer
-	 *
-	 * @brief Set buffer from a const vector.
-	 *        Use this overload when the caller only intends to parse and query
-	 *        the buffer (e.g. getFirstPTS, isInitSegment, getTimeScale).
-	 *        The caller must not call mutating methods (restampPts, truncate,
-	 *        setPtsAndDuration, etc.) after using this overload.
-	 *
-	 * @param[in] buffer - const buffer vector reference
-	 * @return void
-	 */
-	void setBuffer(const std::vector<uint8_t>& buffer);
-
-	/**
-	 * @fn setBuffer
-	 *
-	 * @param[in] buffer - buffer pointer
-	 * @param[in] bufferLen - buffer length
-	 * @return void
-	 */
-	void setBuffer(uint8_t* buffer, size_t bufferLen);
+	void setBuffer(uint8_t *buf, size_t sz);
 
 	/**
 	 * @fn parseBuffer
@@ -235,10 +200,10 @@ public:
 	/**
 	*  	@fn parseBuffer
 	*  	@param[in] name - name of the track
-	*  	@param[in/out] unParsedBuffer - Total unparsed buffer
+	*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
 	*  	@param[in] timeScale - timescale of the track
 	*	@param[out] parsedBufferSize - parsed buffer size
-	*  	@param[in/out] unParsedBufferSize - unparsed or remaining buffer size
+	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
 	*	@param[out] fpts - fragment pts value
 	*  	@param[out] fduration - fragment duration
 	*	@return true if parsed or false
@@ -524,31 +489,5 @@ public:
 	 * @return true if sample duration set. false otherwise
 	 */
 	bool setMediaHeaderDuration(uint64_t duration);
-
-	/**
-	 * @fn getMdatBoxInfo
-	 *
-	 * @param[in] index - index of mdat box
-	 * @param[out] start - start offset of mdat box
-	 * @param[out] size - size of mdat box
-	 * @return bool if box found. false otherwise
-	 */
-	bool getMdatBoxInfo(size_t index, size_t &start, size_t &size);
-
-	/**
-	 * @fn getChunkedMdatBoxInfo
-	 *
-	 * @param[out] start - start offset of chunked mdat box
-	 * @param[out] size - size of chunked mdat box
-	 * @return true if chunked mdat box is present. false otherwise
-	 */
-	bool getChunkedMdatBoxInfo(size_t &start, size_t &size) const;
-
-	/**
-	 * @fn getLastMdatBoxIndex
-	 *
-	 * @return index of mdat box w.r.t to the full mp4 box, -1 if index is out of bound
-	 */
-	int getLastMdatBoxIndex() const;
 };
 #endif /* __ISOBMFFBUFFER_H__ */

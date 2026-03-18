@@ -224,7 +224,7 @@ TEST_F(byteRangeTests, testFormatFromExtension )
 	{
         printf( "test#%zu: '%s'\n", i, test_data[i].data );
 		AampGrowableBuffer buffer;
-		buffer.assign(test_data[i].data, test_data[i].data + strlen(test_data[i].data));
+		buffer.AppendBytes(test_data[i].data, strlen(test_data[i].data) );
 		StreamOutputFormat format = GetFormatFromFragmentExtension( buffer );
 		EXPECT_EQ( format, test_data[i].format );
 	}

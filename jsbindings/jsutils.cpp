@@ -502,7 +502,7 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 				// Parse comma separated name=value list.
 				while (*szStart != '\0') {
 					char* szSep;
-					// Find the '=' separator.
+					// Find the '=' seperator.
 					for (szSep = (char*)szStart; *szSep != '=' && *szSep != '\0'; szSep++);
 
 					// Find the end of the value.

@@ -22,7 +22,6 @@
 #include <chrono>
 #include "priv_aamp.h"
 #include "AampConfig.h"
-#include "AampUtils.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
 #include "fragmentcollector_mpd.h"
@@ -34,7 +33,6 @@
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
-#include "MockAampTrackWorker.h"
 
 using ::testing::_;
 using ::testing::SetArgReferee;
@@ -116,14 +114,13 @@ protected:
 				{eAAMPConfig_LocalTSBEnabled, false},
 				{eAAMPConfig_EnableIFrameTrackExtract, false},
 				{eAAMPConfig_useRialtoSink, false},
-				{eAAMPConfig_UseMp4Demux, false},
 		};
 
 		BoolConfigSettings mBoolConfigSettings;
 
 		/** @brief Integer AAMP configuration settings. */
 		const IntConfigSettings mDefaultIntConfigSettings =
-			{
+		{
 				{eAAMPConfig_ABRCacheLength, DEFAULT_ABR_CACHE_LENGTH},
 				{eAAMPConfig_MaxABRNWBufferRampUp, AAMP_HIGH_BUFFER_BEFORE_RAMPUP},
 				{eAAMPConfig_MinABRNWBufferRampDown, AAMP_LOW_BUFFER_BEFORE_RAMPDOWN},
@@ -133,8 +130,8 @@ protected:
 				{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 				{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 				{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
-				{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-				{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}};
+				{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+		};
 
 		IntConfigSettings mIntConfigSettings;
 
@@ -162,8 +159,6 @@ protected:
 
 				g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 
-				g_mockAampTrackWorker = new StrictMock<MockAampTrackWorker>();
-
 				g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
 				mStreamAbstractionAAMP_MPD = nullptr;
@@ -176,51 +171,47 @@ protected:
 
 		void TearDown()
 		{
-			if (mStreamAbstractionAAMP_MPD)
-			{
-				mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
-				delete mStreamAbstractionAAMP_MPD;
-				mStreamAbstractionAAMP_MPD = nullptr;
-			}
+				if (mStreamAbstractionAAMP_MPD)
+				{
+						delete mStreamAbstractionAAMP_MPD;
+						mStreamAbstractionAAMP_MPD = nullptr;
+				}
 
-			delete mPrivateInstanceAAMP;
-			mPrivateInstanceAAMP = nullptr;
+				delete mPrivateInstanceAAMP;
+				mPrivateInstanceAAMP = nullptr;
 
-			delete mCdaiObj;
-			mCdaiObj = nullptr;
+				delete mCdaiObj;
+				mCdaiObj = nullptr;
 
-			delete gpGlobalConfig;
-			gpGlobalConfig = nullptr;
+				delete gpGlobalConfig;
+				gpGlobalConfig = nullptr;
 
-			if (g_mockAampUtils)
-			{
-				delete g_mockAampUtils;
-				g_mockAampUtils = nullptr;
-			}
+				if (g_mockAampUtils)
+				{
+						delete g_mockAampUtils;
+						g_mockAampUtils = nullptr;
+				}
 
-			delete g_mockAampConfig;
-			g_mockAampConfig = nullptr;
+				delete g_mockAampConfig;
+				g_mockAampConfig = nullptr;
 
-			delete g_mockAampGstPlayer;
-			g_mockAampGstPlayer = nullptr;
+				delete g_mockAampGstPlayer;
+				g_mockAampGstPlayer = nullptr;
 
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
+				delete g_mockPrivateInstanceAAMP;
+				g_mockPrivateInstanceAAMP = nullptr;
 
-			delete g_mockMediaStreamContext;
-			g_mockMediaStreamContext = nullptr;
+				delete g_mockMediaStreamContext;
+				g_mockMediaStreamContext = nullptr;
 
-			delete g_mockAampMPDDownloader;
-			g_mockAampMPDDownloader = nullptr;
+				delete g_mockAampMPDDownloader;
+				g_mockAampMPDDownloader = nullptr;
 
-			delete g_mockAampStreamSinkManager;
-			g_mockAampStreamSinkManager = nullptr;
+				delete g_mockAampStreamSinkManager;
+				g_mockAampStreamSinkManager = nullptr;
 
-			delete g_mockAampTrackWorker;
-			g_mockAampTrackWorker = nullptr;
-
-			mManifest = nullptr;
-			mResponse = nullptr;
+				mManifest = nullptr;
+				mResponse = nullptr;
 		}
 
 public:
@@ -264,7 +255,7 @@ public:
 				response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 				response->mMPDDownloadResponse->iHttpRetValue = 200;
 				response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-				response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
+				response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
 				GetMPDFromManifest(response);
 				mResponse = response;
 				return response;
@@ -305,8 +296,6 @@ public:
 								.WillRepeatedly(Return(i.second));
 				}
 
-				/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
-				mPrivateInstanceAAMP->rate = rate;
 				/* Create MPD instance. */
 				mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 				mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -315,7 +304,7 @@ public:
 				mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 				/* Initialize MPD. */
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
 
 				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 						.Times(AnyNumber())
@@ -378,9 +367,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		bool ret = false;
 		/* Initialize MPD. The video initialization segment is cached. */
 		fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-			.Times(2)
-			.WillRepeatedly(Return(true));
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+				.WillOnce(Return(true));
 
 		status = InitializeMPD(manifest, eTUNETYPE_NEW_SEEK, seekPos, 1.0, true);
 		EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -389,25 +377,37 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		EXPECT_NE(track, nullptr);
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 
-        /* Push the first video segment to present.
-         * The segment starts at time 40.0s and has a duration of 2.0s.
-         */
-        fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_") + std::to_string(fragNum) + std::string(".mp4");
-		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _))
-			.WillOnce([pMediaStreamContext]()
-					  {
-						  static constexpr const uint8_t fragmentData[] = "0x0a";
-						  constexpr size_t fragmentDataLen = sizeof(fragmentData) - 1; // Exclude null terminator
-						  pMediaStreamContext->mDownloadedFragment.assign(fragmentData, fragmentData + fragmentDataLen);
-						  return false;
-					  });
-		EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())
-			.Times(1)
-			.WillOnce([pMediaStreamContext]()
-					  { aamp_utils::ClearAndRelease(pMediaStreamContext->mDownloadedFragment); });
+		/* Push the first video segment to present.
+		 * The segment starts at time 40.0s and has a duration of 2.0s.
+		 */
+		fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_") + std::to_string(fragNum) + std::string(".mp4");
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _, _, _))
+				.WillOnce([pMediaStreamContext]() {
+						pMediaStreamContext->mDownloadedFragment.AppendBytes("0x0a", 2);
+						return false;
+				});
 
 		ret = PushNextFragment(eTRACK_VIDEO);
-        EXPECT_EQ(ret, true);
+		EXPECT_EQ(ret, false);
+
+		// Invoke UpdateMPD to mimic a playlist refresh, it will internally call UpdateTrackInfo and reset all variables
+		mStreamAbstractionAAMP_MPD->InvokeUpdateMPD(false);
+
+		// The same fragment should be attempted again
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _, _, _))
+				.WillOnce([pMediaStreamContext]() {
+						pMediaStreamContext->mDownloadedFragment.Free();
+						return true;
+				});
+
+		// This seeks in the current playlist and reaches the lastSegmentTime
+		ret = PushNextFragment(eTRACK_VIDEO);
+		if (seekPos != 0)
+		{
+				// Downloads the segment this time
+				ret = PushNextFragment(eTRACK_VIDEO);
+		}
+		EXPECT_EQ(ret, true);
 }
 
 // Run LinearFOGTests tests at various position values

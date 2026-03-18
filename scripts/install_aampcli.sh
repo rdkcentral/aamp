@@ -19,25 +19,25 @@
 
 function aampcli_install_postbuild_fn()
 {
-    cd "$AAMP_DIR/build" || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
+    cd $AAMP_DIR/build
 
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo ""
-        if [ "$OPTION_DONT_RUN_AAMPCLI" = false ];then
+        if [ $OPTION_DONT_RUN_AAMPCLI = false ];then
             # Launch Xcode
             (open AAMP.xcodeproj) &
         else
             echo "To use Xcode, open aamp/build/AAMP.xcodeproj project file"
-        fi
+        fi      
     fi
 }
 
 function aampcli_install_prebuild_fn()
 {
-    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: ${AAMP_DIR}"; return 1; }
+    cd $AAMP_DIR
 
     # $OPTION_CLEAN == true
-    if [ "${1}" = true ] ; then
+    if [ ${1} == true ] ; then
         echo "aampcli clean"
         if [ -d build ] ; then
             rm -rf build
@@ -56,13 +56,9 @@ function aampcli_install_prebuild_fn()
         mkdir -p build
         touch build/install_manifest.txt
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            # Create directories and mark them as managed by Xcode build system
-            # This allows Xcode's "Clean Build Folder" to delete them properly
             mkdir -p build/Debug
-            xattr -w com.apple.xcode.CreatedByBuildSystem true build/Debug
-            
-            mkdir -p build/XcodeDerivedData
-            xattr -w com.apple.xcode.CreatedByBuildSystem true build/XcodeDerivedData
+            # allow XCode to clean build folder
+            xattr -w com.apple.xcode.CreatedByBuildSystem true build
         fi
     fi
 
@@ -72,7 +68,7 @@ function aampcli_install_prebuild_fn()
     else
         echo "Creating default channel list file ${HOME}/aampcli.csv"
         cp ./OSX/aampcli.csv ${HOME}/aampcli.csv
-    fi
+    fi 
 }
 
 function aampcli_install_build_darwin_fn()
@@ -80,7 +76,7 @@ function aampcli_install_build_darwin_fn()
 
     echo "Build aamp-cli"
 
-    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: $AAMP_DIR"; return 1; }
+    cd $AAMP_DIR
 
 
     # Local built dependencies
@@ -88,29 +84,18 @@ function aampcli_install_build_darwin_fn()
 
     # MacOS using a gstreamer framework
     PKG_CONFIG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${PKG_CONFIG}"
-    if [[ "$ARCH" == "x86_64" ]]; then
+    if [[ $ARCH == "x86_64" ]]; then
         PKG_CONFIG="${PKG_CONFIG}:/usr/local/lib/pkgconfig"
-    elif [[ "$ARCH" == "arm64" ]]; then
+    elif [[ $ARCH == "arm64" ]]; then
         PKG_CONFIG="${PKG_CONFIG}:/opt/homebrew/lib/pkgconfig"
     fi
     # MacOS provides a curl installation, but we'd like a newer version where was it installed?
     PKG_CONFIG_CURL=$(install_pkgs_pkgconfig_darwin_fn curl)
-    if [ -n "${PKG_CONFIG_CURL}" ] ; then
+    if [ ! -z ${PKG_CONFIG_CURL} ] ; then
         PKG_CONFIG="${PKG_CONFIG_CURL}:${PKG_CONFIG}"
     fi
 
-    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DCOVERAGE_ENABLED=${OPTION_COVERAGE} \
-        -DENABLE_AAMP_NET_TRACE=${OPTION_NET_TRACE} \
-        -DUTEST_ENABLED=ON \
-        -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 \
-        -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE \
-        -DCMAKE_XCODE_ATTRIBUTE_SYMROOT="${AAMP_DIR}/build/XcodeDerivedData" \
-        -DCMAKE_XCODE_ATTRIBUTE_OBJROOT="${AAMP_DIR}/build/XcodeDerivedData" \
-        $(if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ]; then echo "-DCMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES=ON"; fi) \
-        ${OPTION_BUILD_ARGS} \
-        -G Xcode ../
+    cd build && PKG_CONFIG_PATH=${PKG_CONFIG}:${PKG_CONFIG_PATH} cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -G Xcode ../
 
     # the cmake Xcode generator can not set this scheme property (Debug -> Options -> Console -> Use Terminal
     patch ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme < ../OSX/patches/aamp-cli.xscheme.patch
@@ -123,7 +108,7 @@ function aampcli_install_build_darwin_fn()
         echo "AAMP Environment FAILED to Install."
         arr_install_status+=("AAMP Environment FAILED to Install.")
     fi
-
+   
     echo "Starting Xcode, open aamp/build/AAMP.xcodeproj project file OR Execute ./aamp-cli or /playbintest <url> binaries"
     echo "Opening AAMP project in Xcode..."
     # Changed "\-bash" as that signifies login shell, running ./install-aamp.sh (as opposed to source install-aamp.sh) and that would not be the case
@@ -134,11 +119,11 @@ function aampcli_install_build_darwin_fn()
         chsh -s /bin/bash
     fi
 
-
+   
     echo "Now Building aamp-cli"
     xcodebuild -scheme aamp-cli  build
 
-    if [ "${OPTION_AAMPCLIKOTLIN_SKIP}" != true ]; then
+    if [ ${OPTION_AAMPCLIKOTLIN_SKIP}=false ]; then
         echo "Making aamp-cli on kotlin..."
         xcodebuild -scheme aampKotlin  build
     fi
@@ -153,25 +138,25 @@ function aampcli_install_build_darwin_fn()
         arr_install_status+=("OSX AAMP Build FAILED")
         return 1
     fi
-
+    
 }
 
 function aampcli_install_build_linux_fn
 {
     echo "Build aamp-cli"
 
-    cd "$AAMP_DIR" || { echo "Failed to change to AAMP_DIR: ${AAMP_DIR}"; return 1; }
+    cd $AAMP_DIR
 
     # Local built dependencies
     PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"
 
-    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DSANITIZER_ENABLED=${OPTION_UBUNTU_SANITIZER} -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DENABLE_AAMP_NET_TRACE=${OPTION_NET_TRACE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ ${OPTION_BUILD_ARGS} $(if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ]; then echo "-DCMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES=ON"; fi) -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
+    PKG_CONFIG_PATH="${PKG_CONFIG}" cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_LIBRARY_PATH="${LOCAL_DEPS_BUILD_DIR}/lib" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCOVERAGE_ENABLED=${OPTION_COVERAGE} -DUTEST_ENABLED=ON -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -S$PWD -B"${AAMP_DIR}/build" -G "Unix Makefiles"
 
    echo "Making aamp-cli..."
-   cd build || { echo "Failed to change to build directory"; return 1; }
+   cd build
    make aamp-cli
 
-    if [ "${OPTION_AAMPCLIKOTLIN_SKIP}" != true ]; then
+    if [ ${OPTION_AAMPCLIKOTLIN_SKIP}=false ]; then
         echo "Making aamp-cli on kotlin..."
         make aampKotlin
     fi

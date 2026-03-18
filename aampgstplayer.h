@@ -91,13 +91,18 @@ class AAMPGstPlayer : public StreamSink
 {
 private:
 	/**
-	 * @fn SendHelper
-	 * @param[in] mediaType stream type
-	 * @param[in] sample media sample. Ownership is transferred
-	 * @param[in] initFragment flag for buffer type (init, data)
-	 * @param[in] discontinuity flag for discontinuity
-	 */
-	bool SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment = false, bool discontinuity = false);
+		 * @fn SendHelper
+		 * @param[in] mediaType stream type
+		 * @param[in] ptr buffer pointer
+		 * @param[in] len length of buffer
+		 * @param[in] fpts PTS of buffer (in sec)
+		 * @param[in] fdts DTS of buffer (in sec)
+		 * @param[in] duration duration of buffer (in sec)
+		 * @param[in] fragmentPTSoffset PTS offset
+		 * @param[in] copy to map or transfer the buffer
+		 * @param[in] initFragment flag for buffer type (init, data)
+		 */
+	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 public:
 	class PrivateInstanceAAMP *aamp;
@@ -107,24 +112,27 @@ public:
 		 * @fn Configure
 		 * @param[in] format video format
 		 * @param[in] audioFormat audio format
+		 * @param[in] auxFormat aux audio format
 		 * @param[in] subFormat subtitle format
 		 * @param[in] bESChangeStatus flag to indicate if the audio type changed in mid stream
+		 * @param[in] forwardAudioToAux if audio buffers to be forwarded to aux pipeline
 		 * @param[in] setReadyAfterPipelineCreation True/False for pipeline is created
 		 */
-	void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false) override;
+	void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false) override;
 	/**
 		 * @fn SendCopy
 		 * @param[in] mediaType stream type
-		 * @param[in] buffer buffer data (moved, zero-copy)
+		 * @param[in] ptr buffer pointer
+		 * @param[in] len length of buffer
 		 * @param[in] fpts PTS of buffer (in sec)
 		 * @param[in] fdts DTS of buffer (in sec)
 		 * @param[in] fDuration duration of buffer (in sec)
 		 */
-	bool SendCopy(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration) override;
+	bool SendCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration) override;
 	/**
 		 * @fn SendTransfer
 		 * @param[in] mediaType stream type
-		 * @param[in] buffer buffer data (moved, zero-copy)
+		 * @param[in] buffer buffer as AampGrowableBuffer pointer
 		 * @param[in] fpts PTS of buffer (in sec)
 		 * @param[in] fdts DTS of buffer (in sec)
 		 * @param[in] fDuration duration of buffer (in sec)
@@ -132,15 +140,7 @@ public:
 		 * @param[in] initFragment flag for buffer type (init, data)
 		 * @param[in] discontinuity flag for discontinuity
 		 */
-	bool SendTransfer(AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
-
-	/**
-	 * @fn SendSample
-	 * @param[in] mediaType stream type
-	 * @param[in] sample media sample
-	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample& sample) override;
-
+	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false) override;
 	/**
 		 * @fn PipelineConfiguredForMedia
 		 * @param[in] type stream type
@@ -424,14 +424,6 @@ public:
 	 * @brief Get the monitor AV interval in milliseconds
 	 */
 	int GetMonitorAVInterval() const { return mMonitorAVInterval; }
-
-	/**
-     * @brief Set stream capabilities based on codec info
-     *
-     * @param[in] type - Media type
-     * @param[in] codecInfo - Codec information
-     */
-	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) override;
 
 private:
 	std::mutex mBufferingLock;

@@ -26,7 +26,6 @@
 #include "AampLogManager.h"
 #include "fragmentcollector_mpd.h"
 #include "MediaStreamContext.h"
-#include "AampMPDUtils.h"
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
@@ -65,7 +64,6 @@ protected:
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
-	uint64_t mLastPlaylistDownloadTimeMs;
 	static constexpr const char *TEST_HOST_URL = "http://host/";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
@@ -105,8 +103,6 @@ protected:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
-		{eAAMPConfig_UseMp4Demux, false},
-		{eAAMPConfig_UTCSyncOnStartup, true},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -123,9 +119,7 @@ protected:
 		{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
-		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK},
-		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
+		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 	};
 
 	IntConfigSettings mIntConfigSettings;
@@ -164,7 +158,6 @@ protected:
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
 		mCdaiObj = nullptr;
-		mLastPlaylistDownloadTimeMs = 0;
 	}
 
 	void TearDown()
@@ -174,7 +167,6 @@ protected:
 
 		if (mStreamAbstractionAAMP_MPD)
 		{
-			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -228,8 +220,8 @@ public:
 		EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
 
 		/* Setup fake AampGrowableBuffer contents. */
-		buffer->clear();
-		buffer->assign(mManifest, mManifest + strlen(mManifest));
+		buffer->Clear();
+		buffer->AppendBytes((char *)mManifest, strlen(mManifest));
 
 		return true;
 	}
@@ -274,8 +266,7 @@ public:
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
-		response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
-		response->mLastPlaylistDownloadTimeMs = mLastPlaylistDownloadTimeMs;
+		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
@@ -310,8 +301,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		response->mMPDDownloadResponse->iHttpRetValue = curlTimeoutFailureReason;
-		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
-		response->mMPDDownloadResponse->mDownloadData.assign(test_manifest, test_manifest + strlen(test_manifest));
+		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;		
+		response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)test_manifest, (uint8_t*)(test_manifest + strlen(test_manifest)));
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
@@ -353,9 +344,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 					.WillRepeatedly(Return(i.second));
 			}
 		}
-
-		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
-		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -364,7 +352,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		mPrivateInstanceAAMP->SetManifestUrl(mManifestUrl.c_str());
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING, true));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
@@ -401,7 +389,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 		double fragmentDuration = ComputeFragmentDuration(12, 12); (void)fragmentDuration;
-		pMediaStreamContext->mediaType = static_cast<AampMediaType>(trackType);
+		pMediaStreamContext->mediaType = eMEDIATYPE_VIDEO;
 
 		SegmentTemplate *segmentTemplate = new SegmentTemplate();
 		const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent(); (void)failoverContent;
@@ -416,11 +404,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		delete mMPDParseHelper;
 
 		mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
-	}
-
-	void SetLastPlaylistDownloadTimeMs(uint64_t timeMs)
-	{
-		mLastPlaylistDownloadTimeMs = timeMs;
 	}
 };
 
@@ -464,7 +447,6 @@ protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
-
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 											double seekpos, float rate)
@@ -472,19 +454,16 @@ protected:
 		{
 		}
 
-		void SetMPDParseHelper( AampMPDParseHelperPtr mpdParseHelperPtr )
-		{
-			this->mMPDParseHelper = mpdParseHelperPtr;
-		}
-
 		void CallPrintSelectedTrack(const std::string &trackIndex, AampMediaType media)
 		{
 			printSelectedTrack(trackIndex, media);
 		}
 
-		void CallAdvanceTrack(int trackIdx, bool trickPlay, double &delta)
+		void CallAdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState)
 		{
-			AdvanceTrack(trackIdx, trickPlay, delta);
+					bool throttleAudioDownload = false;
+					bool isDiscontinuity = false;
+					AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity );
 		}
 
 		void CallFetcherLoop()
@@ -525,7 +504,7 @@ protected:
 
 		bool CallFindServerUTCTime(Node *root)
 		{
-			return mTimeSyncClient.FindServerUTCTime(aamp, root);
+			return FindServerUTCTime(root);
 		}
 		AAMPStatusType CallFetchDashManifest()
 		{
@@ -554,6 +533,10 @@ protected:
 		void CallProcessStreamRestrictionList(Node *node, const std::string &AdID, uint64_t startMS, bool isInit, bool reportBulkMeta = false)
 		{
 			ProcessStreamRestrictionList(node, AdID, startMS, isInit, reportBulkMeta);
+		}
+		void CallTrackDownloader(int trackIdx, std::string initialization)
+		{
+			TrackDownloader(trackIdx, initialization);
 		}
 
 		void CallFetchAndInjectInitFragments(bool discontinuity = false)
@@ -717,16 +700,15 @@ protected:
 		// Set up your objects before each test case
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
 
-		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
-		mStreamAbstractionAAMP_MPD->SetMPDParseHelper( std::make_shared<AampMPDParseHelper>() );
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
+
+		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampUtils = new StrictMock<MockAampUtils>();
 		g_mockABRManager = new NiceMock<MockABRManager>();
+
 	}
 
 	void TearDown() override
@@ -735,7 +717,6 @@ protected:
 		delete g_mockTSBSessionManager;
 		g_mockTSBSessionManager = nullptr;
 
-		mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -756,9 +737,6 @@ protected:
 
 		delete g_mockABRManager;
 		g_mockABRManager = nullptr;
-
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
 	}
 };
 
@@ -854,17 +832,18 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
 	/* Push the first video segment to present. The segment time identifier ("$Time$") is zero. The
 	 * segment starts at time 0.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_0.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -874,7 +853,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * starts at time 2.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_5000.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -909,7 +888,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -921,7 +900,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_0.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -931,7 +910,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * starts at time 2.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_5000.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -980,14 +959,13 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - availabilityStartTime;
 	timeMS = 1000LL*((long long)currentTime);
-	SetLastPlaylistDownloadTimeMs(timeMS);
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(timeMS));
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest); (void)status;
@@ -1005,7 +983,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Push the first video segment to present. */
 	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1014,7 +992,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentNumber++;
 	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1097,7 +1075,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
@@ -1128,8 +1106,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	*/
 	StreamOutputFormat primaryOutputFormat = FORMAT_ISO_BMFF;
 	StreamOutputFormat audioOutputFormat = FORMAT_ISO_BMFF;
+	StreamOutputFormat auxAudioOutputFormat = FORMAT_ISO_BMFF;
 	StreamOutputFormat subtitleOutputFormat = FORMAT_INVALID;
-	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
 	mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
@@ -1184,7 +1163,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Push the first video segment to present. */
 	(void)snprintf(url, sizeof(url), "%svideo_p1_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1193,7 +1172,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentNumber++;
 	(void)snprintf(url, sizeof(url), "%svideo_p1_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1227,7 +1206,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
@@ -1287,11 +1266,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The initialization segments are cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp8/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vorbis/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -1300,14 +1279,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first video segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp8/video_1.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
 
 	/* Push the first audio segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vorbis/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_AUDIO);
@@ -1350,11 +1329,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The initialization segments are cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp9/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -1363,14 +1342,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first video segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp9/video_1.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
 
 	/* Push the first audio segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_AUDIO);
@@ -1435,11 +1414,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * Opus.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -1448,14 +1427,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first video segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_1.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
 
 	/* Push the first audio segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_AUDIO);
@@ -1513,7 +1492,7 @@ R"(<?xml version="1.0"?>
 
 	/* Initialize MPD. The first video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -1562,7 +1541,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest);
@@ -1589,8 +1568,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
 			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
 				<SegmentTemplate timescale="2500" media="video_$Number$.mp4" initialization="video_init.mp4">
-					<SegmentTimeline>
-						<S d="5000" r="29" />
+				 	<SegmentTimeline>
+					 	<S d="5000" r="29" />
 					 </SegmentTimeline>
 				</SegmentTemplate>
 			</Representation>
@@ -1601,7 +1580,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -1662,7 +1641,7 @@ R"(<?xml version="1.0"?>
 
 	/* Initialize MPD. The first video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -1722,7 +1701,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// Initialize MPD. The video initialization segment is cached.
 	std::string expectedCData = R"({"version":1,"identifiers":[{"scheme":"urn:smpte:ul:060E2B34.01040101.01200900.00000000","value":"5493003","ad_position":"_PT0S_0","ad_type":"avail","tracking_uri":"../../../../../../../../../../tracking/99247e89c7677df85a85aabdd3256ffe02a60196/example-dash-vod-2s-generic/f38d0147-7bee-480f-83a7-fec49fda39b9","custom_vast_data":null}]})";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1778,7 +1757,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * segment is cached.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
@@ -1788,7 +1767,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Push the first video segment to present. */
 	(void)snprintf(url, sizeof(url), "%sdash/iframe_%03d.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1809,7 +1788,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	(void)snprintf(url, sizeof(url), "%sdash/iframe_%03d.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1908,7 +1887,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD with seek position and play rate. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
@@ -1922,7 +1901,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		char number[50];
 		(void)snprintf(number, sizeof(number), "dash/iframe_%d.m4s", trickplay_time_tbl[idx].expected_seg_time[j]);
 		fragmentUrl = std::string(TEST_BASE_URL) + std::string(number);
-		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
 			.WillOnce(Return(true));
 	}
 
@@ -1995,11 +1974,13 @@ TEST_F(FunctionalTests_1, GetStreamFormatTest)
 	// Create variables to store the output formats
 	StreamOutputFormat primaryFormat;
 	StreamOutputFormat audioFormat;
+	StreamOutputFormat auxFormat;
 	StreamOutputFormat subtitleFormat;
 	// Call the GetStreamFormat function
-	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
+	_instanceStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, auxFormat, subtitleFormat);
 	EXPECT_EQ(FORMAT_INVALID, primaryFormat);
 	EXPECT_EQ(FORMAT_INVALID, audioFormat);
+	EXPECT_EQ(FORMAT_INVALID, auxFormat);
 	EXPECT_EQ(FORMAT_INVALID, subtitleFormat);
 }
 
@@ -2605,7 +2586,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// Initialize MPD. The video initialization segment is cached.
 	std::string expectedCData = R"({"version":1,"identifiers":[{"scheme":"urn:smpte:ul:060E2B34.01040101.01200900.00000000","value":"5493003","ad_position":"_PT0S_0","ad_type":"avail","tracking_uri":"../../../../../../../../../../tracking/99247e89c7677df85a85aabdd3256ffe02a60196/example-dash-vod-2s-generic/f38d0147-7bee-480f-83a7-fec49fda39b9","custom_vast_data":null}]})";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest);
@@ -2647,7 +2628,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 	// Initialize MPD. The video initialization segment is cached.
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest);
@@ -2686,7 +2667,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 	// Initialize MPD. The video initialization segment is cached.
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest);
@@ -2723,7 +2704,7 @@ TEST_F(FunctionalTests, ChunkMode_NonLLD)
 )";
 	float seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
@@ -2785,7 +2766,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	//For this test case we need EnableLowLatencyDash as true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
@@ -2853,7 +2834,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
@@ -2898,7 +2879,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 			<SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
 			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
 		</AdaptationSet>
-		<AdaptationSet id="2" group="4" contentType="image" par="16:9" width="1600" height="900" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
+	 	<AdaptationSet id="2" group="4" contentType="image" par="16:9" width="1600" height="900" sar="1:1" mimeType="image/jpeg" codecs="jpeg">
 			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
 			<SegmentTemplate startNumber="1" timescale="24000" duration="6006000" media="out-$RepresentationID$-n-$Number$.jpg"></SegmentTemplate>
 			<Representation id="img=7000" bandwidth="7000">
@@ -2909,7 +2890,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 	.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest); (void)status;
@@ -2948,7 +2929,7 @@ TEST_F(FunctionalTests, SetThumbnailTrack)
 	</MPD>
 	)";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 	.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest); (void)status;
@@ -2985,7 +2966,7 @@ TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
 	</MPD>
 	)";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 	.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest); (void)status;
@@ -3005,7 +2986,7 @@ TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
 
 TEST_F(FunctionalTests, FindServerUTCTimeTest)
 {
-	// Manifest with UTCTiming
+	// Manifest with UTCTiming 
 	static const char *manifest =
 	R"(<?xml version="1.0" encoding="utf-8"?>
 	<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -3030,7 +3011,7 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 	.Times(AnyNumber())
 	.WillRepeatedly(Return(timeMS));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 	.WillRepeatedly(Return(true));
 	// Verify that the parameters from the manifest URL are not added to the time request URL
 	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime("http://host/timing", _, _)).WillOnce(Return(currentTime));
@@ -3038,316 +3019,6 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 
 	AAMPStatusType status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-}
-
-/**
- * @brief Test UTC sync on first call (startup behavior)
- *
- * Verifies that FindServerUTCTime performs network sync on the first call
- * when UTCSyncOnStartup is enabled and no previous sync has occurred.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
-{
-	// Setup mock config for startup sync enabled
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
-		.WillRepeatedly(Return(DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC));
-
-	// Setup time mocks
-	const long long startTimeMS = 1000000000LL; // Arbitrary start time
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillRepeatedly(Return(startTimeMS));
-
-	// Expect network call on first sync
-	const double serverTime = 1000000.5; // Server UTC time
-	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
-		.WillOnce(Return(serverTime));
-
-	// Create manifest XML with UTCTiming
-	const char *manifestXml =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
-			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
-		</MPD>)";
-
-	// Parse manifest to get root node
-	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
-	ASSERT_NE(reader, nullptr);
-	ASSERT_TRUE(xmlTextReaderRead(reader));
-
-	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
-	ASSERT_NE(rootNode, nullptr);
-
-	// Call FindServerUTCTime - should perform network sync
-	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-
-	// Verify sync occurred
-	EXPECT_TRUE(result);
-	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
-	// cascading mock expectation mismatches from subsequent calls. The resulting
-	// rootNode/reader leak is benign since the test process exits shortly after.
-	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
-	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
-	// Cleanup
-	delete rootNode;
-	xmlFreeTextReader(reader);
-}
-
-/**
- * @brief Test UTC sync is skipped when minimum interval hasn't elapsed
- *
- * Verifies that FindServerUTCTime skips network sync when called again
- * before the minimum interval has elapsed, and uses cached offset instead.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
-{
-	// Setup mock config
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
-		.WillRepeatedly(Return(true));
-	const int minIntervalSec = 60; // 60 seconds minimum interval
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
-		.WillRepeatedly(Return(minIntervalSec));
-
-	// Setup time progression
-	const long long startTimeMS = 1000000000LL;
-	const long long secondCallTimeMS = startTimeMS + 30000LL; // 30 seconds later (less than interval)
-
-	// Mock time calls in sequence
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		//1st call to CallFindServerUTCTime
-		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
-		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
-		//2nd call to CallFindServerUTCTime
-		.WillOnce(Return(secondCallTimeMS)); // long long currentTimeMS = aamp_GetCurrentTimeMS();
-
-	// Expect network call only on first sync
-	const double serverTime = 1000000.5;
-	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
-		.WillOnce(Return(serverTime)); // First call only
-
-	// Create manifest XML
-	const char *manifestXml =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
-			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
-		</MPD>)";
-
-	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
-	ASSERT_NE(reader, nullptr);
-	ASSERT_TRUE(xmlTextReaderRead(reader));
-
-	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
-	ASSERT_NE(rootNode, nullptr);
-
-	// 1st call - should get server time from network
-	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_TRUE(result1);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
-
-	// Second call before interval - should use cached value, not sync
-	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
-	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_TRUE(result2); // Should still return true using cached offset
-	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
-	// cascading mock expectation mismatches from subsequent calls. The resulting
-	// rootNode/reader leak is benign since the test process exits shortly after.
-	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
-	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+30, 0.001);
-	// Cleanup
-	delete rootNode;
-	xmlFreeTextReader(reader);
-}
-
-/**
- * @brief Test UTC sync occurs when minimum interval has elapsed
- *
- * Verifies that FindServerUTCTime performs a new network sync when called
- * after the minimum interval has elapsed since the last sync.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
-{
-	// Setup mock config
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
-		.WillRepeatedly(Return(true));
-	const int minIntervalSec = 60; // 60 seconds minimum interval
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
-		.WillRepeatedly(Return(minIntervalSec));
-
-	// Setup time progression
-	const long long startTimeMS = 1000000000LL;
-	const long long secondCallTimeMS = startTimeMS + 61000LL; // 61 seconds later (more than interval)
-
-	// Mock time calls in sequence
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		//1st call to CallFindServerUTCTime
-		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
-		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
-		//2nd call to CallFindServerUTCTime
-		.WillOnce(Return(secondCallTimeMS)) // long long currentTimeMS = aamp_GetCurrentTimeMS();
-		.WillOnce(Return(secondCallTimeMS));       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
-
-	// Expect network call on both syncs
-	const double serverTime1 = 1000000.5;
-	const double serverTime2 = 1000061.5;
-	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
-		.WillOnce(Return(serverTime1)) // First sync
-		.WillOnce(Return(serverTime2)); // Second sync after interval
-
-	// Create manifest XML
-	const char *manifestXml =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
-			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
-		</MPD>)";
-
-	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
-	ASSERT_NE(reader, nullptr);
-	ASSERT_TRUE(xmlTextReaderRead(reader));
-
-	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
-	ASSERT_NE(rootNode, nullptr);
-
-	// 1st call - should get server time from network
-	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_TRUE(result1);
-	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
-	// cascading mock expectation mismatches from subsequent calls. The resulting
-	// rootNode/reader leak is benign since the test process exits shortly after.
-	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
-	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime1, 0.001);
-
-	// Second call after interval - should get server time from network again
-	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_TRUE(result2);
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime2, 0.001);
-	// Cleanup
-	delete rootNode;
-	xmlFreeTextReader(reader);
-}
-
-/**
- * @brief Test UTC sync with cached offset when sync is skipped
- *
- * Verifies that when sync is skipped due to interval not elapsed,
- * the cached offset value is used and the function still returns true.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
-{
-	// Setup mock config - startup sync disabled after first sync
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
-		.WillRepeatedly(Return(true));
-	const int minIntervalSec = 300; // 5 minutes
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
-		.WillRepeatedly(Return(minIntervalSec));
-
-	// Setup time - second call is well before interval
-	const long long startTimeMS = 1000000000LL;
-	const long long secondCallTimeMS = startTimeMS + 10000LL; // 10 seconds later
-
-	// Mock time calls in sequence
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		//1st call to CallFindServerUTCTime
-		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
-		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
-		//2nd call to CallFindServerUTCTime
-		.WillOnce(Return(secondCallTimeMS)); // long long currentTimeMS = aamp_GetCurrentTimeMS();
-
-
-	// Only first call should trigger network sync
-	const double serverTime = 1000000.5;
-	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
-		.WillOnce(Return(serverTime));
-
-	// Create manifest XML
-	const char *manifestXml =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
-			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
-		</MPD>)";
-
-	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
-	ASSERT_NE(reader, nullptr);
-	ASSERT_TRUE(xmlTextReaderRead(reader));
-
-	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
-	ASSERT_NE(rootNode, nullptr);
-
-	// 1st call - should get server time from network
-	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_TRUE(result1);
-	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
-	// cascading mock expectation mismatches from subsequent calls. The resulting
-	// rootNode/reader leak is benign since the test process exits shortly after.
-	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
-	// make cleanup unconditional and remove this concern.
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
-
-	// Second call - uses cached offset, still returns true
-	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_TRUE(result2);
-	//2nd call happens 10Sec later
-	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+10, 0.001);
-	// Cleanup
-	delete rootNode;
-	xmlFreeTextReader(reader);
-}
-
-/**
- * @brief Test UTC sync behavior with UTCSyncOnStartup disabled
- *
- * Verifies that when UTCSyncOnStartup is disabled and no previous sync
- * has occurred, the function does not perform sync and returns false.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisabled)
-{
-	// When the test starts, there is no expectation added for aamp_GetCurrentTimeMS
-	// and hence mTimeSyncClient.lastSync is set to 0. Now when the test executes,
-	// it tries to check if the time since last sync is greater than min interval.
-	// Since lastSync is 0, it results in a large value which is greater than
-	// min interval and hence it tries to perform a network sync. But since
-	// UTCSyncOnStartup is disabled, no network call is expected. This results
-	// in test failure. Skip for now.
-	GTEST_SKIP(); // Temporarily skip this test
-
-	// Setup mock config - startup sync disabled
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UTCSyncOnStartup))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UTCSyncMinIntervalSec))
-		.WillRepeatedly(Return(DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC));
-
-	const long long startTimeMS = 1000000000LL;
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillRepeatedly(Return(startTimeMS));
-
-	// No network call should occur
-	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
-		.Times(0);
-
-	// Create manifest XML
-	const char *manifestXml =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-		<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
-			<UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="http://time.server/utc"/>
-		</MPD>)";
-
-	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
-	ASSERT_NE(reader, nullptr);
-	ASSERT_TRUE(xmlTextReaderRead(reader));
-
-	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
-	ASSERT_NE(rootNode, nullptr);
-
-	// Call should not sync and return false (no sync occurred)
-	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	EXPECT_FALSE(result);
-
-	// Cleanup
-	delete rootNode;
-	xmlFreeTextReader(reader);
 }
 
 TEST_F(FunctionalTests, GetFirstPTS)
@@ -3374,7 +3045,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	g_mockAampUtils = new NiceMock<MockAampUtils>();
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 	.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -3453,7 +3124,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	/* Set the eAAMPConfig_useRialtoSink flag to true */
 	mBoolConfigSettings[eAAMPConfig_useRialtoSink] = true;
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(2, _))
@@ -3583,39 +3254,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	EXPECT_FLOAT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), livePlayPosition);
 }
 
-/*
- * @brief Test to verify Stop() calls NotifyVideoTsbWaiters() when TSB reader thread is active
-*/
-TEST_F(StreamAbstractionAAMP_MPDTest, Stop_NotifiesVideoTsbWaiters)
-{
-	double livePlayPosition = 123.456;
-	std::unique_ptr<AampTSBSessionManager> tsbSessionManager = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
-	std::shared_ptr<AampTsbDataManager> dataMgr;
-	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
-
-	// Setup InitTsbReader to start the TSB reader thread
-	mPrivateInstanceAAMP->rate = 2;
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition()).WillOnce(Return(livePlayPosition));
-	// For InitTsbReader, Stop and other calls
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(tsbSessionManager.get()));
-	EXPECT_CALL(*g_mockTSBSessionManager, InvokeTsbReaders(livePlayPosition, 2, eTUNETYPE_SEEKTOLIVE))
-		.WillOnce(Return(eAAMPSTATUS_OK));
-	// Handle GetTsbReader for all media types - return nullptr by default, then override for VIDEO
-	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
-
-	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
-
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillOnce(Return(true));
-	// Start the TSB reader thread	
-	mStreamAbstractionAAMP_MPD->Start();
-	EXPECT_CALL(*g_mockTSBSessionManager, NotifyVideoTsbWaiters()).Times(1);
-
-	// Execute Stop() - this should trigger NotifyVideoTsbWaiters for the TSB reader thread
-	mStreamAbstractionAAMP_MPD->Stop(false);
-}
-
 TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 {
 	// Set up test parameters for start event
@@ -3639,14 +3277,14 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 
 	// Test START event
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate, _))
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate))
 		.Times(1);
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
 		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate);
 
 	// Test END event
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate, _))
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate))
 		.Times(1);
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
 		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate);
@@ -3680,7 +3318,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 			.Times(1);
 	}
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate, _))
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate))
 		.Times(1);
 
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
@@ -3689,13 +3327,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 	// Test END event
 	{
 		testing::InSequence seq;
-		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition, _))
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition))
 			.WillOnce(Return(true));
 		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
 			.Times(0);
 	}
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate, _))
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate))
 		.Times(1);
 
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
@@ -3722,7 +3360,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 		.WillRepeatedly(Return(true));
 
 	// No SendAdReservationEvent calls expected due to local injection
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_,_))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_))
 		.Times(0);
 
 	// Test START event
@@ -3739,7 +3377,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 	// Test END event
 	{
 		testing::InSequence seq;
-		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition, _))
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition))
 			.WillOnce(Return(true));
 		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
 			.Times(0);
@@ -4018,7 +3656,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	</Period>
 </MPD>
 )";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, false);
@@ -4066,7 +3704,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
@@ -4155,831 +3793,606 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_ConnectTimeout_WithManif
 	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
 }
 
-/**
- * @brief Test GetFirstValidCurrMPDPeriod with first period having content.
- *
- * Scenario: Initial manifest refresh where first period is not empty.
- * Expected: First period should be returned as valid period.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod)
-{
-	// Create period info with first period having content
-	std::vector<PeriodInfo> periodDetails;
-
-	PeriodInfo period1;
-	period1.periodId = "period1";
-	period1.duration = 60000; // 60 seconds in milliseconds
-	period1.startTime = 0;
-	period1.timeScale = 1000;
-	period1.periodIndex = 0;
-	period1.periodStartTime = 0.0;
-	period1.periodEndTime = 60.0;
-	period1.isEmptyPeriod = false;
-
-	PeriodInfo period2;
-	period2.periodId = "period2";
-	period2.duration = 60000;
-	period2.startTime = 60000;
-	period2.timeScale = 1000;
-	period2.periodIndex = 1;
-	period2.periodStartTime = 60.0;
-	period2.periodEndTime = 120.0;
-	period2.isEmptyPeriod = false;
-
-	periodDetails.push_back(period1);
-	periodDetails.push_back(period2);
-
-	// Test GetFirstValidCurrMPDPeriod
-	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-
-	// Verify that the first period is returned
-	EXPECT_EQ(validPeriod.periodId, "period1");
-	EXPECT_EQ(validPeriod.duration, 60000);
-	EXPECT_FALSE(validPeriod.isEmptyPeriod);
-}
-
-/**
- * @brief Test GetFirstValidCurrMPDPeriod with empty first period.
- *
- * Scenario: Manifest refresh where first period becomes empty (SCTE35 ad period).
- * Expected: Second non-empty period should be returned as valid period.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
-{
-	// Create period info with first period being empty
-	std::vector<PeriodInfo> periodDetails;
-
-	PeriodInfo emptyPeriod;
-	emptyPeriod.periodId = "ad-period";
-	emptyPeriod.duration = 30000; // 30 seconds
-	emptyPeriod.startTime = 0;
-	emptyPeriod.timeScale = 1000;
-	emptyPeriod.periodIndex = 0;
-	emptyPeriod.periodStartTime = 0.0;
-	emptyPeriod.periodEndTime = 30.0;
-	emptyPeriod.isEmptyPeriod = true; // Empty period (SCTE35)
-
-	PeriodInfo contentPeriod;
-	contentPeriod.periodId = "content-period";
-	contentPeriod.duration = 60000;
-	contentPeriod.startTime = 30000;
-	contentPeriod.timeScale = 1000;
-	contentPeriod.periodIndex = 1;
-	contentPeriod.periodStartTime = 30.0;
-	contentPeriod.periodEndTime = 90.0;
-	contentPeriod.isEmptyPeriod = false; // Valid content period
-
-	periodDetails.push_back(emptyPeriod);
-	periodDetails.push_back(contentPeriod);
-
-	// Test GetFirstValidCurrMPDPeriod
-	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-
-	// Verify that the second period (first non-empty) is returned
-	EXPECT_EQ(validPeriod.periodId, "content-period");
-	EXPECT_EQ(validPeriod.duration, 60000);
-	EXPECT_FALSE(validPeriod.isEmptyPeriod);
-}
-
-/**
- * @brief Test with multiple empty periods at the start.
- *
- * Scenario: Multiple empty periods (ads) followed by content.
- * Expected: First content period should be returned.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriods)
-{
-	std::vector<PeriodInfo> periodDetails;
-
-	// Add multiple empty periods
-	for (int i = 0; i < 3; i++)
-	{
-		PeriodInfo emptyPeriod;
-		emptyPeriod.periodId = "ad-period-" + std::to_string(i);
-		emptyPeriod.duration = 15000; // 15 seconds each
-		emptyPeriod.startTime = i * 15000;
-		emptyPeriod.timeScale = 1000;
-		emptyPeriod.periodIndex = i;
-		emptyPeriod.periodStartTime = i * 15.0;
-		emptyPeriod.periodEndTime = (i + 1) * 15.0;
-		emptyPeriod.isEmptyPeriod = true;
-		periodDetails.push_back(emptyPeriod);
-	}
-
-	// Add content period
-	PeriodInfo contentPeriod;
-	contentPeriod.periodId = "content-period";
-	contentPeriod.duration = 60000;
-	contentPeriod.startTime = 45000;
-	contentPeriod.timeScale = 1000;
-	contentPeriod.periodIndex = 3;
-	contentPeriod.periodStartTime = 45.0;
-	contentPeriod.periodEndTime = 105.0;
-	contentPeriod.isEmptyPeriod = false;
-
-	periodDetails.push_back(contentPeriod);
-
-	// Test GetFirstValidCurrMPDPeriod
-	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-
-	// Verify that the content period is returned, skipping all empty periods
-	EXPECT_EQ(validPeriod.periodId, "content-period");
-	EXPECT_EQ(validPeriod.duration, 60000);
-	EXPECT_FALSE(validPeriod.isEmptyPeriod);
-}
-
-/**
- * @brief Test with zero duration period.
- *
- * Scenario: Period with zero duration should be skipped even if not marked as empty.
- * Expected: Period with non-zero duration should be returned.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
-{
-	std::vector<PeriodInfo> periodDetails;
-
-	PeriodInfo zeroDurationPeriod;
-	zeroDurationPeriod.periodId = "zero-duration";
-	zeroDurationPeriod.duration = 0; // Zero duration
-	zeroDurationPeriod.startTime = 0;
-	zeroDurationPeriod.timeScale = 1000;
-	zeroDurationPeriod.periodIndex = 0;
-	zeroDurationPeriod.periodStartTime = 0.0;
-	zeroDurationPeriod.periodEndTime = 0.0;
-	zeroDurationPeriod.isEmptyPeriod = false;
-
-	PeriodInfo validPeriod1;
-	validPeriod1.periodId = "valid-period";
-	validPeriod1.duration = 60000;
-	validPeriod1.startTime = 0;
-	validPeriod1.timeScale = 1000;
-	validPeriod1.periodIndex = 1;
-	validPeriod1.periodStartTime = 0.0;
-	validPeriod1.periodEndTime = 60.0;
-	validPeriod1.isEmptyPeriod = false;
-
-	periodDetails.push_back(zeroDurationPeriod);
-	periodDetails.push_back(validPeriod1);
-
-	// Test GetFirstValidCurrMPDPeriod
-	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-
-	// Verify that the period with valid duration is returned
-	EXPECT_EQ(validPeriod.periodId, "valid-period");
-	EXPECT_EQ(validPeriod.duration, 60000);
-}
-
-/**
- * @brief Test GetFirstValidCurrMPDPeriod with all empty periods.
- *
- * Scenario: Edge case where all periods are empty.
- * Expected: Should return the first period even if empty (fallback behavior).
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
-{
-	std::vector<PeriodInfo> periodDetails;
-
-	// Add multiple empty periods
-	for (int i = 0; i < 3; i++)
-	{
-		PeriodInfo emptyPeriod;
-		emptyPeriod.periodId = "empty-period-" + std::to_string(i);
-		emptyPeriod.duration = 15000;
-		emptyPeriod.startTime = i * 15000;
-		emptyPeriod.timeScale = 1000;
-		emptyPeriod.periodIndex = i;
-		emptyPeriod.periodStartTime = i * 15.0;
-		emptyPeriod.periodEndTime = (i + 1) * 15.0;
-		emptyPeriod.isEmptyPeriod = true;
-		periodDetails.push_back(emptyPeriod);
-	}
-
-	// Test GetFirstValidCurrMPDPeriod
-	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-
-	// With all periods empty, it should return the first one as fallback
-	EXPECT_EQ(validPeriod.periodId, "empty-period-0");
-}
-
-/**
- * @brief Test GetFirstValidCurrMPDPeriod with empty vector.
- *
- * Scenario: Edge case with no periods.
- * Expected: Should return default initialized period.
- */
-TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyVector)
-{
-	std::vector<PeriodInfo> periodDetails; // Empty vector
-
-	// Test GetFirstValidCurrMPDPeriod
-	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-
-	// With empty vector, should return default initialized period
-	EXPECT_EQ(validPeriod.periodId, "");
-	EXPECT_EQ(validPeriod.periodIndex, -1);
-}
-
 // Test case to verify seeking behavior with VOD content, with start time, without duration and PTO greater than timeline
 TEST_F(FunctionalTests, L1_VOD_WithStartTime_NoDuration_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
-	 xmlns:cenc="urn:mpeg:cenc:2013"
-	 type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT10M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" start="PT0S">
-		<AdaptationSet id="3" contentType="video" group="2" par="16:9" minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080" segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
-			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
-			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
-			<SegmentTemplate initialization="out-$RepresentationID$.dash" timescale="60000" presentationTimeOffset="37325280" media="out-$RepresentationID$-$Time$.dash" startNumber="1">
-				<SegmentTimeline>
-					<S t="37237200" d="88088" />
-					<S t="37325288" d="32032" />
-					<S t="37357320" d="120120" r="320" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
-		</AdaptationSet>
-	</Period>
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT10M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9" minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080" segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash" timescale="60000" presentationTimeOffset="37325280" media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	// Enable mid-fragment seek
+    // Enable mid-fragment seek
 	mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
-	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
-	double seekPosition = 0.0;
-	int rate = 1;
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	// After seek to 0, stream position should be 0
+    // After seek to 0, stream position should be 0
 	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
 	cout<<"Actual Position: "<<actualPosition<<endl;
-	EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
 }
 
 // Test case to verify seeking behavior with live stream, with start times, without durations and PTO greater than timeline
 TEST_F(FunctionalTests, L1_Live_WithStartTimes_NoDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
-	 xmlns:cenc="urn:mpeg:cenc:2013"
-	 type="dynamic"
-	 availabilityStartTime="2023-01-01T00:00:00Z"
-	 minBufferTime="PT1.5S"
-	 timeShiftBufferDepth="PT5M"
-	 suggestedPresentationDelay="PT10S"
-	 mediaPresentationDuration="PT10M0S"
-	 profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" start="PT0S">
-		<AdaptationSet id="3" contentType="video" group="2" par="16:9"
-			minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080"
-			segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
-			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
-			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
-			<SegmentTemplate initialization="out-$RepresentationID$.dash"
-				timescale="60000" presentationTimeOffset="37325280"
-				media="out-$RepresentationID$-$Time$.dash" startNumber="1">
-				<SegmentTimeline>
-					<S t="37237200" d="88088" />
-					<S t="37325288" d="32032" />
-					<S t="37357320" d="120120" r="320" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
-		</AdaptationSet>
-	</Period>
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="dynamic"
+     availabilityStartTime="2023-01-01T00:00:00Z"
+     minBufferTime="PT1.5S"
+     timeShiftBufferDepth="PT5M"
+     suggestedPresentationDelay="PT10S"
+     mediaPresentationDuration="PT10M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" start="PT0S">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9"
+            minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080"
+            segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash"
+                timescale="60000" presentationTimeOffset="37325280"
+                media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
 
-	// Enable mid-fragment seek
-	mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+    // Enable mid-fragment seek
+    mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
-	std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
-	double seekPosition = 0.0;
-	int rate = 1;
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 	double expectedPosition = 1.6725312e+09;//AvailabilityStartTime as it is a liveStream
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	EXPECT_NEAR(actualPosition, expectedPosition, 0.001);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_NEAR(actualPosition, expectedPosition, 0.001);
 }
 
 // Test case to verify seeking behavior with VOD period, with out duration, with out start and PTO greater than timeline
 TEST_F(FunctionalTests, L1_VOD_Period_NoDuration_NoStart_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
-	 xmlns:cenc="urn:mpeg:cenc:2013"
-	 type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT10M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0">
-		<AdaptationSet id="3" contentType="video" group="2" par="16:9" minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080" segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
-			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
-			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
-			<SegmentTemplate initialization="out-$RepresentationID$.dash" timescale="60000" presentationTimeOffset="37325280" media="out-$RepresentationID$-$Time$.dash" startNumber="1">
-				<SegmentTimeline>
-					<S t="37237200" d="88088" />
-					<S t="37325288" d="32032" />
-					<S t="37357320" d="120120" r="320" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
-		</AdaptationSet>
-	</Period>
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT10M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9" minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080" segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash" timescale="60000" presentationTimeOffset="37325280" media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	// Enable mid-fragment seek
-	mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+    // Enable mid-fragment seek
+    mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
-	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("out-v1.dash");
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
-	double seekPosition = 0.0;
-	int rate = 1;
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	// After seek to 0, stream position should be 0
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	cout<<"Actual Position: "<<actualPosition<<endl;
-	EXPECT_NEAR(actualPosition, seekPosition, 0.001);
+    // After seek to 0, stream position should be 0
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    cout<<"Actual Position: "<<actualPosition<<endl;
+    EXPECT_NEAR(actualPosition, seekPosition, 0.001);
 }
 
 // Test case to verify seeking behavior with live period, with PTO greater than timeline
 TEST_F(FunctionalTests, L1_LivePeriod_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
-	 xmlns:cenc="urn:mpeg:cenc:2013"
-	 type="dynamic"
-	 availabilityStartTime="2023-01-01T00:00:00Z"
-	 minBufferTime="PT1.5S"
-	 timeShiftBufferDepth="PT5M"
-	 suggestedPresentationDelay="PT10S"
-	 mediaPresentationDuration="PT10M0S"
-	 profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0">
-		<AdaptationSet id="3" contentType="video" group="2" par="16:9"
-			minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080"
-			segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
-			<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
-			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
-			<SegmentTemplate initialization="out-$RepresentationID$.dash"
-				timescale="60000" presentationTimeOffset="37325280"
-				media="out-$RepresentationID$-$Time$.dash" startNumber="1">
-				<SegmentTimeline>
-					<S t="37237200" d="88088" />
-					<S t="37325288" d="32032" />
-					<S t="37357320" d="120120" r="320" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
-		</AdaptationSet>
-	</Period>
+     xmlns:cenc="urn:mpeg:cenc:2013"
+     type="dynamic"
+     availabilityStartTime="2023-01-01T00:00:00Z"
+     minBufferTime="PT1.5S"
+     timeShiftBufferDepth="PT5M"
+     suggestedPresentationDelay="PT10S"
+     mediaPresentationDuration="PT10M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0">
+        <AdaptationSet id="3" contentType="video" group="2" par="16:9"
+            minBandwidth="184000" maxBandwidth="4435000" maxWidth="1920" maxHeight="1080"
+            segmentAlignment="true" sar="1:1" mimeType="video/mp4" startWithSAP="1">
+            <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" />
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+            <SegmentTemplate initialization="out-$RepresentationID$.dash"
+                timescale="60000" presentationTimeOffset="37325280"
+                media="out-$RepresentationID$-$Time$.dash" startNumber="1">
+                <SegmentTimeline>
+                    <S t="37237200" d="88088" />
+                    <S t="37325288" d="32032" />
+                    <S t="37357320" d="120120" r="320" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="184000" width="640" height="360" codecs="avc1.4D401F" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
 
-	// Enable mid-fragment seek
-	mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
+    // Enable mid-fragment seek
+    mBoolConfigSettings[eAAMPConfig_MidFragmentSeek] = true;
 
-	std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    std::string fragmentUrl = std::string(TEST_BASE_URL) + "out-v1.dash";
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+        .WillOnce(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
-	double seekPosition = 0.0;
-	int rate = 1;
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	double expectedPosition = 1.6725312e+09;//AvailabilityStartTime as it is a liveStream
+    double seekPosition = 0.0;
+    int rate = 1;
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double expectedPosition = 1.6725312e+09;//AvailabilityStartTime as it is a liveStream
 
-	// After seek to 0, verify stream position is near the expected availabilityStartTime
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    // After seek to 0, verify stream position is near the expected availabilityStartTime
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
 
-	EXPECT_NEAR(actualPosition, expectedPosition, 0.001);
+    EXPECT_NEAR(actualPosition, expectedPosition, 0.001);
 }
 
 // Test case to verify seeking behavior with three periods, with out start times, with out durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_NoStartTimes_NoDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 1;
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 1;
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	EXPECT_EQ(actualPosition, seekPosition);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_EQ(actualPosition, seekPosition);
 }
 
 // Test case to verify seeking behavior with three periods, with out start times, with durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_NoStartTimes_WithDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	EXPECT_EQ(actualPosition, seekPosition);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_EQ(actualPosition, seekPosition);
 }
 
 // Test case to verify seeking behavior with three periods, with start time and durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_WithStartTimesAndDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" start="PT0S" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1" start="PT10M0S" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2" start="PT20M0S" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0" start="PT0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" start="PT10M0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" start="PT20M0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 0;
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 0; 
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	EXPECT_EQ(actualPosition, seekPosition);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_EQ(actualPosition, seekPosition);
 }
 
 // Test case to verify seeking behavior with three periods, with start times, with out durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_WithStartTimesNoDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.5S" mediaPresentationDuration="PT30M0S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" start="PT0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1" start="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2" start="PT20M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0" start="PT0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" start="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" start="PT20M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 10 * 60; // Seek to 10 minutes (middle of period p1)
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double seekPosition = 10 * 60; // Seek to 10 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	EXPECT_EQ(actualPosition, seekPosition);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    EXPECT_EQ(actualPosition, seekPosition);
 }
 // Test case to verify seeking behavior for Live content with three periods, with out start times, with out durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_Live_NoStartTimes_NoDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" minBufferTime="PT1.5S" availabilityStartTime="2025-11-15T00:00:00Z" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 1;
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
-	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
+    double seekPosition = 1;
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
+    EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
 
 // Test case to verify seeking behavior for Live content with three periods, with out start times, with durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_Live_NoStartTimes_WithDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" minBufferTime="PT1.5S" availabilityStartTime="2025-11-15T00:00:00Z" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
-	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
+    double seekPosition = 15 * 60; // Seek to 15 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
+    EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
 
 // Test case to verify seeking behavior for Live content with three periods, with start times and durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_Live_WithStartTimesAndDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" minBufferTime="PT1.5S" availabilityStartTime="2025-11-15T00:00:00Z" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" start="PT0S" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1" start="PT10M0S" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2" start="PT20M0S" duration="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0" start="PT0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" start="PT10M0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" start="PT20M0S" duration="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 0;
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
-	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
+    double seekPosition = 0;
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
+    EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
 
 // Test case to verify seeking behavior for Live content with three periods, with start times, with out durations, and PTO greater than timeline
 TEST_F(FunctionalTests, L1_ThreePeriods_Live_WithStartTimesNoDurations_PTOGreaterThanTimeline)
 {
-	AAMPStatusType status;
-	static const char *manifest =
+    AAMPStatusType status;
+    static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" minBufferTime="PT1.5S" availabilityStartTime="2025-11-15T00:00:00Z" profiles="urn:mpeg:dash:profile:isoff-live:2011">
-	<Period id="p0" start="PT0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="5000" d="1000" r="609" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v1" bandwidth="100000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p1" start="PT10M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="10000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v2" bandwidth="200000" />
-		</AdaptationSet>
-	</Period>
-	<Period id="p2" start="PT20M0S">
-		<AdaptationSet contentType="video" mimeType="video/mp4">
-			<SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
-				<SegmentTimeline>
-					<S t="20000" d="1000" r="614" />
-				</SegmentTimeline>
-			</SegmentTemplate>
-			<Representation id="v3" bandwidth="300000" />
-		</AdaptationSet>
-	</Period>
+    <Period id="p0" start="PT0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="15000" media="p0-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="5000" d="1000" r="609" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v1" bandwidth="100000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p1" start="PT10M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="25000" media="p1-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="10000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v2" bandwidth="200000" />
+        </AdaptationSet>
+    </Period>
+    <Period id="p2" start="PT20M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="1000" presentationTimeOffset="35000" media="p2-$Time$.m4s" startNumber="1">
+                <SegmentTimeline>
+                    <S t="20000" d="1000" r="614" />
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="v3" bandwidth="300000" />
+        </AdaptationSet>
+    </Period>
 </MPD>
 )";
-	double seekPosition = 10 * 60; // Seek to 10 minutes (middle of period p1)
-	int rate = 1;
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
-	status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
-	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
-	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
-	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
+    double seekPosition = 10 * 60; // Seek to 10 minutes (middle of period p1)
+    int rate = 1;
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+    status = InitializeMPD(manifest, TuneType::eTUNETYPE_SEEK, seekPosition, rate, true);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+    double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
+    double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
+    EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
-

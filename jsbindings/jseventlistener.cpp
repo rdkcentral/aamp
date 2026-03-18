@@ -261,10 +261,6 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCode()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("subCode");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSubCode()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
 		prop = JSStringCreateWithUTF8CString("description");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
@@ -1036,10 +1032,6 @@ public:
 
 		prop = JSStringCreateWithUTF8CString("time");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
-		prop = JSStringCreateWithUTF8CString("reason");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };

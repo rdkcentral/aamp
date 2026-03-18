@@ -544,6 +544,7 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 		{
 			const auto& schemeIdUri = child.getAttribute("schemeIdUri");
 			const auto& value = child.getAttribute("value");
+			printf( "***EssentialProperty: %s\n", schemeIdUri.c_str() );
 			if( schemeIdUri == "http://dashif.org/guidelines/trickmode" && Number(value) != 0 )
 			{ // skip iframe track
 				return false;
@@ -655,6 +656,8 @@ Timeline parseManifest( const XmlNode &MPD, const std::string url )
 {
 	Timeline timeline;// = []; // sequence of non-overlapping periods
 	auto BaseURL = url.substr(0,url.find_last_of("/")+1);
+	printf( "BaseURL: %s\n", BaseURL.c_str() );
+//	auto BaseURL = url.substr(0,url.lastIndexOf("/")+1);
 	timeline.url = std::move(url);
 	timeline.pending = 0;
 	

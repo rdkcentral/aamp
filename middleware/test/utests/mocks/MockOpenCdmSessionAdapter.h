@@ -21,7 +21,6 @@
 #define PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
 
 #include <gmock/gmock.h>
-#include "DrmSession.h"
 
 extern std::vector<uint8_t> g_mockKeyId;
 class MockOpenCdmSessionAdapter
@@ -31,8 +30,6 @@ class MockOpenCdmSessionAdapter
         MOCK_METHOD(bool, verifyOutputProtection, ());
         MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
         MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
-        MOCK_METHOD(void, generateDRMSession, (const uint8_t*, uint32_t, std::string&));
-        MOCK_METHOD(KeyState, getState, ());
 };
 
 extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;

@@ -34,7 +34,7 @@ sudo apt-get -y install libcurl4-openssl-dev
 
 **1. Clone aamp and dependent components in a new directory**
 ``` 
-git clone -b dev_sprint_25_2 https://github.com/rdkcentral/aamp
+git clone -b dev_sprint https://code.rdkcentral.com/r/rdk/components/generic/aamp
 git clone git://github.com/DaveGamble/cJSON.git
 ```
 

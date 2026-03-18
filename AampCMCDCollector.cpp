@@ -114,6 +114,18 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 		pCMCDMetrics->SetMediaType("INIT_AUDIO");
 		delete mCMCDStreamData[eMEDIATYPE_INIT_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_INIT_AUDIO] = pCMCDMetrics;
+		// for Aux Audio
+		pCMCDMetrics = new AudioCMCDHeaders();
+		pCMCDMetrics->SetSessionId(mTraceId);
+		pCMCDMetrics->SetMediaType("AUXAUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_AUX_AUDIO];
+		mCMCDStreamData[eMEDIATYPE_AUX_AUDIO] = pCMCDMetrics;
+		// for Aux Audio Init
+		pCMCDMetrics = new AudioCMCDHeaders();
+		pCMCDMetrics->SetSessionId(mTraceId);
+		pCMCDMetrics->SetMediaType("INIT_AUDIO");
+		delete mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO];
+		mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO] = pCMCDMetrics;
 		// for Subtitle
 		pCMCDMetrics = new SubtitleCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
@@ -157,7 +169,7 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,BitsPerSecond CMCDBandwidth,AampMediaType mediaT)
+void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled)
@@ -269,8 +281,8 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
 		if(it != mCMCDStreamData.end())
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
-			BitsPerSecond maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
-			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %" BITSPERSECOND_FORMAT, mediaType,maxBitrate);
+			long maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
+			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",mediaType,maxBitrate);
 			if(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
 			{
 				pCMCDMetrics->SetTopBitrate( (int)(maxBitrate/1000) );
@@ -314,6 +326,7 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
 			pCMCDMetrics->SetBufferStarvation(bufferRedStatus);
 			pCMCDMetrics->SetBufferLength(bufferedDuration);
 		}
+		// No data for Aux Audio now //////////////
 	}
 }
 
@@ -322,7 +335,7 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType)
+void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled && (!nextrange.empty()))

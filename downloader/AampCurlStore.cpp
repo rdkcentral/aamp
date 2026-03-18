@@ -121,7 +121,7 @@ static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr
 static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
 	size_t ret = 0;
-	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(userdata);
+	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
 	if(context)
 	{
 		ret = context->aamp->HandleSSLWriteCallback( ptr, size, nmemb, userdata);

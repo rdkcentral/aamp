@@ -25,12 +25,11 @@
 #ifndef CACHED_FRAGMENT_H
 #define CACHED_FRAGMENT_H
 
+#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
-#include <cstdint>
 #include <string>
 #include <utility>  // For std::swap and std::move
-#include <vector>
 
 /**
  * @brief Structure holding the resolution of stream
@@ -69,7 +68,7 @@ struct StreamInfo
 class CachedFragment
 {
 public:
-	std::vector<uint8_t> fragment;		/**< Buffer to keep fragment content */
+	AampGrowableBuffer fragment;		/**< Buffer to keep fragment content */
 	double position;					/**< Position in the playlist, in seconds */
 	double duration;					/**< Duration of the fragment, in seconds; as specified in the manifest */
 	bool initFragment;					/**< Flag indicating whether this fragment is an initialization fragment */
@@ -80,8 +79,8 @@ public:
 	std::string uri;					/**< for debug */
 	StreamInfo cacheFragStreamInfo;		/**< Bitrate information associated with this fragment */
 	AampMediaType type;					/**< AampMediaType info of the fragment */
-	uint64_t downloadStartTime;			/**< The start time of file download */
-	uint64_t discontinuityIndex;		/**< Discontinuity index */
+	long long downloadStartTime;		/**< The start time of file download */
+	long long discontinuityIndex;		/**< Discontinuity index */
 	double PTSOffsetSec; 				/**< PTS offset to apply for this segment */
 	double absPosition;					/**< Absolute position in seconds */
 
@@ -125,8 +124,9 @@ public:
 	/**
 	 * @brief Copy content from another CachedFragment
 	 * @param other Source CachedFragment to copy from
+	 * @param len Length of data to copy from the fragment buffer
 	 */
-	void Copy(const CachedFragment& other);
+	void Copy(CachedFragment* other, size_t len);
 
 	/**
 	 * @brief Clear all fragment data and reset to default values

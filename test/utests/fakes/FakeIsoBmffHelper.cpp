@@ -20,12 +20,12 @@
 
 MockIsoBmffHelper* g_mockIsoBmffHelper = nullptr;
 
-bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
+bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 {
     return true;
 }
 
-bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, std::string const &url, const char* trackName, uint32_t timeScale)
+bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &url, const char* trackName, uint32_t timeScale)
 {
 	if (g_mockIsoBmffHelper)
 	{
@@ -35,7 +35,7 @@ bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, 
     return true;
 }
 
-bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScale)
+bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
 {
 	if (g_mockIsoBmffHelper)
 	{
@@ -45,7 +45,7 @@ bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScal
     return true;
 }
 
-bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration)
+bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
 {
 	if (g_mockIsoBmffHelper)
 	{
@@ -55,7 +55,7 @@ bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts
     return true;
 }
 
-bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
+bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
 {
 	if (g_mockIsoBmffHelper)
 	{

@@ -199,6 +199,14 @@ class HybridABRManager:public ABRManager
 		bool CheckProfileChange(double totalFetchedDuration ,int currProfileIndex , long availBW);
 
 		/*
+		 * @brief function to check whether the profileidx is the lowest profile or not
+		 * @params currentProfileIndex -current profile index to be checked.
+		 * @params bool IsTrickmode - true if it is a trickplay,else false
+		 * @retune - true if it is lowest profile ,else false
+		 */
+		bool IsLowestProfile(int currentProfileIndex , bool IsTrickmode);
+
+		/*
 		 * @brief Get Desired Profile based on Buffer availability
 		 * @params currentProfileIndex , newProfileIndex -current and new profile
 		 * @params currentBandwidth current profileIdx bitrate

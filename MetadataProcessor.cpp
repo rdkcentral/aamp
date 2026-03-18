@@ -40,14 +40,17 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 { }
 
 void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-	AampMediaType type,
-	bool discontinuity_pending,
-	const double proc_position,
-	bool & ptsError,
-	const std::string & uri)
+		AampMediaType type,
+		bool discontinuity_pending,
+		const double proc_position,
+		bool & ptsError,
+		const std::string & uri)
 {
 	AAMPLOG_INFO(" [metadata][%p] Processing metadata.", this);
 	AAMPLOG_INFO(" [metadata][%p] - Starting processing fragment - uri: %s", this, uri.c_str());
+
+	char * data_ptr = const_cast<char *>(cachedFragment->fragment.GetPtr());
+	auto data_len = cachedFragment->fragment.GetLen();
 
 	if (discontinuity_pending && mPtsOffsetUpdate)
 	{
@@ -68,7 +71,7 @@ void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * ca
 
 	AAMPLOG_INFO(" [metadata][%p] Has valid PTS, processing the fragment", this);
 
-	ProcessID3Metadata(type, cachedFragment->fragment);
+	ProcessID3Metadata(type, data_ptr, data_len);
 }
 
 bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
@@ -111,16 +114,18 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return ret;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len)
 {
 	namespace aih = aamp::id3_metadata::helpers;
 
-	if (!data.empty())
+	if (data_ptr)
 	{
+		uint8_t * seg_buffer = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(data_ptr));
+
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(data);
+		buffer.setBuffer(seg_buffer, data_len);
 		buffer.parseBuffer();
-		if (!buffer.isInitSegment())
+		if(!buffer.isInitSegment())
 		{
 			uint8_t* message = nullptr;
 			uint32_t messageLen = 0;
@@ -136,7 +141,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 				{
 					AAMPLOG_TRACE(" Found ID3 metadata[%d]", type);
 
-					AAMPLOG_INFO(" packet size: %zu | message size: %u", data.size(), messageLen);
+					AAMPLOG_INFO(" packet size: %zu | message size: %u", data_len, messageLen);
 					std::stringstream ss;
 					ss << "Found ID3 metadata - PTS: " << presTime << " - timeScale: " << timeScale << " - duration: " << eventDuration;
 					AAMPLOG_INFO(" %s", ss.str().c_str());
@@ -145,17 +150,17 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 					if (dbg_print)
 					{
 						size_t curOffset = 0;
-						while (curOffset < data.size())
+						while (curOffset < data_len)
 						{
-							uint8_t * box_ptr = const_cast<uint8_t*>(data.data() + curOffset);
-							Box *box = Box::constructBox(box_ptr, (uint32_t)(data.size() - curOffset), false, -1);
+							uint8_t * box_ptr = seg_buffer + curOffset;
+							Box *box = Box::constructBox(box_ptr, (uint32_t)(data_len - curOffset), false, -1);
 
 							box->setOffset((uint32_t)curOffset);
 							const auto box_size = box->getSize();
 
 							if (IS_TYPE(box->getType(), Box::EMSG))
 							{
-								uint8_t * ptr = const_cast<uint8_t*>(data.data() + curOffset);
+								uint8_t * ptr = seg_buffer + curOffset;
 								const uint8_t * src_box_ptr = ptr;
 								std::stringstream ss;
 
@@ -195,6 +200,8 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 		}
 	}
 }
+
+
 
 TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 	ptsoffset_update_t ptsoffset_callback,
@@ -255,7 +262,8 @@ void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedF
 		}
 	};
 
-	mProcessor->ProcessFragment(cachedFragment->fragment,
+	const AampGrowableBuffer & frag_ptr = cachedFragment->fragment;
+	mProcessor->ProcessFragment(frag_ptr,
 		proc_position,
 		cachedFragment->duration,
 		discontinuity_pending,

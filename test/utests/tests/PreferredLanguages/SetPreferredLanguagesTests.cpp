@@ -55,7 +55,7 @@ protected:
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
+		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 

@@ -57,6 +57,7 @@ public:
 	std::atomic<bool> licenseRequestAbort{ false };
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
+	AampCurlDownloader mAccessTokenConnector;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
 	/**

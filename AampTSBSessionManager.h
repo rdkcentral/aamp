@@ -89,14 +89,6 @@ public:
 	 */
 	void ProcessWriteQueue();
 	/**
-	 * @brief Wait for new TSB video fragment to be available or abort signal. Abort signal is set when downloads are disabled.
-	 */
-	void WaitForVideoTsbContentOrAbort();
-	/**
-	 * @brief Notifies waiting threads when new video TSB content is available or downloads are disabled
-	 */
-	void NotifyVideoTsbWaiters();
-	/**
 	 * @brief Set TSB length
 	 *
 	 * @param[in] length
@@ -242,10 +234,9 @@ public:
 	 * @param[in] adBreakId - ID of the ad break
 	 * @param[in] periodPosition - event position in terms of channel's timeline
 	 * @param[in] absPosition - event absolute position of the ad reservation end
-	 * @param[in] reason - reason for the reservation end (optional)
 	 * @return bool - true if success
 	 */
-	bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition, const std::string &reason = "");
+	bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
 
 	/**
 	 * @brief Start an ad placement
@@ -416,7 +407,6 @@ private:
 	std::mutex mWriteQueueMutex;			// Mutex to synchronize access to the write queue.
 	std::mutex mReadMutex;					// Mutex to synchronize access to the data manager from reader and writer.
 	std::condition_variable mWriteThreadCV; // Condition variable to signal when data is available in the write queue
-	std::condition_variable mNewVideoTsbContentCV;	// Conditional variable used to signal when content has been written to the TSB
 	std::queue<TSBWriteData> mWriteQueue;	// Queue to store write data.
 	double mLastVideoPos;
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
@@ -424,7 +414,6 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
 	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
-	bool mStopWaitingForVideoTsb;			// Flag to signal video TSB reader to stop waiting (new content available or downloads disabled)
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */

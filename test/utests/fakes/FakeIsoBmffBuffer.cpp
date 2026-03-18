@@ -38,22 +38,6 @@ bool IsoBmffBuffer::isInitSegment()
     }
 }
 
-void IsoBmffBuffer::setBuffer(std::vector<uint8_t>& buffer)
-{
-    if (g_mockIsoBmffBuffer)
-    {
-        g_mockIsoBmffBuffer->setBuffer(buffer);
-    }
-}
-
-void IsoBmffBuffer::setBuffer(const std::vector<uint8_t>& buffer)
-{
-    if (g_mockIsoBmffBuffer)
-    {
-        g_mockIsoBmffBuffer->setBuffer(buffer);
-    }
-}
-
 void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 {
     if (g_mockIsoBmffBuffer)
@@ -178,11 +162,11 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char *&unParsedBuffer
 	}
 }
 
-uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
+double IsoBmffBuffer::getTotalChunkDuration(int lastMDatIndex)
 {
 	if (g_mockIsoBmffBuffer)
 	{
-		return g_mockIsoBmffBuffer->getTotalChunkDurationInTicks(lastMDatIndex);
+		return g_mockIsoBmffBuffer->getTotalChunkDuration(lastMDatIndex);
 	}
 	else
 	{
@@ -282,41 +266,5 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
     else
     {
         return false;
-    }
-}
-
-bool IsoBmffBuffer::getMdatBoxInfo(size_t index, size_t &start, size_t &size)
-{
-    if (g_mockIsoBmffBuffer)
-    {
-        return g_mockIsoBmffBuffer->getMdatBoxInfo(index, start, size);
-    }
-    else
-    {
-        return false;
-    }
-}
-
-bool IsoBmffBuffer::getChunkedMdatBoxInfo(size_t &start, size_t &size) const
-{
-    if (g_mockIsoBmffBuffer)
-    {
-        return g_mockIsoBmffBuffer->getChunkedMdatBoxInfo(start, size);
-    }
-    else
-    {
-        return false;
-    }
-}
-
-int IsoBmffBuffer::getLastMdatBoxIndex() const
-{
-    if (g_mockIsoBmffBuffer)
-    {
-        return g_mockIsoBmffBuffer->getLastMdatBoxIndex();
-    }
-    else
-    {
-        return -1;
     }
 }

@@ -65,7 +65,7 @@ protected:
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
+		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -699,7 +699,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	testp_aamp->preferredTextLanguagesList.push_back("lang0");
 	testp_aamp->subtitles_muted = false;
 	testp_aamp->SetLocalAAMPTsb(true);
-	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->SetState(eSTATE_PLAYING);
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -757,7 +757,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	testp_aamp->subtitles_muted = false;
 	testp_aamp->SetLocalAAMPTsb(true);
 	testp_aamp->SetTsbSessionManager();
-	testp_aamp->SetState(eSTATE_PLAYING, true);
+	testp_aamp->SetState(eSTATE_PLAYING);
 	g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp.get());
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.

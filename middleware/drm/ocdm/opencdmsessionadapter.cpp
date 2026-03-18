@@ -167,7 +167,7 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 		if (ocdmRet != ERROR_NONE)
 		{
 			MW_LOG_ERR("Error constructing OCDM session. OCDM err=0x%x", ocdmRet);
-			m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
+			m_eKeyState = KEY_ERROR;
 		}
 	}
 }

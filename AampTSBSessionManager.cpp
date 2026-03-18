@@ -63,7 +63,6 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mCurrentWritePosition(0)
 		, mLastAdReservationMetaDataProcessed()
 		, mLastAdPlacementMetaDataProcessed()
-		, mStopWaitingForVideoTsb(false)
 {
 }
 
@@ -107,8 +106,6 @@ void AampTSBSessionManager::Init()
 			// Initialize TSB readers
 			InitializeTsbReaders();
 			mStopThread_.store(false);
-			// Clear flag, mReadMutex does not need to be locked because the threads that access this variable are not running yet.
-			mStopWaitingForVideoTsb = false;
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);
 			mInitialized_ = true;
@@ -197,7 +194,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
@@ -206,14 +203,14 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(std::move(url), initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{
-			cachedFragment->fragment.resize(len);
-
+			cachedFragment->fragment.ReserveBytes(len);
 			UnlockReadMutex();
-			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.data(), len);
+			TSB::Status status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
+			cachedFragment->fragment.SetLen(len);
 			LockReadMutex();
 			if (status != TSB::Status::OK)
 			{
@@ -278,12 +275,12 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 			return {};
 		}
 
-		cachedFragment->fragment.resize(len);
-
+		cachedFragment->fragment.ReserveBytes(len);
 		UnlockReadMutex();
-		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.data(), len);
-		LockReadMutex();
 
+		status = mTSBStore->Read(uniqueUrl, cachedFragment->fragment.GetPtr(), len);
+		cachedFragment->fragment.SetLen(len);
+		LockReadMutex();
 		if (status == TSB::Status::OK)
 		{
 			return cachedFragment;
@@ -325,7 +322,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		// The PTS value will be restamped by the injector thread.
 		// This function is called in the context of the fetcher thread before the fragment is added to the list to be injected, to avoid
 		// any race conditions; so it cannot be moved to ProcessWriteQueue() or any other functions called from a different context.
-		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.data(), cachedFragment->fragment.size());
+		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
 
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
@@ -377,20 +374,6 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 	return removedFragment;
 }
 
-void AampTSBSessionManager::NotifyVideoTsbWaiters()
-{
-	std::unique_lock<std::mutex> lock(mReadMutex);
-	mStopWaitingForVideoTsb = true;
-	mNewVideoTsbContentCV.notify_one();
-}
-
-void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
-{
-	std::unique_lock<std::mutex> lock(mReadMutex);
-	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
-	mStopWaitingForVideoTsb = false;
-}
-
 /**
  * @brief Monitors the write queue and writes any pending data to AAMP TSB
  */
@@ -420,14 +403,13 @@ void AampTSBSessionManager::ProcessWriteQueue()
 				std::string uniqueUrl = ToUniqueUrl(writeData.url, writeData.cachedFragment->absPosition);
 
 				// Call TSBHandler Write operation
-				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.data(), writeData.cachedFragment->fragment.size());
-
+				TSB::Status status = mTSBStore->Write(uniqueUrl, writeData.cachedFragment->fragment.GetPtr(), writeData.cachedFragment->fragment.GetLen());
 				if (status == TSB::Status::OK)
 				{
 					writeSucceeded = true;
 					bool TSBDataAddStatus = false;
-					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
-						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
+					AAMPLOG_TRACE("TSBWrite Metrics...OK...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...periodId(%s)..URL (%s)",
+						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
 						writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
 					if (writeData.cachedFragment->initFragment)
@@ -468,34 +450,27 @@ void AampTSBSessionManager::ProcessWriteQueue()
 							}
 						}
 					}
-
 					UnlockReadMutex();
-
-					if (mediatype == eMEDIATYPE_VIDEO)
-					{
-						NotifyVideoTsbWaiters();
-					}
-
 				}
 				else if (status == TSB::Status::ALREADY_EXISTS)
 				{
 					// Init fragments & Fragments should have a unique url for each absPosition
 					writeSucceeded = true;
-					AAMPLOG_WARN("TSBWrite Metrics...FILE ALREADY EXISTS...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...mediatype(%s)...disc(%d)...pts(%f)...Period-Id(%s)...URL (%s)",
-								 NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type), writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
+					AAMPLOG_WARN("TSBWrite Metrics...FILE ALREADY EXISTS...time taken (%lldms)...buffer (%zu)....BW(%ld)...mediatype(%s)...disc(%d)...pts(%f)...Period-Id(%s)...URL (%s)",
+								 NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type), writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 				}
 				else
 				{
 					if (status != TSB::Status::NO_SPACE) /** Flood the log when storage full so added check*/
 					{
-						AAMPLOG_ERR("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
+						AAMPLOG_ERR("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%ld)...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
 					}
 					else
 					{
-						AAMPLOG_TRACE("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%" BITSPERSECOND_FORMAT ")...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
+						AAMPLOG_TRACE("[%s] TSB Write Operation FAILED...time taken (%lldms)...buffer (%zu)....BW(%ld)...disc(%d)...pts(%.02lf)...URL (%s)", GetMediaTypeName(writeData.cachedFragment->type), NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.GetLen(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond,  writeData.cachedFragment->discontinuity, writeData.pts, writeData.url.c_str()); // log metrics for failed case also.
 					}
 					LockReadMutex();
-					if(writeData.cachedFragment->fragment.size() == 0) //Buffer 0 case ,no need to run this loop untill it get success
+					if(writeData.cachedFragment->fragment.GetLen() == 0) //Buffer 0 case ,no need to run this loop untill it get success
 					{
 						writeSucceeded = true;
 					}
@@ -561,7 +536,7 @@ void AampTSBSessionManager::Flush()
 double AampTSBSessionManager::CullSegments()
 {
 	LockReadMutex();
-	double culledDuration = 0;
+	double culledduration = 0;
 	double lastVideoPos = mLastVideoPos;
 	int iter = eMEDIATYPE_VIDEO;
 	while (iter < AAMP_TRACK_COUNT)
@@ -577,7 +552,7 @@ double AampTSBSessionManager::CullSegments()
 		// Check if video position has changed
 		if ((eMEDIATYPE_VIDEO == iter) && (AAMP_PAUSE_POSITION_INVALID_POSITION != mLastVideoPos))
 		{
-			culledDuration += (videoFirstPosition - lastVideoPos); // Adjust culledDuration for write failures
+			culledduration += (videoFirstPosition - lastVideoPos); // Adjust culledduration for write failures
 		}
 		lastVideoPos = videoFirstPosition; // Update lastVideoPos
 
@@ -623,7 +598,7 @@ double AampTSBSessionManager::CullSegments()
 			{
 				double durationInSeconds = removedFragment->GetDuration().inSeconds();
 				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
-					culledDuration += durationInSeconds;
+					culledduration += durationInSeconds;
 				std::string removedFragmentUrl = ToUniqueUrl(removedFragment->GetUrl(),removedFragment->GetAbsolutePosition().inSeconds());
 				UnlockReadMutex();
 				mTSBStore->Delete(removedFragmentUrl);
@@ -655,12 +630,12 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mLastVideoPos = lastVideoPos;
 	}
-	if(culledDuration > 0.0)
+	if(culledduration > 0.0)
 	{
-		mCulledDuration += culledDuration;
+		mCulledDuration += culledduration;
 	}
 	UnlockReadMutex();
-	return culledDuration;
+	return culledduration;
 }
 
 /**
@@ -686,6 +661,10 @@ AampMediaType AampTSBSessionManager::ConvertMediaType(AampMediaType actualMediat
 	else if (mediaType == eMEDIATYPE_INIT_SUBTITLE)
 	{
 		mediaType = eMEDIATYPE_SUBTITLE;
+	}
+	else if (mediaType == eMEDIATYPE_INIT_AUX_AUDIO)
+	{
+		mediaType = eMEDIATYPE_AUX_AUDIO;
 	}
 	else if (mediaType == eMEDIATYPE_INIT_IFRAME)
 	{
@@ -858,12 +837,12 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 	}
 	else							// Rewind
 	{
-		if (auto prevShared = fragment->prev.lock()) 
+		if (fragment->prev)
 		{
-			fragment = prevShared;
+			fragment = fragment->prev;
 			success = true;
 		}
-		else
+		if (!(fragment->prev))
 		{
 			// Don't skip the first fragment in the TSB so BoS is detected correctly
 			AAMPLOG_INFO("Reached beginning of TSB during rewind");
@@ -1171,14 +1150,13 @@ bool AampTSBSessionManager::StartAdReservation(const std::string &adBreakId, uin
  * @param[in] absPosition - absolute position
  * @return bool - true if success
  */
-bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition, const std::string &reason)
+bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
 {
 	auto metaData = std::make_shared<AampTsbAdReservationMetaData>(
 		AampTsbAdMetaData::EventType::END,
 		absPosition,
 		adBreakId,
-		periodPosition,
-		reason);
+		periodPosition);
 	return mMetaDataManager.AddMetaData(metaData);
 }
 

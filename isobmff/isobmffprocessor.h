@@ -147,7 +147,7 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnSubtitleSwitch(std::vector<uint8_t>& buffer, double position) override;
+	void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) override;
 
 	/**
 	 * @brief Reset PTS on audioSwitch
@@ -155,9 +155,9 @@ public:
 	 * @param[in] reset - true/false
 	 * @return void
 	 */
-	void resetPTSOnAudioSwitch(std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) override;
+	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset = 0) override;
 
-	double getFirstPts( const std::vector<uint8_t>& buffer ) override
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override
 	{
 		return 0;
 	}
@@ -378,13 +378,14 @@ private:
 	/**
 	 * @fn cacheInitBufferForRestampingPTS
 	 *
-	 * @param[in] segment - buffer vector
+	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] size - fragment buffer size
 	 * @param[in] tScale - timeScale of fragment
 	 * @param[in] position - position of fragment
 	 * @param[in] isAbrChangedTimeScale - indicates is timescale changed due to abr
 	 * @return void
 	 */
-	void cacheInitBufferForRestampingPTS(const std::vector<uint8_t>& segment, uint32_t tScale, double position, bool isAbrChangedTimeScale=false);
+	void cacheInitBufferForRestampingPTS(char *segment, size_t size,uint32_t tScale,double position,bool isAbrChangedTimeScale=false);
 
 	/**
 	 * @fn handleSkipFragments
@@ -429,13 +430,13 @@ private:
 	 * @fn cacheRestampInitSegment
 	 *
 	 * @param[in] type - media type
-	 * @param[in] segment - buffer vector
+	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] size - fragment buffer size
 	 * @param[in] pos - fragment position
 	 * @param[in] duration - duration of the position
-	 * @param[in] isDiscontinuity - discontinuity flag
 	 * @return void
 	 */
-	void cacheRestampInitSegment(AampMediaType type, const std::vector<uint8_t>& segment, double pos, double duration, bool isDiscontinuity);
+	void cacheRestampInitSegment(AampMediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity);
 
 	/**
 	 * @fn pushRestampInitSegment
@@ -454,10 +455,11 @@ private:
 	/**
 	 * @fn cacheInitSegment
 	 *
-	 * @param[in] segment - buffer vector
+	 * @param[in] segment - buffer pointer
+	 * @param[in] size - buffer size
 	 * @return void
 	 */
-	void cacheInitSegment(const std::vector<uint8_t>& segment);
+	void cacheInitSegment(char *segment, size_t size);
 
 	/**
 	 * @fn pushInitSegment

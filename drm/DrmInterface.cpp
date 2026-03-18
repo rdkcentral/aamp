@@ -136,6 +136,7 @@ ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType dr
 		case DRM_PROFILE_BUCKET_DECRYPT_VIDEO:    return PROFILE_BUCKET_DECRYPT_VIDEO;
 		case DRM_PROFILE_BUCKET_DECRYPT_AUDIO:    return PROFILE_BUCKET_DECRYPT_AUDIO;
 		case DRM_PROFILE_BUCKET_DECRYPT_SUBTITLE: return PROFILE_BUCKET_DECRYPT_SUBTITLE;
+		case DRM_PROFILE_BUCKET_DECRYPT_AUXILIARY:return PROFILE_BUCKET_DECRYPT_AUXILIARY;
 			
 		case DRM_PROFILE_BUCKET_LA_TOTAL:         return PROFILE_BUCKET_LA_TOTAL;
 		case DRM_PROFILE_BUCKET_LA_PREPROC:       return PROFILE_BUCKET_LA_PREPROC;
@@ -165,19 +166,19 @@ void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
  */
 void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance, bool &keyAcquisitionStatus, int &failureReason,  char** ptr)
 {
-	bool fetched = mpAamp->GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, mAesKeyBuf.GetVector(), tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
-	*ptr = reinterpret_cast<char*>(mAesKeyBuf.data());
+	bool fetched = mpAamp->GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
+	*ptr =mAesKeyBuf.GetPtr();
 	
 	if (fetched)
 	{
-		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.size() )
+		if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )
 		{
-			AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.size());
+			AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen());
 			keyAcquisitionStatus = true;
 		}
 		else
 		{
-			AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.size() );
+			AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
 			failureReason = AAMP_TUNE_INVALID_DRM_KEY;
 		}
 	}

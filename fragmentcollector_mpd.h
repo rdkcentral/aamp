@@ -42,12 +42,7 @@
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampMPDParseHelper.h"
-#include "AampTrackWorker.hpp"
-#include "AampTrackWorkerManager.hpp"
-#include "AampDownloadInfo.hpp"
-
-// Sentinel for invalid base period offset in ad nodes
-constexpr int32_t INVALID_BASE_PERIOD_OFFSET = -1;
+#include "AampTrackWorker.h"
 
 using namespace dash;
 using namespace std;
@@ -71,65 +66,93 @@ struct ProfileInfo
 };
 
 /**
- * @class TimeSyncClient
- *
- * @brief Maintains state for periodic synchronization of the local clock
- * with a remote UTC time server, used in DASH manifest processing.
- *
- * This class tracks the last successful synchronization time and the
- * cached offset between the local system clock and the server's UTC time.
- * It supports logic to determine when a new synchronization request should
- * be made based on elapsed time and configuration.
+ * @struct FragmentDescriptor
+ * @brief Stores information of dash fragment
  */
-class TimeSyncClient
+struct FragmentDescriptor
 {
-private:
-	long long mLastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
-	bool mHasSynced;		/**< Flag indicating whether at least one successful sync has occurred. */
-	double mDeltaTime;	/**< Cached time delta (in seconds) between local and server time. */
-	bool mHasServerUtcTime; /**<true if time has been obtained from the server or manifest */
-	double mServerUtcTime; /**< Time periodically read from UTC time server and then updated from epoch time */
-public:
-	/**
-	 * @brief Constructor initializes mLastSync with current time and resets other members.
-	 */
-	TimeSyncClient();
-	double GetDelta() const { return mDeltaTime; };
-	bool HasServerUtcTime() const { return mHasServerUtcTime; };
-	double GetServerUtcTime() const { return mServerUtcTime; };
-	bool FindServerUTCTime(PrivateInstanceAAMP *aamp, Node *root);
-};
-
-class AampDashWorkerJob : public aamp::AampTrackWorkerJob
-{
-private:
-	std::function<void()> mJobFunction;
-
-public:
-	AampDashWorkerJob(std::function<void()> jobFunction) : mJobFunction(std::move(jobFunction)) {}
-	/**
-	 * @fn Execute
-	 * @brief Execute the job function
-	 */
-	void Execute() override
+private :
+	std::string matchingBaseURL;
+public :
+	std::string manifestUrl;
+	uint32_t Bandwidth;
+	std::string RepresentationID;
+	uint64_t Number;
+	double Time;				//In units of timescale
+	bool bUseMatchingBaseUrl;
+	int64_t nextfragmentNum;
+	double nextfragmentTime;
+	uint32_t TimeScale;
+	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0), TimeScale(1)
 	{
-		if (mJobFunction)
-		{
-			mJobFunction(); // Call the provided job function
-		}
-		else
-		{
-			AAMPLOG_WARN("AampDashWorkerJob::Execute called with empty job function");
-		}
 	}
-	/**
-	 * @fn Clone
-	 * @brief Clone the job for worker pool
-	 * @return shared_ptr to cloned job
-	 */
-	aamp::AampTrackWorkerJobUniquePtr Clone() const override
+
+	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime), TimeScale(p.TimeScale)
 	{
-		return aamp_utils::make_unique<AampDashWorkerJob>(mJobFunction);
+	}
+
+	FragmentDescriptor& operator=(const FragmentDescriptor &p)
+	{
+		manifestUrl = p.manifestUrl;
+		RepresentationID.assign(p.RepresentationID);
+		Bandwidth = p.Bandwidth;
+		Number = p.Number;
+		Time = p.Time;
+		matchingBaseURL = p.matchingBaseURL;
+		nextfragmentNum = p.nextfragmentNum;
+		nextfragmentTime = p.nextfragmentTime;
+		TimeScale = p.TimeScale;
+		return *this;
+	}
+	std::string GetMatchingBaseUrl() const
+	{
+		return matchingBaseURL;
+	}
+
+	void ClearMatchingBaseUrl()
+	{
+		matchingBaseURL.clear();
+	}
+	void AppendMatchingBaseUrl( const std::vector<IBaseUrl *>*baseUrls )
+	{
+		if( baseUrls && baseUrls->size()>0 )
+		{
+			const std::string &url = baseUrls->at(0)->GetUrl();
+			if( url.empty() )
+			{
+			}
+			else if( aamp_IsAbsoluteURL(url) )
+			{
+				if(bUseMatchingBaseUrl)
+				{
+					std::string prefHost = aamp_getHostFromURL(manifestUrl);
+					for (auto & item : *baseUrls) {
+						std::string itemUrl = item->GetUrl();
+						std::string host  = aamp_getHostFromURL(std::move(itemUrl));
+						if(0 == prefHost.compare(host))
+						{
+							matchingBaseURL = item->GetUrl();
+							return;
+						}
+					}
+				}
+				matchingBaseURL = url;
+			}
+			else if( url.rfind("/",0)==0 )
+			{
+				matchingBaseURL = aamp_getHostFromURL(matchingBaseURL);
+				matchingBaseURL += url;
+				AAMPLOG_WARN( "baseURL with leading /" );
+			}
+			else
+			{
+				if( !matchingBaseURL.empty() && matchingBaseURL.back() != '/' )
+				{ // add '/' delimiter only if parent baseUrl doesn't already end with one
+					matchingBaseURL += "/";
+				}
+				matchingBaseURL += url;
+			}
+		}
 	}
 };
 
@@ -191,9 +214,10 @@ public:
 	 * @fn GetStreamFormat
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
+	 * @param[out]  auxOutputFormat - format of aux audio track
 	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
 	/**
 	 * @fn GetStreamPosition
 	 */
@@ -325,12 +349,11 @@ public:
 	 * @param fragmentDuration duration of fragment in seconds
 	 * @param isInitializationSegment true if fragment is init fragment
 	 * @param curlInstance curl instance to be used to fetch
-	 * @param fcsContent true if content is inside FailOver tag
 	 * @param discontinuity true if fragment is discontinuous
 	 * @param pto presentation time offset in seconds
 	 * @param timeScale  denominator for fixed point math
 	 */
-	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool fscContent = false, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0, std::string range = "");
+	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
 	/**
 	 * @fn PushNextFragment
 	 * @param pMediaStreamContext Track object
@@ -454,7 +477,7 @@ public:
 
 	// CMCD Get nor and nrr fields
 	void setNextobjectrequestUrl(std::string media,const FragmentDescriptor *fragmentDescriptor,AampMediaType mediaType);
-	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType);
+	void setNextRangeRequest(std::string fragmentUrl,std::string nextrange,long bandwidth,AampMediaType mediaType);
 
 	 /*
 	 * @fn NotifyFirstVideoPTS
@@ -470,15 +493,6 @@ public:
 	 * @retval double . AvailabilityStartTime
 	 */
 	double GetAvailabilityStartTime() override;
-
-	/**
-	 * @fn GenerateFragmentURLList
-	 * @param[out] urlList fragment url list, bitrate as key and url as value
-	 * @param[in] pMediaStreamContext MediaStreamContext object
-	 * @param[in] isInit true if init fragment
-	 * @return fragment url list
-	 */
-	void GenerateFragmentURLList(URLBitrateMap& urlList, MediaStreamContext *pMediaStreamContext, bool isInit);
 
 	/**
 	 * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
@@ -604,14 +618,6 @@ protected:
 	void RestorePtsOffsetCalculation(void);
 
 	/**
-	 * @fn AdjustPtsOffsetAfterAdCancellation
-	 *
-	 * @brief Adjust the PTS offset calculation,
-	 *        if the calculated nextPTS needs adjustment after ad cancellation.
-	 */
-	void AdjustPtsOffsetAfterAdCancellation(void);
-
-	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index
 	 * @param[in] media - Media type
@@ -622,10 +628,13 @@ protected:
 	 * @fn AdvanceTrack
 	 * @param[in] trackIdx - track index
 	 * @param[in] trickPlay - flag indicates if its trickplay
-	 * @param[in, out] delta - delta for skipping fragments
+	 * @param[in/out] waitForFreeFrag - flag is updated if we are waiting for free fragment
+	 * @param[in/out] bCacheFullState - flag is updated if the cache is full for this track
+	 * @param[in] throttleAudio - flag indicates if we should throttle audio download
+	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double &delta);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
@@ -634,9 +643,9 @@ protected:
 	 * @param[out] waitForFreeFrag - waitForFreeFragmentAvailable flag
 	 * @param[out] bCacheFullState - cache status for track
 	 *
-	 * @return bool - true if a segment was found and cached, false otherwise
+	 * @return void
 	 */
-	bool AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
+	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
 
 	/**
 	 * @fn FetcherLoop
@@ -729,7 +738,12 @@ protected:
 	 * @param init retrievePlaylistFromCache true to try to get from cache
 	 */
 	AAMPStatusType UpdateMPD(bool init = false);
-
+	/**
+	 * @fn FindServerUTCTime
+	 * @param mpd:  MPD top level element
+	 * @param root: XML root node
+	 */
+	bool FindServerUTCTime(Node* root);
 	/**
 	 * @fn FetchDashManifest
 	 */
@@ -808,6 +822,12 @@ protected:
 	 */
 	void ProcessTrickModeRestriction(Node *node, const std::string &AdID, uint64_t startMS, bool isInit, bool reportBulkMeta);
 	/**
+	 * @fn Fragment downloader thread
+	 * @param trackIdx track index
+	 * @param initialization Initialization string
+	 */
+	void TrackDownloader(int trackIdx, std::string initialization);
+	/**
 	 * @fn FetchAndInjectInitFragments
 	 * @param discontinuity number of tracks and discontinuity true if discontinuous fragment
 	 */
@@ -867,7 +887,7 @@ protected:
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
-	int GetProfileIdxForBandwidthNotification(BitsPerSecond bandwidth);
+	int GetProfileIdxForBandwidthNotification(uint32_t bandwidth);
 	/**
 	 * @fn GetCurrentMimeType
 	 * @param AampMediaType type of media
@@ -970,7 +990,13 @@ protected:
 	 * @param[out] representationIndex - representation within adaptation with matching params
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
-
+	/**
+	 * @fn ConstructFragmentURL
+	 * @param[out] fragmentUrl fragment url
+	 * @param fragmentDescriptor descriptor
+	 * @param media media information string
+	 */
+	void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
 	double GetEncoderDisplayLatency();
 	/**
 	 * @fn StartLatencyMonitorThread
@@ -1067,29 +1093,6 @@ protected:
 	 */
 	void InitializeWorkers();
 
-	/**
-	 * @fn ClearWorkers
-	 * @brief Remove each worker threads
-	 *
-	 * @return void
-	 */
-	void ClearWorkers();
-
-	/**
-	 * @fn OnFragmentDownloadComplete
-	 * @brief Callback function to be called after fragment download is complete
-	 * @param[in] status - download status, true if success
-	 * @param[in] downloadInfo - download information
-	 */
-	void OnFragmentDownloadComplete(bool status, DownloadInfoPtr downloadInfo);
-
-	/**
-	 * @fn OnFragmentDownloadFailed
-	 * @brief Callback function to be called after fragment download is failed
-	 * @param[in] downloadInfo - download information
-	 */
-	void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
-
 	uint64_t FindPositionInTimeline(class MediaStreamContext *pMediaStreamContext, const std::vector<ITimeline *>&timelines);
 
 	/**
@@ -1115,10 +1118,9 @@ protected:
 	 * @param[in] position Period position of the ad break
 	 * @param[in] absolutePosition Absolute position
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
-	 * @param[in] reason Reason for reservation end (optional, applicable to END events)
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-							   uint64_t position, AampTime absolutePosition, bool immediate, const std::string& reason = "");
+							   uint64_t position, AampTime absolutePosition, bool immediate);
 
 	/**
 	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
@@ -1165,6 +1167,7 @@ protected:
 	AudioType mAudioType;
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
+	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
 	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 	// In case of streams with multiple video Adaptation Sets, A profile
@@ -1184,7 +1187,7 @@ protected:
 	// DASH does not use abr manager to store the supported bandwidth values,
 	// hence storing max TSB bandwidth in this variable which will be used for VideoEnd Metric data via
 	// StreamAbstractionAAMP::GetMaxBitrate function,
-	BitsPerSecond mMaxTSBBandwidth;
+	long mMaxTSBBandwidth;
 
 	double mLiveEndPosition;    // Live end absolute position
 	double mCulledSeconds;      // Culled absolute position
@@ -1193,7 +1196,8 @@ protected:
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;
 	int mMaxTracks; /* Max number of tracks for this session */
-
+	double mDeltaTime;
+	bool mHasServerUtcTime;
 	uint32_t prevTimeScale;
 	bool mIsFcsRepresentation;
 	int mFcsRepresentationId;
@@ -1263,62 +1267,6 @@ protected:
 	 */
 	uint32_t GetSegmentRepeatCount(MediaStreamContext *pMediaStreamContext, int timeLineIndex);
 
-	/**
-	 * @fn UpdateStartTimeOfFirstPTS
-	 * @brief Recalculate and update mStartTimeOfFirstPTS.
-	 * @return void
-	 */
-	void UpdateStartTimeOfFirstPTS();
-
-	/**
-	 * @fn ShouldCheckOnlyIframeAdaptation
-	 * @brief Helper function to determine if only iframe adaptations should be checked
-	 * @retval Return true if only iframe adaptations should be checked, false otherwise
-	 */
-	bool ShouldCheckOnlyIframeAdaptation() const;
-
-	/**
-	 * @fn IsEmptyPeriod
-	 * @param[in] iPeriodIndex Index of the period to check whether it is empty
-	 * @retval Return true on empty Period
-	 */
-	bool IsEmptyPeriod(int iPeriodIndex) const;
-
-	/**
-	 * @fn GetManifestUpdateCounter
-	 * @brief Returns the current manifest update counter.
-	 *        Snapshot this BEFORE any check or download work that might
-	 *        lead to WaitForManifestUpdate(snapshotCounter), so that a
-	 *        concurrent AbortWaitForManifestUpdate() cannot be missed.
-	 */
-	uint32_t GetManifestUpdateCounter();
-
-	/**
-	 * @fn WaitForManifestUpdate
-	 * @brief Wait for manifest to be updated.
-	 * Called when the fetcher loop is waiting for the next manifest update.
-	 * This is used to avoid tight looping in fetcher loop and also to sync the manifest update and fetcher loop.
-	 */
-	void WaitForManifestUpdate();
-
-	/**
-	 * @fn WaitForManifestUpdate
-	 * @brief Overload accepting a caller-supplied counter snapshot.
-	 *        Blocks until the counter advances past snapshotCounter.
-	 *        Handles the case where AbortWaitForManifestUpdate() fires between
-	 *        the snapshot and the wait call — no lost-wakeup.
-	 * @param[in] snapshotCounter Snapshot from GetManifestUpdateCounter()
-	 *            taken before the caller's check or download work.
-	 */
-	void WaitForManifestUpdate(uint32_t snapshotCounter);
-
-	/**
-	 * @fn AbortWaitForManifestUpdate
-	 * @brief Abort waiting for manifest update.
-	 * This is used to stop the fetcher loop from waiting either on a manifest update or tear down.
-	 */
-	void AbortWaitForManifestUpdate();
-
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/
@@ -1329,27 +1277,14 @@ protected:
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;
+	double mLocalUtcTime;
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
+	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
-
-public:
-	/**
-	 * @brief Client used for server time synchronization.
-	 *
-	 * @note TimeSyncClient maintains internal mutable state (e.g. mLastSync,
-	 *       mHasSynced) and is not internally thread-safe.
-	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
-	 *       in the implementation) are expected to be serialized by the
-	 *       caller. By design, this member is accessed only from the
-	 *       manifest-processing thread and MUST NOT be used concurrently
-	 *       from multiple threads without additional external
-	 *       synchronization.
-	 */
-	TimeSyncClient mTimeSyncClient;
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

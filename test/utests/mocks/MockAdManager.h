@@ -31,7 +31,6 @@ public:
     MOCK_METHOD(bool, WaitForNextAdResolved, (int timeoutMs, std::string periodId));
     MOCK_METHOD(int, CheckForAdStart, (const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset));
     MOCK_METHOD(void, SetAlternateContents, (const std::string &adBreakId, const std::string &adId, const std::string &url));
-    MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 };
 
 extern MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD;

@@ -28,8 +28,6 @@ class MockDRMSessionManager
 public:
     MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
     MOCK_METHOD(bool, IsKeyIdProcessed, (std::vector<uint8_t> keyIdArray, bool &status));
-    MOCK_METHOD(KeyState, initializeDrmSession, (DrmHelperPtr drmHelper, int sessionSlot, int &err));
-    MOCK_METHOD(DrmSession*, createDrmSession, (int &responseCode, int &err, DrmHelperPtr drmHelper, DrmCallbacks* Instance, int streamType, void* metaDataPtr));
 };
 
 extern MockDRMSessionManager *g_mockDRMSessionManager;

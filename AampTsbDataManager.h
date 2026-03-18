@@ -33,7 +33,7 @@
 #include <mutex>
 #include <utility>
 #include "StreamAbstractionAAMP.h"
-#include "abr.h"
+#include "ABRManager.h" // For BitsPerSecond
 #include "AampTime.h"
 
 #define TSB_DATA_DEBUG_ENABLED 0 /** Enable debug log on development/debug */
@@ -179,7 +179,7 @@ private:
 	/* data */
 public:
 	std::shared_ptr<TsbFragmentData> next; /**< Link list next node for easy access*/
-	std::weak_ptr<TsbFragmentData> prev; /**< Non-owning link to previous node for easy access, and to avoid circular references*/
+	std::shared_ptr<TsbFragmentData> prev; /**< Link list previous node for easy access*/
 	/**
 	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string

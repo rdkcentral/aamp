@@ -105,6 +105,24 @@ bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& source
 }
 
 /**
+ * @brief Set AC4 tracks.
+ * @param src Source element.
+ * @param trackId Track ID.
+ */
+void RealtekSocInterface::SetAC4Tracks(GstElement *src, int trackId)
+{
+	MW_LOG_INFO("Selecting AC4 Track Id : %d", trackId);
+	if(src)
+	{
+		g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
+	}
+	else
+	{
+		MW_LOG_ERR("No valid src to set ac4-presentation-group-index");
+	}
+}
+
+/**
  * @brief Check if the given name is a video sink.
  * @param name Element name.
  * @return True if it's a video sink, false otherwise.
@@ -259,6 +277,29 @@ void RealtekSocInterface::SetFreerunThreshold(GstObject* src)
 	if(src)
 	{
 		g_object_set(src, "freerun-threshold", DEFAULT_AVSYNC_FREERUN_THRESHOLD_SECS, NULL);
+	}
+}
+
+/**
+ * @brief Set audio routing properties on source.
+ *
+ * Sets audio routing properties on the given source element.
+ *
+ * @param source The source element.
+ */
+void RealtekSocInterface::SetAudioRoutingProperties(GstElement *source)
+{
+	if ((strstr(GST_ELEMENT_NAME(source), "omxaacdec") != NULL) ||
+			(strstr(GST_ELEMENT_NAME(source), "omxac3dec") != NULL) ||
+			(strstr(GST_ELEMENT_NAME(source), "omxeac3dec") != NULL) ||
+			(strstr(GST_ELEMENT_NAME(source), "omxmp3dec") != NULL) ||
+			(strstr(GST_ELEMENT_NAME(source), "omxvorbisdec") != NULL) ||
+			(strstr(GST_ELEMENT_NAME(source), "omxac4dec") != NULL))
+	{
+		g_object_set(source, "audio-tunnel-mode", FALSE, NULL );
+		MW_LOG_INFO("callback_element_added audio-tunnel-mode FALSE");
+		g_object_set(source, "aux-audio", TRUE, NULL );
+		MW_LOG_INFO("callback_element_added aux-audio TRUE");
 	}
 }
 

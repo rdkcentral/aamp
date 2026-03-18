@@ -49,8 +49,8 @@ AAMPEventType AAMPEventObject::getType() const
 /**
  * @brief MediaErrorEvent Constructor
  */
-MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, int subCode, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid)), mFailure(failure), mCode(code), mSubCode(subCode),
+MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
+		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid)), mFailure(failure), mCode(code),
 		mDescription(desc), mShouldRetry(shouldRetry), mSecManagerClass(classCode), mSecManagerReasonCode(reason), mBusinessStatus(businessStatus), mResponseData(responseData)
 {
 
@@ -67,23 +67,15 @@ AAMPTuneFailure MediaErrorEvent::getFailure() const
 }
 
 /**
- * @brief Get the error sub code associated with this media error event.
- * 
- * @return Error sub code value for this media error.
+ * @brief Get Error Code
+ *
+ * @return Tune error code
  */
 int MediaErrorEvent::getCode() const
 {
 	return mCode;
 }
-/**
- * @brief Get the error code associated with this media error event.
- * 
- * @return Error code value for this media error
- */
-int MediaErrorEvent::getSubCode() const
-{
-	return mSubCode;
-}
+
 /**
  * @brief Get Description
  *
@@ -161,7 +153,7 @@ float SpeedChangedEvent::getRate() const
 
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate,
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
 	std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
 		mPosition(position), mStart(start),
@@ -282,7 +274,7 @@ double ProgressEvent::getLiveLatency() const
  *
  * @return Profile Bandwidth
  */
-BitsPerSecond ProgressEvent::getProfileBandwidth() const
+long ProgressEvent::getProfileBandwidth() const
 {
 	return mProfileBandwidth;
 }
@@ -292,7 +284,7 @@ BitsPerSecond ProgressEvent::getProfileBandwidth() const
  *
  * @return Network Bandwidth
  */
-BitsPerSecond ProgressEvent::getNetworkBandwidth() const
+long ProgressEvent::getNetworkBandwidth() const
 {
 	return mNetworkBandwidth;
 }
@@ -1243,8 +1235,8 @@ const std::string &AdResolvedEvent::getErrorDescription() const
 /**
  * @brief AdReservationEvent Constructor
  */
-AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid, const std::string &reason):
-		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position), mAbsolutePositionMs(absolutePositionMs), mReason(reason)
+AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid):
+		AAMPEventObject(evtType, std::move(sid)), mAdBreakId(breakId), mPosition(position), mAbsolutePositionMs(absolutePositionMs)
 {
 
 }
@@ -1277,16 +1269,6 @@ uint64_t AdReservationEvent::getPosition() const
 uint64_t AdReservationEvent::getAbsolutePositionMs() const
 {
 	return mAbsolutePositionMs;
-}
-
-/**
- * @brief Get reason for reservation end
- *
- * @return Reason string
- */
-const std::string &AdReservationEvent::getReason() const
-{
-	return mReason;
 }
 
 /**

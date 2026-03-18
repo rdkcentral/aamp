@@ -30,7 +30,6 @@
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
 #include <thread>
-#include <vector>
 #include "iso639map.h"
 #include <string>
 #include <sstream>
@@ -223,7 +222,7 @@ void UrlEncode(std::string inStr, std::string &outStr);
 void trim(std::string& src);
 
 /**
- * @fn Getiso639map_NormalizeLanguageCode
+ * @fn Getiso639map_NormalizeLanguageCode 
  * @param[in] lang - Language in string format
  * @param[in] preferFormat - Preferred language format
  */
@@ -231,7 +230,7 @@ std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCode
 
 /**
  * @fn aamp_GetTimespec
- * @param[in] timeInMs
+ * @param[in] timeInMs 
  */
 struct timespec aamp_GetTimespec(int timeInMs);
 
@@ -331,27 +330,11 @@ uint32_t aamp_ComputeCRC32(const uint8_t *data, uint32_t size, uint32_t initial 
 
 namespace aamp_utils
 {
-	template<typename T, typename ...Args>
-	std::unique_ptr<T> make_unique(Args&& ...args)
-	{
-		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-	}
-
-	/**
-	 * @brief Clear a vector and release its heap memory
-	 *
-	 * Swaps the target vector with a default-constructed temporary so that
-	 * the size becomes zero and the capacity is reduced to that of a
-	 * default-constructed vector (typically releasing its heap storage).
-	 *
-	 * @tparam T Element type of the vector
-	 * @param[in,out] v Vector to clear and release
-	 */
-	template<typename T>
-	inline void ClearAndRelease(std::vector<T>& v)
-	{
-		std::vector<T>().swap(v);
-	}
+    template<typename T, typename ...Args>
+    std::unique_ptr<T> make_unique(Args&& ...args)
+    {
+        return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+    }
 }
 
 /**
@@ -393,15 +376,6 @@ std::string aamp_GetConfigPath( const std::string &filename );
  */
 bool parseAndValidateSCTE35(const std::string &scte35Data);
 
-/**
- * @brief Checks if the SCTE35 data contains a program immediate resumption event.
- *
- * @param scte35Data The SCTE35 data to be checked.
- * @return True if the SCTE35 data contains a program immediate resumption event,
- *         false otherwise.
- */
-bool parseAndValidateSCTE35ProgramResumption(const std::string &scte35Data);
-
 
 /**
  * @brief convert time in HH:SS:MM.ms format to milliseconds
@@ -439,13 +413,6 @@ void aamp_setThreadName(const char *name);
  * @retval -1 on failure
  */
 int aamp_SetThreadSchedulingParameters(int policy, int priority);
-
-/**
- * @brief Convert a single hexadecimal character to its numeric value
- * @param c '0'..'9', 'a'..'f', or 'A'..'F'
- * @retval corresponding number (0..15) for character or -1 if invalid
- */
-int hexCharToInt( char c );
 
 /**
  * @fn isTuneScheme

@@ -20,13 +20,12 @@
 #include <gtest/gtest.h>
 #include "AampProfiler.h"
 #include "AampConfig.h"
-#include "MockAampConfig.h"
+#include <gtest/gtest.h>
 #include <cjson/cJSON.h>
 #include <algorithm>
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-extern MockAampConfig *g_mockAampConfig;
 
 class AampProfilertests : public testing::Test {
 protected:
@@ -88,20 +87,24 @@ TEST_F(AampProfilertests, ProfileResetTest1)
 TEST_F(AampProfilertests, ProfileResetTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[24] = {
+    ProfilerBucketType profilesList[28] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
+    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
+    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
+    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
+    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -114,7 +117,7 @@ TEST_F(AampProfilertests, ProfileResetTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<24;i++){
+    for(int i=0;i<28;i++){
     profileEvent.ProfileReset(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -124,25 +127,29 @@ TEST_F(AampProfilertests, ProfileEndTest1)
     profileEvent->ProfileReset(PROFILE_BUCKET_MANIFEST); 
     profileEvent->ProfileBegin(PROFILE_BUCKET_MANIFEST);    
     profileEvent->ProfileEnd(PROFILE_BUCKET_TYPE_COUNT);
-    EXPECT_EQ(PROFILE_BUCKET_TYPE_COUNT,23);
+    EXPECT_EQ(PROFILE_BUCKET_TYPE_COUNT,27);
 }
 TEST_F(AampProfilertests, ProfileEndTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[24] = {
+    ProfilerBucketType profilesList[28] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
+    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
+    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
+    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
+    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -155,7 +162,7 @@ TEST_F(AampProfilertests, ProfileEndTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<24;i++){
+    for(int i=0;i<28;i++){
     profileEvent.ProfileEnd(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -181,24 +188,32 @@ TEST_F(AampProfilertests, ProfileErrorTest1)
     profileEvent.ProfileError(PROFILE_BUCKET_PLAYLIST_SUBTITLE, result);
     EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_SUBTITLE,3);
     EXPECT_EQ(result,2147483647);
+    result = 0;
+    profileEvent.ProfileError(PROFILE_BUCKET_PLAYLIST_AUXILIARY, result);
+    EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_AUXILIARY,4);
+    EXPECT_EQ(result,0);
 }
 TEST_F(AampProfilertests, ProfileErrorTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[24] = {
+    ProfilerBucketType profilesList[28] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
+    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
+    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
+    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
+    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -211,7 +226,7 @@ TEST_F(AampProfilertests, ProfileErrorTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<24;i++){
+    for(int i=0;i<28;i++){
     profileEvent.ProfileError(profilesList[i],i);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -223,20 +238,24 @@ TEST_F(AampProfilertests, ProfileBeginTest)
 TEST_F(AampProfilertests, ProfileBeginTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[24] = {
+    ProfilerBucketType profilesList[28] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
+    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
+    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
+    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
+    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -249,7 +268,7 @@ TEST_F(AampProfilertests, ProfileBeginTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<24;i++){
+    for(int i=0;i<28;i++){
     profileEvent.ProfileBegin(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -259,8 +278,12 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest1)
     ProfileEventAAMP profileEvent;
     int tuneFailCode = 10;
     profileEvent.SetTuneFailCode(tuneFailCode,PROFILE_BUCKET_LA_PREPROC);
-    EXPECT_EQ(PROFILE_BUCKET_LA_PREPROC,14);
+    EXPECT_EQ(PROFILE_BUCKET_LA_PREPROC,18);
     EXPECT_EQ(tuneFailCode,10);
+    tuneFailCode = INT_MAX;
+    profileEvent.SetTuneFailCode(tuneFailCode,PROFILE_BUCKET_PLAYLIST_AUXILIARY);
+    EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_AUXILIARY,4);
+    EXPECT_EQ(tuneFailCode,2147483647);
     tuneFailCode = INT_MIN;
     profileEvent.SetTuneFailCode(tuneFailCode,PROFILE_BUCKET_PLAYLIST_AUDIO);
     EXPECT_EQ(PROFILE_BUCKET_PLAYLIST_AUDIO,2);
@@ -273,20 +296,24 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest1)
 TEST_F(AampProfilertests, SetTuneFailCodeTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[24] = {
+    ProfilerBucketType profilesList[28] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
+    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
+    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
+    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
+    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -299,7 +326,7 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<24;i++){
+    for(int i=0;i<28;i++){
     profileEvent.SetTuneFailCode(i,profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -308,25 +335,29 @@ TEST_F(AampProfilertests, ProfilePerformedTest1)
 {
     ProfileEventAAMP profileEvent;
     profileEvent.ProfilePerformed(PROFILE_BUCKET_LA_NETWORK);
-    EXPECT_EQ(PROFILE_BUCKET_LA_NETWORK,15);
+    EXPECT_EQ(PROFILE_BUCKET_LA_NETWORK,19);
 }
 TEST_F(AampProfilertests, ProfilePerformedTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType ProfilePerformedList[24] = {
+    ProfilerBucketType ProfilePerformedList[28] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
     PROFILE_BUCKET_PLAYLIST_SUBTITLE,
+    PROFILE_BUCKET_PLAYLIST_AUXILIARY,
     PROFILE_BUCKET_INIT_VIDEO,
     PROFILE_BUCKET_INIT_AUDIO,
     PROFILE_BUCKET_INIT_SUBTITLE,
+    PROFILE_BUCKET_INIT_AUXILIARY,
     PROFILE_BUCKET_FRAGMENT_VIDEO,
     PROFILE_BUCKET_FRAGMENT_AUDIO,
     PROFILE_BUCKET_FRAGMENT_SUBTITLE,
+    PROFILE_BUCKET_FRAGMENT_AUXILIARY,
     PROFILE_BUCKET_DECRYPT_VIDEO,
     PROFILE_BUCKET_DECRYPT_AUDIO,
     PROFILE_BUCKET_DECRYPT_SUBTITLE,
+    PROFILE_BUCKET_DECRYPT_AUXILIARY,
     PROFILE_BUCKET_LA_TOTAL,
     PROFILE_BUCKET_LA_PREPROC,
     PROFILE_BUCKET_LA_NETWORK,
@@ -339,7 +370,7 @@ TEST_F(AampProfilertests, ProfilePerformedTest2)
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<24;i++){
+    for(int i=0;i<28;i++){
     profileEvent.ProfilePerformed(ProfilePerformedList[i]);
     EXPECT_EQ(ProfilePerformedList[i],i);
     }
@@ -544,156 +575,3 @@ TEST_F(AampProfilertests, SetBandwidthBitsPerSecondVideoTest)
     profileEvent->SetBandwidthBitsPerSecondVideo(expectedBandwidth);
     EXPECT_EQ(expectedBandwidth, 0);
 }
-TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKEnabled)
-{
-    // Save original gpGlobalConfig to restore later
-    AampConfig* savedConfig = gpGlobalConfig;
-    
-    // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK enabled
-    MockAampConfig mockConfig;
-    g_mockAampConfig = &mockConfig;
-    gpGlobalConfig = new AampConfig();
-    
-    // Set expectation that IsConfigSet will be called and return true
-    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
-        .WillOnce(Return(true));
-    
-    // Prepare TuneEndMetrics
-    TuneEndMetrics metrics;
-    metrics.success = 1;
-    metrics.contentType = ContentType_VOD;
-    metrics.streamType = 1;
-    metrics.mFirstTune = true;
-    metrics.mTimedMetadataStartTime = 0;
-    metrics.mTimedMetadataDuration = 0;
-    metrics.mTuneAttempts = 1;
-    metrics.mTotalTime = 0;
-    
-    std::string appName = "TestApp";
-    std::string playerActiveMode = "FOREGROUND";
-    int playerId = 1;
-    bool playerPreBuffered = false;
-    unsigned int durationSeconds = 100;
-    bool interfaceWifi = true;
-    std::string failureReason = "";
-    std::string tuneMetricDataStr = "";
-    
-    // Call TuneBegin first to enable profiling
-    profileEvent->TuneBegin();
-    
-    // Call TuneEnd which should append "_VIPA" to appName when eAAMPConfig_UseFireboltSDK is enabled
-    profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, 
-                         playerPreBuffered, durationSeconds, interfaceWifi, 
-                         failureReason, &tuneMetricDataStr);
-    
-    if (!tuneMetricDataStr.empty()) {
-        EXPECT_TRUE(tuneMetricDataStr.find("TestApp_VIPA") != std::string::npos);
-    }
-    
-    // Cleanup
-    delete gpGlobalConfig;
-    gpGlobalConfig = savedConfig;
-    g_mockAampConfig = nullptr;
-}
-
-TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
-{
-    // Save original gpGlobalConfig to restore later
-    AampConfig* savedConfig = gpGlobalConfig;
-    
-    // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK disabled
-    MockAampConfig mockConfig;
-    g_mockAampConfig = &mockConfig;
-    gpGlobalConfig = new AampConfig();
-    
-    // Set expectation that IsConfigSet will be called and return false
-    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
-        .WillOnce(Return(false));
-    
-    // Prepare TuneEndMetrics
-    TuneEndMetrics metrics;
-    metrics.success = 1;
-    metrics.contentType = ContentType_VOD;
-    metrics.streamType = 1;
-    metrics.mFirstTune = true;
-    metrics.mTimedMetadataStartTime = 0;
-    metrics.mTimedMetadataDuration = 0;
-    metrics.mTuneAttempts = 1;
-    metrics.mTotalTime = 0;
-    
-    std::string appName = "TestApp";
-    std::string playerActiveMode = "FOREGROUND";
-    int playerId = 1;
-    bool playerPreBuffered = false;
-    unsigned int durationSeconds = 100;
-    bool interfaceWifi = true;
-    std::string failureReason = "";
-    std::string tuneMetricDataStr = "";
-    
-    // Call TuneBegin first to enable profiling
-    profileEvent->TuneBegin();
-    
-    // Call TuneEnd which should NOT append "_VIPA" to appName when eAAMPConfig_UseFireboltSDK is disabled
-    profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, 
-                         playerPreBuffered, durationSeconds, interfaceWifi, 
-                         failureReason, &tuneMetricDataStr);
-
-    // Verify absence of VIPA tagging: The mock EXPECT_CALL verifies IsConfigSet was called.
-    // If JSON metrics are generated (tuneMetricDataStr populated), verify VIPA marker is absent.
-    // Note: JSON generation may fail in unit test environment (e.g., cJSON_CreateObject returns NULL),
-    // but VIPA tagging logic is still exercised and logged.
-    if (!tuneMetricDataStr.empty()) {
-        EXPECT_TRUE(tuneMetricDataStr.find("TestApp_VIPA") == std::string::npos);
-        EXPECT_TRUE(tuneMetricDataStr.find("TestApp") != std::string::npos);
-    }
-    
-    // Cleanup
-    delete gpGlobalConfig;
-    gpGlobalConfig = savedConfig;
-    g_mockAampConfig = nullptr;
-}
-TEST_F(AampProfilertests, TuneEndVIPATaggingWithNullConfig)
-{
-    // Save the current gpGlobalConfig pointer
-    AampConfig* savedConfig = gpGlobalConfig;
-    
-    // Setup: ensure gpGlobalConfig is NULL for this test
-    gpGlobalConfig = nullptr;
-    
-    // Prepare TuneEndMetrics
-    TuneEndMetrics metrics;
-    metrics.success = 1;
-    metrics.contentType = ContentType_VOD;
-    metrics.streamType = 1;
-    metrics.mFirstTune = true;
-    metrics.mTimedMetadataStartTime = 0;
-    metrics.mTimedMetadataDuration = 0;
-    metrics.mTuneAttempts = 1;
-    metrics.mTotalTime = 0;
-    
-    std::string appName = "TestApp";
-    std::string playerActiveMode = "FOREGROUND";
-    int playerId = 1;
-    bool playerPreBuffered = false;
-    unsigned int durationSeconds = 100;
-    bool interfaceWifi = true;
-    std::string failureReason = "";
-    std::string tuneMetricDataStr = "";
-    
-    // Call TuneBegin first to enable profiling
-    profileEvent->TuneBegin();
-    
-    // Call TuneEnd which should NOT append "_VIPA" when gpGlobalConfig is NULL
-    profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, 
-                         playerPreBuffered, durationSeconds, interfaceWifi, 
-                         failureReason, &tuneMetricDataStr);
-    
-    if (!tuneMetricDataStr.empty()) {
-        EXPECT_TRUE(tuneMetricDataStr.find("TestApp_VIPA") == std::string::npos);
-        EXPECT_TRUE(tuneMetricDataStr.find("TestApp") != std::string::npos);
-    }
-    
-    // Cleanup: restore the original gpGlobalConfig
-    gpGlobalConfig = savedConfig;
-}
-

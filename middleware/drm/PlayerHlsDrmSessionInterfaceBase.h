@@ -36,6 +36,7 @@ enum DrmMediaType
 	eDRM_MEDIATYPE_VIDEO,               /**< Type video */
 	eDRM_MEDIATYPE_AUDIO,               /**< Type audio */
 	eDRM_MEDIATYPE_SUBTITLE,            /**< Type subtitle */
+	eDRM_MEDIATYPE_AUX_AUDIO,           /**< Type auxiliary audio */
 	eDRM_MEDIATYPE_DEFAULT              /**< Type unknown */
 };
 

@@ -18,14 +18,24 @@
  */
 
 /**
- * @file AampGrowableBuffer.cpp
- * @brief Implementation file of helper functions for Growable Buffer class
+ * @file AampGrowableBuffer.h
+ * @brief Header file of helper functions for Growable Buffer class
  */
 
 #include "AampGrowableBuffer.h"
 #include "AampConfig.h"
-#include "AampLogManager.h"
 #include <assert.h>
+#include <glib.h>
+
+bool AampGrowableBuffer::gbEnableLogging = false;
+int AampGrowableBuffer::gNetMemoryCount = 0;
+int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
+
+
+void AampGrowableBuffer::EnableLogging( bool enable )
+{
+    gbEnableLogging = enable;
+}
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
 {
@@ -37,63 +47,89 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	buffer.clear();
-	buffer.shrink_to_fit();  // Release the allocated memory
+	if( ptr )
+	{
+		NETMEMORY_MINUS();
+        if( gbEnableLogging )
+        {
+            printf("AampGrowableBuffer::%s(%s:%d)\n", "Free",name,gNetMemoryCount);
+        }
+		g_free(ptr);
+		ptr = NULL;
+	}
+	len = 0;
+	avail = 0;
 }
 
-bool AampGrowableBuffer::ReserveBytes( size_t numBytes )
+void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
-	if( !buffer.empty() || buffer.capacity() != 0 )
+	assert( ptr==NULL && avail == 0 );
+	ptr = (char *)g_malloc( numBytes );
+	if( ptr )
 	{
-		AAMPLOG_ERR("ReserveBytes called on non-empty buffer (size=%zu capacity=%zu); ignoring", buffer.size(), buffer.capacity());
-		return false;
-	}
-	if( numBytes > 0 )
-	{
-		try {
-			buffer.reserve(numBytes);
-		}
-		catch (const std::exception &e)
+		NETMEMORY_PLUS();
+		if( gbEnableLogging )
 		{
-			AAMPLOG_ERR("Memory allocation failed!! Requested capacity: %zu (%s)", numBytes, e.what());
-			return false;
+			printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
 		}
+		avail = numBytes;
 	}
-	return true;
 }
 
-bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
+void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
-	if( srcLen == 0 )
+	size_t required = len + srcLen;
+	if( avail < required )
+	{ // more memory needed - grow
+		size_t numBytes = avail*2; // first try doubling size of existing reserved memory
+		if( numBytes < required )
+		{ // if still not enough, reallocate based on required
+			numBytes = required*2;
+		}
+		gpointer mem = g_realloc(ptr, numBytes );
+		if( mem )
+		{
+			if( !ptr )
+			{ // first allocation
+				NETMEMORY_PLUS();
+				if( gbEnableLogging )
+				{
+					printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes",name,gNetMemoryCount);
+				}
+			}
+			ptr = mem;
+			avail = numBytes;
+		}
+		else if (numBytes != 0)
+		{
+			AAMPLOG_ERR("Memory re-allocation failed!! Requested numBytes: %zu", numBytes);
+		}
+	}
+	if( ptr )
 	{
-		return true;
+		memcpy( len + (char *)ptr, srcPtr, srcLen);
+		len = required;
 	}
+}
 
-	size_t required = buffer.size() + srcLen;
+/**
+ * @brief replace contents of AampGrowableBuffer
+ * @param srcPtr pointer to memory (may be subset of existing AampGrowableBuffer)
+ * @param srcLen new logical size for AampGrowableBuffer reflecting memory being copied/moved
+ */
+void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
+{ // this API assumes AampGrowableBuffer is already big enough to fit
+	assert( ptr && srcPtr && avail >= srcLen );
+	memmove( ptr, srcPtr, srcLen );
+	len = srcLen;
+}
 
-	if( buffer.capacity() < required )
-	{ // more memory needed - grow with same strategy as original implementation
-		size_t newCapacity = buffer.capacity() * 2; // first try doubling
-		if( newCapacity < required )
-		{ // if still not enough, allocate double what's required
-			newCapacity = required * 2;
-		}
-
-		try
-		{
-			buffer.reserve(newCapacity);
-		}
-		catch (const std::exception &e)
-		{
-			AAMPLOG_ERR("Memory re-allocation failed!! Requested capacity: %zu (%s)", newCapacity, e.what());
-			return false;
-		}
-	}
-
-	// Append the data (reserve guarantees this won't throw or reallocate)
-	const uint8_t* bytes = static_cast<const uint8_t*>(srcPtr);
-	buffer.insert(buffer.end(), bytes, bytes + srcLen);
-	return true;
+/**
+ * @brief reset AampGrowableBuffer logical length without releasing reserved memory
+ */
+void AampGrowableBuffer::Clear( void )
+{
+	len = 0;
 }
 
 /**
@@ -102,34 +138,31 @@ bool AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
  */
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
-	buffer = std::move(src->buffer);
-	src->buffer.clear();
-	src->buffer.shrink_to_fit();
+	assert( ptr == NULL ); // only replace if empty!
+	ptr = src->GetPtr();
+	len = src->GetLen();
+	avail = src->GetAvail();
+	
+	src->ptr = NULL;
+	src->len = 0;
+	src->avail = 0;
 }
 
 /**
- * @brief Extract the internal vector for ownership transfer to external code (e.g., GStreamer)
- * @return vector object (moved) containing the buffer data
- * @note The internal buffer is moved out and the AampGrowableBuffer is reset to known empty state
+ * @brief called when internal memory is transferred (i.e. as part of GStreamer injection)
  */
-std::vector<uint8_t> AampGrowableBuffer::ExtractVector( void )
+void AampGrowableBuffer::Transfer( void )
 {
-	if( buffer.empty() )
+	assert( ptr );
+	if( ptr )
 	{
-		AAMPLOG_ERR("ExtractVector called on empty buffer");
-
-		// Ensure buffer is in a known empty state (release any reserved capacity)
-		buffer.clear();
-		buffer.shrink_to_fit();
-
-		return std::vector<uint8_t>();
+		NETMEMORY_MINUS();
+		if( gbEnableLogging )
+		{
+			printf("AampGrowableBuffer::%s(%s:%d)\n", "Transfer",name,gNetMemoryCount);
+		}
 	}
-	// Move our data into a temporary vector for return
-	std::vector<uint8_t> extracted(std::move(buffer));
-
-	// Explicitly clear to ensure known empty state (not just moved-from state)
-	buffer.clear();
-	buffer.shrink_to_fit();
-
-	return extracted; // Move constructor will be used for efficient return
+	ptr = NULL;
+	len = 0;
+	avail = 0;
 }

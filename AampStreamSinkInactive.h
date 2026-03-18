@@ -47,7 +47,7 @@ public:
      *   @fn Configure
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false)
+	virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 	}
@@ -55,27 +55,16 @@ public:
      *   @fn SendCopy
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendCopy( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double duration)
+	virtual bool SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
-		// buffer will be automatically destroyed (RAII)
 		return false;
 	}
 	/**
      *   @fn SendTransfer
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)
-	{
-		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
-		// buffer will be automatically destroyed (RAII)
-		return false;
-	}
-	/**
-	 *   @fn SendSample
-	 *   @brief stub implementation for Inactive aamp instance
-	 */
-	virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample)
+	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;

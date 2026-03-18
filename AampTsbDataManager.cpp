@@ -129,7 +129,7 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment(bool &deleteInit)
 			}
 			if (deletedFragment->next)
 			{
-				deletedFragment->next->prev.reset();
+				deletedFragment->next->prev = nullptr;
 			}
 			AAMPLOG_INFO("Remove fragment");
 			mTsbFragmentData.erase(it);

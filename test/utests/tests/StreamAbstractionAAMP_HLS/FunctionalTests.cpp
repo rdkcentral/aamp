@@ -191,16 +191,16 @@ protected:
             NotifyPlaybackPaused(false);
         }
 
-        bool CallIsCurrentProfileLowest()
+        bool CallIsLowestProfile(int currentProfileIndex)
         {
             TestableStreamAbstractionAAMP_HLS::trickplayMode = true;
-            return IsCurrentProfileLowest();
+            return IsLowestProfile(currentProfileIndex);
         }
 
-        bool CallIsCurrentProfileLowest_1()
+        bool CallIsLowestProfile_1(int currentProfileIndex)
         {
             TestableStreamAbstractionAAMP_HLS::trickplayMode = false;
-            return IsCurrentProfileLowest();
+            return IsLowestProfile(currentProfileIndex);
         }
 
 	void CallSetAvailableTextTracks(std::vector<TextTrackInfo>& tracks)
@@ -372,7 +372,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -398,7 +398,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
     mStreamAbstractionAAMP_HLS->ParseMainManifest();
 }
@@ -420,7 +420,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -445,7 +445,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -469,7 +469,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -494,7 +494,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -519,7 +519,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -543,7 +543,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -566,7 +566,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -591,7 +591,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired(); (void)TestResult;
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -614,7 +614,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -638,7 +638,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -651,7 +651,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_4k)
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_5SD_4K_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -686,7 +686,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_multi
 
     for (auto &td : test_data)
     {
-        mStreamAbstractionAAMP_HLS->mainManifest.assign(td.manifest, td.manifest + strlen(td.manifest));
+        mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes((char *)td.manifest, strlen(td.manifest) );
 
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -703,7 +703,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
 {
     char manifest[] = MANIFEST_5SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     // Call the fake Tune() method with a non-local URL to setup Fog related flags.
     mPrivateInstanceAAMP->Tune("https://ads.com/ad.m3u8", false);
 
@@ -719,7 +719,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, FogABRMode)
 {
     char manifest[] = MANIFEST_5SD_1A;
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     // Call the fake Tune() method with a Fog TSB URL to setup Fog related flags.
     mPrivateInstanceAAMP->Tune("http://127.0.0.1/tsb?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8", false);
@@ -865,6 +865,15 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAudio)
     StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(audioTrackType);
     StreamOutputFormat expectedAudioOutputFormat = FORMAT_AUDIO_ES_AAC;
     EXPECT_EQ(outputFormat, expectedAudioOutputFormat);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamOutputFormatForTrackAuxAudio)
+{
+
+    TrackType auxAudioTrackType = eTRACK_AUX_AUDIO;
+    StreamOutputFormat outputFormat = mStreamAbstractionAAMP_HLS->GetStreamOutputFormatForTrack(auxAudioTrackType);
+    StreamOutputFormat expectedAuxAudioOutputFormat = FORMAT_AUDIO_ES_AAC; // Example value, replace with your logic
+    EXPECT_EQ(outputFormat, expectedAuxAudioOutputFormat);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage)
@@ -1172,6 +1181,13 @@ TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_SUBTITLE)
     TrackStateobj->FetchPlaylist();
 }
 
+TEST_F(TrackStateTests, FetchPlaylistTest_eTRACK_AUX_AUDIO)
+{
+    //To Cover MediaTrack::type as eTRACK_AUX_AUDIO
+    TrackStateobj->type = TrackType::eTRACK_AUX_AUDIO;
+    TrackStateobj->FetchPlaylist();
+}
+
 TEST_F(TrackStateTests, GetPeriodStartPositionTest)
 {
     AampTime result{TrackStateobj->GetPeriodStartPosition(1000)};
@@ -1322,7 +1338,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1338,7 +1354,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-BYTERANGE:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1353,7 +1369,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXTINF:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1368,7 +1384,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new6)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-TARGETDURATION:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1383,7 +1399,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new7)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MEDIA-SEQUENCE:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1398,7 +1414,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new8)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-KEY:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1413,7 +1429,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new9)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MAP:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1428,7 +1444,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new10)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-PROGRAM-DATE-TIME:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1443,7 +1459,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new11)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ALLOW-CACHE:";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1458,7 +1474,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new12)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ENDLIST";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1473,7 +1489,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new13)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-DISCONTINUITY";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1488,7 +1504,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-I-FRAMES-ONLY";
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest, manifest + sizeof(manifest));
+    mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1563,6 +1579,9 @@ TEST_F(TrackStateTests, FindTimedMetadata_New)
     bool reportBulkMeta = false;
     bool bInitCall = true; // Simulate the bInitCall flag being set
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSubscribedTags)).WillOnce(Return(true));
+    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+        //buffer.AppendBytes(10);
+    buffer.GetPtr();
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 
@@ -1789,13 +1808,13 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RampDownProfiletest)
     ASSERT_FALSE(result);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, IsCurrentProfileLowestTest)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest)
 {
     // Set up the necessary data or objects for your test
-    mStreamAbstractionAAMP_HLS->currentProfileIndex = 0;
+    int currentProfileIndex = 0;
     // int currentProfileIndex = -22;
     // Call the function you want to test
-    bool result = mStreamAbstractionAAMP_HLS->IsCurrentProfileLowest();
+    bool result = mStreamAbstractionAAMP_HLS->IsLowestProfile(currentProfileIndex);
 
     ASSERT_TRUE(result);
 }
@@ -2002,6 +2021,12 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshSubtitlestest)
     mStreamAbstractionAAMP_HLS->RefreshSubtitles();
 }
 
+TEST_F(StreamAbstractionAAMP_HLSTest, WaitForVideoTrackCatchupForAuxtest)
+{
+    // Set up necessary data and conditions for testing
+    mStreamAbstractionAAMP_HLS->WaitForVideoTrackCatchupForAux();
+}
+
 TEST_F(StreamAbstractionAAMP_HLSTest, GetPreferredLiveOffsetFromConfigtest_1)
 {
     // Set up necessary data and conditions for testing
@@ -2114,6 +2139,16 @@ TEST_F(TrackStateTests, EnterTimedWaitForPlaylistRefreshTests)
     TrackStateobj->EnterTimedWaitForPlaylistRefresh(-22);
 }
 
+TEST_F(TrackStateTests, AbortFragmentDownloaderWaitTests)
+{
+    TrackStateobj->AbortFragmentDownloaderWait();
+}
+
+TEST_F(TrackStateTests, WaitForManifestUpdateTests)
+{
+    TrackStateobj->WaitForManifestUpdate();
+}
+
 TEST_F(TrackStateTests, GetBufferStatusTest)
 {
     // Call the function under test
@@ -2137,6 +2172,11 @@ TEST_F(TrackStateTests, ProcessFragmentChunkTests)
 {
     double result = TrackStateobj->ProcessFragmentChunk();
     ASSERT_FALSE(result);
+}
+
+TEST_F(TrackStateTests, NotifyFragmentCollectorWaittest)
+{
+    TrackStateobj->NotifyFragmentCollectorWait();
 }
 
 TEST_F(TrackStateTests, GetTotalInjectedDurationtest)
@@ -2458,6 +2498,11 @@ TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_3)
     AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_SUBTITLE, false);
 }
 
+TEST_F(TrackStateTests, GetPlaylistMediaTypeFromTrackTest_4)
+{
+    AampMediaType playlistMediaType = TrackStateobj->GetPlaylistMediaTypeFromTrack(eTRACK_AUX_AUDIO, false);
+}
+
 TEST_F(StreamAbstractionAAMP_HLSTest, IsStreamerAtLivePointtest_1)
 {
     double seekPosition = 470.0;
@@ -2513,6 +2558,11 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedVideoDurationSectest_1)
     mStreamAbstractionAAMP_HLS->aamp->rate = 0;
     double result = mStreamAbstractionAAMP_HLS->GetBufferedVideoDurationSec();
     ASSERT_EQ(result, -1);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, ProcessDiscontinuity)
+{
+    mStreamAbstractionAAMP_HLS->ProcessDiscontinuity(eTRACK_AUX_AUDIO);
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, SetAudioTrackInfoFromMuxedStreamTest)
@@ -2688,19 +2738,19 @@ TEST_F(StreamAbstractionAAMP_HLSTest, NotifyPlaybackPausedtest)
     mStreamAbstractionAAMP_HLS->CallNotifyPlaybackPaused(true);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, IsCurrentProfileLowestTest_2)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_2)
 {
     // Set up the necessary data or objects for your test
-    mStreamAbstractionAAMP_HLS->currentProfileIndex = -1;
-    bool result = mStreamAbstractionAAMP_HLS->CallIsCurrentProfileLowest();
+    int currentProfileIndex = -1;
+    bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile(currentProfileIndex);
     ASSERT_FALSE(result);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, IsCurrentProfileLowestTest_1)
+TEST_F(StreamAbstractionAAMP_HLSTest, IsLowestProfileTest_1)
 {
     // Set up the necessary data or objects for your test
-    mStreamAbstractionAAMP_HLS->currentProfileIndex = -1;
-    bool result = mStreamAbstractionAAMP_HLS->CallIsCurrentProfileLowest_1();
+    int currentProfileIndex = -1;
+    bool result = mStreamAbstractionAAMP_HLS->CallIsLowestProfile_1(currentProfileIndex);
     ASSERT_TRUE(result);
 }
 
@@ -2849,226 +2899,4 @@ TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 	EXPECT_EQ("lang0",trackInfo.language);
 	EXPECT_EQ("rend0",trackInfo.rendition);
 	EXPECT_EQ("trackName0",trackInfo.name);
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrackSubType)
-{
-	std::vector<TextTrackInfo> tracks;
-	TextTrackInfo trackInfo;
-
-	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "","","","",0));
-	tracks.push_back(TextTrackInfo("idx1", "lang0", true, "","","","",0));
-	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
-
-	// Verify CLOSED-CAPTIONS preference selects CC track (isCC=true)
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang0",trackInfo.language);
-	EXPECT_EQ("idx1",trackInfo.index);
-	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
-
-	// Verify SUBTITLES preference selects subtitle track (isCC=false)
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang0",trackInfo.language);
-	EXPECT_EQ("idx0",trackInfo.index);
-	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
-
-	// Verify SUBTITLES preference still selects subtitle track (repeated)
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang0",trackInfo.language);
-	EXPECT_EQ("idx0",trackInfo.index);
-	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
-
-	// Verify CLOSED-CAPTIONS preference still selects CC track (repeated)
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang0",trackInfo.language);
-	EXPECT_EQ("idx1",trackInfo.index);
-	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
-
-	// Verify empty sub-type preference doesn't award bonus
-	// With no sub-type preference, both tracks have equal language score,
-	// so the first track (idx0) should be selected
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang0",trackInfo.language);
-	EXPECT_EQ("idx0",trackInfo.index) << "Empty sub-type preference should not award bonus";
-
-	// Verify unrecognized sub-type preference doesn't award bonus
-	// With unrecognized preference, both tracks have equal language score,
-	// so the first track (idx0) should be selected
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "UNKNOWN";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang0",trackInfo.language);
-	EXPECT_EQ("idx0",trackInfo.index) << "Unrecognized sub-type preference should not award bonus";
-
-	// Verify sub-type bonus overrides track order
-	// Create tracks with different languages but matching sub-type
-	tracks.clear();
-	tracks.push_back(TextTrackInfo("idx0", "lang1", false, "","","","",0)); // First, but wrong sub-type
-	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "","","","",0));  // Second, but matches sub-type
-	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
-
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang1",trackInfo.language);
-	EXPECT_EQ("idx1",trackInfo.index) << "Sub-type bonus should select CC track even if not first";
-	EXPECT_TRUE(trackInfo.isCC);
-
-	// Verify SUBTITLES sub-type bonus overrides track order
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
-	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
-	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
-	EXPECT_EQ("lang1",trackInfo.language);
-	EXPECT_EQ("idx0",trackInfo.index) << "Sub-type bonus should select subtitle track";
-	EXPECT_FALSE(trackInfo.isCC);
-}
-
-/**
- * @brief Test that when DisableWebVTT is enabled, non-CC subtitle tracks are
- *        excluded from the text track list by PopulateAudioAndTextTracks.
- */
-TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_DisableWebVTT_ExcludesSubtitleTracks)
-{
-	// Set up a stream profile so the media population path is entered
-	HlsStreamInfo streamInfo;
-	streamInfo.enabled = true;
-	streamInfo.isIframeTrack = false;
-	streamInfo.validity = true;
-	streamInfo.codecs = "h264";
-	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-
-	// Add a non-CC subtitle track (WebVTT) and a CC track to mediaInfoStore
-	MediaInfo subtitleMedia;
-	subtitleMedia.type = eMEDIATYPE_SUBTITLE;
-	subtitleMedia.language = "en";
-	subtitleMedia.group_id = "subs";
-	subtitleMedia.name = "English";
-	subtitleMedia.isCC = false; // non-CC / WebVTT subtitle
-	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(subtitleMedia);
-
-	MediaInfo ccMedia;
-	ccMedia.type = eMEDIATYPE_SUBTITLE;
-	ccMedia.language = "en";
-	ccMedia.group_id = "cc";
-	ccMedia.name = "CC1";
-	ccMedia.instreamID = "CC1";
-	ccMedia.isCC = true; // Closed caption track
-	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia);
-
-	// Expect DisableWebVTT to return true, which should filter out non-CC subtitles
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableWebVTT))
-		.WillOnce(Return(true));
-
-	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-	const auto& textTracks = mStreamAbstractionAAMP_HLS->GetAvailableTextTracks();
-	ASSERT_EQ(textTracks.size(), 1u) << "Only CC tracks should be present when DisableWebVTT is set";
-	EXPECT_TRUE(textTracks[0].isCC) << "The remaining track must be a CC track";
-}
-
-/**
- * @brief Test that when DisableWebVTT is enabled, CC subtitle tracks are
- *        retained in the text track list by PopulateAudioAndTextTracks.
- */
-TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_DisableWebVTT_RetainsCCTracks)
-{
-	HlsStreamInfo streamInfo;
-	streamInfo.enabled = true;
-	streamInfo.isIframeTrack = false;
-	streamInfo.validity = true;
-	streamInfo.codecs = "h264";
-	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-
-	// Add two CC tracks to mediaInfoStore
-	MediaInfo ccMedia1;
-	ccMedia1.type = eMEDIATYPE_SUBTITLE;
-	ccMedia1.language = "en";
-	ccMedia1.group_id = "cc";
-	ccMedia1.name = "CC1";
-	ccMedia1.instreamID = "CC1";
-	ccMedia1.isCC = true;
-	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia1);
-
-	MediaInfo ccMedia2;
-	ccMedia2.type = eMEDIATYPE_SUBTITLE;
-	ccMedia2.language = "fr";
-	ccMedia2.group_id = "cc";
-	ccMedia2.name = "CC3";
-	ccMedia2.instreamID = "CC3";
-	ccMedia2.isCC = true;
-	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia2);
-
-	// Expect DisableWebVTT to return true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableWebVTT))
-		.WillOnce(Return(true));
-
-	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-	const auto& textTracks = mStreamAbstractionAAMP_HLS->GetAvailableTextTracks();
-	ASSERT_EQ(textTracks.size(), 2u) << "All CC tracks should be retained when DisableWebVTT is set";
-	for (const auto& track : textTracks)
-	{
-		EXPECT_TRUE(track.isCC) << "Every retained track must be a CC track";
-	}
-}
-
-/**
- * @brief Test that when DisableWebVTT is disabled, both CC and non-CC subtitle
- *        tracks are included by PopulateAudioAndTextTracks.
- */
-TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_WebVTTEnabled_IncludesAllSubtitleTracks)
-{
-	HlsStreamInfo streamInfo;
-	streamInfo.enabled = true;
-	streamInfo.isIframeTrack = false;
-	streamInfo.validity = true;
-	streamInfo.codecs = "h264";
-	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-
-	// Add one non-CC subtitle and one CC track
-	MediaInfo subtitleMedia;
-	subtitleMedia.type = eMEDIATYPE_SUBTITLE;
-	subtitleMedia.language = "en";
-	subtitleMedia.group_id = "subs";
-	subtitleMedia.name = "English";
-	subtitleMedia.isCC = false;
-	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(subtitleMedia);
-
-	MediaInfo ccMedia;
-	ccMedia.type = eMEDIATYPE_SUBTITLE;
-	ccMedia.language = "en";
-	ccMedia.group_id = "cc";
-	ccMedia.name = "CC1";
-	ccMedia.instreamID = "CC1";
-	ccMedia.isCC = true;
-	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia);
-
-	// DisableWebVTT is false, so all tracks should be included
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableWebVTT))
-		.WillOnce(Return(false));
-
-	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-	const auto& textTracks = mStreamAbstractionAAMP_HLS->GetAvailableTextTracks();
-	ASSERT_EQ(textTracks.size(), 2u) << "Both CC and subtitle tracks should be present when DisableWebVTT is not set";
-
-	bool foundCC = false;
-	bool foundSubtitle = false;
-	for (const auto& track : textTracks)
-	{
-		if (track.isCC) foundCC = true;
-		else foundSubtitle = true;
-	}
-	EXPECT_TRUE(foundCC) << "CC track should be present";
-	EXPECT_TRUE(foundSubtitle) << "Non-CC subtitle track should be present";
 }

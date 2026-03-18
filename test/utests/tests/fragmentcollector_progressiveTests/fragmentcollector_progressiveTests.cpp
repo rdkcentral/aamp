@@ -128,14 +128,16 @@ TEST_F(fragmentcollector_progressiveTests,GetMaxBitrateTest){
 }
 TEST_F(fragmentcollector_progressiveTests, GetStreamFormatTest) {
     // Create variables to hold the output format results
-    StreamOutputFormat primaryOutputFormat, audioOutputFormat, subtitleOutputFormat;
+    StreamOutputFormat primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat;
 
     // Call the GetStreamFormat method
-    profileEvent->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
+    profileEvent->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 
     ASSERT_EQ(primaryOutputFormat, FORMAT_ISO_BMFF);
 
     ASSERT_EQ(audioOutputFormat, FORMAT_INVALID);
+
+    ASSERT_EQ(auxAudioOutputFormat, FORMAT_INVALID);
 
     ASSERT_EQ(subtitleOutputFormat, FORMAT_INVALID);
 }

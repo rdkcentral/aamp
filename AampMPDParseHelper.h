@@ -335,12 +335,9 @@ public :
 	bool IsContentType(const IAdaptationSet *adaptationSet, AampMediaType mediaType );
 
 	/**
-	 * @brief Get duration of current period
-	 * @param[in] periodIndex Index of the period
-	 * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
-	 * @param[in] checkIFrame If true, check only iframe adaptations; if false, check all adaptations when determining if a period is empty
-	 * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
-	 * @retval current period's duration in milliseconds
+	 * @fn GetPeriodDuration
+	 * @param mpd : pointer manifest
+	 * @param periodIndex Index of the current period
 	 */
 	double GetPeriodDuration(int periodIndex, uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB);
 
@@ -376,20 +373,15 @@ public :
 
 	/**
 	 * @brief Get end time of current period
-	 * @param[in] periodIndex Index of the period
-	 * @param[in] mLastPlaylistDownloadTimeMs Timestamp of the last playlist download in milliseconds
-	 * @param[in] checkIFrame If true, check only iframe adaptations; if false, check all adaptations when determining if a period is empty
-	 * @param[in] IsUninterruptedTSB Flag indicating if this is an uninterrupted TSB (Time Shift Buffer) stream
-	 * @retval current period's end time in seconds
+	 * @retval current period's end time
 	 */
 	double GetPeriodEndTime(int periodIndex,  uint64_t mLastPlaylistDownloadTimeMs, bool checkIFrame, bool IsUninterruptedTSB);
 
 	/**
-	 * @fn UpdateBoundaryPeriod
-	 * @brief Calculate upper and lower boundary of playable periods by discarding empty periods at the start and end
-	 * @param checkOnlyIframeAdaptation Flag indicating whether to check only iframe adaptations when determining if a period is empty
+	 * @fn UpdateBoundaryPeriod - to  Calculate Upper and lower boundary of playable periods
+	 * @params - Is trickplay mode
 	 */
-	void UpdateBoundaryPeriod(bool checkOnlyIframeAdaptation);
+	void UpdateBoundaryPeriod(bool IsTrickMode);
 
 	/**
 	 * @fn getPeriodIdx
@@ -474,12 +466,12 @@ public :
 	 */
 	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration);
 
-	/**
-	 * @brief  A helper function to  check if period has segment timeline for video track
-	 * @param period period of segment
-	 * @return True if period has segment timeline for video otherwise false
-	 */
-	bool aamp_HasSegmentTime(IPeriod *period);
+    /**
+     * @brief  A helper function to  check if period has segment timeline for video track
+     * @param period period of segment
+     * @return True if period has segment timeline for video otherwise false
+     */
+    bool aamp_HasSegmentTimeline(IPeriod * period);
 
 	/**
 	 * @brief  A helper function to check if period has segment timeline and segments for video track

@@ -20,8 +20,6 @@
 #include "fragmentcollector_mpd.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 
-TimeSyncClient::TimeSyncClient() = default;
-
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
@@ -68,7 +66,7 @@ void StreamAbstractionAAMP_MPD::Start() {  }
 
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
-void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
+void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
 double StreamAbstractionAAMP_MPD::GetFirstPTS()
 {
@@ -318,21 +316,4 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	return false;
-}
-
-void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
-{
-}
-
-void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t counter)
-{
-}
-
-void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
-{
-}
-
-uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
-{
-	return 0;
 }

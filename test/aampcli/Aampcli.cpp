@@ -21,9 +21,9 @@
  * @file Aampcli.cpp
  * @brief Stand alone AAMP player with command line interface.
  */
+
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
-#include <unistd.h>
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -314,11 +314,10 @@ bool Aampcli::SetSessionId(std::string sid)
 {
 	const auto playerId = mSingleton->GetId();
 
-	assert(playerId >= 0);
-	if (mPlayerSessionID.size() > static_cast<size_t>(playerId))
+	if (mPlayerSessionID.size() >= playerId)
 	{
 		mPlayerSessionID[playerId] = std::move(sid);
-		AAMPCLI_PRINTF("[AAMPCLI] SessionId - %d # %s\n", playerId, mPlayerSessionID[playerId].c_str());
+		std::cout << "[AAMPCLI] SessionId - " << playerId << " # " << mPlayerSessionID[playerId] << std::endl;
 	}
 
 	return true;
@@ -328,8 +327,7 @@ std::string Aampcli::GetSessionId() const
 {
 	const auto playerId = mSingleton->GetId();
 
-	assert(playerId >= 0);
-	if (mPlayerSessionID.size() > static_cast<size_t>(playerId))
+	if (mPlayerSessionID.size() >= playerId)
 	{
 		return mPlayerSessionID[playerId];
 	}
@@ -373,7 +371,7 @@ static int main_func(int argc, char **argv)
 	AAMPCLI_PRINTF("**************************************************************************\n");
 	AAMPCLI_PRINTF("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
 	AAMPCLI_PRINTF("**************************************************************************\n");
-	AAMPCLI_PRINTF("PID: %d\n", static_cast<int>(getpid()));
+
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();
 
@@ -414,9 +412,7 @@ static int main_func(int argc, char **argv)
 
 int main( int argc, char **argv )
 {
-#ifdef USE_OPENGL
-	return main_func(argc,argv);
-#elif defined(__APPLE__) && defined (__GST_MACOS_H__)
+#if defined(__APPLE__) && !defined(USE_OPENGL) && defined(__aarch64__)
 	return gst_macos_main((GstMainFunc)main_func, argc, argv, NULL);
 #else
 	return main_func(argc,argv);
@@ -488,7 +484,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				AAMPCLI_PRINTF("[AAMPCLI] Bitrates:\n");
 				for(int i = 0; i < bitrateCount; i++)
 				{
-					AAMPCLI_PRINTF("\t[AAMPCLI] bitrate(%d)=%" BITSPERSECOND_FORMAT "\n", i, bitrates.at(i));
+					AAMPCLI_PRINTF("\t[AAMPCLI] bitrate(%d)=%ld\n", i, bitrates.at(i));
 				}
 				AAMPCLI_PRINTF("[AAMPCLI] Supported Speeds:\n");
 				const std::vector<float> &supportedSpeeds = ev->getSupportedSpeeds();
@@ -507,7 +503,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			{
 				MediaErrorEventPtr ev = std::dynamic_pointer_cast<MediaErrorEvent>(e);
 				mAampcli.mTuneFailureDescription = ev->getDescription();
-				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_FAILED reason=%s code [%d:%d]\n",mAampcli.mTuneFailureDescription.c_str(),ev->getCode(), ev->getSubCode());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_FAILED reason=%s\n",mAampcli.mTuneFailureDescription.c_str());
 				break;
 			}
 		case AAMP_EVENT_SPEED_CHANGED:
@@ -547,7 +543,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 						snprintf( seekableRange, sizeof(seekableRange), "[start=%.3fs end=%.3fs]", start/1000.0, end/1000.0 );
 					}
 
-					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedVideoDuration=%.3fs bufferedAudioDuration=%.3fs  PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%" BITSPERSECOND_FORMAT " networkBandwidth=%" BITSPERSECOND_FORMAT " currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getVideoBufferedDuration()/1000.0, ev->getAudioBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
+					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedVideoDuration=%.3fs bufferedAudioDuration=%.3fs  PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getVideoBufferedDuration()/1000.0, ev->getAudioBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
 				}
 			}
 			break;
@@ -655,10 +651,6 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
 							}
 							break;
-						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROGRAM_IMMEDIATE_RESUMPTION:
-							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Program immediate resumption signalled for breakId='%s'\n", ev->getId().c_str() );
-							mAampcli.mSingleton->CancelReservation(ev->getId());
-							break;
 						default:
 							break;
 					} // splice.type
@@ -701,7 +693,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_RESERVATION_END:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\treason=%s\n", ev->getAdBreakId().c_str(), ev->getPosition(), ev->getReason().c_str());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 

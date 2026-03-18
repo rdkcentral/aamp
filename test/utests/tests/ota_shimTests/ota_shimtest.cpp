@@ -120,14 +120,16 @@ TEST_F(StreamAbstractionAAMP_OTATest, GetStreamFormatTest)
     // Initialize output format variables with some non-default values
     StreamOutputFormat primaryFormat = FORMAT_UNKNOWN;
     StreamOutputFormat audioFormat = FORMAT_UNKNOWN;
+    StreamOutputFormat auxAudioFormat = FORMAT_UNKNOWN;
     StreamOutputFormat subtitleFormat = FORMAT_UNKNOWN;
 
     // Call the GetStreamFormat function
-    aamp_ota->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
+    aamp_ota->GetStreamFormat(primaryFormat, audioFormat, auxAudioFormat, subtitleFormat);
 
     // Assert that the output formats are set to FORMAT_INVALID
     ASSERT_EQ(primaryFormat, FORMAT_INVALID);
     ASSERT_EQ(audioFormat, FORMAT_INVALID);
+    ASSERT_EQ(auxAudioFormat, FORMAT_INVALID);
     ASSERT_EQ(subtitleFormat, FORMAT_INVALID);
 }
 

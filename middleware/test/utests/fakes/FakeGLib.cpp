@@ -33,9 +33,6 @@ using namespace std;
 
 MockGLib *g_mockGLib = nullptr;
 
-#if defined(__GNUC__)
-#pragma GCC visibility push(hidden)
-#endif
 void g_object_set(gpointer object, const gchar *first_property_name, ...)
 {
 	TRACE_FUNC();
@@ -92,7 +89,7 @@ void g_object_get(gpointer object, const gchar *first_property_name, ...)
 			
 			if((strcmp(property_name, "stats") == 0))
 			{
-				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, GstStructure**));
+				g_mockGLib->g_object_get(object, property_name, va_arg(args_list, GstStructure*));
 			}
 			else if((strcmp(property_name, "video-pts") == 0))
 			{
@@ -315,6 +312,3 @@ gpointer g_realloc (gpointer mem, gsize n_bytes)
 	return ptr;
 
 }
-#if defined(__GNUC__)
-#pragma GCC visibility pop
-#endif

@@ -162,7 +162,7 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 /**
  * @brief TSProcessor Constructor
  */
-TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor)
+TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 	: m_needDiscontinuity(true),
 	m_PatPmtLen(0), m_PatPmt(0), m_PatPmtTrickLen(0), m_PatPmtTrick(0), m_PatPmtPcrLen(0), m_PatPmtPcr(0),
 	m_nullPFrame(0), m_nullPFrameLength(0), m_nullPFrameNextCount(0), m_nullPFrameOffset(0),
@@ -192,6 +192,8 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	m_queuedSegmentPos(0), m_queuedSegmentDuration(0), m_queuedSegmentLen(0), m_queuedSegmentDiscontinuous(false), m_startPosition(-1.0),
 	m_track(track), m_last_frame_time(0), m_demuxInitialized(false), m_basePTSFromPeer(-1), m_dsmccComponentFound(false), m_dsmccComponent()
 	, m_AudioTrackIndexToPlay(0)
+	, m_auxTSProcessor(auxTSProcessor)
+	, m_auxiliaryAudio(false)
 	,m_audioGroupId()
 	,m_applyOffset(true)
 	,m_SPS{}
@@ -207,7 +209,7 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 
 	m_versionPMT = 0;
 
-	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO))
+	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO) || (m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX))
 	{
 		m_vidDemuxer = new Demuxer(aamp, eMEDIATYPE_VIDEO, optimizeMuxed );
 		//demux DSM CC stream only together with video stream
@@ -218,6 +220,21 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_AUDIO))
 	{
 		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUDIO, optimizeMuxed);
+		m_demux = true;
+	}
+	else if ((m_streamOperation == eStreamOp_DEMUX_AUX) || m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX)
+	{
+		m_auxiliaryAudio = true;
+		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUX_AUDIO, optimizeMuxed);
+		// Map auxiliary specific streamOperation back to generic streamOperation used by TSProcessor
+		if (m_streamOperation == eStreamOp_DEMUX_AUX)
+		{
+			m_streamOperation = eStreamOp_DEMUX_AUDIO; // this is an audio only streamOperation
+		}
+		else
+		{
+			m_streamOperation = eStreamOp_DEMUX_ALL; // this is a muxed streamOperation
+		}
 		m_demux = true;
 	}
 }
@@ -374,6 +391,7 @@ void TSProcessor::insertPCR(unsigned char *packet, int pid)
 void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 {
 	unsigned char *programInfo, *programInfoEnd;
+	unsigned int dataDescTags[MAX_PIDS] = {};
 	int streamType = 0, pid = 0, len = 0;
 	char work[32] = {};
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
@@ -643,7 +661,14 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 		audioFormat = getStreamFormatForCodecType(audioComponents[0].elemStreamType);
 	}
 	// Notify the format to StreamSink
-	aamp->SetStreamFormat(videoFormat, audioFormat);
+	if (!m_auxiliaryAudio)
+	{
+		aamp->SetStreamFormat(videoFormat, audioFormat, FORMAT_INVALID);
+	}
+	else
+	{
+		aamp->SetStreamFormat(videoFormat, FORMAT_INVALID, audioFormat);
+	}
 
 	if (m_dsmccComponentFound)
 	{
@@ -1612,6 +1637,10 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 				{
 					m_peerTSProcessor->setBasePTS( position, demuxer->getBasePTS());
 				}
+				if(m_auxTSProcessor)
+				{
+					m_auxTSProcessor->setBasePTS(position, demuxer->getBasePTS());
+				}
 				notifyPeerBasePTS = false;
 			}
 			if (ptsError && !dsmccDemuxerUsed && !basePtsUpdatedFromCurrentSegment)
@@ -1724,18 +1753,19 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositi
 		}
 		else if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
 		{
-			if (basepts)
+			if(basepts)
 			{
 				m_audDemuxer->setBasePTS(basepts, true);
 			}
 
 			MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-				aamp->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
+				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			};
-			if (!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, std::move(processor)))
+
+			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, std::move(processor)))
 			{
-				AAMPLOG_WARN("demuxAndSend"); // CID:90622- checked return
+				AAMPLOG_WARN("demuxAndSend");  //CID:90622- checked return
 			}
 		}
 		else
@@ -1777,11 +1807,10 @@ void TSProcessor::setBasePTS(double position, long long pts)
 /**
  * @brief given TS media segment (not yet injected), extract and report first PTS
  */
-double TSProcessor::getFirstPts( const std::vector<uint8_t>& buffer )
+double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
 {
 	double firstPts = 0.0;
-	// const_cast required: TsDemux legacy API takes gpointer (void*) but only reads the data
-	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, const_cast<uint8_t*>(buffer.data()), buffer.size(), true );
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->GetLen(), true );
 	if( tsDemux )
 	{
 		firstPts = tsDemux->getPts(0);
@@ -1813,9 +1842,9 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
-	uint8_t *packetStart = nullptr;
-	uint8_t *segment = pBuffer->data();
-	size_t len = pBuffer->size();
+	unsigned char * packetStart;
+	char *segment = pBuffer->GetPtr();
+	int len = (int)(pBuffer->GetLen());
 	bool ret = false;
 	ptsError = false;
 	{
@@ -1842,29 +1871,19 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	}
 	m_framesProcessedInSegment = 0;
 	m_lastPTSOfSegment = -1;
-	packetStart = segment;
-
-	// Guard against null or too-short buffer before dereferencing TS header bytes
-	if (segment == nullptr || len < 4)
-	{
-		AAMPLOG_ERR("Empty or invalid segment buffer, discarding.");
-		std::lock_guard<std::mutex> guard(m_mutex);
-		m_processing = false;
-		m_throttleCond.notify_one();
-		return false;
-	}
+	packetStart = (unsigned char *)segment;
 
 	// It seems some ts have an invalid packet at the start, so try skipping it
 	while (((packetStart[0] != 0x47) || ((packetStart[1] & 0x80) != 0x00) || ((packetStart[3] & 0xC0) != 0x00)) && (len > 188))
 	{
 		packetStart += 188; // Just jump a packet
 		len -= 188;
-		if (((packetStart - segment) > 376) ||
+		if ((((char *)packetStart - segment) > 376) ||
 			(len < 188))
 		{
 			AAMPLOG_ERR("No valid ts packet found near the start of the segment");
-			packetStart = segment;
-			len = pBuffer->size();
+			packetStart = (unsigned char *)segment;
+			len = (int)(pBuffer->GetLen());
 			break;
 		}
 	}
@@ -1879,11 +1898,11 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 	}
 	if (len % m_packetSize)
 	{
-		size_t discardAtEnd = len % m_packetSize;
-		AAMPLOG_INFO("Discarding %zu bytes at end", discardAtEnd);
+		int discardAtEnd = len % m_packetSize;
+		AAMPLOG_INFO("Discarding %d bytes at end", discardAtEnd);
 		len = len - discardAtEnd;
 	}
-	ret = processBuffer(packetStart, static_cast<int>(len), insPatPmt, discontinuous);
+	ret = processBuffer((unsigned char*)packetStart, len, insPatPmt, discontinuous);
 	if (ret)
 	{
 		if (-1.0 == m_startPosition)

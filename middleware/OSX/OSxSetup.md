@@ -28,7 +28,7 @@ xcrun --sdk macosx --show-sdk-path
 **1. Open middleware.xcodeproj in Xcode**
 
 ```
-git clone "https://github.com/rdkcentral/aamp" -b dev_sprint_25_2
+git clone "https://code.rdkcentral.com/r/rdk/components/generic/aamp" -b dev_sprint
 cd aamp/middleware/; bash install-middleware.sh
 ```
 

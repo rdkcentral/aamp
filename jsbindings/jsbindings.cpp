@@ -928,16 +928,12 @@ public:
 	void setEventProperties(const AAMPEventPtr& e, JSContextRef context, JSObjectRef eventObj)
 	{
 		MediaErrorEventPtr evt = std::dynamic_pointer_cast<MediaErrorEvent>(e);
+
 		int code = evt->getCode();
-		int subCode = evt->getSubCode();
 		const char* description = evt->getDescription().c_str();
 
 		JSStringRef name = JSStringCreateWithUTF8CString("code");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, code), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(name);
-
-		name = JSStringCreateWithUTF8CString("subCode");
-		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, subCode), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("description");
@@ -1592,10 +1588,6 @@ public:
 
 		prop = JSStringCreateWithUTF8CString("time");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
-		prop = JSStringCreateWithUTF8CString("reason");
-		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getReason().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -4140,6 +4132,42 @@ static JSValueRef AAMP_setLicenseCaching(JSContextRef context, JSObjectRef funct
 }
 
 /**
+ * @brief Callback invoked from JS to set auxiliary audio language
+ * @param[in] context JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval JSValue that is the function's return value
+ */
+static JSValueRef AAMP_setAuxiliaryLanguage(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+{
+	LOG_TRACE("Enter");
+	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject); 
+	if(!pAAMP)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.setAuxiliaryLanguage on instances of AAMP");
+		return JSValueMakeUndefined(context);
+	}
+
+	if (argumentCount != 1)
+	{
+		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
+		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setAuxiliaryLanguage' - 1 argument required");
+	}
+	else
+	{
+		char* lang = aamp_JSValueToCString(context, arguments[0], exception);
+        	LOG_WARN(pAAMP," _aamp->SetAuxiliaryLanguage(%s)", lang);
+		pAAMP->_aamp->SetAuxiliaryLanguage(lang);
+		SAFE_DELETE_ARRAY(lang);
+	}
+	return JSValueMakeUndefined(context);
+}
+
+/**
  * @brief Callback invoked from JS to get playback stats
  * @param[in] context JS execution context
  * @param[in] function JSObject that is the function being called
@@ -4326,6 +4354,7 @@ static const JSStaticFunction AAMP_staticfunctions[] =
 	{ "getTextStyleOptions", AAMP_getTextStyleOptions, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLanguageFormat", AAMP_setLanguageFormat, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLicenseCaching", AAMP_setLicenseCaching, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "setAuxiliaryLanguage", AAMP_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "getPlaybackStatistics", AAMP_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMP_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMP_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -4686,7 +4715,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 		std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL == _allocated_aamp )
 		{
-			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL, true);
+			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL);
 			LOG_WARN_EX("create aamp %p", _allocated_aamp);
 		}
 		else

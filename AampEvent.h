@@ -25,7 +25,7 @@
 #ifndef __AAMP_EVENTS_H__
 #define __AAMP_EVENTS_H__
 
-#include "abr.h"
+#include "ABRManager.h"
 
 #include <memory>
 #include <vector>
@@ -123,64 +123,40 @@ typedef enum
 	AAMP_TUNE_INIT_FAILED_PLAYLIST_VIDEO_DNLD_ERROR,   /**< Tune failure due to video playlist download error*/
 	AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR,   /**< Tune failure due to audio playlist download error*/
 	AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR,	           /**< Tune failure due to A/V track sync error*/
-
-	
-	//Resource failure
-	AAMP_TUNE_CONTENT_NOT_FOUND,	/**< The resource was not found at the URL provided (HTTP 404) */
-	
-	//Download failure
-	AAMP_TUNE_MANIFEST_REQ_FAILED,  /**< Tune failure caused by manifest fetch failure*/
-	AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, /**< When fragment download fails for 5 consecutive fragments*/
-	AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, 	/**< Unable to download init fragment*/
-	AAMP_TUNE_INVALID_MANIFEST_FAILURE,  /**< Manifest is invalid */
-	AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING, /**< Init fragments missing in playlist */
-	AAMP_TUNE_DNS_RESOLVE_TIMEOUT, /**< DNS resolve timedout */
-	AAMP_TUNE_CURL_CONNECTION_TIMEOUT, /**< Curl connection timedout */
-	AAMP_TUNE_DATA_TRANSFER_TIMEOUT, /**< Data transfer timedout */
-
-	//Authorization failure
-	AAMP_TUNE_AUTHORIZATION_FAILURE, 	 /**< Not authorized to view the content*/
-
-	//DRM Failure
-	AAMP_TUNE_UNTRACKED_DRM_ERROR, 	/**< DRM error*/
-	AAMP_TUNE_DRM_INIT_FAILED, 	/**< DRM initialization failure */
-	AAMP_TUNE_DRM_DATA_BIND_FAILED, 	/**< InitData binding with DRM failed */
-	AAMP_TUNE_DRM_SESSIONID_EMPTY,		/**< DRM session ID empty */
-	AAMP_TUNE_DRM_CHALLENGE_FAILED,		/**< DRM key request challenge generation failed */
-	AAMP_TUNE_LICENCE_TIMEOUT, 	/**< DRM license request timeout */
-	AAMP_TUNE_LICENCE_REQUEST_FAILED,  /**< DRM license got invalid response */
-	AAMP_TUNE_INVALID_DRM_KEY, /**< DRM reporting invalid license key */
-	AAMP_TUNE_FAILED_TO_GET_KEYID, /**< Failed to parse key id from init data*/
-	AAMP_TUNE_CORRUPT_DRM_DATA, /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
-	AAMP_TUNE_CORRUPT_DRM_METADATA, /**< DRM failure due to corrupt drm metadata in the stream*/
-	AAMP_TUNE_DRM_DECRYPT_FAILED, /**< DRM Decryption Failed for Fragments */
-	AAMP_TUNE_DRM_UNSUPPORTED, 	/**< DRM Format Unsupported */
-	AAMP_TUNE_DRM_SELF_ABORT, /**< Download activity is aborted by player */
-	AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN,	/**< Failed to get session token from AuthService*/
-	AAMP_TUNE_DRM_KEY_UPDATE_FAILED,	/**< Failed to process DRM key, see the error code returned from Update() for more info */
-	AAMP_TUNE_DRM_SESSION_CREATE_FAILED,		   /**< DRM session creation failure (OCDM) */
-
-    
-	
-	//Provisioning failure
-	AAMP_TUNE_DEVICE_NOT_PROVISIONED,  /**< STB not provisioned/corrupted; need to re-provision. */
-
-	//Hdcp failure
-	AAMP_TUNE_HDCP_COMPLIANCE_ERROR, 	/**< HDCP Compliance Check failure.Not compatible hdcp version for playback */
-
-	//Stream failure
-	AAMP_TUNE_UNSUPPORTED_STREAM_TYPE, 	/**< Unsupported stream type */
-	AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE,	/**< Unsupported audio type in manifest */
-
-	//Gstreamer error
-	AAMP_TUNE_GST_PIPELINE_ERROR, /**< Playback failed due to an error in the GStreamer pipeline */
-	AAMP_TUNE_FAILED_PTS_ERROR,  /**< Playback failed due to PTS error */
-
-	//Playback failure
-	AAMP_TUNE_PLAYBACK_STALLED, /**< Playback was stalled due to valid fragments not available in playlist */
-	
-	//Unknown failure
-	AAMP_TUNE_FAILURE_UNKNOWN /**< Unknown failure */
+	AAMP_TUNE_MANIFEST_REQ_FAILED,			   /**< Tune failure caused by manifest fetch failure*/
+	AAMP_TUNE_AUTHORIZATION_FAILURE,		   /**< Not authorized to view the content*/
+	AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE,		   /**< When fragment download fails for 5 consecutive fragments*/
+	AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE,	   /**< Unable to download init fragment*/
+	AAMP_TUNE_UNTRACKED_DRM_ERROR,			   /**< DRM error*/
+	AAMP_TUNE_DRM_INIT_FAILED,			   /**< DRM initialization failure */
+	AAMP_TUNE_DRM_DATA_BIND_FAILED,			   /**< InitData binding with DRM failed */
+	AAMP_TUNE_DRM_SESSIONID_EMPTY,			   /**< DRM session ID empty */
+	AAMP_TUNE_DRM_CHALLENGE_FAILED,			   /**< DRM key request challenge generation failed */
+	AAMP_TUNE_LICENCE_TIMEOUT,			   /**< DRM license request timeout */
+	AAMP_TUNE_LICENCE_REQUEST_FAILED,		   /**< DRM license got invalid response */
+	AAMP_TUNE_INVALID_DRM_KEY,			   /**< DRM reporting invalid license key */
+	AAMP_TUNE_UNSUPPORTED_STREAM_TYPE,		   /**< Unsupported stream type */
+	AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE,		   /**< Unsupported audio type in manifest */
+	AAMP_TUNE_FAILED_TO_GET_KEYID,			   /**< Failed to parse key id from init data*/
+	AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN,		   /**< Failed to get session token from AuthService*/
+	AAMP_TUNE_CORRUPT_DRM_DATA,			   /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
+	AAMP_TUNE_CORRUPT_DRM_METADATA,			   /**< DRM failure due to corrupt drm metadata in the stream*/
+	AAMP_TUNE_DRM_DECRYPT_FAILED,			   /**< DRM Decryption Failed for Fragments */
+	AAMP_TUNE_DRM_UNSUPPORTED,			   /**< DRM Format Unsupported */
+	AAMP_TUNE_DRM_SELF_ABORT,			   /**< Download activity is aborted by player */
+	AAMP_TUNE_GST_PIPELINE_ERROR,			   /**< Playback failure due to error from GStreamer pipeline or associated plugins */
+	AAMP_TUNE_PLAYBACK_STALLED,			   /**< Playback was stalled due to valid fragments not available in playlist */
+	AAMP_TUNE_CONTENT_NOT_FOUND,			   /**< The resource was not found at the URL provided (HTTP 404) */
+	AAMP_TUNE_DRM_KEY_UPDATE_FAILED,		   /**< Failed to process DRM key, see the error code returned from Update() for more info */
+	AAMP_TUNE_DEVICE_NOT_PROVISIONED,		   /**< STB not provisioned/corrupted; need to re-provision. */
+	AAMP_TUNE_HDCP_COMPLIANCE_ERROR,		   /**< HDCP Compliance Check failure.Not compatible hdcp version for playback */
+	AAMP_TUNE_INVALID_MANIFEST_FAILURE,		   /**< Manifest is invalid */
+	AAMP_TUNE_FAILED_PTS_ERROR,			   /**< Playback failed due to PTS error */
+	AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING,		   /**< Init fragments missing in playlist */
+	AAMP_TUNE_DNS_RESOLVE_TIMEOUT,
+	AAMP_TUNE_CURL_CONNECTION_TIMEOUT,
+	AAMP_TUNE_DATA_TRANSFER_TIMEOUT,
+	AAMP_TUNE_FAILURE_UNKNOWN		   /**<  Unknown failure */
 } AAMPTuneFailure;
 
 /**
@@ -294,8 +270,8 @@ struct AAMPEvent
 			double audioBufferedMilliseconds;	/**< current duration of buffered audio ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
-			BitsPerSecond profileBandwidth;      /**< Profile Bandwidth */
-			BitsPerSecond networkBandwidth;      /**< Network Bandwidth*/
+			long profileBandwidth;      /**< Profile Bandwidth */
+			long networkBandwidth;      /**< Network Bandwidth*/
 			double currentPlayRate; /**< CurrentPlayRate */
 			
 			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
@@ -407,8 +383,7 @@ struct AAMPEvent
 		struct
 		{
 			AAMPTuneFailure failure;                            /**< Error Type */
-			int code;											/**< Error code */
-			int subCode;                                        /**< Error sub code */
+			int code;                                           /**< Error code */
 			const char *description;                            /**< Error description */
 			bool shouldRetry;                                   /**< If recovery on retry is possible */
 			int32_t classCode; /**< class Code */
@@ -645,7 +620,6 @@ class MediaErrorEvent: public AAMPEventObject
 {
 	AAMPTuneFailure mFailure;	/**< Error Type */
 	int mCode;			/**< Error code */
-	int mSubCode;		/**< Error sub code */
 	std::string mDescription;	/**< Error description */
 	std::string mResponseData;	/**< Response Data */
 	bool mShouldRetry;		/**< If recovery on retry is possible */
@@ -664,16 +638,10 @@ public:
 	 *
 	 * @param[in] failure     - Failure type
 	 * @param[in] code        - Error code
-	 * @param[in] subCode     - Error sub code
 	 * @param[in] desc        - Error description
 	 * @param[in] shouldRetry - Retry or not
-	 * @param[in] classCode      - Secmanager error class code
-	 * @param[in] reason         - Secmanager reason code
-	 * @param[in] businessStatus - Secclient business status code
-	 * @param[in] responseData   - Response data associated with the error
-	 * @param[in] sid            - Session identifier associated with the error
 	 */
-	MediaErrorEvent(AAMPTuneFailure failure, int code, int subCode, const std::string &desc, bool shouldRetry, int32_t classCode, int32_t reason, int32_t businessStatus, const std::string &responseData, std::string sid);
+	MediaErrorEvent(AAMPTuneFailure failure, int code, const std::string &desc, bool shouldRetry, int32_t classCode, int32_t reason, int32_t businessStatus, const std::string &responseData, std::string sid);
 
 	/**
 	 * @brief MediaErrorEvent Destructor
@@ -686,17 +654,10 @@ public:
 	AAMPTuneFailure getFailure() const;
 
 	/**
-	 * @fn getSubCode
-	 * @brief Get the error sub code associated with this media error event.
-	 * @return Error sub code value for this media error.
-	 */
-	int getSubCode() const;
-	/**
 	 * @fn getCode
-	 * @brief Get the error code associated with this media error event.
-	 * @return Error code value for this media error.
 	 */
 	int getCode() const;
+
 	/**
 	 * @fn getDescription
 	 */
@@ -775,8 +736,8 @@ class ProgressEvent: public AAMPEventObject
 	double mAudioBufferedDurationMs; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
-	BitsPerSecond mProfileBandwidth;     /**<Profile Bandwidth */
-	BitsPerSecond mNetworkBandwidth;     /**<Network Bandwidth */
+	long mProfileBandwidth;     /**<Profile Bandwidth */
+	long mNetworkBandwidth;     /**<Network Bandwidth */
 	double mCurrentPlayRate; /**<CurrentPlaybackRate */
 
 public:
@@ -802,7 +763,7 @@ public:
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, BitsPerSecond profileBandwidth, BitsPerSecond networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -865,12 +826,12 @@ public:
 	/**
 	 * @fn getProfileBandwidth
 	 */
-	BitsPerSecond getProfileBandwidth() const;
+	long getProfileBandwidth() const;
 
 	/**
 	 * @fn getNetworkBandwidth
 	 */
-	BitsPerSecond getNetworkBandwidth() const;
+	long getNetworkBandwidth() const;
 
 	/**
 	 * @fn getCurrentPlayRate
@@ -1253,7 +1214,7 @@ public:
 	/**
 	 * @fn getBitrate
 	 */
-	BitsPerSecond getBitrate() const;
+	long getBitrate() const;
 
 	/**
 	 * @fn getDescription
@@ -1933,7 +1894,6 @@ class AdReservationEvent: public AAMPEventObject
 	std::string mAdBreakId;	/**<Adbreak's id */
 	uint64_t mPosition;	/**<Adbreak's start position */
 	uint64_t mAbsolutePositionMs; /**<Adbreak's absolute position in UTC milliseconds */
-	std::string mReason;	/**<Reason for reservation end, if applicable */
 
 public:
 	AdReservationEvent() = delete;
@@ -1948,9 +1908,8 @@ public:
 	 * @param[in] position - Postion of reservation in content's PTS
 	 * @param[in] absolutePositionMs - Absolute position of reservation
 	 * @param[in] sid      - Session Identifier
-	 * @param[in] reason   - Reason for reservation end (optional, applicable to END events)
 	 */
-	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid, const std::string &reason = "");
+	AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid);
 
 	/**
 	 * @brief AdReservationEvent Destructor
@@ -1968,14 +1927,9 @@ public:
 	uint64_t getPosition() const;
 
 	/**
-	 * @fn getAbsolutePositionMs
+	 * @fn getabsolutePositionMs
 	 */
 	uint64_t getAbsolutePositionMs() const;
-
-	/**
-	 * @fn getReason
-	 */
-	const std::string &getReason() const;
 };
 
 /**

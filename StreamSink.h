@@ -20,12 +20,8 @@
 #ifndef STREAM_SINK_H
 #define STREAM_SINK_H
 
-#include <vector>
-#include <cstdint>
 #include "StreamOutputFormat.h"
 #include "AampMediaType.h"
-#include "AampDemuxDataTypes.h" // for AampMediaSample
-#include "DemuxDataTypes.h" // for MediaCodecInfo
 
 /**
  * @struct PlaybackQualityData
@@ -50,32 +46,32 @@ public:
      *
      *   @param[in]  format - Video output format.
      *   @param[in]  audioFormat - Audio output format.
+     *   @param[in]  auxFormat - Aux audio output format.
      *   @param[in]  bESChangeStatus - Flag to keep force configure the pipeline value
+     *   @param[in]  forwardAudioToAux - Flag denotes if audio buffers have to be forwarded to aux pipeline
      *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
      *   @return void
      */
-    virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation=false){}
-    /**
-     *   @brief  API to send audio/video buffer into the sink.
-     *
-     *   Takes ownership of buffer data via move semantics.
-     *   Caller constructs the std::vector from raw memory, if needed,
-     *   before calling this method.
-     *
-     *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  buffer - Temporary vector (rvalue reference); ownership transferred to sink via move
-     *   @param[in]  fpts - Presentation Time Stamp.
-     *   @param[in]  fdts - Decode Time Stamp
-     *   @param[in]  fDuration - Buffer duration.
-     *   @return true if successful
-     */
-    virtual bool SendCopy( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration)= 0;
+    virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false){}
 
     /**
      *   @brief  API to send audio/video buffer into the sink.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  buffer - Vector data (moved into sink, zero-copy)
+     *   @param[in]  ptr - Pointer to the buffer; caller responsible of freeing memory
+     *   @param[in]  len - Buffer length.
+     *   @param[in]  fpts - Presentation Time Stamp.
+     *   @param[in]  fdts - Decode Time Stamp
+     *   @param[in]  fDuration - Buffer duration.
+     *   @return void
+     */
+    virtual bool SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)= 0;
+
+    /**
+     *   @brief  API to send audio/video buffer into the sink.
+     *
+     *   @param[in]  mediaType - Type of the media.
+     *   @param[in]  buffer - Pointer to the AampGrowableBuffer; ownership is taken by the sink
      *   @param[in]  fpts - Presentation Time Stamp.
      *   @param[in]  fdts - Decode Time Stamp
      *   @param[in]  fDuration - Buffer duration.
@@ -83,16 +79,7 @@ public:
      *   @param[in]  initFragment - flag for buffer type (init, data)
      *   @return void
      */
-    virtual bool SendTransfer( AampMediaType mediaType, std::vector<uint8_t>&& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
-
-    /**
-     *   @brief  API to send audio/video sample into the sink.
-     *
-     *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  sample - Media sample
-     *   @return void
-     */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
+    virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type
@@ -402,14 +389,6 @@ public:
      * @brief Notifies the injector to pause buffer pushing.
      */
     virtual void NotifyInjectorToPause() {};
-
-    /**
-     * @brief Set stream capabilities based on codec info
-     *
-     * @param[in] type - Media type
-     * @param[in] codecInfo - Codec information
-     */
-    virtual void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) {};
 
 };
 

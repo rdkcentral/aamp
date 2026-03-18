@@ -17,9 +17,6 @@
  * limitations under the License.
  */
 #include "stream_utils.hpp"
-#include "gst-test.h"
-#include <iostream>
-#include <cstdlib>
 
 namespace Math
 {
@@ -72,12 +69,12 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 			auto baseTime = timeline.tuneUTC - timeline.availabilityStartTime - timeline.timeShiftBufferDepth;
 			if( representation.data.duration.size()==0 )
 			{
-				throw TestHarnessException("ERROR: GetPeriodFirstPts() - representation has no duration data");
+				assert(0);
 			}
 			else if( representation.data.duration.size()>1 )
 			{
-				auto delta = (baseTime - period.start);
-				pts += delta;
+				auto dt = (baseTime - period.start);
+				pts += dt;
 			}
 			else
 			{
@@ -93,7 +90,7 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 void ComputeTimestampOffsets( Timeline &timeline )
 {
 	double totalDurationSeconds = 0;
-	for( size_t iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
+	for( int iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
 	{
 		PeriodObj &period = timeline.period[iPeriod];
 		if( iPeriod==0 )
@@ -120,16 +117,15 @@ void ComputeTimestampOffsets( Timeline &timeline )
 		}
 	}
 	
-	if (!timeline.period.empty())
 	{
-		PeriodObj &lastPeriod = timeline.period.back();
+		PeriodObj &lastPeriod = timeline.period[timeline.period.size()-1];
 		if( lastPeriod.duration<0 && lastPeriod.start >=0 )
 		{ // use mediaPresentationDuration to infer final duration
 			lastPeriod.duration = timeline.mediaPresentationDuration - lastPeriod.start;
 		}
 	}
 	
-	for( size_t iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
+	for( int iPeriod=0; iPeriod<timeline.period.size(); iPeriod++ )
 	{
 		PeriodObj &period = timeline.period[iPeriod];
 		auto periodDuration = period.duration;

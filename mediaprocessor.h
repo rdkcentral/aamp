@@ -81,7 +81,7 @@ public:
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
-	virtual double getFirstPts( const std::vector<uint8_t>& buffer ) = 0;
+	virtual double getFirstPts( AampGrowableBuffer* pBuffer ) = 0;
 
 	/**
 	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
@@ -91,7 +91,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in,out] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -103,36 +103,6 @@ public:
 	 */
 	virtual bool sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError) = 0;
-
-	/**
-	 * @brief sendSegment overload accepting a std::vector buffer.
-	 *
-	 * Bridges from std::vector<uint8_t> to the AampGrowableBuffer-based
-	 * pure-virtual sendSegment.  The vector contents are moved into a
-	 * temporary AampGrowableBuffer, the virtual method is called, and
-	 * the (possibly modified) data is moved back into the vector.
-	 *
-	 * @param[in,out] buffer - fragment data; may be modified (e.g. PTS restamping)
-	 * @param[in] position - position of fragment
-	 * @param[in] duration - duration of fragment
-	 * @param[in] fragmentPTSoffset - offset PTS of fragment
-	 * @param[in] discontinuous - true if discontinuous fragment
-	 * @param[in] isInit - flag for buffer type (init, data)
-	 * @param[in] processor - Function to use for processing the fragments
-	 * @param[out] ptsError - flag indicates if any PTS error occurred
-	 * @return true if fragment was sent, false otherwise
-	 */
-	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration,
-					 double fragmentPTSoffset, bool discontinuous, bool isInit,
-					 process_fcn_t processor, bool &ptsError)
-	{
-		AampGrowableBuffer tempBuf;
-		tempBuf.GetVector() = std::move(buffer);
-		bool result = sendSegment(&tempBuf, position, duration, fragmentPTSoffset,
-								  discontinuous, isInit, std::move(processor), ptsError);
-		buffer = std::move(tempBuf.GetVector());
-		return result;
-	}
 
 	/**
 	 * @brief Set playback rate
@@ -159,24 +129,25 @@ public:
 	 */
 	virtual void setFrameRateForTM (int frameRate) = 0;
 
-	/**
-	 * @brief Reset PTS on subtitleSwitch
-	 *
-	 * @param[in] buffer - fragment data
-	 * @param[in] position - position of fragment
-	 * @return void
-	 */
-	virtual void resetPTSOnSubtitleSwitch(std::vector<uint8_t>& buffer, double position) {};
+        /**
+          * @brief Reset PTS on subtitleSwitch
+          *
+          * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+          * @param[in] position - position of fragment
+          * @return void
+          */
+
+	virtual void resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position) {};
 
 	/**
 	 * @brief Reset PTS on audioSwitch
 	 *
-	 * @param[in] buffer - fragment data
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] ptsOffset - offset to be applied for restamping
 	 * @return void
 	 */
-	virtual void resetPTSOnAudioSwitch(std::vector<uint8_t>& buffer, double position, double ptsOffset = 0) {};
+	virtual void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset = 0) {};
 
 	/**
 	 * @brief Abort all operations
@@ -193,55 +164,55 @@ public:
 	virtual void reset() = 0;
 
 	/**
-	 * @fn Change Muxed Audio Track
-	 * @param[in] AudioTrackIndex
-	 */
+	* @fn Change Muxed Audio Track
+	* @param[in] AudioTrackIndex
+	*/
 	virtual void ChangeMuxedAudioTrack(unsigned char index){};
 
 	/**
-	 * @brief Function to set the group-ID
-	 * @param[in] string - id
-	 */
+	* @brief Function to set the group-ID
+	* @param[in] string - id
+	*/
 	virtual void SetAudioGroupId(std::string& id){};
 
 	/**
-	 * @brief Function to set a offsetflag. if the value is false, no need to apply offset while doing pts restamping
-	 * @param[in] bool - true/false
-	 */
+	* @brief Function to set a offsetflag. if the value is false, no need to apply offset while doing pts restamping
+	* @param[in] bool - true/false
+	*/
 	virtual void setApplyOffsetFlag(bool enable){};
 
 	/**
-	 * @brief Function to abort wait for injecting the segment
-	 */
+	* @brief Function to abort wait for injecting the segment
+	*/
 	virtual void abortInjectionWait() = 0;
 
 	/**
-	 * @brief Function to enable/disable the processor
-	 * @param[in] enable true to enable, false otherwise
-	 */
+	* @brief Function to enable/disable the processor
+	* @param[in] enable true to enable, false otherwise
+	*/
 	virtual void enable(bool enable) = 0;
 
 	/**
-	 * @brief Function to set a track offset for restamping
-	 * @param[in] offset offset value in seconds
-	 */
+	* @brief Function to set a track offset for restamping
+	* @param[in] offset offset value in seconds
+	*/
 	virtual void setTrackOffset(double offset) = 0;
 
 	/**
-	 * @brief Function to set skipped fragment duration and skip point position
-	 * @param[in] skipPoint - skip point position in seconds
-	 * @param[in] skipDuration- duration in seconds to be skipped
-	 */
+	* @brief Function to set skipped fragment duration and skip point position
+	* @param[in] skipPoint - skip point position in seconds
+	* @param[in] skipDuration- duration in seconds to be skipped
+	*/
 	virtual void updateSkipPoint(double skipPoint, double skipDuration ) {}
 
 	/**
-	 * @brief Function to set discontinuity
-	 */
+	* @brief Function to set discontinuity
+	*/
 	virtual void setDiscontinuityState(bool isDiscontinuity) {}
 
 	/**
-	 * @brief Function to abort wait for videoPTS arrival
-	 */
+	* @brief Function to abort wait for videoPTS arrival
+	*/
 	virtual void abortWaitForVideoPTS() {}
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

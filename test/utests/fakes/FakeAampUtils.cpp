@@ -19,7 +19,6 @@
 
 #include "AampUtils.h"
 #include "MockAampUtils.h"
-#include <cctype>
 
 MockAampUtils *g_mockAampUtils = nullptr;
 
@@ -33,18 +32,18 @@ enum HarvestConfigType
 	eHARVEST_ENABLE_VIDEO = 0x00000001,              /**< Enable Harvest Video fragments - set 1st bit*/
 	eHARVEST_ENABLE_AUDIO = 0x00000002,              /**< Enable Harvest audio - set 2nd bit*/
 	eHARVEST_ENABLE_SUBTITLE = 0x00000004,           /**< Enable Harvest subtitle - set 3rd bit */
-	eHARVEST_ENABLE_RESERVED = 0x00000008,           /**< Reserved for future use */
+	eHARVEST_ENABLE_AUX_AUDIO = 0x00000008,          /**< Enable Harvest auxiliary audio - set 4th bit*/
 	eHARVEST_ENABLE_MANIFEST = 0x00000010,           /**< Enable Harvest manifest - set 5th bit */
 	eHARVEST_ENABLE_LICENCE = 0x00000020,            /**< Enable Harvest license - set 6th bit  */
 	eHARVEST_ENABLE_IFRAME = 0x00000040,             /**< Enable Harvest iframe - set 7th bit  */
 	eHARVEST_ENABLE_INIT_VIDEO = 0x00000080,         /**< Enable Harvest video init fragment - set 8th bit*/
 	eHARVEST_ENABLE_INIT_AUDIO = 0x00000100,         /**< Enable Harvest audio init fragment - set 9th bit*/
 	eHARVEST_ENABLE_INIT_SUBTITLE = 0x00000200,      /**< Enable Harvest subtitle init fragment - set 10th bit*/
-	eHARVEST_ENABLE_INIT_RESERVED = 0x00000400,      /**< Reserved for future use */
+	eHARVEST_ENABLE_INIT_AUX_AUDIO = 0x00000400,     /**< Enable Harvest auxiliary audio init fragment - set 11th bit*/
 	eHARVEST_ENABLE_PLAYLIST_VIDEO = 0x00000800,     /**< Enable Harvest video playlist - set 12th bit*/
 	eHARVEST_ENABLE_PLAYLIST_AUDIO = 0x00001000,     /**< Enable Harvest audio playlist - set 13th bit*/
 	eHARVEST_ENABLE_PLAYLIST_SUBTITLE = 0x00002000,  /**< Enable Harvest subtitle playlist - set 14th bit*/
-	eHARVEST_ENABLE_PLAYLIST_RESERVED = 0x00004000,  /**< Reserved for future use */
+	eHARVEST_ENABLE_PLAYLIST_AUX_AUDIO = 0x00004000, /**< Enable Harvest auxiliary audio playlist - set 15th bit*/
 	eHARVEST_ENABLE_PLAYLIST_IFRAME = 0x00008000,    /**< Enable Harvest Iframe playlist - set 16th bit*/
 	eHARVEST_ENABLE_INIT_IFRAME = 0x00010000,        /**< Enable Harvest IFRAME init fragment - set 17th bit*/
 	eHARVEST_ENABLE_DSM_CC = 0x00020000,             /**< Enable Harvest digital storage media command and control (DSM-CC)- set 18th bit */
@@ -490,18 +489,18 @@ const char* GetMediaTypeName( AampMediaType mediaType )
         "video",//eMEDIATYPE_VIDEO
         "audio",//eMEDIATYPE_AUDIO
         "text",//eMEDIATYPE_SUBTITLE
-        "reserved",//eMEDIATYPE_RESERVED
+        "aux_audio",//eMEDIATYPE_AUX_AUDIO
         "manifest",//eMEDIATYPE_MANIFEST
         "licence",//eMEDIATYPE_LICENCE
         "iframe",//eMEDIATYPE_IFRAME
         "init_video",//eMEDIATYPE_INIT_VIDEO
         "init_audio",//eMEDIATYPE_INIT_AUDIO
         "init_text",//eMEDIATYPE_INIT_SUBTITLE
-        "init_reserved",//eMEDIATYPE_INIT_RESERVED
+        "init_aux_audio",//eMEDIATYPE_INIT_AUX_AUDIO
         "playlist_video",//eMEDIATYPE_PLAYLIST_VIDEO
         "playlist_audio",//eMEDIATYPE_PLAYLIST_AUDIO
         "playlist_text",//eMEDIATYPE_PLAYLIST_SUBTITLE
-        "playlist_reserved",//eMEDIATYPE_PLAYLIST_RESERVED
+        "playlist_aux_audio",//eMEDIATYPE_PLAYLIST_AUX_AUDIO
         "playlist_iframe",//eMEDIATYPE_PLAYLIST_IFRAME
         "init_iframe",//eMEDIATYPE_INIT_IFRAME
         "dsm_cc",//eMEDIATYPE_DSM_CC
@@ -582,15 +581,6 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	return false;
 }
 
-bool parseAndValidateSCTE35ProgramResumption(const std::string &scte35Data)
-{
-	if (g_mockAampUtils)
-	{
-		return g_mockAampUtils->parseAndValidateSCTE35ProgramResumption(scte35Data);
-	}
-	return false;
-}
-
 long long convertHHMMSSToTime(const char * str)
 {
 	return 0;
@@ -604,25 +594,6 @@ std::string convertTimeToHHMMSS( long long t )
 const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr)
 {
 	return NULL;
-}
-
-int hexCharToInt(char c)
-{
-	// For convenience including working implementation of this trivial function.
-	// Avoids breaking ChunkTransferTests.
-	if (c >= '0' && c <= '9')
-	{
-		return c - '0';
-	}
-	if (c >= 'a' && c <= 'f')
-	{
-		return 10 + (c - 'a');
-	}
-	if (c >= 'A' && c <= 'F')
-	{
-		return 10 + (c - 'A');
-	}
-	return -1;
 }
 
 void aamp_setThreadName(const char *name)
