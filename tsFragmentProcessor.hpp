@@ -30,16 +30,10 @@
 #include "tsprocessor.h"
 #include "tsDemuxer.hpp"
 
-
-
 #include <array>
-
 #include <cstdint>
 #include <cstddef>
-
-
-class CachedFragment;
-class AampGrowableBuffer;
+#include <vector>
 
 namespace aamp_ts {
 
@@ -71,7 +65,7 @@ public:
 	 * @return true If the processing has been completed
 	 * @return false If the processing has not been completed
 	 */
-	bool ProcessFragment(const AampGrowableBuffer & fragment,
+	bool ProcessFragment(const std::vector<uint8_t>& fragment,
 		double position, double duration, bool discontinuity_pending,
 		MediaProcessor::process_fcn_t processor);
 
@@ -114,7 +108,7 @@ private:
 	 * @return true If the fragment is valid
 	 * @return false If the fragment is NOT valid
 	 */
-	bool ValidateFragment(const AampGrowableBuffer & fragment, uint8_t * & curr_packet_ptr, size_t & curr_len) const;
+	bool ValidateFragment(const std::vector<uint8_t>& fragment, uint8_t * & curr_packet_ptr, size_t & curr_len) const;
 
 	/**
 	 * @brief Demuxes the fragment

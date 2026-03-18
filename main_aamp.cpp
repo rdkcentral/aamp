@@ -283,12 +283,12 @@ void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservatio
 /**
  *  @brief Cancel an ad reservation.
  */
-void PlayerInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
-    if (aamp)
-    {
-        aamp->CancelReservation(playingReservationId, cancelAtReservationId);
-    }
+	if (aamp)
+	{
+		aamp->CancelReservation(cancelAtReservationId);
+	}
 }
 
 /**
@@ -365,7 +365,12 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
+	UsingPlayerId(aamp->mPlayerId);
 	ManageAsyncTuneConfig(mainManifestUrl);
+	
+	// Set tuned flag before scheduling the tune task
+	AampStreamSinkManager::GetInstance().SetTuned(aamp);
+
 	if(mAsyncTuneEnabled)
 	{
 		const std::string manifest {mainManifestUrl};
@@ -892,7 +897,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
-						retValue = false;
+						retValue = false; // Skip common notification to prevent premature state change
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
@@ -901,6 +906,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
+						// Notify speed change without state transition (keeps eSTATE_SEEKING)
+						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
+						aamp->NotifySpeedChanged(aamp->rate, false);
 					}
 					else
 					{
