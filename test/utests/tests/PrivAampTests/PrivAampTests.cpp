@@ -2218,8 +2218,8 @@ TEST_F(PrivAampTests,GetFileTest)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(),effectiveUrl,http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_1)
@@ -2232,8 +2232,8 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_2)
@@ -2247,10 +2247,10 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
-TEST_F(PrivAampTests,GetFileTest_3)
+TEST_F(PrivAampTests, GetFileTest_3)
 {
 	const char *url;
 	std::string effectiveUrl;
@@ -2264,8 +2264,8 @@ TEST_F(PrivAampTests,GetFileTest_3)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_4)
