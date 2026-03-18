@@ -330,8 +330,22 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 		AAMPLOG_ERR("AampRialtoPlayer::%s pipeline not created", __FUNCTION__);
 		return;
 	}
+	if (m_videoSourceId >= 0)
+	{
+		AAMPLOG_INFO("AampRialtoPlayer::%s video source already attached"
+			" (id=%d), skipping", __FUNCTION__, m_videoSourceId);
+		return;
+	}
 
 	MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
+
+	AAMPLOG_INFO("AampRialtoPlayer::%s codecFormat=%d codecDataSize=%zu"
+		" w=%u h=%u",
+		__FUNCTION__,
+		static_cast<int>(codecInfo.mCodecFormat),
+		codecInfo.mCodecData.size(),
+		codecInfo.mInfo.video.mWidth,
+		codecInfo.mInfo.video.mHeight);
 
 	std::string mimeType;
 	firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
@@ -394,6 +408,12 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 		AAMPLOG_ERR("AampRialtoPlayer::%s pipeline not created", __FUNCTION__);
 		return;
 	}
+	if (m_audioSourceId >= 0)
+	{
+		AAMPLOG_INFO("AampRialtoPlayer::%s audio source already attached"
+			" (id=%d), skipping", __FUNCTION__, m_audioSourceId);
+		return;
+	}
 
 	MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
 
@@ -402,7 +422,7 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 	switch (codecInfo.mCodecFormat)
 	{
 		case GST_FORMAT_AUDIO_ES_AAC_RAW:
-			mimeType = "audio/mpeg";
+			mimeType = "audio/aac";
 			streamFormat = firebolt::rialto::StreamFormat::RAW;
 			break;
 		case GST_FORMAT_AUDIO_ES_EC3:
@@ -422,6 +442,24 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 	firebolt::rialto::AudioConfig audioConfig;
 	audioConfig.numberOfChannels = codecInfo.mInfo.audio.mChannelCount;
 	audioConfig.sampleRate = codecInfo.mInfo.audio.mSampleRate;
+	if (!codecInfo.mCodecData.empty())
+		audioConfig.codecSpecificConfig = codecInfo.mCodecData;
+
+	// Pass codec data via the shared_ptr parameter so the Rialto server
+	// can build the GStreamer caps codec_data buffer (same mechanism as video).
+	std::shared_ptr<firebolt::rialto::CodecData> audioCodecData;
+	if (!codecInfo.mCodecData.empty())
+	{
+		audioCodecData = std::make_shared<firebolt::rialto::CodecData>();
+		audioCodecData->data = codecInfo.mCodecData;
+		AAMPLOG_INFO("AampRialtoPlayer::%s audio codecData size=%zu",
+			__FUNCTION__, audioCodecData->data.size());
+	}
+	else
+	{
+		AAMPLOG_WARN("AampRialtoPlayer::%s audio codecData is empty"
+			" — Rialto may produce empty caps", __FUNCTION__);
+	}
 
 	auto source = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
 		mimeType,
@@ -429,7 +467,7 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 		audioConfig,
 		firebolt::rialto::SegmentAlignment::UNDEFINED,
 		streamFormat,
-		/*codecData=*/nullptr);
+		audioCodecData);
 
 	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
 	if (!m_pipeline->attachSource(sourceBase))
