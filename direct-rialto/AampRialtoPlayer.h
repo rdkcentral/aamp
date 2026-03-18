@@ -95,6 +95,21 @@ public:
 		bool bESChangeStatus,
 		bool setReadyAfterPipelineCreation = false) override;
 
+	/**
+	 * @brief Inject a custom pipeline factory before calling Configure().
+	 *
+	 * For unit testing only.  Passing a non-null factory makes Configure()
+	 * use it instead of the production singleton, allowing tests to inject
+	 * a MockIMediaPipelineFactory without a live Rialto server.
+	 *
+	 * @param[in] factory  Factory to use; nullptr restores production behaviour.
+	 */
+	void SetPipelineFactoryForTesting(
+		std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> factory)
+	{
+		m_pipelineFactory = std::move(factory);
+	}
+
 	/// @copydoc StreamSink::SendCopy
 	bool SendCopy(
 		AampMediaType mediaType,
@@ -264,6 +279,8 @@ private:
 
 	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
+	/// Factory override set via SetPipelineFactoryForTesting(); null in production.
+	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
 #ifdef USE_AAMP_GST_PLAYER
 	std::unique_ptr<AAMPGstPlayer> mGstPlayer; ///< Underlying GStreamer player
 #else

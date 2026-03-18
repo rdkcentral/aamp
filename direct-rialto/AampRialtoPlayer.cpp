@@ -147,7 +147,11 @@ void AampRialtoPlayer::Configure(
 		}
 	}
 
-	auto factory = firebolt::rialto::IMediaPipelineFactory::createFactory();
+	if (!m_pipelineFactory)
+	{
+		m_pipelineFactory = firebolt::rialto::IMediaPipelineFactory::createFactory();
+	}
+	auto &factory = m_pipelineFactory;
 	if (!factory)
 	{
 		AAMPLOG_ERR("AampRialtoPlayer::%s Failed to create IMediaPipelineFactory"
