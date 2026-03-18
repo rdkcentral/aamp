@@ -70,8 +70,9 @@ function install_build_libdash_fn()
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         
         # Propagate sanitizer flags to libdash so it matches the ASAN
-        # instrumentation level of libaamp. On macOS, Xcode schemes always
-        # enable ASAN; on Ubuntu it is opt-in via the -u flag.
+        # instrumentation level of libaamp. ASAN is enabled by the build
+        # configuration (for example, on macOS builds or on Ubuntu via the
+        # -u flag).
         local SANITIZER_FLAGS=""
         if [[ "${PLATFORM}" == "darwin" || "${OPTION_UBUNTU_SANITIZER}" == "true" ]]; then
             SANITIZER_FLAGS="-fsanitize=address"
