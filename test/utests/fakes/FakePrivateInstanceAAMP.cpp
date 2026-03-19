@@ -769,8 +769,9 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 	}
 	else
 	{
-		// In the absence of a mock, ensure output parameters are initialized
-		http_error = 0;
+		// In the absence of a mock, ensure output parameters are initialized.
+		// Use a failure sentinel for http_error to match the false return value.
+		http_error = -1;
 		effectiveUrl = remoteUrl;
 		if (downloadTime != nullptr)
 		{
