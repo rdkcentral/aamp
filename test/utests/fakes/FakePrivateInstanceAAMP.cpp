@@ -23,6 +23,7 @@
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
+#include "AampLatencyMonitor.h"
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
@@ -134,7 +135,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mAudioFormat(),
 	mPreviousAudioType(),
 	mCurlShared(),
-	mIsChunkMode(false)
+	mIsChunkMode(false),
+	mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 {
 }
 
@@ -423,9 +425,31 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
-long PrivateInstanceAAMP::GetCurrentLatency()
+long PrivateInstanceAAMP::GetCurrentLatencyMs()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetCurrentLatencyMs();
+	}
 	return 0;
+}
+
+double PrivateInstanceAAMP::GetBufferedDurationSecs()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetBufferedDurationSecs();
+	}
+	return 0.0;
+}
+
+bool PrivateInstanceAAMP::IsAdPlaying()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsAdPlaying();
+	}
+	return false;
 }
 
 bool PrivateInstanceAAMP::IsAtLivePoint()
@@ -1202,6 +1226,10 @@ long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->UpdateVideoEndMetrics(adjustedRate);
+	}
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
@@ -1585,24 +1613,6 @@ void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
 	}
 }
 
-bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetLLDashAdjustSpeed();
-	}
-	return false;
-}
-
-double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetLLDashCurrentPlayBackRate();
-	}
-	return 1.0;
-}
-
 void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
 {
 }
@@ -1794,4 +1804,8 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaS
 bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 {
 	return false;
+}
+
+void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
+{
 }

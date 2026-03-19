@@ -144,7 +144,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	double injectedDuration = GetTotalInjectedDuration();
 	if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
 	{
-		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with monitorLatency use same API*/
+		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with latency monitor use same API*/
 		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
 	}
 	else if (pContext)

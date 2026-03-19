@@ -243,8 +243,8 @@ downloadDelay			Delay for downloads to simulate network latency. Default: 0
 dashMaxDrmSessions		Max drm sessions that can be cached by AampDRMSessionManager. Default; 3
 log				New Configuration to override info/debug/trace. Default: 0
 livePauseBehavior               Player paused state behavior. Default is 0(ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
-latencyMonitorDelay		Low Latency Monitor delay. Default is 5(DEFAULT_LATENCY_MONITOR_DELAY)
-latencyMonitorInterval		Low Latency Monitor Interval. Default is 2(DEFAULT_LATENCY_MONITOR_INTERVAL)
+latencyMonitorDelayMs		Low Latency Monitor delay. Default is 5000 (DEFAULT_LATENCY_MONITOR_DELAY_MS)
+latencyMonitorIntervalMs	Low Latency Monitor Interval. Default is 1000 (DEFAULT_LATENCY_MONITOR_INTERVAL_MS)
 downloadBufferChunks		Low Latency Fragment chunk cache length. Defaults is 20
 fragmentDownloadFailThreshold	Max retry attempts for non-init fragment curl timeout failures, range 1-10, Default is 10.
 fogMaxConcurrentDownloads	Max concurrent download configured to Fog, Default is 5
@@ -293,6 +293,9 @@ iframeDefaultBitrate4K		Default bitrate for iframe track selection for 4K assets
 networkTimeout			Specify download time out in seconds. Default: 10s
 manifestTimeout			Specify manifest download time out in seconds. Default: 10s
 playlistTimeout			Playlist download time out in sec. Default: 10s
+bufferLevelToEnableLatencySec 		Buffer level to enable latency correction in seconds. Default: 0.0s
+rebufferLatencyStepSec			Step value for latency increase when rebuffering occurs. Default: 1.0s
+rebufferLatencyMaxIncrementSec			Max latency increment allowed due to rebuffering. Default: 6.0s
 
 *File Harvest Config :
     By default aamp will dump all the type of data, set 0 for disabling harvest
