@@ -1351,7 +1351,7 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @param[in,out] sample - Media sample to inject
  * @return true if sample is successfully injected, false otherwise
  */
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
 	MediaSample gstSample(std::move(sample.mData), sample.mPts, sample.mDts, sample.mDuration, 0.0);
 	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);

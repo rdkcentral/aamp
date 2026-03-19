@@ -103,7 +103,7 @@ bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, d
 							sample.mDuration * timeScale);
 						}
 					}
-					mAamp->SendStreamTransfer(mMediaType, sample);
+					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 				}
 			}
 			else

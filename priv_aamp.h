@@ -1873,10 +1873,10 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  sample - Media sample
+	 *   @param[in]  sample - Media sample (consumed on call)
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
 
 	/**
 	 * @fn IsLive

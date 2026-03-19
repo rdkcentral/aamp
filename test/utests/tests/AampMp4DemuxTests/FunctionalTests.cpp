@@ -338,7 +338,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 		}));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample& sample) {
+		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample&& sample) {
 			EXPECT_DOUBLE_EQ(sample.mPts, kBasePts + kFragmentPtsOffset);
 			EXPECT_DOUBLE_EQ(sample.mDts, kBaseDts + kFragmentPtsOffset);
 		}));

@@ -137,9 +137,9 @@ public:
 	/**
 	 * @fn SendSample
 	 * @param[in] mediaType stream type
-	 * @param[in] sample media sample
+	 * @param[in] sample media sample (consumed on call)
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample& sample) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample) override;
 
 	/**
 		 * @fn PipelineConfiguredForMedia

@@ -88,11 +88,14 @@ public:
     /**
      *   @brief  API to send audio/video sample into the sink.
      *
+     *   Ownership of the sample's payload is transferred to the sink.
+     *   The caller must not access the sample after this call.
+     *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  sample - Media sample
+     *   @param[in]  sample - Media sample (consumed on call)
      *   @return void
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type

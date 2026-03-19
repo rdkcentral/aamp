@@ -263,7 +263,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 }
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
 	return true;
 }
