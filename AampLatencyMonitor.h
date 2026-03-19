@@ -114,7 +114,8 @@ struct LatencyConfig
  * 3. Return to normal:    latency back within band.
  *
  * ## Thread safety
- * Start() and Stop() may be called from any thread.
+ * Start() and Stop() are serialised by mStartStopMutex and may safely be
+ * called from any thread, including concurrently.
  * EnableRateCorrection() is also thread-safe.
  */
 class AampLatencyMonitor
@@ -283,6 +284,9 @@ private:
 	/// Total latency shift (ms) accumulated from OnRebufferingStart() calls.
 	/// Reset to zero on Start() and Stop().
 	double mLatencyIncrementAccumulatedMs {0.0};
+
+	/// Serializes concurrent calls to Start() and Stop().
+	std::mutex mStartStopMutex;
 
 	std::atomic<State> mState {State::kIdle}; /**< Current state of the monitor thread */
 

@@ -45,6 +45,7 @@ AampLatencyMonitor::AampLatencyMonitor(PrivateInstanceAAMP* aamp)
 	, mTargetLatencyMs{0.0}
 	, mMaxLatencyMs{0.0}
 	, mLatencyIncrementAccumulatedMs{0.0}
+	, mStartStopMutex{}
 	, mState{State::kIdle}
 	, mCurrentRate{1.0}
 	, mCorrectionEnabled{true}
@@ -69,6 +70,8 @@ AampLatencyMonitor::~AampLatencyMonitor()
  */
 void AampLatencyMonitor::Start(const LatencyConfig& config)
 {
+	std::lock_guard<std::mutex> startStopLock(mStartStopMutex);
+
 	// Validate preconditions and guard against misuse.
 	if (mAamp == nullptr)
 	{
@@ -76,10 +79,13 @@ void AampLatencyMonitor::Start(const LatencyConfig& config)
 		return;
 	}
 
-	// Guard against double-start.
-	if (mState != State::kIdle)
+	// Guard against double-start.  The mutex guarantees no concurrent
+	// Start()/Stop() can change mState between this check and the assignment
+	// below, so a plain load is sufficient here.
+	if (mState.load() != State::kIdle)
 	{
-		AAMPLOG_WARN("[LatencyMonitor] Start() called when already running");
+		AAMPLOG_WARN("[LatencyMonitor] Start() called when already running (state=%d)",
+			static_cast<int>(mState.load()));
 		return;
 	}
 
@@ -121,16 +127,15 @@ void AampLatencyMonitor::Start(const LatencyConfig& config)
  */
 void AampLatencyMonitor::Stop()
 {
-	// Non-atomic read is intentional: Stop() must be called from a single
-	// controlling thread (the same thread that called Start()), so there is
-	// no concurrent writer racing against this guard check.
-	if (mState == State::kIdle)
+	std::lock_guard<std::mutex> startStopLock(mStartStopMutex);
+
+	if (mState.load() == State::kIdle)
 	{
 		return;
 	}
 
 	AAMPLOG_INFO("[LatencyMonitor] stopping");
-	mState = State::kStopping;
+	mState.store(State::kStopping);
 
 	// Wake the sleeping worker so it exits promptly.
 	{
@@ -162,7 +167,7 @@ void AampLatencyMonitor::Stop()
 		ResetLatencyThresholdsLocked();
 	}
 
-	mState  = State::kIdle;
+	mState.store(State::kIdle);
 	AAMPLOG_INFO("[LatencyMonitor] stopped");
 }
 
@@ -231,12 +236,12 @@ void AampLatencyMonitor::Run()
 	const double minRate    = mConfig.minPlaybackRate;
 
 	// Main loop: runs until Stop() sets state to kStopping.
-	while (mState == State::kRunning)
+	while (mState.load() == State::kRunning)
 	{
 		WaitMs(mConfig.monitorIntervalMs);
 
 		// If Stop() was called while we were sleeping, exit now.
-		if (mState != State::kRunning)
+		if (mState.load() != State::kRunning)
 		{
 			break;
 		}
@@ -348,7 +353,7 @@ void AampLatencyMonitor::WaitMs(int ms)
 	mSleepCv.wait_for(lock,
 		std::chrono::milliseconds(ms),
 		[this]() {
-			return mWakeupSignalled || (mState == State::kStopping);
+			return mWakeupSignalled || (mState.load() == State::kStopping);
 		});
 	mWakeupSignalled = false;
 }
@@ -361,7 +366,7 @@ void AampLatencyMonitor::WaitUntilSignalled()
 	std::unique_lock<std::mutex> lock(mSleepMutex);
 	mSleepCv.wait(lock,
 		[this]() {
-			return mWakeupSignalled || (mState == State::kStopping);
+			return mWakeupSignalled || (mState.load() == State::kStopping);
 		});
 	mWakeupSignalled = false;
 }
