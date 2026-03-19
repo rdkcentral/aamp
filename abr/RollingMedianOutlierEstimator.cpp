@@ -128,15 +128,16 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	BitsPerSecond ret = -1;
 	BitsPerSecond medianbps = 0;
 
+	size_t initialSize = tmpData.size();
 	std::sort(tmpData.begin(), tmpData.end());
-	if (tmpData.size() % 2)
+	if (initialSize % 2)
 	{
-		medianbps = tmpData.at(tmpData.size() / 2);
+		medianbps = tmpData.at(initialSize / 2);
 	}
 	else
 	{
-		BitsPerSecond m1 = tmpData.at(tmpData.size() / 2 - 1);
-		BitsPerSecond m2 = tmpData.at(tmpData.size() / 2);
+		BitsPerSecond m1 = tmpData.at(initialSize / 2 - 1);
+		BitsPerSecond m2 = tmpData.at(initialSize / 2);
 		medianbps = (m1 + m2) / 2;
 	}
 
@@ -146,8 +147,17 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	for (auto tmpDataIter = tmpData.begin();
 		 tmpDataIter != tmpData.end();)
 	{
-		// Reject samples that exceed the median by more than the outlier threshold (high-side only)
-		diffOutlier = (*tmpDataIter) - medianbps;
+		if ( initialSize == 2)
+		{
+			// With 2 samples then only reject the higher outlier but not the lower one
+			// for the lower sample then diffOutlier will be negative hence not rejected
+			diffOutlier = (*tmpDataIter) - medianbps;
+		}
+		else
+		{
+			diffOutlier = std::abs((*tmpDataIter) - medianbps);
+		}
+
 		if (diffOutlier > abrOutlierDiffBytes)
 		{
 			tmpDataIter = tmpData.erase(tmpDataIter);
