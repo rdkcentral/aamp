@@ -2268,7 +2268,8 @@ TEST_F(PrivAampTests,SetCurlTimeoutTest)
 TEST_F(PrivAampTests,SetCurlTimeoutTest_1)
 {
 	p_aamp->SetContentType("EAS");
-	p_aamp->SetCurlTimeout(12234325,eCURLINSTANCE_AUDIO);
+	bool flag = p_aamp->SetCurlTimeout(12234325,eCURLINSTANCE_AUDIO);
+	EXPECT_FALSE(flag);
 }
 
 TEST_F(PrivAampTests,SetCurlTimeoutTest_2)
@@ -2278,6 +2279,26 @@ TEST_F(PrivAampTests,SetCurlTimeoutTest_2)
 	p_aamp->SetCurlTimeout(12234325,eCURLINSTANCE_MAX);
 
 	p_aamp->SetCurlTimeout(12234325,AampCurlInstance(13));
+}
+
+TEST_F(PrivAampTests,SetCurlTimeoutTest_3)
+{
+	bool flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_MAX);
+	EXPECT_FALSE(flag); // expect false if invalid instance
+	
+	p_aamp->curl[eCURLINSTANCE_AUDIO] = nullptr;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_AUDIO] = 2000;
+
+	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
+	EXPECT_FALSE(flag); // expect false if curl not set up
+
+	p_aamp->curl[eCURLINSTANCE_AUDIO] = mCurlEasyHandle;
+
+	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
+	EXPECT_TRUE(flag); // expect true if curl set up and value changed
+
+	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
+	EXPECT_FALSE(flag); // expect false if curl set up and value not changed
 }
 
 TEST_F(PrivAampTests,CurlTermTest)
