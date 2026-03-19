@@ -1349,7 +1349,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			}
 
 			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), cachedFragment->fragment,
-			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
+		 tempEffectiveUrl, http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
 			//TODO: This needs to be handled at server side and this workaround has to be removed
 			if (!fetched && http_error == 404 && type == eTRACK_SUBTITLE)
@@ -3254,7 +3254,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		// take the original url before its gets changed in GetFile
 		std::string mainManifestOrigUrl = aamp->GetManifestUrl();
 		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs, eCURLINSTANCE_MANIFEST_MAIN);
-		(void) aamp->GetFile(aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST, this->mainManifest.GetVector(), aamp->GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true,NULL,NULL,0);//CID:82578 - checked return
+		(void) aamp->GetFile(aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST, this->mainManifest.GetVector(), aamp->GetManifestUrl(), http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true,NULL,NULL,0);//CID:82578 - checked return
 		// Set playlist curl timeouts.
 		for (int i = eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO; i < (eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO + AAMP_TRACK_COUNT); i++)
 		{
@@ -4329,7 +4329,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				if( !aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, defaultIframePlaylist.GetVector(), defaultIframePlaylistEffectiveUrl, eMEDIATYPE_PLAYLIST_IFRAME) )
 				{
 					double tempDownloadTime{0.0};
-					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, defaultIframePlaylist.GetVector(), defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
+					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, defaultIframePlaylist.GetVector(), defaultIframePlaylistEffectiveUrl, http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
 					AampTime downloadTime{tempDownloadTime};
 					//update videoend info
 					ManifestData manifestData(downloadTime.milliseconds(), defaultIframePlaylist.size());
@@ -5290,7 +5290,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				AampTime downloadTime{};
 				std::string tempEffectiveUrl;
 				double tempDownloadTime;
-				if( aamp->GetFile(std::move(url), eMEDIATYPE_PLAYLIST_IFRAME, thumbnailManifest.GetVector(), tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
+				if( aamp->GetFile(std::move(url), eMEDIATYPE_PLAYLIST_IFRAME, thumbnailManifest.GetVector(), tempEffectiveUrl, http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
@@ -5754,7 +5754,7 @@ void TrackState::FetchPlaylist()
 	aamp->profiler.ProfileBegin(bucketId);
 
 	double tempDownloadTime{};
-	(void) aamp->GetFile(mPlaylistUrl, mType, playlist.GetVector(), mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true );
+	(void) aamp->GetFile(mPlaylistUrl, mType, playlist.GetVector(), mEffectiveUrl, http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true );
 	downloadTime = tempDownloadTime;
 	// update videoend info
 	main_error = context->getOriginalCurlError(http_error);
@@ -6271,7 +6271,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if ( !fetched )
 			{
 				double tempDownloadTime{0.0};
-				fetched = aamp->GetFile(fragmentUrl, actualType, cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
+				fetched = aamp->GetFile(fragmentUrl, actualType, cachedFragment->fragment, tempEffectiveUrl, http_code, &tempDownloadTime, range,
 										type, false);
 				AampTime downloadTime{tempDownloadTime};
 
