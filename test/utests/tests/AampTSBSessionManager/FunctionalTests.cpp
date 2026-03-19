@@ -64,6 +64,17 @@ using ::testing::InSequence;
 
 AampConfig *gpGlobalConfig{nullptr};
 
+/**
+ * @brief Partial mock that overrides only NotifyVideoTsbWaiters(), leaving all
+ * other AampTSBSessionManager methods as the real implementations.
+ */
+class PartialMockTSBSessionManager : public AampTSBSessionManager
+{
+public:
+	using AampTSBSessionManager::AampTSBSessionManager;
+	MOCK_METHOD(void, NotifyVideoTsbWaiters, (), (override));
+};
+
 class FunctionalTests : public ::testing::Test
 {
 protected:
@@ -652,4 +663,67 @@ TEST_F(FunctionalTests, AdMetadataBoundaryTest)
 	// Test with zero duration
 	EXPECT_TRUE(mAampTSBSessionManager->StartAdPlacement(
 		TEST_AD_ID, TEST_REL_POSITION, zeroPos, 0.0, TEST_OFFSET));
+}
+
+/**
+ * @brief Verify that Flush() calls NotifyVideoTsbWaiters().
+ *
+ * Uses a stack-allocated PartialMockTSBSessionManager so the real Flush()
+ * implementation runs while NotifyVideoTsbWaiters() is intercepted by GMock.
+ * Stack allocation ensures the full destructor chain runs at end-of-scope,
+ * so GMock verifies expectations correctly and does not report a leaked mock.
+ */
+TEST_F(FunctionalTests, FlushCallsNotifyVideoTsbWaiters)
+{
+	// Flush and release the fixture's plain instance first.
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
+	mAampTSBSessionManager->Flush();
+	delete mAampTSBSessionManager;
+	mAampTSBSessionManager = nullptr;
+
+	{
+		// Stack-allocate so ~PartialMockTSBSessionManager() is called at end of
+		// this scope, triggering GMock expectation verification before TearDown.
+		PartialMockTSBSessionManager partialMock(aamp);
+		partialMock.SetTsbLength(5);
+		partialMock.SetTsbLocation("/tmp");
+		partialMock.SetTsbMinFreePercentage(5);
+
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
+			.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
+		EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize()).WillOnce(Return());
+		EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+					RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+					RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
+			.WillOnce(Return(true));
+		partialMock.Init();
+		std::this_thread::sleep_for(std::chrono::milliseconds(25));
+
+		// Key assertion: the real Flush() must call NotifyVideoTsbWaiters() exactly once.
+		EXPECT_CALL(partialMock, NotifyVideoTsbWaiters()).Times(1);
+		EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
+		partialMock.Flush();
+		// ~PartialMockTSBSessionManager() runs here, verifying the EXPECT_CALL above.
+		// ~AampTSBSessionManager() then calls Flush(), but mInitialized_ is false so
+		// NotifyVideoTsbWaiters() is not invoked.
+	}
+
+	// Re-create a plain instance so TearDown can perform its own Flush cleanly.
+	mAampTSBSessionManager = new AampTSBSessionManager(aamp);
+	mAampTSBSessionManager->SetTsbLength(5);
+	mAampTSBSessionManager->SetTsbLocation("/tmp");
+	mAampTSBSessionManager->SetTsbMinFreePercentage(5);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
+		.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize()).WillOnce(Return());
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+				RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+				RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
+		.WillOnce(Return(true));
+	mAampTSBSessionManager->Init();
+	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 }
