@@ -18,6 +18,10 @@
  */
 #include "mp4demux.hpp" 
 #include <iostream>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 #include "InterfacePlayerRDK.h"
 #include "InterfacePlayerPriv.h"
 #include <string.h>
@@ -65,6 +69,15 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
+
+#define MS_TO_UTC_STRING(ms) ([&](){ \
+    std::time_t t = (ms) / 1000; \
+    std::tm tm = *std::gmtime(&t); /* UTC instead of localtime */ \
+    std::ostringstream oss; \
+    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S") \
+        << '.' << std::setw(3) << std::setfill('0') << ((ms) % 1000); \
+    return oss.str(); \
+}())
 
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() :
@@ -615,7 +628,10 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	const int AVSYNC_POSITIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdPositiveMs;
 	const int AVSYNC_NEGATIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdNegativeMs;
 	const int JUMP_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvJumpThresholdMs;
-
+	static long long time_now_ms = 0;
+	static gint64 videoPos = 0;
+	static gint64 audioPos = 0;
+	
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
@@ -707,18 +723,23 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d, %" G_GINT64_FORMAT "",
-							   monitorAVState->description,
-							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
-							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
-							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
-							   (gint64)monitorAVState->tLastSampled - monitorAVState->tLastReported );
+					
+					std::string  humanReadbletime = MS_TO_UTC_STRING(time_now_ms);
+							   
+					MW_LOG_MIL( "MonitorAV_%s: (%s - %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,0) %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,%" G_GINT64_FORMAT "",
+								description,
+								humanReadbletime.c_str(),
+								videoPos,
+								audioPos,
+								(int)(videoPos - audioPos),
+								(gint64)monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
+								(gint64)monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
+								(int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
+								(gint64)monitorAVState->tLastSampled - monitorAVState->tLastReported );   
 				}
-				MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,0",
-							   description,
-								av_position[eGST_MEDIATYPE_VIDEO],
-								av_position[eGST_MEDIATYPE_AUDIO],
-								(int)(av_position[eGST_MEDIATYPE_VIDEO] - av_position[eGST_MEDIATYPE_AUDIO]) );
+				time_now_ms = NOW_SYSTEM_TS_MS;		
+				videoPos = av_position[eGST_MEDIATYPE_VIDEO];		
+				audioPos = av_position[eGST_MEDIATYPE_AUDIO];
 				monitorAVState->tLastReported = monitorAVState->tLastSampled;
 				monitorAVState->description = description;
 			}

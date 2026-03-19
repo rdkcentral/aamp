@@ -48,6 +48,7 @@
 #define GST_NORMAL_PLAY_RATE 1
 #define GST_ERROR_DESCRIPTION_LENGTH 256
 #define NOW_STEADY_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() /**< Getting current steady clock in milliseconds */
+#define NOW_SYSTEM_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in milliseconds */
 
 typedef enum
 {
