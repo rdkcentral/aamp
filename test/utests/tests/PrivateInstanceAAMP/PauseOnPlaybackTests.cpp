@@ -168,8 +168,6 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
     mPrivateInstanceAAMP->mDisableRateCorrection = false;
 
     mPrivateInstanceAAMP->SetLowLatencyMode();
-    mPrivateInstanceAAMP->SetLLDashAdjustSpeed(true);
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
 
     EXPECT_CALL(*g_mockAampGstPlayer, Pause(_,_)).Times(0);
 
@@ -178,7 +176,6 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
     EXPECT_FALSE(mPrivateInstanceAAMP->mDisableRateCorrection);
-    EXPECT_TRUE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
 }
 
 // Testing calling NotifyPauseOnStartPlayback when Pause On Playback active
@@ -191,8 +188,6 @@ TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
     mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
 
     mPrivateInstanceAAMP->SetLowLatencyMode();
-    mPrivateInstanceAAMP->SetLLDashAdjustSpeed(true);
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
 
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_PAUSED),_)).Times(1);
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(0.0),_)).Times(1);
@@ -203,6 +198,5 @@ TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
     EXPECT_TRUE(mPrivateInstanceAAMP->mDisableRateCorrection);
-    EXPECT_FALSE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
 }
 
