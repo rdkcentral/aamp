@@ -35,6 +35,11 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
         return obj;
 }
 
+std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
+{
+        std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
+        return obj;
+}
 bool DefaultSocInterface::UseAppSrc()
 {
 #if defined (__APPLE__)

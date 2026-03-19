@@ -66,7 +66,7 @@ static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
 #define GST_NORMAL_PLAY_RATE		1
 
 /*InterfacePlayerRDK constructor*/
-InterfacePlayerRDK::InterfacePlayerRDK() : mPlayerName(),
+InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) : mPlayerName(),
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL)
 {
@@ -78,7 +78,7 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 		pthread_mutex_init(&gstPrivateContext->stream[i].sourceLock, NULL);
 	// start Scheduler Worker for task handling
 	mScheduler.StartScheduler();
-	socInterface = SocInterface::CreateSocInterface();
+	socInterface = SocInterface::CreateSocInterface(isRialto);
 }
 
 /* InterfacePlayerRDK destructor*/
