@@ -784,6 +784,12 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 		{
 			*fogError = 0;
 		}
+
+		// Apply resetBuffer contract to keep fake semantics aligned with GetFile expectations
+		if (resetBuffer)
+		{
+			buffer.clear();
+		}
 	}
 
 	return rv;
