@@ -24,6 +24,7 @@ set(TEST_SOURCES
 	Mp4BoxParsingTests.cpp
 	FourCCMappingTest.cpp
 	EsdsReadLenTests.cpp
+	Mp4DemuxMetricsTests.cpp
 )
 
 set(AAMP_SOURCES

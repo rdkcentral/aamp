@@ -52,7 +52,7 @@ bool Mp4Demux::Parse(const void *ptr, size_t len)
 {
     // Delegate to mock if available
     if (g_mockMp4Demux) {
-        return g_mockMp4Demux->Parse(ptr, len);
+		return g_mockMp4Demux->Parse(ptr, len);
     }
     // Otherwise, do nothing (fake behavior)
     return true;
