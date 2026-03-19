@@ -278,8 +278,8 @@ typedef enum
 	eAAMPConfig_LivePauseBehavior,                                          /**< player paused state behavior */
 	eAAMPConfig_GstVideoBufBytes,                                           /**< Gstreamer Max Video buffering bytes*/
 	eAAMPConfig_GstAudioBufBytes,                                           /**< Gstreamer Max Audio buffering bytes*/
-	eAAMPConfig_LatencyMonitorDelay,               				/**< Latency Monitor Delay */
-	eAAMPConfig_LatencyMonitorInterval,           				/**< Latency Monitor Interval */
+	eAAMPConfig_LatencyMonitorDelayMs,               				/**< Latency Monitor Delay */
+	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
 	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
@@ -359,6 +359,9 @@ typedef enum
 	eAAMPConfig_UnderflowResumeThresholdSec,		/**< Underflow resume threshold in seconds */
 	eAAMPConfig_UnderflowLowBufferSec,				/**< Low buffer threshold in seconds */
 	eAAMPConfig_UnderflowHighBufferSec,				/**< High buffer threshold in seconds */
+	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
+	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
+	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

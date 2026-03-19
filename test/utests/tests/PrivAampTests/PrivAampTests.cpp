@@ -4272,8 +4272,8 @@ TEST_F(PrivAampTests,SetLowLatencyServiceConfiguredTest_1)
 
 TEST_F(PrivAampTests,SetCurrentLatencyTest)
 {
-	p_aamp->SetCurrentLatency(123456);
-	long val = p_aamp->GetCurrentLatency();
+	p_aamp->SetCurrentLatencyMs(123456);
+	long val = p_aamp->GetCurrentLatencyMs();
 	EXPECT_EQ(val,123456);
 }
 
