@@ -103,7 +103,7 @@ TestParams testCases[] =
 
 	// Test with pipeline paused and underflow
 	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = true, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = true, .underflow = true, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = true, .underflow = true, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 
 	// Test with rate != AAMP_NORMAL_PLAY_RATE
 	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .rate = (AAMP_NORMAL_PLAY_RATE*2), .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0}
@@ -316,7 +316,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 				mStreamAbstractionAAMP_MPD->mTuneType = eTUNETYPE_SEEKTOLIVE;
 				EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(mTsbReader));
 				EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(true));
-				if (!paused)
+				if (!paused || underflow)
 				{
 					EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection());
 				}
@@ -327,6 +327,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunk));
 			if(init)
 			{
+				EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 				EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 				EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(90000), Return(true)));
 				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVidTimeScale(_)).Times(AtLeast(1));
@@ -368,9 +369,10 @@ TEST_P(MediaStreamContextTest, CacheFragment)
 		mMediaStreamContext->OnFragmentDownloadFailed(mMediaStreamContext->mActiveDownloadInfo);
 	}
 
-	if (testParam.eos && !testParam.paused)
+	if (testParam.eos && (!testParam.paused || testParam.underflow))
 	{
-		// Check that  TSB injection flag is cleared after TSB Reader EoS if the pipeline is not paused
+		// Check that TSB injection flag is cleared after TSB Reader EoS if the
+		// pipeline is not paused, or if paused due to underflow
 		EXPECT_EQ(mMediaStreamContext->IsLocalTSBInjection(), false);
 	}
 	else
