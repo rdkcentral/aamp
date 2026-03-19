@@ -67,6 +67,8 @@ public:
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
 	MOCK_METHOD(void, SetVidTimeScale, (uint32_t));
+	MOCK_METHOD(void, SetAudTimeScale, (uint32_t));
+	MOCK_METHOD(void, SetSubTimeScale, (uint32_t));
 	MOCK_METHOD(void, ProcessID3Metadata, (const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
 	MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
@@ -96,6 +98,7 @@ public:
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
+  MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
