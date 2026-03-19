@@ -5140,10 +5140,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					{
 						// introduce  extra marker for connection status curl 7/18/28,
 						// example 18(0) if connection failure with PARTIAL_FILE code
-						timeoutClass = "(" + to_string(reqSize > 0) + ")";
+						timeoutClass = "(" + std::to_string(reqSize > 0) + ")";
 					}
 
-					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
+					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%ld,%" BITSPERSECOND_FORMAT ",%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
 					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
@@ -5153,7 +5153,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if(ui32CurlTrace < 10 )
 					{
-						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
+						AAMPLOG_INFO("%d.CurlTrace:Dns:%.3f, Conn:%.3f, Ssl:%.3f, Redir:%.3f, Pre:Start[%.3f:%.3f], Hdl:%p, Url:%s",
 								ui32CurlTrace, resolve, connect, appConnect, redirect, preTransfer, startTransfer, curl,((res==CURLE_OK)?effectiveUrl.c_str():remoteUrl.c_str()));
 						++ui32CurlTrace;
 					}

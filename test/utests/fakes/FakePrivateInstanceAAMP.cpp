@@ -769,12 +769,9 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 	}
 	else
 	{
-		// In the absence of a mock, ensure output parameters are initialized
-		if (resetBuffer)
-		{
-			buffer.clear();
-		}
-		http_error = 0;
+		// In the absence of a mock, ensure output parameters are initialized.
+		// Use a failure sentinel for http_error to match the false return value.
+		http_error = -1;
 		effectiveUrl = remoteUrl;
 		if (downloadTime != nullptr)
 		{
@@ -1337,12 +1334,25 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError)
 {
-	// Ensure deterministic value when no mock is installed
+	// Ensure deterministic default values when no mock is installed
 	http_code = 0;
-	if (g_mockPrivateInstanceAAMP != nullptr){
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
 		g_mockPrivateInstanceAAMP->LoadIDX(bucketType, fragmentUrl, effectiveUrl, fragment, curlInstance, range, http_code, downloadTime, mediaType, fogError);
+		return;
 	}
-	return;
+
+	// No mock installed: initialize all outputs to stable defaults
+	effectiveUrl = fragmentUrl;
+	fragment.clear();
+	if (downloadTime != nullptr)
+	{
+		*downloadTime = 0.0;
+	}
+	if (fogError != nullptr)
+	{
+		*fogError = 0;
+	}
 }
 
 bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
