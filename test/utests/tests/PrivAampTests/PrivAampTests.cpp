@@ -2218,8 +2218,8 @@ TEST_F(PrivAampTests,GetFileTest)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_1)
@@ -2232,8 +2232,8 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_2)
@@ -2247,10 +2247,10 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
-TEST_F(PrivAampTests,GetFileTest_3)
+TEST_F(PrivAampTests, GetFileTest_3)
 {
 	const char *url;
 	std::string effectiveUrl;
@@ -2264,11 +2264,11 @@ TEST_F(PrivAampTests,GetFileTest_3)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
-TEST_F(PrivAampTests,GetFileTest_4)
+TEST_F(PrivAampTests, GetFileTest_4)
 {
 	const char *url;
 	std::string effectiveUrl;
@@ -2282,8 +2282,8 @@ TEST_F(PrivAampTests,GetFileTest_4)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
 class PrivAampInitMediaTypeTest : public PrivAampTests,
@@ -2331,7 +2331,7 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 		.WillOnce(Return(2.0))
 		.WillRepeatedly(Return(0.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -2401,7 +2401,7 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillRepeatedly(Return(3000.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150",
 								 eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0, PROFILE_BUCKET_TYPE_COUNT,
 								 maxInitTimeoutDuration));
 }
@@ -2453,7 +2453,7 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
 
-	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -5450,7 +5450,8 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl);
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error);
 }
 
 // Validates that low bandwidth timeout is disabled if the video is at the lowest profile
@@ -5485,7 +5486,8 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl);
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error);
 }
 
 // Pass null pointer as CurlCallbackContext and abort should be false
