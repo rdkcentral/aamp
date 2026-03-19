@@ -1118,6 +1118,8 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
 	{
 		*fogError = 0;
 	}
+	// Ensure output fragment buffer is in a known, empty state
+	fragment.clear();
 	return;
 }
 
