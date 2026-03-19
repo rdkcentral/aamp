@@ -69,7 +69,7 @@ MATCHER_P4(AdResolved, resolveStatus, asId, errorCode, errorDescription, "")
 class MockAampEventManager : public AampEventManager
 {
 public:
-    MockAampEventManager(int playerId = 0) : AampEventManager(playerId) {} 
+    MockAampEventManager(int playerId = 0) : AampEventManager(playerId) {}
     MOCK_METHOD(void, SendEvent, (const AAMPEventPtr &eventData, AAMPEventMode eventMode));
     MOCK_METHOD(void, FlushPendingEvents, (), ());
     MOCK_METHOD(bool, IsEventListenerAvailable, (AAMPEventType eventType));
