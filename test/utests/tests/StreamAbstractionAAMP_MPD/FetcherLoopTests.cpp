@@ -36,7 +36,6 @@
 #include "MockTSBSessionManager.h"
 #include "MockAdManager.h"
 #include "AampTrackWorker.hpp"
-//#include "MockAampMPDParseHelper.h"
 
 using ::testing::_;
 using ::testing::AnyNumber;
@@ -165,7 +164,6 @@ protected:
 		{
 			mIsFogTSB = value;
 		}
-
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -314,7 +312,6 @@ protected:
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
-		//g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
 		mTestableStreamAbstractionAAMP_MPD = nullptr;
 		//assert( mTestableStreamAbstractionAAMP_MPD == nullptr );
 		mManifest = NULL;
@@ -372,9 +369,6 @@ protected:
 
 		delete g_MockPrivateCDAIObjectMPD;
 		g_MockPrivateCDAIObjectMPD = nullptr;
-
-		//delete g_mockAampMPDParseHelper;
-		//g_mockAampMPDParseHelper = nullptr;
 
 		mManifest = nullptr;
 		mResponse = nullptr;
