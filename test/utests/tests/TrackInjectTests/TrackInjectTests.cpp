@@ -51,7 +51,7 @@ public:
 		playlistURL = "http://host/asset/low/manifest.mpd";
 	}
 
-	void ProcessPlaylist(std::vector<uint8_t> &newPlaylist, int http_error)
+	void ProcessPlaylist(std::vector<uint8_t> &newPlaylist, int http_error) override 
 	{
 	}
 
