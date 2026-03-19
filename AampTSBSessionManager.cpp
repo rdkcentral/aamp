@@ -536,6 +536,7 @@ void AampTSBSessionManager::Flush()
 	{
 		// Notify the monitor thread in case it's waiting
 		mWriteThreadCV.notify_one();
+		NotifyVideoTsbWaiters();
 		if (mWriteThread.joinable())
 		{
 			mWriteThread.join();
