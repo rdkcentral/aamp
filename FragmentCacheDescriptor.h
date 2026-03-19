@@ -45,7 +45,7 @@ struct FragmentCacheDescriptor
 	 * @brief Chunk mode payload pointer (ephemeral CURL callback buffer)
 	 *        COPY REQUIRED - buffer is temporary and owned by CURL
 	 */
-	const char* chunkPayload;
+	const uint8_t* chunkPayload;
 	
 	/**
 	 * @brief Fragment mode buffer holding downloaded fragment data
