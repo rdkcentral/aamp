@@ -35,6 +35,8 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           ISSUE_KEY: ${{ steps.extract.outputs.issue_key }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          SOURCE_BRANCH_URL: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.event.pull_request.head.ref }}
           TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
           MERGED_BY_LOGIN: ${{ github.event.pull_request.merged_by.login }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -56,7 +58,7 @@ jobs:
             MERGED_BY_NAME="$MERGED_BY_LOGIN"
           fi
 
-          COMMENT_BODY="PR merged ${PR_URL} into ${TARGET_BRANCH} by ${MERGED_BY_NAME}"
+          COMMENT_BODY="PR merged ${PR_URL} from [*${SOURCE_BRANCH}*|${SOURCE_BRANCH_URL}] into ${TARGET_BRANCH} by ${MERGED_BY_NAME}"
           PAYLOAD=$(jq -n --arg body "$COMMENT_BODY" '{body: $body}')
 
           curl --fail --silent --show-error \
