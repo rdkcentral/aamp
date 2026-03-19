@@ -85,9 +85,9 @@ protected:
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP =
 			g_mockStreamAbstractionAAMP;
 
-		EXPECT_CALL(*g_mockAampConfig,
+		ON_CALL(*g_mockAampConfig,
 			IsConfigSet(eAAMPConfig_EnableCurlStore))
-			.WillRepeatedly(Return(false));
+			.WillByDefault(Return(false));
 		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
 			.WillRepeatedly(Return(g_mockAampGstPlayer));
 	}

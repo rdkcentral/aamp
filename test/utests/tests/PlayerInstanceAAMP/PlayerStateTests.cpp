@@ -134,7 +134,7 @@ TEST_F(PlayerInstanceAAMPStateTests,
 
 /**
  * @test PlayerState_SeekWhilePaused
- * @brief Verify that SeekWhilePaused flag drives the 
+ * @brief Verify that SeekWhilePaused flag drives the
  * player into SEEKING and PAUSED after seek completion.
  */
 TEST_F(PlayerInstanceAAMPStateTests,
