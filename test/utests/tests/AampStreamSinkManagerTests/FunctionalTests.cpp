@@ -349,6 +349,125 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
 }
 
 /*
+    @brief: - Tests SetTuned sets the tuned flag for an inactive player
+    Test Procedure: -
+    Create a stream sink and deactivate it (making it inactive).
+    Call SetTuned to mark it as tuned.
+    Verify the tuned flag can be read back via GetStreamSink and checking IsTuned.
+*/
+TEST_F(AampStreamSinkManagerTests, SetTuned_MarksInactivePlayerAsTuned)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    // Set the tuned flag
+    AampStreamSinkManager::GetInstance().SetTuned(mPrivateInstanceAAMP1);
+
+    // Get the inactive sink and verify it's tuned
+    StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    ASSERT_NE(sink, nullptr);
+
+    AampStreamSinkInactive *inactiveSink = dynamic_cast<AampStreamSinkInactive*>(sink);
+    ASSERT_NE(inactiveSink, nullptr);
+    EXPECT_TRUE(inactiveSink->IsTuned());
+}
+
+/*
+    @brief: - Tests that IsTuned returns false by default for a newly created inactive sink
+    Test Procedure: -
+    Create a stream sink and deactivate it.
+    Without calling SetTuned, verify IsTuned returns false.
+*/
+TEST_F(AampStreamSinkManagerTests, IsTuned_DefaultsToFalse)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    // Get the inactive sink and verify it's not tuned by default
+    StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    ASSERT_NE(sink, nullptr);
+
+    AampStreamSinkInactive *inactiveSink = dynamic_cast<AampStreamSinkInactive*>(sink);
+    ASSERT_NE(inactiveSink, nullptr);
+    EXPECT_FALSE(inactiveSink->IsTuned());
+}
+
+/*
+    @brief: - Tests GetStoppingStreamSink returns single pipeline sink when no tuned inactive players exist
+    Test Procedure: -
+    In single pipeline mode with no active players and no tuned inactive players,
+    GetStoppingStreamSink should return the single pipeline sink (mGstPlayer).
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_NoTunedInactivePlayers_ReturnsSinglePipeline)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    StreamSink *singlePipelineSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    // Deactivate player but don't tune it
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    // GetStoppingStreamSink should return the single pipeline sink
+    StreamSink *stoppingSink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+    EXPECT_EQ(singlePipelineSink, stoppingSink);
+}
+
+/*
+    @brief: - Tests GetStoppingStreamSink returns inactive sink when tuned inactive players exist
+    Test Procedure: -
+    In single pipeline mode with no active players but a tuned inactive player exists,
+    GetStoppingStreamSink should NOT return the single pipeline sink but the specific player's sink.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_WithTunedInactivePlayers_ReturnsSpecificSink)
+{
+    // Create two players
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+
+    StreamSink *singlePipelineSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    // Deactivate both players
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP2, false);
+
+    // Mark player2 as tuned
+    AampStreamSinkManager::GetInstance().SetTuned(mPrivateInstanceAAMP2);
+
+    // GetStoppingStreamSink for player1 should NOT return the single pipeline sink
+    // because player2 is tuned
+    StreamSink *stoppingSink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+    StreamSink *player1Sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(player1Sink, stoppingSink);
+    EXPECT_NE(singlePipelineSink, stoppingSink);
+}
+
+/*
+    @brief: - Tests GetStoppingStreamSink ignores the calling aamp when checking for tuned players
+    Test Procedure: -
+    In single pipeline mode with no active players, if only the calling player is tuned,
+    GetStoppingStreamSink should still return the single pipeline sink.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_IgnoresCallingPlayerTunedStatus)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    StreamSink *singlePipelineSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    // Deactivate and tune player1
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+    AampStreamSinkManager::GetInstance().SetTuned(mPrivateInstanceAAMP1);
+
+    // GetStoppingStreamSink for player1 should return the single pipeline sink
+    // because the calling player (player1) itself should be ignored
+    StreamSink *stoppingSink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+    EXPECT_EQ(singlePipelineSink, stoppingSink);
+}
+
+/*
     @brief: - verifies that progressive ActivatePlayer() uses stream position
     Test Procedure
     Initialize AampStreamSinkManager into single pipeline mode.

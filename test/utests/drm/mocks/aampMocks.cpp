@@ -27,6 +27,7 @@
 #include "AampConfig.h"
 #include "priv_aamp.h"
 #include "aampgstplayer.h"
+#include "AampLatencyMonitor.h"
 
 #include "MockPrivateInstanceAAMP.h"
 
@@ -44,7 +45,7 @@ void MockAampReset(void)
 	gpGlobalConfig = gGlobalConfig.get();
 }
 
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false), mLatencyMonitor(nullptr)
 {
 }
 
@@ -377,7 +378,7 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
-long PrivateInstanceAAMP::GetCurrentLatency()
+long PrivateInstanceAAMP::GetCurrentLatencyMs()
 {
 	return 0;
 }
@@ -1049,7 +1050,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
-												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
+												 uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 }
 
@@ -1164,7 +1165,7 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type,
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type,
 		uint64_t timeStampOffset)
 {
 }

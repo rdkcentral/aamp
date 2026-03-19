@@ -26,112 +26,86 @@
 #include <cinttypes>
 
 
-bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
+bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8_t> &buffer)
+{
+	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
+	if (!isoBmffBuffer.parseBuffer())
+	{
+		AAMPLOG_WARN("Failed to parse buffer");
+		return false;
+	}
+	return true;
+}
+
+bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 {
 	AAMPLOG_TRACE("Function called with len = %zu", buffer.size());
 
-	bool retval{true};
 	IsoBmffBuffer isoBmffBuffer{};
-
-	isoBmffBuffer.setBuffer(buffer.data(), buffer.size() );
-
-	if(isoBmffBuffer.parseBuffer())
+	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
-		isoBmffBuffer.truncate();
-		buffer.resize(isoBmffBuffer.getSize());
-	}
-	else
-	{
-		retval = false;
+		return false;
 	}
 
-	return retval;
+	isoBmffBuffer.truncate();
+	buffer.resize(isoBmffBuffer.getSize());
+	return true;
 }
 
-bool IsoBmffHelper::RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
+bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
 {
-	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
-
-	isoBmffBuffer.setBuffer(buffer.data(), buffer.size() );
-
-	if (!isoBmffBuffer.parseBuffer())
+	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
-		AAMPLOG_WARN("Failed to parse buffer");
-	}
-	else
-	{
-		isoBmffBuffer.restampPts(ptsOffset);
-		// NOTE: This log line is used by the pts_restamp_check.py test tool,
-		// and may be used by other tests for validation purposes (e.g. L2 tests).
-		// Please check restamping tests and tools before modifying this log line.
-		AAMPLOG_INFO("[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
-					 trackName, timeScale, isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS,
-					 isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
-		retval = true;
+		return false;
 	}
 
-	return retval;
+	isoBmffBuffer.restampPts(ptsOffset);
+	// NOTE: This log line is used by the pts_restamp_check.py test tool,
+	// and may be used by other tests for validation purposes (e.g. L2 tests).
+	// Please check restamping tests and tools before modifying this log line.
+	AAMPLOG_INFO("[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
+				 trackName, timeScale, isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS,
+				 isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
+	return true;
 }
 
-bool IsoBmffHelper::SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale)
+bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScale)
 {
-	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
-
-	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
-
-	if (!isoBmffBuffer.parseBuffer())
+	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
-		AAMPLOG_WARN("Failed to parse buffer");
-	}
-	else
-	{
-		retval = isoBmffBuffer.setTrickmodeTimescale(timeScale);
+		return false;
 	}
 
-	return retval;
+	return isoBmffBuffer.setTrickmodeTimescale(timeScale);
 }
 
-bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration)
+bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration)
 {
-	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
-
-	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
-
-	if (!isoBmffBuffer.parseBuffer())
+	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
-		AAMPLOG_WARN("Failed to parse buffer");
-	}
-	else
-	{
-		isoBmffBuffer.setPtsAndDuration(pts, duration);
-		retval = true;
+		return false;
 	}
 
-	return retval;
+	isoBmffBuffer.setPtsAndDuration(pts, duration);
+	return true;
 }
 
-bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
+bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
 {
-	bool retval{false};
 	IsoBmffBuffer isoBmffBuffer{};
-
-	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
-
-	if (!isoBmffBuffer.parseBuffer())
+	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
-		AAMPLOG_WARN("Failed to parse buffer");
+		return false;
 	}
-	else if (!isoBmffBuffer.isInitSegment())
+
+	if (!isoBmffBuffer.isInitSegment())
 	{
 		AAMPLOG_DEBUG("Buffer is not an initialization segment");
-	}
-	else
-	{
-		retval = isoBmffBuffer.setMediaHeaderDuration(0);
+		return false;
 	}
 
-	return retval;
+	return isoBmffBuffer.setMediaHeaderDuration(0);
 }

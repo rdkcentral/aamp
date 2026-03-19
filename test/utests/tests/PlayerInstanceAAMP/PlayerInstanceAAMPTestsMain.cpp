@@ -2717,6 +2717,7 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromLive) {
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(seek_pos_seconds));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_SEEKING, true)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, false)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(1.0, false)).Times(1);
 
 	mPlayerInstance->SetRate(1.0);
 
@@ -2773,3 +2774,27 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
 
 }
+
+/*
+    @brief: - Tests that PlayerInstanceAAMP::Tune calls AampStreamSinkManager::SetTuned
+    Test Procedure: -
+    Call Tune on PlayerInstanceAAMP and verify SetTuned is called on the stream sink manager.
+*/
+TEST_F(PlayerInstanceAAMPTests, Tune_CallsSetTuned)
+{
+	const char *testUrl = "http://example.com/test.mpd";
+	const char *contentType = "video/mpd";
+
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+
+	// Mock the necessary calls for Tune
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring(_)).Times(1);
+
+	// Expect SetTuned to be called with the PrivateInstanceAAMP
+	EXPECT_CALL(*g_mockAampStreamSinkManager, SetTuned(mPrivateInstanceAAMP)).Times(1);
+
+	// Call Tune - this should trigger SetTuned
+	mPlayerInstance->Tune(testUrl, contentType, true, false, nullptr, true);
+}
+

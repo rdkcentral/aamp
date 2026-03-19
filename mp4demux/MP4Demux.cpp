@@ -25,6 +25,7 @@
 #include <inttypes.h>
 #include <cstdio>
 #include <cstring>
+
 #include <memory>
 #include <utility>
 
@@ -64,6 +65,9 @@
 #define TENC_BOX_KEY_ID_SIZE 16
 #define PSSH_SYSTEM_ID_SIZE  16
 #define FORMATTED_SYSTEM_ID_LENGTH 36
+
+// Metrics logging interval in seconds (10 minutes).
+#define MP4DEMUX_METRICS_LOG_INTERVAL_SECONDS 600
 
 /**
  * @brief Mapping structure for FourCC to format conversion
@@ -150,8 +154,10 @@ CipherType GetCipherTypeFromFourCC(const uint32_t fourCC)
  * Initializes all member variables to their default values and sets up
  * the demuxer for MP4 parsing operations.
  */
+
 Mp4Demux::Mp4Demux() :
 	streamFormat(),
+	mMediaTypeName("unknown"),
 	ivSize(),
 	cryptByteBlock(), skipByteBlock(),
 	constantIvSize(), constantIv(), timeScale(),
@@ -168,8 +174,15 @@ Mp4Demux::Mp4Demux() :
 	duration(),
 	sampleOffset(), sencPresent(false),
 	handledEncryptedSamples(false),
-	codecInfo(GST_FORMAT_INVALID), parseError(MP4_PARSE_OK)
+	mSampleInfo(),
+	codecInfo(GST_FORMAT_INVALID), parseError(MP4_PARSE_OK),
+	mLastLogTime(std::chrono::steady_clock::now()),
+	mLogIntervalSeconds(MP4DEMUX_METRICS_LOG_INTERVAL_SECONDS),
+	mDemuxTimeMs(),
+	mFramesPerSecond()
 {
+	MP4_LOG_WARN("MP4Demux created and metrics will be logged every %d seconds",
+		 static_cast<int>(mLogIntervalSeconds.count()));
 }
 
 /**
@@ -178,6 +191,8 @@ Mp4Demux::Mp4Demux() :
  */
 Mp4Demux::~Mp4Demux()
 {
+	// Log final metrics at shutdown
+	LogMetrics();
 }
 
 void Mp4Demux::setParseError( Mp4ParseError err )
@@ -476,6 +491,11 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 	if (sampleCount && gotAuxiliaryInformationOffset)
 	{
 		ptr = moofPtr + auxiliaryInformationOffset;
+		// Ensure the auxiliary information offset does not point past the end of the buffer
+		if (ptr >= endPtr)
+		{
+			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: auxiliaryInformationOffset exceeds buffer");
+		}
 		uint64_t maxSampleCount = sampleOffset + sampleCount;
 		if (samples.size() != maxSampleCount)
 		{
@@ -499,6 +519,10 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			// Skip IV data if present (comes before subsample data in auxiliary info)
 			if (ivSize)
 			{
+				if (ivSize > static_cast<size_t>(endPtr - ptr))
+				{
+					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: IV data exceeds buffer");
+				}
 				// Read IV if not already present from senc box
 				if (samples[i].mDrmMetadata.mIV.empty())
 				{
@@ -514,7 +538,12 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			{
 				// Sub-sample encryption info present
 				uint16_t numSubSamples = ReadU16();
-				size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
+				size_t remaining = static_cast<size_t>(endPtr - ptr);
+				if (numSubSamples > remaining / MP4_SUBSAMPLE_ENTRY_SIZE)
+				{
+					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: subsample data OOB");
+				}
+				size_t subSamplesSize = static_cast<size_t>(numSubSamples) * MP4_SUBSAMPLE_ENTRY_SIZE;
 				samples[i].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subSamplesSize);
 				samples[i].mDrmMetadata.mNumSubSamples = numSubSamples;
 				ptr += subSamplesSize;
@@ -638,6 +667,10 @@ void Mp4Demux::ParseSampleEncryption()
 		}
 		if (ivSize)
 		{
+			if (ivSize > static_cast<size_t>(endPtr - ptr))
+			{
+				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: IV data exceeds buffer");
+			}
 			samples[iSample].mDrmMetadata.mIV = std::vector<uint8_t>(ptr, ptr + ivSize);
 			ptr += ivSize;
 		}
@@ -649,6 +682,10 @@ void Mp4Demux::ParseSampleEncryption()
 		{ // sub sample encryption
 			uint16_t numSubSamples = ReadU16();
 			size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
+			if (subSamplesSize > static_cast<size_t>(endPtr - ptr))
+			{
+				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: subsample data OOB");
+			}
 			samples[iSample].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subSamplesSize);
 			samples[iSample].mDrmMetadata.mNumSubSamples = numSubSamples;
 			ptr += subSamplesSize;
@@ -659,11 +696,11 @@ void Mp4Demux::ParseSampleEncryption()
 
 /**
  * @brief Parse track run box (TRUN)
- * Extracts sample information from the track run including:
- * - Sample data offsets and sizes
+ * Extracts sample metadata from the track run including:
  * - Sample durations and composition time offsets
  * - Sample flags and media timing information
- * Creates AampMediaSample objects with proper PTS/DTS timing.
+ * Actual sample data copy and boundary validation are deferred into mSampleInfo 
+ * This handles both normal and LLD streams where mdat follows moof.
  */
 void Mp4Demux::ParseTrackRun()
 {
@@ -675,10 +712,6 @@ void Mp4Demux::ParseTrackRun()
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
-	if( mdatStart && (dataPtr < mdatStart || dataPtr >= mdatEnd) )
-	{
-		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: dataPtr outside mdat");
-	}
 	uint32_t sampleFlags = 0;
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
@@ -689,8 +722,6 @@ void Mp4Demux::ParseTrackRun()
 	for (auto i = 0u; i < sampleCount; i++)
 	{
 		samples.emplace_back();
-		// Get reference to newly added sample
-		AampMediaSample& newSample = samples.back();
 		uint32_t sampleLen = defaultSampleSize;
 		uint32_t sampleDuration = defaultSampleDuration;
 		if (flags & TRUN_SAMPLE_DURATION_PRESENT)
@@ -711,21 +742,57 @@ void Mp4Demux::ParseTrackRun()
 		{ // for samples where pts and dts differ (overriding 'trex')
 			sampleCompositionTimeOffset = ReadI32();
 		}
-		// Guard: sample buffer must not overrun endPtr (or mdat)
-		const uint8_t* hardEnd = mdatEnd ? mdatEnd : endPtr;
-		if ( dataPtr + sampleLen > hardEnd )
+		// mdat follows the moof in the bitstream
+		// so boundary checks and data copy must wait until mdatStart/mdatEnd are established.
+		PendingSamplePayload pendingSample;
+		pendingSample.dataPtr  = dataPtr;
+		pendingSample.sampleLen = sampleLen;
+		pendingSample.sampleIdx = samples.size() - 1;
+		pendingSample.mDts      = dts / (double)timeScale;
+		pendingSample.mPts      = (dts + sampleCompositionTimeOffset) / (double)timeScale;
+		pendingSample.mDuration = sampleDuration / (double)timeScale;
+		mSampleInfo.emplace_back(pendingSample);
+		dataPtr += sampleLen;
+		dts += sampleDuration;
+	}
+}
+
+/**
+ * @brief Assign sample payload data after mdat is parsed
+ *
+ * Called immediately after mdatStart/mdatEnd are set from an mdat box.
+ * Iterates over mSampleInfo, validates each sample's data
+ * pointer against the mdat extent, and copies the payload into the corresponding AampMediaSample.
+ * Clears mSampleInfo on exit.
+ */
+void Mp4Demux::ProcessSamples()
+{
+	if (!mdatStart || !mdatEnd)
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "mdat: bounds not established");
+	}
+	for (const auto& pending : mSampleInfo)
+	{
+		const uint8_t* dataPtr = pending.dataPtr;
+		uint32_t sampleLen = pending.sampleLen;
+		// Validate data pointer is within current mdat bounds
+		if (dataPtr < mdatStart || dataPtr >= mdatEnd)
+		{
+			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: dataPtr outside mdat");
+		}
+		// Guard: sample payload must not overrun mdat
+		const uint8_t* hardEnd = mdatEnd;
+		if (dataPtr + sampleLen > hardEnd)
 		{
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: sample payload OOB");
 		}
-		newSample.mData.insert(newSample.mData.GetVector().end(),
-							   dataPtr,
-							   dataPtr + sampleLen);
-		dataPtr += sampleLen;
-		newSample.mDts = dts / (double)timeScale;
-		newSample.mPts = (dts + sampleCompositionTimeOffset) / (double)timeScale;
-		newSample.mDuration = sampleDuration / (double)timeScale;
-		dts += sampleDuration;
+		AampMediaSample& s = samples[pending.sampleIdx];
+		s.mData.insert(s.mData.GetVector().end(), dataPtr, dataPtr + sampleLen);
+		s.mDts      = pending.mDts;
+		s.mPts      = pending.mPts;
+		s.mDuration = pending.mDuration;
 	}
+	mSampleInfo.clear();
 }
 
 /**
@@ -924,15 +991,18 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 		case MultiChar_Constant("avc1"):
 		case MultiChar_Constant("hvc1"):
 		case MultiChar_Constant("encv"):
+			mMediaTypeName = "video";
 			ParseVideoInformation();
 			break;
 		case MultiChar_Constant("mp4a"):
 		case MultiChar_Constant("ec-3"):
 		case MultiChar_Constant("ac-4"):
 		case MultiChar_Constant("enca"):
+			mMediaTypeName = "audio";
 			ParseAudioInformation();
 			break;
 		default:
+			mMediaTypeName = "unknown";
 			throw Mp4ParseException(MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT, "stsd entry: unsupported format");
 	}
 	DemuxHelper(next);
@@ -1192,6 +1262,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				gotAuxiliaryInformationOffset = false;
 				cencAuxInfoSizes.clear();
 				sencPresent = false;
+				// Clear any leftover pending payloads from a prior fragment so Left over should be treated as error
+				// they are not re-assigned when the next mdat is encountered.
+				mSampleInfo.clear();
 				DemuxHelper(next);
 				MP4_LOG_DEBUG("Completed parsing 'moof' box, sampleOffset: %" PRIu64 " total samples: %zu", sampleOffset, samples.size());
 				if (!sencPresent && gotAuxiliaryInformationOffset)
@@ -1240,6 +1313,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				// Track mdat payload range for TRUN validation
 				mdatStart = ptr; // start of payload (after header bytes)
 				mdatEnd   = next; // end of payload
+				// Now that mdat bounds are known, copy sample payloads that were deferred by ParseTrackRun() (handles both normal and LLD order).
+				ProcessSamples();
 				ptr = next; // skip payload
 				break;
 			default:
@@ -1263,6 +1338,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
  * @param len Length of data buffer in bytes
  * @return true if parsing succeeded, false on error
  */
+
 bool Mp4Demux::Parse(const void *data, size_t len)
 {
 	bool ret = false;
@@ -1271,12 +1347,17 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 		return false;
 	}
 	MP4_LOG_DEBUG("Parsing MP4 data segment, ptr:%p len=%zu", data, len);
+
+	// Start timing for metrics
+	auto startTime = std::chrono::steady_clock::now();
+
 	// Reset error state
 	parseError = MP4_PARSE_OK;
 	// scrub sample data from previous segment, but leave other metadata intact
 	samples.clear();
 	cencAuxInfoSizes.clear();
 	protectionData.clear();
+	mSampleInfo.clear();
 	gotAuxiliaryInformationOffset = false;
 	moofPtr = nullptr;
 	endPtr = &((const uint8_t*)data)[len];
@@ -1294,6 +1375,23 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 		{
 			MP4_LOG_WARN("Forcing encrypted flag in codec info due to prior encrypted samples");
 			codecInfo.mIsEncrypted = true;
+		}
+
+		// Record metrics if parsing succeeded and samples are extracted
+		auto endTime = std::chrono::steady_clock::now();
+		auto demuxDuration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(endTime - startTime);
+		uint32_t frameCount = static_cast<uint32_t>(samples.size());
+
+		if (frameCount > 0)
+		{
+			double fragmentDuration = 0.0;
+			for (const auto& sample : samples)
+			{
+				fragmentDuration += sample.mDuration;
+			}
+			double fps = (fragmentDuration > 0.0) ? (static_cast<double>(frameCount) / fragmentDuration) : 0.0;
+			RecordDemuxMetrics(demuxDuration.count(), fps);
+			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
 		setParseError(ex.code());
@@ -1378,4 +1476,53 @@ std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
 	// std::move is required here because codecInfo is a member variable.
 	return std::move(samples);
+}
+
+/**
+ * @brief Record metrics for a demux operation
+ * Updates statistics and logs periodic reports every 10 minutes
+ *
+ * @param demuxTimeMs Time taken to demux a fragment in milliseconds
+ * @param fps Frames per second calculated from the fragment
+ */
+
+void Mp4Demux::RecordDemuxMetrics(double demuxTimeMs, double fps)
+{
+	mDemuxTimeMs.Update(demuxTimeMs);
+	mFramesPerSecond.Update(fps);
+
+	if (ShouldLogMetrics())
+	{
+		LogMetrics();
+	}
+}
+/**
+ * @brief Log accumulated metrics to AAMP logs
+ * Outputs min/max/avg for demux time and frames per second,
+ * then resets the accumulators and updates the last-log timestamp.
+ */
+
+void Mp4Demux::LogMetrics()
+{
+	if (!mDemuxTimeMs.HasData() || !mFramesPerSecond.HasData())
+		return;
+
+	MP4_LOG_WARN("MP4Demux Metrics: mediaType=%s dmt(demux time)ms min=%.3f max=%.3f avg=%.3f | fps min=%.3f max=%.3f avg=%.3f",
+		mMediaTypeName,
+		mDemuxTimeMs.min, mDemuxTimeMs.max, mDemuxTimeMs.GetAverage(),
+		mFramesPerSecond.min, mFramesPerSecond.max, mFramesPerSecond.GetAverage());
+
+	mLastLogTime = std::chrono::steady_clock::now();
+	mDemuxTimeMs.Reset();
+	mFramesPerSecond.Reset();
+}
+/**
+ * @brief Check if reporting interval has elapsed
+ * @return true if 10 minutes have passed since last report
+ */
+bool Mp4Demux::ShouldLogMetrics() const
+{
+	auto now = std::chrono::steady_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - mLastLogTime);
+	return elapsed >= mLogIntervalSeconds;
 }

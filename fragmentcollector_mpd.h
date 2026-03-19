@@ -350,7 +350,6 @@ public:
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;
-	void MonitorLatency();
 	void StartSubtitleParser() override;
 	void PauseSubtitleParser(bool pause) override;
 	/**
@@ -602,6 +601,14 @@ protected:
 	 *        after downloading the init fragment of an ad failed.
 	 */
 	void RestorePtsOffsetCalculation(void);
+
+	/**
+	 * @fn AdjustPtsOffsetAfterAdCancellation
+	 *
+	 * @brief Adjust the PTS offset calculation,
+	 *        if the calculated nextPTS needs adjustment after ad cancellation.
+	 */
+	void AdjustPtsOffsetAfterAdCancellation(void);
 
 	/**
 	 * @fn printSelectedTrack
@@ -964,12 +971,7 @@ protected:
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 
 	double GetEncoderDisplayLatency();
-	/**
-	 * @fn StartLatencyMonitorThread
-	 * @return void
-	 */
-	void StartLatencyMonitorThread();
-	LatencyStatus GetLatencyStatus() { return latencyStatus; }
+
 	/**
 	 * @fn GetPreferredCodecIndex
 	 * @param adaptationSet Adaptation set object
@@ -1107,9 +1109,10 @@ protected:
 	 * @param[in] position Period position of the ad break
 	 * @param[in] absolutePosition Absolute position
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
+	 * @param[in] reason Reason for reservation end (optional, applicable to END events)
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-							   uint64_t position, AampTime absolutePosition, bool immediate);
+							   uint64_t position, AampTime absolutePosition, bool immediate, const std::string& reason = "");
 
 	/**
 	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
@@ -1314,9 +1317,6 @@ protected:
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/
 
-	LatencyStatus latencyStatus; 		 /**< Latency status of the playback*/
-	LatencyStatus prevLatencyStatus;	 /**< Previous latency status of the playback*/
-	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;

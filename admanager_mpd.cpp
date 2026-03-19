@@ -69,15 +69,27 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 
 /**
  * @brief Cancel ad reservation
- * @param[in] playingReservationId The reservation identifier which is currently playing
  * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
  */
-void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {
 	if (mPrivObj)
 	{
-		mPrivObj->CancelReservation(playingReservationId, cancelAtReservationId);
+		mPrivObj->CancelReservation(cancelAtReservationId);
 	}
+}
+
+/**
+ * @brief Check if an ad is currently playing
+ * @return true if an ad is playing, false otherwise
+ */
+bool CDAIObjectMPD::IsAdPlaying()
+{
+	if (mPrivObj)
+	{
+		return mPrivObj->IsAdPlaying();
+	}
+	return false;
 }
 
 /**
@@ -338,6 +350,17 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						p2AdData.duration += diffInDurationMs;
 					}
 					AAMPLOG_INFO("periodDelta = %" PRId64 " p2AdData.duration = [%" PRIu64 "] mPlacementObj.adNextOffset = %u periodId = %s",periodDelta,p2AdData.duration,mPlacementObj.adNextOffset, periodId.c_str());
+					// Check if the immediate next period (even if empty) is the cancel target
+					if (!abObj.cancelAtPeriodId.empty() && !mPlacementObj.pendingAdCancel && (iter + 1 < periods.size()))
+					{
+						IPeriod *immediateNextPeriod = periods.at(iter + 1);
+						const std::string &immediateNextPeriodId = immediateNextPeriod->GetId();
+						if (abObj.cancelAtPeriodId == immediateNextPeriodId)
+						{
+							AAMPLOG_INFO("[CDAI] CancelAtPeriodId:%s reached (next period). Setting pendingAdCancel flag.", immediateNextPeriodId.c_str());
+							mPlacementObj.pendingAdCancel = true;
+						}
+					}
 					bool sourceAdDurationMismatch = false;
 					if ((periodDelta == 0) && (nextPeriodDur > 0))
 					{
@@ -346,7 +369,34 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						{
 							// Next period was not available earlier when the adIdx was incremented, now the next period is present
 							// Move onto next period to be placed
-							if (mPlacementObj.waitForNextPeriod)
+							if (mPlacementObj.pendingAdCancel)
+							{
+								AAMPLOG_DEBUG("[CDAI] Next period with fragments found. Trimming current ad and invalidating remaining ads.");
+								// Trim the current ad duration to what has been placed so far
+								abObj.ads->at(mPlacementObj.curAdIdx).duration = mPlacementObj.adNextOffset;
+								// Mark the ad as placed to stop further placement
+								abObj.ads->at(mPlacementObj.curAdIdx).placed = true;
+								abObj.ads->at(mPlacementObj.curAdIdx).cancelled = true;
+								mPlacementObj.adNextOffset = 0;
+
+								// Invalidate all remaining ads in the break so playback state machine skips them
+								for (int idx = mPlacementObj.curAdIdx + 1; idx < abObj.ads->size(); idx++)
+								{
+									abObj.ads->at(idx).placed = true;
+									abObj.ads->at(idx).invalid = true;
+								}
+
+								// Player ready to process next period
+								currentAdPeriodClosed = true;
+								// Set ad break end markers at the period boundary
+								setAdMarkers(p2AdData.duration, periodDelta);
+								AAMPLOG_INFO("[CDAI] Ad truncated at period boundary with fragments. Ad duration adjusted to %" PRIu64 " ms", abObj.ads->at(mPlacementObj.curAdIdx).duration);
+								// Clear the pending cancel flag
+								mPlacementObj.pendingAdCancel = false;
+								// Signal completion of ad break placement
+								break;
+							}
+							else if (mPlacementObj.waitForNextPeriod)
 							{
 								// Confirm the current ad is completely placed otherwise log an error. AD should be completely placed at this point.
 								if ((abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adNextOffset) != 0)
@@ -879,7 +929,7 @@ bool PrivateCDAIObjectMPD::CheckForAdTerminate(double currOffset)
 		uint64_t fragOffset = (uint64_t)(currOffset * 1000);
 		if (mCurAds && (mCurAdIdx < mCurAds->size()))
 		{
-			if (fragOffset >= (mCurAds->at(mCurAdIdx).duration + OFFSET_ALIGN_FACTOR))
+			if (fragOffset >= mCurAds->at(mCurAdIdx).duration + (mCurAds->at(mCurAdIdx).cancelled ? 0 : OFFSET_ALIGN_FACTOR))
 			{
 				//Current Ad is playing beyond the AdBreak + OFFSET_ALIGN_FACTOR
 				return true;
@@ -1927,28 +1977,26 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 
 /**
  * @brief Cancel the reservation for the ad break
-	 * @param[in] playingReservationId The reservation identifier which is currently playing
-	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
+ * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
  */
-void PrivateCDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PrivateCDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {
 	std::lock_guard<std::mutex> lock(mDaiMtx); // Ensure thread safety if ad state is shared
 
-	// Log the action for audit/debug
-	AAMPLOG_INFO("[CDAI] playingReservationId=%s, cancelAtReservationId=%s",
-		playingReservationId.c_str(), cancelAtReservationId.c_str());
-
-	// Validate against the placement state: the adbreak being placed/in progress
-	const bool isTargetCurrentPlacement =
-		(!mPlacementObj.pendingAdbrkId.empty() &&
-		(playingReservationId == mPlacementObj.pendingAdbrkId));
-
-	if (!isTargetCurrentPlacement)
+	if (cancelAtReservationId.empty())
 	{
-		AAMPLOG_WARN("[CDAI] CancelReservation ignored: placementBreakId=%s, requested=%s",
-			mPlacementObj.pendingAdbrkId.c_str(), playingReservationId.c_str());
+		AAMPLOG_WARN("[CDAI] CancelReservation ignored: empty cancelAtReservationId");
 		return;
 	}
+
+	if (mPlacementObj.pendingAdbrkId.empty())
+	{
+		AAMPLOG_WARN("[CDAI] CancelReservation ignored: no active placement");
+		return;
+	}
+
+	AAMPLOG_WARN("[CDAI] cancelAtReservationId=%s, placementBreakId=%s",
+		cancelAtReservationId.c_str(), mPlacementObj.pendingAdbrkId.c_str());
 
 	if (isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
 	{
@@ -1962,4 +2010,14 @@ void PrivateCDAIObjectMPD::CancelReservation(const std::string& playingReservati
 		AAMPLOG_WARN("[CDAI] CancelReservation: adBreakId %s not found; no state updated",
 			mPlacementObj.pendingAdbrkId.c_str());
 	}
+}
+
+/**
+ * @brief Check if an ad is currently playing
+ * @return true if an ad is playing, false otherwise
+ */
+bool PrivateCDAIObjectMPD::IsAdPlaying()
+{
+	std::lock_guard<std::mutex> guard(mDaiMtx);
+	return (mAdState == AdState::IN_ADBREAK_AD_PLAYING || mAdState == AdState::IN_ADBREAK_WAIT2CATCHUP);
 }
