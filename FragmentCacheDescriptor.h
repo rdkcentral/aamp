@@ -48,8 +48,8 @@ struct FragmentCacheDescriptor
 	const char* chunkPayload;
 	
 	/**
-	 * @brief Fragment mode buffer (for ZERO-COPY move)
-	 *        Ownership transferred via std::move() to CachedFragment
+	 * @brief Fragment mode buffer holding downloaded fragment data
+	 *        May be copied by the caching layer depending on API semantics
 	 */
 	std::vector<uint8_t> downloadBuffer;
 	

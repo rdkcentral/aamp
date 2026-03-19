@@ -1107,6 +1107,17 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
 								  unsigned int curlInstance, const char *range, int& http_code,
 								  double *downloadTime, AampMediaType fileType, int *fogError)
 {
+	// Deterministic defaults for mock implementation
+	effectiveUrl = fragmentUrl;
+	http_code = 0;
+	if (downloadTime != nullptr)
+	{
+		*downloadTime = 0.0;
+	}
+	if (fogError != nullptr)
+	{
+		*fogError = 0;
+	}
 	return;
 }
 

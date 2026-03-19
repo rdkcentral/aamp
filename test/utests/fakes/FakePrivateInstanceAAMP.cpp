@@ -758,7 +758,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
                 bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
-	bool rv = true;
+	bool rv = false;
 
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
@@ -766,6 +766,24 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 				 								http_error, downloadTime, range, curlInstance,
 												resetBuffer, bitrate, fogError,
 												fragmentDurationSeconds, bucketType, maxInitDownloadTimeMS);
+	}
+	else
+	{
+		// In the absence of a mock, ensure output parameters are initialized
+		http_error = 0;
+		effectiveUrl = remoteUrl;
+		if (downloadTime != nullptr)
+		{
+			*downloadTime = 0.0;
+		}
+		if (bitrate != nullptr)
+		{
+			*bitrate = 0;
+		}
+		if (fogError != nullptr)
+		{
+			*fogError = 0;
+		}
 	}
 
 	return rv;
@@ -1309,6 +1327,8 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError)
 {
+	// Ensure deterministic value when no mock is installed
+	http_code = 0;
 	if (g_mockPrivateInstanceAAMP != nullptr){
 		g_mockPrivateInstanceAAMP->LoadIDX(bucketType, fragmentUrl, effectiveUrl, fragment, curlInstance, range, http_code, downloadTime, mediaType, fogError);
 	}
