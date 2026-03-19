@@ -23,6 +23,7 @@
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
+#include "AampLatencyMonitor.h"
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
@@ -134,7 +135,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mAudioFormat(),
 	mPreviousAudioType(),
 	mCurlShared(),
-	mIsChunkMode(false)
+	mIsChunkMode(false),
+	mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 {
 }
 
@@ -280,7 +282,7 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 	}
 }
 
-void PrivateInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
 
 }
@@ -415,9 +417,31 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
-long PrivateInstanceAAMP::GetCurrentLatency()
+long PrivateInstanceAAMP::GetCurrentLatencyMs()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetCurrentLatencyMs();
+	}
 	return 0;
+}
+
+double PrivateInstanceAAMP::GetBufferedDurationSecs()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetBufferedDurationSecs();
+	}
+	return 0.0;
+}
+
+bool PrivateInstanceAAMP::IsAdPlaying()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsAdPlaying();
+	}
+	return false;
 }
 
 bool PrivateInstanceAAMP::IsAtLivePoint()
@@ -722,11 +746,11 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 }
 
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
-                int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
+                int& http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
-	bool rv = true;
+	bool rv = false;
 
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
@@ -734,6 +758,31 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 				 								http_error, downloadTime, range, curlInstance,
 												resetBuffer, bitrate, fogError,
 												fragmentDurationSeconds, bucketType, maxInitDownloadTimeMS);
+	}
+	else
+	{
+		// In the absence of a mock, ensure output parameters are initialized.
+		// Use a failure sentinel for http_error to match the false return value.
+		http_error = -1;
+		effectiveUrl = remoteUrl;
+		if (downloadTime != nullptr)
+		{
+			*downloadTime = 0.0;
+		}
+		if (bitrate != nullptr)
+		{
+			*bitrate = 0;
+		}
+		if (fogError != nullptr)
+		{
+			*fogError = 0;
+		}
+
+		// Apply resetBuffer contract to keep fake semantics aligned with GetFile expectations
+		if (resetBuffer)
+		{
+			buffer.clear();
+		}
 	}
 
 	return rv;
@@ -1194,13 +1243,17 @@ long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->UpdateVideoEndMetrics(adjustedRate);
+	}
 }
 
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
+void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, immediate);
+		g_mockPrivateInstanceAAMP->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, immediate, reason);
 	}
 }
 
@@ -1271,12 +1324,27 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
+void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr){
+	// Ensure deterministic default values when no mock is installed
+	http_code = 0;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
 		g_mockPrivateInstanceAAMP->LoadIDX(bucketType, fragmentUrl, effectiveUrl, fragment, curlInstance, range, http_code, downloadTime, mediaType, fogError);
+		return;
 	}
-	return;
+
+	// No mock installed: initialize all outputs to stable defaults
+	effectiveUrl = fragmentUrl;
+	fragment.clear();
+	if (downloadTime != nullptr)
+	{
+		*downloadTime = 0.0;
+	}
+	if (fogError != nullptr)
+	{
+		*fogError = 0;
+	}
 }
 
 bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
@@ -1361,17 +1429,26 @@ void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment
 
 void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
 		g_mockPrivateInstanceAAMP->SetVidTimeScale(vidTimeScale);
 	}
 }
 
 void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetAudTimeScale(audTimeScale);
+	}
 }
 
-void PrivateInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
+void PrivateInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetSubTimeScale(subTimeScale);
+	}
 }
 
 void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
@@ -1568,24 +1645,6 @@ void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
 	}
 }
 
-bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetLLDashAdjustSpeed();
-	}
-	return false;
-}
-
-double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
-{
-	if (g_mockPrivateInstanceAAMP)
-	{
-		return g_mockPrivateInstanceAAMP->GetLLDashCurrentPlayBackRate();
-	}
-	return 1.0;
-}
-
 void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
 {
 }
@@ -1777,4 +1836,8 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaS
 bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 {
 	return false;
+}
+
+void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
+{
 }

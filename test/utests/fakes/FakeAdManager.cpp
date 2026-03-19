@@ -131,7 +131,6 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 {
 }
 
-
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string periodId)
 {
 	if(g_MockPrivateCDAIObjectMPD != nullptr)
@@ -155,6 +154,11 @@ void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 {
 }
 
+bool PrivateCDAIObjectMPD::IsAdPlaying()
+{
+	return false;
+}
+
 void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 {
 	if (g_MockPrivateCDAIObjectMPD)
@@ -163,6 +167,11 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 	}
 }
 
-void CDAIObjectMPD::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {
+}
+
+bool CDAIObjectMPD::IsAdPlaying()
+{
+	return false;
 }

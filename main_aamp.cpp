@@ -283,12 +283,12 @@ void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservatio
 /**
  *  @brief Cancel an ad reservation.
  */
-void PlayerInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
-    if (aamp)
-    {
-        aamp->CancelReservation(playingReservationId, cancelAtReservationId);
-    }
+	if (aamp)
+	{
+		aamp->CancelReservation(cancelAtReservationId);
+	}
 }
 
 /**
@@ -365,7 +365,12 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
+	UsingPlayerId(aamp->mPlayerId);
 	ManageAsyncTuneConfig(mainManifestUrl);
+	
+	// Set tuned flag before scheduling the tune task
+	AampStreamSinkManager::GetInstance().SetTuned(aamp);
+
 	if(mAsyncTuneEnabled)
 	{
 		const std::string manifest {mainManifestUrl};
@@ -948,7 +953,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					{
 						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
 						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-						aamp->SetLLDashAdjustSpeed(false);
+						aamp->EnableLatencyMonitor(false);
 					}
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
 					aamp->mDisableRateCorrection = true;

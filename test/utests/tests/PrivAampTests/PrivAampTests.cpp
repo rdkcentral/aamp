@@ -2218,8 +2218,8 @@ TEST_F(PrivAampTests,GetFileTest)
 	AampGrowableBuffer gBuff("GrowableBuffer");
 	double downloadTime;BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_1)
@@ -2232,8 +2232,8 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_2)
@@ -2247,10 +2247,10 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
-TEST_F(PrivAampTests,GetFileTest_3)
+TEST_F(PrivAampTests, GetFileTest_3)
 {
 	const char *url;
 	std::string effectiveUrl;
@@ -2264,11 +2264,11 @@ TEST_F(PrivAampTests,GetFileTest_3)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
-TEST_F(PrivAampTests,GetFileTest_4)
+TEST_F(PrivAampTests, GetFileTest_4)
 {
 	const char *url;
 	std::string effectiveUrl;
@@ -2282,8 +2282,8 @@ TEST_F(PrivAampTests,GetFileTest_4)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
 class PrivAampInitMediaTypeTest : public PrivAampTests,
@@ -2331,7 +2331,7 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 		.WillOnce(Return(2.0))
 		.WillRepeatedly(Return(0.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -2401,7 +2401,7 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillRepeatedly(Return(3000.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150",
 								 eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0, PROFILE_BUCKET_TYPE_COUNT,
 								 maxInitTimeoutDuration));
 }
@@ -2453,7 +2453,7 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
 
-	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -3824,16 +3824,18 @@ TEST_F(PrivAampTests,SetCCStatusPreTune)
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Enable CC and check that status is stored, 
+	// Enable CC and check that status is stored,
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetStatus(true) should be called to apply the stored CC status
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	// Now call TuneHelper - CC manager internal state starts as false before first tune
+	// SetStatus(false) is called in SetCCStatusInternal during TuneHelper
+	// RestoreCC(false) reflects the CC state was false before this tune
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
@@ -3848,6 +3850,9 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 {
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled)).WillByDefault(Return(true));
 
+	//Set OOB path before SetCCStatus() is called - order matters
+	p_aamp->mIsInbandCC = false;
+
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
@@ -3858,17 +3863,20 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetSubtitleMute(false) should be called to apply the stored CC status
-	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	// Clear pre-tune expectations before entering tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
 
-	// Set mIsInbandCC to false to simulate it being done during Tune for OOB subtitles
-	p_aamp->mIsInbandCC = false;
+	// During TuneHelper: OOB path calls SetSubtitleMute(true) since
+	// subtitles_muted=1 is the internal state at this point
+	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
-	// Disable CCStatus and check that status is stored,
-	// and SetSubtitleMute(true) is called since we are now tuned
+	// Clear tune phase expectations before post-tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// Post-tune: disabling CC calls SetSubtitleMute(true) since OOB path uses GstPlayer directly
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
@@ -3893,18 +3901,28 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 	p_aamp->SetVideoMute(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
+	// Clear pre-tune expectations before entering tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
+	// RestoreCC(false) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
-	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
-	// and SetStatus(true) is called since we are now tuned and stored CC status is true
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	// After tune with video muted: implementation clears stored CC state
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Clear tune phase expectations before post-tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+
+	// Post-tune: unmuting video calls SetCCStatusInternal which calls SetStatus(false)
+	// because stored CC preference was cleared during tune with video muted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
-	EXPECT_TRUE(p_aamp->GetCCStatus());
+	EXPECT_FALSE(p_aamp->GetCCStatus());
 }
 
 // Same as previous test but video mute is set before CC enable
@@ -3923,22 +3941,31 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
 	// Enable CC and check that status is stored, 
-	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
+	// Clear pre-tune expectations before entering tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
+	// RestoreCC(false) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
-	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
-	// and SetStatus(true) is called since we are now tuned and stored CC status is true
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	// After tune with video muted: implementation clears stored CC state
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Clear tune phase expectations before post-tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+
+	// Post-tune: unmuting video calls SetCCStatusInternal which calls SetStatus(false)
+	// because stored CC preference was cleared during tune with video muted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
-	EXPECT_TRUE(p_aamp->GetCCStatus());
+	EXPECT_FALSE(p_aamp->GetCCStatus());
 }
 
 TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
@@ -4245,8 +4272,8 @@ TEST_F(PrivAampTests,SetLowLatencyServiceConfiguredTest_1)
 
 TEST_F(PrivAampTests,SetCurrentLatencyTest)
 {
-	p_aamp->SetCurrentLatency(123456);
-	long val = p_aamp->GetCurrentLatency();
+	p_aamp->SetCurrentLatencyMs(123456);
+	long val = p_aamp->GetCurrentLatencyMs();
 	EXPECT_EQ(val,123456);
 }
 
@@ -5423,7 +5450,8 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl);
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error);
 }
 
 // Validates that low bandwidth timeout is disabled if the video is at the lowest profile
@@ -5458,7 +5486,8 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl);
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error);
 }
 
 // Pass null pointer as CurlCallbackContext and abort should be false

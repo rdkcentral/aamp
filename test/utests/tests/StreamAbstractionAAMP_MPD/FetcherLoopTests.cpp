@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <iterator>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
@@ -951,7 +952,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(AnyNumber());
 
 	/*
 	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
@@ -2110,7 +2111,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(1);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(2);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(2);
 
 	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
 		.Times(AnyNumber())
@@ -2488,9 +2489,9 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 	if (mockIDXDownload)
 	{
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
-			.WillRepeatedly(WithArg<3>(Invoke([](AampGrowableBuffer *idxBuffer)
+			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
 			{
-				idxBuffer->AppendBytes((const uint8_t *)sidxBox, sizeof(sidxBox));
+				idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
 			})));
 	}
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));

@@ -144,7 +144,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	double injectedDuration = GetTotalInjectedDuration();
 	if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
 	{
-		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with monitorLatency use same API*/
+		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with latency monitor use same API*/
 		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
 	}
 	else if (pContext)
@@ -4512,7 +4512,7 @@ void MediaTrack::PlaylistDownloader()
 					AAMPLOG_INFO("[%s] Re-enabling media download", trackName.c_str());
 					aamp->EnableMediaDownloads(mediaType);
 				}
-				gotManifest = aamp->GetFile(manifestUrl, mediaType, manifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true );
+				gotManifest = aamp->GetFile(manifestUrl, mediaType, manifest.GetVector(), effectiveUrl, http_error, &downloadTime, NULL, curlInstance, true );
 				if(seamlessAudioSwitchInProgress && (manifestUrl != GetPlaylistUrl()))
 				{
 					//new Playlist updated in mid.

@@ -68,7 +68,7 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
 			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
 			EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_,_)).WillRepeatedly(Return(true));
-			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_)).Times(AnyNumber());
+			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(testing::A<uint8_t*>(), testing::A<size_t>())).Times(AnyNumber());
 
 			id3_callback_t id3Handler = nullptr;
 
