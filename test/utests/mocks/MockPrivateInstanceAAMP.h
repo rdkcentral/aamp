@@ -48,7 +48,7 @@ public:
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, double, bool, bool));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
@@ -67,7 +67,9 @@ public:
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
 	MOCK_METHOD(void, SetVidTimeScale, (uint32_t));
-	MOCK_METHOD(void, ProcessID3Metadata, (std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
+	MOCK_METHOD(void, SetAudTimeScale, (uint32_t));
+	MOCK_METHOD(void, SetSubTimeScale, (uint32_t));
+	MOCK_METHOD(void, ProcessID3Metadata, (const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timeStampOffset));
 	MOCK_METHOD(void, SetPauseOnStartPlayback, (bool enable));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 	MOCK_METHOD(long long, DurationFromStartOfPlaybackMs, ());
@@ -82,7 +84,7 @@ public:
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());
 	MOCK_METHOD(void, SendAdPlacementEvent, (AAMPEventType, const std::string &, uint32_t, uint64_t, uint32_t, uint32_t, bool, long));
-	MOCK_METHOD(void, SendAdReservationEvent, (AAMPEventType, const std::string &, uint64_t, uint64_t, bool));
+	MOCK_METHOD(void, SendAdReservationEvent, (AAMPEventType, const std::string &, uint64_t, uint64_t, bool, const std::string &));
 	MOCK_METHOD(void, CalculateTrickModePositionEOS, ());
 	MOCK_METHOD(void, BlockUntilGstreamerWantsData, (void(*cb)(void), int , int ));
 	MOCK_METHOD(void, WaitForDiscontinuityProcessToComplete, ());
@@ -96,6 +98,7 @@ public:
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError));
+	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
