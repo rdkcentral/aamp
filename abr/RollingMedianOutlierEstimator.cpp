@@ -20,7 +20,7 @@
 
 #include <algorithm>
 #include <sys/time.h>
-
+#include <cstdlib>
 /**
  * @brief Get current time in milliseconds.
  * @return Current time in milliseconds.
