@@ -2268,7 +2268,7 @@ TEST_F(PrivAampTests, GetFileTest_3)
 								 &bitrate, &fogError, 0.0));
 }
 
-TEST_F(PrivAampTests,GetFileTest_4)
+TEST_F(PrivAampTests, GetFileTest_4)
 {
 	const char *url;
 	std::string effectiveUrl;
@@ -2282,8 +2282,8 @@ TEST_F(PrivAampTests,GetFileTest_4)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(),effectiveUrl,http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff.GetVector(), effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
 class PrivAampInitMediaTypeTest : public PrivAampTests,
