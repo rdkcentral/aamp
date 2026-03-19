@@ -41,6 +41,8 @@ message("build: ${buildinfo}")
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 # Resolve dependent modules
 message("using gstreamer-1.0")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
@@ -50,7 +52,7 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
-pkg_check_modules(RIALTOCLIENT REQUIRED RialtoClient)
+find_package(Rialto REQUIRED)
 
 # CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
@@ -182,7 +184,7 @@ include_directories(
 	${OPENSSL_INCLUDE_DIRS}
 	${UUID_INCLUDE_DIRS}
 	${LIBCJSON_INCLUDE_DIRS}
-	${RIALTOCLIENT_INCLUDE_DIRS}
+	${RIALTO_INCLUDE_DIRS}
 )
 
 # Internal source directory includes
@@ -216,7 +218,7 @@ set(LIBAAMP_DEPENDS
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
 	${OPENSSL_LIBRARIES}
-	${RIALTOCLIENT_LINK_LIBRARIES}
+	Rialto::RialtoClient
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
 	-ldl
