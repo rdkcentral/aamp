@@ -25,6 +25,7 @@
 #include <inttypes.h>
 #include <cstdio>
 #include <cstring>
+
 #include <memory>
 #include <utility>
 
@@ -64,6 +65,9 @@
 #define TENC_BOX_KEY_ID_SIZE 16
 #define PSSH_SYSTEM_ID_SIZE  16
 #define FORMATTED_SYSTEM_ID_LENGTH 36
+
+// Metrics logging interval in seconds (10 minutes).
+#define MP4DEMUX_METRICS_LOG_INTERVAL_SECONDS 600
 
 /**
  * @brief Mapping structure for FourCC to format conversion
@@ -150,8 +154,10 @@ CipherType GetCipherTypeFromFourCC(const uint32_t fourCC)
  * Initializes all member variables to their default values and sets up
  * the demuxer for MP4 parsing operations.
  */
+
 Mp4Demux::Mp4Demux() :
 	streamFormat(),
+	mMediaTypeName("unknown"),
 	ivSize(),
 	cryptByteBlock(), skipByteBlock(),
 	constantIvSize(), constantIv(), timeScale(),
@@ -169,8 +175,14 @@ Mp4Demux::Mp4Demux() :
 	sampleOffset(), sencPresent(false),
 	handledEncryptedSamples(false),
 	mSampleInfo(),
-	codecInfo(GST_FORMAT_INVALID), parseError(MP4_PARSE_OK)
+	codecInfo(GST_FORMAT_INVALID), parseError(MP4_PARSE_OK),
+	mLastLogTime(std::chrono::steady_clock::now()),
+	mLogIntervalSeconds(MP4DEMUX_METRICS_LOG_INTERVAL_SECONDS),
+	mDemuxTimeMs(),
+	mFramesPerSecond()
 {
+	MP4_LOG_WARN("MP4Demux created and metrics will be logged every %d seconds",
+		 static_cast<int>(mLogIntervalSeconds.count()));
 }
 
 /**
@@ -179,6 +191,8 @@ Mp4Demux::Mp4Demux() :
  */
 Mp4Demux::~Mp4Demux()
 {
+	// Log final metrics at shutdown
+	LogMetrics();
 }
 
 void Mp4Demux::setParseError( Mp4ParseError err )
@@ -977,15 +991,18 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 		case MultiChar_Constant("avc1"):
 		case MultiChar_Constant("hvc1"):
 		case MultiChar_Constant("encv"):
+			mMediaTypeName = "video";
 			ParseVideoInformation();
 			break;
 		case MultiChar_Constant("mp4a"):
 		case MultiChar_Constant("ec-3"):
 		case MultiChar_Constant("ac-4"):
 		case MultiChar_Constant("enca"):
+			mMediaTypeName = "audio";
 			ParseAudioInformation();
 			break;
 		default:
+			mMediaTypeName = "unknown";
 			throw Mp4ParseException(MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT, "stsd entry: unsupported format");
 	}
 	DemuxHelper(next);
@@ -1321,6 +1338,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
  * @param len Length of data buffer in bytes
  * @return true if parsing succeeded, false on error
  */
+
 bool Mp4Demux::Parse(const void *data, size_t len)
 {
 	bool ret = false;
@@ -1329,6 +1347,10 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 		return false;
 	}
 	MP4_LOG_DEBUG("Parsing MP4 data segment, ptr:%p len=%zu", data, len);
+
+	// Start timing for metrics
+	auto startTime = std::chrono::steady_clock::now();
+
 	// Reset error state
 	parseError = MP4_PARSE_OK;
 	// scrub sample data from previous segment, but leave other metadata intact
@@ -1353,6 +1375,23 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 		{
 			MP4_LOG_WARN("Forcing encrypted flag in codec info due to prior encrypted samples");
 			codecInfo.mIsEncrypted = true;
+		}
+
+		// Record metrics if parsing succeeded and samples are extracted
+		auto endTime = std::chrono::steady_clock::now();
+		auto demuxDuration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(endTime - startTime);
+		uint32_t frameCount = static_cast<uint32_t>(samples.size());
+
+		if (frameCount > 0)
+		{
+			double fragmentDuration = 0.0;
+			for (const auto& sample : samples)
+			{
+				fragmentDuration += sample.mDuration;
+			}
+			double fps = (fragmentDuration > 0.0) ? (static_cast<double>(frameCount) / fragmentDuration) : 0.0;
+			RecordDemuxMetrics(demuxDuration.count(), fps);
+			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
 		setParseError(ex.code());
@@ -1437,4 +1476,53 @@ std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
 	// std::move is required here because codecInfo is a member variable.
 	return std::move(samples);
+}
+
+/**
+ * @brief Record metrics for a demux operation
+ * Updates statistics and logs periodic reports every 10 minutes
+ *
+ * @param demuxTimeMs Time taken to demux a fragment in milliseconds
+ * @param fps Frames per second calculated from the fragment
+ */
+
+void Mp4Demux::RecordDemuxMetrics(double demuxTimeMs, double fps)
+{
+	mDemuxTimeMs.Update(demuxTimeMs);
+	mFramesPerSecond.Update(fps);
+
+	if (ShouldLogMetrics())
+	{
+		LogMetrics();
+	}
+}
+/**
+ * @brief Log accumulated metrics to AAMP logs
+ * Outputs min/max/avg for demux time and frames per second,
+ * then resets the accumulators and updates the last-log timestamp.
+ */
+
+void Mp4Demux::LogMetrics()
+{
+	if (!mDemuxTimeMs.HasData() || !mFramesPerSecond.HasData())
+		return;
+
+	MP4_LOG_WARN("MP4Demux Metrics: mediaType=%s dmt(demux time)ms min=%.3f max=%.3f avg=%.3f | fps min=%.3f max=%.3f avg=%.3f",
+		mMediaTypeName,
+		mDemuxTimeMs.min, mDemuxTimeMs.max, mDemuxTimeMs.GetAverage(),
+		mFramesPerSecond.min, mFramesPerSecond.max, mFramesPerSecond.GetAverage());
+
+	mLastLogTime = std::chrono::steady_clock::now();
+	mDemuxTimeMs.Reset();
+	mFramesPerSecond.Reset();
+}
+/**
+ * @brief Check if reporting interval has elapsed
+ * @return true if 10 minutes have passed since last report
+ */
+bool Mp4Demux::ShouldLogMetrics() const
+{
+	auto now = std::chrono::steady_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - mLastLogTime);
+	return elapsed >= mLogIntervalSeconds;
 }
