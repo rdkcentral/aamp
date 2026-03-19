@@ -177,7 +177,7 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 			{
 				MW_LOG_MIL("Performing InterfacePluginScan| Rialto-Disabled");
 				platformType = InferPlatformFromPluginScan();
-                        }
+            }
 		}
 		switch (platformType)
 		{
