@@ -60,6 +60,8 @@ public:
 	MOCK_METHOD(bool, RemoveAsyncTask, (int taskId));
 	MOCK_METHOD(const std::string &, GetSessionId, ());
 	MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
+	MOCK_METHOD(void, NotifyFirstFrameReceived, (unsigned long ccDecoderHandle));
+	MOCK_METHOD(void, NotifyFirstVideoFrameDisplayed, ());
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
@@ -92,6 +94,7 @@ public:
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
+	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopGstreamerPreBuffering));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());

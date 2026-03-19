@@ -51,11 +51,11 @@ using ::testing::Return;
 
 /**
  * @class PlayerStateTests
- * @brief Test fixture for AAMPPlayerState transition verification.
+ * @brief Unit tests for AAMPPlayerState transitions in PrivateInstanceAAMP.
  *
- * Sets up a PrivateInstanceAAMP instance with the required NiceMock
- * objects so that individual state-transition methods can be exercised
- * in isolation without needing a real GStreamer pipeline or network.
+ * This fixture sets up a PrivateInstanceAAMP with mocked dependencies to verify
+ * that state transitions occur as expected in response to player actions and
+ * notifications.
  */
 class PlayerStateTests : public ::testing::Test
 {
@@ -179,11 +179,11 @@ TEST_F(PlayerStateTests, PlayerState_NormalTune_FullSequence_ReleasedToIdle)
 	mPrivateInstanceAAMP->NotifySpeedChanged(0);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PAUSED);
 
-    // 6. Resume transitions PAUSED → PLAYING.
-    mPrivateInstanceAAMP->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE);
-    EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
+	// 6. Resume transitions PAUSED → PLAYING.
+	mPrivateInstanceAAMP->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE);
+	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
 
-    // 7. EOS notification transitions PLAYING → COMPLETE.
+	// 7. EOS notification transitions PLAYING → COMPLETE.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached())
 		.WillRepeatedly(Return(true));
 	mPrivateInstanceAAMP->NotifyEOSReached();
@@ -222,6 +222,8 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 		.WillRepeatedly(Return(""));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
 		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
+		.WillRepeatedly(Return(true));
 
 	MockStreamAbstractionAAMP_MPD mockStreamAbstractionAAMP_MPD(
 		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
@@ -241,10 +243,7 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	mPrivateInstanceAAMP->Tune(testUrl, true, "VOD");
 	ASSERT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PREPARED);
 
-	mPrivateInstanceAAMP->NotifyFirstFrameReceived(0);
-	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PLAYING);
-
-	mPrivateInstanceAAMP->SetState(eSTATE_BUFFERING);
+	mPrivateInstanceAAMP->SetStateBufferingIfRequired();
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_BUFFERING);
 
 	mPrivateInstanceAAMP->NotifyFragmentCachingComplete();

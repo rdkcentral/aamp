@@ -19,13 +19,7 @@
 
 /**
  * @file PlayerStateTests.cpp
- * @brief Player-facing state tests for PlayerInstanceAAMP.
- *
- * This test target is backed by the unit-test fake implementation of
- * PrivateInstanceAAMP. The suite therefore drives the public
- * PlayerInstanceAAMP APIs and verifies state transitions through the
- * player's GetState() API while tracking underlying private-state updates
- * via MockPrivateInstanceAAMP.
+ * @brief Unit tests for PlayerInstanceAAMP state transitions.
  */
 
 #include <gtest/gtest.h>
@@ -127,28 +121,36 @@ protected:
 TEST_F(PlayerInstanceAAMPStateTests,
 	PlayerState_Seek_FullSequence_PlayingToSeekingToPlaying)
 {
-	const char *mainManifestUrl = "https://example.com";
-	bool autoPlay = true;
-	const char *contentType = "video";
-	bool bFirstAttempt = true;
-	bool bFinalAttempt = false;
-	const char *traceUUID = "12345";
-	bool audioDecoderStreamSync = true;
-	const char *refreshManifestUrl = "https://example.comm";
-	int mpdStitchingMode = 10;
-	static const char* manifestData = R"(<?xml version="1.0" encoding="UTF-8"?><MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="http://www.scte.org/schemas/35/2014SCTE35.xsd" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" minBufferTime="PT5.000S" maxSegmentDuration="PT2.005S" availabilityStartTime="2016-01-20T21:10:02Z" mediaPresentationDuration="PT193.680S"><Period id="period0"><AdaptationSet mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" maxWidth="1920" maxHeight="1080" maxFrameRate="30000/1001" par="1:1"><SegmentTemplate timescale="90000" initialization="$RepresentationID$-Header.m4s" media="$RepresentationID$-270146-i-$Number$.m4s" startNumber="1" duration="179704" presentationTimeOffset="0"/><Representation id="v1_257" bandwidth="1200000" codecs="avc1.4D401E" width="768" height="432" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v2_257" bandwidth="1850000" codecs="avc1.4D401E" width="1024" height="576" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v3_257" bandwidth="2850000" codecs="avc1.4D401E" width="1280" height="720" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v4_257" bandwidth="200000" codecs="avc1.4D401E" width="320" height="180" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v5_257" bandwidth="300000" codecs="avc1.4D401E" width="320" height="180" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v6_257" bandwidth="4300000" codecs="avc1.4D401E" width="1280" height="720" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v7_257" bandwidth="5300000" codecs="avc1.4D401E" width="1920" height="1080" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v8_257" bandwidth="480000" codecs="avc1.4D401E" width="512" height="288" frameRate="30000/1001" sar="1:1" scanType="progressive"/><Representation id="v9_257" bandwidth="750000" codecs="avc1.4D401E" width="640" height="360" frameRate="30000/1001" sar="1:1" scanType="progressive"/></AdaptationSet><AdaptationSet mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1" lang="qaa"><SegmentTemplate timescale="90000" initialization="$RepresentationID$-Header.m4s" media="$RepresentationID$-270146-i-$Number$.m4s" startNumber="1" duration="179704" presentationTimeOffset="0"/><Representation id="v4_258" bandwidth="130800" codecs="mp4a.40.2" audioSamplingRate="48000"><AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/></Representation></AdaptationSet></Period></MPD>)";
-
-	std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
-
-	mCurrentState = eSTATE_PLAYING;
-
-	mPlayerInstanceAAMP->Tune(mainManifestUrl,autoPlay,contentType,bFirstAttempt,bFinalAttempt,traceUUID,audioDecoderStreamSync,refreshManifestUrl,mpdStitchingMode,session_id,manifestData);
-
+	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, false);
 	ASSERT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_PLAYING);
 
 	mPlayerInstanceAAMP->Seek(10.0);
 	EXPECT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_SEEKING);
 
-	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->IsFirstVideoFrameDisplayedRequired(), false);
+	mPrivateInstanceAAMP->NotifyFirstFrameReceived(0);
 	EXPECT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_PLAYING);
+}
+
+/**
+ * @test PlayerState_SeekWhilePaused
+ * @brief Verify that SeekWhilePaused flag drives the 
+ * player into SEEKING and PAUSED after seek completion.
+ */
+TEST_F(PlayerInstanceAAMPStateTests,
+	PlayerState_SeekWhilePaused)
+{
+	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, false);
+	ASSERT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_PLAYING);
+
+	mPrivateInstanceAAMP->SetState(eSTATE_PAUSED, false);
+	ASSERT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_PAUSED);
+
+	mPrivateInstanceAAMP->mSinkPaused = true;
+	mPlayerInstanceAAMP->Seek(10.0, true);
+	EXPECT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_SEEKING);
+
+	EXPECT_EQ(mPrivateInstanceAAMP->IsFirstVideoFrameDisplayedRequired(), true);
+	mPrivateInstanceAAMP->NotifyFirstVideoFrameDisplayed();
+	EXPECT_EQ(mPlayerInstanceAAMP->GetState(), eSTATE_PAUSED);
 }

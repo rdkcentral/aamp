@@ -136,6 +136,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mCurlShared(),
 	mIsChunkMode(false)
 {
+	mbPlayEnabled = true;
+	mPauseOnFirstVideoFrameDisp = false;
+	mFirstVideoFrameDisplayedEnabled = false;
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
@@ -358,6 +361,17 @@ void PrivateInstanceAAMP::EnableDownloads()
 
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
+	if (seekWhilePaused)
+	{
+		mPauseOnFirstVideoFrameDisp = true;
+		mFirstVideoFrameDisplayedEnabled = true;
+	}
+	else
+	{
+		mPauseOnFirstVideoFrameDisp = false;
+		mFirstVideoFrameDisplayedEnabled = false;
+	}
+
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
@@ -1478,6 +1492,10 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
 {
+	if (!mFirstVideoFrameDisplayedEnabled && GetState() != eSTATE_IDLE)
+	{
+		SetState(eSTATE_PLAYING);
+	}
 }
 
 void PrivateInstanceAAMP::NotifyEOSReached()
@@ -1490,6 +1508,29 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
+	if (!mFirstVideoFrameDisplayedEnabled)
+	{
+		return;
+	}
+
+	mFirstVideoFrameDisplayedEnabled = false;
+
+	if (GetState() == eSTATE_IDLE)
+	{
+		return;
+	}
+
+	if (mPauseOnFirstVideoFrameDisp)
+	{
+		mPauseOnFirstVideoFrameDisp = false;
+		if (GetState() == eSTATE_SEEKING)
+		{
+			SetState(eSTATE_PAUSED);
+		}
+		return;
+	}
+
+	SetState(eSTATE_PLAYING);
 }
 
 void PrivateInstanceAAMP::LogFirstFrame(void)
@@ -1506,7 +1547,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
-	return false;
+	return mFirstVideoFrameDisplayedEnabled;
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
@@ -1534,6 +1575,12 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->PausePipeline(
+			pause, forceStopGstreamerPreBuffering);
+	}
+
 	return false;
 }
 
