@@ -125,12 +125,14 @@ protected:
  * @test PlayerState_NormalTune_FullSequence_ReleasedToIdle
  * @brief Verify the complete player lifecycle state progression using a real
  *        Tune() call with a localhost MPD URL:
- *        RELEASED → INITIALIZING → PREPARED → PLAYING → PAUSED → IDLE.
+ *        RELEASED → INITIALIZING → PREPARED → PLAYING → PAUSED → PLAYING
+ *        → COMPLETE → IDLE.
  *
  * The INITIALIZING state is verified inside the StreamAbstraction Init()
  * callback, which is the point in the real Tune path where that state is set.
  * Subsequent transitions are driven by GStreamer notifications and speed
- * changes, with the lifecycle ending in IDLE after Stop().
+ * changes, reaching COMPLETE via NotifyEOSReached and finally IDLE after
+ * Stop().
  */
 TEST_F(PlayerStateTests, PlayerState_NormalTune_FullSequence_ReleasedToIdle)
 {
