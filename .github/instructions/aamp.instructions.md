@@ -18,7 +18,7 @@ AAMP (Advanced Adaptive Media Player) is a high-performance, embedded systems-fo
 
 ## 2. Core Technologies
 
--   **Language:** C++11 is the primary language; there is a small amount of C++17, but the majority is built as C++11. While the goal is modern C++, the codebase contains significant legacy C-style code (e.g., `memcpy`, raw pointers). Refactoring this to use modern C++ features (smart pointers, STL containers, RAII) is an ongoing task.
+-   **Language:** C++17 is the build standard (`CMAKE_CXX_STANDARD 17` is set in the root `CMakeLists.txt` and all sub-module build files). While the goal is modern C++, the codebase contains significant legacy C-style code (e.g., `memcpy`, raw pointers). Refactoring this to use modern C++ features (smart pointers, STL containers, RAII) is an ongoing task.
 -   **Media Framework:** GStreamer is used for the underlying media pipeline, including demuxing, decoding, and rendering. AAMP interacts with GStreamer to manage the flow of media data.
 -   **Build System:** CMake is the primary build system. All source files, dependencies, and build targets are defined in `CMakeLists.txt` files.
 -   **Testing:** Google Test & Google Mock are the frameworks used for unit and functional testing.
