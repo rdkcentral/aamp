@@ -1108,7 +1108,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	//This buffer should be released on Track cleanup
 	if(unParsedBufferSize)
 	{
-		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name,unParsedBuffer,unParsedBufferSize);
+		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name, static_cast<const void*>(unParsedBuffer), unParsedBufferSize);
 		// unParsedBuffer was advanced by ParseChunkData past the parsed data
 		std::vector<uint8_t> remaining(unParsedBuffer, unParsedBuffer + unParsedBufferSize);
 		unparsedBufferChunk = std::move(remaining);
