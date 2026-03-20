@@ -7483,6 +7483,11 @@ void PrivateInstanceAAMP::detach()
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
+	// Gate any in-flight async callback before draining the queue.
+	// AsyncEvent() and SendEventSync() both check eSTATE_RELEASED and
+	// will skip dispatch if they observe it, preventing a use-after-free
+	// on teardown even when a callback has already popped its event.
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	// This will flush all the pending events.
 	mEventManager->FlushPendingEvents();
 }

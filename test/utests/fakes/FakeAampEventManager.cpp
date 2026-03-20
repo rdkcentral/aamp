@@ -91,6 +91,10 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 
 void AampEventManager::SetPlayerState(AAMPPlayerState state)
 {
+    if (g_mockAampEventManager != nullptr)
+    {
+        g_mockAampEventManager->SetPlayerState(state);
+    }
 }
 
 bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
