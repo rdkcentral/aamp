@@ -40,14 +40,38 @@ using ::testing::NiceMock;
 using ::testing::Return;
 
 /**
+ * @class TestablePlayerInstanceAAMP
+ * @brief Subclass of PlayerInstanceAAMP that exposes the internal
+ *        PrivateInstanceAAMP pointer for unit testing purposes.
+ *
+ * This follows the same pattern used by PauseOnPlaybackTests and avoids
+ * the ownership problem that arises from replacing the `aamp` raw pointer
+ * with a separately allocated instance.
+ */
+class TestablePlayerInstanceAAMP : public PlayerInstanceAAMP
+{
+public:
+	TestablePlayerInstanceAAMP() : PlayerInstanceAAMP() {}
+
+	/**
+	 * @brief Return the PrivateInstanceAAMP created and owned by this player.
+	 * @return Non-owning pointer to the internal PrivateInstanceAAMP.
+	 */
+	PrivateInstanceAAMP *GetPrivAamp()
+	{
+		return aamp;
+	}
+};
+
+/**
  * @class PlayerInstanceAAMPStateTests
  * @brief Fixture for player-facing state transition tests.
  */
 class PlayerInstanceAAMPStateTests : public ::testing::Test
 {
 protected:
-	PlayerInstanceAAMP *mPlayerInstanceAAMP{};
-	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	TestablePlayerInstanceAAMP *mPlayerInstanceAAMP{};
+	PrivateInstanceAAMP *mPrivateInstanceAAMP{};  ///< Non-owning; owned by mPlayerInstanceAAMP via sp_aamp.
 	AAMPPlayerState mCurrentState{eSTATE_RELEASED};
 
 	void SetUp() override
@@ -57,24 +81,24 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
-		mPlayerInstanceAAMP->aamp = mPrivateInstanceAAMP;
-
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockAampGstPlayer =
-			new NiceMock<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager =
 			new NiceMock<MockAampStreamSinkManager>();
+
+		mPlayerInstanceAAMP = new TestablePlayerInstanceAAMP();
+		mPrivateInstanceAAMP = mPlayerInstanceAAMP->GetPrivAamp();
+
+		g_mockAampGstPlayer =
+			new NiceMock<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP =
 			new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP =
 			g_mockStreamAbstractionAAMP;
 
-		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-			.WillRepeatedly(Return(g_mockAampGstPlayer));
+		ON_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+			.WillByDefault(Return(g_mockAampGstPlayer));
 
 		ON_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.WillByDefault([this]() { return mCurrentState; });
@@ -86,11 +110,9 @@ protected:
 
 	void TearDown() override
 	{
-		delete mPlayerInstanceAAMP;
+		delete mPlayerInstanceAAMP;  ///< Also deletes PrivateInstanceAAMP via sp_aamp.
 		mPlayerInstanceAAMP = nullptr;
-
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		mPrivateInstanceAAMP = nullptr;  ///< Non-owning; already deleted above.
 
 		delete g_mockStreamAbstractionAAMP;
 		g_mockStreamAbstractionAAMP = nullptr;

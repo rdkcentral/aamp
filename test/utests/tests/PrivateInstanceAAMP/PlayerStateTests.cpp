@@ -94,6 +94,8 @@ protected:
 
 	void TearDown() override
 	{
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 

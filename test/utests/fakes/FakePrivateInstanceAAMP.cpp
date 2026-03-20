@@ -317,7 +317,7 @@ void PrivateInstanceAAMP::NotifyOnEnteringLive()
 
 bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 {
-	return false;
+	return mPauseOnFirstVideoFrameDisp;
 }
 
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
