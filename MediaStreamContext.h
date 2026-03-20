@@ -46,20 +46,40 @@ public:
 	MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx,
 			PrivateInstanceAAMP* aamp, const char* name) :
 			MediaTrack(type, aamp, name),
-			mediaType((AampMediaType)type), adaptationSet(NULL),
-			representation(NULL), fragmentIndex(0), timeLineIndex(0),
-			fragmentRepeatCount(0), fragmentOffset(0), eos(false),
-			fragmentTime(0), periodStartOffset(0), timeStampOffset(0),
-			IDX("fragment-IDX"), lastSegmentTime(0), lastSegmentNumber(0),
-			lastSegmentDuration(0), adaptationSetIdx(0),
-			representationIndex(0), profileChanged(true), adaptationSetId(0),
-			fragmentDescriptor(), context(ctx), initialization(""),
-			discontinuity(false), mSkipSegmentOnError(true),
+			mediaType((AampMediaType)type),
+			adaptationSet(NULL),
+			representation(NULL),
+			fragmentIndex(0),
+			timeLineIndex(0),
+			fragmentRepeatCount(0),
+			fragmentOffset(0),
+			eos(false),
+			fragmentTime(0),
+			periodStartOffset(0),
+			timeStampOffset(0),
+			lastSegmentTime(0),
+			lastSegmentNumber(0),
+			lastSegmentDuration(0),
+			adaptationSetIdx(0),
+			representationIndex(0),
+			profileChanged(true),
+			adaptationSetId(0),
+			fragmentDescriptor(),
+			context(ctx),
+			initialization(""),
+			discontinuity(false),
+			mSkipSegmentOnError(true),
 			lastDownloadedPosition(0), // ,mCMCDNetworkMetrics{-1,-1,-1}
-			scaledPTO(0), failAdjacentSegment(false), httpErrorCode(0),
-			mPlaylistUrl(""), mEffectiveUrl(""), freshManifest(false),
-			nextfragmentIndex(-1), mReachedFirstFragOnRewind(false),
-			fetchChunkBufferMutex(), mActiveDownloadInfo(nullptr),
+			scaledPTO(0),
+			failAdjacentSegment(false),
+			httpErrorCode(0),
+			mPlaylistUrl(""),
+			mEffectiveUrl(""),
+			freshManifest(false),
+			nextfragmentIndex(-1),
+			mReachedFirstFragOnRewind(false),
+			fetchChunkBufferMutex(),
+			mActiveDownloadInfo(nullptr),
 			mMediaStreamContextMutex()
 	{
 		AAMPLOG_INFO("[%s] Create new MediaStreamContext",
@@ -326,14 +346,14 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	bool eos;
 	bool profileChanged;
 	bool discontinuity;
-	std::vector<uint8_t> mDownloadedFragment;	/**< Fragment stored across ABR profile changes */
-	std::vector<uint8_t> mTempFragment;			/**< Scratch buffer for init/download fragments */
+	std::vector<uint8_t> mDownloadedFragment{};	/**< Fragment stored across ABR profile changes */
+	std::vector<uint8_t> mTempFragment{};		/**< Scratch buffer for init/download fragments */
 
 	double fragmentTime; // Absolute Fragment time from Availability start
 	std::atomic<double> lastDownloadedPosition;
 	double periodStartOffset;
 	uint64_t timeStampOffset;
-	AampGrowableBuffer IDX;
+	std::vector<uint8_t> IDX{};		/**< Index data buffer for DASH byte-range segments */
 	uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
 	uint64_t lastSegmentNumber;
 	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
