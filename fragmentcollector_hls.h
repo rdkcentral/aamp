@@ -864,7 +864,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void.
 		 ***************************************************************************/
 		void HandleSleThumbnailData(double tStart, double tEnd);
-		AampGrowableBuffer thumbnailManifest;	/**< Thumbnail manifest buffer holder */
+		std::vector<uint8_t> thumbnailManifest{};	/**< Thumbnail manifest buffer holder */
 		std::vector<TileInfo> indexedTileInfo;	/**< Indexed Thumbnail information */
 		double indexedTileEndTime; /**< endTime received from player applications */
 		/***************************************************************************

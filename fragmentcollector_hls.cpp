@@ -4764,7 +4764,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
-	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
+	mLangList(),mIframeAvailable(false), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{std::move(ptsUpdate)},
 	mDrmInterface(aamp),
@@ -4915,7 +4915,7 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 	}
 
 	aamp->SyncBegin();
-	this->thumbnailManifest.Free();
+	aamp_utils::ClearAndRelease(thumbnailManifest);
 	this->mainManifest.Free();
 	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
 	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
@@ -5269,7 +5269,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 {
 	bool rc = false;
 	indexedTileInfo.clear();
-	thumbnailManifest.Free();
+	aamp_utils::ClearAndRelease(thumbnailManifest);
 	int iProfile{};
 
 	for (auto& streamInfo : streamInfoStore)
@@ -5303,7 +5303,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 						}
 						rc=true;
 					}
-					aamp->getAampCacheHandler()->InsertToPlaylistCache(streamInfo.uri, thumbnailManifest.GetVector(), tempEffectiveUrl,false,eMEDIATYPE_PLAYLIST_IFRAME);
+					aamp->getAampCacheHandler()->InsertToPlaylistCache(streamInfo.uri, thumbnailManifest, tempEffectiveUrl,false,eMEDIATYPE_PLAYLIST_IFRAME);
 					if( ContentType_SLE != type && ContentType_LINEAR != type )
 					{
 						lstring iter = lstring(reinterpret_cast<const char*>(thumbnailManifest.data()), thumbnailManifest.size());
@@ -5399,11 +5399,11 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	std::vector<ThumbnailData> data{};
 	HlsStreamInfo &streamInfo = streamInfoStore[aamp->mthumbIndexValue];
 	ContentType type = aamp->GetContentType();
-	if(thumbnailManifest.capacity() == 0 || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
+	if(thumbnailManifest.empty() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
-		thumbnailManifest.Free();
+		aamp_utils::ClearAndRelease(thumbnailManifest);
 		std::string tmpurl;
-		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, thumbnailManifest.GetVector(), tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
+		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
 			HandleSleThumbnailData( tStart, tEnd );
 			aamp->mLastSleThumbnailInfo.clear();
