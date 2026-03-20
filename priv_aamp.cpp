@@ -7436,24 +7436,6 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
 }
 
 /**
- * @brief Enable event processing
- */
-void PrivateInstanceAAMP::enableEventProcessing()
-{
-	// Reset Event Manager State to IDLE to resume event processing
-	mEventManager->SetPlayerState(eSTATE_IDLE);
-}
-
-/**
- * @brief Disable event processing
- */
-void PrivateInstanceAAMP::disableEventProcessing()
-{
-	// Set Event Manager State to RELEASED to avoid further event processing
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
-}
-
-/**
  * @brief Soft stop the player instance.
  *
  */
@@ -7495,13 +7477,19 @@ void PrivateInstanceAAMP::detach()
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
-		disableEventProcessing();
 		//EnableDownloads();// enable downloads
 	}
 	else
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
+	// Gate any in-flight async callback before draining the queue.
+	// AsyncEvent() and SendEventSync() both check eSTATE_RELEASED and
+	// will skip dispatch if they observe it, preventing a use-after-free
+	// on teardown even when a callback has already popped its event.
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
+	// This will flush all the pending events.
+	mEventManager->FlushPendingEvents();
 }
 
 /**

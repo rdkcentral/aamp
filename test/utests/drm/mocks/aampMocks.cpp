@@ -257,14 +257,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
-void PrivateInstanceAAMP::enableEventProcessing()
-{
-}
-
-void PrivateInstanceAAMP::disableEventProcessing()
-{
-}
-
 void PrivateInstanceAAMP::detach()
 {
 }
