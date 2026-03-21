@@ -64,9 +64,10 @@ function install_pkgs_darwin_fn()
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
 
         # Symlink openjdk so the system java wrapper can find it
-        if [ $PKG = "openjdk@21" ]; then
+        if [ "$PKG" = "openjdk@21" ]; then
             if [ ! -e /Library/Java/JavaVirtualMachines/openjdk-21.jdk ]; then
-                sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+                JAVA_PREFIX=$(brew --prefix "$PKG")
+                sudo ln -sfn "$JAVA_PREFIX/libexec/openjdk.jdk" /Library/Java/JavaVirtualMachines/openjdk-21.jdk
             fi
         fi
 
