@@ -101,6 +101,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE),
 	mEventManager(NULL),
 	mbDetached(false),
+	mSeekOperationInProgress(false),
 	mIsFakeTune(false),
 	mIsDefaultOffset(false),
 	mNextPeriodDuration(0),
@@ -215,6 +216,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
+	mSeekOperationInProgress = false;
 }
 
 void PrivateInstanceAAMP::SetAudioTrack(int)
