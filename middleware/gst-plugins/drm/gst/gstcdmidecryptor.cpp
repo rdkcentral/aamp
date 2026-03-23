@@ -671,16 +671,16 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			GError *error;
 			if(errorCode == HDCP_COMPLIANCE_CHECK_FAILURE)
 			{
-				MW_LOG_WARN("VRN g_error_new HDCP Compliance Check Failure[%d]",errorCode);
 				// Failure - 2.2 vs 1.4 HDCP
 				error = g_error_new(GST_STREAM_ERROR , GST_STREAM_ERROR_FAILED, "HDCP Compliance Check Failure");
+				MW_LOG_WARN("VRN g_error_new HDCP Compliance Check Failure[%d] Err[%d]",errorCode,error);
 			}
 			else
 			{
-				MW_LOG_WARN("VRN g_error_new Decrypt Error:[%d]",errorCode);
 				error = g_error_new(GST_STREAM_ERROR , GST_STREAM_ERROR_FAILED, "Decrypt Error: code %d", errorCode);
+				MW_LOG_WARN("VRN g_error_new Decrypt Error:[%d] Err[%d]",errorCode, error);
 			}
-			MW_LOG_WARN("VRN Decrypt gst_element_post_message:[%d]",errorCode);
+			MW_LOG_WARN("VRN Decrypt Failed gst_element_post_message:[%d]",errorCode);
 			gst_element_post_message(reinterpret_cast<GstElement*>(cdmidecryptor), gst_message_new_error (GST_OBJECT (cdmidecryptor), error, "Decrypt Failed"));
 			g_error_free(error);
 			result = GST_FLOW_ERROR;
@@ -690,6 +690,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	}
 	else
 	{
+		MW_LOG_WARN("VRN Else Scenario [%d]",errorCode);
 		cdmidecryptor->decryptFailCount = 0;
 	cdmidecryptor->hdcpOpProtectionFailCount = 0;
 		if (cdmidecryptor->mediaType == eGST_MEDIATYPE_AUDIO)
