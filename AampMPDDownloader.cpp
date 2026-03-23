@@ -630,7 +630,7 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 	{
 		reqEndLogLevel = eLOGLEVEL_WARN;
 	}
-	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%" BITSPERSECOND_FORMAT ",%d,%.500s",
+	AAMPLOG( reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%" BITSPERSECOND_FORMAT ",%d,%.500s",
 			appName.c_str(),
 			eMEDIATYPE_TELEMETRY_MANIFEST,
 			eMEDIATYPE_MANIFEST,
