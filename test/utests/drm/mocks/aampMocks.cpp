@@ -257,14 +257,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
-void PrivateInstanceAAMP::enableEventProcessing()
-{
-}
-
-void PrivateInstanceAAMP::disableEventProcessing()
-{
-}
-
 void PrivateInstanceAAMP::detach()
 {
 }
@@ -1104,10 +1096,23 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 }
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl,
-								  std::string &effectiveUrl, AampGrowableBuffer *fragment,
-								  unsigned int curlInstance, const char *range, int *http_code,
+								  std::string &effectiveUrl, std::vector<uint8_t>& fragment,
+								  unsigned int curlInstance, const char *range, int& http_code,
 								  double *downloadTime, AampMediaType fileType, int *fogError)
 {
+	// Deterministic defaults for mock implementation
+	effectiveUrl = fragmentUrl;
+	http_code = 0;
+	if (downloadTime != nullptr)
+	{
+		*downloadTime = 0.0;
+	}
+	if (fogError != nullptr)
+	{
+		*fogError = 0;
+	}
+	// Ensure output fragment buffer is in a known, empty state
+	fragment.clear();
 	return;
 }
 
