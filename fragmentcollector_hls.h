@@ -596,7 +596,7 @@ class TrackState : public MediaTrack
 	public:
 		std::string mEffectiveUrl;		 /**< uri associated with downloaded playlist (takes into account 302 redirect) */
 		std::string mPlaylistUrl;		 /**< uri associated with downloaded playlist */
-		AampGrowableBuffer playlist;		 /**< downloaded playlist contents */
+		std::vector<uint8_t> playlist{};	 /**< downloaded playlist contents */
 
 		AampTime mProgramDateTime;
 		std::vector<IndexNode> index;
@@ -907,7 +907,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		TrackState* trackState[AAMP_TRACK_COUNT]{};	/**< array to store all tracks of a stream */
 		float rate;					/**< Rate of playback  */
 		int maxIntervalBtwPlaylistUpdateMs;		/**< Interval between playlist update */
-		AampGrowableBuffer mainManifest;			/**< Main manifest buffer holder */
+		std::vector<uint8_t> mainManifest{};		/**< Main manifest buffer holder */
 		bool allowsCache;				/**< Flag indicating if playlist needs to be cached or not */
 		std::vector<HlsStreamInfo> streamInfoStore{};	/**< Store of multiple stream information */
 		std::vector<MediaInfo> mediaInfoStore{};		/**< Store of multiple media within stream */
@@ -1132,6 +1132,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
 };
 
-StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );
+StreamOutputFormat GetFormatFromFragmentExtension( const std::vector<uint8_t> &playlist );
 
 #endif // FRAGMENTCOLLECTOR_HLS_H
