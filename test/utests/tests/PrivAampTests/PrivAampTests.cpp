@@ -2180,7 +2180,7 @@ TEST_F(PrivAampTests,SetCurlTimeoutTest_3)
 	bool flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_MAX);
 	EXPECT_FALSE(flag); // expect false if invalid instance
 	
-	p_aamp->curl[eCURLINSTANCE_AUDIO] = NULL;
+	p_aamp->curl[eCURLINSTANCE_AUDIO] = nullptr;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_AUDIO] = 2000;
 
 	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
