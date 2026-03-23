@@ -69,10 +69,24 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
+		// Create and install g_mockAampConfig before constructing
+		// PrivateInstanceAAMP so that any config reads during construction
+		// see safe default values instead of uninitialized fakes.
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		ON_CALL(*g_mockAampConfig, IsConfigSet(_))
+			.WillByDefault(Return(false));
+		ON_CALL(*g_mockAampConfig,
+			GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_)))
+			.WillByDefault(Return(0));
+		ON_CALL(*g_mockAampConfig,
+			GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_)))
+			.WillByDefault(Return(0.0));
+		ON_CALL(*g_mockAampConfig,
+			GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+			.WillByDefault(Return(""));
+
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig =
-			new NiceMock<MockAampConfig>();
 		g_mockAampGstPlayer =
 			new NiceMock<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
 		g_mockAampEventManager =
@@ -85,9 +99,6 @@ protected:
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP =
 			g_mockStreamAbstractionAAMP;
 
-		ON_CALL(*g_mockAampConfig,
-			IsConfigSet(eAAMPConfig_EnableCurlStore))
-			.WillByDefault(Return(false));
 		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
 			.WillRepeatedly(Return(g_mockAampGstPlayer));
 	}
@@ -207,9 +218,14 @@ TEST_F(PlayerStateTests, PlayerState_NormalTune_FullSequence_ReleasedToIdle)
 /**
  * @test PlayerState_VerifyBuffering_Playing
  * @brief Verify a real buffering scenario during tune when initial fragment
- *        caching is enabled:
- *        PREPARED → BUFFERING on first video frame displayed, then
- *        BUFFERING → PLAYING when fragment caching completes.
+ *        caching is enabled. After Tune() reaches PREPARED, calling
+ *        NotifyFirstVideoFrameDisplayed() (the real trigger path in
+ *        priv_aamp.cpp) transitions to BUFFERING because
+ *        mFragmentCachingRequired is set by TuneHelper when
+ *        IsInitialCachingSupported() returns true and the initial buffer
+ *        duration is non-zero. The sequence is:
+ *        PREPARED → BUFFERING (via NotifyFirstVideoFrameDisplayed) →
+ *        PLAYING (via NotifyFragmentCachingComplete) → IDLE (via Stop).
  */
 TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 {
@@ -224,8 +240,11 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	EXPECT_CALL(*g_mockAampConfig,
 		GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
 		.WillRepeatedly(Return(""));
+	// Non-zero initial buffer causes TuneHelper to set mFragmentCachingRequired.
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitialBuffer))
 		.WillRepeatedly(Return(1));
+	// IsInitialCachingSupported is routed through the StreamAbstractionAAMP
+	// fake base class to g_mockStreamAbstractionAAMP.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
 		.WillRepeatedly(Return(true));
 
@@ -242,12 +261,16 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 			EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_INITIALIZING);
 			return eAAMPSTATUS_OK;
 		});
-		
+
 	const char *testUrl = "http://localhost:80/test/manifest.mpd";
 	mPrivateInstanceAAMP->Tune(testUrl, true, "VOD");
 	ASSERT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_PREPARED);
 
-	mPrivateInstanceAAMP->SetStateBufferingIfRequired();
+	// Drive the PREPARED → BUFFERING transition via the real app path:
+	// NotifyFirstVideoFrameDisplayed() checks mFirstVideoFrameDisplayedEnabled
+	// (set by TuneHelper above) and calls SetStateBufferingIfRequired()
+	// internally.
+	mPrivateInstanceAAMP->NotifyFirstVideoFrameDisplayed();
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_BUFFERING);
 
 	mPrivateInstanceAAMP->NotifyFragmentCachingComplete();
