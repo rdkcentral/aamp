@@ -27,7 +27,6 @@
 
 #include <stddef.h>
 #include <memory>
-#include <vector>
 #include <condition_variable>
 #include <priv_aamp.h>
 #include <AampCurlDefine.h>
@@ -97,8 +96,8 @@ public:
 	/**
 	 * Storing aamp instance */
 	PrivateInstanceAAMP* mpAamp;
-	/** AES key buffer for HLS AES-128 decryption */
-	std::vector<uint8_t> mAesKeyBuf{};
+	/**Storing AampGrowableBuffer */
+	AampGrowableBuffer mAesKeyBuf;
 
 	/** 
 	 * @fn GetAccessKey 

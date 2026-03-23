@@ -787,7 +787,7 @@ void Mp4Demux::ProcessSamples()
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: sample payload OOB");
 		}
 		AampMediaSample& s = samples[pending.sampleIdx];
-		s.mData.insert(s.mData.end(), dataPtr, dataPtr + sampleLen);
+		s.mData.insert(s.mData.GetVector().end(), dataPtr, dataPtr + sampleLen);
 		s.mDts      = pending.mDts;
 		s.mPts      = pending.mPts;
 		s.mDuration = pending.mDuration;

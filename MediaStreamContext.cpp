@@ -121,7 +121,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment, effectiveUrl, actualType);
@@ -610,11 +610,11 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(!fragment->fragment.empty() && WaitForCachedFragmentChunkInjected())
+	if(fragment->fragment.capacity() != 0 && WaitForCachedFragmentChunkInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-		if(!cachedFragment->fragment.empty())
+		if(cachedFragment->fragment.capacity() != 0)
 		{
 			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
 			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
@@ -971,49 +971,58 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	}
 
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
-	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
+	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && IDX.capacity() != 0 && uriInfo.range.empty())
 	{
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{
 			dlInfo->fragmentOffset = 0;
 			dlInfo->fragmentOffset++; // first byte following packed index
-			unsigned int firstOffset = 0;
-			if (ParseSegmentIndexBox(IDX.data(),
-									 IDX.size(),
-									 0,
-									 NULL,
-									 NULL,
-									 &firstOffset))
+			if (IDX.capacity() != 0)
 			{
+				unsigned int firstOffset;
+				ParseSegmentIndexBox(
+										IDX.data(),
+										IDX.size(),
+										0,
+										NULL,
+										NULL,
+										&firstOffset);
 				dlInfo->fragmentOffset += firstOffset;
 			}
-			unsigned int referenced_size = 0;
-			float fragmentDuration = 0.0f;
-			AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
-			// Find the offset of previous fragment in new representation
-			for (int i = 0; i < dlInfo->fragmentIndex; i++)
+			if (dlInfo->fragmentOffset != 0 && IDX.capacity() != 0)
 			{
-				if (ParseSegmentIndexBox(IDX.data(),
-										 IDX.size(),
-										 i,
-										 &referenced_size,
-										 &fragmentDuration,
-										 NULL))
+				unsigned int referenced_size;
+				float fragmentDuration;
+				AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
+				//Find the offset of previous fragment in new representation
+				for (int i = 0; i < dlInfo->fragmentIndex; i++)
 				{
-					dlInfo->fragmentOffset += referenced_size;
+					if (ParseSegmentIndexBox(
+												IDX.data(),
+												IDX.size(),
+												i,
+												&referenced_size,
+												&fragmentDuration,
+												NULL))
+					{
+						dlInfo->fragmentOffset += referenced_size;
+					}
 				}
 			}
-			if (ParseSegmentIndexBox(IDX.data(),
-									 IDX.size(),
-									 dlInfo->fragmentIndex,
-									 &referenced_size,
-									 &fragmentDuration,
-									 NULL))
+			unsigned int referenced_size;
+			float fragmentDuration;
+			if (ParseSegmentIndexBox(
+										IDX.data(),
+										IDX.size(),
+										dlInfo->fragmentIndex,
+										&referenced_size,
+										&fragmentDuration,
+										NULL) )
 			{
 				char range[MAX_RANGE_STRING_CHARS];
 				snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", dlInfo->fragmentOffset, dlInfo->fragmentOffset + referenced_size - 1);
-				AAMPLOG_INFO("%s [%s]", GetMediaTypeName(dlInfo->mediaType), range);
+				AAMPLOG_INFO("%s [%s]",GetMediaTypeName(dlInfo->mediaType), range);
 				uriInfo.range = range;
 				dlInfo->fragmentDurationSec = fragmentDuration;
 			}

@@ -22,25 +22,33 @@
 
 #include <string>
 #include <vector>
-#include <cstdint>
+#include <cstring> // for std::memset
+#include "AampGrowableBuffer.h" // for AampGrowableBuffer
 #include "DemuxDataTypes.h" // for MediaDrmMetadata
 
-/**
+/*
  * @struct AampMediaSample
- * @brief Media sample structure.
- *
+ * @brief Media sample structure
  * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
  */
 struct AampMediaSample
 {
-	std::vector<uint8_t> mData{};  /**< Sample data buffer */
-	double mPts{0.0};
-	double mDts{0.0};
-	double mDuration{0.0};
-	MediaDrmMetadata mDrmMetadata{}; /**< DRM metadata for encrypted samples */
+	// For lifetime management of sample data, we are using AampGrowableBuffer
+	AampGrowableBuffer mData;
+	double mPts;
+	double mDts;
+	double mDuration;
+
+    MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
+
+	/**
+	 * @brief Constructor for AampMediaSample
+	 */
+	AampMediaSample() : mData("AampMediaSample"), mPts(0), mDts(0), mDuration(0), mDrmMetadata()
+	{
+	}
 
 	// Move constructor and move assignment (allow efficient transfers)
-	AampMediaSample() = default;
 	AampMediaSample(AampMediaSample&&) = default;
 	AampMediaSample& operator=(AampMediaSample&&) = default;
 

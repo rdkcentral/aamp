@@ -25,10 +25,10 @@
 #ifndef FRAGMENT_CACHE_DESCRIPTOR_H
 #define FRAGMENT_CACHE_DESCRIPTOR_H
 
+#include "AampGrowableBuffer.h"
 #include "AampMediaType.h"
 #include <cstdint>
 #include <string>
-#include <vector>
 
 /**
  * @struct FragmentCacheDescriptor
@@ -45,13 +45,13 @@ struct FragmentCacheDescriptor
 	 * @brief Chunk mode payload pointer (ephemeral CURL callback buffer)
 	 *        COPY REQUIRED - buffer is temporary and owned by CURL
 	 */
-	const uint8_t* chunkPayload;
+	const char* chunkPayload;
 	
 	/**
-	 * @brief Fragment mode buffer holding downloaded fragment data
-	 *        May be copied by the caching layer depending on API semantics
+	 * @brief Fragment mode buffer (for ZERO-COPY move)
+	 *        Ownership transferred via std::move() to CachedFragment
 	 */
-	std::vector<uint8_t> downloadBuffer;
+	AampGrowableBuffer* downloadBuffer;
 	
 	/**
 	 * @brief Size of payload in bytes
@@ -162,6 +162,7 @@ struct FragmentCacheDescriptor
 	 */
 	FragmentCacheDescriptor()
 		: chunkPayload(nullptr)
+		, downloadBuffer(nullptr)
 		, payloadSize(0)
 		, url()
 		, position(0.0)
