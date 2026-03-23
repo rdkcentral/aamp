@@ -1066,6 +1066,7 @@ public:
 	VideoZoomMode zoom_mode;
 	std::atomic<bool> video_muted; /**< true if video plane is logically muted */
 	std::atomic<bool> subtitles_muted; /**< true if subtitle plane is logically muted */
+	std::atomic<bool> mCCStatusSetByApp; /**< true once an AAMP CC/subtitle API has been called, false while app talks to CCManager directly */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
