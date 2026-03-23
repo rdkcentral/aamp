@@ -2333,7 +2333,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		}
 
 		AcquirePlaylistLock();
-		// Free previous playlist buffer and load with new one
 		playlist = newPlaylist.ExtractVector();
 
 		AampTime culled{};

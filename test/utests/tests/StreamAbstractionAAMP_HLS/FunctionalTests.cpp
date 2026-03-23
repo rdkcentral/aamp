@@ -43,6 +43,11 @@ AampConfig *gpGlobalConfig{nullptr};
 
 StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS{};
 
+inline std::vector<uint8_t> ToByteVector(std::string_view sv)
+{
+	return {sv.begin(), sv.end()};
+}
+
 #define MANIFEST_6SD_1A                                                                                                                     \
     "#EXTM3U\n"                                                                                                                             \
     "#EXT-X-VERSION:5\n"                                                                                                                    \
@@ -366,337 +371,139 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestUpdateProfileBasedOnFragmentDownloaded
     mStreamAbstractionAAMP_HLS->CallUpdateProfileBasedOnFragmentDownloaded();
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k)
+// ============================================================
+// Parameterized: Is4KStream detection from a full manifest
+// ============================================================
+struct Is4KStreamParam
 {
-    int height;
-    BitsPerSecond bandwidth;
-    char manifest[] = MANIFEST_6SD_1A;
+	std::string_view  manifest;
+	std::size_t       expectedStreams;
+	std::size_t       expectedMediaTracks;
+	bool              expected4K;
+};
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+class Is4KStreamTest
+    : public StreamAbstractionAAMP_HLSTest,
+      public ::testing::WithParamInterface<Is4KStreamParam>
+{};
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+TEST_P(Is4KStreamTest, DetectsResolution)
+{
+	const auto& [manifest, expectedStreams, expectedMediaTracks, expected4K] =
+	    GetParam();
 
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->streamInfoStore.size(), 6);
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->mediaInfoStore.size(), 1);
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), false);
+	mStreamAbstractionAAMP_HLS->mainManifest = ToByteVector(manifest);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR))
+	    .WillOnce(Return(true));
+
+	mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+	int height{};
+	BitsPerSecond bandwidth{};
+	EXPECT_EQ(mStreamAbstractionAAMP_HLS->streamInfoStore.size(), expectedStreams);
+	EXPECT_EQ(mStreamAbstractionAAMP_HLS->mediaInfoStore.size(), expectedMediaTracks);
+	EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), expected4K);
 }
 
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New1)
+INSTANTIATE_TEST_SUITE_P(
+    ManifestVariants,
+    Is4KStreamTest,
+    ::testing::Values(
+        Is4KStreamParam{MANIFEST_6SD_1A,   6u, 1u, false},
+        Is4KStreamParam{MANIFEST_5SD_1A,   5u, 1u, false},
+        Is4KStreamParam{MANIFEST_5SD_4K_1A, 6u, 1u, true}));
+
+// Verifies that sequential ParseMainManifest() calls correctly reset state,
+// including reverting to non-4K after a 4K manifest is parsed.
+TEST_F(StreamAbstractionAAMP_HLSTest, Is4KStream_StateResetsBetweenParses)
 {
-    char manifest[] = "#EXT-X-I-FRAME-STREAM-INF:";
+	struct TestCase
+	{
+		std::string_view manifest;
+		std::size_t      expStreams;
+		std::size_t      expMedia;
+		bool             exp4K;
+	};
 
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+	const std::array testCases{
+	    TestCase{MANIFEST_6SD_1A,    6u, 1u, false},
+	    TestCase{MANIFEST_5SD_1A,    5u, 1u, false},
+	    TestCase{MANIFEST_5SD_4K_1A, 6u, 1u, true},
+	    TestCase{MANIFEST_5SD_1A,    5u, 1u, false},
+	};
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+	for (const auto& [manifest, expStreams, expMedia, exp4K] : testCases)
+	{
+	    mStreamAbstractionAAMP_HLS->mainManifest = ToByteVector(manifest);
+
+	    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR))
+	        .WillOnce(Return(true));
+
+	    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+
+	    int height{};
+	    BitsPerSecond bandwidth{};
+	    EXPECT_EQ(mStreamAbstractionAAMP_HLS->streamInfoStore.size(), expStreams);
+	    EXPECT_EQ(mStreamAbstractionAAMP_HLS->mediaInfoStore.size(), expMedia);
+	    EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), exp4K);
+	}
 }
 
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New2)
+// ============================================================
+// Parameterized: ParseMainManifest smoke tests for HLS tags
+// ============================================================
+struct ManifestTagParam
 {
-    char manifest[] = "#EXT-X-IMAGE-STREAM-INF:";
+	std::string_view tag;
+	bool             requiresLiveAdjustCall = false;
+};
 
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+class ParseManifestTagTest
+    : public StreamAbstractionAAMP_HLSTest,
+      public ::testing::WithParamInterface<ManifestTagParam>
+{};
 
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+TEST_P(ParseManifestTagTest, ParsesWithoutCrash)
+{
+	const auto& [tag, requiresLiveAdjustCall] = GetParam();
 
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
+	HlsStreamInfo streamInfo;
+	streamInfo.enabled  = true;
+	streamInfo.validity = true;
+	streamInfo.codecs   = "h264";
+	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
 
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
+	if (requiresLiveAdjustCall)
+	{
+	    (void)mPrivateInstanceAAMP->IsLiveAdjustRequired();
+	}
 
+	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+	mStreamAbstractionAAMP_HLS->mainManifest = ToByteVector(tag);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR))
+	    .WillOnce(Return(true));
+
+	mStreamAbstractionAAMP_HLS->ParseMainManifest();
 }
 
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New3)
-{
-    char manifest[] = "#EXT-X-CONTENT-IDENTIFIER:";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New4)
-{
-    char manifest[] = "#EXT-X-FOG";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
-}
-
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New5)
-{
-    char manifest[] = "#EXT-X-XCAL-CONTENTMETADATA";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
-}
-
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New6)
-{
-    char manifest[] = "#EXT-NOM-I-FRAME-DISTANCE";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-}
-
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New7)
-{
-    char manifest[] = "#EXT-X-ADVERTISING";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New8)
-{
-    char manifest[] = "#EXT-UPLYNK-LIVE";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-}
-
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New9)
-{
-    char manifest[] = "#EXT-X-START:";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired(); (void)TestResult;
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New10)
-{
-    char manifest[] = "#EXTINF:";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k_New11)
-{
-    char manifest[] = "#EXTaaaINF:";
-
-    HlsStreamInfo streamInfo;
-    streamInfo.enabled = true;
-    streamInfo.validity = true;
-    streamInfo.codecs = "h264";
-    std::vector<MediaInfo> mediaInfoStore;
-    MediaInfo media;
-    media.type = eMEDIATYPE_AUDIO;
-    mediaInfoStore.push_back(media);
-    // Add the sample HlsStreamInfo objects to the streamInfoStore
-    mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_4k)
-{
-    int height;
-    BitsPerSecond bandwidth;
-    char manifest[] = MANIFEST_5SD_4K_1A;
-
-    mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
-
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->streamInfoStore.size(), 6);
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->mediaInfoStore.size(), 1);
-    EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), true);
-}
-
-TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_multiple_mainfests)
-{
-    int height;
-    BitsPerSecond bandwidth;
-    std::string manifests[] = {
-        MANIFEST_6SD_1A,
-        MANIFEST_5SD_1A,
-        MANIFEST_5SD_4K_1A,
-        MANIFEST_5SD_1A};
-    struct
-    {
-        const char *manifest;
-        int exp_media;
-        int exp_streams;
-        bool exp_4k;
-    } test_data[] = {
-        {manifests[0].c_str(), 1, 6, false},
-        {manifests[1].c_str(), 1, 5, false},
-        {manifests[2].c_str(), 1, 6, true},
-        {manifests[3].c_str(), 1, 5, false},
-    };
-
-    for (auto &td : test_data)
-    {
-        mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(td.manifest), reinterpret_cast<const uint8_t*>(td.manifest) + strlen(td.manifest));
-
-        EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-        mStreamAbstractionAAMP_HLS->ParseMainManifest();
-
-        EXPECT_EQ(mStreamAbstractionAAMP_HLS->streamInfoStore.size(), td.exp_streams);
-        EXPECT_EQ(mStreamAbstractionAAMP_HLS->mediaInfoStore.size(), td.exp_media);
-        EXPECT_EQ(mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth), td.exp_4k);
-    }
-}
+INSTANTIATE_TEST_SUITE_P(
+    HlsTagSmoke,
+    ParseManifestTagTest,
+    ::testing::Values(
+        ManifestTagParam{"#EXT-X-I-FRAME-STREAM-INF:"},
+        ManifestTagParam{"#EXT-X-IMAGE-STREAM-INF:"},
+        ManifestTagParam{"#EXT-X-CONTENT-IDENTIFIER:"},
+        ManifestTagParam{"#EXT-X-FOG"},
+        ManifestTagParam{"#EXT-X-XCAL-CONTENTMETADATA"},
+        ManifestTagParam{"#EXT-NOM-I-FRAME-DISTANCE"},
+        ManifestTagParam{"#EXT-X-ADVERTISING"},
+        ManifestTagParam{"#EXT-UPLYNK-LIVE"},
+        ManifestTagParam{"#EXT-X-START:", true},
+        ManifestTagParam{"#EXTINF:"},
+        ManifestTagParam{"#EXTaaaINF:"}));
 
 // Testing ABR manager is selected by default.
 TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
