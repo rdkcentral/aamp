@@ -701,6 +701,10 @@ TEST_F(FunctionalTests, FlushCallsNotifyVideoTsbWaiters)
 					RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
 			.WillOnce(Return(true));
 		partialMock.Init();
+
+		// Init() starts the write thread (mWriteThread) asynchronously. The sleep gives that thread
+		// time to reach its blocking wait() call inside ProcessWriteQueue(). Without it, Flush()
+		// could run before the thread is actually waiting on the condition variable.
 		std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
 		// Key assertion: the real Flush() must call NotifyVideoTsbWaiters() exactly once.
