@@ -119,7 +119,6 @@ namespace aamp
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
 #define ABR_BUFFER_COUNTER_FOR_LLD 3		/** Counter for steady state rampup/rampdown for lld */
 
-#define AAMP_USER_AGENT_MAX_CONFIG_LEN  512    /**< Max Chars allowed in aamp.cfg for user-agent */
 #define SERVER_UTCTIME_DIRECT "urn:mpeg:dash:utc:direct:2014"
 #define SERVER_UTCTIME_HTTP "urn:mpeg:dash:utc:http-xsdate:2014"
 // MSO-specific VSS Service Zone identifier in URL
@@ -1315,11 +1314,11 @@ public:
 	/**
 	 * @fn SetCurlTimeout
 	 *
-	 * @param[in] timeout - maximum time  in seconds curl request is allowed to take
+	 * @param[in] timeoutMs - maximum time in milliseconds curl request is allowed to take
 	 * @param[in] instance - index of curl instance to which timeout to be set
-	 * @return void
+	 * @return true if timeout changed, else false
 	 */
-	void SetCurlTimeout(long timeout, AampCurlInstance instance);
+	bool SetCurlTimeout(long timeoutMs, AampCurlInstance instance);
 
 	/**
 	 * @brief Set manifest curl timeout
