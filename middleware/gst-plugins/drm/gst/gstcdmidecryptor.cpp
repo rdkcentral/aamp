@@ -673,12 +673,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			{
 				// Failure - 2.2 vs 1.4 HDCP
 				error = g_error_new(GST_STREAM_ERROR , GST_STREAM_ERROR_FAILED, "HDCP Compliance Check Failure");
-				MW_LOG_WARN("VRN g_error_new HDCP Compliance Check Failure[%d] Err[%d]",errorCode,error);
+				MW_LOG_WARN("VRN g_error_new HDCP Compliance Check Failure[%d] Err[%p]",errorCode,error);
 			}
 			else
 			{
 				error = g_error_new(GST_STREAM_ERROR , GST_STREAM_ERROR_FAILED, "Decrypt Error: code %d", errorCode);
-				MW_LOG_WARN("VRN g_error_new Decrypt Error:[%d] Err[%d]",errorCode, error);
+				MW_LOG_WARN("VRN g_error_new Decrypt Error:[%d] Err[%p]",errorCode, error);
 			}
 			MW_LOG_WARN("VRN Decrypt Failed gst_element_post_message:[%d]",errorCode);
 			gst_element_post_message(reinterpret_cast<GstElement*>(cdmidecryptor), gst_message_new_error (GST_OBJECT (cdmidecryptor), error, "Decrypt Failed"));
