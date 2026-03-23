@@ -1297,7 +1297,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string temp = fragmentURI.tostring();
 			aamp_ResolveURL(fragmentUrl, mEffectiveUrl, temp.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 			ReleasePlaylistLock();
-			AAMPLOG_TRACE("Got next fragment url %s fragmentEncrypted %d discontinuity %d mDrmMethod %d", fragmentUrl.c_str(), fragmentEncrypted, (int)discontinuity, mDrmMethod);
+			AAMPLOG_INFO("Got next fragment url %s fragmentEncrypted %d discontinuity %d mDrmMethod %d", fragmentUrl.c_str(), fragmentEncrypted, (int)discontinuity, mDrmMethod);
 
 			aamp->profiler.ProfileBegin(mediaTrackBucketTypes[type]);
 			const char *range;
