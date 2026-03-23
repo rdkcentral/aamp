@@ -123,13 +123,14 @@ protected:
 			.WillRepeatedly(Return(true));			
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(mConfig);
 
-		mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH; // Underflow monitor only enabled for DASH in StreamAbstractionAAMP
-		mStreamAbstractionAAMP = new TestableStreamAbstractionAAMP(mPrivateInstanceAAMP);
-
 		if(g_mockAampUnderflowMonitor == nullptr)
 		{
 			g_mockAampUnderflowMonitor = new NiceMock<MockAampUnderflowMonitor>();
 		}
+
+		mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE; // Required: constructor guards on rate == AAMP_NORMAL_PLAY_RATE to create mUnderflowMonitor
+		mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH; // Underflow monitor only enabled for DASH in StreamAbstractionAAMP
+		mStreamAbstractionAAMP = new TestableStreamAbstractionAAMP(mPrivateInstanceAAMP);
 
 		// For initialisation of mediatrack	
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))

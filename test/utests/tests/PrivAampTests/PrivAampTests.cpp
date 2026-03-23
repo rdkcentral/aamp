@@ -5077,6 +5077,8 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeTrueTest)
 	int fragment_duration = 0;
 
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_UnderflowLowBufferSec,UNDERFLOW_LOW_BUFFER_SEC_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_UnderflowHighBufferSec,UNDERFLOW_HIGH_BUFFER_SEC_FOR_LLD));
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD));
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD));
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration));

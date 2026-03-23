@@ -156,8 +156,6 @@ TEST_F(AampUnderflowMonitor_FunctionalTests, RunDetectsUnderflowByBufferThreshol
 	EXPECT_CALL(*stream->videoTrack, GetBufferedDuration())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
-		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsSinkCacheEmpty(eMEDIATYPE_VIDEO))
 		.WillRepeatedly(Return(false));
 
@@ -193,9 +191,6 @@ TEST_F(AampUnderflowMonitor_FunctionalTests, RunEndsUnderflowDuringTrickplayWhen
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsSinkCacheEmpty(eMEDIATYPE_VIDEO))
 		.Times(AtLeast(1))
 		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
-		.Times(AnyNumber())
-		.WillRepeatedly(Return(true));
 
 	std::atomic<bool> bufferingEnded{false};
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetBufferingState(false))
@@ -212,14 +207,19 @@ TEST_F(AampUnderflowMonitor_FunctionalTests, RunEndsUnderflowDuringTrickplayWhen
 	EXPECT_TRUE(bufferingEnded.load());
 }
 
-TEST_F(AampUnderflowMonitor_FunctionalTests, RunExitsWhenPlayerStopped)
+TEST_F(AampUnderflowMonitor_FunctionalTests, RunKeepsPollingWhenPlayerStoppedUntilExternalStop)
 {
+	// Monitor does not self-exit on eSTATE_STOPPED — it relies entirely on
+	// Stop() being called externally (via privaamp stop or destructor).
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(eSTATE_STOPPED));
 
 	monitor->Start();
+	EXPECT_TRUE(monitor->IsRunning());
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
-	EXPECT_FALSE(monitor->IsRunning());
+	EXPECT_TRUE(monitor->IsRunning());
+
 	monitor->Stop();
+	EXPECT_FALSE(monitor->IsRunning());
 }

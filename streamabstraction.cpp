@@ -2183,7 +2183,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 
 	if(GETCONFIGVALUE(eAAMPConfig_EnableAampUnderflowMonitor))
 	{
-		if(!mUnderflowMonitor)
+		if(!mUnderflowMonitor && (aamp->rate == AAMP_NORMAL_PLAY_RATE))
 		{
 			try
 			{

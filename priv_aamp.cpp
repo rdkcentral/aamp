@@ -3246,6 +3246,14 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStart)
 	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(bufferAvailable, GetSessionId());
 
 	SetBufUnderFlowStatus(bufferingStart);
+	if (bufferingStart)
+	{
+		SendAnomalyEvent(ANOMALY_WARNING, "Buffering started");
+	}
+	else
+	{
+		SendAnomalyEvent(ANOMALY_WARNING, "Buffering stopped");
+	}
 	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
@@ -14648,6 +14656,8 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 	if(enable)
 	{
 		mMPDDownloaderInstance->SetNetworkTimeout(MANIFEST_TIMEOUT_FOR_LLD);
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_UnderflowLowBufferSec,UNDERFLOW_LOW_BUFFER_SEC_FOR_LLD);
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_UnderflowHighBufferSec,UNDERFLOW_HIGH_BUFFER_SEC_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD);
