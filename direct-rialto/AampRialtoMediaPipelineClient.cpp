@@ -26,6 +26,8 @@
 #include "AampLogManager.h"
 #include <cinttypes>
 
+using namespace firebolt::rialto;
+
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
@@ -86,7 +88,9 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 		" sourceId=%d frameCount=%zu needDataRequestId=%u",
 		__FUNCTION__, sourceId, frameCount, needDataRequestId);
 	if (m_needDataCallback)
+	{
 		m_needDataCallback(sourceId, frameCount, needDataRequestId);
+	}
 	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
 }
 
@@ -141,7 +145,9 @@ void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY sourceId=%d",
 		__FUNCTION__, sourceId);
 	if (m_cancelNeedDataCallback)
+	{
 		m_cancelNeedDataCallback(sourceId);
+	}
 	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
 }
 
