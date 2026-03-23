@@ -497,9 +497,9 @@ INSTANTIATE_TEST_SUITE_P(
 // Testing ABR manager is selected by default.
 TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
 {
-	char manifest[] = MANIFEST_5SD_1A;
+	std::string_view manifest = MANIFEST_5SD_1A;
 
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	// Call the fake Tune() method with a non-local URL to setup Fog related flags.
 	mPrivateInstanceAAMP->Tune("https://ads.com/ad.m3u8", false);
 
@@ -513,9 +513,9 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
 // Testing Fog is selected to manage ABR.
 TEST_F(StreamAbstractionAAMP_HLSTest, FogABRMode)
 {
-	char manifest[] = MANIFEST_5SD_1A;
+	std::string_view manifest = MANIFEST_5SD_1A;
 
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 
 	// Call the fake Tune() method with a Fog TSB URL to setup Fog related flags.
 	mPrivateInstanceAAMP->Tune("http://127.0.0.1/tsb?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8", false);
@@ -1117,8 +1117,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = MANIFEST_6SD_1A;
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = MANIFEST_6SD_1A;
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1133,8 +1133,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-BYTERANGE:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-BYTERANGE:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1148,8 +1148,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXTINF:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXTINF:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1163,8 +1163,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new6)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-TARGETDURATION:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-TARGETDURATION:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1178,8 +1178,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new7)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-MEDIA-SEQUENCE:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-MEDIA-SEQUENCE:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1193,8 +1193,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new8)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-KEY:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-KEY:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1208,8 +1208,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new9)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-MAP:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-MAP:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1223,8 +1223,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new10)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-PROGRAM-DATE-TIME:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-PROGRAM-DATE-TIME:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1238,8 +1238,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new11)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-ALLOW-CACHE:";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-ALLOW-CACHE:";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1253,8 +1253,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new12)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-ENDLIST";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-ENDLIST";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1268,8 +1268,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new13)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-DISCONTINUITY";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-DISCONTINUITY";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
@@ -1283,8 +1283,8 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
 	TrackStateobj->playlistPosition = -1.0;
 	int height;
 	BitsPerSecond bandwidth;
-	char manifest[] = "#EXT-X-I-FRAMES-ONLY";
-	mStreamAbstractionAAMP_HLS->mainManifest.assign(reinterpret_cast<const uint8_t*>(manifest), reinterpret_cast<const uint8_t*>(manifest) + sizeof(manifest));
+	std::string_view manifest = "#EXT-X-I-FRAMES-ONLY";
+	mStreamAbstractionAAMP_HLS->mainManifest.assign(manifest.begin(), manifest.end());
 	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
 	(void)indexNode;
 	mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
