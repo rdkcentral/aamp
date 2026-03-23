@@ -355,15 +355,25 @@ void PrivateInstanceAAMP::EnableDownloads()
 
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
-	if (seekWhilePaused)
+	// Mirror the real implementation: reset flags first, then enable
+	// mSeekOperationInProgress for seek-type tunes, and only set the
+	// pause-on-first-frame flags when both seekWhilePaused is requested
+	// AND a seek operation is in progress (matching the real gating in
+	// priv_aamp.cpp lines ~5857–5875 and ~6272–6275).
+	mPauseOnFirstVideoFrameDisp = false;
+	mFirstVideoFrameDisplayedEnabled = false;
+
+	if (tuneType == eTUNETYPE_SEEK ||
+		tuneType == eTUNETYPE_SEEKTOLIVE ||
+		tuneType == eTUNETYPE_SEEKTOEND)
+	{
+		mSeekOperationInProgress = true;
+	}
+
+	if (seekWhilePaused && mSeekOperationInProgress)
 	{
 		mPauseOnFirstVideoFrameDisp = true;
 		mFirstVideoFrameDisplayedEnabled = true;
-	}
-	else
-	{
-		mPauseOnFirstVideoFrameDisp = false;
-		mFirstVideoFrameDisplayedEnabled = false;
 	}
 
 	if (g_mockPrivateInstanceAAMP != nullptr)
