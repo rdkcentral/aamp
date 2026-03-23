@@ -131,8 +131,13 @@ protected:
 
 	void TearDown() override
 	{
-		EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
-		mAampTSBSessionManager->Flush();
+		if (mAampTSBSessionManager)
+		{
+			EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
+			mAampTSBSessionManager->Flush();
+			delete mAampTSBSessionManager;
+			mAampTSBSessionManager = nullptr;
+		}
 
 		delete g_mockAampTsbMetaDataManager;
 		g_mockAampTsbMetaDataManager = nullptr;
@@ -142,9 +147,6 @@ protected:
 
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
-
-		delete mAampTSBSessionManager;
-		mAampTSBSessionManager = nullptr;
 
 		mTSBStore = nullptr;
 
@@ -709,21 +711,4 @@ TEST_F(FunctionalTests, FlushCallsNotifyVideoTsbWaiters)
 		// ~AampTSBSessionManager() then calls Flush(), but mInitialized_ is false so
 		// NotifyVideoTsbWaiters() is not invoked.
 	}
-
-	// Re-create a plain instance so TearDown can perform its own Flush cleanly.
-	mAampTSBSessionManager = new AampTSBSessionManager(aamp);
-	mAampTSBSessionManager->SetTsbLength(5);
-	mAampTSBSessionManager->SetTsbLocation("/tmp");
-	mAampTSBSessionManager->SetTsbMinFreePercentage(5);
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
-		.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
-	EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize()).WillOnce(Return());
-	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-				RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-				RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
-		.WillOnce(Return(true));
-	mAampTSBSessionManager->Init();
-	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 }

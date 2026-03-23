@@ -10067,8 +10067,8 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
 					int trackIdx = (vEOS && !aEOS) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
-					//// play cache is full , wait until cache is available to inject next, max wait of MAX_WAIT_TIMEOUT_MS
-					mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(MAX_WAIT_TIMEOUT_MS);
+					// play cache is full , wait until cache is available to inject next, max wait of MAX_WAIT_TIMEOUT_MS
+					(void)mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(MAX_WAIT_TIMEOUT_MS);
 				}
 				else
 				{

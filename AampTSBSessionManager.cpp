@@ -380,6 +380,7 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 void AampTSBSessionManager::NotifyVideoTsbWaiters()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
+	AAMPLOG_TRACE("Notifying video TSB waiters");
 	mStopWaitingForVideoTsb = true;
 	mNewVideoTsbContentCV.notify_one();
 }
@@ -387,7 +388,9 @@ void AampTSBSessionManager::NotifyVideoTsbWaiters()
 void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
+	AAMPLOG_TRACE("Waiting for video TSB content or abort");
 	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
+	AAMPLOG_TRACE("Woke up from video TSB content wait");
 	mStopWaitingForVideoTsb = false;
 }
 
