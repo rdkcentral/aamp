@@ -79,8 +79,6 @@
 
 // forward declaration to avoid circular dependency
 class AampMPDDownloader;
-class AampLatencyMonitor;
-struct LatencyConfig;
 
 // forward declaration
 struct CurlCallbackContext;
@@ -3575,6 +3573,40 @@ public:
 	 */
 	struct SpeedCache * GetLLDashSpeedCache();
 
+	 /**
+	  *   @brief Sets Low latency play rate
+	  *
+	  *   @param[in] rate - playback rate to set
+	  *   @return void
+	  */
+	void SetLLDashCurrentPlayBackRate(double rate) { mLLDashCurrentPlayRate = rate; }
+
+	/**
+	 *   @brief Gets Low Latency current play back rate
+	 *
+	 *   @return double
+	 */
+	double GetLLDashCurrentPlayBackRate(void);
+
+	/**
+	 *   @brief Turn off/on the player speed correction for Low latency Dash
+	 *
+	 *   @param[in] state - true or false
+	 *   @return void
+	 */
+	void SetLLDashAdjustSpeed(bool state)
+	{
+		AAMPLOG_INFO("Set LLDash adjust speed to %d", state);
+		bLLDashAdjustPlayerSpeed = state;
+	}
+
+	/**
+	 *   @brief Gets the state of the player speed correction for Low latency Dash
+	 *
+	 *   @return double
+	 */
+	bool GetLLDashAdjustSpeed(void);
+
 	/**
 	 *   @brief Set iframe extraction enabled or not
 	 *
@@ -3638,17 +3670,18 @@ public:
 	void SetLowLatencyServiceConfigured(bool bConfig);
 
 	/**
-	 * @fn GetCurrentLatencyMs
-	 * @return latency in milliseconds
+	 *     @fn GetCurrentLatency
+	 *
+	 *     @return long
 	 */
-	long GetCurrentLatencyMs();
+	long GetCurrentLatency();
 
 	/**
 	 *     @fn SetCurrentLatency
 	 *     @param[in] currentLatency - Current latency to set
 	 *     @return void
 	 */
-	void SetCurrentLatencyMs(long currentLatency);
+	void SetCurrentLatency(long currentLatency);
 
 	/**
 	 *     @brief Get Media Stream Context
@@ -4034,25 +4067,6 @@ public:
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
-	/**
-	 * @fn GetBufferedDurationSecs
-	 * @brief Get the buffered duration in seconds
-	 * @return Buffered duration in seconds
-	 */
-	double GetBufferedDurationSecs();
-
-	/**
-	 * @brief Enable or disable rate correction in latency monitor
-	 * @param enabled - true to enable rate correction, false to disable
-	 */
-	void EnableLatencyMonitor(bool enable);
-
-	/**
-	 * @brief Check if an ad is currently playing
-	 * @return true if an ad is playing, false otherwise
-	 */
-	bool IsAdPlaying();
-
 protected:
 
 	/**
@@ -4191,25 +4205,6 @@ protected:
 	 *   @return void
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
-
-	/**
-	 * @brief Build the latency configuration for the latency monitor
-	 * The configuration will be built based on the current stream and player state.
-	 */
-	void BuildLatencyConfig(LatencyConfig &config);
-
-	/**
-	 * @brief Start the latency monitor if conditions are met
-	 * If the latency monitor is already running, it will just enable the rate correction.
-	 * If the conditions are not met, the latency monitor will not be started.
-	 */
-	void StartLatencyMonitor();
-
-	/**
-	 * @brief Stop the latency monitor
-	 */
-	void StopLatencyMonitor();
-
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4286,7 +4281,7 @@ protected:
 	struct SpeedCache speedCache;
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
-	long mCurrentLatencyMs;         /**< Current latency in milliseconds */
+	long mCurrentLatency;
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectangle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
@@ -4313,7 +4308,6 @@ protected:
 	bool mIsChunkMode;		/** LLD ChunkMode */
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
-	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
 
 private:
 	/**

@@ -75,6 +75,8 @@ public:
 	MOCK_METHOD(long long, DurationFromStartOfPlaybackMs, ());
 	MOCK_METHOD(bool, IsLocalAAMPTsbInjection, ());
 	MOCK_METHOD(void, UpdateLocalAAMPTsbInjection, ());
+	MOCK_METHOD(bool,  GetLLDashAdjustSpeed, ());
+	MOCK_METHOD(double, GetLLDashCurrentPlayBackRate, ());
 	MOCK_METHOD(void, StopDownloads, ());
 	MOCK_METHOD(void, ResumeDownloads, ());
 	MOCK_METHOD(void, DisableDownloads, ());
@@ -94,10 +96,6 @@ public:
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
-	MOCK_METHOD(long, GetCurrentLatencyMs, ());
-	MOCK_METHOD(double, GetBufferedDurationSecs, ());
-	MOCK_METHOD(bool, IsAdPlaying, ());
-	MOCK_METHOD(void, UpdateVideoEndMetrics, (double adjustedRate));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());

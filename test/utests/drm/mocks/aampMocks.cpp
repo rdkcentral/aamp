@@ -27,7 +27,6 @@
 #include "AampConfig.h"
 #include "priv_aamp.h"
 #include "aampgstplayer.h"
-#include "AampLatencyMonitor.h"
 
 #include "MockPrivateInstanceAAMP.h"
 
@@ -45,7 +44,7 @@ void MockAampReset(void)
 	gpGlobalConfig = gGlobalConfig.get();
 }
 
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false), mLatencyMonitor(nullptr)
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
 {
 }
 
@@ -370,7 +369,7 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
-long PrivateInstanceAAMP::GetCurrentLatencyMs()
+long PrivateInstanceAAMP::GetCurrentLatency()
 {
 	return 0;
 }

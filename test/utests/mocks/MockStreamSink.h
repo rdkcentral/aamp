@@ -37,8 +37,6 @@ public:
 
     MOCK_METHOD(bool, SendSample, (AampMediaType, AampMediaSample&));
 
-    MOCK_METHOD(bool, SetPlayBackRate, (double rate));
-
 };
 
 #endif /* AAMP_MOCK_STREAM_SINK_H */

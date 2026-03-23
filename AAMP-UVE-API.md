@@ -163,8 +163,8 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets (0 = auto). |
 | iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets (0 = auto). |
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
-| latencyMonitorDelayMs | Number | 5000 | Delay in milliseconds before starting latency monitoring after tune completion. |
-| latencyMonitorIntervalMs | Number | 1000 | Time between latency checks in milliseconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
+| latencyMonitorDelay | Number | 9 | Delay in seconds before starting latency monitoring after tune completion. |
+| latencyMonitorInterval | Number | 1 | Time between latency checks in seconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
 | licenseAnonymousRequest | Boolean | false | Enable/disable acquiring of license without token. |
 | licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time (milliseconds). |
 | licenseRetryWaitTime | Number | 500 | License retry wait interval (milliseconds). |
