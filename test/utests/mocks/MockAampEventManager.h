@@ -73,7 +73,6 @@ public:
     MOCK_METHOD(void, SendEvent, (const AAMPEventPtr &eventData, AAMPEventMode eventMode));
     MOCK_METHOD(void, FlushPendingEvents, (), ());
     MOCK_METHOD(bool, IsEventListenerAvailable, (AAMPEventType eventType));
-    MOCK_METHOD(void, SetPlayerState, (AAMPPlayerState state));
 };
 
 extern MockAampEventManager *g_mockAampEventManager;
