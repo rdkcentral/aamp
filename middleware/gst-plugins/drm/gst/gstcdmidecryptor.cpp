@@ -519,7 +519,10 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 			// decrypt() call will return without doing anything
 			if (cdmidecryptor->drmSession != NULL)
+			{
 			   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+				MW_LOG_WARN("VRN drmSession->decrypt returns[%d]",errorCode);
+			}
 			else
 			{ /* If drmSession creation failed, then the call will be aborted here */
 				result = GST_FLOW_NOT_SUPPORTED;
@@ -637,16 +640,20 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	}
 
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+	MW_LOG_WARN("VRN drmSession->decrypt returns[%d]",errorCode);
 
 	cdmidecryptor->streamEncrypted = true;
 	if (errorCode != 0 || cdmidecryptor->hdcpOpProtectionFailCount)
 	{
+		MW_LOG_WARN("VRN Enters errorcode[%d]",errorCode);
 	if(errorCode == HDCP_OUTPUT_PROTECTION_FAILURE)
 	{
+		MW_LOG_WARN("VRN Enters HDCP O/P PROTEC errorcode[%d]",errorCode);
 		cdmidecryptor->hdcpOpProtectionFailCount++;
 	}
 	else if(cdmidecryptor->hdcpOpProtectionFailCount)
 	{
+		MW_LOG_WARN("VRN Enters HDCP PROTEC FAIL COUNT[%d] T[%d]",cdmidecryptor->hdcpOpProtectionFailCount,DECRYPT_FAILURE_THRESHOLD);
 		if(cdmidecryptor->hdcpOpProtectionFailCount >= DECRYPT_FAILURE_THRESHOLD) {
 			GstStructure *newmsg = gst_structure_new("HDCPProtectionFailure", "message", G_TYPE_STRING,"HDCP Output Protection Error", NULL);
 			gst_element_post_message(reinterpret_cast<GstElement*>(cdmidecryptor),gst_message_new_application (GST_OBJECT (cdmidecryptor), newmsg));
@@ -656,6 +663,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	else
 	{
 		GST_ERROR_OBJECT(cdmidecryptor, "decryption failed; error code %d\n",errorCode);
+		MW_LOG_WARN("VRN Enters decryption failed; error code %d FC[%d]",errorCode,cdmidecryptor->decryptFailCount);
 		cdmidecryptor->decryptFailCount++;
 		if(cdmidecryptor->decryptFailCount >= DECRYPT_FAILURE_THRESHOLD && cdmidecryptor->notifyDecryptError )
 		{
@@ -663,13 +671,16 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			GError *error;
 			if(errorCode == HDCP_COMPLIANCE_CHECK_FAILURE)
 			{
+				MW_LOG_WARN("VRN g_error_new HDCP Compliance Check Failure[%d]",errorCode);
 				// Failure - 2.2 vs 1.4 HDCP
 				error = g_error_new(GST_STREAM_ERROR , GST_STREAM_ERROR_FAILED, "HDCP Compliance Check Failure");
 			}
 			else
 			{
+				MW_LOG_WARN("VRN g_error_new Decrypt Error:[%d]",errorCode);
 				error = g_error_new(GST_STREAM_ERROR , GST_STREAM_ERROR_FAILED, "Decrypt Error: code %d", errorCode);
 			}
+			MW_LOG_WARN("VRN Decrypt gst_element_post_message:[%d]",errorCode);
 			gst_element_post_message(reinterpret_cast<GstElement*>(cdmidecryptor), gst_message_new_error (GST_OBJECT (cdmidecryptor), error, "Decrypt Failed"));
 			g_error_free(error);
 			result = GST_FLOW_ERROR;
