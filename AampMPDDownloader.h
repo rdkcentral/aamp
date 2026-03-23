@@ -353,14 +353,10 @@ private:
 	*/
 	bool readMPDData(ManifestDownloadResponsePtr mMPD);
 	/**
-	 *	@fn waitForRefreshInterval
-	 *	@brief Function to wait for refresh interval before next download
-	 *
-	 *	@param waitMs Actual duration to sleep in milliseconds. The caller
-	 *	should subtract already-elapsed time from mRefreshInterval
-	 *	so the total download + wait cycle matches the intended update period.
-	 */
-	bool waitForRefreshInterval(uint32_t waitMs);
+	*	@fn waitForRefreshInterval
+	*	@brief Function to wait for refresh interval before next download
+	*/
+	bool waitForRefreshInterval();
 	/**
 	*	@fn pushDownloadDataToQueue
 	*	@brief Function to push the download MPD to Queue for collector to read it

@@ -504,25 +504,16 @@ void AampMPDDownloader::downloadMPDThread1()
 		//Wait for duration before refresh
 		if(mMPDData->mIsLiveManifest && !mReleaseCalled)
 		{
-			// Subtract the time already spent downloading, parsing, and
-			// post-processing from the target refresh interval so the total
-			// cycle time matches the manifest's minimumUpdatePeriod.
-			long long elapsed = NOW_STEADY_TS_MS - tStartTime;
-			uint32_t waitMs = (elapsed < (long long)mRefreshInterval)
-							  ? (uint32_t)((long long)mRefreshInterval - elapsed)
-							  : 0;
-			AAMPLOG_DEBUG("Manifest refresh: interval=%u elapsed=%lldms waitMs=%u",
-						 mRefreshInterval, elapsed, waitMs);
-			refreshNeeded = waitForRefreshInterval(waitMs);
+			refreshNeeded = waitForRefreshInterval();
 		}
 
 		//Timeout case during live refresh
 		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
-			AAMPLOG_WARN("Refresh after 500ms to handle a manifest timeout error.");
-			//Forcefully go with 500 ms refresh after a download failure
+			AAMPLOG_WARN("Refresh every 500ms to handle a manifest timeout error.");
+			//Forcefully go with 500 ms refresh
 			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
-			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
+			refreshNeeded = waitForRefreshInterval();
 		}
 
 	}while(refreshNeeded && !mReleaseCalled);
@@ -773,24 +764,15 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 
 
 /**
- * @fn waitForRefreshInterval
- * @brief Wait function for the duration of refresh interval before next download.
- * The caller passes the already elapsed-adjusted wait duration so that
- * the full download + wait cycle equals the target update period.
- */
-bool AampMPDDownloader::waitForRefreshInterval(uint32_t waitMs)
+*   @fn waitForRefreshInterval
+*   @brief Wait function for the duration of Refresh interval before next download
+*/
+bool AampMPDDownloader::waitForRefreshInterval()
 {
 	bool refreshNeeded = false;
 
-	if (waitMs == 0)
-	{
-		// Elapsed time already consumed the entire interval; refresh immediately.
-		return true;
-	}
-
 	std::unique_lock<std::mutex> lck(mRefreshMtx);
-	if (mRefreshCondVar.wait_for(lck, std::chrono::milliseconds(waitMs)) == std::cv_status::timeout)
-	{
+	if(mRefreshCondVar.wait_for(lck,std::chrono::milliseconds(mRefreshInterval))==std::cv_status::timeout) {
 		refreshNeeded = true;
 	}
 	else
@@ -819,7 +801,7 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 	}
 	if(!publishTimeStr.empty())
 	{
-		publishTimeMSec = static_cast<uint64_t>(ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000.0);
+		publishTimeMSec = (uint64_t)ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000;
 	}
 	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64, publishTimeMSec, mPublishTime);
 
