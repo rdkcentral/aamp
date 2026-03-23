@@ -20,6 +20,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <string_view>
+#include <array>
 
 #include "priv_aamp.h"
 
@@ -277,11 +279,11 @@ protected:
 		delete TrackStateobj;
 		TrackStateobj = nullptr;
 
+		delete mStreamAbstractionAAMP_HLS;
+		mStreamAbstractionAAMP_HLS = nullptr;
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
-
-		delete TrackStateobj;
-		TrackStateobj = nullptr;
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -933,8 +935,8 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetTotalProfileCounttest)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, Destructortest)
 {
-	StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS_1 = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-	mStreamAbstractionAAMP_HLS_1->~StreamAbstractionAAMP_HLS();
+	StreamAbstractionAAMP_HLS mStreamAbstractionAAMP_HLS_2(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+	// Destructor is called automatically when mStreamAbstractionAAMP_HLS_2 goes out of scope at the end of this test case
 }
 
 TEST_F(TrackStateTests, Stoptest_1)
