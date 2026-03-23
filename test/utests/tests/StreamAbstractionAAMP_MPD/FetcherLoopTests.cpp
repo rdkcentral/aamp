@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <iterator>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
@@ -1785,6 +1786,52 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 }
 
 /**
+ * @brief FetcherLoop tests.
+ *
+ * Verifies that when playing ad content at the live edge, AdvanceTrack is skipped
+ * if the fragment time exceeds the live edge.
+ */
+TEST_F(FetcherLoopTests, FetcherLoopSkipsAdvanceTrackWhenExceedsLiveEdge)
+{
+	std::string videoInitFragmentUrl;
+	AAMPStatusType status;
+
+	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+
+	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 0.0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
+
+	auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	ASSERT_NE(cdaiObj, nullptr);
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+	mPrivateInstanceAAMP->mAbsoluteEndPosition = 10.0;
+	MediaTrack *track = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(track, nullptr);
+	auto *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	pMediaStreamContext->fragmentTime = 11.0;
+
+	int downloadsCounter = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadsCounter]()
+			{
+				return (++downloadsCounter < 3);
+			});
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+}
+
+/**
  * @brief BasicFetcherLoop tests.
  *
  * The tests verify the basic fetcher loop functionality for a Live multi-period MPD.
@@ -2488,9 +2535,9 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 	if (mockIDXDownload)
 	{
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
-			.WillRepeatedly(WithArg<3>(Invoke([](AampGrowableBuffer *idxBuffer)
+			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
 			{
-				idxBuffer->AppendBytes((const uint8_t *)sidxBox, sizeof(sidxBox));
+				idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
 			})));
 	}
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));

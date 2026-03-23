@@ -80,6 +80,19 @@ void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 }
 
 /**
+ * @brief Check if an ad is currently playing
+ * @return true if an ad is playing, false otherwise
+ */
+bool CDAIObjectMPD::IsAdPlaying()
+{
+	if (mPrivObj)
+	{
+		return mPrivObj->IsAdPlaying();
+	}
+	return false;
+}
+
+/**
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
@@ -951,7 +964,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	AampGrowableBuffer manifest("adMPD_CDN");
 	bool gotManifest = false;
 	std::string effectiveUrl;
-	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, manifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, manifest.GetVector(), effectiveUrl, http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
@@ -997,7 +1010,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 			AampGrowableBuffer fogManifest("adMPD_FOG");
 			http_error = 0;
-			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, fogManifest.GetVector(), effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, fogManifest.GetVector(), effectiveUrl, http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
 				manifestUrl = std::move(effectiveUrl);
@@ -1884,7 +1897,7 @@ bool PrivateCDAIObjectMPD::FetchAndCacheInitHeaders(std::string& manifestStr, st
 						bool gotInit = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, adInit->GetVector(), fragmentUrl);
 						if(!gotInit)
 						{
-							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit->GetVector(), fragmentUrl, &segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
+							gotInit = mAamp->GetFile(fragmentUrl, actualMediaType, adInit->GetVector(), fragmentUrl, segment_http_error, &segment_downloadTime, nullptr, eCURLINSTANCE_DAI);
 							mAamp->UpdateVideoEndMetrics(actualMediaType, fragmentDescriptor->Bandwidth, segment_http_error, fragmentUrl, 0, segment_downloadTime);
 						}
 						if (gotInit)
@@ -1997,4 +2010,14 @@ void PrivateCDAIObjectMPD::CancelReservation(const std::string& cancelAtReservat
 		AAMPLOG_WARN("[CDAI] CancelReservation: adBreakId %s not found; no state updated",
 			mPlacementObj.pendingAdbrkId.c_str());
 	}
+}
+
+/**
+ * @brief Check if an ad is currently playing
+ * @return true if an ad is playing, false otherwise
+ */
+bool PrivateCDAIObjectMPD::IsAdPlaying()
+{
+	std::lock_guard<std::mutex> guard(mDaiMtx);
+	return (mAdState == AdState::IN_ADBREAK_AD_PLAYING || mAdState == AdState::IN_ADBREAK_WAIT2CATCHUP);
 }

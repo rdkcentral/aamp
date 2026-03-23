@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2022 RDK Management
+# Copyright 2026 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,31 +15,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include(GoogleTest)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PrivateInstanceAAMP)
+set(EXEC_NAME AampLatencyMonitorTests)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-set(TEST_SOURCES PauseAtTests.cpp
-                 PauseOnPlaybackTests.cpp
-                 TextStyleTests.cpp
-                 MediaFormatTypeTests.cpp
-                 IsPeriodChangeMarkedTests.cpp
-                 SubtitleMuteTests.cpp
-                 ClosedCaptionTests.cpp
-                 PrivateInstanceAAMPTests.cpp
-                 LocalTSBTests.cpp
-                 ChunkedTransferTests.cpp
-                 )
+set(TEST_SOURCES
+	AampLatencyMonitorTests.cpp
+	AampLatencyMonitorTestCases.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
-                 ${AAMP_ROOT}/CachedFragment.cpp)
+set(AAMP_SOURCES
+	${AAMP_ROOT}/AampLatencyMonitor.cpp)
 
 add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${AAMP_SOURCES})
+	${TEST_SOURCES}
+	${AAMP_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
@@ -53,6 +47,12 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME}
+	fakes
+	-pthread
+	${GLIB_LINK_LIBRARIES}
+	${OS_LD_FLAGS}
+	${GMOCK_LINK_LIBRARIES}
+	${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})

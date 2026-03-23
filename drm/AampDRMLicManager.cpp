@@ -1041,9 +1041,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		{
 			// introduce  extra marker for connection status curl 7/18/28,
 			// example 18(0) if connection failure with PARTIAL_FILE code
-			timeoutClass = "(" + to_string(respData->downloadCompleteMetrics.reqSize > 0) + ")";
+			timeoutClass = "(" + std::to_string(respData->downloadCompleteMetrics.reqSize > 0) + ")";
 		}
-		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%d,%d,%.500s",
+		AAMPLOG_WARN("HttpRequestEnd: %s%d,%d,%d%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%d,%d,%.500s",
 						appName.c_str(),
 						eMEDIATYPE_TELEMETRY_DRM,
 						eMEDIATYPE_LICENCE,//streamType,
