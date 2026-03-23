@@ -9683,9 +9683,26 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					auto timeBasedBuffer = mMediaStreamContext[trackIdx]->GetTimeBasedBufferManager();
-					if (!mMediaStreamContext[trackIdx]->eos && timeBasedBuffer && !timeBasedBuffer->IsFull())
+					// For live stream in ad break, avoid fetching next segment if current fragment time is exceeding the live edge
+					// This is to avoid unnecessary fetch and also to avoid fetching segments which are not expected to be played
+					const bool exceedsLiveEdge = mCdaiObject &&
+							(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState) &&
+							(mMediaStreamContext[trackIdx]->fragmentTime >= aamp->mAbsoluteEndPosition);
+
+					if (!mMediaStreamContext[trackIdx]->eos && timeBasedBuffer && !timeBasedBuffer->IsFull() && !exceedsLiveEdge)
 					{
 						AdvanceTrack(trackIdx, trickPlay, delta);
+					}
+					else
+					{
+						if (exceedsLiveEdge)
+						{
+							AAMPLOG_TRACE("Download skipped for trackIdx %d, eos %d, isFull %d, exceedsLiveEdge %d, fragmentTime %f, absoluteEndPos %f",
+									trackIdx, mMediaStreamContext[trackIdx]->eos,
+									timeBasedBuffer ? timeBasedBuffer->IsFull() : -1,
+									exceedsLiveEdge, mMediaStreamContext[trackIdx]->fragmentTime,
+									aamp->mAbsoluteEndPosition);
+						}
 					}
 				}
 
@@ -10110,6 +10127,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		{
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
+				// Acquire lock to update current period to sync with ABR changes on video track
+				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
 				// if no parse error
@@ -10117,8 +10136,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
-					// Acquire lock to update current period to sync with ABR changes on video track
-					std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 					ret = IndexNewMPDDocument();
 				}
 			}
