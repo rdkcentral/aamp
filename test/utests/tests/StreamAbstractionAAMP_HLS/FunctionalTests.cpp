@@ -451,7 +451,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, Is4KStream_StateResetsBetweenParses)
 struct ManifestTagParam
 {
 	std::string_view tag;
-	bool             requiresLiveAdjustCall = false;
 };
 
 class ParseManifestTagTest
@@ -461,18 +460,13 @@ class ParseManifestTagTest
 
 TEST_P(ParseManifestTagTest, ParsesWithoutCrash)
 {
-	const auto& [tag, requiresLiveAdjustCall] = GetParam();
+	const auto& [tag] = GetParam();
 
 	HlsStreamInfo streamInfo;
 	streamInfo.enabled  = true;
 	streamInfo.validity = true;
 	streamInfo.codecs   = "h264";
 	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-
-	if (requiresLiveAdjustCall)
-	{
-		(void)mPrivateInstanceAAMP->IsLiveAdjustRequired();
-	}
 
 	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
@@ -496,7 +490,7 @@ INSTANTIATE_TEST_SUITE_P(
 		ManifestTagParam{"#EXT-NOM-I-FRAME-DISTANCE"},
 		ManifestTagParam{"#EXT-X-ADVERTISING"},
 		ManifestTagParam{"#EXT-UPLYNK-LIVE"},
-		ManifestTagParam{"#EXT-X-START:", true},
+		ManifestTagParam{"#EXT-X-START:"},
 		ManifestTagParam{"#EXTINF:"},
 		ManifestTagParam{"#EXTaaaINF:"}));
 
