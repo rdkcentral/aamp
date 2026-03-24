@@ -761,28 +761,29 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests3)
 	status = InitializeMPD(liveManifest2);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false); (void)status;
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	(void)status;
 
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
 
-	const double seekPos = 88; // We want to seek 88 from the period start
-	const double ptoDelta = 78;  // Value determined by manifest. See comments in liveManifest2 for details.
+	const double seekPos = 88;	// We want to seek 88 from the period start
+	const double ptoDelta = 78; // Value determined by manifest. See comments in liveManifest2 for details.
 
 	/* Relative to the period start:
-	* we want to seek to position seekPos (88s)
-	* but ptoDelta (78s) has been dropped from the
-	* beginning of the period, so the actual move forward will be seekPos - ptoDelta (10s)
-	*/
-	double initialFragTime  = pMediaStreamContext->fragmentTime;
-		EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 118);
+	 * we want to seek to position seekPos (88s)
+	 * but ptoDelta (78s) has been dropped from the
+	 * beginning of the period, so the actual move forward will be seekPos - ptoDelta (10s)
+	 */
+	double initialFragTime = pMediaStreamContext->fragmentTime;
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 118);
 	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mContentSeekOffset = seekPos;
 
 	ret = mTestableStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
-	double positionMove = pMediaStreamContext->fragmentTime - initialFragTime ;
-	AAMPLOG_INFO("fragmentTime %f initialFragTime  %f", pMediaStreamContext->fragmentTime, initialFragTime );
-	EXPECT_TRUE((positionMove>= seekPos-ptoDelta) && (positionMove <= seekPos-ptoDelta + 1)); //Seems like it rounds to 11Sec
-	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 123); // 123 -118 = 5 segments which is 10Sec
+	double positionMove = pMediaStreamContext->fragmentTime - initialFragTime;
+	AAMPLOG_INFO("fragmentTime %f initialFragTime  %f", pMediaStreamContext->fragmentTime, initialFragTime);
+	EXPECT_TRUE((positionMove >= seekPos - ptoDelta) && (positionMove <= seekPos - ptoDelta + 1)); // Seems like it rounds to 11Sec
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 123);								   // 123 -118 = 5 segments which is 10Sec
 }
 
 /**
