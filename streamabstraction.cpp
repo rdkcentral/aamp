@@ -2409,7 +2409,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
-		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
+		AAMPLOG_DEBUG("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
 		if(bufferValue > mABRMaxBuffer && !aamp->GetLLDashServiceData()->lowLatencyMode)
 		{
 			mABRHighBufferCounter++;
@@ -2441,6 +2441,11 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 				mABRLowBufferCounter = (mABRLowBufferCounter >= mABRBufferCounter)? 0 : mABRLowBufferCounter ;
 			}
 		}
+	}
+
+	if(currProfileIndex != newProfileIndex)
+	{
+		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
 	}
 	else
 	{
@@ -2474,8 +2479,10 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
 				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
 			}
-			aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_VIDEO);
-			AAMPLOG_INFO("Setting Video timeout to :%d %f",timeoutMs,vBufferDuration);
+			if (aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_VIDEO)) // only log if it changes to prevent log flooding
+			{
+				AAMPLOG_INFO("Setting Video timeout to :%d %f",timeoutMs,vBufferDuration);
+			}
 		}
 	}
 	if(audio && audio->enabled)
@@ -2495,8 +2502,10 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
 				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
 			}
-			aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_AUDIO);
-			AAMPLOG_INFO("Setting Audio timeout to :%d %f",timeoutMs,aBufferDuration);
+			if (aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_AUDIO)) // only log if it changes to prevent log flooding
+			{
+				AAMPLOG_INFO("Setting Audio timeout to :%d %f",timeoutMs,aBufferDuration);
+			}
 		}
 	}
 }
@@ -2589,20 +2598,24 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			// Ramp up/down (do ABR)
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexByBitrateRampUpOrDown(currentProfileIndex,
 																						  currentBandwidth, networkBandwidth, nwConsistencyCnt);
-			AAMP_LogLevel logLevel = eLOGLEVEL_INFO;
-			if(aamp->IsTuneTypeNew)
-			{
-				logLevel = eLOGLEVEL_MIL;
-			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
+			AAMP_LogLevel logLevel = eLOGLEVEL_DEBUG; // prevent log flooding
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{
+				logLevel = eLOGLEVEL_INFO; // Increase log level if profile changed
+
 				// There is a chance that desiredProfileIndex is reset in below GetDesiredProfileOnBuffer call
 				// Since bitrate notification will not be triggered in this case, its fine
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_ABR;
 			}
+
+			if (aamp->IsTuneTypeNew)
+			{
+				logLevel = eLOGLEVEL_MIL; //  milestone if new tune
+			}
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
+
 			if(!mNwConsistencyBypass && ISCONFIGSET(eAAMPConfig_ABRBufferCheckEnabled))
 			{
 				// Checking if frequent profile change happening

@@ -4348,12 +4348,17 @@ bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 /**
  * @brief Set curl timeout(CURLOPT_TIMEOUT)
  */
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
+	bool timeoutChanged = false;
+
 	if(ContentType_EAS == mContentType)
-		return;
+		return false;
+
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
+		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
+		
 		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
@@ -4361,6 +4366,8 @@ void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	{
 		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
 	}
+
+	return timeoutChanged;
 }
 
 /**
@@ -7436,24 +7443,6 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
 }
 
 /**
- * @brief Enable event processing
- */
-void PrivateInstanceAAMP::enableEventProcessing()
-{
-	// Reset Event Manager State to IDLE to resume event processing
-	mEventManager->SetPlayerState(eSTATE_IDLE);
-}
-
-/**
- * @brief Disable event processing
- */
-void PrivateInstanceAAMP::disableEventProcessing()
-{
-	// Set Event Manager State to RELEASED to avoid further event processing
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
-}
-
-/**
  * @brief Soft stop the player instance.
  *
  */
@@ -7495,13 +7484,14 @@ void PrivateInstanceAAMP::detach()
 		mbDetached=true;
 		mPlayerPreBuffered  = false;
 		mTelemetryInterval = 0;
-		disableEventProcessing();
 		//EnableDownloads();// enable downloads
 	}
 	else
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
+	// This will flush all the pending events.
+	mEventManager->FlushPendingEvents();
 }
 
 /**
