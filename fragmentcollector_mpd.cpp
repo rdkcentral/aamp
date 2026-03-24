@@ -9331,7 +9331,12 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 			{
 				seekPositionSeconds -= startDelta;
 			}
-
+			else
+			{
+				// Requested position is at or before the first available segment;
+				// clamp to the earliest playable point (first segment).
+				seekPositionSeconds = 0.0;
+			}
 			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf] startDelta [%f]", currentPeriodId.c_str(), seekPositionSeconds, startDelta);
 			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
