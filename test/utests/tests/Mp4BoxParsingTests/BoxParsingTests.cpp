@@ -552,16 +552,16 @@ TEST(Mp4Demux_Gaps, TST2052_LLDMultipleMoofMdatPairs) {
 	
 	// ---- validate moof1 samples (data from mdat1) ----
 	ASSERT_EQ(samples[0].mData.size(), 10u) << "Sample 0: 10 bytes from mdat1";
-	EXPECT_EQ(samples[0].mData.GetVector()[0], uint8_t(0xAA))
+	EXPECT_EQ(samples[0].mData[0], uint8_t(0xAA))
 	<< "Sample 0 first byte should match first byte of mdat1 payload";
 	
 	ASSERT_EQ(samples[1].mData.size(), 10u) << "Sample 1: 10 bytes from mdat1";
-	EXPECT_EQ(samples[1].mData.GetVector()[0], uint8_t(0xAA + 10))
+	EXPECT_EQ(samples[1].mData[0], uint8_t(0xAA + 10))
 	<< "Sample 1 first byte should match second chunk of mdat1 payload";
 	
 	// ---- validate moof2 sample (data from mdat2, NOT mdat1) ----
 	ASSERT_EQ(samples[2].mData.size(), 15u) << "Sample 2: 15 bytes from mdat2";
-	EXPECT_EQ(samples[2].mData.GetVector()[0], uint8_t(0xBB))
+	EXPECT_EQ(samples[2].mData[0], uint8_t(0xBB))
 	<< "Sample 2 first byte must come from mdat2, not mdat1";
 }
 
@@ -663,7 +663,7 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 	
 	// Validate sample 0 is bound to mdat1 payload (0xA0–0xA7)
 	EXPECT_EQ(samples[0].mData.size(), 8u) << "Sample 0 should be 8 bytes (mdat1 payload)";
-	const auto& s0 = samples[0].mData.GetVector();
+	const auto& s0 = samples[0].mData;
 	for (int i = 0; i < 8; ++i)
 	{
 		EXPECT_EQ(s0[i], uint8_t(0xA0 + i))
@@ -673,7 +673,7 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 	
 	// Validate sample 1 is bound to mdat2 payload (0xB0–0xB7)
 	EXPECT_EQ(samples[1].mData.size(), 8u) << "Sample 1 should be 8 bytes (mdat2 payload)";
-	const auto& s1 = samples[1].mData.GetVector();
+	const auto& s1 = samples[1].mData;
 	for (int i = 0; i < 8; ++i)
 	{
 		EXPECT_EQ(s1[i], uint8_t(0xB0 + i))
