@@ -87,7 +87,7 @@ void IsoBmffBuffer::setBuffer(const std::vector<uint8_t> &buffer)
 *	@return true if parsed or false
 *  	@brief Parse ISOBMFF boxes from buffer
 */
-bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
 {
 	size_t mdatCount = 0;
@@ -702,7 +702,7 @@ bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, 
 /**
  *  @brief Get list of box handles in a parsed buffer
  */
-int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
 {
 	std::vector<Box*> *pBoxes = getParsedBoxes();
 	size_t mdatCount;

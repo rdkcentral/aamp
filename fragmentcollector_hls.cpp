@@ -2321,7 +2321,7 @@ int TrackState::GetDefaultDurationBetweenPlaylistUpdates()
 /**
 * @brief Function to Parse/Index playlist after being downloaded.
 */
-void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error)
+void TrackState::ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_error)
 {
 	AAMPLOG_TRACE("[%s] Enter", name);
 	if (newPlaylist.size() )
@@ -2334,8 +2334,8 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 
 		AcquirePlaylistLock();
 		// Free previous playlist buffer and load with new one
-		playlist.Free();
-		playlist.Replace( &newPlaylist );
+		playlist.GetVector() = std::move(newPlaylist);
+		aamp_utils::ClearAndRelease(newPlaylist);
 
 		AampTime culled{};
 		IndexPlaylist(true, culled);
@@ -2379,10 +2379,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 	else
 	{
 		// Clear data if any
-		if (newPlaylist.capacity() != 0)
-		{
-			newPlaylist.Free();
-		}
+		aamp_utils::ClearAndRelease(newPlaylist);
 
 		if (aamp->DownloadsAreEnabled())
 		{
