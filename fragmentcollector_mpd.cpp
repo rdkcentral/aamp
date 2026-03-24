@@ -7114,12 +7114,19 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	pMediaStreamContext->lastSegmentDuration = pMediaStreamContext->fragmentDescriptor.Time;
 	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number - 1;
 
+
+	AAMPLOG_INFO("vk:: ------START---------")	;
 	/*Calculating the difference in Fetched duration, injected duration and diff in Media Sequence number */
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
 	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - pMediaStreamContext->fragmentTime );
+	AAMPLOG_INFO("vk::diffInInjectedDuration before fragment duration subtraction %lf", diffInInjectedDuration);
+	    diffInInjectedDuration -= (fragmentDuration/pMediaStreamContext->fragmentDescriptor.TimeScale);
+	    AAMPLOG_INFO("vk::new fragmenttime %lf timeScale %u fragmentDuration %u getpos:%lf diffInInjectedDuration %lf", pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.TimeScale, fragmentDuration, pMediaStreamContext->GetLastInjectedPosition(), diffInInjectedDuration);
+
+	
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
 
-	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
+	AAMPLOG_INFO("vk::Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
 			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(),
 			fragmentDuration, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
 
@@ -7127,6 +7134,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
 	/*Fetch and injecting initialization params*/
 	FetchAndInjectInitialization(eMEDIATYPE_AUDIO, false);
+	AAMPLOG_INFO("vk:: ------END---------")	;
 }
 
 /**

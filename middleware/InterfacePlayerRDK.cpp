@@ -3034,6 +3034,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		if (mPauseInjector || !status)
 		{
+			MW_LOG_INFO("Not sending buffer since source element setup is not completed for track[%d]", mediaType);
 			pthread_mutex_unlock(&stream->sourceLock);
 			return false;
 		}

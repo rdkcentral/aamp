@@ -525,7 +525,17 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 		{
 			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
 						 cachedFragment->position, cachedFragment->PTSOffsetSec);
-			playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
+			if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+			{
+			    playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
+				AAMPLOG_INFO("Reset PTS on audio track switch with PTS restamping enabled. position: %f PTSOffsetSec: %f",
+						 cachedFragment->position, cachedFragment->PTSOffsetSec);
+			}else
+			{
+				playContext->resetPTSOnAudioSwitch(&cachedFragment->fragment, cachedFragment->position);
+				AAMPLOG_INFO("Reset PTS on audio track switch with PTS restamping disabled. position: %f",
+						 cachedFragment->position);
+			}
 		}
 		else
 		{
@@ -2013,14 +2023,14 @@ void MediaTrack::FlushFragments()
 void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded)
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+	AAMPLOG_MIL("vk:: Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
 
 	totalFetchedDuration -= deltaFetchedDuration;
 	// injected and fetched duration should be same
 	totalInjectedDuration -= deltaInjectedDuration;
 	totalFragmentsDownloaded -= deltaFragmentsDownloaded;
 
-	AAMPLOG_MIL("New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+	AAMPLOG_MIL("vk:: New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
 }
 
 /**
@@ -2098,8 +2108,10 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 		std::lock_guard<std::mutex> guard(mLock);
 		double audioDuration = audio->GetTotalInjectedDuration();
 		double videoDuration = video->GetTotalInjectedDuration();
+		AAMPLOG_INFO("DEBUG::Enter ReassessAndResumeAudioTrack audioDuration %f videoDuration %f videoFragmentDuration %f", audioDuration, (videoDuration + (2 * video->fragmentDurationSeconds)), video->fragmentDurationSeconds);
 		if(audioDuration < (videoDuration + (2 * video->fragmentDurationSeconds)) || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
 		{
+			AAMPLOG_INFO("DEBUG:: Notifying audio track to resume as audioDuration %f videoDuration %f", audioDuration, videoDuration);
 			mCond.notify_one();
 		}
 		if (aux && aux->enabled)
@@ -2127,7 +2139,8 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 		std::unique_lock<std::mutex> lock(mLock);
 		double audioDuration = audio->GetTotalInjectedDuration();
 		double videoDuration = video->GetTotalInjectedDuration();
-		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
+		AAMPLOG_INFO("DEBUG::Enter WaitForVideoTrackCatchup audioDuration %f videoDuration_total %f videoFragmentDuration %f", audioDuration, (videoDuration + video->fragmentDurationSeconds),video->fragmentDurationSeconds);
+		while ((audioDuration > (videoDuration + (video->fragmentDurationSeconds))) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
 			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
 			{
@@ -2137,11 +2150,13 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 
 			if (std::cv_status::no_timeout == mCond.wait_for(lock, std::chrono::milliseconds(100)))
 			{
+				AAMPLOG_INFO("DEBUG:: EXITED FROM WAIT");
 				break;
 			}
 			// Update video and audio duration after wait
 			audioDuration = audio->GetTotalInjectedDuration();
 			videoDuration = video->GetTotalInjectedDuration();
+			//AAMPLOG_INFO("DEBUG:: Updated WaitForVideoTrackCatchup audioDuration %f videoDuration %f videoFragmentDuration %f", audioDuration, videoDuration, video->fragmentDurationSeconds);
 		}
 	}
 }
