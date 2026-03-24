@@ -111,9 +111,7 @@ void AampRialtoPlayer::Configure(
 	bool bESChangeStatus,
 	bool setReadyAfterPipelineCreation)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY videoFormat=%d audioFormat=%d subFormat=%d"
-		" bESChangeStatus=%d setReadyAfterPipelineCreation=%d",
-		__FUNCTION__, static_cast<int>(videoFormat), static_cast<int>(audioFormat),
+	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
 
 
@@ -146,9 +144,7 @@ void AampRialtoPlayer::Configure(
 		}
 		else
 		{
-			AAMPLOG_WARN("AampRialtoPlayer::%s Failed to create"
-				" IClientLogControlFactory — Rialto logs suppressed",
-				__FUNCTION__);
+			AAMPLOG_WARN("Failed to create IClientLogControlFactory — Rialto logs suppressed");
 		}
 	}
 
@@ -159,8 +155,7 @@ void AampRialtoPlayer::Configure(
 	auto &factory = m_pipelineFactory;
 	if (!factory)
 	{
-		AAMPLOG_ERR("AampRialtoPlayer::%s Failed to create IMediaPipelineFactory"
-			" — is the Rialto server running?", __FUNCTION__);
+		AAMPLOG_ERR("Failed to create IMediaPipelineFactory — is the Rialto server running?");
 	}
 	else
 	{
@@ -172,13 +167,11 @@ void AampRialtoPlayer::Configure(
 			kRequirements);
 		if (!m_pipeline)
 		{
-			AAMPLOG_ERR("AampRialtoPlayer::%s createMediaPipeline returned nullptr"
-				" — check Rialto server logs (syslog) for details", __FUNCTION__);
+			AAMPLOG_ERR("createMediaPipeline returned nullptr — check Rialto server logs (syslog) for details");
 		}
 		else
 		{
-			AAMPLOG_INFO("AampRialtoPlayer::%s Created pipeline %p",
-				__FUNCTION__, m_pipeline.get());
+			AAMPLOG_INFO("Created pipeline %p", m_pipeline.get());
 
 			// load() MUST be called before any attachSource() — it is what
 			// causes the Rialto server to create the underlying Gstreamer player.
@@ -187,14 +180,11 @@ void AampRialtoPlayer::Configure(
 					"video/mp4",
 					/*url=*/""))
 			{
-				AAMPLOG_ERR("AampRialtoPlayer::%s load() failed"
-					" — Rialto will reject attachSource calls",
-					__FUNCTION__);
+				AAMPLOG_ERR("load() failed — Rialto will reject attachSource calls");
 			}
 			else
 			{
-				AAMPLOG_INFO("AampRialtoPlayer::%s load() succeeded",
-					__FUNCTION__);
+				AAMPLOG_INFO("load() succeeded");
 
 				// Wire callbacks from pipeline client.
 				m_client->SetNeedDataCallback(
@@ -219,23 +209,23 @@ void AampRialtoPlayer::Configure(
 	{
 		m_videoDemuxer = std::make_unique<Mp4Demux>();
 		m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
-		AAMPLOG_INFO("AampRialtoPlayer::%s Created video Mp4Demux", __FUNCTION__);
+		AAMPLOG_INFO("Created video Mp4Demux");
 	}
 	if (audioFormat != FORMAT_INVALID && audioFormat != FORMAT_UNKNOWN)
 	{
 		m_audioDemuxer = std::make_unique<Mp4Demux>();
 		m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
-		AAMPLOG_INFO("AampRialtoPlayer::%s Created audio Mp4Demux", __FUNCTION__);
+		AAMPLOG_INFO("Created audio Mp4Demux");
 	}
 	if (subFormat != FORMAT_INVALID && subFormat != FORMAT_UNKNOWN)
 	{
 		m_subtitleDemuxer = std::make_unique<Mp4Demux>();
 		m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
-		AAMPLOG_INFO("AampRialtoPlayer::%s Created subtitle Mp4Demux", __FUNCTION__);
+		AAMPLOG_INFO("Created subtitle Mp4Demux");
 	}
 
 
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::SendCopy(
@@ -245,9 +235,8 @@ bool AampRialtoPlayer::SendCopy(
 	double fdts,
 	double fDuration)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f",
-		__FUNCTION__, static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
@@ -261,12 +250,10 @@ bool AampRialtoPlayer::SendTransfer(
 	bool initFragment,
 	bool discontinuity)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d bufferSize=%zu"
-		" fpts=%f fdts=%f fDuration=%f fragmentPTSoffset=%f"
-		" initFragment=%d discontinuity=%d",
-		__FUNCTION__, static_cast<int>(mediaType), buffer.size(),
-		fpts, fdts, fDuration, fragmentPTSoffset,
-		initFragment, discontinuity);
+AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f fragmentPTSoffset=%f initFragment=%d discontinuity=%d",
+			static_cast<int>(mediaType), buffer.size(),
+			fpts, fdts, fDuration, fragmentPTSoffset,
+			initFragment, discontinuity);
 
 	Mp4Demux *demuxer = nullptr;
 	switch (mediaType)
@@ -282,16 +269,12 @@ bool AampRialtoPlayer::SendTransfer(
 	{
 		if (!demuxer)
 		{
-			AAMPLOG_WARN("AampRialtoPlayer::%s No demuxer for"
-				" mediaType=%d", __FUNCTION__,
-				static_cast<int>(mediaType));
+			AAMPLOG_WARN("No demuxer for mediaType=%d", static_cast<int>(mediaType));
 		}
 	}
 	else if (!demuxer->Parse(buffer.data(), buffer.size()))
 	{
-		AAMPLOG_ERR("AampRialtoPlayer::%s Mp4Demux::Parse failed"
-			" mediaType=%d err=%d",
-			__FUNCTION__, static_cast<int>(mediaType),
+		AAMPLOG_ERR("Mp4Demux::Parse failed mediaType=%d err=%d", static_cast<int>(mediaType),
 			static_cast<int>(demuxer->GetLastError()));
 		result = false;
 	}
@@ -333,14 +316,12 @@ bool AampRialtoPlayer::SendTransfer(
 					break;
 			}
 			m_injectorCv.notify_one();
-			AAMPLOG_INFO("AampRialtoPlayer::%s Queued %zu samples"
-				" for mediaType=%d",
-				__FUNCTION__, samples.size(),
+			AAMPLOG_INFO("Queued %zu samples for mediaType=%d", samples.size(),
 				static_cast<int>(mediaType));
 		}
 	}
 
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 	return result;
 }
 
@@ -348,21 +329,17 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 {
 	if (!m_pipeline)
 	{
-		AAMPLOG_ERR("AampRialtoPlayer::%s pipeline not created", __FUNCTION__);
+		AAMPLOG_ERR("pipeline not created");
 	}
 	else if (m_videoSourceId >= 0)
 	{
-		AAMPLOG_INFO("AampRialtoPlayer::%s video source already attached"
-			" (id=%d), skipping", __FUNCTION__, m_videoSourceId);
+		AAMPLOG_INFO("video source already attached (id=%d), skipping", m_videoSourceId);
 	}
 	else
 	{
 		MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
 
-		AAMPLOG_INFO("AampRialtoPlayer::%s codecFormat=%d codecDataSize=%zu"
-			" w=%u h=%u",
-			__FUNCTION__,
-			static_cast<int>(codecInfo.mCodecFormat),
+		AAMPLOG_INFO("codecFormat=%d codecDataSize=%zu w=%u h=%u", static_cast<int>(codecInfo.mCodecFormat),
 			codecInfo.mCodecData.size(),
 			codecInfo.mInfo.video.mWidth,
 			codecInfo.mInfo.video.mHeight);
@@ -381,8 +358,7 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 				streamFormat = firebolt::rialto::StreamFormat::HVC1;
 				break;
 			default:
-				AAMPLOG_ERR("AampRialtoPlayer::%s Unknown video codec format=%d",
-					__FUNCTION__, static_cast<int>(codecInfo.mCodecFormat));
+				AAMPLOG_ERR("Unknown video codec format=%d", static_cast<int>(codecInfo.mCodecFormat));
 				validCodec = false;
 				break;
 		}
@@ -408,14 +384,12 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 			std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
 			if (!m_pipeline->attachSource(sourceBase))
 			{
-				AAMPLOG_ERR("AampRialtoPlayer::%s attachSource (video) failed", __FUNCTION__);
+				AAMPLOG_ERR("attachSource (video) failed");
 			}
 			else
 			{
 				m_videoSourceId = sourceBase->getId();
-				AAMPLOG_INFO("AampRialtoPlayer::%s Attached video source id=%d"
-					" mime=%s w=%d h=%d",
-					__FUNCTION__, m_videoSourceId, mimeType.c_str(),
+				AAMPLOG_INFO("Attached video source id=%d mime=%s w=%d h=%d", m_videoSourceId, mimeType.c_str(),
 					codecInfo.mInfo.video.mWidth,
 					codecInfo.mInfo.video.mHeight);
 
@@ -437,15 +411,11 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 					if (!m_pipeline->setSourcePosition(
 							m_videoSourceId, posNs, /*resetTime=*/true))
 					{
-						AAMPLOG_WARN("AampRialtoPlayer::%s"
-							" setSourcePosition(video, %" PRId64 ") failed",
-							__FUNCTION__, posNs);
+						AAMPLOG_WARN("setSourcePosition(video, %" PRId64 ") failed", posNs);
 					}
 					else
 					{
-						AAMPLOG_INFO("AampRialtoPlayer::%s"
-							" setSourcePosition(video, %" PRId64 ") ok",
-							__FUNCTION__, posNs);
+						AAMPLOG_INFO("setSourcePosition(video, %" PRId64 ") ok", posNs);
 					}
 				}
 
@@ -459,12 +429,11 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 {
 	if (!m_pipeline)
 	{
-		AAMPLOG_ERR("AampRialtoPlayer::%s pipeline not created", __FUNCTION__);
+		AAMPLOG_ERR("pipeline not created");
 	}
 	else if (m_audioSourceId >= 0)
 	{
-		AAMPLOG_INFO("AampRialtoPlayer::%s audio source already attached"
-			" (id=%d), skipping", __FUNCTION__, m_audioSourceId);
+		AAMPLOG_INFO("audio source already attached (id=%d), skipping", m_audioSourceId);
 	}
 	else
 	{
@@ -488,8 +457,7 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 				streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 				break;
 			default:
-				AAMPLOG_ERR("AampRialtoPlayer::%s Unknown audio codec format=%d",
-					__FUNCTION__, static_cast<int>(codecInfo.mCodecFormat));
+				AAMPLOG_ERR("Unknown audio codec format=%d", static_cast<int>(codecInfo.mCodecFormat));
 				validCodec = false;
 				break;
 		}
@@ -511,13 +479,11 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 			{
 				audioCodecData = std::make_shared<firebolt::rialto::CodecData>();
 				audioCodecData->data = codecInfo.mCodecData;
-				AAMPLOG_INFO("AampRialtoPlayer::%s audio codecData size=%zu",
-					__FUNCTION__, audioCodecData->data.size());
+				AAMPLOG_INFO("audio codecData size=%zu", audioCodecData->data.size());
 			}
 			else
 			{
-				AAMPLOG_WARN("AampRialtoPlayer::%s audio codecData is empty"
-					" — Rialto may produce empty caps", __FUNCTION__);
+				AAMPLOG_WARN("audio codecData is empty — Rialto may produce empty caps");
 			}
 
 			auto source = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
@@ -531,14 +497,12 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 			std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
 			if (!m_pipeline->attachSource(sourceBase))
 			{
-				AAMPLOG_ERR("AampRialtoPlayer::%s attachSource (audio) failed", __FUNCTION__);
+				AAMPLOG_ERR("attachSource (audio) failed");
 			}
 			else
 			{
 				m_audioSourceId = sourceBase->getId();
-				AAMPLOG_INFO("AampRialtoPlayer::%s Attached audio source id=%d"
-					" mime=%s channels=%u rate=%u",
-					__FUNCTION__, m_audioSourceId, mimeType.c_str(),
+				AAMPLOG_INFO("Attached audio source id=%d mime=%s channels=%u rate=%u", m_audioSourceId, mimeType.c_str(),
 					audioConfig.numberOfChannels, audioConfig.sampleRate);
 
 				m_audioSampleRate = static_cast<int32_t>(audioConfig.sampleRate);
@@ -555,15 +519,11 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 					if (!m_pipeline->setSourcePosition(
 							m_audioSourceId, posNs, /*resetTime=*/true))
 					{
-						AAMPLOG_WARN("AampRialtoPlayer::%s"
-							" setSourcePosition(audio, %" PRId64 ") failed",
-							__FUNCTION__, posNs);
+						AAMPLOG_WARN("setSourcePosition(audio, %" PRId64 ") failed", posNs);
 					}
 					else
 					{
-						AAMPLOG_INFO("AampRialtoPlayer::%s"
-							" setSourcePosition(audio, %" PRId64 ") ok",
-							__FUNCTION__, posNs);
+						AAMPLOG_INFO("setSourcePosition(audio, %" PRId64 ") ok", posNs);
 					}
 				}
 
@@ -581,12 +541,11 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 		!(m_videoDemuxer && m_videoSourceId < 0) &&
 		!(m_audioDemuxer && m_audioSourceId < 0))
 	{
-		AAMPLOG_INFO("AampRialtoPlayer::%s All sources attached — calling allSourcesAttached()",
-			__FUNCTION__);
+		AAMPLOG_INFO("All sources attached — calling allSourcesAttached()");
 
 		if (!m_pipeline->allSourcesAttached())
 		{
-			AAMPLOG_ERR("AampRialtoPlayer::%s allSourcesAttached() failed", __FUNCTION__);
+			AAMPLOG_ERR("allSourcesAttached() failed");
 		}
 		else
 		{
@@ -598,12 +557,11 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 			// the Rialto protocol order: allSourcesAttached() → play().
 			if (m_playRequested.load(std::memory_order_seq_cst))
 			{
-				AAMPLOG_INFO("AampRialtoPlayer::%s play() deferred by Stream() —"
-					" issuing now", __FUNCTION__);
+				AAMPLOG_INFO("play() deferred by Stream() — issuing now");
 				bool async = false;
 				if (!m_pipeline->play(async))
 				{
-					AAMPLOG_ERR("AampRialtoPlayer::%s play() failed", __FUNCTION__);
+					AAMPLOG_ERR("play() failed");
 				}
 			}
 		}
@@ -612,22 +570,21 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 
 bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &sample)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d", __FUNCTION__, static_cast<int>(mediaType));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY type=%d", __FUNCTION__, static_cast<int>(type));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY type=%d",
-		__FUNCTION__, static_cast<int>(type));
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
 	{
 		std::lock_guard<std::mutex> lock(m_injectorMutex);
 		switch (type)
@@ -638,12 +595,12 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 		}
 	}
 	m_injectorCv.notify_one();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::Stream()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	if (m_pipeline)
 	{
 		// Signal that play() should be issued.  We use seq_cst ordering so
@@ -658,38 +615,33 @@ void AampRialtoPlayer::Stream()
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
-				AAMPLOG_ERR("AampRialtoPlayer::%s play() failed",
-					__FUNCTION__);
+				AAMPLOG_ERR("play() failed");
 			}
 		}
 		else
 		{
 			// Sources are not yet attached; play() will be issued by
 			// CheckAllSourcesAttached() once all sources are registered.
-			AAMPLOG_INFO("AampRialtoPlayer::%s deferring play() until"
-				" allSourcesAttached()", __FUNCTION__);
+			AAMPLOG_INFO("deferring play() until allSourcesAttached()");
 		}
 	}
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY keepLastFrame=%d",
-		__FUNCTION__, keepLastFrame);
+	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
 	StopInjectionThread();
 	if (m_pipeline)
 	{
 		m_pipeline->stop();
 	}
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY position=%f rate=%d"
-		" shouldTearDown=%d",
-		__FUNCTION__, position, rate, shouldTearDown);
+	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 	{
 		std::lock_guard<std::mutex> lock(m_injectorMutex);
 		m_videoSampleQueue.clear();
@@ -718,15 +670,12 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			bool async = false;
 			if (!m_pipeline->flush(m_videoSourceId, /*resetTime=*/true, async))
 			{
-				AAMPLOG_WARN("AampRialtoPlayer::%s"
-					" flush(video) failed", __FUNCTION__);
+				AAMPLOG_WARN("flush(video) failed");
 			}
 			if (!m_pipeline->setSourcePosition(
 					m_videoSourceId, posNs, /*resetTime=*/true))
 			{
-				AAMPLOG_WARN("AampRialtoPlayer::%s"
-					" setSourcePosition(video) failed",
-					__FUNCTION__);
+				AAMPLOG_WARN("setSourcePosition(video) failed");
 			}
 		}
 		if (m_audioSourceId >= 0)
@@ -734,49 +683,44 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			bool async = false;
 			if (!m_pipeline->flush(m_audioSourceId, /*resetTime=*/true, async))
 			{
-				AAMPLOG_WARN("AampRialtoPlayer::%s"
-					" flush(audio) failed", __FUNCTION__);
+				AAMPLOG_WARN("flush(audio) failed");
 			}
 			if (!m_pipeline->setSourcePosition(
 					m_audioSourceId, posNs, /*resetTime=*/true))
 			{
-				AAMPLOG_WARN("AampRialtoPlayer::%s"
-					" setSourcePosition(audio) failed",
-					__FUNCTION__);
+				AAMPLOG_WARN("setSourcePosition(audio) failed");
 			}
 		}
 	}
 
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::FlushTrack(AampMediaType mediaType, double position)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d position=%f",
-		__FUNCTION__, static_cast<int>(mediaType), position);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY mediaType=%d position=%f", static_cast<int>(mediaType), position);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::SetPlayBackRate(double rate)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY rate=%f", __FUNCTION__, rate);
+	AAMPLOG_INFO("ENTRY rate=%f", rate);
 	if (!m_pipeline)
 	{
-		AAMPLOG_WARN("AampRialtoPlayer::%s pipeline is null", __FUNCTION__);
+		AAMPLOG_WARN("pipeline is null");
 		return false;
 	}
 	bool result = m_pipeline->setPlaybackRate(rate);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY pause=%d forceStopGstreamerPreBuffering=%d",
-		__FUNCTION__, pause, forceStopGstreamerPreBuffering);
+	AAMPLOG_INFO("ENTRY pause=%d forceStopGstreamerPreBuffering=%d", pause, forceStopGstreamerPreBuffering);
 	if (!m_pipeline)
 	{
-		AAMPLOG_WARN("AampRialtoPlayer::%s pipeline is null", __FUNCTION__);
+		AAMPLOG_WARN("pipeline is null");
 		return false;
 	}
 	bool result = false;
@@ -789,110 +733,110 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 		bool async = false;
 		result = m_pipeline->play(async);
 	}
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 long AampRialtoPlayer::GetDurationMilliseconds()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return 0;
 }
 
 long long AampRialtoPlayer::GetPositionMilliseconds()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return 0;
 }
 
 long long AampRialtoPlayer::GetVideoPTS()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return 0;
 }
 
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY x=%d y=%d w=%d h=%d", __FUNCTION__, x, y, w, h);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY x=%d y=%d w=%d h=%d", x, y, w, h);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetVideoZoom(VideoZoomMode zoom)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY zoom=%d", __FUNCTION__, static_cast<int>(zoom));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY zoom=%d", static_cast<int>(zoom));
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetVideoMute(bool muted)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY muted=%d", __FUNCTION__, muted);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetSubtitleMute(bool muted)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY muted=%d", __FUNCTION__, muted);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY pts_offset=%" PRIu64, __FUNCTION__, pts_offset);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY pts_offset=%" PRIu64, pts_offset);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetAudioVolume(int volume)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY volume=%d", __FUNCTION__, volume);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY volume=%d", volume);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d", __FUNCTION__, static_cast<int>(mediaType));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 bool AampRialtoPlayer::CheckForPTSChangeWithTimeout(long timeout)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY timeout=%ld", __FUNCTION__, timeout);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY timeout=%ld", timeout);
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 bool AampRialtoPlayer::IsCacheEmpty(AampMediaType mediaType)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d", __FUNCTION__, static_cast<int>(mediaType));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 void AampRialtoPlayer::ResetEOSSignalledFlag()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::GetVideoSize(int &w, int &h)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT w=%d h=%d", __FUNCTION__, w, h);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT w=%d h=%d", w, h);
 }
 
 void AampRialtoPlayer::QueueProtectionEvent(
@@ -901,110 +845,109 @@ void AampRialtoPlayer::QueueProtectionEvent(
 	size_t len,
 	AampMediaType type)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY protSystemId=%s len=%zu type=%d",
-		__FUNCTION__, protSystemId ? protSystemId : "(null)", len, static_cast<int>(type));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY protSystemId=%s len=%zu type=%d", protSystemId ? protSystemId : "(null)", len, static_cast<int>(type));
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::ClearProtectionEvent()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SignalTrickModeDiscontinuity()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SeekStreamSink(double position, double rate)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY position=%f rate=%f", __FUNCTION__, position, rate);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY position=%f rate=%f", position, rate);
+	AAMPLOG_INFO("EXIT");
 }
 
 std::string AampRialtoPlayer::GetVideoRectangle()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return {};
 }
 
 void AampRialtoPlayer::StopBuffering(bool forceStop)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY forceStop=%d", __FUNCTION__, forceStop);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY forceStop=%d", forceStop);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::SetTextStyle(const std::string &options)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY options=%s", __FUNCTION__, options.c_str());
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY options=%s", options.c_str());
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return nullptr;
 }
 
 bool AampRialtoPlayer::SignalSubtitleClock()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY enable=%d", __FUNCTION__, enable);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY enable=%d", enable);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyInjectorToResume()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyInjectorToPause()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY type=%d", __FUNCTION__, static_cast<int>(type));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY aampInstance=%p", __FUNCTION__, aampInstance);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY aampInstance=%p", aampInstance);
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY newAamp=%p", __FUNCTION__, newAamp);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY aamp=%p", __FUNCTION__, aamp);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY aamp=%p", aamp);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::ResetFirstFrame()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }
 
 // ---------------------------------------------------------------------------
@@ -1015,16 +958,14 @@ void AampRialtoPlayer::StartInjectionThread()
 {
 	if (m_injectionThread.joinable())
 	{
-		AAMPLOG_WARN("AampRialtoPlayer::%s injection thread already"
-			" running", __FUNCTION__);
+		AAMPLOG_WARN("injection thread already running");
 	}
 	else
 	{
 		m_stopInjection = false;
 		m_injectionThread =
 			std::thread(&AampRialtoPlayer::RunInjectionThread, this);
-		AAMPLOG_INFO("AampRialtoPlayer::%s injection thread started",
-			__FUNCTION__);
+		AAMPLOG_INFO("injection thread started");
 	}
 }
 
@@ -1038,8 +979,7 @@ void AampRialtoPlayer::StopInjectionThread()
 		}
 		m_injectorCv.notify_all();
 		m_injectionThread.join();
-		AAMPLOG_INFO("AampRialtoPlayer::%s injection thread stopped",
-			__FUNCTION__);
+		AAMPLOG_INFO("injection thread stopped");
 	}
 }
 
@@ -1147,9 +1087,7 @@ void AampRialtoPlayer::InjectSamples(
 {
 	if (!m_pipeline)
 	{
-		AAMPLOG_WARN("AampRialtoPlayer::%s pipeline is null,"
-			" dropping %zu samples for sourceId=%d",
-			__FUNCTION__, samples.size(), sourceId);
+		AAMPLOG_WARN("pipeline is null, dropping %zu samples for sourceId=%d", samples.size(), sourceId);
 		return;
 	}
 
@@ -1205,11 +1143,8 @@ void AampRialtoPlayer::InjectSamples(
 			m_pipeline->addSegment(requestId, segment);
 		if (addStatus == firebolt::rialto::AddSegmentStatus::NO_SPACE)
 		{
-			AAMPLOG_WARN("AampRialtoPlayer::%s addSegment NO_SPACE"
-				" sourceId=%d requestId=%u — re-queuing %zu"
-				" remaining samples",
-				__FUNCTION__, sourceId, requestId,
-				samples.size() - i);
+			AAMPLOG_WARN("addSegment NO_SPACE sourceId=%d requestId=%u — re-queuing %zu remaining samples",
+				sourceId, requestId, samples.size() - i);
 			// Re-queue this and all subsequent samples at the front so
 			// they are sent on the next needData request.
 			for (size_t j = i; j < samples.size(); ++j)
@@ -1220,9 +1155,7 @@ void AampRialtoPlayer::InjectSamples(
 		}
 		else if (addStatus != firebolt::rialto::AddSegmentStatus::OK)
 		{
-			AAMPLOG_WARN("AampRialtoPlayer::%s addSegment failed"
-				" sourceId=%d requestId=%u status=%d",
-				__FUNCTION__, sourceId, requestId,
+			AAMPLOG_WARN("addSegment failed sourceId=%d requestId=%u status=%d", sourceId, requestId,
 				static_cast<int>(addStatus));
 		}
 		else
@@ -1249,13 +1182,10 @@ void AampRialtoPlayer::InjectSamples(
 
 	if (!m_pipeline->haveData(haveDataStatus, requestId))
 	{
-		AAMPLOG_WARN("AampRialtoPlayer::%s haveData failed"
-			" requestId=%u", __FUNCTION__, requestId);
+		AAMPLOG_WARN("haveData failed requestId=%u", requestId);
 	}
 
-	AAMPLOG_INFO("AampRialtoPlayer::%s Injected %zu/%zu segments"
-		" sourceId=%d requestId=%u eos=%d status=%d",
-		__FUNCTION__, addedSegments, samples.size(), sourceId, requestId,
+	AAMPLOG_INFO("Injected %zu/%zu segments sourceId=%d requestId=%u eos=%d status=%d", addedSegments, samples.size(), sourceId, requestId,
 		eos, static_cast<int>(haveDataStatus));
 }
 
@@ -1266,9 +1196,7 @@ void AampRialtoPlayer::InjectSamples(
 void AampRialtoPlayer::OnNeedMediaData(
 	int32_t sourceId, size_t frameCount, uint32_t requestId)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s sourceId=%d frameCount=%zu"
-		" requestId=%u",
-		__FUNCTION__, sourceId, frameCount, requestId);
+	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u", sourceId, frameCount, requestId);
 	{
 		std::lock_guard<std::mutex> lock(m_injectorMutex);
 		PendingNeedData req{requestId, frameCount};
@@ -1282,8 +1210,7 @@ void AampRialtoPlayer::OnNeedMediaData(
 		}
 		else
 		{
-			AAMPLOG_WARN("AampRialtoPlayer::%s unknown sourceId=%d",
-				__FUNCTION__, sourceId);
+			AAMPLOG_WARN("unknown sourceId=%d", sourceId);
 		}
 	}
 	m_injectorCv.notify_one();
@@ -1291,8 +1218,7 @@ void AampRialtoPlayer::OnNeedMediaData(
 
 void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s sourceId=%d",
-		__FUNCTION__, sourceId);
+	AAMPLOG_INFO("sourceId=%d", sourceId);
 	std::lock_guard<std::mutex> lock(m_injectorMutex);
 	if (sourceId == m_videoSourceId)
 	{
@@ -1306,8 +1232,7 @@ void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 
 void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s state=%d",
-		__FUNCTION__, static_cast<int>(state));
+	AAMPLOG_INFO("state=%d", static_cast<int>(state));
 	if (m_testPlaybackObserver)
 	{
 		m_testPlaybackObserver(state);
@@ -1350,13 +1275,11 @@ void AampRialtoPlayer::Configure(
 	bool bESChangeStatus,
 	bool setReadyAfterPipelineCreation)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY format=%d audioFormat=%d subFormat=%d"
-		" bESChangeStatus=%d setReadyAfterPipelineCreation=%d",
-		__FUNCTION__, static_cast<int>(format), static_cast<int>(audioFormat),
+	AAMPLOG_INFO("ENTRY format=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(format), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
 	mGstPlayer->Configure(
 		format, audioFormat, subFormat, bESChangeStatus, setReadyAfterPipelineCreation);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::SendCopy(
@@ -1366,10 +1289,9 @@ bool AampRialtoPlayer::SendCopy(
 	double fdts,
 	double fDuration)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f",
-		__FUNCTION__, static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
 	bool result = mGstPlayer->SendCopy(mediaType, std::move(buffer), fpts, fdts, fDuration);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
@@ -1383,203 +1305,198 @@ bool AampRialtoPlayer::SendTransfer(
 	bool initFragment,
 	bool discontinuity)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f"
-		" fDuration=%f fragmentPTSoffset=%f initFragment=%d discontinuity=%d",
-		__FUNCTION__, static_cast<int>(mediaType), buffer.size(), fpts, fdts,
+	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f fragmentPTSoffset=%f initFragment=%d discontinuity=%d", static_cast<int>(mediaType), buffer.size(), fpts, fdts,
 		fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	bool result = mGstPlayer->SendTransfer(
 		mediaType, std::move(buffer), fpts, fdts, fDuration,
 		fragmentPTSoffset, initFragment, discontinuity);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &sample)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d", __FUNCTION__, static_cast<int>(mediaType));
+	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
 	bool result = mGstPlayer->SendSample(mediaType, sample);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY type=%d", __FUNCTION__, static_cast<int>(type));
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
 	bool result = mGstPlayer->PipelineConfiguredForMedia(type);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY type=%d", __FUNCTION__, static_cast<int>(type));
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
 	mGstPlayer->EndOfStreamReached(type);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::Stream()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->Stream();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY keepLastFrame=%d", __FUNCTION__, keepLastFrame);
+	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
 	mGstPlayer->Stop(keepLastFrame);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY position=%f rate=%d shouldTearDown=%d",
-		__FUNCTION__, position, rate, shouldTearDown);
+	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 	mGstPlayer->Flush(position, rate, shouldTearDown);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::FlushTrack(AampMediaType mediaType, double position)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d position=%f",
-		__FUNCTION__, static_cast<int>(mediaType), position);
+	AAMPLOG_INFO("ENTRY mediaType=%d position=%f", static_cast<int>(mediaType), position);
 	mGstPlayer->FlushTrack(mediaType, position);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::SetPlayBackRate(double rate)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY rate=%f", __FUNCTION__, rate);
+	AAMPLOG_INFO("ENTRY rate=%f", rate);
 	bool result = mGstPlayer->SetPlayBackRate(rate);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY pause=%d forceStopGstreamerPreBuffering=%d",
-		__FUNCTION__, pause, forceStopGstreamerPreBuffering);
+	AAMPLOG_INFO("ENTRY pause=%d forceStopGstreamerPreBuffering=%d", pause, forceStopGstreamerPreBuffering);
 	bool result = mGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 long AampRialtoPlayer::GetDurationMilliseconds()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	long result = mGstPlayer->GetDurationMilliseconds();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%ld", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%ld", result);
 	return result;
 }
 
 long long AampRialtoPlayer::GetPositionMilliseconds()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	long long result = mGstPlayer->GetPositionMilliseconds();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%lld", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%lld", result);
 	return result;
 }
 
 long long AampRialtoPlayer::GetVideoPTS()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	long long result = mGstPlayer->GetVideoPTS();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%lld", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%lld", result);
 	return result;
 }
 
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY x=%d y=%d w=%d h=%d", __FUNCTION__, x, y, w, h);
+	AAMPLOG_INFO("ENTRY x=%d y=%d w=%d h=%d", x, y, w, h);
 	mGstPlayer->SetVideoRectangle(x, y, w, h);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetVideoZoom(VideoZoomMode zoom)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY zoom=%d", __FUNCTION__, static_cast<int>(zoom));
+	AAMPLOG_INFO("ENTRY zoom=%d", static_cast<int>(zoom));
 	mGstPlayer->SetVideoZoom(zoom);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetVideoMute(bool muted)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY muted=%d", __FUNCTION__, muted);
+	AAMPLOG_INFO("ENTRY muted=%d", muted);
 	mGstPlayer->SetVideoMute(muted);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetSubtitleMute(bool muted)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY muted=%d", __FUNCTION__, muted);
+	AAMPLOG_INFO("ENTRY muted=%d", muted);
 	mGstPlayer->SetSubtitleMute(muted);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY pts_offset=%" PRIu64, __FUNCTION__, pts_offset);
+	AAMPLOG_INFO("ENTRY pts_offset=%" PRIu64, pts_offset);
 	mGstPlayer->SetSubtitlePtsOffset(pts_offset);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetAudioVolume(int volume)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY volume=%d", __FUNCTION__, volume);
+	AAMPLOG_INFO("ENTRY volume=%d", volume);
 	mGstPlayer->SetAudioVolume(volume);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d", __FUNCTION__, static_cast<int>(mediaType));
+	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
 	bool result = mGstPlayer->Discontinuity(mediaType);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 bool AampRialtoPlayer::CheckForPTSChangeWithTimeout(long timeout)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY timeout=%ld", __FUNCTION__, timeout);
+	AAMPLOG_INFO("ENTRY timeout=%ld", timeout);
 	bool result = mGstPlayer->CheckForPTSChangeWithTimeout(timeout);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 bool AampRialtoPlayer::IsCacheEmpty(AampMediaType mediaType)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY mediaType=%d", __FUNCTION__, static_cast<int>(mediaType));
+	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
 	bool result = mGstPlayer->IsCacheEmpty(mediaType);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 void AampRialtoPlayer::ResetEOSSignalledFlag()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->ResetEOSSignalledFlag();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->NotifyFragmentCachingComplete();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->NotifyFragmentCachingOngoing();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::GetVideoSize(int &w, int &h)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->GetVideoSize(w, h);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT w=%d h=%d", __FUNCTION__, w, h);
+	AAMPLOG_INFO("EXIT w=%d h=%d", w, h);
 }
 
 void AampRialtoPlayer::QueueProtectionEvent(
@@ -1588,127 +1505,126 @@ void AampRialtoPlayer::QueueProtectionEvent(
 	size_t len,
 	AampMediaType type)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY protSystemId=%s len=%zu type=%d",
-		__FUNCTION__, protSystemId ? protSystemId : "(null)", len, static_cast<int>(type));
+	AAMPLOG_INFO("ENTRY protSystemId=%s len=%zu type=%d", protSystemId ? protSystemId : "(null)", len, static_cast<int>(type));
 	mGstPlayer->QueueProtectionEvent(protSystemId, ptr, len, type);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::ClearProtectionEvent()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->ClearProtectionEvent();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SignalTrickModeDiscontinuity()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->SignalTrickModeDiscontinuity();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SeekStreamSink(double position, double rate)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY position=%f rate=%f", __FUNCTION__, position, rate);
+	AAMPLOG_INFO("ENTRY position=%f rate=%f", position, rate);
 	mGstPlayer->SeekStreamSink(position, rate);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 std::string AampRialtoPlayer::GetVideoRectangle()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	std::string result = mGstPlayer->GetVideoRectangle();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%s", __FUNCTION__, result.c_str());
+	AAMPLOG_INFO("EXIT result=%s", result.c_str());
 	return result;
 }
 
 void AampRialtoPlayer::StopBuffering(bool forceStop)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY forceStop=%d", __FUNCTION__, forceStop);
+	AAMPLOG_INFO("ENTRY forceStop=%d", forceStop);
 	mGstPlayer->StopBuffering(forceStop);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::SetTextStyle(const std::string &options)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY options=%s", __FUNCTION__, options.c_str());
+	AAMPLOG_INFO("ENTRY options=%s", options.c_str());
 	bool result = mGstPlayer->SetTextStyle(options);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	PlaybackQualityStruct *result = mGstPlayer->GetVideoPlaybackQuality();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%p", __FUNCTION__, static_cast<void*>(result));
+	AAMPLOG_INFO("EXIT result=%p", static_cast<void*>(result));
 	return result;
 }
 
 bool AampRialtoPlayer::SignalSubtitleClock()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	bool result = mGstPlayer->SignalSubtitleClock();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY enable=%d", __FUNCTION__, enable);
+	AAMPLOG_INFO("ENTRY enable=%d", enable);
 	mGstPlayer->SetPauseOnStartPlayback(enable);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyInjectorToResume()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->NotifyInjectorToResume();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyInjectorToPause()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->NotifyInjectorToPause();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY type=%d", __FUNCTION__, static_cast<int>(type));
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
 	mGstPlayer->SetStreamCaps(type, std::move(codecInfo));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY aampInstance=%p", __FUNCTION__, aampInstance);
+	AAMPLOG_INFO("ENTRY aampInstance=%p", aampInstance);
 	bool result = mGstPlayer->IsAssociatedAamp(aampInstance);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT result=%d", __FUNCTION__, result);
+	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
 }
 
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY newAamp=%p", __FUNCTION__, newAamp);
+	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
 	mGstPlayer->ChangeAamp(newAamp, std::move(id3HandlerCallback));
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY aamp=%p", __FUNCTION__, aamp);
+	AAMPLOG_INFO("ENTRY aamp=%p", aamp);
 	mGstPlayer->SetEncryptedAamp(aamp);
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::ResetFirstFrame()
 {
-	AAMPLOG_INFO("AampRialtoPlayer::%s ENTRY", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
 	mGstPlayer->ResetFirstFrame();
-	AAMPLOG_INFO("AampRialtoPlayer::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("EXIT");
 }
 
 #endif
