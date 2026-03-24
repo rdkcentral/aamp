@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <thread>
 #include <chrono>
+#include <future>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
@@ -45,6 +46,7 @@ using ::testing::WithArgs;
 using ::testing::Invoke;
 using ::testing::StrEq;
 using ::testing::DoAll;
+using ::testing::InvokeWithoutArgs;
 
 using namespace dash::xml;
 using namespace dash::mpd;
@@ -511,7 +513,13 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest, true);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
+  // Use shared_ptr so the promise outlives this stack frame if wait_for times out and ASSERT
+  // returns early before TearDown shuts down the background ad thread.
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
@@ -520,7 +528,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created

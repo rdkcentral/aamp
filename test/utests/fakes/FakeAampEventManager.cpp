@@ -25,7 +25,6 @@ MockAampEventManager *g_mockAampEventManager = nullptr;
 AampEventManager::AampEventManager(int playerId)
 {
 }
-
 AampEventManager::~AampEventManager()
 {
 }
@@ -46,8 +45,20 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
     }
 }
 
+void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
+{
+}
+
+void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
+{
+}
+
 void AampEventManager::FlushPendingEvents()
 {
+    if (g_mockAampEventManager != nullptr)
+    {
+        g_mockAampEventManager->FlushPendingEvents();
+    }
 }
 
 void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
