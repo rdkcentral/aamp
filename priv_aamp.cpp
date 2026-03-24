@@ -1635,7 +1635,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 /**
  * @brief PrivateInstanceAAMP Constructor
  */
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0),mBufferingStartTimeMS(-1), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mBufferingStartTimeMS(-1), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
@@ -3251,14 +3251,27 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 	long long bufferingDurationMs = 0;
 	if (bufferingStopped)
 	{
-		mBufferingStartTimeMS = aamp_GetCurrentTimeMS();
+		// Atomically set the start time only if no episode is already being tracked (-1).
+		// compare_exchange_strong ensures that concurrent SendBufferChangeEvent(true) calls
+		// from different threads (underflow monitor, GStreamer error path) cannot both "win"
+		// and reset the clock. Uses the monotonic steady clock to be immune to NTP jumps.
+		long long expected = -1LL;
+		mBufferingStartTimeMS.compare_exchange_strong(expected, NOW_STEADY_TS_MS);
 	}
 	else
 	{
-		if (mBufferingStartTimeMS >= 0)
+		// Atomically swap to -1 and capture the previous start time in one operation.
+		// This prevents two concurrent SendBufferChangeEvent(false) calls from both
+		// observing a valid start time and both computing (and reporting) a duration.
+		long long startTime = mBufferingStartTimeMS.exchange(-1LL);
+		if (startTime >= 0)
 		{
-			bufferingDurationMs = aamp_GetCurrentTimeMS() - mBufferingStartTimeMS;
-			mBufferingStartTimeMS = -1;
+			bufferingDurationMs = NOW_STEADY_TS_MS - startTime;
+			// Clamp to 0 as a safety net (should not happen with a monotonic clock).
+			if (bufferingDurationMs < 0)
+			{
+				bufferingDurationMs = 0;
+			}
 		}
 	}
 
