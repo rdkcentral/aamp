@@ -9315,10 +9315,11 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 
 		// CID:190371 - Data race condition
 		// Get and clear mContentSeekOffset atomically.
-		std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-		seekPositionSeconds = mCdaiObject->mContentSeekOffset;
-		mCdaiObject->mContentSeekOffset = 0;
-
+		{
+			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			seekPositionSeconds = mCdaiObject->mContentSeekOffset;
+			mCdaiObject->mContentSeekOffset = 0;
+		}
 		if (seekPositionSeconds)
 		{
 			/* seekPositionSeconds is relative to the start of the period but SeekInPeriod() takes a

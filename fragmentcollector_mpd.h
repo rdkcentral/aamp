@@ -886,8 +886,8 @@ protected:
 	/**
 	 * @fn SeekInPeriod
 	 * @param seekPositionSeconds seek position in seconds relative to the first
- 	 *        segment currently present in the manifest for this period (after any
- 	 *        culling)
+	 *        segment currently present in the manifest for this period (after any
+	 *        culling)
 	 */
 	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);
 	/**
