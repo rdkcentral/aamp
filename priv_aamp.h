@@ -1586,6 +1586,9 @@ public:
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
 	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
+	/** Returns the steady-clock timestamp (ms) at which the current buffering episode began,
+	 *  or -1 if no episode is in progress. Exposed for unit testing. */
+	long long GetBufferingStartTimeMS() const { return mBufferingStartTimeMS.load(); }
 
 	/**
 	 * @fn SendEvent
