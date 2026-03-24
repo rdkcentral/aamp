@@ -38,7 +38,7 @@ public:
 	MOCK_METHOD(bool, PushNextTsbFragment, (MediaStreamContext*, uint32_t));
 	MOCK_METHOD(AAMPStatusType, InvokeTsbReaders, (double &, float, TuneType));
 	MOCK_METHOD(double, GetTotalStoreDuration, (AampMediaType));
-	MOCK_METHOD(void, NotifyVideoTsbWaiters, (), (override));
+	MOCK_METHOD(void, NotifyVideoTsbWaiters, ());
 };
 
 extern MockTSBSessionManager *g_mockTSBSessionManager;

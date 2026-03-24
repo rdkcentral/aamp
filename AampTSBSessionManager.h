@@ -95,7 +95,7 @@ public:
 	/**
 	 * @brief Notifies waiting threads when new video TSB content is available or downloads are disabled
 	 */
-	virtual void NotifyVideoTsbWaiters();
+	void NotifyVideoTsbWaiters();
 	/**
 	 * @brief Set TSB length
 	 *
