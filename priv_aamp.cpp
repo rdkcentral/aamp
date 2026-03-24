@@ -66,7 +66,6 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "aampgstplayer.h"
 #include "AampStreamSinkManager.h"
 #include "SubtecFactory.hpp"
-#include "AampGrowableBuffer.h"
 
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
@@ -7094,7 +7093,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	if(rc == eMEDIAFORMAT_UNKNOWN)
 	{
 		// no extension - sniff first few bytes of file to disambiguate
-		AampGrowableBuffer sniffedBytes("sniffedBytes");
+		std::vector<uint8_t> sniffedBytes{};
 		std::string effectiveUrl;
 		int http_error;
 		double downloadTime;
@@ -7107,7 +7106,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		EnableMediaDownloads(eMEDIATYPE_MANIFEST);
 		bool gotManifest = GetFile(url,
 								   eMEDIATYPE_MANIFEST,
-								   sniffedBytes.GetVector(),
+								   sniffedBytes,
 								   effectiveUrl,
 								   http_error,
 								   &downloadTime,
@@ -7149,7 +7148,6 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 				}
 			}
 		}
-		sniffedBytes.Free();
 		CurlTerm(eCURLINSTANCE_MANIFEST_MAIN);
 	}
 	return rc;
@@ -10757,19 +10755,18 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 							newelem.type, newelem.url.c_str());
 						std::string playlistUrl;
 						std::string playlistEffectiveUrl;
-						AampGrowableBuffer playlistStore("playlistStore");
+						std::vector<uint8_t> playlistStore{};
 						int http_code;
 						double downloadTime;
 						bool ret = false;
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
 						{
 							std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-						  ret = GetFile(newelem.url, newelem.type, playlistStore.GetVector(), playlistEffectiveUrl, http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
+						  ret = GetFile(newelem.url, newelem.type, playlistStore, playlistEffectiveUrl, http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
 						  if(ret != false)
 						  {
 							  // If successful download , then insert into Cache
-							  getAampCacheHandler()->InsertToPlaylistCache(newelem.url, playlistStore.GetVector(), playlistEffectiveUrl, false, newelem.type);
-							  playlistStore.Free();
+							  getAampCacheHandler()->InsertToPlaylistCache(newelem.url, playlistStore, playlistEffectiveUrl, false, newelem.type);
 						  }
 						}
 					}
