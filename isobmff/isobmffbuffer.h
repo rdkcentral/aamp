@@ -180,7 +180,7 @@ public:
 	 * @fn UpdateBufferData
 	 * @return true if parsed or false
 	 */
-	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
+	int UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
 
 	/**
 	 * @fn getTotalChunkDurationInTicks
@@ -244,7 +244,7 @@ public:
 	*	@return true if parsed or false
 	*  	@brief Parse ISOBMFF boxes from buffer
 	*/
-	bool ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	bool ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	 size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration);
 
 	/**

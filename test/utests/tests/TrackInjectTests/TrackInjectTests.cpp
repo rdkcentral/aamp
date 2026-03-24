@@ -51,7 +51,7 @@ public:
 		playlistURL = "http://host/asset/low/manifest.mpd";
 	}
 
-	void ProcessPlaylist(AampGrowableBuffer &newPlaylist, int http_error)
+	void ProcessPlaylist(std::vector<uint8_t> &newPlaylist, int http_error) override 
 	{
 	}
 
@@ -349,7 +349,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
-	char unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
+	uint8_t unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
 	int parsedBufferSize = 12, unParsedBufferSize = sizeof(unParsedBuffer);
 	double pts = 10.0, duration = 0.48;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _))

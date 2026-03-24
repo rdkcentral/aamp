@@ -1496,7 +1496,7 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
 
 TEST_F(TrackStateTests, ABRProfileChangedTest)
 {
-    AampGrowableBuffer newPlaylist("test");
+    std::vector<uint8_t> newPlaylist;
     int http_error = 2;
     TrackStateobj->IsLive();
     TrackStateobj->ProcessPlaylist(newPlaylist, http_error);
