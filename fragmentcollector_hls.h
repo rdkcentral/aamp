@@ -479,7 +479,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return none
 		 ****************************************************************************/
-		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
+		void ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_error) override;
 
 		/**
 		 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
