@@ -50,11 +50,11 @@ enum IsoBmffProcessorType
  */
 typedef struct
 {
-	AampMediaType type;
-	std::vector<uint8_t> buffer;
-	double position;
-	double duration;
-	bool isDiscontinuity;
+	AampMediaType type{};
+	std::vector<uint8_t> buffer{};
+	double position{0.0};
+	double duration{0.0};
+	bool isDiscontinuity{false};
 }stInitRestampSegment;
 
 /**
