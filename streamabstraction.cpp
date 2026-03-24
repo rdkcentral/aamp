@@ -2108,8 +2108,8 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 		std::lock_guard<std::mutex> guard(mLock);
 		double audioDuration = audio->GetTotalInjectedDuration();
 		double videoDuration = video->GetTotalInjectedDuration();
-		AAMPLOG_INFO("DEBUG::Enter ReassessAndResumeAudioTrack audioDuration %f videoDuration %f videoFragmentDuration %f", audioDuration, (videoDuration + (2 * video->fragmentDurationSeconds)), video->fragmentDurationSeconds);
-		if(audioDuration < (videoDuration + (2 * video->fragmentDurationSeconds)) || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
+		AAMPLOG_INFO("DEBUG::NEWFIX Enter ReassessAndResumeAudioTrack audioDuration %f videoDuration %f ", audioDuration, videoDuration );
+		if(audioDuration < videoDuration || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
 		{
 			AAMPLOG_INFO("DEBUG:: Notifying audio track to resume as audioDuration %f videoDuration %f", audioDuration, videoDuration);
 			mCond.notify_one();
