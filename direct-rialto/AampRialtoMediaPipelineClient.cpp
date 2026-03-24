@@ -68,6 +68,10 @@ void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 {
 	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY state=%d",
 		__FUNCTION__, static_cast<int>(state));
+	if (m_playbackStateCallback)
+	{
+		m_playbackStateCallback(state);
+	}
 	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
 }
 

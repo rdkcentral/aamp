@@ -55,6 +55,10 @@ public:
 	/// Parameter: sourceId
 	using CancelNeedDataCallback = std::function<void(int32_t)>;
 
+	/// Callback invoked when the Rialto server transitions to a new state.
+	/// Parameter: PlaybackState
+	using PlaybackStateCallback = std::function<void(PlaybackState)>;
+
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
@@ -70,6 +74,12 @@ public:
 	void SetCancelNeedDataCallback(CancelNeedDataCallback cb)
 	{
 		m_cancelNeedDataCallback = std::move(cb);
+	}
+
+	/// @brief Install callback for notifyPlaybackState events.
+	void SetPlaybackStateCallback(PlaybackStateCallback cb)
+	{
+		m_playbackStateCallback = std::move(cb);
 	}
 
 	// IMediaPipelineClient Implementation (All required pure virtuals)
@@ -102,6 +112,7 @@ public:
 private:
 	NeedDataCallback m_needDataCallback;
 	CancelNeedDataCallback m_cancelNeedDataCallback;
+	PlaybackStateCallback m_playbackStateCallback;
 };
 
 #endif // AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H
